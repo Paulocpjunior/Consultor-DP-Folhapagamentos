@@ -4,9 +4,10 @@ import LoginScreen from './auth/LoginScreen';
 import PendingScreen from './auth/PendingScreen';
 import AdminUsersPanel from './auth/AdminUsersPanel';
 import FolhaPanel from './folha/FolhaPanel';
+import EmpresasPanel from './empresas/EmpresasPanel';
 import type { User } from '../types';
 
-type Tab = 'folha' | 'admin';
+type Tab = 'folha' | 'empresas' | 'admin';
 
 const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
     const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -44,8 +45,9 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
     }
 
     const tabs: { id: Tab; label: string; icon: string; adminOnly: boolean }[] = [
-        { id: 'folha', label: 'Folha',     icon: '📋', adminOnly: false },
-        { id: 'admin', label: 'Usuários',  icon: '👥', adminOnly: true  },
+        { id: 'folha',    label: 'Folha',     icon: '📋', adminOnly: false },
+        { id: 'empresas', label: 'Empresas',  icon: '🏢', adminOnly: false },
+        { id: 'admin',    label: 'Usuários',  icon: '👥', adminOnly: true  },
     ];
 
     return (
@@ -90,6 +92,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
 
             <main className="max-w-7xl mx-auto p-4 sm:p-6">
                 {activeTab === 'folha' && <FolhaPanel currentUser={currentUser as any} />}
+                {activeTab === 'empresas' && <EmpresasPanel currentUser={currentUser as any} />}
                 {activeTab === 'admin' && isAdmin && <AdminUsersPanel currentUser={currentUser as any} />}
             </main>
         </div>

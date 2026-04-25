@@ -2,53 +2,68 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ─── Helpers ──────────────────────────────────────────────────────
     function isSignedIn()  { return request.auth != null; }
     function userDoc()     { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
     function isApproved()  { return isSignedIn() && userDoc().role in ['admin','colaborador']; }
     function isAdmin()     { return isSignedIn() && userDoc().role == 'admin'; }
 
-    // ─── users ────────────────────────────────────────────────────────
     match /users/{uid} {
       allow read:   if isSignedIn() && (request.auth.uid == uid || isAdmin());
-      // Self-create: usuário cria seu próprio doc com role 'pendente' OU 'admin' (1º usuário)
+      allow list:   if isSignedIn();
       allow create: if isSignedIn() && request.auth.uid == uid
                     && request.resource.data.role in ['pendente','admin']
                     && request.resource.data.uid == request.auth.uid;
-      // Admin promove/rebaixa
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }
 
-    // ─── Catálogo de eventos IOB SAGE (compartilhado) ────────────────
+    // Empresas: cada usuário cadastra/lê/edita as suas; admin vê todas
+    match /empresas/{empresaId} {
+      allow read:   if isApproved() && (
+                       resource == null
+                       || resource.data.criadoPor == request.auth.uid
+                       || isAdmin()
+                    );
+      allow list:   if isApproved();
+      allow create: if isApproved()
+                    && request.resource.data.criadoPor == request.auth.uid
+                    && request.resource.data.cnpj is string
+                    && request.resource.data.razaoSocial is string
+                    && request.resource.data.nomeFantasia is string
+                    && request.resource.data.codigoSage is string;
+      allow update: if isApproved() && (
+                       resource.data.criadoPor == request.auth.uid
+                       || isAdmin()
+                    );
+      allow delete: if isApproved() && (
+                       resource.data.criadoPor == request.auth.uid
+                       || isAdmin()
+                    );
+    }
+
     match /folha_catalogo/{docId} {
       allow read:  if isApproved();
       allow write: if isAdmin();
     }
 
-    // ─── Seleção de eventos por cliente (compartilhado entre admins) ─
     match /folha_selecoes_eventos/{cliente} {
       allow read, write: if isApproved();
     }
 
-    // ─── Mapeamento por cliente ──────────────────────────────────────
     match /folha_mapeamentos/{cliente} {
       allow read, write: if isApproved();
     }
 
-    // ─── Histórico de exportações (por cliente) ──────────────────────
     match /folha_historico/{cliente}/exportacoes/{logId} {
       allow read:   if isApproved();
       allow create: if isApproved();
       allow update, delete: if isAdmin();
     }
 
-    // ─── Cache de preferências por usuário ───────────────────────────
     match /users/{uid}/cache/{key} {
       allow read, write: if isSignedIn() && request.auth.uid == uid;
     }
 
-    // Bloqueio padrão
     match /{document=**} { allow read, write: if false; }
   }
 }
