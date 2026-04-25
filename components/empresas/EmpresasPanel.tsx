@@ -12,6 +12,7 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser }) => {
     const [loading, setLoading]   = useState(true);
     const [erro, setErro]         = useState('');
     const [showForm, setShowForm] = useState(false);
+    const [empresaEditando, setEmpresaEditando] = useState<Empresa | null>(null);
     const [verTodas, setVerTodas] = useState(false);
 
     const isAdmin = currentUser.role === 'admin';
@@ -72,8 +73,9 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser }) => {
                 <div className="mb-4">
                     <EmpresaForm
                         currentUser={currentUser}
-                        onCriado={() => { setShowForm(false); reload(); }}
-                        onCancelar={() => setShowForm(false)}
+                        empresaParaEditar={empresaEditando}
+                        onSalvo={() => { setShowForm(false); setEmpresaEditando(null); reload(); }}
+                        onCancelar={() => { setShowForm(false); setEmpresaEditando(null); }}
                     />
                 </div>
             )}
@@ -103,7 +105,11 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser }) => {
                                     <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{e.razaoSocial}</td>
                                     <td className="px-3 py-2 text-slate-600 dark:text-slate-400 font-mono text-xs">{formatCnpj(e.cnpj)}</td>
                                     <td className="px-3 py-2 text-center"><code className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-xs">{e.codigoSage}</code></td>
-                                    <td className="px-3 py-2 text-right">
+                                    <td className="px-3 py-2 text-right space-x-1">
+                                        <button onClick={() => { setEmpresaEditando(e); setShowForm(true); }}
+                                            className="px-2 py-1 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 dark:text-blue-300 rounded">
+                                            Editar
+                                        </button>
                                         <button onClick={() => apagar(e.id, e.nomeFantasia)}
                                             className="px-2 py-1 text-xs bg-red-50 hover:bg-red-100 text-red-700 dark:bg-red-900/20 dark:hover:bg-red-900/40 dark:text-red-300 rounded">
                                             🗑 Excluir

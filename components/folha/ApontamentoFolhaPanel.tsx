@@ -465,8 +465,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser }) => {
                             ▶ Exportar TXTs por empresa
                         </button>
                         <span className="text-xs text-slate-500 dark:text-slate-400">
-                            Os 3 arquivos são baixados no seu Mac. O TXT usa layout posicional
-                            padrão — valide na 1ª importação no SAGE.
+                            1 arquivo TXT por empresa cadastrada (layout 40 chars). Valide a 1ª importação no SAGE antes de produção.
                         </span>
                     </div>
 
