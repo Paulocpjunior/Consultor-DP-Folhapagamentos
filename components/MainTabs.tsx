@@ -12,7 +12,7 @@ type Tab = 'folha' | 'empresas' | 'admin';
 const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [authReady, setAuthReady] = useState(false);
-    const [activeTab, setActiveTab] = useState<Tab>('folha');
+    const [activeTab, setActiveTab] = useState<Tab>('empresas');
 
     useEffect(() => {
         const unsub = authService.subscribeAuthState((user: User | null) => {
