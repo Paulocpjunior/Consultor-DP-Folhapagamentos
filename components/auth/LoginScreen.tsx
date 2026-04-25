@@ -19,84 +19,152 @@ const LoginScreen: React.FC<Props> = () => {
         setBusy(true); setErro(''); setMsg('');
         try {
             if (mode === 'signup') {
-                if (password.length < 6) throw new Error('Senha precisa ter no mínimo 6 caracteres.');
+                if (password.length < 6) throw new Error('Senha precisa ter no minimo 6 caracteres.');
                 if (!name.trim()) throw new Error('Informe seu nome.');
                 await authService.signup(email.trim(), password, name.trim());
             } else if (mode === 'login') {
                 await authService.login(email.trim(), password);
             } else {
                 await authService.resetPassword(email.trim());
-                setMsg('E-mail de redefinição enviado. Verifique sua caixa de entrada.');
+                setMsg('E-mail de redefinicao enviado. Verifique sua caixa de entrada.');
             }
         } catch (e: any) {
             const code = e?.code ?? '';
             const m: Record<string, string> = {
-                'auth/invalid-credential': 'E-mail ou senha incorretos.',
-                'auth/user-not-found': 'Usuário não encontrado.',
-                'auth/wrong-password': 'Senha incorreta.',
-                'auth/email-already-in-use': 'Este e-mail já está cadastrado.',
-                'auth/weak-password': 'Senha fraca (mínimo 6 caracteres).',
-                'auth/invalid-email': 'E-mail inválido.',
+                'auth/invalid-credential':    'E-mail ou senha incorretos.',
+                'auth/user-not-found':        'Usuario nao encontrado.',
+                'auth/wrong-password':        'Senha incorreta.',
+                'auth/email-already-in-use':  'Este e-mail ja esta cadastrado.',
+                'auth/weak-password':         'Senha fraca (minimo 6 caracteres).',
+                'auth/invalid-email':         'E-mail invalido.',
             };
-            setErro(m[code] ?? e?.message ?? 'Erro ao processar a solicitação.');
+            setErro(m[code] ?? e?.message ?? 'Erro ao processar a solicitacao.');
         } finally {
             setBusy(false);
         }
     };
 
+    const labelBotao = mode === 'login' ? 'Entrar' : mode === 'signup' ? 'Criar conta' : 'Enviar link de redefinicao';
+    const titulo = mode === 'login' ? 'Acessar plataforma' : mode === 'signup' ? 'Criar nova conta' : 'Redefinir senha';
+
     return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
-            <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 p-6">
-                <div className="text-center mb-6">
-                    <h1 className="text-2xl font-bold text-slate-800 dark:text-white">📋 Consultor DP</h1>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Folha de Pagamento — IOB SAGE</p>
-                </div>
-
-                <form onSubmit={submit} className="space-y-3">
-                    {mode === 'signup' && (
-                        <div>
-                            <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Nome</label>
-                            <input
-                                type="text" value={name} onChange={(e) => setName(e.target.value)}
-                                required className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded"
-                            />
-                        </div>
-                    )}
+        <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800">
+            {/* Header da pagina */}
+            <header className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-800/70 backdrop-blur">
+                <div className="max-w-6xl mx-auto flex items-center justify-between">
                     <div>
-                        <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">E-mail</label>
-                        <input
-                            type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                            required className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded"
-                        />
+                        <h1 className="text-base font-semibold text-slate-800 dark:text-white tracking-tight">
+                            SP Assessoria Contabil
+                        </h1>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                            Consultor DP - Folha de Pagamento
+                        </p>
                     </div>
-                    {mode !== 'reset' && (
-                        <div>
-                            <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Senha</label>
-                            <input
-                                type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-                                required minLength={6}
-                                className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded"
-                            />
-                        </div>
-                    )}
-
-                    <button
-                        type="submit" disabled={busy}
-                        className="w-full px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded"
-                    >
-                        {busy ? 'Aguarde…' : mode === 'login' ? 'Entrar' : mode === 'signup' ? 'Criar conta' : 'Enviar e-mail'}
-                    </button>
-                </form>
-
-                {erro && <p className="mt-3 text-sm text-red-600 dark:text-red-400">{erro}</p>}
-                {msg && <p className="mt-3 text-sm text-green-600 dark:text-green-400">{msg}</p>}
-
-                <div className="mt-4 text-center text-xs text-slate-500 dark:text-slate-400 space-x-2">
-                    {mode !== 'login' && <button onClick={() => { setMode('login'); setErro(''); setMsg(''); }} className="hover:underline">Já tenho conta</button>}
-                    {mode !== 'signup' && <button onClick={() => { setMode('signup'); setErro(''); setMsg(''); }} className="hover:underline">Criar conta</button>}
-                    {mode !== 'reset' && <button onClick={() => { setMode('reset'); setErro(''); setMsg(''); }} className="hover:underline">Esqueci a senha</button>}
+                    <span className="hidden sm:inline text-xs text-slate-500 dark:text-slate-400">
+                        Sistema interno
+                    </span>
                 </div>
-            </div>
+            </header>
+
+            {/* Card central */}
+            <main className="flex-1 flex items-center justify-center p-4">
+                <div className="w-full max-w-md">
+                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                        <div className="px-6 pt-6 pb-2 border-b border-slate-100 dark:border-slate-700">
+                            <h2 className="text-lg font-semibold text-slate-800 dark:text-white">{titulo}</h2>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                {mode === 'login' && 'Use suas credenciais para entrar.'}
+                                {mode === 'signup' && 'Sua conta sera criada como pendente. Um administrador precisa aprovar antes do primeiro acesso.'}
+                                {mode === 'reset' && 'Informe o e-mail cadastrado para receber o link de redefinicao.'}
+                            </p>
+                        </div>
+
+                        <form onSubmit={submit} className="p-6 space-y-4">
+                            {mode === 'signup' && (
+                                <div>
+                                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">Nome completo</label>
+                                    <input
+                                        type="text" value={name} onChange={(e) => setName(e.target.value)}
+                                        required autoComplete="name"
+                                        className="w-full px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    />
+                                </div>
+                            )}
+                            <div>
+                                <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">E-mail</label>
+                                <input
+                                    type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                                    required autoComplete="email"
+                                    className="w-full px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                            </div>
+                            {mode !== 'reset' && (
+                                <div>
+                                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">Senha</label>
+                                    <input
+                                        type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+                                        required minLength={6}
+                                        autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                                        className="w-full px-3 py-2.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    />
+                                </div>
+                            )}
+
+                            <button
+                                type="submit" disabled={busy}
+                                className="w-full px-4 py-2.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-md transition-colors shadow-sm"
+                            >
+                                {busy ? 'Aguarde...' : labelBotao}
+                            </button>
+
+                            {erro && (
+                                <div className="p-2.5 text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+                                    {erro}
+                                </div>
+                            )}
+                            {msg && (
+                                <div className="p-2.5 text-sm text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
+                                    {msg}
+                                </div>
+                            )}
+                        </form>
+
+                        <div className="px-6 py-3 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between text-xs">
+                            {mode !== 'login' ? (
+                                <button onClick={() => { setMode('login'); setErro(''); setMsg(''); }}
+                                    className="text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400">
+                                    Ja tenho conta
+                                </button>
+                            ) : <span />}
+                            <div className="flex gap-3">
+                                {mode !== 'signup' && (
+                                    <button onClick={() => { setMode('signup'); setErro(''); setMsg(''); }}
+                                        className="text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400">
+                                        Criar conta
+                                    </button>
+                                )}
+                                {mode !== 'reset' && (
+                                    <button onClick={() => { setMode('reset'); setErro(''); setMsg(''); }}
+                                        className="text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400">
+                                        Esqueci a senha
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    <p className="mt-6 text-center text-xs text-slate-500 dark:text-slate-400">
+                        Acesso restrito a colaboradores autorizados.
+                    </p>
+                </div>
+            </main>
+
+            <footer className="px-6 py-3 border-t border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-800/70 backdrop-blur">
+                <div className="max-w-6xl mx-auto flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                    <span>SP Assessoria Contabil</span>
+                    <span>v1.0</span>
+                </div>
+            </footer>
         </div>
     );
 };
