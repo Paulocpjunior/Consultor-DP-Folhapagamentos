@@ -462,7 +462,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser }) => {
                             disabled={processando}
                             className="px-4 py-1.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded"
                         >
-                            ▶ Gerar CSV + TXT + JSON
+                            ▶ Exportar TXTs por empresa
                         </button>
                         <span className="text-xs text-slate-500 dark:text-slate-400">
                             Os 3 arquivos são baixados no seu Mac. O TXT usa layout posicional
