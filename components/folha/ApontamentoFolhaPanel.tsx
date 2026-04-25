@@ -35,10 +35,10 @@ interface Props {
     currentUser: User;
 }
 
-const CLIENTES = ['IRB-GROUP'];
+const CLIENTE_FIXO = 'default';
 
 const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser }) => {
-    const [cliente, setCliente] = useState(CLIENTES[0]);
+    const cliente = CLIENTE_FIXO;
     const [competencia, setCompetencia] = useState('03/2026');
     const [file, setFile] = useState<File | null>(null);
     const [parsed, setParsed] = useState<ApontamentoParseado | null>(null);
@@ -57,11 +57,11 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser }) => {
         (async () => {
             try {
                 let m = await getMapeamento(cliente);
-                if (!m && cliente === 'IRB-GROUP') {
+                if (!m && cliente === 'default') {
                     // 1ª vez: semeia o default e salva
                     m = MAPEAMENTO_IRB_GROUP_DEFAULT;
                     await saveMapeamento(m);
-                    setMsg('Mapeamento padrão do IRB-GROUP inicializado no Firestore.');
+                    setMsg('Mapeamento padrao inicializado no Firestore.');
                 }
                 setMapa(m);
             } catch (e) {
@@ -245,20 +245,9 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser }) => {
             {/* Passo 1: Cliente + Competência */}
             <Section numero={1} titulo="Cliente e competência">
                 <div className="flex flex-wrap gap-3 items-center">
-                    <label className="text-sm text-slate-700 dark:text-slate-300">
-                        Cliente:{' '}
-                        <select
-                            value={cliente}
-                            onChange={(e) => setCliente(e.target.value)}
-                            className="ml-2 px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded"
-                        >
-                            {CLIENTES.map((c) => (
-                                <option key={c} value={c}>
-                                    {c}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
+                    <div className="text-sm text-slate-600 dark:text-slate-400">
+                        Empresas serao detectadas pelas abas da planilha (match automatico com cadastro)
+                    </div>
                     <label className="text-sm text-slate-700 dark:text-slate-300">
                         Competência:{' '}
                         <input

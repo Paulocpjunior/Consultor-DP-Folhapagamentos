@@ -16,13 +16,13 @@ interface Props {
     currentUser: User;
 }
 
-const CLIENTES_DISPONIVEIS = ['IRB-GROUP'];
+const CLIENTE_FIXO = 'default';
 
 const EventosIobSagePanel: React.FC<Props> = ({ currentUser }) => {
     const [catalogo, setCat] = useState<CatalogoEventos | null>(null);
     const [loading, setLoading] = useState(true);
     const [erro, setErro] = useState<string | null>(null);
-    const [cliente, setCliente] = useState<string>(CLIENTES_DISPONIVEIS[0]);
+    const cliente = CLIENTE_FIXO;
     const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
     const [dirty, setDirty] = useState(false);
     const [salvando, setSalvando] = useState(false);
@@ -248,18 +248,6 @@ const EventosIobSagePanel: React.FC<Props> = ({ currentUser }) => {
                     <option value="sel">Somente selecionados</option>
                     <option value="nao">Somente não selecionados</option>
                 </select>
-                <select
-                    value={cliente}
-                    onChange={(e) => setCliente(e.target.value)}
-                    className="px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded"
-                >
-                    {CLIENTES_DISPONIVEIS.map((c) => (
-                        <option key={c} value={c}>
-                            {c}
-                        </option>
-                    ))}
-                </select>
-
                 <button
                     onClick={handleExportarSelecao}
                     className="px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
