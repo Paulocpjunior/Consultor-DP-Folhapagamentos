@@ -1,0 +1,13 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "empresas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "criadoPor",    "order": "ASCENDING" },
+        { "fieldPath": "nomeFantasia", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

@@ -13,11 +13,15 @@ import { parseApontamentoFile } from '../../services/folha/apontamentoParser';
 import { montarLancamentos } from '../../services/folha/apontamentoMapper';
 import {
     downloadFile,
-    exportarCSV,
-    exportarJSON,
     exportarTXT,
+    nomeArquivoTXT,
     stampNome,
+    FLAG_LABELS,
+    type FolhaFlag,
 } from '../../services/folha/apontamentoExporter';
+import { listarMinhasEmpresas, listarTodasEmpresas } from '../../services/empresas/empresasService';
+import { acharEmpresaPorNome } from '../../services/empresas/matchEmpresa';
+import type { Empresa } from '../../services/empresas/empresasTypes';
 import {
     addHistorico,
     getCatalogo,
@@ -45,6 +49,8 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser }) => {
     const [processando, setProcessando] = useState(false);
     const [erro, setErro] = useState<string | null>(null);
     const [msg, setMsg] = useState<string>('');
+    const [flag, setFlag] = useState<FolhaFlag>('salario');
+    const [empresasCadastradas, setEmpresasCadastradas] = useState<Empresa[]>([]);
 
     // Carrega (ou cria) mapeamento ao trocar cliente
     useEffect(() => {
@@ -63,6 +69,21 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser }) => {
             }
         })();
     }, [cliente]);
+
+    // Carrega empresas cadastradas do Firestore (uma vez no mount)
+    useEffect(() => {
+        (async () => {
+            try {
+                const isAdminUser = (currentUser as any).role === 'admin';
+                const list = isAdminUser
+                    ? await listarTodasEmpresas()
+                    : await listarMinhasEmpresas((currentUser as any).uid);
+                setEmpresasCadastradas(list);
+            } catch (e) {
+                console.warn('Não foi possível carregar empresas:', e);
+            }
+        })();
+    }, []);
 
     const handleProcessar = async () => {
         if (!file) {
@@ -133,16 +154,40 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser }) => {
                 return;
             }
 
-            // Gera e baixa os 3 arquivos
-            const stamp = stampNome();
-            const basename = `apontamento-${cliente.toLowerCase()}-${stamp}`;
-            downloadFile(`${basename}.csv`, exportarCSV(r.lancamentos, competencia), 'text/csv;charset=utf-8');
-            downloadFile(`${basename}.txt`, exportarTXT(r.lancamentos, competencia), 'text/plain;charset=utf-8');
-            downloadFile(
-                `${basename}.json`,
-                exportarJSON(r.lancamentos, competencia, cliente, r.alertas),
-                'application/json;charset=utf-8'
-            );
+            // Gera 1 TXT por empresa, com codigoSage da empresa cadastrada.
+            const compMMAAAA = competencia.replace(/[^0-9]/g, '').padStart(6, '0').slice(-6);
+            const lancamentosPorEmpresa = new Map<string, typeof r.lancamentos>();
+            for (const l of r.lancamentos) {
+                const arr = lancamentosPorEmpresa.get(l.empresa) ?? [];
+                arr.push(l);
+                lancamentosPorEmpresa.set(l.empresa, arr);
+            }
+
+            const arquivosGerados: string[] = [];
+            const semCadastro: string[] = [];
+
+            for (const [nomeEmp, lancs] of lancamentosPorEmpresa.entries()) {
+                const empresaCad = acharEmpresaPorNome(nomeEmp, empresasCadastradas);
+                if (!empresaCad) {
+                    semCadastro.push(nomeEmp);
+                    continue;
+                }
+                // Reescreve codigoSage de cada lançamento com o da empresa cadastrada
+                const lancsAjustados = lancs.map((l) => ({ ...l, codigoSage: empresaCad.codigoSage }));
+                const txt = exportarTXT(lancsAjustados);
+                const nomeArq = nomeArquivoTXT(empresaCad.nomeFantasia, flag, compMMAAAA);
+                downloadFile(nomeArq, txt, 'text/plain;charset=utf-8');
+                arquivosGerados.push(nomeArq);
+                // pequeno delay pra Chrome aceitar múltiplos downloads
+                await new Promise((res) => setTimeout(res, 250));
+            }
+
+            if (semCadastro.length) {
+                r.alertas.push(
+                    `Empresa(s) sem cadastro (TXT não gerado): ${semCadastro.join(', ')}. ` +
+                    'Cadastre na aba Empresas e gere de novo.'
+                );
+            }
 
             // Totais por empresa
             const totais: Record<
@@ -181,7 +226,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser }) => {
             });
 
             setMsg(
-                `✓ Exportação concluída: ${r.lancamentos.length} lançamento(s) · 3 arquivos baixados.`
+                `✓ Exportação concluída: ${r.lancamentos.length} lançamento(s) · ${arquivosGerados.length} arquivo(s) TXT baixado(s)${semCadastro.length ? ` · ${semCadastro.length} empresa(s) sem cadastro` : ''}.`
             );
         } catch (e) {
             setErro(e instanceof Error ? e.message : String(e));
@@ -224,6 +269,21 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser }) => {
                             className="ml-2 px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded w-24"
                         />
                     </label>
+                    <label className="text-sm text-slate-700 dark:text-slate-300">
+                        Tipo:{' '}
+                        <select
+                            value={flag}
+                            onChange={(e) => setFlag(e.target.value as FolhaFlag)}
+                            className="ml-2 px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded"
+                        >
+                            {(Object.keys(FLAG_LABELS) as FolhaFlag[]).map((k) => (
+                                <option key={k} value={k}>{FLAG_LABELS[k]}</option>
+                            ))}
+                        </select>
+                    </label>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 ml-auto">
+                        {empresasCadastradas.length} empresa(s) cadastrada(s)
+                    </span>
                 </div>
             </Section>
 
