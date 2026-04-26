@@ -1,64 +1,264 @@
-
 <!DOCTYPE html>
-<html lang="pt-br">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Consultor DP — Folha</title>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Índice - Dashboard Financeiro VALUE</title>
     <style>
-      body {
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
-      }
-      
-      /* --- Animações e Feedback Visual Otimizados --- */
-
-      /* Animação de Fade-in */
-      @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-      .animate-fade-in {
-        animation: fadeIn 0.4s ease-out forwards;
-        will-change: transform, opacity; /* Promove para camada da GPU */
-      }
-
-      /* Feedback de clique para botões */
-      .btn-press {
-        transition: transform 0.1s ease-out;
-        will-change: transform;
-      }
-      .btn-press:active {
-        transform: scale(0.96);
-      }
-
-      /* Animação "Pop" para ícones */
-      @keyframes popIn {
-        0% { transform: scale(0.8); opacity: 0; }
-        60% { transform: scale(1.1); opacity: 1; }
-        100% { transform: scale(1); }
-      }
-      .animate-pop-in {
-        animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-        will-change: transform, opacity;
-      }
-
-      /* Animação de Desenho (Stroke) */
-      @keyframes drawCheck {
-        0% { stroke-dasharray: 20; stroke-dashoffset: 20; }
-        100% { stroke-dashoffset: 0; }
-      }
-      .animate-draw-check {
-        stroke-dasharray: 20;
-        stroke-dashoffset: 20;
-        animation: drawCheck 0.5s ease-out forwards;
-        /* will-change não é ideal para stroke-dashoffset, mas ok para pequenas animações */
-      }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #667eea;
+            font-size: 36px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        .subtitle {
+            text-align: center;
+            color: #6c757d;
+            margin-bottom: 40px;
+            font-size: 18px;
+        }
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 25px;
+            border-left: 5px solid;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+        }
+        .card.primary {
+            border-color: #667eea;
+        }
+        .card.success {
+            border-color: #198754;
+        }
+        .card.info {
+            border-color: #0dcaf0;
+        }
+        .card.warning {
+            border-color: #ffc107;
+        }
+        .card-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+        .card-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #212529;
+        }
+        .card-desc {
+            font-size: 14px;
+            color: #6c757d;
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+        .card-link {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        .card-link:hover {
+            background: #5568d3;
+            transform: scale(1.05);
+        }
+        .stats {
+            background: #e7f3ff;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+            margin-top: 15px;
+        }
+        .stat-item {
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #667eea;
+        }
+        .stat-label {
+            font-size: 14px;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+        .footer {
+            text-align: center;
+            color: #6c757d;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #e9ecef;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            background: #198754;
+            color: white;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
     </style>
 </head>
-  <body class="bg-slate-50 dark:bg-slate-900 text-slate-900 font-bold dark:font-normal dark:text-slate-300">
-    <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
-  </body>
+<body>
+    <div class="container">
+        <h1>📊 Dashboard Financeiro IFRS</h1>
+        <p class="subtitle">VALUE PROJETOS E CONSULTORIA<br>Análise Completa 2025</p>
+
+        <div class="stats">
+            <h2 style="color: #667eea; margin-bottom: 15px;">📈 Dados Consolidados</h2>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value">R$ 4,01M</div>
+                    <div class="stat-label">Receita Total</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">80%</div>
+                    <div class="stat-label">Margem Bruta</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">4</div>
+                    <div class="stat-label">Trimestres</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">917</div>
+                    <div class="stat-label">Notas Fiscais</div>
+                </div>
+            </div>
+        </div>
+
+        <h2 style="color: #495057; margin-bottom: 20px;">🎯 Acesso Rápido aos Arquivos</h2>
+
+        <div class="card-grid">
+            <div class="card primary" onclick="window.open('dashboard-ifrs.html', '_blank')">
+                <div class="card-icon">📊</div>
+                <div class="card-title">Dashboard Interativo <span class="badge">PRINCIPAL</span></div>
+                <div class="card-desc">
+                    Dashboard completo com 15 KPIs, gráficos interativos, DRE, DFC e análises. Tema claro/escuro.
+                </div>
+                <a href="dashboard-ifrs.html" class="card-link" target="_blank">Abrir Dashboard →</a>
+            </div>
+
+            <div class="card success" onclick="window.open('relatorio-analitico.html', '_blank')">
+                <div class="card-icon">📈</div>
+                <div class="card-title">Relatório Analítico</div>
+                <div class="card-desc">
+                    Análise detalhada com insights, pontos fortes, atenções e recomendações estratégicas.
+                </div>
+                <a href="relatorio-analitico.html" class="card-link" target="_blank">Ver Relatório →</a>
+            </div>
+
+            <div class="card info" onclick="window.open('resumo-executivo.pdf', '_blank')">
+                <div class="card-icon">📄</div>
+                <div class="card-title">Resumo Executivo PDF</div>
+                <div class="card-desc">
+                    Documento executivo para impressão com dados consolidados e principais conclusões.
+                </div>
+                <a href="resumo-executivo.pdf" class="card-link" target="_blank">Baixar PDF →</a>
+            </div>
+
+            <div class="card warning" onclick="window.open('dashboard_data.json', '_blank')">
+                <div class="card-icon">💾</div>
+                <div class="card-title">Dados (JSON)</div>
+                <div class="card-desc">
+                    Arquivo JSON estruturado com todos os dados processados. Use para integrações.
+                </div>
+                <a href="dashboard_data.json" class="card-link" target="_blank">Ver JSON →</a>
+            </div>
+        </div>
+
+        <h2 style="color: #495057; margin: 40px 0 20px 0;">📚 Documentação</h2>
+
+        <div class="card-grid">
+            <div class="card primary" onclick="window.open('README.md', '_blank')">
+                <div class="card-icon">📖</div>
+                <div class="card-title">README Completo</div>
+                <div class="card-desc">
+                    Documentação técnica completa com descrição de todos os arquivos e metodologia.
+                </div>
+                <a href="README.md" class="card-link" target="_blank">Ler Documentação →</a>
+            </div>
+
+            <div class="card success" onclick="window.open('GUIA-RAPIDO.txt', '_blank')">
+                <div class="card-icon">⚡</div>
+                <div class="card-title">Guia Rápido</div>
+                <div class="card-desc">
+                    Instruções de uso rápido, principais insights e recomendações em formato texto.
+                </div>
+                <a href="GUIA-RAPIDO.txt" class="card-link" target="_blank">Ver Guia →</a>
+            </div>
+        </div>
+
+        <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 20px; border-radius: 8px; margin: 30px 0;">
+            <h3 style="color: #664d03; margin-bottom: 10px;">💡 Dica de Uso</h3>
+            <p style="color: #664d03; line-height: 1.6;">
+                <strong>Começar por aqui:</strong> Abra o <strong>Dashboard Interativo</strong> para visualizar todos os dados. 
+                Use o <strong>Relatório Analítico</strong> para apresentações executivas e o <strong>PDF</strong> para impressão.
+            </p>
+        </div>
+
+        <div style="background: #d1e7dd; border-left: 4px solid #198754; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #0a3622; margin-bottom: 10px;">✅ Principais Conquistas</h3>
+            <ul style="color: #0a3622; margin-left: 20px; line-height: 1.8;">
+                <li>Dashboard 100% funcional com dados reais das planilhas</li>
+                <li>15 KPIs financeiros calculados automaticamente</li>
+                <li>5 gráficos interativos (Chart.js)</li>
+                <li>Validações IFRS implementadas</li>
+                <li>Tema claro/escuro</li>
+                <li>100% responsivo (desktop, tablet, mobile)</li>
+            </ul>
+        </div>
+
+        <div class="footer">
+            <p><strong>Data de Geração:</strong> 21 de Novembro de 2025</p>
+            <p style="margin-top: 10px;">
+                Processados: 5 arquivos Excel | 4 Trimestres | 917 Notas Fiscais<br>
+                Total analisado: R$ 4.012.700
+            </p>
+            <p style="margin-top: 20px; font-size: 14px; color: #adb5bd;">
+                Desenvolvido com dados reais da VALUE PROJETOS E CONSULTORIA
+            </p>
+        </div>
+    </div>
+</body>
 </html>
