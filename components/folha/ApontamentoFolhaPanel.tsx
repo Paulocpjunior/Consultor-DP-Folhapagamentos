@@ -37,7 +37,7 @@ interface Props {
     onTrocarEmpresa: () => void;
 }
 
-const CLIENTE_FIXO = 'default';
+const CLIENTE_FIXO = 'IRB-GROUP';
 
 function tipoParaFlag(tipo: string): FolhaFlag {
     const t = tipo.toLowerCase();
@@ -153,7 +153,30 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                     'Catálogo de eventos ainda não importado. Abra a aba "Catálogo de Eventos" e faça o bootstrap.'
                 );
             }
-            const r = montarLancamentos(parsed, mapa, catalogo);
+            // Patch 3: mescla matrículas digitadas na sessão dentro do mapa
+            const mapaComEdits: MapeamentoApontamento = {
+                ...mapa,
+                matriculas: Object.entries(matriculasEdit).reduce(
+                    (acc, [emp, mats]) => ({
+                        ...acc,
+                        [emp]: { ...(acc[emp] ?? {}), ...mats },
+                    }),
+                    { ...(mapa.matriculas ?? {}) },
+                ),
+            };
+
+            // Persiste matrículas em background (não trava o export se Firestore falhar)
+            for (const [emp, mats] of Object.entries(matriculasEdit)) {
+                if (Object.keys(mats).length > 0) {
+                    try {
+                        await saveMatriculas(CLIENTE_FIXO, emp, mats);
+                    } catch (e) {
+                        console.warn(`Falha ao salvar matrículas de ${emp}:`, e);
+                    }
+                }
+            }
+
+            const r = montarLancamentos(parsed, mapaComEdits, catalogo);
             setResultado(r);
 
             if (!r.lancamentos.length) {

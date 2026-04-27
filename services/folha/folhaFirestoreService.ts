@@ -17,7 +17,6 @@ import {
     orderBy,
     limit,
     getDocs,
-    updateDoc,
 } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import type {
@@ -78,19 +77,21 @@ export async function saveMapeamento(mapa: MapeamentoApontamento): Promise<void>
     await setDoc(doc(db, COL.mapeamentos, mapa.cliente), mapa);
 }
 
-/** Atualiza matrículas de uma empresa preservando o resto do mapeamento. */
+/**
+ * Atualiza matrículas de uma empresa preservando o resto do mapeamento.
+ * Versão idempotente: cria o documento se não existir (merge).
+ */
 export async function saveMatriculas(
     cliente: string,
     empresa: string,
     matriculas: Record<string, string>,
 ): Promise<void> {
     const ref = doc(db, COL.mapeamentos, cliente);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) throw new Error(`Mapeamento do cliente ${cliente} não encontrado.`);
-    const atual = snap.data() as MapeamentoApontamento;
-    atual.matriculas = atual.matriculas ?? {};
-    atual.matriculas[empresa] = { ...(atual.matriculas[empresa] ?? {}), ...matriculas };
-    await updateDoc(ref, { matriculas: atual.matriculas });
+    await setDoc(
+        ref,
+        { matriculas: { [empresa]: matriculas } },
+        { merge: true },
+    );
 }
 
 // ─── Histórico de exportações ──────────────────────────────────────────
