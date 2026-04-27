@@ -604,7 +604,7 @@ const Section: React.FC<{
 );
 
 const ResumoExportacao: React.FC<{ resultado: ResultadoMapeamento }> = ({ resultado }) => {
-    const porEmpresa: Record
+    const porEmpresa: Record<
         string,
         { funcionarios: Set<string>; lancamentos: number; total: number }
     > = {};
