@@ -16,7 +16,6 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
     const [activeTab, setActiveTab] = useState<Tab>('empresas');
     const [empresasCount, setEmpresasCount] = useState<number | null>(null);
 
-    // Recarrega contagem de empresas ao logar e ao voltar pra aba Empresas
     useEffect(() => {
         if (!currentUser) return;
         (async () => {
@@ -120,7 +119,10 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
 
             <main className="max-w-7xl mx-auto p-4 sm:p-6">
                 {activeTab === 'folha' && (empresasCount && empresasCount > 0
-                    ? <FolhaPanel currentUser={currentUser as any} />
+                    ? <FolhaPanel
+                        currentUser={currentUser as any}
+                        onIrParaEmpresas={() => setActiveTab('empresas')}
+                      />
                     : (
                         <div className="p-6 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
                             <h3 className="text-base font-semibold text-amber-800 dark:text-amber-200">Nenhuma empresa cadastrada</h3>

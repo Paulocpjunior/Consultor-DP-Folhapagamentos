@@ -15,7 +15,6 @@ import {
     downloadFile,
     exportarTXT,
     nomeArquivoTXT,
-    stampNome,
     FLAG_LABELS,
     type FolhaFlag,
 } from '../../services/folha/apontamentoExporter';
@@ -30,16 +29,28 @@ import {
     saveMatriculas,
 } from '../../services/folha/folhaFirestoreService';
 import { MAPEAMENTO_IRB_GROUP_DEFAULT } from '../../services/folha/mapeamentoIrbGroupDefault';
+import type { SessaoFolha } from './FolhaPanel';
 
 interface Props {
     currentUser: User;
+    sessao: SessaoFolha;
+    onTrocarEmpresa: () => void;
 }
 
 const CLIENTE_FIXO = 'default';
 
-const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser }) => {
+function tipoParaFlag(tipo: string): FolhaFlag {
+    const t = tipo.toLowerCase();
+    if (t.includes('13')) return '13' as FolhaFlag;
+    if (t.includes('adiant')) return 'adiantamento' as FolhaFlag;
+    if (t.includes('féri') || t.includes('feri')) return 'ferias' as FolhaFlag;
+    if (t.includes('rescis')) return 'rescisao' as FolhaFlag;
+    return 'salario';
+}
+
+const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarEmpresa }) => {
     const cliente = CLIENTE_FIXO;
-    const [competencia, setCompetencia] = useState('03/2026');
+    const [competencia, setCompetencia] = useState(sessao.competencia);
     const [file, setFile] = useState<File | null>(null);
     const [parsed, setParsed] = useState<ApontamentoParseado | null>(null);
     const [mapa, setMapa] = useState<MapeamentoApontamento | null>(null);
@@ -49,16 +60,14 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser }) => {
     const [processando, setProcessando] = useState(false);
     const [erro, setErro] = useState<string | null>(null);
     const [msg, setMsg] = useState<string>('');
-    const [flag, setFlag] = useState<FolhaFlag>('salario');
+    const [flag, setFlag] = useState<FolhaFlag>(tipoParaFlag(sessao.tipo));
     const [empresasCadastradas, setEmpresasCadastradas] = useState<Empresa[]>([]);
 
-    // Carrega (ou cria) mapeamento ao trocar cliente
     useEffect(() => {
         (async () => {
             try {
                 let m = await getMapeamento(cliente);
                 if (!m && cliente === 'default') {
-                    // 1ª vez: semeia o default e salva
                     m = MAPEAMENTO_IRB_GROUP_DEFAULT;
                     await saveMapeamento(m);
                     setMsg('Mapeamento padrao inicializado no Firestore.');
@@ -70,7 +79,6 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser }) => {
         })();
     }, [cliente]);
 
-    // Carrega empresas cadastradas do Firestore (uma vez no mount)
     useEffect(() => {
         (async () => {
             try {
@@ -124,7 +132,6 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser }) => {
                     total += Object.keys(filtradas).length;
                 }
             }
-            // Recarrega
             const m = await getMapeamento(cliente);
             setMapa(m);
             setMatriculasEdit({});
@@ -154,7 +161,6 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser }) => {
                 return;
             }
 
-            // Gera 1 TXT por empresa, com codigoSage da empresa cadastrada.
             const compMMAAAA = competencia.replace(/[^0-9]/g, '').padStart(6, '0').slice(-6);
             const lancamentosPorEmpresa = new Map<string, typeof r.lancamentos>();
             for (const l of r.lancamentos) {
@@ -172,13 +178,11 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser }) => {
                     semCadastro.push(nomeEmp);
                     continue;
                 }
-                // Reescreve codigoSage de cada lançamento com o da empresa cadastrada
                 const lancsAjustados = lancs.map((l) => ({ ...l, codigoSage: empresaCad.codigoSage }));
                 const txt = exportarTXT(lancsAjustados);
                 const nomeArq = nomeArquivoTXT(empresaCad.nomeFantasia, flag, compMMAAAA);
                 downloadFile(nomeArq, txt, 'text/plain;charset=utf-8');
                 arquivosGerados.push(nomeArq);
-                // pequeno delay pra Chrome aceitar múltiplos downloads
                 await new Promise((res) => setTimeout(res, 250));
             }
 
@@ -189,8 +193,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser }) => {
                 );
             }
 
-            // Totais por empresa
-            const totais: Record<
+            const totais: Record
                 string,
                 { funcionarios: Set<string>; lancamentos: number; valorTotal: number }
             > = {};
@@ -215,7 +218,6 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser }) => {
                 ])
             );
 
-            // Grava no histórico
             await addHistorico({
                 cliente,
                 competencia,
@@ -242,7 +244,8 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser }) => {
 
     return (
         <div className="space-y-4">
-            {/* Passo 1: Cliente + Competência */}
+            <ContextBar sessao={sessao} currentUser={currentUser} onTrocar={onTrocarEmpresa} />
+
             <Section numero={1} titulo="Cliente e competência">
                 <div className="flex flex-wrap gap-3 items-center">
                     <div className="text-sm text-slate-600 dark:text-slate-400">
@@ -276,7 +279,6 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser }) => {
                 </div>
             </Section>
 
-            {/* Passo 2: Upload */}
             <Section numero={2} titulo="Upload do apontamento">
                 <div className="flex flex-wrap gap-3 items-center">
                     <input
@@ -295,10 +297,8 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser }) => {
                 </div>
             </Section>
 
-            {/* Passo 3: Preview + matrículas */}
             {parsed && (
                 <Section numero={3} titulo="Pré-visualização e matrículas">
-                    {/* Cards de empresas */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
                         {parsed.empresas.map((e) => (
                             <div
@@ -318,7 +318,6 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser }) => {
                         ))}
                     </div>
 
-                    {/* Abas por empresa */}
                     <div className="flex gap-1 mb-2 flex-wrap">
                         {parsed.empresas.map((e) => (
                             <button
@@ -442,7 +441,6 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser }) => {
                 </Section>
             )}
 
-            {/* Passo 4: Exportar */}
             {parsed && mapa && (
                 <Section numero={4} titulo="Exportar para IOB SAGE">
                     <div className="flex flex-wrap gap-3 items-center">
@@ -506,7 +504,88 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser }) => {
     );
 };
 
-// ─── Subcomponentes ──────────────────────────────────────────────────
+const ContextBar: React.FC<{
+    sessao: SessaoFolha;
+    currentUser: User;
+    onTrocar: () => void;
+}> = ({ sessao, currentUser, onTrocar }) => {
+    const [agora, setAgora] = useState(new Date());
+
+    useEffect(() => {
+        const id = setInterval(() => setAgora(new Date()), 60_000);
+        return () => clearInterval(id);
+    }, []);
+
+    const ini = iniciaisDe(
+        sessao.empresa.nomeFantasia || sessao.empresa.razaoSocial || '?'
+    );
+
+    return (
+        <div className="p-4 sm:p-5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-dashed border-slate-200 dark:border-slate-700">
+                <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-white grid place-items-center font-bold text-base shadow-md">
+                        {ini}
+                    </div>
+                    <div>
+                        <div className="font-bold text-slate-800 dark:text-white text-base leading-tight">
+                            {sessao.empresa.nomeFantasia || sessao.empresa.razaoSocial}
+                        </div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5">
+                            {formatCnpjBr(sessao.empresa.cnpj)} · SAGE {sessao.empresa.codigoSage}
+                        </div>
+                    </div>
+                </div>
+
+                <button
+                    onClick={onTrocar}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-800 hover:text-white dark:hover:bg-slate-600 rounded transition-colors"
+                >
+                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M19 12H5M12 19l-7-7 7-7"/>
+                    </svg>
+                    Trocar empresa
+                </button>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-3">
+                <MetaCell label="Período" mono>
+                    {sessao.competencia}
+                </MetaCell>
+                <MetaCell label="Tipo">{sessao.tipo}</MetaCell>
+                <MetaCell label="Colaborador">
+                    {currentUser.name || currentUser.email}
+                    {(currentUser as any).role === 'admin' && (
+                        <span className="ml-1.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400">
+                            · Admin
+                        </span>
+                    )}
+                </MetaCell>
+                <MetaCell label="Sessão" mono>
+                    {formatDataHora(sessao.iniciadaEm)}
+                    <span className="block text-[10px] text-slate-400 dark:text-slate-500 font-mono">
+                        agora: {formatDataHora(agora)}
+                    </span>
+                </MetaCell>
+            </div>
+        </div>
+    );
+};
+
+const MetaCell: React.FC<{ label: string; mono?: boolean; children: React.ReactNode }> = ({
+    label,
+    mono,
+    children,
+}) => (
+    <div>
+        <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
+            {label}
+        </div>
+        <div className={`text-sm font-semibold text-slate-800 dark:text-white ${mono ? 'font-mono' : ''}`}>
+            {children}
+        </div>
+    </div>
+);
 
 const Section: React.FC<{
     numero: number;
@@ -525,7 +604,7 @@ const Section: React.FC<{
 );
 
 const ResumoExportacao: React.FC<{ resultado: ResultadoMapeamento }> = ({ resultado }) => {
-    const porEmpresa: Record<
+    const porEmpresa: Record
         string,
         { funcionarios: Set<string>; lancamentos: number; total: number }
     > = {};
@@ -554,5 +633,24 @@ const ResumoExportacao: React.FC<{ resultado: ResultadoMapeamento }> = ({ result
         </ul>
     );
 };
+
+function iniciaisDe(s: string): string {
+    const partes = s.trim().split(/\s+/).filter(Boolean);
+    if (partes.length === 0) return '?';
+    if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
+    return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
+}
+
+function formatCnpjBr(cnpj?: string): string {
+    if (!cnpj) return '—';
+    const d = cnpj.replace(/\D/g, '');
+    if (d.length !== 14) return cnpj;
+    return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8,12)}-${d.slice(12)}`;
+}
+
+function formatDataHora(d: Date): string {
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} · ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
 
 export default ApontamentoFolhaPanel;
