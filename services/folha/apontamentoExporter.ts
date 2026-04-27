@@ -27,7 +27,11 @@ function padNum(n: number, inteiro: number, decimal = 4): string {
     return intPart.padStart(inteiro, '0') + decPart.padEnd(decimal, '0');
 }
 
-function campo14(n: number): string { return padNum(n, 10, 4); }
+// IOB SAGE FOLHAMATIC: layout 14 chars com pontos decimais implícitos diferentes:
+//   - Horas/quantidade:  8 inteiros + 6 decimais
+//   - Valor monetário:  12 inteiros + 2 decimais
+function campoHoras(n: number): string { return padNum(n, 8, 6); }
+function campoValor(n: number): string { return padNum(n, 12, 2); }
 
 function matricula6(m: string | null | undefined): string {
     const dig = String(m ?? '').replace(/\D/g, '');
@@ -46,8 +50,8 @@ export function exportarTXT(lancamentos: Lancamento[]): string {
                 const matr = matricula6(l.matricula);
                 const ev = evento4(l.evento);
                 const valNum = Number(l.valor) || 0;
-                const horas = l.rv === 'R' ? campo14(valNum) : campo14(0);
-                const valor = l.rv === 'V' ? campo14(valNum) : campo14(0);
+                const horas = l.rv === 'R' ? campoHoras(valNum) : campoHoras(0);
+                const valor = l.rv === 'V' ? campoValor(valNum) : campoValor(0);
                 return matr + ev + horas + '  ' + valor;
             })
             .join('\r\n') + '\r\n'
