@@ -193,7 +193,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                 );
             }
 
-            const totais: Record
+            const totais: Record<
                 string,
                 { funcionarios: Set<string>; lancamentos: number; valorTotal: number }
             > = {};
