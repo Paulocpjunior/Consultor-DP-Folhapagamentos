@@ -54,6 +54,10 @@ service cloud.firestore {
       allow read, write: if isApproved();
     }
 
+    match /folha_layouts/{cnpj} {
+      allow read, write: if isApproved();
+    }
+
     match /folha_historico/{cliente}/exportacoes/{logId} {
       allow read:   if isApproved();
       allow create: if isApproved();

@@ -31,6 +31,12 @@ import {
 import { MAPEAMENTO_IRB_GROUP_DEFAULT } from '../../services/folha/mapeamentoIrbGroupDefault';
 import type { SessaoFolha } from './FolhaPanel';
 
+// — modo "layout próprio" (mapeamento por empresa/CNPJ) —
+import type { LayoutFolha } from '../../types/layoutFolha';
+import { getLayoutFolha, saveMatriculasLayout } from '../../services/layoutFolhaService';
+import { processWithLayout } from '../../services/folhaProcessor';
+import WizardMapeamento from './WizardMapeamento';
+
 interface Props {
     currentUser: User;
     sessao: SessaoFolha;
@@ -62,6 +68,11 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
     const [msg, setMsg] = useState<string>('');
     const [flag, setFlag] = useState<FolhaFlag>(tipoParaFlag(sessao.tipo));
     const [empresasCadastradas, setEmpresasCadastradas] = useState<Empresa[]>([]);
+
+    // — modo "layout próprio" (1 empresa por arquivo) —
+    const [layoutAtivo, setLayoutAtivo] = useState<LayoutFolha | null>(null);
+    const [showWizard, setShowWizard] = useState(false);
+    const [pendingBuffer, setPendingBuffer] = useState<ArrayBuffer | null>(null);
 
     useEffect(() => {
         (async () => {
@@ -102,7 +113,38 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
         setErro(null);
         setMsg('');
         setResultado(null);
+        setLayoutAtivo(null);
+
         try {
+            // 1. Tenta carregar layout próprio da empresa selecionada
+            const cnpj = sessao.empresa.cnpj;
+            const layout = await getLayoutFolha(cnpj);
+
+            if (layout) {
+                // MODO LAYOUT — 1 empresa, layout salvo
+                const buffer = await file.arrayBuffer();
+                const { parsed: p, resultado: r } = await processWithLayout(buffer, layout);
+                setParsed(p);
+                setResultado(r);
+                setLayoutAtivo(layout);
+                setEmpresaAtiva(p.empresas[0]?.nome ?? null);
+                setMatriculasEdit({});
+                const totalFunc = p.empresas[0]?.funcionarios.length ?? 0;
+                setMsg(
+                    `Planilha processada (layout salvo): ${totalFunc} funcionário(s) · ${r.lancamentos.length} lançamento(s).`
+                );
+                return;
+            }
+
+            // 2. Sem layout: se empresa selecionada existe, abre wizard
+            if (sessao.empresa.cnpj) {
+                const buffer = await file.arrayBuffer();
+                setPendingBuffer(buffer);
+                setShowWizard(true);
+                return;
+            }
+
+            // 3. Fallback: parser clássico (multi-empresa por aba)
             const p = await parseApontamentoFile(file);
             setParsed(p);
             setEmpresaAtiva(p.empresas[0]?.nome ?? null);
@@ -122,6 +164,26 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
 
     const handleSalvarMatriculas = async () => {
         try {
+            // MODO LAYOUT — salva no doc do layout
+            if (layoutAtivo) {
+                const empresa = layoutAtivo.razaoSocial;
+                const mats = matriculasEdit[empresa] ?? {};
+                const matsNorm: Record<string, string> = {};
+                for (const [nome, mat] of Object.entries(mats)) {
+                    if (mat && mat.trim()) matsNorm[nome.toUpperCase()] = mat.trim();
+                }
+                if (Object.keys(matsNorm).length > 0) {
+                    await saveMatriculasLayout(layoutAtivo.cnpj, matsNorm);
+                    // Recarrega o layout pra refletir matrículas salvas
+                    const reloaded = await getLayoutFolha(layoutAtivo.cnpj);
+                    if (reloaded) setLayoutAtivo(reloaded);
+                }
+                setMatriculasEdit({});
+                setMsg(`${Object.keys(matsNorm).length} matrícula(s) salva(s).`);
+                return;
+            }
+
+            // MODO CLÁSSICO
             let total = 0;
             for (const [empresa, matriculas] of Object.entries(matriculasEdit)) {
                 const filtradas = Object.fromEntries(
@@ -142,6 +204,70 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
     };
 
     const handleExportar = async () => {
+        // MODO LAYOUT — exporta direto sem montarLancamentos
+        if (layoutAtivo && resultado) {
+            setProcessando(true);
+            setErro(null);
+            setMsg('');
+            try {
+                const matsEdits = matriculasEdit[layoutAtivo.razaoSocial] ?? {};
+                const matsNorm: Record<string, string> = {};
+                for (const [nome, mat] of Object.entries(matsEdits)) {
+                    if (mat && mat.trim()) matsNorm[nome.toUpperCase()] = mat.trim();
+                }
+
+                const lancamentosComMat = resultado.lancamentos.map((l) => ({
+                    ...l,
+                    matricula:
+                        l.matricula ??
+                        matsNorm[l.funcionario.toUpperCase()] ??
+                        layoutAtivo.matriculas?.[l.funcionario.toUpperCase()] ??
+                        null,
+                }));
+
+                if (Object.keys(matsNorm).length > 0) {
+                    try {
+                        await saveMatriculasLayout(layoutAtivo.cnpj, matsNorm);
+                    } catch (e) {
+                        console.warn('Falha ao salvar matrículas do layout:', e);
+                    }
+                }
+
+                const compMMAAAA = competencia.replace(/[^0-9]/g, '').padStart(6, '0').slice(-6);
+                const txt = exportarTXT(lancamentosComMat);
+                const nomeArq = nomeArquivoTXT(layoutAtivo.razaoSocial, flag, compMMAAAA);
+                downloadFile(nomeArq, txt, 'text/plain;charset=utf-8');
+
+                const valorTotal = lancamentosComMat.reduce((s, l) => s + (Number(l.valor) || 0), 0);
+                const funcSet = new Set(lancamentosComMat.map((l) => l.funcionario));
+
+                await addHistorico({
+                    cliente: layoutAtivo.razaoSocial,
+                    competencia,
+                    timestamp: new Date().toISOString(),
+                    totalLancamentos: lancamentosComMat.length,
+                    totaisPorEmpresa: {
+                        [layoutAtivo.razaoSocial]: {
+                            funcionarios: funcSet.size,
+                            lancamentos: lancamentosComMat.length,
+                            valorTotal: Math.round(valorTotal * 100) / 100,
+                        },
+                    },
+                    alertas: resultado.alertas,
+                });
+
+                setMsg(
+                    `✓ TXT exportado: ${nomeArq} · ${lancamentosComMat.length} lançamento(s) · ${funcSet.size} funcionário(s).`
+                );
+            } catch (e) {
+                setErro(e instanceof Error ? e.message : String(e));
+            } finally {
+                setProcessando(false);
+            }
+            return;
+        }
+
+        // MODO CLÁSSICO (IRB-GROUP — multi-empresa por aba)
         if (!parsed || !mapa) return;
         setProcessando(true);
         setErro(null);
@@ -374,7 +500,9 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                                 </thead>
                                 <tbody>
                                     {empresaObj.funcionarios.map((f) => {
-                                        const salva = mapa?.matriculas?.[empresaObj.nome]?.[f.nome] ?? '';
+                                        const salvaClassica = mapa?.matriculas?.[empresaObj.nome]?.[f.nome] ?? '';
+                                        const salvaLayout = layoutAtivo?.matriculas?.[f.nome.toUpperCase()] ?? '';
+                                        const salva = layoutAtivo ? salvaLayout : salvaClassica;
                                         const edit = matriculasEdit[empresaObj.nome]?.[f.nome];
                                         const mat = edit !== undefined ? edit : salva;
                                         return (
@@ -464,7 +592,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                 </Section>
             )}
 
-            {parsed && mapa && (
+            {parsed && (mapa || layoutAtivo) && (
                 <Section numero={4} titulo="Exportar para IOB SAGE">
                     <div className="flex flex-wrap gap-3 items-center">
                         <button
@@ -522,6 +650,51 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                 <div className="text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded border border-red-200 dark:border-red-800">
                     {erro}
                 </div>
+            )}
+
+            {showWizard && pendingBuffer && file && (
+                <WizardMapeamento
+                    empresa={{
+                        cnpj: sessao.empresa.cnpj,
+                        cnpjFormatted: sessao.empresa.cnpj.replace(
+                            /^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,
+                            '$1.$2.$3/$4-$5'
+                        ),
+                        razaoSocial: sessao.empresa.razaoSocial,
+                        empresaSAGE: sessao.empresa.codigoSage,
+                    }}
+                    fileBuffer={pendingBuffer}
+                    fileName={file.name}
+                    tipo={sessao.tipo}
+                    createdBy={(currentUser as any).username ?? (currentUser as any).uid ?? 'unknown'}
+                    onCancel={() => {
+                        setShowWizard(false);
+                        setPendingBuffer(null);
+                    }}
+                    onSaved={async (layout) => {
+                        setShowWizard(false);
+                        try {
+                            setProcessando(true);
+                            const { parsed: p, resultado: r } = await processWithLayout(
+                                pendingBuffer!,
+                                layout
+                            );
+                            setParsed(p);
+                            setResultado(r);
+                            setLayoutAtivo(layout);
+                            setEmpresaAtiva(p.empresas[0]?.nome ?? null);
+                            setMatriculasEdit({});
+                            setMsg(
+                                `Layout salvo · ${p.empresas[0]?.funcionarios.length ?? 0} funcionário(s) · ${r.lancamentos.length} lançamento(s).`
+                            );
+                        } catch (e) {
+                            setErro(e instanceof Error ? e.message : String(e));
+                        } finally {
+                            setProcessando(false);
+                            setPendingBuffer(null);
+                        }
+                    }}
+                />
             )}
         </div>
     );
