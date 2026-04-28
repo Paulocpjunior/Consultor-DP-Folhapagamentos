@@ -1,12 +1,27 @@
 // services/folha/apontamentoParser.ts
 // Parser client-side do apontamento de folha (lê xlsx via SheetJS).
-// Princípio: parser nomeado pelo cliente + origem — "IRB-GROUP__apontamento-folha".
+// Princípio: parser nomeado pelo cliente + origem.
 
 import * as XLSX from 'xlsx';
 import type { ApontamentoParseado, EmpresaApontamento, FuncionarioApontamento } from './folhaTypes';
 
-const PARSER_ID = 'IRB-GROUP__apontamento-folha';
-const PARSER_VERSAO = '1.0.0';
+const PARSER_ID = 'apontamento-folha-multi';
+const PARSER_VERSAO = '2.0.0';
+
+/**
+ * Cabeçalhos aceitos na coluna A para identificar uma aba como apontamento.
+ * Já normalizados (lowercase, sem acentos) — comparar com `norm()`.
+ */
+const NAME_HEADERS = new Set([
+    'nome',
+    'nome completo',
+    'funcionario',
+    'funcionarios',
+    'colaborador',
+    'colaboradores',
+    'empregado',
+    'empregados',
+]);
 
 /** Normaliza string para comparação (lowercase, sem acentos). */
 export function norm(s: unknown): string {
@@ -40,8 +55,8 @@ export function round2(n: number): number {
 
 /**
  * Lê um arquivo xlsx e devolve a estrutura bruta do apontamento.
- * Cada sheet é tratado como uma empresa do grupo.
- * Cabeçalho esperado na linha 1 com "NOME" em A1.
+ * Cada sheet é tratada como uma empresa.
+ * Cabeçalho aceito em A1: NOME, Funcionário, Colaborador, Empregado, etc.
  */
 export async function parseApontamentoFile(file: File | Blob): Promise<ApontamentoParseado> {
     const buffer = await file.arrayBuffer();
@@ -65,8 +80,8 @@ export function parseApontamentoBuffer(buffer: ArrayBuffer | Uint8Array): Aponta
         const header = (rows[0] as unknown[]).map((c) =>
             c === null || c === undefined ? '' : String(c).trim()
         );
-        if (!header.length || norm(header[0]) !== 'nome') {
-            // sheet ignorada (cabeçalho não reconhecido)
+        if (!header.length || !NAME_HEADERS.has(norm(header[0]))) {
+            // sheet ignorada — A1 não é um cabeçalho de nome reconhecido
             continue;
         }
 

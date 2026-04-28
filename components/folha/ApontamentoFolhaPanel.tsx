@@ -1,6 +1,9 @@
 // components/folha/ApontamentoFolhaPanel.tsx
 // Upload do xlsx → preview → matrículas → export CSV/TXT/JSON.
 // Parser 100% client-side (SheetJS). Persistência via Firestore.
+//
+// Mapeamento por EMPRESA (CNPJ): cada empresa cadastrada tem seu próprio
+// folha_mapeamentos/{cnpj}. Quando não existe, abre Wizard pra criar na hora.
 
 import React, { useEffect, useMemo, useState } from 'react';
 import type { User } from '../../types';
@@ -9,7 +12,7 @@ import type {
     MapeamentoApontamento,
     ResultadoMapeamento,
 } from '../../services/folha/folhaTypes';
-import { parseApontamentoFile } from '../../services/folha/apontamentoParser';
+import { parseApontamentoFile, parseApontamentoBuffer } from '../../services/folha/apontamentoParser';
 import { montarLancamentos } from '../../services/folha/apontamentoMapper';
 import {
     downloadFile,
@@ -25,25 +28,16 @@ import {
     addHistorico,
     getCatalogo,
     getMapeamento,
-    saveMapeamento,
     saveMatriculas,
 } from '../../services/folha/folhaFirestoreService';
-import { MAPEAMENTO_IRB_GROUP_DEFAULT } from '../../services/folha/mapeamentoIrbGroupDefault';
 import type { SessaoFolha } from './FolhaPanel';
-
-// — modo "layout próprio" (mapeamento por empresa/CNPJ) —
-import type { LayoutFolha } from '../../types/layoutFolha';
-import { getLayoutFolha, saveMatriculasLayout } from '../../services/layoutFolhaService';
-import { processWithLayout } from '../../services/folhaProcessor';
-import WizardMapeamento from './WizardMapeamento';
+import WizardMapeamentoMapas from './WizardMapeamentoMapas';
 
 interface Props {
     currentUser: User;
     sessao: SessaoFolha;
     onTrocarEmpresa: () => void;
 }
-
-const CLIENTE_FIXO = 'IRB-GROUP';
 
 function tipoParaFlag(tipo: string): FolhaFlag {
     const t = tipo.toLowerCase();
@@ -55,7 +49,10 @@ function tipoParaFlag(tipo: string): FolhaFlag {
 }
 
 const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarEmpresa }) => {
-    const cliente = CLIENTE_FIXO;
+    // Cliente passa a ser o CNPJ da empresa selecionada — cada empresa tem
+    // seu próprio doc em folha_mapeamentos/{cnpj}.
+    const cliente = sessao.empresa.cnpj;
+
     const [competencia, setCompetencia] = useState(sessao.competencia);
     const [file, setFile] = useState<File | null>(null);
     const [parsed, setParsed] = useState<ApontamentoParseado | null>(null);
@@ -69,21 +66,20 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
     const [flag, setFlag] = useState<FolhaFlag>(tipoParaFlag(sessao.tipo));
     const [empresasCadastradas, setEmpresasCadastradas] = useState<Empresa[]>([]);
 
-    // — modo "layout próprio" (1 empresa por arquivo) —
-    const [layoutAtivo, setLayoutAtivo] = useState<LayoutFolha | null>(null);
     const [showWizard, setShowWizard] = useState(false);
     const [pendingBuffer, setPendingBuffer] = useState<ArrayBuffer | null>(null);
 
     useEffect(() => {
         (async () => {
             try {
-                let m = await getMapeamento(cliente);
-                if (!m && cliente === 'default') {
-                    m = MAPEAMENTO_IRB_GROUP_DEFAULT;
-                    await saveMapeamento(m);
-                    setMsg('Mapeamento padrao inicializado no Firestore.');
-                }
+                const m = await getMapeamento(cliente);
                 setMapa(m);
+                if (!m) {
+                    setMsg(
+                        `Empresa "${sessao.empresa.razaoSocial}" ainda não tem layout mapeado. ` +
+                        `Faça upload da planilha e o Wizard abrirá pra você configurar.`
+                    );
+                }
             } catch (e) {
                 setErro(e instanceof Error ? e.message : String(e));
             }
@@ -113,39 +109,26 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
         setErro(null);
         setMsg('');
         setResultado(null);
-        setLayoutAtivo(null);
 
         try {
-            // 1. Tenta carregar layout próprio da empresa selecionada
-            const cnpj = sessao.empresa.cnpj;
-            const layout = await getLayoutFolha(cnpj);
-
-            if (layout) {
-                // MODO LAYOUT — 1 empresa, layout salvo
-                const buffer = await file.arrayBuffer();
-                const { parsed: p, resultado: r } = await processWithLayout(buffer, layout);
-                setParsed(p);
-                setResultado(r);
-                setLayoutAtivo(layout);
-                setEmpresaAtiva(p.empresas[0]?.nome ?? null);
-                setMatriculasEdit({});
-                const totalFunc = p.empresas[0]?.funcionarios.length ?? 0;
-                setMsg(
-                    `Planilha processada (layout salvo): ${totalFunc} funcionário(s) · ${r.lancamentos.length} lançamento(s).`
-                );
-                return;
-            }
-
-            // 2. Sem layout: se empresa selecionada existe, abre wizard
-            if (sessao.empresa.cnpj) {
+            // Sem mapa pra essa empresa → abre Wizard
+            if (!mapa) {
                 const buffer = await file.arrayBuffer();
                 setPendingBuffer(buffer);
                 setShowWizard(true);
                 return;
             }
 
-            // 3. Fallback: parser clássico (multi-empresa por aba)
             const p = await parseApontamentoFile(file);
+
+            if (p.empresas.length === 0) {
+                setErro(
+                    'Nenhuma aba reconhecida. O cabeçalho A1 da planilha deve ser ' +
+                    '"NOME", "Funcionário", "Colaborador" ou "Empregado".'
+                );
+                return;
+            }
+
             setParsed(p);
             setEmpresaAtiva(p.empresas[0]?.nome ?? null);
             setMatriculasEdit({});
@@ -164,26 +147,6 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
 
     const handleSalvarMatriculas = async () => {
         try {
-            // MODO LAYOUT — salva no doc do layout
-            if (layoutAtivo) {
-                const empresa = layoutAtivo.razaoSocial;
-                const mats = matriculasEdit[empresa] ?? {};
-                const matsNorm: Record<string, string> = {};
-                for (const [nome, mat] of Object.entries(mats)) {
-                    if (mat && mat.trim()) matsNorm[nome.toUpperCase()] = mat.trim();
-                }
-                if (Object.keys(matsNorm).length > 0) {
-                    await saveMatriculasLayout(layoutAtivo.cnpj, matsNorm);
-                    // Recarrega o layout pra refletir matrículas salvas
-                    const reloaded = await getLayoutFolha(layoutAtivo.cnpj);
-                    if (reloaded) setLayoutAtivo(reloaded);
-                }
-                setMatriculasEdit({});
-                setMsg(`${Object.keys(matsNorm).length} matrícula(s) salva(s).`);
-                return;
-            }
-
-            // MODO CLÁSSICO
             let total = 0;
             for (const [empresa, matriculas] of Object.entries(matriculasEdit)) {
                 const filtradas = Object.fromEntries(
@@ -204,70 +167,6 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
     };
 
     const handleExportar = async () => {
-        // MODO LAYOUT — exporta direto sem montarLancamentos
-        if (layoutAtivo && resultado) {
-            setProcessando(true);
-            setErro(null);
-            setMsg('');
-            try {
-                const matsEdits = matriculasEdit[layoutAtivo.razaoSocial] ?? {};
-                const matsNorm: Record<string, string> = {};
-                for (const [nome, mat] of Object.entries(matsEdits)) {
-                    if (mat && mat.trim()) matsNorm[nome.toUpperCase()] = mat.trim();
-                }
-
-                const lancamentosComMat = resultado.lancamentos.map((l) => ({
-                    ...l,
-                    matricula:
-                        l.matricula ??
-                        matsNorm[l.funcionario.toUpperCase()] ??
-                        layoutAtivo.matriculas?.[l.funcionario.toUpperCase()] ??
-                        null,
-                }));
-
-                if (Object.keys(matsNorm).length > 0) {
-                    try {
-                        await saveMatriculasLayout(layoutAtivo.cnpj, matsNorm);
-                    } catch (e) {
-                        console.warn('Falha ao salvar matrículas do layout:', e);
-                    }
-                }
-
-                const compMMAAAA = competencia.replace(/[^0-9]/g, '').padStart(6, '0').slice(-6);
-                const txt = exportarTXT(lancamentosComMat);
-                const nomeArq = nomeArquivoTXT(layoutAtivo.razaoSocial, flag, compMMAAAA);
-                downloadFile(nomeArq, txt, 'text/plain;charset=utf-8');
-
-                const valorTotal = lancamentosComMat.reduce((s, l) => s + (Number(l.valor) || 0), 0);
-                const funcSet = new Set(lancamentosComMat.map((l) => l.funcionario));
-
-                await addHistorico({
-                    cliente: layoutAtivo.razaoSocial,
-                    competencia,
-                    timestamp: new Date().toISOString(),
-                    totalLancamentos: lancamentosComMat.length,
-                    totaisPorEmpresa: {
-                        [layoutAtivo.razaoSocial]: {
-                            funcionarios: funcSet.size,
-                            lancamentos: lancamentosComMat.length,
-                            valorTotal: Math.round(valorTotal * 100) / 100,
-                        },
-                    },
-                    alertas: resultado.alertas,
-                });
-
-                setMsg(
-                    `✓ TXT exportado: ${nomeArq} · ${lancamentosComMat.length} lançamento(s) · ${funcSet.size} funcionário(s).`
-                );
-            } catch (e) {
-                setErro(e instanceof Error ? e.message : String(e));
-            } finally {
-                setProcessando(false);
-            }
-            return;
-        }
-
-        // MODO CLÁSSICO (IRB-GROUP — multi-empresa por aba)
         if (!parsed || !mapa) return;
         setProcessando(true);
         setErro(null);
@@ -279,7 +178,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                     'Catálogo de eventos ainda não importado. Abra a aba "Catálogo de Eventos" e faça o bootstrap.'
                 );
             }
-            // Patch 3: mescla matrículas digitadas na sessão dentro do mapa
+
             const mapaComEdits: MapeamentoApontamento = {
                 ...mapa,
                 matriculas: Object.entries(matriculasEdit).reduce(
@@ -291,11 +190,10 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                 ),
             };
 
-            // Persiste matrículas em background (não trava o export se Firestore falhar)
             for (const [emp, mats] of Object.entries(matriculasEdit)) {
                 if (Object.keys(mats).length > 0) {
                     try {
-                        await saveMatriculas(CLIENTE_FIXO, emp, mats);
+                        await saveMatriculas(cliente, emp, mats);
                     } catch (e) {
                         console.warn(`Falha ao salvar matrículas de ${emp}:`, e);
                     }
@@ -322,12 +220,17 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
             const semCadastro: string[] = [];
 
             for (const [nomeEmp, lancs] of lancamentosPorEmpresa.entries()) {
-                const empresaCad = acharEmpresaPorNome(nomeEmp, empresasCadastradas);
+                let empresaCad = acharEmpresaPorNome(nomeEmp, empresasCadastradas);
+                // Fallback: aba só tem 1 empresa nos lançamentos e empresa selecionada
+                // está cadastrada → usa ela (caso SPA, onde a aba é "Planilha1").
+                if (!empresaCad && lancamentosPorEmpresa.size === 1) {
+                    empresaCad = sessao.empresa;
+                }
                 if (!empresaCad) {
                     semCadastro.push(nomeEmp);
                     continue;
                 }
-                const lancsAjustados = lancs.map((l) => ({ ...l, codigoSage: empresaCad.codigoSage }));
+                const lancsAjustados = lancs.map((l) => ({ ...l, codigoSage: empresaCad!.codigoSage }));
                 const txt = exportarTXT(lancsAjustados);
                 const nomeArq = nomeArquivoTXT(empresaCad.nomeFantasia, flag, compMMAAAA);
                 downloadFile(nomeArq, txt, 'text/plain;charset=utf-8');
@@ -398,7 +301,9 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
             <Section numero={1} titulo="Cliente e competência">
                 <div className="flex flex-wrap gap-3 items-center">
                     <div className="text-sm text-slate-600 dark:text-slate-400">
-                        Empresas serao detectadas pelas abas da planilha (match automatico com cadastro)
+                        {mapa
+                            ? `Layout cadastrado: ${Object.keys(mapa.mapeamento_colunas ?? {}).length} coluna(s) mapeada(s).`
+                            : 'Empresa sem layout. Wizard abrirá no Processar.'}
                     </div>
                     <label className="text-sm text-slate-700 dark:text-slate-300">
                         Competência:{' '}
@@ -500,9 +405,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                                 </thead>
                                 <tbody>
                                     {empresaObj.funcionarios.map((f) => {
-                                        const salvaClassica = mapa?.matriculas?.[empresaObj.nome]?.[f.nome] ?? '';
-                                        const salvaLayout = layoutAtivo?.matriculas?.[f.nome.toUpperCase()] ?? '';
-                                        const salva = layoutAtivo ? salvaLayout : salvaClassica;
+                                        const salva = mapa?.matriculas?.[empresaObj.nome]?.[f.nome] ?? '';
                                         const edit = matriculasEdit[empresaObj.nome]?.[f.nome];
                                         const mat = edit !== undefined ? edit : salva;
                                         return (
@@ -592,7 +495,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                 </Section>
             )}
 
-            {parsed && (mapa || layoutAtivo) && (
+            {parsed && mapa && (
                 <Section numero={4} titulo="Exportar para IOB SAGE">
                     <div className="flex flex-wrap gap-3 items-center">
                         <button
@@ -653,44 +556,33 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
             )}
 
             {showWizard && pendingBuffer && file && (
-                <WizardMapeamento
-                    empresa={{
-                        cnpj: sessao.empresa.cnpj,
-                        cnpjFormatted: sessao.empresa.cnpj.replace(
-                            /^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,
-                            '$1.$2.$3/$4-$5'
-                        ),
-                        razaoSocial: sessao.empresa.razaoSocial,
-                        empresaSAGE: sessao.empresa.codigoSage,
-                    }}
+                <WizardMapeamentoMapas
+                    empresa={sessao.empresa}
                     fileBuffer={pendingBuffer}
                     fileName={file.name}
-                    tipo={sessao.tipo}
-                    createdBy={(currentUser as any).username ?? (currentUser as any).uid ?? 'unknown'}
                     onCancel={() => {
                         setShowWizard(false);
                         setPendingBuffer(null);
                     }}
-                    onSaved={async (layout) => {
+                    onSaved={async (novoMapa) => {
                         setShowWizard(false);
+                        setMapa(novoMapa);
                         try {
-                            setProcessando(true);
-                            const { parsed: p, resultado: r } = await processWithLayout(
-                                pendingBuffer!,
-                                layout
-                            );
+                            // Reprocessa o arquivo agora que o mapa existe
+                            const blob = new Blob([pendingBuffer]);
+                            const p = await parseApontamentoFile(blob);
                             setParsed(p);
-                            setResultado(r);
-                            setLayoutAtivo(layout);
                             setEmpresaAtiva(p.empresas[0]?.nome ?? null);
                             setMatriculasEdit({});
                             setMsg(
-                                `Layout salvo · ${p.empresas[0]?.funcionarios.length ?? 0} funcionário(s) · ${r.lancamentos.length} lançamento(s).`
+                                `Layout salvo · ${p.empresas.reduce(
+                                    (a, e) => a + e.funcionarios.length,
+                                    0
+                                )} funcionário(s) processado(s).`
                             );
                         } catch (e) {
                             setErro(e instanceof Error ? e.message : String(e));
                         } finally {
-                            setProcessando(false);
                             setPendingBuffer(null);
                         }
                     }}
