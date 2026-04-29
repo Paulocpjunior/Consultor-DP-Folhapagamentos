@@ -32,18 +32,26 @@ import {
     calcularSelecaoInicial,
     type PerfilColunas,
 } from '../../services/folha/folhaPerfilColunasService';
-import { exportarTXT, nomeArquivoTXT } from '../../services/folha/apontamentoExporter';
-import { listarTodasEmpresas, listarMinhasEmpresas } from '../../services/empresasService';
+import { exportarTXT, nomeArquivoTXT, downloadFile, type FolhaFlag, FLAG_LABELS } from '../../services/folha/apontamentoExporter';
+import { listarTodasEmpresas, listarMinhasEmpresas } from '../../services/empresas/empresasService';
 import WizardMapeamentoMapas from './WizardMapeamentoMapas';
-import { acharEmpresaPorNome } from '../../services/folha/acharEmpresaPorNome';
-import { downloadFile } from '../../utils/downloadFile';
-import { type FolhaFlag, FLAG_LABELS, tipoParaFlag } from '../../services/folha/flagsFolha';
-import type { SessaoFolha } from '../../services/folha/sessaoFolha';
+import { acharEmpresaPorNome } from '../../services/empresas/matchEmpresa';
+// downloadFile vem de apontamentoExporter
+// FolhaFlag e FLAG_LABELS vem de apontamentoExporter; tipoParaFlag definida abaixo
+import type { SessaoFolha } from './FolhaPanel';
 
 interface Props {
     currentUser: User;
     sessao: SessaoFolha;
     onTrocarEmpresa: () => void;
+}
+
+function tipoParaFlag(tipo: string): FolhaFlag {
+    const t = tipo.toLowerCase();
+    if (t.includes("adiant")) return "adiantamento";
+    if (t.includes("féri") || t.includes("feri")) return "ferias";
+    if (t.includes("13")) return "13sal_2parc";
+    return "salario";
 }
 
 const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarEmpresa }) => {
