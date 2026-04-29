@@ -68,9 +68,44 @@ export async function saveSelecao(cliente: string, codigos: string[]): Promise<S
 
 // ─── Mapeamento do apontamento por cliente ─────────────────────────────
 
+/**
+ * Default seguro para a regra de salário, aplicado a mapeamentos antigos
+ * que ainda não foram migrados. Idempotente: só preenche se ausente.
+ *
+ * - Procura coluna "DIAS" no apontamento (admissão/afastamento/rescisão).
+ * - Se a coluna não existir ou estiver vazia, usa 30 (mês cheio).
+ * - Se dias = 0, não gera o evento (admitido após a competência, p.ex.).
+ */
+const REGRA_SALARIO_DEFAULT = {
+    evento: '0001',
+    descricao_evento: 'SALÁRIO',
+    coluna_dias: 'DIAS',
+    dias_padrao: 30,
+    ignorar_se_dias_zero: true,
+} as const;
+
 export async function getMapeamento(cliente: string): Promise<MapeamentoApontamento | null> {
-    const snap = await getDoc(doc(db, COL.mapeamentos, cliente));
-    return snap.exists() ? (snap.data() as MapeamentoApontamento) : null;
+    const ref = doc(db, COL.mapeamentos, cliente);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) return null;
+
+    const mapa = snap.data() as MapeamentoApontamento;
+
+    // Migração silenciosa: mapeamentos criados antes do suporte a regra_salario
+    // recebem o default. Necessário para o evento 0001 SALÁRIO ser exportado
+    // com DIAS na referência (não com R$ — bug que gerava vencimentos absurdos).
+    if (!mapa.regra_salario) {
+        mapa.regra_salario = { ...REGRA_SALARIO_DEFAULT };
+        try {
+            await setDoc(ref, { regra_salario: mapa.regra_salario }, { merge: true });
+        } catch (e) {
+            // Não bloqueia a leitura se a migração falhar — o consumidor já
+            // recebe o mapa com regra_salario aplicada em memória.
+            console.warn(`[folha] migração regra_salario falhou para ${cliente}:`, e);
+        }
+    }
+
+    return mapa;
 }
 
 export async function saveMapeamento(mapa: MapeamentoApontamento): Promise<void> {

@@ -74,6 +74,23 @@ export interface RegraObs {
     rv: ReferenciaValor;
 }
 
+/**
+ * Regra do evento de SALÁRIO. Diferente das regras de coluna, este lançamento
+ * é gerado para todo funcionário presente na planilha — a referência é
+ * QUANTIDADE DE DIAS (não R$). O IOB calcula vencimento = (Salário Base / 30) × dias.
+ *
+ * - `coluna_dias` (opcional): coluna do apontamento contendo dias trabalhados
+ *   (proporcionais p/ admissão, afastamento ou rescisão).
+ * - `dias_padrao`: usado quando `coluna_dias` não existe ou está vazia (mês cheio = 30).
+ */
+export interface RegraSalario {
+    evento: string;
+    descricao_evento: string;
+    coluna_dias?: string;
+    dias_padrao: number;
+    ignorar_se_dias_zero?: boolean;
+}
+
 /** Mapeamento completo do apontamento por cliente */
 export interface MapeamentoApontamento {
     $schema?: string;
@@ -89,6 +106,7 @@ export interface MapeamentoApontamento {
         evento_padrao: RegraColuna;
         regras: RegraObs[];
     };
+    regra_salario?: RegraSalario;
     matriculas: Record<string, Record<string, string>>;
 }
 
@@ -126,7 +144,7 @@ export interface Lancamento {
     tipo: TipoEvento;
     rv: ReferenciaValor;
     valor: number;
-    origem: 'coluna' | 'obs' | 'padrao';
+    origem: 'coluna' | 'obs' | 'padrao' | 'salario';
     obs?: string | null;
 }
 

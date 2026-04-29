@@ -125,4 +125,11 @@ export const MAPEAMENTO_IRB_GROUP_DEFAULT: MapeamentoApontamento = {
         Unike: {},
         LAV: {},
     },
+    regra_salario: {
+        evento: '0001',
+        descricao_evento: 'SALÁRIO',
+        coluna_dias: 'DIAS',
+        dias_padrao: 30,
+        ignorar_se_dias_zero: true,
+    },
 };
