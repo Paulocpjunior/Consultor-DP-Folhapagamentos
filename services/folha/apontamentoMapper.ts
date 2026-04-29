@@ -4,6 +4,7 @@
 import type {
     ApontamentoParseado,
     CatalogoEventos,
+    EventoIobSage,
     FuncionarioApontamento,
     Lancamento,
     MapeamentoApontamento,
@@ -13,18 +14,22 @@ import { norm, round2, toNumber } from './apontamentoParser';
 
 /**
  * Gera os lançamentos de um funcionário aplicando todas as regras.
+ * O `rv` (Referência ou Valor) do lançamento vem SEMPRE do catálogo IOB
+ * — não do mapeamento — porque é o IOB que decide pelo código do evento.
  */
 function gerarLancamentosFuncionario(
     funcionario: FuncionarioApontamento,
     empresaNome: string,
     mapa: MapeamentoApontamento,
-    codigosValidos: Set<string>,
+    catalogoMap: Map<string, EventoIobSage>,
 ): { lancamentos: Lancamento[]; alertas: string[] } {
     const lancamentos: Lancamento[] = [];
     const alertas: string[] = [];
     const celulas = funcionario.celulas;
     const empresaCfg = mapa.empresas[empresaNome];
     const codigoSage = empresaCfg?.codigo_sage ?? mapa.empresa_base;
+
+    const codigoSalario = mapa.regra_salario?.evento;
 
     // 1) Colunas simples → evento direto
     for (const [coluna, regra] of Object.entries(mapa.mapeamento_colunas)) {
@@ -33,11 +38,31 @@ function gerarLancamentosFuncionario(
         if (valor === null) continue;
         if (regra.ignorar_se_zero && valor === 0) continue;
 
-        if (!codigosValidos.has(regra.evento)) {
+        const eventoCat = catalogoMap.get(regra.evento);
+        if (!eventoCat) {
             alertas.push(
                 `Evento ${regra.evento} (coluna "${coluna}") não existe no catálogo.`
             );
             continue;
+        }
+
+        // Bloqueia coluna mapeada para o evento de salário — o lançamento
+        // de salário é gerado pela `regra_salario` (com dias, não com R$).
+        if (codigoSalario && regra.evento === codigoSalario) {
+            alertas.push(
+                `Coluna "${coluna}" mapeada para evento ${regra.evento} foi ignorada — ` +
+                `o evento de salário é gerado pela regra_salario (com dias trabalhados). ` +
+                `Remova essa coluna do mapeamento para evitar este aviso.`
+            );
+            continue;
+        }
+
+        // Diverge `rv` do catálogo? Ainda assim usa o do catálogo, mas alerta.
+        if (regra.rv !== eventoCat.rv) {
+            alertas.push(
+                `Coluna "${coluna}" → evento ${regra.evento}: rv da regra ("${regra.rv}") ` +
+                `difere do catálogo IOB ("${eventoCat.rv}"). Aplicando o do catálogo.`
+            );
         }
 
         lancamentos.push({
@@ -48,8 +73,8 @@ function gerarLancamentosFuncionario(
             coluna,
             evento: regra.evento,
             descricao_evento: regra.descricao_evento,
-            tipo: regra.tipo,
-            rv: regra.rv,
+            tipo: eventoCat.tipo,
+            rv: eventoCat.rv,
             valor: round2(valor),
             origem: 'coluna',
         });
@@ -75,7 +100,8 @@ function gerarLancamentosFuncionario(
                 }
             }
 
-            if (!codigosValidos.has(escolhida.evento)) {
+            const eventoCat = catalogoMap.get(escolhida.evento);
+            if (!eventoCat) {
                 alertas.push(
                     `Evento ${escolhida.evento} (DESCONTOS EMPRESA) não existe no catálogo.`
                 );
@@ -88,8 +114,8 @@ function gerarLancamentosFuncionario(
                     coluna: regrasDE.coluna,
                     evento: escolhida.evento,
                     descricao_evento: escolhida.descricao_evento,
-                    tipo: escolhida.tipo,
-                    rv: escolhida.rv,
+                    tipo: eventoCat.tipo,
+                    rv: eventoCat.rv,
                     valor: round2(valorDE),
                     obs: funcionario.obs,
                     origem: funcionario.obs ? 'obs' : 'padrao',
@@ -106,7 +132,44 @@ function gerarLancamentosFuncionario(
         }
     }
 
-    // 3) Preenche matrícula a partir do cadastro
+    // 3) SALÁRIO — sempre gerado para todo funcionário, com dias na referência.
+    // Cobre admissão, afastamento e rescisão: contador preenche a coluna
+    // de dias na planilha para casos proporcionais; sem coluna usa 30 (mês cheio).
+    if (mapa.regra_salario) {
+        const cfg = mapa.regra_salario;
+        const eventoCat = catalogoMap.get(cfg.evento);
+        if (!eventoCat) {
+            alertas.push(
+                `Evento de salário ${cfg.evento} (regra_salario) não existe no catálogo.`
+            );
+        } else {
+            let dias = cfg.dias_padrao;
+            if (cfg.coluna_dias && cfg.coluna_dias in celulas) {
+                const v = toNumber(celulas[cfg.coluna_dias]);
+                if (v !== null) dias = v;
+            }
+            dias = round2(dias);
+
+            const pular = cfg.ignorar_se_dias_zero && dias === 0;
+            if (!pular) {
+                lancamentos.push({
+                    empresa: empresaNome,
+                    codigoSage,
+                    funcionario: funcionario.nome,
+                    matricula: null,
+                    coluna: cfg.coluna_dias ?? '__regra_salario__',
+                    evento: cfg.evento,
+                    descricao_evento: cfg.descricao_evento,
+                    tipo: eventoCat.tipo,
+                    rv: eventoCat.rv,
+                    valor: dias,
+                    origem: 'salario',
+                });
+            }
+        }
+    }
+
+    // 4) Preenche matrícula a partir do cadastro
     const matriculas = mapa.matriculas?.[empresaNome] ?? {};
     const matricula = matriculas[funcionario.nome] ?? null;
     if (!matricula && lancamentos.length > 0) {
@@ -129,7 +192,9 @@ export function montarLancamentos(
     mapa: MapeamentoApontamento,
     catalogo: CatalogoEventos,
 ): ResultadoMapeamento {
-    const codigosValidos = new Set(catalogo.eventos.map((e) => e.codigo));
+    const catalogoMap = new Map<string, EventoIobSage>(
+        catalogo.eventos.map((e) => [e.codigo, e])
+    );
     const todos: Lancamento[] = [];
     const alertas: string[] = [];
 
@@ -146,11 +211,16 @@ export function montarLancamentos(
                 func,
                 empresa.nome,
                 mapa,
-                codigosValidos
+                catalogoMap
             );
             todos.push(...out.lancamentos);
             alertas.push(...out.alertas);
         }
     }
-    return { lancamentos: todos, alertas };
+
+    // Dedup de alertas idênticos (regra_salario alerta uma vez por linha;
+    // outros alertas globais também podem repetir).
+    const alertasDedup = Array.from(new Set(alertas));
+
+    return { lancamentos: todos, alertas: alertasDedup };
 }
