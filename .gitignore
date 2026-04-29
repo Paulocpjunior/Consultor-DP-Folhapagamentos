@@ -39,3 +39,5 @@ jest.config.js
 /tmp/gemini-*.json
 service-account.json
 service-account.json
+seed-ferrante.mjs
+service-account.json
