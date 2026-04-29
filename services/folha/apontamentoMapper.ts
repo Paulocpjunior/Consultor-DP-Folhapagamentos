@@ -1,9 +1,19 @@
 // services/folha/apontamentoMapper.ts
 // Aplica o mapeamento (coluna → evento) e gera os lançamentos.
+//
+// v1.1 — resolução tolerante do nome de aba:
+//   Se a aba do parser ("FOPAG", "Planilha1", "Sheet1"…) não casar exatamente
+//   com nenhuma chave em `mapa.empresas`, tenta:
+//     1. Match case/acento-insensitive
+//     2. Se houver exatamente UMA empresa ativa no mapa, usa ela como fallback
+//        (caso típico: cliente com 1 só empresa cuja aba tem nome diferente
+//        do dia em que o mapeamento foi salvo — ex.: SPA Saúde "FOPAG").
+//   Caso contrário, mantém o comportamento estrito (alerta + ignora).
 
 import type {
     ApontamentoParseado,
     CatalogoEventos,
+    EmpresaApontamento,
     EventoIobSage,
     FuncionarioApontamento,
     Lancamento,
@@ -13,21 +23,75 @@ import type {
 import { norm, round2, toNumber } from './apontamentoParser';
 
 /**
+ * Resolve a config da empresa no mapa para uma aba do parser.
+ * Retorna { cfg, nomeMapa, alerta? } ou null se não conseguir resolver.
+ *
+ * - cfg     → a config { codigo_sage, ativa } do mapa
+ * - nomeMapa → o nome real (chave do mapa.empresas) que casou
+ * - alerta   → mensagem informativa quando o match foi tolerante
+ */
+function resolverEmpresa(
+    abaParser: EmpresaApontamento,
+    mapa: MapeamentoApontamento,
+    qtdAbasParser: number,
+): {
+    cfg: { codigo_sage: string; ativa: boolean };
+    nomeMapa: string;
+    alerta?: string;
+} | null {
+    const empresasMapa = mapa.empresas ?? {};
+    const chaves = Object.keys(empresasMapa);
+
+    // 1. Match exato (caminho feliz)
+    if (empresasMapa[abaParser.nome]) {
+        return { cfg: empresasMapa[abaParser.nome], nomeMapa: abaParser.nome };
+    }
+
+    // 2. Match tolerante (case + acento insensitive)
+    const abaNorm = norm(abaParser.nome);
+    const chaveAprox = chaves.find((k) => norm(k) === abaNorm);
+    if (chaveAprox) {
+        return {
+            cfg: empresasMapa[chaveAprox],
+            nomeMapa: chaveAprox,
+            alerta: `Aba "${abaParser.nome}" foi associada ao mapeamento "${chaveAprox}" (match aproximado).`,
+        };
+    }
+
+    // 3. Fallback: 1 só empresa ativa no mapa, parser também só achou 1 aba real → usa
+    const ativas = chaves.filter((k) => empresasMapa[k].ativa !== false);
+    if (ativas.length === 1 && qtdAbasParser === 1) {
+        const k = ativas[0];
+        return {
+            cfg: empresasMapa[k],
+            nomeMapa: k,
+            alerta:
+                `Aba "${abaParser.nome}" não tem entrada explícita no mapeamento, ` +
+                `mas o cliente tem só 1 empresa ativa ("${k}") — usando essa.`,
+        };
+    }
+
+    // 4. Sem solução
+    return null;
+}
+
+/**
  * Gera os lançamentos de um funcionário aplicando todas as regras.
  * O `rv` (Referência ou Valor) do lançamento vem SEMPRE do catálogo IOB
  * — não do mapeamento — porque é o IOB que decide pelo código do evento.
  */
 function gerarLancamentosFuncionario(
     funcionario: FuncionarioApontamento,
-    empresaNome: string,
+    empresaNomeParser: string,
+    cfgEmpresa: { codigo_sage: string; ativa: boolean },
+    nomeNoMapa: string,
     mapa: MapeamentoApontamento,
     catalogoMap: Map<string, EventoIobSage>,
 ): { lancamentos: Lancamento[]; alertas: string[] } {
     const lancamentos: Lancamento[] = [];
     const alertas: string[] = [];
     const celulas = funcionario.celulas;
-    const empresaCfg = mapa.empresas[empresaNome];
-    const codigoSage = empresaCfg?.codigo_sage ?? mapa.empresa_base;
+    const codigoSage = cfgEmpresa?.codigo_sage ?? mapa.empresa_base;
 
     const codigoSalario = mapa.regra_salario?.evento;
 
@@ -66,7 +130,7 @@ function gerarLancamentosFuncionario(
         }
 
         lancamentos.push({
-            empresa: empresaNome,
+            empresa: empresaNomeParser,
             codigoSage,
             funcionario: funcionario.nome,
             matricula: null,
@@ -107,7 +171,7 @@ function gerarLancamentosFuncionario(
                 );
             } else {
                 lancamentos.push({
-                    empresa: empresaNome,
+                    empresa: empresaNomeParser,
                     codigoSage,
                     funcionario: funcionario.nome,
                     matricula: null,
@@ -133,8 +197,6 @@ function gerarLancamentosFuncionario(
     }
 
     // 3) SALÁRIO — sempre gerado para todo funcionário, com dias na referência.
-    // Cobre admissão, afastamento e rescisão: contador preenche a coluna
-    // de dias na planilha para casos proporcionais; sem coluna usa 30 (mês cheio).
     if (mapa.regra_salario) {
         const cfg = mapa.regra_salario;
         const eventoCat = catalogoMap.get(cfg.evento);
@@ -153,7 +215,7 @@ function gerarLancamentosFuncionario(
             const pular = cfg.ignorar_se_dias_zero && dias === 0;
             if (!pular) {
                 lancamentos.push({
-                    empresa: empresaNome,
+                    empresa: empresaNomeParser,
                     codigoSage,
                     funcionario: funcionario.nome,
                     matricula: null,
@@ -169,12 +231,16 @@ function gerarLancamentosFuncionario(
         }
     }
 
-    // 4) Preenche matrícula a partir do cadastro
-    const matriculas = mapa.matriculas?.[empresaNome] ?? {};
+    // 4) Preenche matrícula a partir do cadastro — busca no nome real do mapa
+    //    (e fallback para o nome da aba, caso não encontre)
+    const matriculas =
+        mapa.matriculas?.[nomeNoMapa] ??
+        mapa.matriculas?.[empresaNomeParser] ??
+        {};
     const matricula = matriculas[funcionario.nome] ?? null;
     if (!matricula && lancamentos.length > 0) {
         alertas.push(
-            `"${funcionario.nome}" sem matrícula cadastrada em ${empresaNome}.`
+            `"${funcionario.nome}" sem matrícula cadastrada em ${empresaNomeParser}.`
         );
     }
     lancamentos.forEach((l) => {
@@ -198,20 +264,38 @@ export function montarLancamentos(
     const todos: Lancamento[] = [];
     const alertas: string[] = [];
 
+    // Quantas abas o parser realmente extraiu (não conta as ignoradas)
+    const qtdAbasParser = parsed.empresas.length;
+
     for (const empresa of parsed.empresas) {
-        const cfg = mapa.empresas?.[empresa.nome];
-        if (!cfg || cfg.ativa === false) {
+        const resolvido = resolverEmpresa(empresa, mapa, qtdAbasParser);
+
+        if (!resolvido) {
             alertas.push(
                 `Empresa "${empresa.nome}" não está ativa no mapeamento; ignorada.`
             );
             continue;
         }
+
+        if (resolvido.cfg.ativa === false) {
+            alertas.push(
+                `Empresa "${empresa.nome}" (mapeada como "${resolvido.nomeMapa}") está marcada como inativa; ignorada.`
+            );
+            continue;
+        }
+
+        if (resolvido.alerta) {
+            alertas.push(resolvido.alerta);
+        }
+
         for (const func of empresa.funcionarios) {
             const out = gerarLancamentosFuncionario(
                 func,
                 empresa.nome,
+                resolvido.cfg,
+                resolvido.nomeMapa,
                 mapa,
-                catalogoMap
+                catalogoMap,
             );
             todos.push(...out.lancamentos);
             alertas.push(...out.alertas);
