@@ -1,6 +1,10 @@
 // services/folha/apontamentoMapper.ts
 // Aplica o mapeamento (coluna → evento) e gera os lançamentos.
 //
+// v1.2 — fallback funciona independente de quantas abas o parser leu:
+//   Se uma aba do parser não casa exatamente, e o cliente tem só 1 empresa
+//   ativa no mapa, usa essa empresa (com alerta informativo).
+//
 // v1.1 — resolução tolerante do nome de aba:
 //   Se a aba do parser ("FOPAG", "Planilha1", "Sheet1"…) não casar exatamente
 //   com nenhuma chave em `mapa.empresas`, tenta:
@@ -25,15 +29,10 @@ import { norm, round2, toNumber } from './apontamentoParser';
 /**
  * Resolve a config da empresa no mapa para uma aba do parser.
  * Retorna { cfg, nomeMapa, alerta? } ou null se não conseguir resolver.
- *
- * - cfg     → a config { codigo_sage, ativa } do mapa
- * - nomeMapa → o nome real (chave do mapa.empresas) que casou
- * - alerta   → mensagem informativa quando o match foi tolerante
  */
 function resolverEmpresa(
     abaParser: EmpresaApontamento,
     mapa: MapeamentoApontamento,
-    qtdAbasParser: number,
 ): {
     cfg: { codigo_sage: string; ativa: boolean };
     nomeMapa: string;
@@ -54,20 +53,22 @@ function resolverEmpresa(
         return {
             cfg: empresasMapa[chaveAprox],
             nomeMapa: chaveAprox,
-            alerta: `Aba "${abaParser.nome}" foi associada ao mapeamento "${chaveAprox}" (match aproximado).`,
+            alerta: `Aba "${abaParser.nome}" associada ao mapeamento "${chaveAprox}" (match aproximado).`,
         };
     }
 
-    // 3. Fallback: 1 só empresa ativa no mapa, parser também só achou 1 aba real → usa
+    // 3. Fallback: cliente tem só 1 empresa ativa no mapa → usa ela
+    //    Isso resolve o caso onde o mapa foi salvo com nome de aba "Planilha1"
+    //    (ou similar) numa importação anterior, e agora o parser lê "FOPAG".
     const ativas = chaves.filter((k) => empresasMapa[k].ativa !== false);
-    if (ativas.length === 1 && qtdAbasParser === 1) {
+    if (ativas.length === 1) {
         const k = ativas[0];
         return {
             cfg: empresasMapa[k],
             nomeMapa: k,
             alerta:
-                `Aba "${abaParser.nome}" não tem entrada explícita no mapeamento, ` +
-                `mas o cliente tem só 1 empresa ativa ("${k}") — usando essa.`,
+                `Aba "${abaParser.nome}" não tem entrada explícita no mapeamento. ` +
+                `Como o cliente tem só 1 empresa ativa ("${k}"), ela foi usada como destino.`,
         };
     }
 
@@ -110,8 +111,6 @@ function gerarLancamentosFuncionario(
             continue;
         }
 
-        // Bloqueia coluna mapeada para o evento de salário — o lançamento
-        // de salário é gerado pela `regra_salario` (com dias, não com R$).
         if (codigoSalario && regra.evento === codigoSalario) {
             alertas.push(
                 `Coluna "${coluna}" mapeada para evento ${regra.evento} foi ignorada — ` +
@@ -121,7 +120,6 @@ function gerarLancamentosFuncionario(
             continue;
         }
 
-        // Diverge `rv` do catálogo? Ainda assim usa o do catálogo, mas alerta.
         if (regra.rv !== eventoCat.rv) {
             alertas.push(
                 `Coluna "${coluna}" → evento ${regra.evento}: rv da regra ("${regra.rv}") ` +
@@ -264,11 +262,8 @@ export function montarLancamentos(
     const todos: Lancamento[] = [];
     const alertas: string[] = [];
 
-    // Quantas abas o parser realmente extraiu (não conta as ignoradas)
-    const qtdAbasParser = parsed.empresas.length;
-
     for (const empresa of parsed.empresas) {
-        const resolvido = resolverEmpresa(empresa, mapa, qtdAbasParser);
+        const resolvido = resolverEmpresa(empresa, mapa);
 
         if (!resolvido) {
             alertas.push(
@@ -302,8 +297,6 @@ export function montarLancamentos(
         }
     }
 
-    // Dedup de alertas idênticos (regra_salario alerta uma vez por linha;
-    // outros alertas globais também podem repetir).
     const alertasDedup = Array.from(new Set(alertas));
 
     return { lancamentos: todos, alertas: alertasDedup };

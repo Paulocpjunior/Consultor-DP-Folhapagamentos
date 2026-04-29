@@ -2,6 +2,8 @@
 // Parser client-side do apontamento de folha (lê xlsx via SheetJS).
 // Princípio: parser nomeado pelo cliente + origem.
 //
+// v2.2.0 — adicionada lista negra de "Planilha1..PlanilhaN" (abas auxiliares
+//          padrão do Excel que clientes deixam no arquivo, ex.: SPA Saúde).
 // v2.1.0 — busca inteligente do cabeçalho:
 //   - Varre as primeiras 15 linhas e 30 colunas de cada aba procurando uma
 //     célula com texto "Nome", "Funcionário", "Colaborador", "Empregado" etc.
@@ -16,7 +18,7 @@ import * as XLSX from 'xlsx';
 import type { ApontamentoParseado, EmpresaApontamento, FuncionarioApontamento } from './folhaTypes';
 
 const PARSER_ID = 'apontamento-folha-multi';
-const PARSER_VERSAO = '2.1.0';
+const PARSER_VERSAO = '2.2.0';
 
 /** Quantas linhas iniciais escanear procurando o cabeçalho. */
 const MAX_HEADER_ROWS = 15;
@@ -43,7 +45,7 @@ const NAME_HEADERS = new Set([
     'servidores',
 ]);
 
-/** Nomes de abas que devem ser sempre ignoradas (lista negra). */
+/** Nomes de abas que devem ser sempre ignoradas (lista negra exata, normalizada). */
 const SHEET_BLACKLIST = new Set([
     'controles',
     'parametros',
@@ -57,7 +59,25 @@ const SHEET_BLACKLIST = new Set([
     'resumo',
     'instrucoes',
     'instrucao',
+    'observacoes',
+    'observacao',
+    'auxiliar',
+    'auxiliares',
+    'lista',
+    'listas',
 ]);
+
+/**
+ * Padrões regex de nomes de abas que devem ser sempre ignorados.
+ * "Planilha1", "Planilha2", "Plan1", "Sheet1", etc. — abas auxiliares
+ * do Excel que clientes esquecem no arquivo.
+ */
+const SHEET_BLACKLIST_PATTERNS: RegExp[] = [
+    /^planilha\d+$/i,
+    /^plan\d+$/i,
+    /^sheet\d+$/i,
+    /^aba\d+$/i,
+];
 
 /** Normaliza string para comparação (lowercase, sem acentos). */
 export function norm(s: unknown): string {
@@ -87,6 +107,13 @@ export function toNumber(v: unknown): number | null {
 
 export function round2(n: number): number {
     return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
+/** Verifica se um nome de aba está na lista negra. */
+function isBlacklisted(sheetName: string): boolean {
+    const n = norm(sheetName);
+    if (SHEET_BLACKLIST.has(n)) return true;
+    return SHEET_BLACKLIST_PATTERNS.some((rx) => rx.test(sheetName));
 }
 
 /**
@@ -126,7 +153,7 @@ export function parseApontamentoBuffer(buffer: ArrayBuffer | Uint8Array): Aponta
 
     for (const sheetName of workbook.SheetNames) {
         // Lista negra de abas auxiliares
-        if (SHEET_BLACKLIST.has(norm(sheetName))) {
+        if (isBlacklisted(sheetName)) {
             debug.push(`[skip:blacklist] "${sheetName}"`);
             continue;
         }
@@ -193,8 +220,7 @@ export function parseApontamentoBuffer(buffer: ArrayBuffer | Uint8Array): Aponta
             });
         }
 
-        // Aba sem funcionários (ex.: "Controles" do SPA Saúde, que tem a palavra
-        // "Colaborador" como header de uma coluna mas nenhum dado real abaixo)
+        // Aba sem funcionários (ex.: header reconhecido mas dados vazios)
         if (!funcionarios.length) {
             debug.push(
                 `[skip:sem-dados] "${sheetName}" — header reconhecido na linha ` +
