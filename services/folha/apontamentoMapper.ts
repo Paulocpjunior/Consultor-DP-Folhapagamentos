@@ -1,18 +1,15 @@
 // services/folha/apontamentoMapper.ts
 // Aplica o mapeamento (coluna → evento) e gera os lançamentos.
 //
-// v1.2 — fallback funciona independente de quantas abas o parser leu:
-//   Se uma aba do parser não casa exatamente, e o cliente tem só 1 empresa
-//   ativa no mapa, usa essa empresa (com alerta informativo).
+// v1.3 — sele\u00e7\u00e3o de colunas e matr\u00edcula obrigat\u00f3ria:
+//   - Aceita opcional `colunasAtivas: Set<string>` em montarLancamentos.
+//     Se fornecido, s\u00f3 processa colunas que est\u00e3o no set
+//     (al\u00e9m do salário e descontos empresa, que t\u00eam regra pr\u00f3pria).
+//   - Bloqueia funcion\u00e1rios sem matr\u00edcula: seus lan\u00e7amentos s\u00e3o descartados
+//     e adicionados \u00e0 lista de `funcionariosBloqueados` no resultado.
 //
-// v1.1 — resolução tolerante do nome de aba:
-//   Se a aba do parser ("FOPAG", "Planilha1", "Sheet1"…) não casar exatamente
-//   com nenhuma chave em `mapa.empresas`, tenta:
-//     1. Match case/acento-insensitive
-//     2. Se houver exatamente UMA empresa ativa no mapa, usa ela como fallback
-//        (caso típico: cliente com 1 só empresa cuja aba tem nome diferente
-//        do dia em que o mapeamento foi salvo — ex.: SPA Saúde "FOPAG").
-//   Caso contrário, mantém o comportamento estrito (alerta + ignora).
+// v1.2 — fallback funciona independente de quantas abas o parser leu.
+// v1.1 — resolução tolerante do nome de aba.
 
 import type {
     ApontamentoParseado,
@@ -28,7 +25,6 @@ import { norm, round2, toNumber } from './apontamentoParser';
 
 /**
  * Resolve a config da empresa no mapa para uma aba do parser.
- * Retorna { cfg, nomeMapa, alerta? } ou null se não conseguir resolver.
  */
 function resolverEmpresa(
     abaParser: EmpresaApontamento,
@@ -41,12 +37,10 @@ function resolverEmpresa(
     const empresasMapa = mapa.empresas ?? {};
     const chaves = Object.keys(empresasMapa);
 
-    // 1. Match exato (caminho feliz)
     if (empresasMapa[abaParser.nome]) {
         return { cfg: empresasMapa[abaParser.nome], nomeMapa: abaParser.nome };
     }
 
-    // 2. Match tolerante (case + acento insensitive)
     const abaNorm = norm(abaParser.nome);
     const chaveAprox = chaves.find((k) => norm(k) === abaNorm);
     if (chaveAprox) {
@@ -57,9 +51,6 @@ function resolverEmpresa(
         };
     }
 
-    // 3. Fallback: cliente tem só 1 empresa ativa no mapa → usa ela
-    //    Isso resolve o caso onde o mapa foi salvo com nome de aba "Planilha1"
-    //    (ou similar) numa importação anterior, e agora o parser lê "FOPAG".
     const ativas = chaves.filter((k) => empresasMapa[k].ativa !== false);
     if (ativas.length === 1) {
         const k = ativas[0];
@@ -72,15 +63,9 @@ function resolverEmpresa(
         };
     }
 
-    // 4. Sem solução
     return null;
 }
 
-/**
- * Gera os lançamentos de um funcionário aplicando todas as regras.
- * O `rv` (Referência ou Valor) do lançamento vem SEMPRE do catálogo IOB
- * — não do mapeamento — porque é o IOB que decide pelo código do evento.
- */
 function gerarLancamentosFuncionario(
     funcionario: FuncionarioApontamento,
     empresaNomeParser: string,
@@ -88,6 +73,7 @@ function gerarLancamentosFuncionario(
     nomeNoMapa: string,
     mapa: MapeamentoApontamento,
     catalogoMap: Map<string, EventoIobSage>,
+    colunasAtivas: Set<string> | null,
 ): { lancamentos: Lancamento[]; alertas: string[] } {
     const lancamentos: Lancamento[] = [];
     const alertas: string[] = [];
@@ -99,6 +85,10 @@ function gerarLancamentosFuncionario(
     // 1) Colunas simples → evento direto
     for (const [coluna, regra] of Object.entries(mapa.mapeamento_colunas)) {
         if (!(coluna in celulas)) continue;
+
+        // ⭐ NOVO: filtro de colunas ativas
+        if (colunasAtivas && !colunasAtivas.has(coluna)) continue;
+
         const valor = toNumber(celulas[coluna]);
         if (valor === null) continue;
         if (regra.ignorar_se_zero && valor === 0) continue;
@@ -143,8 +133,10 @@ function gerarLancamentosFuncionario(
     }
 
     // 2) DESCONTOS EMPRESA → depende do OBS
+    //    Respeita o filtro de colunas ativas: se a coluna de desconto está
+    //    desmarcada, não gera lançamento.
     const regrasDE = mapa.regras_descontos_empresa;
-    if (regrasDE) {
+    if (regrasDE && (!colunasAtivas || colunasAtivas.has(regrasDE.coluna))) {
         const valorDE = toNumber(celulas[regrasDE.coluna]);
         if (valorDE !== null && valorDE > 0) {
             const obsNorm = norm(
@@ -194,7 +186,8 @@ function gerarLancamentosFuncionario(
         }
     }
 
-    // 3) SALÁRIO — sempre gerado para todo funcionário, com dias na referência.
+    // 3) SALÁRIO — sempre gerado pra todo funcionário (não respeita colunasAtivas
+    //    porque é regra própria, não vem de coluna do XLSX).
     if (mapa.regra_salario) {
         const cfg = mapa.regra_salario;
         const eventoCat = catalogoMap.get(cfg.evento);
@@ -229,38 +222,43 @@ function gerarLancamentosFuncionario(
         }
     }
 
-    // 4) Preenche matrícula a partir do cadastro — busca no nome real do mapa
-    //    (e fallback para o nome da aba, caso não encontre)
+    // 4) Matrícula
     const matriculas =
         mapa.matriculas?.[nomeNoMapa] ??
         mapa.matriculas?.[empresaNomeParser] ??
         {};
     const matricula = matriculas[funcionario.nome] ?? null;
-    if (!matricula && lancamentos.length > 0) {
-        alertas.push(
-            `"${funcionario.nome}" sem matrícula cadastrada em ${empresaNomeParser}.`
-        );
-    }
-    lancamentos.forEach((l) => {
-        l.matricula = matricula;
-    });
+    lancamentos.forEach((l) => { l.matricula = matricula; });
 
     return { lancamentos, alertas };
 }
 
 /**
  * Processa o parsed + mapa + catálogo e devolve todos os lançamentos.
+ *
+ * @param colunasAtivas Set opcional de colunas a processar (filtro do perfil).
+ *                       Se ausente ou null, todas as colunas mapeadas são processadas.
+ * @param exigirMatricula Se true (default), funcionários sem matrícula são
+ *                         descartados e listados em `funcionariosSemMatricula`.
  */
 export function montarLancamentos(
     parsed: ApontamentoParseado,
     mapa: MapeamentoApontamento,
     catalogo: CatalogoEventos,
-): ResultadoMapeamento {
+    opts?: {
+        colunasAtivas?: Set<string> | null;
+        exigirMatricula?: boolean;
+    },
+): ResultadoMapeamento & { funcionariosSemMatricula: string[] } {
+    const colunasAtivas = opts?.colunasAtivas ?? null;
+    const exigirMatricula = opts?.exigirMatricula ?? true;
+
     const catalogoMap = new Map<string, EventoIobSage>(
         catalogo.eventos.map((e) => [e.codigo, e])
     );
     const todos: Lancamento[] = [];
     const alertas: string[] = [];
+    const semMatricula: string[] = [];
 
     for (const empresa of parsed.empresas) {
         const resolvido = resolverEmpresa(empresa, mapa);
@@ -291,13 +289,33 @@ export function montarLancamentos(
                 resolvido.nomeMapa,
                 mapa,
                 catalogoMap,
+                colunasAtivas,
             );
-            todos.push(...out.lancamentos);
+            // Se exige matrícula, filtra funcionários sem matrícula
+            const algumLancamento = out.lancamentos.length > 0;
+            const matriculaCadastrada = out.lancamentos[0]?.matricula;
+            if (exigirMatricula && algumLancamento && !matriculaCadastrada) {
+                semMatricula.push(`${empresa.nome} / ${func.nome}`);
+                // não adiciona lançamentos
+            } else {
+                todos.push(...out.lancamentos);
+            }
             alertas.push(...out.alertas);
         }
     }
 
+    if (semMatricula.length > 0) {
+        alertas.unshift(
+            `${semMatricula.length} funcionário(s) sem matrícula cadastrada — exportação bloqueada para esses. ` +
+            `Cadastre as matrículas pendentes (campo amarelo) e exporte novamente.`
+        );
+    }
+
     const alertasDedup = Array.from(new Set(alertas));
 
-    return { lancamentos: todos, alertas: alertasDedup };
+    return {
+        lancamentos: todos,
+        alertas: alertasDedup,
+        funcionariosSemMatricula: semMatricula,
+    };
 }

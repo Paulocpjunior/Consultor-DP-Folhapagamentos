@@ -71,6 +71,11 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    match /folha_perfis_colunas/{cnpj} {
+      allow read: if isApproved();
+      allow write: if isApproved();
+    }
+
     match /{document=**} { allow read, write: if false; }
   }
 }

@@ -1,9 +1,14 @@
 // components/folha/ApontamentoFolhaPanel.tsx
-// Upload do xlsx → preview → matrículas → export CSV/TXT/JSON.
-// Parser 100% client-side (SheetJS). Persistência via Firestore.
+// VERSÃO COM SELEÇÃO DE COLUNAS POR PERFIL
 //
-// Mapeamento por EMPRESA (CNPJ): cada empresa cadastrada tem seu próprio
-// folha_mapeamentos/{cnpj}. Quando não existe, abre Wizard pra criar na hora.
+// Mudanças vs versão anterior:
+//   1. Após processar o XLSX, calcula seleção inicial de colunas (perfil salvo
+//      ou auto-detect: colunas com >=1 dado).
+//   2. Pré-visualização ganha checkbox no header de cada coluna + badge com
+//      preenchimento (ex: "Salário 102/103").
+//   3. Botão "💾 Salvar como padrão" persiste seleção em folha_perfis_colunas.
+//   4. Exportar passa o Set de colunas ativas pro mapper.
+//   5. Funcionários sem matrícula bloqueiam a exportação (mensagem clara).
 
 import React, { useEffect, useMemo, useState } from 'react';
 import type { User } from '../../types';
@@ -12,26 +17,28 @@ import type {
     MapeamentoApontamento,
     ResultadoMapeamento,
 } from '../../services/folha/folhaTypes';
+import type { Empresa } from '../../types';
 import { parseApontamentoFile, parseApontamentoBuffer } from '../../services/folha/apontamentoParser';
-import { montarLancamentos } from '../../services/folha/apontamentoMapper';
 import {
-    downloadFile,
-    exportarTXT,
-    nomeArquivoTXT,
-    FLAG_LABELS,
-    type FolhaFlag,
-} from '../../services/folha/apontamentoExporter';
-import { listarMinhasEmpresas, listarTodasEmpresas } from '../../services/empresas/empresasService';
-import { acharEmpresaPorNome } from '../../services/empresas/matchEmpresa';
-import type { Empresa } from '../../services/empresas/empresasTypes';
-import {
-    addHistorico,
-    getCatalogo,
     getMapeamento,
     saveMatriculas,
+    getCatalogo,
+    addHistorico,
 } from '../../services/folha/folhaFirestoreService';
-import type { SessaoFolha } from './FolhaPanel';
+import { montarLancamentos } from '../../services/folha/apontamentoMapper';
+import {
+    getPerfilColunas,
+    savePerfilColunas,
+    calcularSelecaoInicial,
+    type PerfilColunas,
+} from '../../services/folha/folhaPerfilColunasService';
+import { exportarTXT, nomeArquivoTXT } from '../../services/folha/apontamentoExporter';
+import { listarTodasEmpresas, listarMinhasEmpresas } from '../../services/empresasService';
 import WizardMapeamentoMapas from './WizardMapeamentoMapas';
+import { acharEmpresaPorNome } from '../../services/folha/acharEmpresaPorNome';
+import { downloadFile } from '../../utils/downloadFile';
+import { type FolhaFlag, FLAG_LABELS, tipoParaFlag } from '../../services/folha/flagsFolha';
+import type { SessaoFolha } from '../../services/folha/sessaoFolha';
 
 interface Props {
     currentUser: User;
@@ -39,24 +46,14 @@ interface Props {
     onTrocarEmpresa: () => void;
 }
 
-function tipoParaFlag(tipo: string): FolhaFlag {
-    const t = tipo.toLowerCase();
-    if (t.includes('13')) return '13' as FolhaFlag;
-    if (t.includes('adiant')) return 'adiantamento' as FolhaFlag;
-    if (t.includes('féri') || t.includes('feri')) return 'ferias' as FolhaFlag;
-    if (t.includes('rescis')) return 'rescisao' as FolhaFlag;
-    return 'salario';
-}
-
 const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarEmpresa }) => {
-    // Cliente passa a ser o CNPJ da empresa selecionada — cada empresa tem
-    // seu próprio doc em folha_mapeamentos/{cnpj}.
     const cliente = sessao.empresa.cnpj;
 
     const [competencia, setCompetencia] = useState(sessao.competencia);
     const [file, setFile] = useState<File | null>(null);
     const [parsed, setParsed] = useState<ApontamentoParseado | null>(null);
     const [mapa, setMapa] = useState<MapeamentoApontamento | null>(null);
+    const [perfil, setPerfil] = useState<PerfilColunas | null>(null);
     const [empresaAtiva, setEmpresaAtiva] = useState<string | null>(null);
     const [matriculasEdit, setMatriculasEdit] = useState<Record<string, Record<string, string>>>({});
     const [resultado, setResultado] = useState<ResultadoMapeamento | null>(null);
@@ -66,6 +63,11 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
     const [flag, setFlag] = useState<FolhaFlag>(tipoParaFlag(sessao.tipo));
     const [empresasCadastradas, setEmpresasCadastradas] = useState<Empresa[]>([]);
 
+    // Seleção de colunas (por aba do parser)
+    const [colunasAtivas, setColunasAtivas] = useState<Record<string, Set<string>>>({});
+    const [perfilDirty, setPerfilDirty] = useState(false);
+    const [salvandoPerfil, setSalvandoPerfil] = useState(false);
+
     const [showWizard, setShowWizard] = useState(false);
     const [pendingBuffer, setPendingBuffer] = useState<ArrayBuffer | null>(null);
 
@@ -74,6 +76,8 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
             try {
                 const m = await getMapeamento(cliente);
                 setMapa(m);
+                const p = await getPerfilColunas(cliente);
+                setPerfil(p);
                 if (!m) {
                     setMsg(
                         `Empresa "${sessao.empresa.razaoSocial}" ainda não tem layout mapeado. ` +
@@ -100,6 +104,22 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
         })();
     }, []);
 
+    /**
+     * Após processar o parsed, calcula seleção inicial de colunas para cada aba.
+     */
+    function inicializarSelecaoColunas(p: ApontamentoParseado, perfilAtual: PerfilColunas | null) {
+        const novo: Record<string, Set<string>> = {};
+        for (const empresa of p.empresas) {
+            novo[empresa.nome] = calcularSelecaoInicial(
+                empresa.colunas,
+                empresa.funcionarios,
+                perfilAtual,
+            );
+        }
+        setColunasAtivas(novo);
+        setPerfilDirty(false);
+    }
+
     const handleProcessar = async () => {
         if (!file) {
             alert('Selecione a planilha xlsx primeiro.');
@@ -111,7 +131,6 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
         setResultado(null);
 
         try {
-            // Sem mapa pra essa empresa → abre Wizard
             if (!mapa) {
                 const buffer = await file.arrayBuffer();
                 setPendingBuffer(buffer);
@@ -123,8 +142,9 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
 
             if (p.empresas.length === 0) {
                 setErro(
-                    'Nenhuma aba reconhecida. O cabeçalho A1 da planilha deve ser ' +
-                    '"NOME", "Funcionário", "Colaborador" ou "Empregado".'
+                    'Nenhuma aba reconhecida. Verifique o XLSX — o cabeçalho deve conter ' +
+                    '"NOME", "Funcionário", "Colaborador" ou "Empregado" em alguma das ' +
+                    'primeiras linhas.'
                 );
                 return;
             }
@@ -132,6 +152,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
             setParsed(p);
             setEmpresaAtiva(p.empresas[0]?.nome ?? null);
             setMatriculasEdit({});
+            inicializarSelecaoColunas(p, perfil);
             setMsg(
                 `Planilha processada: ${p.empresas.reduce(
                     (a, e) => a + e.funcionarios.length,
@@ -166,6 +187,50 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
         }
     };
 
+    const toggleColuna = (empresaNome: string, coluna: string) => {
+        setColunasAtivas((prev) => {
+            const set = new Set(prev[empresaNome] ?? []);
+            if (set.has(coluna)) set.delete(coluna);
+            else set.add(coluna);
+            return { ...prev, [empresaNome]: set };
+        });
+        setPerfilDirty(true);
+    };
+
+    const marcarTodasColunas = (empresaNome: string, valor: boolean) => {
+        const empresa = parsed?.empresas.find((e) => e.nome === empresaNome);
+        if (!empresa) return;
+        setColunasAtivas((prev) => ({
+            ...prev,
+            [empresaNome]: valor ? new Set(empresa.colunas) : new Set(),
+        }));
+        setPerfilDirty(true);
+    };
+
+    const handleSalvarPerfil = async () => {
+        if (!parsed) return;
+        setSalvandoPerfil(true);
+        setErro(null);
+        try {
+            // Une as colunas ativas de todas as abas (geralmente só tem 1 aba útil)
+            const todas = new Set<string>();
+            Object.values(colunasAtivas).forEach((set) => set.forEach((c) => todas.add(c)));
+            await savePerfilColunas(
+                cliente,
+                Array.from(todas),
+                sessao.empresa.razaoSocial || sessao.empresa.nomeFantasia,
+            );
+            const novo = await getPerfilColunas(cliente);
+            setPerfil(novo);
+            setPerfilDirty(false);
+            setMsg(`✓ Padrão de colunas salvo: ${todas.size} coluna(s) ativa(s).`);
+        } catch (e) {
+            setErro(e instanceof Error ? e.message : String(e));
+        } finally {
+            setSalvandoPerfil(false);
+        }
+    };
+
     const handleExportar = async () => {
         if (!parsed || !mapa) return;
         setProcessando(true);
@@ -179,6 +244,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                 );
             }
 
+            // Mescla matrículas em edição
             const mapaComEdits: MapeamentoApontamento = {
                 ...mapa,
                 matriculas: Object.entries(matriculasEdit).reduce(
@@ -189,19 +255,31 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                     { ...(mapa.matriculas ?? {}) },
                 ),
             };
-
             for (const [emp, mats] of Object.entries(matriculasEdit)) {
                 if (Object.keys(mats).length > 0) {
-                    try {
-                        await saveMatriculas(cliente, emp, mats);
-                    } catch (e) {
-                        console.warn(`Falha ao salvar matrículas de ${emp}:`, e);
-                    }
+                    try { await saveMatriculas(cliente, emp, mats); } catch (e) { console.warn(e); }
                 }
             }
 
-            const r = montarLancamentos(parsed, mapaComEdits, catalogo);
+            // União das colunas ativas de todas as abas
+            const colunasAtivasUnion = new Set<string>();
+            Object.values(colunasAtivas).forEach((set) => set.forEach((c) => colunasAtivasUnion.add(c)));
+
+            const r = montarLancamentos(parsed, mapaComEdits, catalogo, {
+                colunasAtivas: colunasAtivasUnion,
+                exigirMatricula: true,
+            });
             setResultado(r);
+
+            // Bloqueio por funcionários sem matrícula
+            if (r.funcionariosSemMatricula.length > 0) {
+                setErro(
+                    `Exportação bloqueada: ${r.funcionariosSemMatricula.length} funcionário(s) ` +
+                    `sem matrícula cadastrada. Preencha as matrículas em amarelo na tabela acima ` +
+                    `e tente exportar novamente.`
+                );
+                return;
+            }
 
             if (!r.lancamentos.length) {
                 setErro('Nenhum lançamento foi gerado a partir do apontamento.');
@@ -221,8 +299,6 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
 
             for (const [nomeEmp, lancs] of lancamentosPorEmpresa.entries()) {
                 let empresaCad = acharEmpresaPorNome(nomeEmp, empresasCadastradas);
-                // Fallback: aba só tem 1 empresa nos lançamentos e empresa selecionada
-                // está cadastrada → usa ela (caso SPA, onde a aba é "Planilha1").
                 if (!empresaCad && lancamentosPorEmpresa.size === 1) {
                     empresaCad = sessao.empresa;
                 }
@@ -245,29 +321,19 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                 );
             }
 
-            const totais: Record<
-                string,
-                { funcionarios: Set<string>; lancamentos: number; valorTotal: number }
-            > = {};
+            const totais: Record<string, { funcionarios: Set<string>; lancamentos: number; valorTotal: number }> = {};
             for (const l of r.lancamentos) {
-                const t = (totais[l.empresa] ??= {
-                    funcionarios: new Set(),
-                    lancamentos: 0,
-                    valorTotal: 0,
-                });
+                const t = (totais[l.empresa] ??= { funcionarios: new Set(), lancamentos: 0, valorTotal: 0 });
                 t.funcionarios.add(l.funcionario);
                 t.lancamentos += 1;
                 t.valorTotal += Number(l.valor) || 0;
             }
             const totaisJson = Object.fromEntries(
-                Object.entries(totais).map(([k, v]) => [
-                    k,
-                    {
-                        funcionarios: v.funcionarios.size,
-                        lancamentos: v.lancamentos,
-                        valorTotal: Math.round(v.valorTotal * 100) / 100,
-                    },
-                ])
+                Object.entries(totais).map(([k, v]) => [k, {
+                    funcionarios: v.funcionarios.size,
+                    lancamentos: v.lancamentos,
+                    valorTotal: Math.round(v.valorTotal * 100) / 100,
+                }])
             );
 
             await addHistorico({
@@ -294,6 +360,22 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
         [parsed, empresaAtiva]
     );
 
+    // Conta preenchimento por coluna na empresa ativa
+    const preenchimentoPorColuna = useMemo(() => {
+        if (!empresaObj) return new Map<string, number>();
+        const m = new Map<string, number>();
+        for (const c of empresaObj.colunas) m.set(c, 0);
+        for (const f of empresaObj.funcionarios) {
+            for (const c of empresaObj.colunas) {
+                const v = f.celulas[c];
+                if (v !== null && v !== undefined && v !== '' && v !== 0) {
+                    m.set(c, (m.get(c) ?? 0) + 1);
+                }
+            }
+        }
+        return m;
+    }, [empresaObj]);
+
     return (
         <div className="space-y-4">
             <ContextBar sessao={sessao} currentUser={currentUser} onTrocar={onTrocarEmpresa} />
@@ -304,6 +386,11 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                         {mapa
                             ? `Layout cadastrado: ${Object.keys(mapa.mapeamento_colunas ?? {}).length} coluna(s) mapeada(s).`
                             : 'Empresa sem layout. Wizard abrirá no Processar.'}
+                        {perfil && (
+                            <span className="ml-2 text-emerald-600 dark:text-emerald-400">
+                                · Perfil de colunas: {perfil.colunas_ativas.length} ativa(s)
+                            </span>
+                        )}
                     </div>
                     <label className="text-sm text-slate-700 dark:text-slate-300">
                         Competência:{' '}
@@ -351,134 +438,155 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                 </div>
             </Section>
 
-            {parsed && (
-                <Section numero={3} titulo="Pré-visualização e matrículas">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
-                        {parsed.empresas.map((e) => (
-                            <div
-                                key={e.nome}
-                                className="p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg"
-                            >
-                                <div className="text-xs uppercase text-slate-500 dark:text-slate-400">
-                                    {e.nome}
-                                </div>
-                                <div className="text-2xl font-bold text-slate-800 dark:text-white">
-                                    {e.funcionarios.length}
-                                </div>
-                                <div className="text-xs text-slate-500 dark:text-slate-400">
-                                    funcionário(s) · {e.colunas.length} coluna(s)
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    <div className="flex gap-1 mb-2 flex-wrap">
-                        {parsed.empresas.map((e) => (
-                            <button
-                                key={e.nome}
-                                onClick={() => setEmpresaAtiva(e.nome)}
-                                className={`px-3 py-1 text-sm rounded border transition-colors ${
-                                    empresaAtiva === e.nome
-                                        ? 'bg-blue-600 text-white border-blue-600'
-                                        : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800'
-                                }`}
-                            >
-                                {e.nome}{' '}
-                                <span className="text-xs opacity-75">({e.funcionarios.length})</span>
-                            </button>
-                        ))}
-                    </div>
-
-                    {empresaObj && (
-                        <div className="overflow-auto max-h-[45vh] border border-slate-200 dark:border-slate-700 rounded-lg">
-                            <table className="w-full text-sm">
-                                <thead className="sticky top-0 bg-slate-100 dark:bg-slate-800">
-                                    <tr>
-                                        <th className="px-2 py-2 text-left w-[90px]">Matrícula</th>
-                                        <th className="px-2 py-2 text-left">Funcionário</th>
-                                        {empresaObj.colunas.map((c) => (
-                                            <th key={c} className="px-2 py-2 text-left whitespace-nowrap">
-                                                {c}
-                                            </th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {empresaObj.funcionarios.map((f) => {
-                                        const salva = mapa?.matriculas?.[empresaObj.nome]?.[f.nome] ?? '';
-                                        const edit = matriculasEdit[empresaObj.nome]?.[f.nome];
-                                        const mat = edit !== undefined ? edit : salva;
-                                        return (
-                                            <tr
-                                                key={f.nome}
-                                                className="border-t border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50"
-                                            >
-                                                <td className="px-2 py-1.5">
-                                                    <input
-                                                        type="text"
-                                                        value={mat}
-                                                        placeholder="—"
-                                                        onChange={(e) =>
-                                                            setMatriculasEdit((prev) => ({
-                                                                ...prev,
-                                                                [empresaObj.nome]: {
-                                                                    ...(prev[empresaObj.nome] ?? {}),
-                                                                    [f.nome]: e.target.value,
-                                                                },
-                                                            }))
-                                                        }
-                                                        className={`w-20 px-1.5 py-0.5 text-sm font-mono border rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-white ${
-                                                            mat
-                                                                ? 'border-slate-300 dark:border-slate-600'
-                                                                : 'border-amber-400 bg-amber-50 dark:bg-amber-900/20'
-                                                        }`}
-                                                    />
-                                                </td>
-                                                <td className="px-2 py-1.5 text-slate-800 dark:text-slate-200">
-                                                    {f.nome}
-                                                </td>
-                                                {empresaObj.colunas.map((c) => {
-                                                    const v = f.celulas[c];
-                                                    const n = typeof v === 'number' ? v : Number(v);
-                                                    if (Number.isFinite(n) && n !== 0) {
-                                                        return (
-                                                            <td
-                                                                key={c}
-                                                                className="px-2 py-1.5 text-right font-mono tabular-nums text-slate-700 dark:text-slate-300"
-                                                            >
-                                                                {n.toLocaleString('pt-BR', {
-                                                                    minimumFractionDigits: 2,
-                                                                    maximumFractionDigits: 2,
-                                                                })}
-                                                            </td>
-                                                        );
-                                                    }
-                                                    if (v && typeof v === 'string') {
-                                                        return (
-                                                            <td
-                                                                key={c}
-                                                                className="px-2 py-1.5 text-slate-700 dark:text-slate-300"
-                                                            >
-                                                                {v}
-                                                            </td>
-                                                        );
-                                                    }
-                                                    return (
-                                                        <td
-                                                            key={c}
-                                                            className="px-2 py-1.5 text-slate-300 dark:text-slate-600"
-                                                        >
-                                                            —
-                                                        </td>
-                                                    );
-                                                })}
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
+            {parsed && empresaObj && (
+                <Section numero={3} titulo="Pré-visualização, matrículas e seleção de colunas">
+                    {/* Tabs de empresas */}
+                    {parsed.empresas.length > 1 && (
+                        <div className="flex gap-1 mb-2 flex-wrap">
+                            {parsed.empresas.map((e) => (
+                                <button
+                                    key={e.nome}
+                                    onClick={() => setEmpresaAtiva(e.nome)}
+                                    className={`px-3 py-1 text-sm rounded border ${
+                                        empresaAtiva === e.nome
+                                            ? 'bg-blue-600 text-white border-blue-600'
+                                            : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800'
+                                    }`}
+                                >
+                                    {e.nome} <span className="text-xs opacity-75">({e.funcionarios.length})</span>
+                                </button>
+                            ))}
                         </div>
                     )}
+
+                    {/* Toolbar do perfil de colunas */}
+                    <div className="flex flex-wrap gap-2 items-center mb-3 p-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded">
+                        <span className="text-xs text-emerald-800 dark:text-emerald-200 font-semibold">
+                            🗂 Colunas selecionadas: {colunasAtivas[empresaObj.nome]?.size ?? 0} de {empresaObj.colunas.length}
+                        </span>
+                        <button
+                            onClick={() => marcarTodasColunas(empresaObj.nome, true)}
+                            className="text-xs px-2 py-0.5 border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 rounded"
+                        >
+                            Marcar todas
+                        </button>
+                        <button
+                            onClick={() => marcarTodasColunas(empresaObj.nome, false)}
+                            className="text-xs px-2 py-0.5 border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 rounded"
+                        >
+                            Desmarcar todas
+                        </button>
+                        <button
+                            onClick={handleSalvarPerfil}
+                            disabled={salvandoPerfil || !perfilDirty}
+                            className="ml-auto text-xs px-2 py-1 font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Salva a seleção atual como padrão para esse cliente. Próximos meses já vêm com esse padrão marcado."
+                        >
+                            {salvandoPerfil ? 'Salvando…' : '💾 Salvar como padrão deste cliente'}
+                        </button>
+                        {perfilDirty && (
+                            <span className="text-xs text-amber-700 dark:text-amber-400">⚠ alterações não salvas</span>
+                        )}
+                    </div>
+
+                    {/* Tabela */}
+                    <div className="overflow-auto max-h-[55vh] border border-slate-200 dark:border-slate-700 rounded-lg">
+                        <table className="w-full text-sm">
+                            <thead className="sticky top-0 bg-slate-100 dark:bg-slate-800">
+                                <tr>
+                                    <th className="px-2 py-2 text-left w-[90px]">Matrícula</th>
+                                    <th className="px-2 py-2 text-left">Funcionário</th>
+                                    {empresaObj.colunas.map((c) => {
+                                        const ativa = colunasAtivas[empresaObj.nome]?.has(c) ?? false;
+                                        const preench = preenchimentoPorColuna.get(c) ?? 0;
+                                        const totalFunc = empresaObj.funcionarios.length;
+                                        const pct = totalFunc > 0 ? (preench * 100) / totalFunc : 0;
+                                        const corBadge =
+                                            preench === 0
+                                                ? 'text-slate-400 bg-slate-100 dark:bg-slate-700'
+                                                : pct < 10
+                                                    ? 'text-amber-700 bg-amber-100 dark:bg-amber-900/40 dark:text-amber-300'
+                                                    : 'text-emerald-700 bg-emerald-100 dark:bg-emerald-900/40 dark:text-emerald-300';
+                                        return (
+                                            <th
+                                                key={c}
+                                                className={`px-2 py-2 text-left whitespace-nowrap ${
+                                                    !ativa ? 'opacity-40' : ''
+                                                }`}
+                                            >
+                                                <label className="flex flex-col gap-0.5 cursor-pointer">
+                                                    <span className="flex items-center gap-1">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={ativa}
+                                                            onChange={() => toggleColuna(empresaObj.nome, c)}
+                                                        />
+                                                        <span className="text-xs">{c}</span>
+                                                    </span>
+                                                    <span className={`text-[10px] px-1 rounded ${corBadge}`}>
+                                                        {preench}/{totalFunc}
+                                                    </span>
+                                                </label>
+                                            </th>
+                                        );
+                                    })}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {empresaObj.funcionarios.map((f) => {
+                                    const salva = mapa?.matriculas?.[empresaObj.nome]?.[f.nome] ?? '';
+                                    const edit = matriculasEdit[empresaObj.nome]?.[f.nome];
+                                    const mat = edit !== undefined ? edit : salva;
+                                    return (
+                                        <tr
+                                            key={f.nome}
+                                            className="border-t border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                                        >
+                                            <td className="px-2 py-1.5">
+                                                <input
+                                                    type="text"
+                                                    value={mat}
+                                                    placeholder="—"
+                                                    onChange={(e) =>
+                                                        setMatriculasEdit((prev) => ({
+                                                            ...prev,
+                                                            [empresaObj.nome]: {
+                                                                ...(prev[empresaObj.nome] ?? {}),
+                                                                [f.nome]: e.target.value,
+                                                            },
+                                                        }))
+                                                    }
+                                                    className={`w-20 px-1.5 py-0.5 text-sm font-mono border rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-white ${
+                                                        mat
+                                                            ? 'border-slate-300 dark:border-slate-600'
+                                                            : 'border-amber-400 bg-amber-50 dark:bg-amber-900/20'
+                                                    }`}
+                                                />
+                                            </td>
+                                            <td className="px-2 py-1.5 text-slate-800 dark:text-slate-200">{f.nome}</td>
+                                            {empresaObj.colunas.map((c) => {
+                                                const ativa = colunasAtivas[empresaObj.nome]?.has(c) ?? false;
+                                                const v = f.celulas[c];
+                                                const n = typeof v === 'number' ? v : Number(v);
+                                                const cellClass = ativa ? '' : 'opacity-30';
+                                                if (Number.isFinite(n) && n !== 0) {
+                                                    return (
+                                                        <td key={c} className={`px-2 py-1.5 text-right font-mono tabular-nums text-slate-700 dark:text-slate-300 ${cellClass}`}>
+                                                            {n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                        </td>
+                                                    );
+                                                }
+                                                if (v && typeof v === 'string') {
+                                                    return <td key={c} className={`px-2 py-1.5 text-slate-700 dark:text-slate-300 ${cellClass}`}>{v}</td>;
+                                                }
+                                                return <td key={c} className={`px-2 py-1.5 text-slate-300 dark:text-slate-600 ${cellClass}`}>—</td>;
+                                            })}
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
 
                     <div className="mt-3">
                         <button
@@ -489,7 +597,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                             💾 Salvar matrículas
                         </button>
                         <span className="ml-3 text-xs text-slate-500 dark:text-slate-400">
-                            Matrículas são memorizadas no Firestore para os próximos meses.
+                            Matrículas e perfil de colunas são memorizados no Firestore para os próximos meses.
                         </span>
                     </div>
                 </Section>
@@ -506,16 +614,15 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                             ▶ Exportar TXTs por empresa
                         </button>
                         <span className="text-xs text-slate-500 dark:text-slate-400">
-                            1 arquivo TXT por empresa cadastrada (layout 40 chars). Valide a 1ª importação no SAGE antes de produção.
+                            Apenas as colunas marcadas serão incluídas. Funcionários sem matrícula bloqueiam a exportação.
                         </span>
                     </div>
 
-                    {resultado && (
+                    {resultado && resultado.lancamentos.length > 0 && (
                         <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded">
                             <div className="font-semibold text-green-800 dark:text-green-200">
                                 ✓ {resultado.lancamentos.length} lançamento(s) gerados
                             </div>
-                            <ResumoExportacao resultado={resultado} />
                         </div>
                     )}
 
@@ -560,26 +667,18 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                     empresa={sessao.empresa}
                     fileBuffer={pendingBuffer}
                     fileName={file.name}
-                    onCancel={() => {
-                        setShowWizard(false);
-                        setPendingBuffer(null);
-                    }}
+                    onCancel={() => { setShowWizard(false); setPendingBuffer(null); }}
                     onSaved={async (novoMapa) => {
                         setShowWizard(false);
                         setMapa(novoMapa);
                         try {
-                            // Reprocessa o arquivo agora que o mapa existe
                             const blob = new Blob([pendingBuffer]);
                             const p = await parseApontamentoFile(blob);
                             setParsed(p);
                             setEmpresaAtiva(p.empresas[0]?.nome ?? null);
                             setMatriculasEdit({});
-                            setMsg(
-                                `Layout salvo · ${p.empresas.reduce(
-                                    (a, e) => a + e.funcionarios.length,
-                                    0
-                                )} funcionário(s) processado(s).`
-                            );
+                            inicializarSelecaoColunas(p, perfil);
+                            setMsg(`Layout salvo · ${p.empresas.reduce((a, e) => a + e.funcionarios.length, 0)} funcionário(s) processado(s).`);
                         } catch (e) {
                             setErro(e instanceof Error ? e.message : String(e));
                         } finally {
@@ -592,135 +691,61 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
     );
 };
 
-const ContextBar: React.FC<{
-    sessao: SessaoFolha;
-    currentUser: User;
-    onTrocar: () => void;
-}> = ({ sessao, currentUser, onTrocar }) => {
+// ─── Subcomponentes ────────────────────────────────────────────────────────
+
+const ContextBar: React.FC<{ sessao: SessaoFolha; currentUser: User; onTrocar: () => void }> = ({ sessao, currentUser, onTrocar }) => {
     const [agora, setAgora] = useState(new Date());
-
-    useEffect(() => {
-        const id = setInterval(() => setAgora(new Date()), 60_000);
-        return () => clearInterval(id);
-    }, []);
-
-    const ini = iniciaisDe(
-        sessao.empresa.nomeFantasia || sessao.empresa.razaoSocial || '?'
-    );
-
+    useEffect(() => { const id = setInterval(() => setAgora(new Date()), 60_000); return () => clearInterval(id); }, []);
+    const ini = iniciaisDe(sessao.empresa.nomeFantasia || sessao.empresa.razaoSocial || '?');
     return (
         <div className="p-4 sm:p-5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-dashed border-slate-200 dark:border-slate-700">
                 <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-white grid place-items-center font-bold text-base shadow-md">
-                        {ini}
-                    </div>
+                    <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-white grid place-items-center font-bold text-base shadow-md">{ini}</div>
                     <div>
-                        <div className="font-bold text-slate-800 dark:text-white text-base leading-tight">
-                            {sessao.empresa.nomeFantasia || sessao.empresa.razaoSocial}
-                        </div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5">
-                            {formatCnpjBr(sessao.empresa.cnpj)} · SAGE {sessao.empresa.codigoSage}
-                        </div>
+                        <div className="font-bold text-slate-800 dark:text-white text-base leading-tight">{sessao.empresa.nomeFantasia || sessao.empresa.razaoSocial}</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5">{formatCnpjBr(sessao.empresa.cnpj)} · SAGE {sessao.empresa.codigoSage}</div>
                     </div>
                 </div>
-
-                <button
-                    onClick={onTrocar}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-800 hover:text-white dark:hover:bg-slate-600 rounded transition-colors"
-                >
-                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M19 12H5M12 19l-7-7 7-7"/>
-                    </svg>
+                <button onClick={onTrocar} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-800 hover:text-white dark:hover:bg-slate-600 rounded transition-colors">
+                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
                     Trocar empresa
                 </button>
             </div>
-
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-3">
-                <MetaCell label="Período" mono>
-                    {sessao.competencia}
-                </MetaCell>
+                <MetaCell label="Período" mono>{sessao.competencia}</MetaCell>
                 <MetaCell label="Tipo">{sessao.tipo}</MetaCell>
                 <MetaCell label="Colaborador">
                     {currentUser.name || currentUser.email}
                     {(currentUser as any).role === 'admin' && (
-                        <span className="ml-1.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400">
-                            · Admin
-                        </span>
+                        <span className="ml-1.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400">· Admin</span>
                     )}
                 </MetaCell>
                 <MetaCell label="Sessão" mono>
                     {formatDataHora(sessao.iniciadaEm)}
-                    <span className="block text-[10px] text-slate-400 dark:text-slate-500 font-mono">
-                        agora: {formatDataHora(agora)}
-                    </span>
+                    <span className="block text-[10px] text-slate-400 dark:text-slate-500 font-mono">agora: {formatDataHora(agora)}</span>
                 </MetaCell>
             </div>
         </div>
     );
 };
 
-const MetaCell: React.FC<{ label: string; mono?: boolean; children: React.ReactNode }> = ({
-    label,
-    mono,
-    children,
-}) => (
+const MetaCell: React.FC<{ label: string; mono?: boolean; children: React.ReactNode }> = ({ label, mono, children }) => (
     <div>
-        <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
-            {label}
-        </div>
-        <div className={`text-sm font-semibold text-slate-800 dark:text-white ${mono ? 'font-mono' : ''}`}>
-            {children}
-        </div>
+        <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">{label}</div>
+        <div className={`text-sm font-semibold text-slate-800 dark:text-white ${mono ? 'font-mono' : ''}`}>{children}</div>
     </div>
 );
 
-const Section: React.FC<{
-    numero: number;
-    titulo: string;
-    children: React.ReactNode;
-}> = ({ numero, titulo, children }) => (
+const Section: React.FC<{ numero: number; titulo: string; children: React.ReactNode }> = ({ numero, titulo, children }) => (
     <div className="p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg">
         <h3 className="text-sm font-bold mb-3 flex items-center gap-2 text-slate-800 dark:text-white">
-            <span className="inline-flex items-center justify-center w-6 h-6 bg-blue-600 text-white rounded-full text-xs">
-                {numero}
-            </span>
+            <span className="inline-flex items-center justify-center w-6 h-6 bg-blue-600 text-white rounded-full text-xs">{numero}</span>
             {titulo}
         </h3>
         {children}
     </div>
 );
-
-const ResumoExportacao: React.FC<{ resultado: ResultadoMapeamento }> = ({ resultado }) => {
-    const porEmpresa: Record<
-        string,
-        { funcionarios: Set<string>; lancamentos: number; total: number }
-    > = {};
-    for (const l of resultado.lancamentos) {
-        const t = (porEmpresa[l.empresa] ??= {
-            funcionarios: new Set(),
-            lancamentos: 0,
-            total: 0,
-        });
-        t.funcionarios.add(l.funcionario);
-        t.lancamentos += 1;
-        t.total += Number(l.valor) || 0;
-    }
-    return (
-        <ul className="mt-2 text-sm text-green-900 dark:text-green-100">
-            {Object.entries(porEmpresa).map(([emp, t]) => (
-                <li key={emp}>
-                    <strong>{emp}</strong>: {t.funcionarios.size} func., {t.lancamentos}{' '}
-                    lançamento(s), R${' '}
-                    {t.total.toLocaleString('pt-BR', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                    })}
-                </li>
-            ))}
-        </ul>
-    );
-};
 
 function iniciaisDe(s: string): string {
     const partes = s.trim().split(/\s+/).filter(Boolean);
