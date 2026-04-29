@@ -1,6 +1,7 @@
 // components/folha/EventosIobSagePanel.tsx
 // Catálogo de 599 eventos do IOB SAGE FOLHAMATIC + seleção por cliente.
 // Admin pode fazer o bootstrap inicial do catálogo (upload do JSON gerado pelo script Python).
+// + CRUD manual de eventos com auditoria (modal Novo/Editar + Histórico).
 
 import React, { useEffect, useMemo, useState } from 'react';
 import type { User } from '../../types';
@@ -11,6 +12,8 @@ import {
     getSelecao,
     saveSelecao,
 } from '../../services/folha/folhaFirestoreService';
+import EventoEditModal from './EventoEditModal';
+import HistoricoEventosModal from './HistoricoEventosModal';
 
 interface Props {
     currentUser: User;
@@ -33,6 +36,24 @@ const EventosIobSagePanel: React.FC<Props> = ({ currentUser }) => {
     const [filtroTipo, setFiltroTipo] = useState<'' | 'V' | 'D'>('');
     const [filtroRO, setFiltroRO] = useState('');
     const [filtroSel, setFiltroSel] = useState<'' | 'sel' | 'nao'>('');
+
+    // Modais de CRUD
+    const [modalAberto, setModalAberto] = useState(false);
+    const [modalModo, setModalModo] = useState<'novo' | 'editar'>('novo');
+    const [eventoEditando, setEventoEditando] = useState<EventoIobSage | null>(null);
+    const [histAberto, setHistAberto] = useState(false);
+
+    const abrirNovo = () => {
+        setModalModo('novo');
+        setEventoEditando(null);
+        setModalAberto(true);
+    };
+
+    const abrirEditar = (ev: EventoIobSage) => {
+        setModalModo('editar');
+        setEventoEditando(ev);
+        setModalAberto(true);
+    };
 
     // Carrega catálogo + seleção ao montar
     useEffect(() => {
@@ -248,6 +269,20 @@ const EventosIobSagePanel: React.FC<Props> = ({ currentUser }) => {
                     <option value="sel">Somente selecionados</option>
                     <option value="nao">Somente não selecionados</option>
                 </select>
+
+                <button
+                    onClick={abrirNovo}
+                    className="px-3 py-1.5 text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded"
+                >
+                    + Novo evento
+                </button>
+                <button
+                    onClick={() => setHistAberto(true)}
+                    className="px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
+                    title="Histórico de alterações no catálogo"
+                >
+                    🕒 Histórico
+                </button>
                 <button
                     onClick={handleExportarSelecao}
                     className="px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
@@ -313,6 +348,7 @@ const EventosIobSagePanel: React.FC<Props> = ({ currentUser }) => {
                                     ev={ev}
                                     checked={selecionados.has(ev.codigo)}
                                     onToggle={toggle}
+                                    onEditar={abrirEditar}
                                 />
                             ))
                         )}
@@ -322,7 +358,7 @@ const EventosIobSagePanel: React.FC<Props> = ({ currentUser }) => {
 
             <div className="mt-3 flex justify-between text-xs text-slate-500 dark:text-slate-400 flex-wrap gap-2">
                 <span>
-                    Catálogo: empresa {catalogo.empresa} · {catalogo.eventos.length} eventos
+                    Catálogo: empresa {catalogo.empresa} · {catalogo.eventos.length} eventos · duplo-clique numa linha para editar
                 </span>
                 {ultimaAcao && <span>{ultimaAcao}</span>}
                 {dirty && (
@@ -331,6 +367,23 @@ const EventosIobSagePanel: React.FC<Props> = ({ currentUser }) => {
                     </span>
                 )}
             </div>
+
+            {/* Modais de CRUD e histórico */}
+            <EventoEditModal
+                aberto={modalAberto}
+                modo={modalModo}
+                eventoOriginal={eventoEditando}
+                currentUser={currentUser}
+                onFechar={() => setModalAberto(false)}
+                onSalvo={(novoCatalogo) => {
+                    setCat(novoCatalogo);
+                    setUltimaAcao(`Catálogo atualizado em ${new Date().toLocaleString('pt-BR')}.`);
+                }}
+            />
+            <HistoricoEventosModal
+                aberto={histAberto}
+                onFechar={() => setHistAberto(false)}
+            />
         </div>
     );
 };
@@ -367,7 +420,8 @@ const LinhaEvento: React.FC<{
     ev: EventoIobSage;
     checked: boolean;
     onToggle: (c: string) => void;
-}> = ({ ev, checked, onToggle }) => {
+    onEditar: (ev: EventoIobSage) => void;
+}> = ({ ev, checked, onToggle, onEditar }) => {
     const inc = ev.incidencias;
     const cell = (v: 'S' | 'N') =>
         v === 'S' ? (
@@ -377,7 +431,9 @@ const LinhaEvento: React.FC<{
         );
     return (
         <tr
-            className={`border-t border-slate-100 dark:border-slate-700 ${
+            onDoubleClick={() => onEditar(ev)}
+            title="Duplo-clique para editar"
+            className={`border-t border-slate-100 dark:border-slate-700 cursor-pointer ${
                 checked ? 'bg-blue-50 dark:bg-blue-900/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'
             }`}
         >
@@ -386,6 +442,7 @@ const LinhaEvento: React.FC<{
                     type="checkbox"
                     checked={checked}
                     onChange={() => onToggle(ev.codigo)}
+                    onClick={(e) => e.stopPropagation()}
                 />
             </td>
             <td className="px-2 py-1.5 font-mono font-semibold text-slate-800 dark:text-white">
