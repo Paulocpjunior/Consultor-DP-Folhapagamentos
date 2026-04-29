@@ -37,3 +37,5 @@ jest.config.js
 
 # Logs de respostas Gemini
 /tmp/gemini-*.json
+service-account.json
+service-account.json
