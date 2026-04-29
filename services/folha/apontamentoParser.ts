@@ -201,7 +201,7 @@ export function parseApontamentoBuffer(buffer: ArrayBuffer | Uint8Array): Aponta
             const nome = trimOrNull(r[nameCol]);
             if (!nome) continue;
             // Linhas de totalizadores ("TOTAL", "Total geral", etc.) são ignoradas.
-            if (/^total/i.test(nome)) continue;
+            if (/^(total|subtotal|incluir |excluir |observa)/i.test(nome)) continue;
             // Sub-totais por seção também aparecem com prefixos comuns.
             if (/^subtotal/i.test(nome)) continue;
 
