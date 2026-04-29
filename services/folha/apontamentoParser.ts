@@ -147,7 +147,7 @@ export async function parseApontamentoFile(file: File | Blob): Promise<Apontamen
 }
 
 export function parseApontamentoBuffer(buffer: ArrayBuffer | Uint8Array): ApontamentoParseado {
-    const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
+    const workbook = XLSX.read(buffer, { type: 'array' });
     const empresas: EmpresaApontamento[] = [];
     const debug: string[] = [];
 
@@ -253,4 +253,19 @@ export function parseApontamentoBuffer(buffer: ArrayBuffer | Uint8Array): Aponta
         processado_em: new Date().toISOString(),
         empresas,
     };
+}
+
+// v2.3 - extrai valor tolerante para layouts tipo Ferrante:
+// - String com % (ex "20%" Insalubridade) -> 20
+// - Fração de dia Excel para rv='R' (ex 0.5833 = 14h) -> *24
+export function extrairValor(raw: unknown, rv?: string): number | null {
+    if (raw === null || raw === undefined || raw === '') return null;
+    if (typeof raw === 'string') {
+        const m = raw.match(/(-?\d+(?:[,.]\d+)?)\s*%/);
+        if (m) return Number(m[1].replace(',', '.'));
+    }
+    const n = toNumber(raw);
+    if (n === null) return null;
+    if (rv === 'R' && n > 0 && n < 1) return round2(n * 24);
+    return n;
 }

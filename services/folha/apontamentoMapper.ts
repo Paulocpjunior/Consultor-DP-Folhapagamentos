@@ -21,7 +21,7 @@ import type {
     MapeamentoApontamento,
     ResultadoMapeamento,
 } from './folhaTypes';
-import { norm, round2, toNumber } from './apontamentoParser';
+import { norm, round2, toNumber, extrairValor } from './apontamentoParser';
 
 /**
  * Resolve a config da empresa no mapa para uma aba do parser.
@@ -89,7 +89,7 @@ function gerarLancamentosFuncionario(
         // ⭐ NOVO: filtro de colunas ativas
         if (colunasAtivas && !colunasAtivas.has(coluna)) continue;
 
-        const valor = toNumber(celulas[coluna]);
+        const valor = extrairValor(celulas[coluna], regra.rv);
         if (valor === null) continue;
         if (regra.ignorar_se_zero && valor === 0) continue;
 
