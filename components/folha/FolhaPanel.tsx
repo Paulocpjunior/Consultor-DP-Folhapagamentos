@@ -6,6 +6,7 @@ import {
     listarMinhasEmpresas,
     listarTodasEmpresas,
 } from '../../services/empresas/empresasService';
+import { baixarTemplateApontamento } from '../../services/folha/templateApontamentoIobSage';
 
 const EventosIobSagePanel = lazy(() => import('./EventosIobSagePanel'));
 const ApontamentoFolhaPanel = lazy(() => import('./ApontamentoFolhaPanel'));
@@ -281,6 +282,40 @@ const SeletorEmpresa: React.FC<SeletorProps> = ({ currentUser, onSelecionar, onN
                         Retomar <span aria-hidden>→</span>
                     </span>
                 </button>
+            </div>
+
+            <div className="mt-8 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
+                <div className="flex flex-wrap items-start gap-4">
+                    <div className="w-11 h-11 rounded-lg bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
+                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <path d="M14 2v6h6"/>
+                            <path d="M12 18v-6"/>
+                            <path d="m9 15 3 3 3-3"/>
+                        </svg>
+                    </div>
+                    <div className="flex-1 min-w-[260px]">
+                        <h4 className="font-bold text-slate-800 dark:text-white">
+                            Cliente envia o apontamento por e-mail?
+                        </h4>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 max-w-2xl">
+                            Baixe o template <strong>.xlsx</strong> com o layout pronto para
+                            importação no IOB SAGE FOLHAMATIC. Preencha matrícula, código do
+                            evento, referência ou valor e importe direto no sistema da folha.
+                        </p>
+                    </div>
+                    <button
+                        onClick={() => baixarTemplateApontamento({ competencia: competenciaAtual() })}
+                        className="px-4 py-2 text-sm font-semibold bg-amber-600 hover:bg-amber-700 text-white rounded-lg shadow-sm inline-flex items-center gap-2"
+                    >
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Baixar template .xlsx
+                    </button>
+                </div>
             </div>
 
             {recentes.length > 0 && (
