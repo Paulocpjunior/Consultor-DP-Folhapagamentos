@@ -6,16 +6,17 @@
 // IOB SAGE — Folha de Pagamento → Importação de Lançamentos.
 //
 // Layout das colunas (na aba "Lançamentos"):
-//   A. Matrícula        — 6 dígitos, texto. Ex.: 000123
-//   B. Código Evento    — 4 dígitos, texto. Ex.: 0001
-//   C. Descrição Evento — texto livre (apenas referência visual; o IOB usa o código)
-//   D. Tipo (R/V)       — R = Referência (horas/qtde) | V = Valor em R$
-//   E. Referência       — numérico (preenche quando Tipo = R)
-//   F. Valor (R$)       — numérico (preenche quando Tipo = V)
-//   G. Observação       — texto livre (opcional)
+//   A. Matrícula           — 6 dígitos, texto. Ex.: 000123
+//   B. Nome do Funcionário — texto livre (informativo, ajuda na conferência)
+//   C. Código Evento       — 4 dígitos, texto. Ex.: 0001
+//   D. Descrição Evento    — texto livre (apenas referência visual; o IOB usa o código)
+//   E. Tipo (R/V)          — R = Referência (horas/qtde) | V = Valor em R$
+//   F. Referência          — numérico (preenche quando Tipo = R)
+//   G. Valor (R$)          — numérico (preenche quando Tipo = V)
+//   H. Observação          — texto livre (opcional)
 //
 // O IOB SAGE FOLHAMATIC aceita lançamentos do tipo Referência OU Valor por linha.
-// Não preencha as duas colunas (E e F) na mesma linha.
+// Não preencha as duas colunas (F e G) na mesma linha.
 
 import * as XLSX from 'xlsx';
 
@@ -67,6 +68,7 @@ const EVENTOS_REFERENCIA: EventoExemplo[] = [
  */
 const HEADERS_LANCAMENTOS = [
     'Matrícula',
+    'Nome do Funcionário',
     'Código Evento',
     'Descrição Evento',
     'Tipo (R/V)',
@@ -91,22 +93,22 @@ export function gerarTemplateApontamentoXlsx(opts: GerarTemplateOpts = {}): Arra
     const competencia = opts.competencia?.trim() || '';
 
     const cabecalhoMeta: (string | number | null)[][] = [
-        [`APONTAMENTO DE FOLHA — ${empresa}`, null, null, null, null, null, null],
-        [competencia ? `Competência: ${competencia}` : 'Competência: __/____', null, null, null, null, null, null],
-        [null, null, null, null, null, null, null],
+        [`APONTAMENTO DE FOLHA — ${empresa}`, null, null, null, null, null, null, null],
+        [competencia ? `Competência: ${competencia}` : 'Competência: __/____', null, null, null, null, null, null, null],
+        [null, null, null, null, null, null, null, null],
         HEADERS_LANCAMENTOS,
     ];
 
     // 30 linhas em branco prontas para preenchimento manual.
     const linhasVazias: (string | number | null)[][] = [];
     for (let i = 0; i < 30; i++) {
-        linhasVazias.push(['', '', '', '', null, null, '']);
+        linhasVazias.push(['', '', '', '', '', null, null, '']);
     }
 
     // 2 linhas de exemplo, para o colaborador entender o preenchimento.
     const exemplos: (string | number | null)[][] = [
-        ['000123', '0080', 'HORAS EXTRAS 50%', 'R', 10, null, 'Apontado pelo gestor'],
-        ['000123', '0700', 'VALE TRANSPORTE (DESCONTO)', 'V', null, 88.50, ''],
+        ['000123', 'JOÃO DA SILVA',  '0080', 'HORAS EXTRAS 50%',          'R', 10,   null,  'Apontado pelo gestor'],
+        ['000123', 'JOÃO DA SILVA',  '0700', 'VALE TRANSPORTE (DESCONTO)', 'V', null, 88.50, ''],
     ];
 
     const aoaLancamentos = [
@@ -120,6 +122,7 @@ export function gerarTemplateApontamentoXlsx(opts: GerarTemplateOpts = {}): Arra
     // Larguras de coluna (em caracteres)
     wsLanc['!cols'] = [
         { wch: 12 }, // Matrícula
+        { wch: 32 }, // Nome do Funcionário
         { wch: 14 }, // Código Evento
         { wch: 34 }, // Descrição Evento
         { wch: 11 }, // Tipo
@@ -130,8 +133,8 @@ export function gerarTemplateApontamentoXlsx(opts: GerarTemplateOpts = {}): Arra
 
     // Mesclar título nas duas primeiras linhas para destaque visual
     wsLanc['!merges'] = [
-        { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
-        { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } },
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } },
     ];
 
     XLSX.utils.book_append_sheet(wb, wsLanc, 'Lançamentos');
@@ -146,6 +149,7 @@ export function gerarTemplateApontamentoXlsx(opts: GerarTemplateOpts = {}): Arra
         [''],
         ['REGRAS POR COLUNA:'],
         ['• Matrícula: 6 dígitos, com zeros à esquerda. Ex.: 000123, 001045.'],
+        ['• Nome do Funcionário: campo informativo (não vai pro IOB) — ajuda na conferência visual.'],
         ['• Código Evento: 4 dígitos. Consulte a aba "Tabela de Eventos" ou o cadastro do IOB.'],
         ['• Descrição Evento: campo informativo (não vai pro IOB) — ajuda a conferir.'],
         ['• Tipo (R/V):'],
@@ -157,8 +161,8 @@ export function gerarTemplateApontamentoXlsx(opts: GerarTemplateOpts = {}): Arra
         ['• Observação: opcional, livre para anotações internas.'],
         [''],
         ['EXEMPLO (já incluído nas duas primeiras linhas da aba Lançamentos):'],
-        ['  Matrícula 000123 | Evento 0080 (HE 50%)   | Tipo R | Referência 10  → 10 horas extras 50%'],
-        ['  Matrícula 000123 | Evento 0700 (VT desc.) | Tipo V | Valor 88,50    → R$ 88,50 de vale-transporte'],
+        ['  000123 | JOÃO DA SILVA | 0080 (HE 50%)   | Tipo R | Referência 10  → 10 horas extras 50%'],
+        ['  000123 | JOÃO DA SILVA | 0700 (VT desc.) | Tipo V | Valor 88,50    → R$ 88,50 de vale-transporte'],
         [''],
         ['COMO IMPORTAR NO IOB SAGE FOLHAMATIC:'],
         ['1. Abra o IOB SAGE FOLHAMATIC e selecione a empresa e a competência.'],
