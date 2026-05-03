@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import * as authService from '../../services/auth/authService';
+import Logo from '../Logo';
+import { APP_VERSION_LABEL } from '../../services/updateService';
 
 interface Props {
     onLoginSuccess?: () => void;
@@ -56,13 +58,11 @@ const LoginScreen: React.FC<Props> = () => {
             }}>
                 {/* Logo + titulo */}
                 <div className="flex flex-col items-center mb-6">
-                    <div className="w-14 h-14 rounded-xl flex items-center justify-center mb-4 shadow-lg" style={{
-                        background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)',
-                        boxShadow: '0 0 20px rgba(67, 56, 202, 0.4)',
-                    }}>
-                        <span className="text-2xl font-bold text-white" style={{
-                            fontFamily: 'system-ui, -apple-system, sans-serif',
-                        }}>S</span>
+                    <div
+                        className="w-20 h-20 rounded-2xl flex items-center justify-center mb-4 bg-white/95 p-2"
+                        style={{ boxShadow: '0 0 28px rgba(67, 56, 202, 0.35)' }}
+                    >
+                        <Logo iconOnly className="w-full h-full" />
                     </div>
                     <h1 className="text-2xl font-bold text-white tracking-wide">SP CONTÁBIL</h1>
                     <p className="text-xs font-semibold tracking-widest uppercase mt-1" style={{ color: '#6366f1' }}>
@@ -178,7 +178,7 @@ const LoginScreen: React.FC<Props> = () => {
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
                         <span>Ambiente criptografado e seguro</span>
                     </div>
-                    <p className="text-xs text-slate-600 mt-1.5 font-mono">Versão 1.0 Release 001</p>
+                    <p className="text-xs text-slate-600 mt-1.5 font-mono">{APP_VERSION_LABEL}</p>
                 </div>
             </div>
         </div>

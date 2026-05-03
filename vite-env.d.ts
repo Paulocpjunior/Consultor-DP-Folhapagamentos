@@ -13,3 +13,10 @@ interface ImportMetaEnv {
 interface ImportMeta {
     readonly env: ImportMetaEnv;
 }
+
+// Globais injetados em build-time pelo vite.config.ts (define) — preenchidos
+// a partir do package.json e do git via scripts/genVersion.mjs.
+declare const __APP_VERSION__: string;
+declare const __APP_BUILD__: string;
+declare const __APP_RELEASE__: string;
+declare const __APP_BUILT_AT__: string;

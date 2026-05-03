@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "vite",
+    "prebuild": "node scripts/genVersion.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "start": "node server.js",

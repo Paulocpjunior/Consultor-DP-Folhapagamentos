@@ -23,8 +23,12 @@ eventos.pdf
 eventos-ocr.pdf
 *.pdf
 
-# Scripts de extração (uso interno)
-scripts/
+# Scripts de extração (uso interno) — exceção: scripts de build versionados
+scripts/*
+!scripts/genVersion.mjs
+
+# version.json é gerado pelo prebuild a cada build de produção
+public/version.json
 
 # Cloud Run / Docker (não usado em GitHub Pages)
 server.js

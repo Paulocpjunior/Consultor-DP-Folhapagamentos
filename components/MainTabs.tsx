@@ -5,6 +5,8 @@ import PendingScreen from './auth/PendingScreen';
 import AdminUsersPanel from './auth/AdminUsersPanel';
 import FolhaPanel from './folha/FolhaPanel';
 import EmpresasPanel from './empresas/EmpresasPanel';
+import Logo from './Logo';
+import UpdateBanner from './UpdateBanner';
 import { listarMinhasEmpresas, listarTodasEmpresas } from '../services/empresas/empresasService';
 import type { User } from '../types';
 
@@ -53,8 +55,8 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
         );
     }
 
-    if (!currentUser) return <LoginScreen />;
-    if (currentUser.role === 'pendente') return <PendingScreen user={currentUser} />;
+    if (!currentUser) return (<><UpdateBanner /><LoginScreen /></>);
+    if (currentUser.role === 'pendente') return (<><UpdateBanner /><PendingScreen user={currentUser} /></>);
 
     const isAdmin = currentUser.role === 'admin';
 
@@ -70,10 +72,12 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
+            <UpdateBanner />
             <nav className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-40 shadow-sm">
                 <div className="max-w-7xl mx-auto px-4">
                     <div className="flex items-center justify-between h-14">
                         <div className="flex items-center gap-1">
+                            <Logo iconOnly className="h-9 w-9 mr-3 hidden sm:block" />
                             <span className="font-bold text-slate-800 dark:text-white mr-4 hidden sm:block">
                                 Consultor DP · SP Assessoria
                             </span>
