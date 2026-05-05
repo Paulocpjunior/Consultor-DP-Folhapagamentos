@@ -33,10 +33,10 @@ if (isFirebaseConfigured) {
   // Tenta inicializar Firestore com auto-detect de long-polling.
   // Resolve "Fetch API cannot load .../Listen/channel due to access control checks"
   // que ocorre quando WebChannel é bloqueado (Safari, proxies, alguns ad-blockers,
-  // redes corporativas). Quando bloqueado, cai pra long-polling automaticamente.
+  // redes corporativas). Quando bloqueado, força long-polling do início (Safari + redes restritivas).
   try {
     db = initializeFirestore(app, {
-      experimentalAutoDetectLongPolling: true,
+      experimentalForceLongPolling: true,
     });
   } catch {
     // Já inicializado em outra parte do app (HMR / múltiplos imports) —
