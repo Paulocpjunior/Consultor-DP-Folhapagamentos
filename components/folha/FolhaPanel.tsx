@@ -10,8 +10,9 @@ import { baixarTemplateApontamento } from '../../services/folha/templateApontame
 
 const EventosIobSagePanel = lazy(() => import('./EventosIobSagePanel'));
 const ApontamentoFolhaPanel = lazy(() => import('./ApontamentoFolhaPanel'));
+const ValidadorACJEFPanel = lazy(() => import('../ponto/ValidadorACJEFPanel'));
 
-type SubTab = 'eventos' | 'apontamento';
+type SubTab = 'eventos' | 'apontamento' | 'validador-ponto';
 
 interface FolhaPanelProps {
     currentUser: User;
@@ -63,6 +64,17 @@ const FolhaPanel: React.FC<FolhaPanelProps> = ({ currentUser, onIrParaEmpresas }
                     <span className="mr-1">📚</span>
                     Catálogo de Eventos
                 </button>
+                <button
+                    onClick={() => setSub('validador-ponto')}
+                    className={`px-4 py-2 -mb-px text-sm font-medium border-b-2 transition-colors ${
+                        sub === 'validador-ponto'
+                            ? 'border-amber-600 text-amber-600 dark:text-amber-400 dark:border-amber-400'
+                            : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+                    }`}
+                >
+                    <span className="mr-1">🕐</span>
+                    Validador ACJEF (teste)
+                </button>
             </div>
 
             <Suspense
@@ -88,6 +100,10 @@ const FolhaPanel: React.FC<FolhaPanelProps> = ({ currentUser, onIrParaEmpresas }
                         sessao={sessao}
                         onTrocarEmpresa={() => setSessao(null)}
                     />
+                )}
+
+                {sub === 'validador-ponto' && (
+                    <ValidadorACJEFPanel currentUser={currentUser} />
                 )}
             </Suspense>
         </div>

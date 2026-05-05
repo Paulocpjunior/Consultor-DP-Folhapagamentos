@@ -75,6 +75,29 @@ service cloud.firestore {
       allow read: if isApproved();
       allow write: if isApproved();
     }
+    // ===== Ponto Eletronico =====
+
+    // Catalogo de modelos de ponto (ACJEF, DIMEP, Henry, Ahgora, etc).
+    // Leitura: qualquer usuario aprovado. Escrita: so admin (catalogo compartilhado).
+    match /ponto_modelos/{modeloId} {
+      allow read:   if isApproved();
+      allow list:   if isApproved();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Layouts de ponto por empresa (CNPJ + cadastro SAGE).
+    // Mesma logica de empresas: usuario aprovado le e escreve.
+    match /ponto_layouts/{layoutId} {
+      allow read:   if isApproved();
+      allow list:   if isApproved();
+      allow create: if isApproved();
+      allow update: if isApproved();
+      allow delete: if isApproved();
+    }
+
+
 
     match /{document=**} { allow read, write: if false; }
   }

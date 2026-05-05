@@ -1,0 +1,113 @@
+{
+  "_documentacao_critica": [
+    "Este e o modelo BASE do ACJEF (Arquivo de Controle de Jornada e Eventos da Folha) conforme a Portaria MTE 1510/2009 Anexo II.",
+    "ATENCAO: as posicoes de campo abaixo sao baseadas na melhor leitura da Portaria, mas a especificacao tem nuances entre fabricantes (DIMEP, Henry, Ahgora, etc).",
+    "Antes de usar em producao, ROTEIRO obrigatorio: 1) baixar 1 arquivo ACJEF real de um cliente; 2) rodar o script test-acjef-parser.mjs; 3) conferir se o cabecalho e os primeiros 5 eventos saem com valores plausiveis; 4) ajustar este JSON no Firestore se algum campo estiver desalinhado.",
+    "Atualizacoes neste schema NAO precisam de deploy: e schema-as-data, basta editar no Firestore Console e a proxima importacao usa.",
+    "deParaEventos comeca VAZIO porque o codigo de evento do ACJEF e configurado pela empresa quando instala o REP. Cada cliente vai cadastrar seu de-para no LayoutPonto, ou aqui se for o padrao de um fabricante (DIMEP, Henry...)."
+  ],
+  "id": "acjef_p1510_v1",
+  "nome": "ACJEF Padrao (Portaria 1510)",
+  "fabricante": "GENERICO",
+  "formato": "acjef",
+  "versao": "1.0.0",
+  "documentacao": "Portaria MTE 1510/2009, Anexo II. Layout fixed-width, encoding ISO-8859-1, lines CRLF.",
+  "encoding": "iso-8859-1",
+  "schemas": [
+    {
+      "tipo": "1",
+      "nome": "cabecalho",
+      "ehEvento": false,
+      "_status": "REVISAR_COM_SAMPLE",
+      "campos": [
+        { "nome": "nsr", "inicio": 1, "tamanho": 9, "tipo": "number" },
+        { "nome": "tipoRegistro", "inicio": 10, "tamanho": 1, "tipo": "string" },
+        { "nome": "tipoIdentificadorEmpregador", "inicio": 11, "tamanho": 2, "tipo": "string" },
+        { "nome": "cnpj", "inicio": 13, "tamanho": 14, "tipo": "string" },
+        { "nome": "cei", "inicio": 27, "tamanho": 12, "tipo": "string" },
+        { "nome": "razaoSocial", "inicio": 39, "tamanho": 150, "tipo": "string" },
+        { "nome": "dataInicial", "inicio": 189, "tamanho": 8, "tipo": "data_ddmmaaaa" },
+        { "nome": "dataFinal", "inicio": 197, "tamanho": 8, "tipo": "data_ddmmaaaa" },
+        { "nome": "dataGeracao", "inicio": 205, "tamanho": 8, "tipo": "data_ddmmaaaa" },
+        { "nome": "horaGeracao", "inicio": 213, "tamanho": 4, "tipo": "hora_hhmm" },
+        { "nome": "versaoLayout", "inicio": 217, "tamanho": 3, "tipo": "string" }
+      ]
+    },
+    {
+      "tipo": "2",
+      "nome": "definicao_jornada",
+      "ehEvento": false,
+      "_status": "REVISAR_COM_SAMPLE",
+      "_nota": "Tipo 2 tem estrutura variavel (intervalos). So extraimos NSR e codigo da jornada por enquanto.",
+      "campos": [
+        { "nome": "nsr", "inicio": 1, "tamanho": 9, "tipo": "number" },
+        { "nome": "tipoRegistro", "inicio": 10, "tamanho": 1, "tipo": "string" },
+        { "nome": "codJornada", "inicio": 11, "tamanho": 4, "tipo": "string" }
+      ]
+    },
+    {
+      "tipo": "3",
+      "nome": "marcacao_tratada",
+      "ehEvento": false,
+      "_status": "REVISAR_COM_SAMPLE",
+      "_nota": "Marcacao apurada do dia. Nao gera lancamento direto na folha; serve de auditoria.",
+      "campos": [
+        { "nome": "nsr", "inicio": 1, "tamanho": 9, "tipo": "number" },
+        { "nome": "tipoRegistro", "inicio": 10, "tamanho": 1, "tipo": "string" },
+        { "nome": "pis", "inicio": 11, "tamanho": 12, "tipo": "string" },
+        { "nome": "dataInicio", "inicio": 23, "tamanho": 8, "tipo": "data_ddmmaaaa" },
+        { "nome": "horaInicio", "inicio": 31, "tamanho": 4, "tipo": "hora_hhmm" },
+        { "nome": "dataFim", "inicio": 35, "tamanho": 8, "tipo": "data_ddmmaaaa" },
+        { "nome": "horaFim", "inicio": 43, "tamanho": 4, "tipo": "hora_hhmm" },
+        { "nome": "codOcorrencia", "inicio": 47, "tamanho": 4, "tipo": "string" }
+      ]
+    },
+    {
+      "tipo": "4",
+      "nome": "evento_folha",
+      "ehEvento": true,
+      "_status": "REVISAR_COM_SAMPLE",
+      "_nota": "ESTE E O REGISTRO QUE INTERESSA. Cada linha tipo 4 vira um EventoApurado se o codEvento tiver mapeamento em deParaEventos.",
+      "campoCodigoEvento": "codEvento",
+      "campoPIS": "pis",
+      "campoQuantidade": "tempoApurado",
+      "campoData": "dataInicio",
+      "campos": [
+        { "nome": "nsr", "inicio": 1, "tamanho": 9, "tipo": "number" },
+        { "nome": "tipoRegistro", "inicio": 10, "tamanho": 1, "tipo": "string" },
+        { "nome": "pis", "inicio": 11, "tamanho": 12, "tipo": "string" },
+        { "nome": "dataInicio", "inicio": 23, "tamanho": 8, "tipo": "data_ddmmaaaa" },
+        { "nome": "horaInicio", "inicio": 31, "tamanho": 4, "tipo": "hora_hhmm" },
+        { "nome": "dataFim", "inicio": 35, "tamanho": 8, "tipo": "data_ddmmaaaa" },
+        { "nome": "horaFim", "inicio": 43, "tamanho": 4, "tipo": "hora_hhmm" },
+        { "nome": "codEvento", "inicio": 47, "tamanho": 4, "tipo": "string" },
+        { "nome": "tempoApurado", "inicio": 51, "tamanho": 4, "tipo": "tempo_hhmm" },
+        { "nome": "tipoEvento", "inicio": 55, "tamanho": 1, "tipo": "string" },
+        { "nome": "tipoCompensacao", "inicio": 56, "tamanho": 1, "tipo": "string" }
+      ]
+    },
+    {
+      "tipo": "5",
+      "nome": "trailer",
+      "ehEvento": false,
+      "_status": "REVISAR_COM_SAMPLE",
+      "campos": [
+        { "nome": "nsr", "inicio": 1, "tamanho": 9, "tipo": "number" },
+        { "nome": "tipoRegistro", "inicio": 10, "tamanho": 1, "tipo": "string" },
+        { "nome": "totalRegistros", "inicio": 11, "tamanho": 9, "tipo": "number" }
+      ]
+    }
+  ],
+  "deParaEventos": {},
+  "_exemplo_de_para_para_referencia": {
+    "0001": { "eventoSAGE": "0810", "descricao": "HORA EXTRA 50%", "unidade": "horas", "rv": "R", "ignorarSeZero": true },
+    "0002": { "eventoSAGE": "0820", "descricao": "HORA EXTRA 100%", "unidade": "horas", "rv": "R", "ignorarSeZero": true },
+    "0010": { "eventoSAGE": "5650", "descricao": "FALTAS", "unidade": "dias", "rv": "R", "ignorarSeZero": true },
+    "0020": { "eventoSAGE": "5854", "descricao": "ATRASOS", "unidade": "horas", "rv": "R", "ignorarSeZero": true },
+    "0030": { "eventoSAGE": "5652", "descricao": "DSR PERDIDO", "unidade": "dias", "rv": "R", "ignorarSeZero": true },
+    "_nota": "Estes valores sao EXEMPLOS. O codigo real depende de como o cliente configurou seu REP. Use os codigos REAIS do arquivo do cliente."
+  },
+  "createdAt": 1746576000000,
+  "updatedAt": 1746576000000,
+  "versaoSchema": 1
+}
