@@ -12,6 +12,23 @@ import type { User } from '../types';
 
 type Tab = 'folha' | 'empresas' | 'admin';
 
+function extrairNomeAmigavel(user: any): string {
+    if (!user) return 'Usuário';
+    const candidato = user.nome || user.displayName;
+    if (candidato && typeof candidato === 'string' && candidato.trim()) {
+        // Pega só o primeiro nome
+        return candidato.trim().split(/\s+/)[0];
+    }
+    if (user.email && typeof user.email === 'string') {
+        // junior@spassessoriacontabil.com.br -> "Junior"
+        const local = user.email.split('@')[0];
+        if (local) {
+            return local.charAt(0).toUpperCase() + local.slice(1);
+        }
+    }
+    return 'Usuário';
+}
+
 function saudacaoPorHora(): string {
     const h = new Date().getHours();
     if (h >= 5 && h < 12) return 'Bom dia';
@@ -109,7 +126,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                                         {saudacaoPorHora()}
                                     </div>
                                     <div className="text-xl font-bold text-slate-900 dark:text-white truncate">
-                                        {(currentUser as any).nome || (currentUser as any).displayName || currentUser.email || 'Usuário'}
+                                        {extrairNomeAmigavel(currentUser)}
                                     </div>
                                 </div>
                             </div>
@@ -124,7 +141,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                             </p>
 
                             <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 py-3 border-y border-slate-200 dark:border-slate-700">
-                                <span className="capitalize">
+                                <span>
                                     {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                                 </span>
                                 <span className="font-mono font-semibold">
