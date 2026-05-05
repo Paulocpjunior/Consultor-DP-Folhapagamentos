@@ -12,6 +12,13 @@ import type { User } from '../types';
 
 type Tab = 'folha' | 'empresas' | 'admin';
 
+function saudacaoPorHora(): string {
+    const h = new Date().getHours();
+    if (h >= 5 && h < 12) return 'Bom dia';
+    if (h >= 12 && h < 18) return 'Boa tarde';
+    return 'Boa noite';
+}
+
 const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [authReady, setAuthReady] = useState(false);
@@ -44,10 +51,9 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
             return;
         }
         const uid = (currentUser as any).uid || currentUser.email || 'anon';
-        const key = 'welcome_shown_' + uid;
-        if (prevUserUidRef.current !== uid && !sessionStorage.getItem(key)) {
+        // Comportamento B: mostra welcome a cada login (transição !logado -> logado).
+        if (prevUserUidRef.current === null) {
             setShowWelcome(true);
-            sessionStorage.setItem(key, '1');
         }
         prevUserUidRef.current = uid;
     }, [currentUser]);
@@ -100,7 +106,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                                 </div>
                                 <div className="min-w-0">
                                     <div className="text-[11px] font-semibold uppercase tracking-wider text-blue-700 dark:text-blue-300">
-                                        Bem-vindo de volta
+                                        {saudacaoPorHora()}
                                     </div>
                                     <div className="text-xl font-bold text-slate-900 dark:text-white truncate">
                                         {(currentUser as any).nome || (currentUser as any).displayName || currentUser.email || 'Usuário'}
