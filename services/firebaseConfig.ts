@@ -1,6 +1,10 @@
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
-import { getFirestore, type Firestore } from 'firebase/firestore';
+import {
+    getFirestore,
+    initializeFirestore,
+    type Firestore,
+} from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
@@ -25,7 +29,20 @@ if (isFirebaseConfigured) {
     ? initializeApp(firebaseConfig)
     : getApps()[0];
   auth = getAuth(app);
-  db = getFirestore(app);
+
+  // Tenta inicializar Firestore com auto-detect de long-polling.
+  // Resolve "Fetch API cannot load .../Listen/channel due to access control checks"
+  // que ocorre quando WebChannel é bloqueado (Safari, proxies, alguns ad-blockers,
+  // redes corporativas). Quando bloqueado, cai pra long-polling automaticamente.
+  try {
+    db = initializeFirestore(app, {
+      experimentalAutoDetectLongPolling: true,
+    });
+  } catch {
+    // Já inicializado em outra parte do app (HMR / múltiplos imports) —
+    // só pega a instância existente.
+    db = getFirestore(app);
+  }
 } else {
   console.warn('⚠️ Firebase não configurado. Usando modo local.');
 }
