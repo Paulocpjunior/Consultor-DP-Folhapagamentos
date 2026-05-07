@@ -19,6 +19,8 @@ import type {
 } from '../../services/folha/folhaTypes';
 import type { Empresa } from '../../types';
 import { parseApontamentoFile, parseApontamentoBuffer } from '../../services/folha/apontamentoParser';
+import { detectarTemplatePadrao } from '../../services/folha/templatePadraoDetector';
+import { parsearTemplatePadrao } from '../../services/folha/templatePadraoParser';
 import {
     getMapeamento,
     saveMatriculas,
@@ -139,6 +141,58 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
         setResultado(null);
 
         try {
+            // ─── Tentar Template Padrão primeiro (não depende de "mapa") ───
+            const deteccaoTemplate = await detectarTemplatePadrao(file);
+            console.log('[ApontamentoPanel] Detecção template padrão:', deteccaoTemplate);
+
+            if (deteccaoTemplate.ehTemplatePadrao) {
+                let mapaCatalogo = null;
+                try {
+                    const cat = await getCatalogo();
+                    if (cat && Array.isArray(cat.eventos)) {
+                        mapaCatalogo = new Map(cat.eventos.map((ev) => [ev.codigo, ev]));
+                    }
+                } catch (e) {
+                    console.warn('[ApontamentoPanel] Catálogo indisponível, usando heurística:', e);
+                }
+
+                const r = await parsearTemplatePadrao(file, {
+                    empresaNome: sessao.empresa.razaoSocial ?? cliente,
+                    codigoSage: sessao.empresa.codigoSage ?? '',
+                    catalogo: mapaCatalogo,
+                });
+
+                console.log('[ApontamentoPanel] Template padrão processado:', {
+                    lancamentos: r.lancamentos.length,
+                    funcionarios: r.funcionarios.length,
+                    alertas: r.alertas.length,
+                    codigosSemCatalogo: r.codigosSemCatalogo,
+                });
+
+                setParsed(null);
+                setResultado({
+                    lancamentos: r.lancamentos,
+                    alertas: r.alertas,
+                });
+                setMatriculasEdit({});
+                setMsg(
+                    `Template Padrão · ${r.lancamentos.length} lançamento(s) de ` +
+                    `${r.funcionarios.length} funcionário(s)` +
+                    (r.competencia ? ` · competência ${r.competencia}` : '')
+                );
+
+                if (r.codigosSemCatalogo.length > 0) {
+                    alert(
+                        `Atenção: ${r.codigosSemCatalogo.length} código(s) de evento não estão no catálogo ` +
+                        `da empresa nem na Tabela de Eventos do template:\n\n` +
+                        r.codigosSemCatalogo.join(', ') +
+                        `\n\nO Tipo (V=Vencimento ou D=Desconto) foi inferido pela descrição. Revise antes de exportar.`
+                    );
+                }
+                return;
+            }
+
+            // ─── Fallback: fluxo legado (parser por coluna) ───
             if (!mapa) {
                 const buffer = await file.arrayBuffer();
                 setPendingBuffer(buffer);
@@ -240,7 +294,8 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
     };
 
     const handleExportar = async () => {
-        if (!parsed || !mapa) return;
+        const ehTemplatePadrao = !parsed && resultado !== null && resultado.lancamentos.length > 0;
+        if (!ehTemplatePadrao && (!parsed || !mapa)) return;
         setProcessando(true);
         setErro(null);
         setMsg('');
@@ -252,41 +307,45 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                 );
             }
 
-            // Mescla matrículas em edição
-            const mapaComEdits: MapeamentoApontamento = {
-                ...mapa,
-                matriculas: Object.entries(matriculasEdit).reduce(
-                    (acc, [emp, mats]) => ({
-                        ...acc,
-                        [emp]: { ...(acc[emp] ?? {}), ...mats },
-                    }),
-                    { ...(mapa.matriculas ?? {}) },
-                ),
-            };
-            for (const [emp, mats] of Object.entries(matriculasEdit)) {
-                if (Object.keys(mats).length > 0) {
-                    try { await saveMatriculas(cliente, emp, mats); } catch (e) { console.warn(e); }
+            let r: any;
+            if (ehTemplatePadrao) {
+                r = {
+                    lancamentos: resultado.lancamentos,
+                    alertas: resultado.alertas ?? [],
+                    funcionariosSemMatricula: [],
+                };
+                console.log('[handleExportar] Template padrão · ' + r.lancamentos.length + ' lançamento(s).');
+            } else {
+                const mapaComEdits: MapeamentoApontamento = {
+                    ...mapa,
+                    matriculas: Object.entries(matriculasEdit).reduce(
+                        (acc, [emp, mats]) => ({
+                            ...acc,
+                            [emp]: { ...(acc[emp] ?? {}), ...mats },
+                        }),
+                        { ...(mapa.matriculas ?? {}) },
+                    ),
+                };
+                for (const [emp, mats] of Object.entries(matriculasEdit)) {
+                    if (Object.keys(mats).length > 0) {
+                        try { await saveMatriculas(cliente, emp, mats); } catch (e) { console.warn(e); }
+                    }
                 }
-            }
-
-            // União das colunas ativas de todas as abas
-            const colunasAtivasUnion = new Set<string>();
-            Object.values(colunasAtivas).forEach((set) => set.forEach((c) => colunasAtivasUnion.add(c)));
-
-            const r = montarLancamentos(parsed, mapaComEdits, catalogo, {
-                colunasAtivas: colunasAtivasUnion,
-                exigirMatricula: true,
-            });
-            setResultado(r);
-
-            // Bloqueio por funcionários sem matrícula
-            if (r.funcionariosSemMatricula.length > 0) {
-                setErro(
-                    `Exportação bloqueada: ${r.funcionariosSemMatricula.length} funcionário(s) ` +
-                    `sem matrícula cadastrada. Preencha as matrículas em amarelo na tabela acima ` +
-                    `e tente exportar novamente.`
-                );
-                return;
+                const colunasAtivasUnion = new Set<string>();
+                Object.values(colunasAtivas).forEach((set) => set.forEach((c) => colunasAtivasUnion.add(c)));
+                r = montarLancamentos(parsed, mapaComEdits, catalogo, {
+                    colunasAtivas: colunasAtivasUnion,
+                    exigirMatricula: true,
+                });
+                setResultado(r);
+                if (r.funcionariosSemMatricula && r.funcionariosSemMatricula.length > 0) {
+                    setErro(
+                        `Exportação bloqueada: ${r.funcionariosSemMatricula.length} funcionário(s) ` +
+                        `sem matrícula cadastrada. Preencha as matrículas em amarelo na tabela acima ` +
+                        `e tente exportar novamente.`
+                    );
+                    return;
+                }
             }
 
             if (!r.lancamentos.length) {
@@ -611,7 +670,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                 </Section>
             )}
 
-            {parsed && mapa && (
+            {((parsed && mapa) || (resultado && resultado.lancamentos.length > 0)) && (
                 <Section numero={4} titulo="Exportar para IOB SAGE">
                     <div className="flex flex-wrap gap-3 items-center">
                         <button
