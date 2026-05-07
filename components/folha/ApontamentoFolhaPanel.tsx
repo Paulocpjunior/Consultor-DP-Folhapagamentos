@@ -294,11 +294,13 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
     };
 
     const handleExportar = async () => {
-        const ehTemplatePadrao = !parsed && resultado !== null && resultado.lancamentos.length > 0;
-        if (!ehTemplatePadrao && (!parsed || !mapa)) return;
+        const usaTemplate = !parsed && !!resultado && resultado.lancamentos.length > 0;
+        const usaLegado = !!parsed && !!mapa;
+        if (!usaTemplate && !usaLegado) return;
         setProcessando(true);
         setErro(null);
         setMsg('');
+        console.log('[handleExportar] modo:', usaTemplate ? 'TEMPLATE_PADRAO' : 'LEGADO');
         try {
             const catalogo = await getCatalogo();
             if (!catalogo) {
@@ -308,14 +310,14 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
             }
 
             let r: any;
-            if (ehTemplatePadrao) {
+            if (usaTemplate && resultado) {
                 r = {
-                    lancamentos: resultado.lancamentos,
-                    alertas: resultado.alertas ?? [],
+                    lancamentos: resultado.lancamentos.slice(),
+                    alertas: (resultado.alertas ?? []).slice(),
                     funcionariosSemMatricula: [],
                 };
-                console.log('[handleExportar] Template padrão · ' + r.lancamentos.length + ' lançamento(s).');
-            } else {
+                console.log('[handleExportar] Template padrão · ' + r.lancamentos.length + ' lançamento(s) prontos.');
+            } else if (parsed && mapa) {
                 const mapaComEdits: MapeamentoApontamento = {
                     ...mapa,
                     matriculas: Object.entries(matriculasEdit).reduce(
