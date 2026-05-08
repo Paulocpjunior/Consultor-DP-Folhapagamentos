@@ -11,6 +11,30 @@
 //   5. Funcionários sem matrícula bloqueiam a exportação (mensagem clara).
 
 import React, { useEffect, useMemo, useState } from 'react';
+// ─── Helper: filtro de abas por competência ────────────────────────────
+// Aceita variações: "ABRIL 2026 ", "ABRIL 2026", "ABRIL/2026", "abril 2026"
+const MESES_PT: Record<string, string> = {
+    '01': 'JANEIRO', '02': 'FEVEREIRO', '03': 'MARCO',  '04': 'ABRIL',
+    '05': 'MAIO',    '06': 'JUNHO',     '07': 'JULHO',  '08': 'AGOSTO',
+    '09': 'SETEMBRO','10': 'OUTUBRO',   '11': 'NOVEMBRO','12': 'DEZEMBRO',
+};
+
+function normalizar(s: string): string {
+    return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
+}
+
+export function abaCasaCompetencia(nomeAba: string, competencia: string): boolean {
+    if (!nomeAba || !competencia) return false;
+    const m = competencia.replace(/[^0-9]/g, '').padStart(6, '0').slice(-6);
+    if (m.length !== 6) return false;
+    const mes = m.slice(0, 2);
+    const ano = m.slice(2);
+    const mesPT = MESES_PT[mes];
+    if (!mesPT) return false;
+    const aba = normalizar(nomeAba);
+    return aba.includes(mesPT) && aba.includes(ano);
+}
+
 import type { User } from '../../types';
 import type {
     ApontamentoParseado,
@@ -429,6 +453,34 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
         [parsed, empresaAtiva]
     );
 
+    // Filtra abas que casam com a competência selecionada (filtro estrito).
+    // Ex: competência "04/2026" → mostra só a aba que contém "ABRIL" e "2026" no nome.
+    // Auto-seleciona primeira aba filtrada quando competência ou parsed muda
+    // (evita ficar travado numa empresa que sumiu do filtro)
+    useEffect(() => {
+        if (!parsed) return;
+        const filtradas = parsed.empresas.filter((e) => abaCasaCompetencia(e.nome, competencia));
+        const candidatas = filtradas.length > 0 ? filtradas : parsed.empresas;
+        if (candidatas.length === 0) return;
+        const ativaAindaExiste = candidatas.some((e) => e.nome === empresaAtiva);
+        if (!ativaAindaExiste) {
+            setEmpresaAtiva(candidatas[0].nome);
+        }
+    }, [parsed, competencia, empresaAtiva]);
+
+    const empresasFiltradas = useMemo(() => {
+        if (!parsed) return [];
+        if (parsed.empresas.length <= 1) return parsed.empresas;
+        const filtradas = parsed.empresas.filter((e) => abaCasaCompetencia(e.nome, competencia));
+        // Se nenhuma aba bate → mostra TODAS (fallback) pra não bloquear o usuário
+        return filtradas.length > 0 ? filtradas : parsed.empresas;
+    }, [parsed, competencia]);
+
+    const competenciaCasaAlguma = useMemo(() => {
+        if (!parsed || parsed.empresas.length <= 1) return true;
+        return parsed.empresas.some((e) => abaCasaCompetencia(e.nome, competencia));
+    }, [parsed, competencia]);
+
     // Conta preenchimento por coluna na empresa ativa
     const preenchimentoPorColuna = useMemo(() => {
         if (!empresaObj) return new Map<string, number>();
@@ -511,8 +563,19 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                 <Section numero={3} titulo="Pré-visualização, matrículas e seleção de colunas">
                     {/* Tabs de empresas */}
                     {parsed.empresas.length > 1 && (
-                        <div className="flex gap-1 mb-2 flex-wrap">
-                            {parsed.empresas.map((e) => (
+                        <div className="flex flex-col gap-2 mb-2">
+                            {!competenciaCasaAlguma && (
+                                <div className="text-xs px-2 py-1 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 rounded">
+                                    ⚠ Nenhuma aba do arquivo casa com a competência <strong>{competencia}</strong>. Mostrando todas as abas — verifique se a competência ou os nomes das abas estão corretos.
+                                </div>
+                            )}
+                            {competenciaCasaAlguma && empresasFiltradas.length < parsed.empresas.length && (
+                                <div className="text-xs px-2 py-1 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-200 rounded">
+                                    🔎 Filtro estrito ativo: mostrando {empresasFiltradas.length} aba(s) que casam com competência <strong>{competencia}</strong>. {parsed.empresas.length - empresasFiltradas.length} aba(s) histórica(s) ocultada(s).
+                                </div>
+                            )}
+                            <div className="flex gap-1 flex-wrap">
+                            {empresasFiltradas.map((e) => (
                                 <button
                                     key={e.nome}
                                     onClick={() => setEmpresaAtiva(e.nome)}
@@ -525,6 +588,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                                     {e.nome} <span className="text-xs opacity-75">({e.funcionarios.length})</span>
                                 </button>
                             ))}
+                            </div>
                         </div>
                     )}
 
