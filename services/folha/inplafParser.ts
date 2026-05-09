@@ -254,7 +254,10 @@ export async function parsearInplaf(
                 empresa: contexto.empresaNome,
                 codigoSage: contexto.codigoSage,
                 funcionario: nome,
-                matricula: matricula || null,
+                // Matrícula NÃO vem do CÓD. da planilha — é cadastrada por usuário
+                // em folha_mapeamentos/<CNPJ>.matriculas e preenchida pelo panel
+                // antes da exportação (igual IRB-GROUP/VALUE).
+                matricula: null,
                 coluna: ce.cabecalho,
                 evento: ce.codigo,
                 descricao_evento: descricaoFinal,
@@ -286,7 +289,8 @@ export async function parsearInplaf(
                     empresa: contexto.empresaNome,
                     codigoSage: contexto.codigoSage,
                     funcionario: nome,
-                    matricula: matricula || null,
+                    // Matrícula vem do cadastro (mapa.matriculas), não da planilha
+                    matricula: null,
                     coluna: cabecalho[idxHoras] || 'HORAS',
                     evento: '0001',
                     descricao_evento: descricao,

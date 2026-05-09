@@ -249,11 +249,13 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                 // Popula `parsed` para a Section 3 (pré-visualização, matrículas
                 // e seleção de colunas) renderizar igual aos demais clientes.
                 setParsed(r.parsed);
+                setEmpresaAtiva(r.parsed.empresas[0]?.nome ?? null);
                 setResultado({
                     lancamentos: r.lancamentos,
                     alertas: r.alertas,
                 });
                 setMatriculasEdit({});
+                inicializarSelecaoColunas(r.parsed, perfil);
                 setMsg(
                     `Layout INPLAF · ${r.lancamentos.length} lançamento(s) de ` +
                     `${r.funcionarios.length} funcionário(s)` +
@@ -393,11 +395,65 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
 
             let r: any;
             if (usaResultadoDireto && resultado) {
+                let lancsExport = resultado.lancamentos.slice();
+                let funcsSemMat: string[] = [];
+
+                // INPLAF (e demais clientes via parser dedicado): os lançamentos vêm
+                // sem matrícula. Preenchemos a partir de `mapa.matriculas` + edições
+                // não-salvas (matriculasEdit), que o usuário fez na tabela.
+                // Se algum funcionário ficou sem matrícula, bloqueia a exportação.
+                if (ehInplaf) {
+                    // Persiste edições pendentes antes do uso (igual fluxo legado).
+                    for (const [emp, mats] of Object.entries(matriculasEdit)) {
+                        const filtradas = Object.fromEntries(
+                            Object.entries(mats).filter(([, v]) => v && v.trim())
+                        );
+                        if (Object.keys(filtradas).length > 0) {
+                            try { await saveMatriculas(cliente, emp, filtradas); } catch (e) { console.warn(e); }
+                        }
+                    }
+                    // Recarrega o mapa pra pegar o que acabou de ser salvo
+                    let mapaParaMatriculas = mapa;
+                    try {
+                        const m = await getMapeamento(cliente);
+                        if (m) mapaParaMatriculas = m;
+                    } catch (e) { console.warn(e); }
+
+                    // Merge final: matriculasEdit (UI) tem prioridade sobre mapa (Firestore).
+                    const lookup = (empresa: string, nome: string): string | null => {
+                        const edit = matriculasEdit[empresa]?.[nome];
+                        if (edit && edit.trim()) return edit.trim();
+                        const salva = mapaParaMatriculas?.matriculas?.[empresa]?.[nome];
+                        if (salva && String(salva).trim()) return String(salva).trim();
+                        return null;
+                    };
+
+                    const semMat = new Set<string>();
+                    lancsExport = lancsExport.map((l) => {
+                        const mat = lookup(l.empresa, l.funcionario);
+                        if (!mat) {
+                            semMat.add(l.funcionario);
+                            return l;
+                        }
+                        return { ...l, matricula: mat };
+                    });
+                    funcsSemMat = Array.from(semMat);
+                }
+
                 r = {
-                    lancamentos: resultado.lancamentos.slice(),
+                    lancamentos: lancsExport,
                     alertas: (resultado.alertas ?? []).slice(),
-                    funcionariosSemMatricula: [],
+                    funcionariosSemMatricula: funcsSemMat,
                 };
+
+                if (funcsSemMat.length > 0) {
+                    setErro(
+                        `Exportação bloqueada: ${funcsSemMat.length} funcionário(s) ` +
+                        `sem matrícula cadastrada. Preencha as matrículas em amarelo na tabela acima ` +
+                        `e clique em "Salvar matrículas" antes de exportar novamente.`
+                    );
+                    return;
+                }
                 console.log('[handleExportar] ' + (ehInplaf ? 'INPLAF' : 'Template padrão') + ' · ' + r.lancamentos.length + ' lançamento(s) prontos.');
             } else if (parsed && mapa) {
                 // Bloqueia exportação se o filtro estrito por competência não retornou nada.
