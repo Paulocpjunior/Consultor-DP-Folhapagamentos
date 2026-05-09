@@ -342,6 +342,19 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                 };
                 console.log('[handleExportar] Template padrão · ' + r.lancamentos.length + ' lançamento(s) prontos.');
             } else if (parsed && mapa) {
+                // Bloqueia exportação se o filtro estrito por competência não retornou nada.
+                // Cenário típico: cliente VALUE com abas históricas (JANEIRO, FEVEREIRO 2023…)
+                // e nenhuma delas batendo com a competência atual selecionada.
+                if (parsedParaExportacao && parsedParaExportacao.empresas.length === 0) {
+                    const abasDisponiveis = parsed.empresas.map((e) => e.nome).join(', ');
+                    setErro(
+                        `Nenhuma aba da planilha bate com a competência ${competencia}. ` +
+                        `Renomeie a aba do mês atual (ex.: "ABRIL 2026") ou ajuste a competência selecionada. ` +
+                        `Abas disponíveis: ${abasDisponiveis}.`
+                    );
+                    return;
+                }
+                const parsedExport = parsedParaExportacao ?? parsed;
                 const mapaComEdits: MapeamentoApontamento = {
                     ...mapa,
                     matriculas: Object.entries(matriculasEdit).reduce(
@@ -359,7 +372,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                 }
                 const colunasAtivasUnion = new Set<string>();
                 Object.values(colunasAtivas).forEach((set) => set.forEach((c) => colunasAtivasUnion.add(c)));
-                r = montarLancamentos(parsed, mapaComEdits, catalogo, {
+                r = montarLancamentos(parsedExport, mapaComEdits, catalogo, {
                     colunasAtivas: colunasAtivasUnion,
                     exigirMatricula: true,
                 });
@@ -481,6 +494,33 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
         return parsed.empresas.some((e) => abaCasaCompetencia(e.nome, competencia));
     }, [parsed, competencia]);
 
+    /**
+     * `parsed` filtrado para a EXPORTAÇÃO.
+     *
+     * Política:
+     *  - Cliente mono-empresa (1 entrada em mapa.empresas) com múltiplas abas no XLSX
+     *    é o caso "1 aba = 1 mês" (ex.: VALUE PROJETOS): processa SÓ as abas que
+     *    casam com a competência selecionada.
+     *  - Cliente multi-empresa (IRB-GROUP, etc.) ou XLSX com 1 aba só:
+     *    processa todas as abas (comportamento legado preservado).
+     *
+     * Diferente de `empresasFiltradas` (que serve a UI e tem fallback "mostra
+     * todas se nada bate"), aqui o filtro é ESTRITO. Se nenhuma aba bate, o
+     * resultado é vazio — o handleExportar bloqueia com mensagem clara,
+     * evitando gerar lançamentos para meses históricos por engano.
+     */
+    const parsedParaExportacao = useMemo(() => {
+        if (!parsed) return null;
+        const empresasNoMapa = Object.keys(mapa?.empresas ?? {}).length;
+        const ehMonoEmpresaComHistorico =
+            empresasNoMapa === 1 && parsed.empresas.length > 1;
+        if (!ehMonoEmpresaComHistorico) return parsed;
+        const filtradas = parsed.empresas.filter((e) =>
+            abaCasaCompetencia(e.nome, competencia)
+        );
+        return { ...parsed, empresas: filtradas };
+    }, [parsed, mapa, competencia]);
+
     // Conta preenchimento por coluna na empresa ativa
     const preenchimentoPorColuna = useMemo(() => {
         if (!empresaObj) return new Map<string, number>();
@@ -566,7 +606,11 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                         <div className="flex flex-col gap-2 mb-2">
                             {!competenciaCasaAlguma && (
                                 <div className="text-xs px-2 py-1 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 rounded">
-                                    ⚠ Nenhuma aba do arquivo casa com a competência <strong>{competencia}</strong>. Mostrando todas as abas — verifique se a competência ou os nomes das abas estão corretos.
+                                    ⚠ Nenhuma aba do arquivo casa com a competência <strong>{competencia}</strong>.{' '}
+                                    {parsedParaExportacao && parsedParaExportacao.empresas.length === 0
+                                        ? <>A exportação está <strong>bloqueada</strong>: renomeie a aba do mês atual (ex.: &quot;ABRIL 2026&quot;) ou ajuste a competência selecionada.</>
+                                        : <>Mostrando todas as abas — verifique se a competência ou os nomes das abas estão corretos.</>
+                                    }
                                 </div>
                             )}
                             {competenciaCasaAlguma && empresasFiltradas.length < parsed.empresas.length && (
