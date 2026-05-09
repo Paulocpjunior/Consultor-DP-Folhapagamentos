@@ -197,13 +197,25 @@ function gerarLancamentosFuncionario(
             );
         } else {
             let dias = cfg.dias_padrao;
+            // Detecta se a célula da coluna_dias é texto não-numérico
+            // (ex.: "mensalista" no INPLAF) — usado para diferenciar mensalistas
+            // (não geram evento de salário; IOB calcula sozinho do cadastro) de
+            // horistas (geram evento com REF=horas).
+            let celulaNaoNumerica = false;
             if (cfg.coluna_dias && cfg.coluna_dias in celulas) {
-                const v = toNumber(celulas[cfg.coluna_dias]);
-                if (v !== null) dias = v;
+                const raw = celulas[cfg.coluna_dias];
+                const v = toNumber(raw);
+                if (v !== null) {
+                    dias = v;
+                } else if (raw !== null && raw !== undefined && String(raw).trim() !== '') {
+                    celulaNaoNumerica = true;
+                }
             }
             dias = round2(dias);
 
-            const pular = cfg.ignorar_se_dias_zero && dias === 0;
+            const pularPorZero = cfg.ignorar_se_dias_zero && dias === 0;
+            const pularPorTexto = cfg.ignorar_se_coluna_nao_numerica && celulaNaoNumerica;
+            const pular = pularPorZero || pularPorTexto;
             if (!pular) {
                 lancamentos.push({
                     empresa: empresaNomeParser,

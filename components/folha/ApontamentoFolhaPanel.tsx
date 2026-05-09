@@ -45,6 +45,8 @@ import type { Empresa } from '../../types';
 import { parseApontamentoFile, parseApontamentoBuffer } from '../../services/folha/apontamentoParser';
 import { detectarTemplatePadrao } from '../../services/folha/templatePadraoDetector';
 import { parsearTemplatePadrao } from '../../services/folha/templatePadraoParser';
+import { detectarLayoutInplaf } from '../../services/folha/inplafDetector';
+import { parsearInplaf } from '../../services/folha/inplafParser';
 import {
     getMapeamento,
     saveMatriculas,
@@ -209,6 +211,56 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                     alert(
                         `Atenção: ${r.codigosSemCatalogo.length} código(s) de evento não estão no catálogo ` +
                         `da empresa nem na Tabela de Eventos do template:\n\n` +
+                        r.codigosSemCatalogo.join(', ') +
+                        `\n\nO Tipo (V=Vencimento ou D=Desconto) foi inferido pela descrição. Revise antes de exportar.`
+                    );
+                }
+                return;
+            }
+
+            // ─── Tentar layout INPLAF (clientes legados como INPLAF) ───
+            const deteccaoInplaf = await detectarLayoutInplaf(file);
+            console.log('[ApontamentoPanel] Detecção layout INPLAF:', deteccaoInplaf);
+
+            if (deteccaoInplaf.ehLayoutInplaf) {
+                let mapaCatalogo = null;
+                try {
+                    const cat = await getCatalogo();
+                    if (cat && Array.isArray(cat.eventos)) {
+                        mapaCatalogo = new Map(cat.eventos.map((ev) => [ev.codigo, ev]));
+                    }
+                } catch (e) {
+                    console.warn('[ApontamentoPanel] Catálogo indisponível, usando heurística:', e);
+                }
+
+                const r = await parsearInplaf(file, {
+                    empresaNome: sessao.empresa.razaoSocial ?? cliente,
+                    codigoSage: sessao.empresa.codigoSage ?? '',
+                    catalogo: mapaCatalogo,
+                });
+
+                console.log('[ApontamentoPanel] Layout INPLAF processado:', {
+                    lancamentos: r.lancamentos.length,
+                    funcionarios: r.funcionarios.length,
+                    alertas: r.alertas.length,
+                    competencia: r.competencia,
+                });
+
+                setParsed(null);
+                setResultado({
+                    lancamentos: r.lancamentos,
+                    alertas: r.alertas,
+                });
+                setMatriculasEdit({});
+                setMsg(
+                    `Layout INPLAF · ${r.lancamentos.length} lançamento(s) de ` +
+                    `${r.funcionarios.length} funcionário(s)` +
+                    (r.competencia ? ` · competência ${r.competencia}` : '')
+                );
+
+                if (r.codigosSemCatalogo.length > 0) {
+                    alert(
+                        `Atenção: ${r.codigosSemCatalogo.length} código(s) de evento não estão no catálogo:\n\n` +
                         r.codigosSemCatalogo.join(', ') +
                         `\n\nO Tipo (V=Vencimento ou D=Desconto) foi inferido pela descrição. Revise antes de exportar.`
                     );

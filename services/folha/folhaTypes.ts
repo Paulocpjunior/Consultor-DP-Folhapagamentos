@@ -77,11 +77,19 @@ export interface RegraObs {
 /**
  * Regra do evento de SALÁRIO. Diferente das regras de coluna, este lançamento
  * é gerado para todo funcionário presente na planilha — a referência é
- * QUANTIDADE DE DIAS (não R$). O IOB calcula vencimento = (Salário Base / 30) × dias.
+ * QUANTIDADE DE DIAS (mensalista) ou HORAS (horista).
+ * O IOB calcula vencimento a partir do Salário Base do cadastro × REF.
  *
- * - `coluna_dias` (opcional): coluna do apontamento contendo dias trabalhados
- *   (proporcionais p/ admissão, afastamento ou rescisão).
- * - `dias_padrao`: usado quando `coluna_dias` não existe ou está vazia (mês cheio = 30).
+ * - `coluna_dias` (opcional): coluna do apontamento contendo dias/horas
+ *   (proporcionais p/ admissão, afastamento, rescisão; ou horas trabalhadas
+ *   no caso de horistas).
+ * - `dias_padrao`: usado quando `coluna_dias` não existe ou está vazia
+ *   (mês cheio = 30).
+ * - `ignorar_se_dias_zero`: pula o lançamento se a referência calculada for 0.
+ * - `ignorar_se_coluna_nao_numerica`: pula o lançamento quando a célula da
+ *   `coluna_dias` contém texto não-numérico (ex.: "mensalista" no INPLAF).
+ *   Útil para clientes em que mensalistas NÃO devem exportar o evento de
+ *   salário (IOB calcula sozinho do cadastro), apenas horistas.
  */
 export interface RegraSalario {
     evento: string;
@@ -89,6 +97,7 @@ export interface RegraSalario {
     coluna_dias?: string;
     dias_padrao: number;
     ignorar_se_dias_zero?: boolean;
+    ignorar_se_coluna_nao_numerica?: boolean;
 }
 
 /** Mapeamento completo do apontamento por cliente */
