@@ -246,7 +246,9 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                     competencia: r.competencia,
                 });
 
-                setParsed(null);
+                // Popula `parsed` para a Section 3 (pré-visualização, matrículas
+                // e seleção de colunas) renderizar igual aos demais clientes.
+                setParsed(r.parsed);
                 setResultado({
                     lancamentos: r.lancamentos,
                     alertas: r.alertas,
@@ -370,13 +372,17 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
     };
 
     const handleExportar = async () => {
-        const usaTemplate = !parsed && !!resultado && resultado.lancamentos.length > 0;
-        const usaLegado = !!parsed && !!mapa;
-        if (!usaTemplate && !usaLegado) return;
+        // INPLAF (e Template Padrão) já têm `resultado` pronto pelo parser dedicado;
+        // não precisam rodar o `montarLancamentos`. Diferenciamos pelo `parser`
+        // do parsed (quando existe) ou pela ausência de parsed (template padrão).
+        const ehInplaf = !!parsed && parsed.parser === 'inplaf-folha';
+        const usaResultadoDireto = (!parsed || ehInplaf) && !!resultado && resultado.lancamentos.length > 0;
+        const usaLegado = !!parsed && !ehInplaf && !!mapa;
+        if (!usaResultadoDireto && !usaLegado) return;
         setProcessando(true);
         setErro(null);
         setMsg('');
-        console.log('[handleExportar] modo:', usaTemplate ? 'TEMPLATE_PADRAO' : 'LEGADO');
+        console.log('[handleExportar] modo:', usaResultadoDireto ? (ehInplaf ? 'INPLAF' : 'TEMPLATE_PADRAO') : 'LEGADO');
         try {
             const catalogo = await getCatalogo();
             if (!catalogo) {
@@ -386,13 +392,13 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
             }
 
             let r: any;
-            if (usaTemplate && resultado) {
+            if (usaResultadoDireto && resultado) {
                 r = {
                     lancamentos: resultado.lancamentos.slice(),
                     alertas: (resultado.alertas ?? []).slice(),
                     funcionariosSemMatricula: [],
                 };
-                console.log('[handleExportar] Template padrão · ' + r.lancamentos.length + ' lançamento(s) prontos.');
+                console.log('[handleExportar] ' + (ehInplaf ? 'INPLAF' : 'Template padrão') + ' · ' + r.lancamentos.length + ' lançamento(s) prontos.');
             } else if (parsed && mapa) {
                 // Bloqueia exportação se o filtro estrito por competência não retornou nada.
                 // Cenário típico: cliente VALUE com abas históricas (JANEIRO, FEVEREIRO 2023…)

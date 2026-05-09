@@ -20,7 +20,10 @@
 
 import * as XLSX from 'xlsx';
 import type {
+    ApontamentoParseado,
+    EmpresaApontamento,
     EventoIobSage,
+    FuncionarioApontamento,
     Lancamento,
     ReferenciaValor,
     TipoEvento,
@@ -114,6 +117,13 @@ export interface ResultadoInplafParser {
     competencia?: string;
     /** Nome da empresa extraído de A1 */
     empresaDetectada?: string;
+    /**
+     * Estrutura compatível com o parser legado, para a tela de pré-visualização
+     * (Section 3 do ApontamentoFolhaPanel) renderizar tabs de empresa, tabela de
+     * funcionários, edição de matrículas e seleção de colunas igual aos outros
+     * clientes (IRB-GROUP, VALUE).
+     */
+    parsed: ApontamentoParseado;
 }
 
 export interface ContextoInplafParser {
@@ -194,6 +204,11 @@ export async function parsearInplaf(
     const codigosSemCatalogo = new Set<string>();
     const funcMap = new Map<string, { matricula: string; nome: string; totalLancamentos: number }>();
 
+    // Funcionários no formato legado (FuncionarioApontamento), para a Section 3
+    // do panel renderizar a tabela de pré-visualização e edição de matrículas
+    // exatamente como faz para IRB-GROUP / VALUE.
+    const funcionariosParseados: FuncionarioApontamento[] = [];
+
     // Processa linhas de dados (linha 4+, índice 3+)
     for (let i = 3; i < rows.length; i++) {
         const linha = rows[i] ?? [];
@@ -208,6 +223,18 @@ export async function parsearInplaf(
         const matricula = matriculaRaw === null || matriculaRaw === undefined
             ? ''
             : String(matriculaRaw).trim();
+
+        // Monta `celulas` para o registro legado (todas as colunas com cabeçalho)
+        const celulas: Record<string, unknown> = {};
+        cabecalho.forEach((nomeCol, idx) => {
+            if (!nomeCol) return;
+            celulas[nomeCol] = linha[idx] ?? null;
+        });
+        funcionariosParseados.push({
+            nome,
+            celulas,
+            obs: null,
+        });
 
         const lancsDoFunc: Lancamento[] = [];
 
@@ -299,6 +326,21 @@ export async function parsearInplaf(
         }
     }
 
+    // Estrutura legada: 1 empresa (a do contexto), com todos os funcionários
+    // e todas as colunas do cabeçalho. Permite a Section 3 do panel renderizar
+    // tabs (1 só), tabela de funcionários e seleção de colunas igual aos demais.
+    const empresaLegada: EmpresaApontamento = {
+        nome: contexto.empresaNome,
+        colunas: cabecalho.filter((c): c is string => Boolean(c)),
+        funcionarios: funcionariosParseados,
+    };
+    const parsed: ApontamentoParseado = {
+        parser: PARSER_ID,
+        versao: PARSER_VERSAO,
+        processado_em: new Date().toISOString(),
+        empresas: [empresaLegada],
+    };
+
     return {
         parser: PARSER_ID,
         versao: PARSER_VERSAO,
@@ -309,5 +351,6 @@ export async function parsearInplaf(
         codigosSemCatalogo: Array.from(codigosSemCatalogo),
         competencia,
         empresaDetectada,
+        parsed,
     };
 }
