@@ -1,20 +1,16 @@
 // services/folha/apontamentoMapper.ts
 // Aplica o mapeamento (coluna → evento) e gera os lançamentos.
 //
+// v1.5 — exporta `resolverEmpresa` para o painel resolver
+//   o "nome no mapa" (chave correta para indexar matrículas) a partir
+//   do nome da aba do parser. Antes era função privada.
+//
 // v1.4 — suporte a matrícula "PJ":
 //   - Funcionário com matrícula igual a "PJ" (case-insensitive) tem seus
 //     lançamentos descartados antes da exportação. Conta como "tem matrícula"
 //     para não bloquear a exportação dos demais funcionários.
-//   - Caso de uso: planilhas que vêm do cliente misturando CLT e PJ na mesma
-//     aba (ex.: VALUE PROJETOS, Antonio Ricardo).
 //
-// v1.3 — seleção de colunas e matrícula obrigatória:
-//   - Aceita opcional `colunasAtivas: Set<string>` em montarLancamentos.
-//     Se fornecido, só processa colunas que estão no set
-//     (além do salário e descontos empresa, que têm regra própria).
-//   - Bloqueia funcionários sem matrícula: seus lançamentos são descartados
-//     e adicionados à lista de `funcionariosBloqueados` no resultado.
-//
+// v1.3 — seleção de colunas e matrícula obrigatória.
 // v1.2 — fallback funciona independente de quantas abas o parser leu.
 // v1.1 — resolução tolerante do nome de aba.
 
@@ -32,8 +28,21 @@ import { norm, round2, toNumber, extrairValor } from './apontamentoParser';
 
 /**
  * Resolve a config da empresa no mapa para uma aba do parser.
+ *
+ * Estratégia em 3 níveis:
+ *   1. Match EXATO entre nome da aba e chave em mapa.empresas
+ *   2. Match NORMALIZADO (sem espaços/acentos/case) — cobre "FERRANTE DESIGN " (com espaço)
+ *      indo pra "FERRANTE DESIGN"
+ *   3. Fallback: se há exatamente 1 empresa ATIVA no mapa, usa essa
+ *      (cobre VALUE PROJETOS quando aba é "ABRIL 2026")
+ *
+ * Retorna null se nada bate.
+ *
+ * Exportada para o painel (`ApontamentoFolhaPanel.tsx`) reutilizar a mesma
+ * lógica ao indexar matrículas, evitando o bug histórico de gravar/ler
+ * matrículas sob nome de aba em vez de nome do mapa.
  */
-function resolverEmpresa(
+export function resolverEmpresa(
     abaParser: EmpresaApontamento,
     mapa: MapeamentoApontamento,
 ): {
@@ -242,6 +251,8 @@ function gerarLancamentosFuncionario(
     }
 
     // 4) Matrícula
+    //    Procura primeiro pela chave correta (nomeNoMapa), depois fallback
+    //    para nome da aba (legado, garante compat com docs antigos).
     const matriculas =
         mapa.matriculas?.[nomeNoMapa] ??
         mapa.matriculas?.[empresaNomeParser] ??

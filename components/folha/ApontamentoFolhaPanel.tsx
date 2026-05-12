@@ -19,6 +19,21 @@ const MESES_PT: Record<string, string> = {
     '09': 'SETEMBRO','10': 'OUTUBRO',   '11': 'NOVEMBRO','12': 'DEZEMBRO',
 };
 
+// Resolve o nome da empresa no mapa a partir do nome da aba do parser.
+// Usado pra indexar matrículas sob a chave correta (nome no mapa),
+// evitando o bug de gravar/ler sob nome de aba (ABRIL 2026, FOPAG etc).
+function chaveEmpresa(
+    empresaObj: { nome: string; funcionarios: unknown[]; colunas: string[] },
+    mapa: import('../../services/folha/folhaTypes').MapeamentoApontamento | null,
+): string {
+    if (!mapa) return empresaObj.nome;
+    const r = resolverEmpresa(
+        empresaObj as Parameters<typeof resolverEmpresa>[0],
+        mapa,
+    );
+    return r?.nomeMapa ?? empresaObj.nome;
+}
+
 function normalizar(s: string): string {
     return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
 }
@@ -43,6 +58,7 @@ import type {
 } from '../../services/folha/folhaTypes';
 import type { Empresa } from '../../types';
 import { parseApontamentoFile, parseApontamentoBuffer } from '../../services/folha/apontamentoParser';
+import { resolverEmpresa } from '../../services/folha/apontamentoMapper';
 import { detectarTemplatePadrao } from '../../services/folha/templatePadraoDetector';
 import { parsearTemplatePadrao } from '../../services/folha/templatePadraoParser';
 import { detectarLayoutInplaf } from '../../services/folha/inplafDetector';
@@ -825,8 +841,9 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                             </thead>
                             <tbody>
                                 {empresaObj.funcionarios.map((f) => {
-                                    const salva = mapa?.matriculas?.[empresaObj.nome]?.[f.nome] ?? '';
-                                    const edit = matriculasEdit[empresaObj.nome]?.[f.nome];
+                                    const chaveMapa = chaveEmpresa(empresaObj, mapa);
+                                    const salva = mapa?.matriculas?.[chaveMapa]?.[f.nome] ?? '';
+                                    const edit = matriculasEdit[chaveMapa]?.[f.nome];
                                     const mat = edit !== undefined ? edit : salva;
                                     return (
                                         <tr
@@ -841,8 +858,8 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                                                     onChange={(e) =>
                                                         setMatriculasEdit((prev) => ({
                                                             ...prev,
-                                                            [empresaObj.nome]: {
-                                                                ...(prev[empresaObj.nome] ?? {}),
+                                                            [chaveMapa]: {
+                                                                ...(prev[chaveMapa] ?? {}),
                                                                 [f.nome]: e.target.value,
                                                             },
                                                         }))
