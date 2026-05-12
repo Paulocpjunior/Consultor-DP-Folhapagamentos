@@ -1,12 +1,19 @@
 // services/folha/apontamentoMapper.ts
 // Aplica o mapeamento (coluna → evento) e gera os lançamentos.
 //
-// v1.3 — sele\u00e7\u00e3o de colunas e matr\u00edcula obrigat\u00f3ria:
+// v1.4 — suporte a matrícula "PJ":
+//   - Funcionário com matrícula igual a "PJ" (case-insensitive) tem seus
+//     lançamentos descartados antes da exportação. Conta como "tem matrícula"
+//     para não bloquear a exportação dos demais funcionários.
+//   - Caso de uso: planilhas que vêm do cliente misturando CLT e PJ na mesma
+//     aba (ex.: VALUE PROJETOS, Antonio Ricardo).
+//
+// v1.3 — seleção de colunas e matrícula obrigatória:
 //   - Aceita opcional `colunasAtivas: Set<string>` em montarLancamentos.
-//     Se fornecido, s\u00f3 processa colunas que est\u00e3o no set
-//     (al\u00e9m do salário e descontos empresa, que t\u00eam regra pr\u00f3pria).
-//   - Bloqueia funcion\u00e1rios sem matr\u00edcula: seus lan\u00e7amentos s\u00e3o descartados
-//     e adicionados \u00e0 lista de `funcionariosBloqueados` no resultado.
+//     Se fornecido, só processa colunas que estão no set
+//     (além do salário e descontos empresa, que têm regra própria).
+//   - Bloqueia funcionários sem matrícula: seus lançamentos são descartados
+//     e adicionados à lista de `funcionariosBloqueados` no resultado.
 //
 // v1.2 — fallback funciona independente de quantas abas o parser leu.
 // v1.1 — resolução tolerante do nome de aba.
@@ -240,6 +247,20 @@ function gerarLancamentosFuncionario(
         mapa.matriculas?.[empresaNomeParser] ??
         {};
     const matricula = matriculas[funcionario.nome] ?? null;
+
+    // PJ: matrícula "PJ" (case-insensitive) sinaliza pessoa jurídica.
+    // Descarta todos os lançamentos do funcionário — não vai pro TXT SAGE.
+    // Conta como "tem matrícula" para não bloquear a exportação dos demais.
+    const ehPJ = typeof matricula === 'string' && matricula.trim().toUpperCase() === 'PJ';
+    if (ehPJ) {
+        if (lancamentos.length > 0) {
+            alertas.push(
+                `"${funcionario.nome}" marcado como PJ — ${lancamentos.length} lançamento(s) descartado(s), não vai para o TXT SAGE.`
+            );
+        }
+        return { lancamentos: [], alertas };
+    }
+
     lancamentos.forEach((l) => { l.matricula = matricula; });
 
     return { lancamentos, alertas };
