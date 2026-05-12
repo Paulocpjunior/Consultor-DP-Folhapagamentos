@@ -202,6 +202,8 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                     empresaNome: sessao.empresa.razaoSocial ?? cliente,
                     codigoSage: sessao.empresa.codigoSage ?? '',
                     catalogo: mapaCatalogo,
+                    aba: deteccaoTemplate.aba,
+                    linhaCabecalho: deteccaoTemplate.linhaCabecalho,
                 });
 
                 console.log('[ApontamentoPanel] Template padrão processado:', {
@@ -285,22 +287,6 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                         `\n\nO Tipo (V=Vencimento ou D=Desconto) foi inferido pela descrição. Revise antes de exportar.`
                     );
                 }
-                return;
-            }
-
-            // ─── v2.3.0: desvio LONG (template IOB SAGE — lançamento por linha) ───
-            const _buf = await file.arrayBuffer();
-            const _pre = parseApontamentoBuffer(_buf);
-            const empLong = _pre.empresas.find((e: any) => e.formato === 'long');
-            if (empLong && (empLong as any).lancamentos && (empLong as any).lancamentos.length > 0) {
-                setParsed({ ..._pre, lancamentos: (empLong as any).lancamentos } as any);
-                setEmpresaAtiva(empLong.nome);
-                setMatriculasEdit({});
-                inicializarSelecaoColunas(_pre, perfil);
-                setMsg(
-                    `Layout LONG (template IOB SAGE) · ${(empLong as any).lancamentos.length} lançamento(s) ` +
-                    `extraído(s) da aba "${empLong.nome}".`
-                );
                 return;
             }
 

@@ -1,6 +1,11 @@
 // services/folha/templatePadraoParser.ts
 // Parser dedicado ao "Template Padrão" do app.
 //
+// v1.1.0 — Aceita `aba` e `linhaCabecalho` no contexto (vindos do detector v2),
+//          em vez de assumir aba "Lançamentos" e linha 4 hardcoded.
+//          Fallback: se não vier no contexto, mantém comportamento v1
+//          (procura aba "Lançamentos", linha 4).
+//
 // Diferença fundamental do apontamentoParser.ts (legado):
 //   - Legado: cada COLUNA da planilha = um evento. Funcionário fica em uma linha,
 //     com várias colunas de valores.
@@ -19,11 +24,11 @@ import type {
 } from './folhaTypes';
 
 const PARSER_ID = 'template-padrao';
-const PARSER_VERSAO = '1.0.0';
+const PARSER_VERSAO = '1.1.0';
 
-const ABA_DADOS = 'Lançamentos';
+const ABA_DADOS_DEFAULT = 'Lançamentos';
 const ABA_TABELA_EVENTOS = 'Tabela de Eventos';
-const LINHA_DADOS_INICIO = 5; // 1-indexed; linha 4 é cabeçalho
+const LINHA_CABECALHO_DEFAULT = 4; // 1-indexed
 
 // ─── Heurística de fallback pra Tipo V/D ─────────────────────────────────
 
@@ -77,12 +82,10 @@ function lerComoTextoPreservandoZeros(ws: XLSX.WorkSheet, ref: string, padTo: nu
 
     if (typeof c.v === 'string') {
         const s = c.v.trim();
-        // Já é texto: confia no que veio
         return s;
     }
 
     if (typeof c.v === 'number') {
-        // Número: converte e padda à esquerda
         const inteiro = Math.trunc(c.v);
         return String(inteiro).padStart(padTo, '0');
     }
@@ -102,7 +105,6 @@ function lerTabelaEventos(wb: XLSX.WorkBook): Map<string, { tipo: TipoEvento; rv
     const range = ws['!ref'] ? XLSX.utils.decode_range(ws['!ref']) : null;
     if (!range) return mapa;
 
-    // linha 1 é cabeçalho; dados a partir da 2
     for (let r = 2; r <= range.e.r + 1; r++) {
         const codigo = lerCelulaTexto(ws, `A${r}`);
         const desc = lerCelulaTexto(ws, `B${r}`);
@@ -126,9 +128,7 @@ export interface ResultadoTemplatePadrao {
     processado_em: string;
     lancamentos: Lancamento[];
     alertas: string[];
-    /** Funcionários únicos extraídos (pra UI mostrar) */
     funcionarios: Array<{ matricula: string; nome: string; totalLancamentos: number }>;
-    /** Códigos de evento usados que não foram resolvidos via catálogo nem tabela */
     codigosSemCatalogo: string[];
     competencia?: string;
 }
@@ -140,6 +140,10 @@ export interface ContextoTemplatePadrao {
     codigoSage: string;
     /** Catálogo IOB SAGE da empresa, se carregado. Resolve V/D oficialmente. */
     catalogo?: Map<string, EventoIobSage> | null;
+    /** v1.1: nome da aba de dados (vindo do detector v2). */
+    aba?: string;
+    /** v1.1: linha do cabeçalho 1-indexed (vinda do detector v2). */
+    linhaCabecalho?: number;
 }
 
 // ─── Função principal ────────────────────────────────────────────────────
@@ -157,13 +161,26 @@ export async function parsearTemplatePadrao(
 
     const wb = XLSX.read(buffer, { type: 'array', cellDates: true });
 
-    const nomeAba = wb.SheetNames.find((n) => n === ABA_DADOS)
-        ?? wb.SheetNames.find((n) => n.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase() === 'lancamentos');
-
+    // v1.1: usa a aba indicada pelo contexto; se não vier, tenta "Lançamentos"
+    let nomeAba: string | undefined = contexto.aba;
     if (!nomeAba) {
-        throw new Error(`Aba "${ABA_DADOS}" não encontrada. O detector deveria ter pegado isso antes.`);
+        nomeAba = wb.SheetNames.find((n) => n === ABA_DADOS_DEFAULT)
+            ?? wb.SheetNames.find((n) =>
+                n.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase() === 'lancamentos',
+            );
+    }
+    if (!nomeAba || !wb.Sheets[nomeAba]) {
+        throw new Error(
+            `Aba de dados não encontrada. Contexto: ${contexto.aba ?? '(não informado)'}; ` +
+            `abas disponíveis: ${wb.SheetNames.join(', ')}. ` +
+            `O detector deveria ter pegado isso antes.`,
+        );
     }
     const ws = wb.Sheets[nomeAba];
+
+    // v1.1: linha de cabeçalho do contexto (default 4)
+    const linhaCabecalho = contexto.linhaCabecalho ?? LINHA_CABECALHO_DEFAULT;
+    const linhaDadosInicio = linhaCabecalho + 1;
 
     // Lê a Tabela de Eventos do próprio template (fonte secundária pra V/D)
     const tabelaEventos = lerTabelaEventos(wb);
@@ -180,7 +197,7 @@ export async function parsearTemplatePadrao(
             versao: PARSER_VERSAO,
             processado_em: new Date().toISOString(),
             lancamentos: [],
-            alertas: ['Aba "Lançamentos" está vazia.'],
+            alertas: [`Aba "${nomeAba}" está vazia.`],
             funcionarios: [],
             codigosSemCatalogo: [],
             competencia,
@@ -192,7 +209,7 @@ export async function parsearTemplatePadrao(
     const codigosSemCatalogo = new Set<string>();
     const funcionariosMap = new Map<string, { matricula: string; nome: string; totalLancamentos: number }>();
 
-    for (let r = LINHA_DADOS_INICIO; r <= range.e.r + 1; r++) {
+    for (let r = linhaDadosInicio; r <= range.e.r + 1; r++) {
         const matricula = lerComoTextoPreservandoZeros(ws, `A${r}`, 6);
         const nome = lerCelulaTexto(ws, `B${r}`);
         const codigoEvento = lerComoTextoPreservandoZeros(ws, `C${r}`, 4);
@@ -224,7 +241,6 @@ export async function parsearTemplatePadrao(
         if (rvTexto === 'R') rv = 'R';
         else if (rvTexto === 'V') rv = 'V';
         else {
-            // Inferir pelo que veio preenchido
             if (referencia !== null && valor === null) rv = 'R';
             else if (valor !== null && referencia === null) rv = 'V';
             else {
@@ -238,7 +254,6 @@ export async function parsearTemplatePadrao(
             );
         }
 
-        // Valor a usar
         const valorLancamento = rv === 'R' ? referencia : valor;
         if (valorLancamento === null) {
             alertas.push(
@@ -248,7 +263,6 @@ export async function parsearTemplatePadrao(
             continue;
         }
         if (valorLancamento === 0) {
-            // Zero não é erro, mas sinaliza
             alertas.push(`Linha ${r}: valor zero — funcionário ${matricula} · evento ${codigoEvento}.`);
         }
 
@@ -292,7 +306,6 @@ export async function parsearTemplatePadrao(
             );
         }
 
-        // Monta o lançamento
         lancamentos.push({
             empresa: contexto.empresaNome,
             codigoSage: contexto.codigoSage,
@@ -308,7 +321,6 @@ export async function parsearTemplatePadrao(
             obs,
         });
 
-        // Acumula funcionários únicos
         const chaveFunc = `${matricula}__${nome}`;
         const acc = funcionariosMap.get(chaveFunc);
         if (acc) {

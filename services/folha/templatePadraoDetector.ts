@@ -2,24 +2,30 @@
 // Detector da assinatura do "Template Padrão" do app
 // (template-apontamento-iob-sage-EMPRESA-NNNNNN.xlsx).
 //
+// v2.0.0 — Detecção pela ASSINATURA DO CABEÇALHO, não pelo nome da aba.
+//   - Antes: exigia aba chamada "Lançamentos" → quebrou para clientes que
+//     enviaram com nomes default do Excel ("Folha1", "Sheet1", etc.)
+//   - Agora: varre todas as abas e procura, em qualquer uma delas, uma linha
+//     (3..6) com a assinatura {Matrícula, Nome do Funcionário, Código Evento,
+//     Valor (R$), ...}. Quando acha, devolve o nome da aba e a linha exata.
+//
 // O template tem layout fixo:
-//   - Aba "Lançamentos"
 //   - A1: título "APONTAMENTO DE FOLHA — ..."
 //   - A2: "Competência: MM/AAAA"
-//   - Linha 4: cabeçalho com 8 colunas exatas:
+//   - Linha de cabeçalho (geralmente 4): 8 colunas
 //     A=Matrícula | B=Nome do Funcionário | C=Código Evento |
 //     D=Descrição Evento | E=Tipo (R/V) | F=Referência |
 //     G=Valor (R$) | H=Observação
-//   - Linha 5+: dados (1 linha = 1 lançamento)
+//   - Linha seguinte: dados (1 linha = 1 lançamento)
 //
-// Esse detector é CONSERVADOR: qualquer divergência de cabeçalho ou nome de aba
-// retorna `false`, e o app cai no parser legado (apontamentoParser.ts), que é
-// o que cuida dos clientes "criativos" (SPA Saúde, Ferrante, IRB-GROUP).
+// Esse detector é CONSERVADOR: qualquer divergência retorna `false` e o app
+// cai no parser legado (apontamentoParser.ts), que cuida dos clientes
+// "criativos" (SPA Saúde, Ferrante, IRB-GROUP).
 
 import * as XLSX from 'xlsx';
 
-const ABA_ESPERADA = 'Lançamentos';
-const LINHA_CABECALHO = 4; // 1-indexed (linha 4 no Excel)
+/** Linhas a varrer em busca do cabeçalho (1-indexed). Prioriza 4 (template original). */
+const LINHAS_SCAN = [4, 3, 5, 6];
 
 const CABECALHOS_ESPERADOS: Record<string, string[]> = {
     A: ['matricula', 'matrícula'],
@@ -32,6 +38,14 @@ const CABECALHOS_ESPERADOS: Record<string, string[]> = {
     H: ['observacao', 'observação', 'obs'],
 };
 
+/** Abas auxiliares que NUNCA devem ser detectadas como aba de dados do template. */
+const ABAS_AUXILIARES_PATTERNS: RegExp[] = [
+    /tabela de eventos/i,
+    /^instru[cç][oõ]es$/i,
+    /^controles?$/i,
+    /^legenda?$/i,
+];
+
 function normalizar(s: unknown): string {
     if (s === null || s === undefined) return '';
     return String(s)
@@ -41,15 +55,47 @@ function normalizar(s: unknown): string {
         .trim();
 }
 
+function ehAbaAuxiliar(nome: string): boolean {
+    return ABAS_AUXILIARES_PATTERNS.some((rx) => rx.test(nome));
+}
+
 export interface ResultadoDeteccao {
     ehTemplatePadrao: boolean;
     razao: string;
     aba?: string;
+    /** Linha do cabeçalho (1-indexed) — necessária pro parser saber onde começam os dados. */
+    linhaCabecalho?: number;
     cabecalhosEncontrados?: Record<string, string>;
 }
 
+interface TentativaCabecalho {
+    bate: boolean;
+    cabecalhos: Record<string, string>;
+    ausentes: string[];
+}
+
+/** Verifica se a linha indicada de uma aba bate com a assinatura do template. */
+function verificarCabecalho(ws: XLSX.WorkSheet, linha: number): TentativaCabecalho {
+    const cabecalhos: Record<string, string> = {};
+    const ausentes: string[] = [];
+
+    for (const [colLetra, opcoes] of Object.entries(CABECALHOS_ESPERADOS)) {
+        const cellRef = `${colLetra}${linha}`;
+        const cell = ws[cellRef];
+        const valor = cell ? normalizar(cell.v) : '';
+        cabecalhos[colLetra] = String(cell?.v ?? '');
+
+        const bate = opcoes.some((esperado) => valor === esperado);
+        if (!bate) {
+            ausentes.push(`${cellRef}="${valor}" (esperava "${opcoes[0]}")`);
+        }
+    }
+
+    return { bate: ausentes.length === 0, cabecalhos, ausentes };
+}
+
 /**
- * Detecta se um arquivo .xlsx é o Template Padrão do app.
+ * Detecta se um arquivo .xlsx é o Template Padrão do app, em qualquer aba.
  *
  * @param arquivo File ou ArrayBuffer
  * @returns Resultado com flag e razão (pra debug/log)
@@ -74,48 +120,49 @@ export async function detectarTemplatePadrao(
         };
     }
 
-    // 1) Procurar aba "Lançamentos" (case-sensitive primeiro, tolerante depois)
-    let nomeAba: string | undefined = wb.SheetNames.find((n) => n === ABA_ESPERADA);
-    if (!nomeAba) {
-        nomeAba = wb.SheetNames.find((n) => normalizar(n) === normalizar(ABA_ESPERADA));
-    }
-    if (!nomeAba) {
-        return {
-            ehTemplatePadrao: false,
-            razao: `Aba "${ABA_ESPERADA}" não encontrada. Abas no arquivo: ${wb.SheetNames.join(', ')}`,
-        };
-    }
+    // Coleta as razões de cada aba pra debug útil se nada bater
+    const tentativas: string[] = [];
 
-    // 2) Verificar cabeçalho na linha 4
-    const ws = wb.Sheets[nomeAba];
-    const cabecalhosEncontrados: Record<string, string> = {};
-    const ausentes: string[] = [];
+    for (const nomeAba of wb.SheetNames) {
+        if (ehAbaAuxiliar(nomeAba)) {
+            tentativas.push(`"${nomeAba}" (auxiliar — pulada)`);
+            continue;
+        }
 
-    for (const [colLetra, opcoes] of Object.entries(CABECALHOS_ESPERADOS)) {
-        const cellRef = `${colLetra}${LINHA_CABECALHO}`;
-        const cell = ws[cellRef];
-        const valor = cell ? normalizar(cell.v) : '';
-        cabecalhosEncontrados[colLetra] = String(cell?.v ?? '');
+        const ws = wb.Sheets[nomeAba];
+        let melhorTentativa: TentativaCabecalho | null = null;
+        let melhorLinha = -1;
 
-        const bate = opcoes.some((esperado) => valor === esperado);
-        if (!bate) {
-            ausentes.push(`${cellRef}="${valor}" (esperava ${opcoes[0]})`);
+        for (const linha of LINHAS_SCAN) {
+            const t = verificarCabecalho(ws, linha);
+            if (t.bate) {
+                return {
+                    ehTemplatePadrao: true,
+                    razao: `Template padrão detectado · aba "${nomeAba}" · cabeçalho na linha ${linha}`,
+                    aba: nomeAba,
+                    linhaCabecalho: linha,
+                    cabecalhosEncontrados: t.cabecalhos,
+                };
+            }
+            // Guarda a tentativa com menos ausentes pra reportar no fim
+            if (!melhorTentativa || t.ausentes.length < melhorTentativa.ausentes.length) {
+                melhorTentativa = t;
+                melhorLinha = linha;
+            }
+        }
+
+        if (melhorTentativa) {
+            tentativas.push(
+                `"${nomeAba}" linha ${melhorLinha}: ${melhorTentativa.ausentes.length} divergência(s) ` +
+                `(ex.: ${melhorTentativa.ausentes.slice(0, 2).join('; ')})`,
+            );
         }
     }
 
-    if (ausentes.length > 0) {
-        return {
-            ehTemplatePadrao: false,
-            razao: `Cabeçalhos divergentes na linha ${LINHA_CABECALHO}: ${ausentes.join('; ')}`,
-            aba: nomeAba,
-            cabecalhosEncontrados,
-        };
-    }
-
     return {
-        ehTemplatePadrao: true,
-        razao: `Template padrão detectado · aba "${nomeAba}" · cabeçalho na linha ${LINHA_CABECALHO}`,
-        aba: nomeAba,
-        cabecalhosEncontrados,
+        ehTemplatePadrao: false,
+        razao: tentativas.length > 0
+            ? `Nenhuma aba bate com a assinatura do template padrão. Tentativas: ${tentativas.join(' | ')}`
+            : 'Arquivo sem abas reconhecíveis.',
     };
 }

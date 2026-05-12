@@ -2,11 +2,6 @@
 // Parser client-side do apontamento de folha (lê xlsx via SheetJS).
 // Princípio: parser nomeado pelo cliente + origem.
 //
-// v2.3.0 — detecção de formato LONG (template IOB SAGE que projetamos):
-//          uma linha por lançamento, com Matrícula | Nome | Código Evento |
-//          Descrição | Tipo (R/V) | Referência | Valor | Observação.
-//          Quando detectado, retorna `lancamentos[]` na EmpresaApontamento
-//          e o componente pai pula o Wizard de mapeamento.
 // v2.2.0 — adicionada lista negra de "Planilha1..PlanilhaN" (abas auxiliares
 //          padrão do Excel que clientes deixam no arquivo, ex.: SPA Saúde).
 // v2.1.0 — busca inteligente do cabeçalho:
@@ -23,7 +18,7 @@ import * as XLSX from 'xlsx';
 import type { ApontamentoParseado, EmpresaApontamento, FuncionarioApontamento } from './folhaTypes';
 
 const PARSER_ID = 'apontamento-folha-multi';
-const PARSER_VERSAO = '2.3.0';
+const PARSER_VERSAO = '2.2.0';
 
 /** Quantas linhas iniciais escanear procurando o cabeçalho. */
 const MAX_HEADER_ROWS = 15;
@@ -142,41 +137,6 @@ export function findHeader(
     return null;
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// v2.3.0 — Detecção e parsing do formato LONG (template IOB SAGE)
-// ─────────────────────────────────────────────────────────────────────────
-
-/** Lançamento individual no formato LONG (uma linha = um evento p/ um funcionário). */
-export interface LancamentoLong {
-    matricula: string;
-    nome: string;
-    codigoEvento: string;
-    descricao: string;
-    tipo: 'V' | 'D';
-    rv: 'R' | 'V';
-    referencia: number | null;
-    valor: number;
-    observacao: string;
-    linha: number;
-}
-
-/**
- * Detecta se a aba está no formato WIDE (uma coluna por verba — Ferrante/SPA Saúde)
- * ou LONG (uma linha por lançamento — template padrão IOB SAGE).
- */
-export function detectarFormato(headerRaw: string[]): 'wide' | 'long' {
-    const cels = headerRaw.map((h) => norm(h));
-    const tem = (s: string) => cels.some((c) => c.includes(s));
-
-    // LONG: cabeçalhos textuais descrevendo um lançamento
-    if (tem('codigo evento') && tem('valor')) return 'long';
-
-    // WIDE: pelo menos uma coluna no padrão "NNN-Descrição" (Ferrante: "810-HE 50%")
-    if (cels.some((c) => /^\s*\d{2,3}\s*[-–]/.test(c))) return 'wide';
-
-    return 'wide'; // default conservador — mantém comportamento atual
-}
-
 /**
  * Lê um arquivo xlsx e devolve a estrutura bruta do apontamento.
  * Cada sheet com cabeçalho válido vira uma empresa.
@@ -224,70 +184,6 @@ export function parseApontamentoBuffer(buffer: ArrayBuffer | Uint8Array): Aponta
         const headerRaw = (rows[headerRow] as unknown[]).map((c) =>
             c === null || c === undefined ? '' : String(c).trim()
         );
-
-        // ───── v2.3.0: desvio para formato LONG (template IOB SAGE) ─────
-        const formato = detectarFormato(headerRaw);
-        if (formato === 'long') {
-            const idx = (...termos: string[]) =>
-                headerRaw.findIndex((h) => termos.some((t) => norm(h).includes(t)));
-
-            const iMat = idx('matricula');
-            const iCod = idx('codigo evento');
-            const iDesc = idx('descricao evento', 'descricao');
-            const iTipo = idx('tipo');
-            const iRef = idx('referencia');
-            const iVal = idx('valor');
-            const iObs = idx('observacao', 'obs');
-
-            const lancamentos: LancamentoLong[] = [];
-            for (let i = headerRow + 1; i < rows.length; i++) {
-                const r = (rows[i] as unknown[]) ?? [];
-                if (r.every((c) => c === null || c === undefined || String(c).trim() === '')) continue;
-
-                const nome = trimOrNull(r[nameCol]);
-                if (!nome) continue;
-                if (/^(total|subtotal)/i.test(nome)) continue;
-
-                const codigo = String(r[iCod] ?? '').trim().padStart(4, '0');
-                const valor = toNumber(r[iVal]);
-                if (!codigo || codigo === '0000' || valor === null) continue;
-
-                const refRaw = iRef >= 0 ? r[iRef] : null;
-                const referencia = toNumber(refRaw);
-                const matRaw = iMat >= 0 ? r[iMat] : null;
-                const matricula = typeof matRaw === 'number'
-                    ? String(matRaw).padStart(6, '0')
-                    : String(matRaw ?? '').trim();
-
-                lancamentos.push({
-                    matricula,
-                    nome,
-                    codigoEvento: codigo,
-                    descricao: String(r[iDesc] ?? '').trim(),
-                    tipo: String(r[iTipo] ?? '').trim().toUpperCase() === 'D' ? 'D' : 'V',
-                    rv: referencia !== null && referencia !== 0 ? 'R' : 'V',
-                    referencia,
-                    valor,
-                    observacao: iObs >= 0 ? String(r[iObs] ?? '').trim() : '',
-                    linha: i + 1,
-                });
-            }
-
-            debug.push(
-                `[ok:long] "${sheetName}" — formato LONG detectado, ` +
-                `${lancamentos.length} lançamento(s) extraído(s).`
-            );
-
-            empresas.push({
-                nome: sheetName,
-                colunas: [],
-                funcionarios: [],
-                formato: 'long',
-                lancamentos,
-            } as EmpresaApontamento & { formato: 'long'; lancamentos: LancamentoLong[] });
-            continue;
-        }
-        // ───── caso WIDE (fluxo original Ferrante/SPA Saúde) ─────
 
         // Colunas de dados = todas as colunas do cabeçalho com nome,
         // excluindo a coluna do próprio funcionário.
