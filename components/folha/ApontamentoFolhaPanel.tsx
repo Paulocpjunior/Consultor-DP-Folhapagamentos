@@ -288,6 +288,22 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                 return;
             }
 
+            // ─── v2.3.0: desvio LONG (template IOB SAGE — lançamento por linha) ───
+            const _buf = await file.arrayBuffer();
+            const _pre = parseApontamentoBuffer(_buf);
+            const empLong = _pre.empresas.find((e: any) => e.formato === 'long');
+            if (empLong && (empLong as any).lancamentos && (empLong as any).lancamentos.length > 0) {
+                setParsed({ ..._pre, lancamentos: (empLong as any).lancamentos } as any);
+                setEmpresaAtiva(empLong.nome);
+                setMatriculasEdit({});
+                inicializarSelecaoColunas(_pre, perfil);
+                setMsg(
+                    `Layout LONG (template IOB SAGE) · ${(empLong as any).lancamentos.length} lançamento(s) ` +
+                    `extraído(s) da aba "${empLong.nome}".`
+                );
+                return;
+            }
+
             // ─── Fallback: fluxo legado (parser por coluna) ───
             if (!mapa) {
                 const buffer = await file.arrayBuffer();
