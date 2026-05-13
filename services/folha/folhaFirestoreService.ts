@@ -94,7 +94,11 @@ export async function getMapeamento(cliente: string): Promise<MapeamentoApontame
     // Migração silenciosa: mapeamentos criados antes do suporte a regra_salario
     // recebem o default. Necessário para o evento 0001 SALÁRIO ser exportado
     // com DIAS na referência (não com R$ — bug que gerava vencimentos absurdos).
-    if (!mapa.regra_salario) {
+    // v1.1: respeitar desativação explícita (regra_salario: null).
+    // Só migra mapas LEGADOS que nunca tiveram a chave (undefined).
+    // Clientes onde SAGE calcula salário automaticamente devem ter
+    // regra_salario gravado como null no Firestore (NÃO deletado).
+    if (mapa.regra_salario === undefined) {
         mapa.regra_salario = { ...REGRA_SALARIO_DEFAULT };
         try {
             await setDoc(ref, { regra_salario: mapa.regra_salario }, { merge: true });

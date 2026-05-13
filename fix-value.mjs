@@ -172,7 +172,9 @@ console.log();
 // ─── Atualização ────────────────────────────────────────────────────────
 const update = {
     mapeamento_colunas: mapeamento_colunas_novo,
-    regra_salario: admin.firestore.FieldValue.delete(),  // remove (SAGE calcula)
+    // v1.1: grava null explícito (NÃO delete), senão a migração silenciosa
+    // em folhaFirestoreService.getMapeamento ressuscita o default 0001.
+    regra_salario: null,  // remove (SAGE calcula)
     observacoes: admin.firestore.FieldValue.arrayUnion(
         `[${new Date().toISOString()}] fix-value v1.0: HE 50% removida, ` +
         `regra_salario removida (SAGE calcula), "Plano celular" + "Ilimitada assessoria" → 5006 ` +
