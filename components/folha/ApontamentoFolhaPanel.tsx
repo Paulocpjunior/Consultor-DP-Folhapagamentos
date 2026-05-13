@@ -59,6 +59,9 @@ import type {
 import type { Empresa } from '../../types';
 import { parseApontamentoFile, parseApontamentoBuffer } from '../../services/folha/apontamentoParser';
 import { resolverEmpresa } from '../../services/folha/apontamentoMapper';
+import { detectarAutonomosSpa } from '../../services/folha/autonomosSpaDetector';
+import { parsearAutonomosSpa, type ResultadoAutonomosSpa } from '../../services/folha/autonomosSpaParser';
+import WizardAutonomosSpa from './WizardAutonomosSpa';
 import { detectarTemplatePadrao } from '../../services/folha/templatePadraoDetector';
 import { parsearTemplatePadrao } from '../../services/folha/templatePadraoParser';
 import { detectarLayoutInplaf } from '../../services/folha/inplafDetector';
@@ -121,6 +124,11 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
     const [salvandoPerfil, setSalvandoPerfil] = useState(false);
 
     const [showWizard, setShowWizard] = useState(false);
+    // v1.0: estados pro fluxo de autônomos SPA
+    const [showWizardAutonomos, setShowWizardAutonomos] = useState(false);
+    const [resultadoAutonomos, setResultadoAutonomos] = useState<ResultadoAutonomosSpa | null>(null);
+    const [abaAutonomos, setAbaAutonomos] = useState<string>('');
+    const [linhaCabecalhoAutonomos, setLinhaCabecalhoAutonomos] = useState<number>(14);
     const [pendingBuffer, setPendingBuffer] = useState<ArrayBuffer | null>(null);
 
     useEffect(() => {
@@ -183,6 +191,36 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
         setResultado(null);
 
         try {
+            // ─── v1.0: Tentar Autônomos SPA primeiro (assinatura única — barato) ───
+            const deteccaoAutonomos = await detectarAutonomosSpa(file);
+            console.log('[ApontamentoPanel] Detecção autônomos SPA:', deteccaoAutonomos);
+
+            if (deteccaoAutonomos.ehAutonomosSpa && deteccaoAutonomos.aba && deteccaoAutonomos.linhaCabecalho) {
+                const r = await parsearAutonomosSpa(file, {
+                    aba: deteccaoAutonomos.aba,
+                    linhaCabecalho: deteccaoAutonomos.linhaCabecalho,
+                    empresaNome: sessao.empresa.razaoSocial ?? cliente,
+                    codigoSage: sessao.empresa.codigoSage ?? '',
+                });
+
+                console.log('[ApontamentoPanel] Autônomos SPA processado:', {
+                    autonomos: r.autonomos.length,
+                    descartadas: r.descartadas.length,
+                    competencia: r.competencia,
+                });
+
+                setResultadoAutonomos(r);
+                setAbaAutonomos(deteccaoAutonomos.aba);
+                setLinhaCabecalhoAutonomos(deteccaoAutonomos.linhaCabecalho);
+                setShowWizardAutonomos(true);
+                setMsg(
+                    `Autônomos SPA detectado · ${r.autonomos.length} autônomo(s)` +
+                    (r.competencia ? ` · competência ${r.competencia}` : '') +
+                    `. Preencha as matrículas no wizard.`
+                );
+                return;
+            }
+
             // ─── Tentar Template Padrão primeiro (não depende de "mapa") ───
             const deteccaoTemplate = await detectarTemplatePadrao(file);
             console.log('[ApontamentoPanel] Detecção template padrão:', deteccaoTemplate);
@@ -970,6 +1008,26 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                 <div className="text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded border border-red-200 dark:border-red-800">
                     {erro}
                 </div>
+            )}
+
+            {showWizardAutonomos && resultadoAutonomos && (
+                <WizardAutonomosSpa
+                    empresa={sessao.empresa}
+                    resultado={resultadoAutonomos}
+                    aba={abaAutonomos}
+                    linhaCabecalho={linhaCabecalhoAutonomos}
+                    onCancel={() => {
+                        setShowWizardAutonomos(false);
+                        setResultadoAutonomos(null);
+                    }}
+                    onSaved={(lancamentos) => {
+                        setShowWizardAutonomos(false);
+                        setResultado({ lancamentos, alertas: [] });
+                        setMatriculasEdit({});
+                        setMsg(`Autônomos SPA · ${lancamentos.length} lançamento(s) gerado(s). Use 'Exportar TXTs' abaixo.`);
+                        setResultadoAutonomos(null);
+                    }}
+                />
             )}
 
             {showWizard && pendingBuffer && file && (
