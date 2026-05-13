@@ -1,15 +1,18 @@
 // services/folha/apontamentoMapper.ts
 // Aplica o mapeamento (coluna → evento) e gera os lançamentos.
 //
-// v1.5 — exporta `resolverEmpresa` para o painel resolver
-//   o "nome no mapa" (chave correta para indexar matrículas) a partir
-//   do nome da aba do parser. Antes era função privada.
+// v1.6 — CONSOLIDAÇÃO POR EVENTO:
+//   - Quando duas ou mais colunas apontam pro mesmo evento (origem='coluna')
+//     para o mesmo funcionário, os lançamentos são SOMADOS em uma única linha.
+//   - Caso de uso: VALUE PROJETOS — "Plano celular" + "Ilimitada assessoria"
+//     ambos mapeados pra evento 5006 (OUTROS DESCONTOS). Antes geravam 2 linhas
+//     no TXT; agora geram 1 linha com o valor somado.
+//   - A consolidação respeita rv: só consolida se rv coincidir. Diferenças de
+//     rv geram alerta e mantêm separadas.
+//   - DESCONTOS EMPRESA e SALÁRIO (regra própria) NÃO entram na consolidação.
 //
-// v1.4 — suporte a matrícula "PJ":
-//   - Funcionário com matrícula igual a "PJ" (case-insensitive) tem seus
-//     lançamentos descartados antes da exportação. Conta como "tem matrícula"
-//     para não bloquear a exportação dos demais funcionários.
-//
+// v1.5 — exporta `resolverEmpresa` para o painel.
+// v1.4 — suporte a matrícula "PJ".
 // v1.3 — seleção de colunas e matrícula obrigatória.
 // v1.2 — fallback funciona independente de quantas abas o parser leu.
 // v1.1 — resolução tolerante do nome de aba.
@@ -26,22 +29,6 @@ import type {
 } from './folhaTypes';
 import { norm, round2, toNumber, extrairValor } from './apontamentoParser';
 
-/**
- * Resolve a config da empresa no mapa para uma aba do parser.
- *
- * Estratégia em 3 níveis:
- *   1. Match EXATO entre nome da aba e chave em mapa.empresas
- *   2. Match NORMALIZADO (sem espaços/acentos/case) — cobre "FERRANTE DESIGN " (com espaço)
- *      indo pra "FERRANTE DESIGN"
- *   3. Fallback: se há exatamente 1 empresa ATIVA no mapa, usa essa
- *      (cobre VALUE PROJETOS quando aba é "ABRIL 2026")
- *
- * Retorna null se nada bate.
- *
- * Exportada para o painel (`ApontamentoFolhaPanel.tsx`) reutilizar a mesma
- * lógica ao indexar matrículas, evitando o bug histórico de gravar/ler
- * matrículas sob nome de aba em vez de nome do mapa.
- */
 export function resolverEmpresa(
     abaParser: EmpresaApontamento,
     mapa: MapeamentoApontamento,
@@ -82,6 +69,62 @@ export function resolverEmpresa(
     return null;
 }
 
+/**
+ * v1.6 — Consolida lançamentos de mesma origem 'coluna' que apontam pro mesmo
+ * evento + rv dentro de um mesmo funcionário. Soma os valores.
+ *
+ * Lançamentos de outras origens ('obs', 'padrao', 'salario') ficam de fora —
+ * cada um tem seu motivo de existir como linha separada.
+ */
+function consolidarPorEvento(
+    lancamentos: Lancamento[],
+    nomeFuncionario: string,
+): { consolidados: Lancamento[]; alertasConsolidacao: string[] } {
+    const alertas: string[] = [];
+    const consolidaveis: Lancamento[] = [];
+    const naoConsolidaveis: Lancamento[] = [];
+
+    for (const l of lancamentos) {
+        if (l.origem === 'coluna') {
+            consolidaveis.push(l);
+        } else {
+            naoConsolidaveis.push(l);
+        }
+    }
+
+    // Agrupa por evento+rv
+    const grupos = new Map<string, Lancamento[]>();
+    for (const l of consolidaveis) {
+        const chave = `${l.evento}__${l.rv}`;
+        const lista = grupos.get(chave) ?? [];
+        lista.push(l);
+        grupos.set(chave, lista);
+    }
+
+    const consolidados: Lancamento[] = [...naoConsolidaveis];
+    for (const [_, lista] of grupos) {
+        if (lista.length === 1) {
+            consolidados.push(lista[0]);
+            continue;
+        }
+        // Soma valores das colunas no mesmo evento
+        const base = lista[0];
+        const total = lista.reduce((acc, l) => acc + l.valor, 0);
+        const colunas = lista.map((l) => `"${l.coluna}"`).join(' + ');
+        alertas.push(
+            `"${nomeFuncionario}": evento ${base.evento} consolidado de ${lista.length} colunas (${colunas}) ` +
+            `= ${round2(total).toFixed(2)}.`,
+        );
+        consolidados.push({
+            ...base,
+            valor: round2(total),
+            coluna: lista.map((l) => l.coluna).join(' + '),
+        });
+    }
+
+    return { consolidados, alertasConsolidacao: alertas };
+}
+
 function gerarLancamentosFuncionario(
     funcionario: FuncionarioApontamento,
     empresaNomeParser: string,
@@ -101,8 +144,6 @@ function gerarLancamentosFuncionario(
     // 1) Colunas simples → evento direto
     for (const [coluna, regra] of Object.entries(mapa.mapeamento_colunas)) {
         if (!(coluna in celulas)) continue;
-
-        // ⭐ NOVO: filtro de colunas ativas
         if (colunasAtivas && !colunasAtivas.has(coluna)) continue;
 
         const valor = extrairValor(celulas[coluna], regra.rv);
@@ -149,8 +190,6 @@ function gerarLancamentosFuncionario(
     }
 
     // 2) DESCONTOS EMPRESA → depende do OBS
-    //    Respeita o filtro de colunas ativas: se a coluna de desconto está
-    //    desmarcada, não gera lançamento.
     const regrasDE = mapa.regras_descontos_empresa;
     if (regrasDE && (!colunasAtivas || colunasAtivas.has(regrasDE.coluna))) {
         const valorDE = toNumber(celulas[regrasDE.coluna]);
@@ -202,8 +241,7 @@ function gerarLancamentosFuncionario(
         }
     }
 
-    // 3) SALÁRIO — sempre gerado pra todo funcionário (não respeita colunasAtivas
-    //    porque é regra própria, não vem de coluna do XLSX).
+    // 3) SALÁRIO — gerado pela regra própria (NÃO entra na consolidação por coluna)
     if (mapa.regra_salario) {
         const cfg = mapa.regra_salario;
         const eventoCat = catalogoMap.get(cfg.evento);
@@ -213,10 +251,6 @@ function gerarLancamentosFuncionario(
             );
         } else {
             let dias = cfg.dias_padrao;
-            // Detecta se a célula da coluna_dias é texto não-numérico
-            // (ex.: "mensalista" no INPLAF) — usado para diferenciar mensalistas
-            // (não geram evento de salário; IOB calcula sozinho do cadastro) de
-            // horistas (geram evento com REF=horas).
             let celulaNaoNumerica = false;
             if (cfg.coluna_dias && cfg.coluna_dias in celulas) {
                 const raw = celulas[cfg.coluna_dias];
@@ -250,41 +284,32 @@ function gerarLancamentosFuncionario(
         }
     }
 
+    // ─── v1.6: CONSOLIDAÇÃO POR EVENTO ───
+    const { consolidados, alertasConsolidacao } = consolidarPorEvento(lancamentos, funcionario.nome);
+    alertas.push(...alertasConsolidacao);
+
     // 4) Matrícula
-    //    Procura primeiro pela chave correta (nomeNoMapa), depois fallback
-    //    para nome da aba (legado, garante compat com docs antigos).
     const matriculas =
         mapa.matriculas?.[nomeNoMapa] ??
         mapa.matriculas?.[empresaNomeParser] ??
         {};
     const matricula = matriculas[funcionario.nome] ?? null;
 
-    // PJ: matrícula "PJ" (case-insensitive) sinaliza pessoa jurídica.
-    // Descarta todos os lançamentos do funcionário — não vai pro TXT SAGE.
-    // Conta como "tem matrícula" para não bloquear a exportação dos demais.
     const ehPJ = typeof matricula === 'string' && matricula.trim().toUpperCase() === 'PJ';
     if (ehPJ) {
-        if (lancamentos.length > 0) {
+        if (consolidados.length > 0) {
             alertas.push(
-                `"${funcionario.nome}" marcado como PJ — ${lancamentos.length} lançamento(s) descartado(s), não vai para o TXT SAGE.`
+                `"${funcionario.nome}" marcado como PJ — ${consolidados.length} lançamento(s) descartado(s), não vai para o TXT SAGE.`
             );
         }
         return { lancamentos: [], alertas };
     }
 
-    lancamentos.forEach((l) => { l.matricula = matricula; });
+    consolidados.forEach((l) => { l.matricula = matricula; });
 
-    return { lancamentos, alertas };
+    return { lancamentos: consolidados, alertas };
 }
 
-/**
- * Processa o parsed + mapa + catálogo e devolve todos os lançamentos.
- *
- * @param colunasAtivas Set opcional de colunas a processar (filtro do perfil).
- *                       Se ausente ou null, todas as colunas mapeadas são processadas.
- * @param exigirMatricula Se true (default), funcionários sem matrícula são
- *                         descartados e listados em `funcionariosSemMatricula`.
- */
 export function montarLancamentos(
     parsed: ApontamentoParseado,
     mapa: MapeamentoApontamento,
@@ -335,12 +360,10 @@ export function montarLancamentos(
                 catalogoMap,
                 colunasAtivas,
             );
-            // Se exige matrícula, filtra funcionários sem matrícula
             const algumLancamento = out.lancamentos.length > 0;
             const matriculaCadastrada = out.lancamentos[0]?.matricula;
             if (exigirMatricula && algumLancamento && !matriculaCadastrada) {
                 semMatricula.push(`${empresa.nome} / ${func.nome}`);
-                // não adiciona lançamentos
             } else {
                 todos.push(...out.lancamentos);
             }
