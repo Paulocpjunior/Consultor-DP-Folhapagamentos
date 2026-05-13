@@ -715,20 +715,6 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
 
             <Section numero={2} titulo="Upload do apontamento">
                 <div className="flex flex-wrap gap-3 items-center">
-                    {/* v1.0.0: link de download do modelo oficial */}
-                    <div className="mb-2">
-                        <a
-                            href={`${import.meta.env.BASE_URL}templates/Modelo_IOB_SAGE_v1.xlsx`}
-                            download
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded border border-blue-300 dark:border-blue-700 transition-colors"
-                            title="Baixar o modelo oficial de apontamento (IOB SAGE FOLHAMATIC)"
-                        >
-                            📥 Baixar modelo oficial (.xlsx)
-                        </a>
-                        <span className="ml-2 text-xs text-slate-500 dark:text-slate-400">
-                            Use este modelo para enviar apontamentos no formato padrão.
-                        </span>
-                    </div>
                     <input
                         type="file"
                         accept=".xlsx,.xlsm,.xls"
