@@ -46,7 +46,7 @@ const SINONIMOS: Record<string, string[]> = {
   descricao:      ['descricao', 'descricao evento', 'descricao do evento', 'desc evento', 'desc'],
   tipo:           ['tipo', 'tipo r v', 'tipo rv', 'r v', 'rv', 'r/v', 'natureza'],
   referencia:     ['referencia', 'ref', 'qtd', 'quantidade', 'horas'],
-  valor:          ['valor', 'valor r', 'valor rs', 'vlr', 'vl'],
+  valor:          ['valor', 'valor r', 'valor r$', 'valor rs', 'vlr', 'vl'],
   observacao:     ['observacao', 'obs', 'comentario', 'nota'],
 };
 
