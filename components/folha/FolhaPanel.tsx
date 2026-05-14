@@ -2,10 +2,7 @@
 import React, { useEffect, useMemo, useState, Suspense, lazy } from 'react';
 import type { User } from '../../types';
 import type { Empresa } from '../../services/empresas/empresasTypes';
-import {
-    listarMinhasEmpresas,
-    listarTodasEmpresas,
-} from '../../services/empresas/empresasService';
+import { listarTodasEmpresas } from '../../services/empresas/empresasService';
 import { baixarTemplateApontamento } from '../../services/folha/templateApontamentoIobSage';
 
 const EventosIobSagePanel = lazy(() => import('./EventosIobSagePanel'));

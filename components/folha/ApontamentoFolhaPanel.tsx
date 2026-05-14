@@ -80,7 +80,7 @@ import {
     type PerfilColunas,
 } from '../../services/folha/folhaPerfilColunasService';
 import { exportarTXT, nomeArquivoTXT, downloadFile, type FolhaFlag, FLAG_LABELS } from '../../services/folha/apontamentoExporter';
-import { listarTodasEmpresas, listarMinhasEmpresas } from '../../services/empresas/empresasService';
+import { listarTodasEmpresas } from '../../services/empresas/empresasService';
 import WizardMapeamentoMapas from './WizardMapeamentoMapas';
 import { acharEmpresaPorNome } from '../../services/empresas/matchEmpresa';
 // downloadFile vem de apontamentoExporter
