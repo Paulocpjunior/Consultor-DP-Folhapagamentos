@@ -31,7 +31,6 @@ server.js
 Dockerfile
 .dockerignore
 # Testes do projeto antigo
-__tests__/
 jest.config.js
 # Logs de respostas Gemini
 /tmp/gemini-*.json
