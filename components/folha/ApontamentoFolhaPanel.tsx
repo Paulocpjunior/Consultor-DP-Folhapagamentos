@@ -101,12 +101,20 @@ function tipoParaFlag(tipo: string): FolhaFlag {
     return "salario";
 }
 
+
+// FIX v2.1.4 — Snapshot do arquivo pra detectar "exportar sem reprocessar"
+function snapshotDoArquivo(f: File | null): string | null {
+    if (!f) return null;
+    return `${f.name}::${f.size}::${f.lastModified}`;
+}
+
 const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarEmpresa }) => {
     const cliente = sessao.empresa.cnpj;
 
     const [competencia, setCompetencia] = useState(sessao.competencia);
     const [file, setFile] = useState<File | null>(null);
     const [parsed, setParsed] = useState<ApontamentoParseado | null>(null);
+    const [snapshotArqProcessado, setSnapshotArqProcessado] = useState<string | null>(null);
     const [mapa, setMapa] = useState<MapeamentoApontamento | null>(null);
     const [perfil, setPerfil] = useState<PerfilColunas | null>(null);
     const [empresaAtiva, setEmpresaAtiva] = useState<string | null>(null);
@@ -189,6 +197,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
         setErro(null);
         setMsg('');
         setResultado(null);
+        setSnapshotArqProcessado(null);
 
         try {
             // ─── v1.0: Tentar Autônomos SPA primeiro (assinatura única — barato) ───
@@ -257,6 +266,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                     alertas: r.alertas,
                 });
                 setMatriculasEdit({});
+                setSnapshotArqProcessado(snapshotDoArquivo(file));
                 setMsg(
                     `Template Padrão · ${r.lancamentos.length} lançamento(s) de ` +
                     `${r.funcionarios.length} funcionário(s)` +
@@ -437,6 +447,19 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
         const usaResultadoDireto = (!parsed || ehInplaf) && !!resultado && resultado.lancamentos.length > 0;
         const usaLegado = !!parsed && !ehInplaf && !!mapa;
         if (!usaResultadoDireto && !usaLegado) return;
+
+        // FIX v2.1.4 — Garante que o `resultado` em memória é do arquivo ATUAL.
+        // Sem essa validação, trocar o arquivo no input (ou trocar de empresa)
+        // sem clicar em "Processar" exporta dados velhos com configuração nova.
+        const snapAtual = snapshotDoArquivo(file);
+        if (!snapshotArqProcessado || snapshotArqProcessado !== snapAtual) {
+            setErro(
+                '⚠️ O arquivo no input foi alterado (ou nunca processado) desde o último "Processar". ' +
+                'Clique em "Processar" novamente antes de exportar para evitar exportar dados desatualizados.'
+            );
+            return;
+        }
+
         setProcessando(true);
         setErro(null);
         setMsg('');
