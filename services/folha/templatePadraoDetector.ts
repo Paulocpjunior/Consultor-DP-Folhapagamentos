@@ -29,7 +29,7 @@ export interface ColunaTemplate {
 
 export interface DeteccaoTemplate {
   ehTemplatePadrao: boolean;
-  abaNome: string | null;
+  aba: string | null;
   linhaCabecalho: number | null;     // 1-indexed
   colunas: ColunaTemplate | null;
   motivoFalha?: string;              // para debug/log
@@ -165,7 +165,7 @@ export async function detectarTemplatePadrao(entrada: EntradaDetector): Promise<
     if (achou) {
       return {
         ehTemplatePadrao: true,
-        abaNome: nomeAba,
+        aba: nomeAba,
         linhaCabecalho: achou.linha,
         colunas: achou.colunas,
       };
@@ -174,7 +174,7 @@ export async function detectarTemplatePadrao(entrada: EntradaDetector): Promise<
 
   return {
     ehTemplatePadrao: false,
-    abaNome: null,
+    aba: null,
     linhaCabecalho: null,
     colunas: null,
     motivoFalha: 'Nenhuma aba contém o cabeçalho esperado nas 10 primeiras linhas (Matrícula, Nome, Código Evento, Tipo, Valor).',
@@ -208,10 +208,10 @@ export function lerLinhasApontamento(
   deteccao: DeteccaoTemplate
 ): LinhaApontamento[] {
   // (assinatura preservada — caller que já tinha o WorkBook continua funcionando)
-  if (!deteccao.ehTemplatePadrao || !deteccao.abaNome || !deteccao.colunas || !deteccao.linhaCabecalho) {
+  if (!deteccao.ehTemplatePadrao || !deteccao.aba || !deteccao.colunas || !deteccao.linhaCabecalho) {
     return [];
   }
-  const ws = wb.Sheets[deteccao.abaNome];
+  const ws = wb.Sheets[deteccao.aba];
   const matriz: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: true, defval: null });
   const col = deteccao.colunas;
   const linhas: LinhaApontamento[] = [];
