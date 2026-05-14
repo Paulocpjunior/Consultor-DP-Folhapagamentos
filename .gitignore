@@ -17,43 +17,26 @@ build/
 *.bak-*
 App.tsx.bak*
 components/MainTabs.tsx.bak*
-
 # Material proprietário - não vai pro repo
 eventos.pdf
 eventos-ocr.pdf
 *.pdf
-
 # Scripts de extração (uso interno) — exceção: scripts de build versionados
 scripts/*
 !scripts/genVersion.mjs
-
 # version.json é gerado pelo prebuild a cada build de produção
 public/version.json
-
 # Cloud Run / Docker (não usado em GitHub Pages)
 server.js
 Dockerfile
 .dockerignore
-
 # Testes do projeto antigo
 __tests__/
 jest.config.js
-
 # Logs de respostas Gemini
 /tmp/gemini-*.json
 service-account.json
-service-account.json
 seed-ferrante.mjs
-service-account.json
-service-account.json
 *.bkp
 *.bkp.ts
-*.bkp
-*.bkp.ts
-
-# Backups locais
-*.bkp
-*.bkp.ts
-
 # Service account (segurança)
-service-account.json
