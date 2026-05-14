@@ -50,3 +50,10 @@ service-account.json
 *.bkp.ts
 *.bkp
 *.bkp.ts
+
+# Backups locais
+*.bkp
+*.bkp.ts
+
+# Service account (segurança)
+service-account.json
