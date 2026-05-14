@@ -1,168 +1,223 @@
-// services/folha/templatePadraoDetector.ts
-// Detector da assinatura do "Template Padrão" do app
-// (template-apontamento-iob-sage-EMPRESA-NNNNNN.xlsx).
-//
-// v2.0.0 — Detecção pela ASSINATURA DO CABEÇALHO, não pelo nome da aba.
-//   - Antes: exigia aba chamada "Lançamentos" → quebrou para clientes que
-//     enviaram com nomes default do Excel ("Folha1", "Sheet1", etc.)
-//   - Agora: varre todas as abas e procura, em qualquer uma delas, uma linha
-//     (3..6) com a assinatura {Matrícula, Nome do Funcionário, Código Evento,
-//     Valor (R$), ...}. Quando acha, devolve o nome da aba e a linha exata.
-//
-// O template tem layout fixo:
-//   - A1: título "APONTAMENTO DE FOLHA — ..."
-//   - A2: "Competência: MM/AAAA"
-//   - Linha de cabeçalho (geralmente 4): 8 colunas
-//     A=Matrícula | B=Nome do Funcionário | C=Código Evento |
-//     D=Descrição Evento | E=Tipo (R/V) | F=Referência |
-//     G=Valor (R$) | H=Observação
-//   - Linha seguinte: dados (1 linha = 1 lançamento)
-//
-// Esse detector é CONSERVADOR: qualquer divergência retorna `false` e o app
-// cai no parser legado (apontamentoParser.ts), que cuida dos clientes
-// "criativos" (SPA Saúde, Ferrante, IRB-GROUP).
+/**
+ * templatePadraoDetector.ts — v2.1.0
+ *
+ * Detecta se uma planilha XLSX está no formato LONG do template padrão IOB SAGE
+ * (1 linha por evento, com código SAGE já preenchido).
+ *
+ * Mudanças vs v2.0.0:
+ *  - Match por palavras-chave normalizadas (acentos, parênteses, hífens removidos)
+ *  - Aceita variações comuns dos cabeçalhos ("Nome do Funcionário", "Tipo (R/V)" etc.)
+ *  - Coluna "Observação" agora é OPCIONAL (mas ainda lida se presente)
+ *  - Cabeçalho buscado entre L1–L10 (não fixo em L4)
+ *  - Funciona em qualquer aba do workbook (mantido)
+ */
 
 import * as XLSX from 'xlsx';
 
-/** Linhas a varrer em busca do cabeçalho (1-indexed). Prioriza 4 (template original). */
-const LINHAS_SCAN = [4, 3, 5, 6];
+// ------- Tipos públicos -------
 
-const CABECALHOS_ESPERADOS: Record<string, string[]> = {
-    A: ['matricula', 'matrícula'],
-    B: ['nome do funcionario', 'nome do funcionário', 'funcionario', 'funcionário'],
-    C: ['codigo evento', 'código evento', 'codigo', 'código'],
-    D: ['descricao evento', 'descrição evento', 'descricao', 'descrição'],
-    E: ['tipo (r/v)', 'tipo r/v', 'tipo'],
-    F: ['referencia', 'referência'],
-    G: ['valor (r$)', 'valor r$', 'valor'],
-    H: ['observacao', 'observação', 'obs'],
+export interface ColunaTemplate {
+  matricula: number;
+  nome: number;
+  codigoEvento: number;
+  descricao: number | null;     // opcional
+  tipo: number;
+  referencia: number | null;    // opcional
+  valor: number;
+  observacao: number | null;    // opcional
+}
+
+export interface DeteccaoTemplate {
+  ehTemplatePadrao: boolean;
+  abaNome: string | null;
+  linhaCabecalho: number | null;     // 1-indexed
+  colunas: ColunaTemplate | null;
+  motivoFalha?: string;              // para debug/log
+}
+
+// ------- Constantes -------
+
+const COLUNAS_OBRIGATORIAS = ['matricula', 'nome', 'codigo_evento', 'tipo', 'valor'] as const;
+
+const SINONIMOS: Record<string, string[]> = {
+  matricula:      ['matricula', 'matricula funcionario', 'cod funcionario', 'codigo funcionario'],
+  nome:           ['nome', 'nome funcionario', 'nome do funcionario', 'funcionario', 'colaborador', 'empregado'],
+  codigo_evento:  ['codigo evento', 'cod evento', 'evento', 'codigo', 'cod', 'codigo sage', 'cod sage'],
+  descricao:      ['descricao', 'descricao evento', 'descricao do evento', 'desc evento', 'desc'],
+  tipo:           ['tipo', 'tipo r v', 'tipo rv', 'r v', 'rv', 'r/v', 'natureza'],
+  referencia:     ['referencia', 'ref', 'qtd', 'quantidade', 'horas'],
+  valor:          ['valor', 'valor r', 'valor rs', 'vlr', 'vl'],
+  observacao:     ['observacao', 'obs', 'comentario', 'nota'],
 };
 
-/** Abas auxiliares que NUNCA devem ser detectadas como aba de dados do template. */
-const ABAS_AUXILIARES_PATTERNS: RegExp[] = [
-    /tabela de eventos/i,
-    /^instru[cç][oõ]es$/i,
-    /^controles?$/i,
-    /^legenda?$/i,
-];
+const MAX_LINHAS_BUSCA_CABECALHO = 10;
 
-function normalizar(s: unknown): string {
-    if (s === null || s === undefined) return '';
-    return String(s)
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '') // remove acentos
-        .toLowerCase()
-        .trim();
+// ------- Normalização -------
+
+/** Tira acentos, parênteses, hífens, pontos, slashes; lowercase; colapsa espaços. */
+export function normalizar(s: unknown): string {
+  if (s == null) return '';
+  return String(s)
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[()\[\]{}\-_./\\,;:!?]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
-function ehAbaAuxiliar(nome: string): boolean {
-    return ABAS_AUXILIARES_PATTERNS.some((rx) => rx.test(nome));
+/** Dado um texto normalizado, retorna a chave do SINONIMOS que ele representa (ou null). */
+function classificarCelula(textoNorm: string): keyof typeof SINONIMOS | null {
+  if (!textoNorm) return null;
+  for (const chave of Object.keys(SINONIMOS) as Array<keyof typeof SINONIMOS>) {
+    if (SINONIMOS[chave].includes(textoNorm)) return chave;
+  }
+  // fallback: match parcial (começa com / contém) — protege contra " - " e ruído
+  for (const chave of Object.keys(SINONIMOS) as Array<keyof typeof SINONIMOS>) {
+    if (SINONIMOS[chave].some(sin => textoNorm === sin || textoNorm.startsWith(sin + ' ') || textoNorm.endsWith(' ' + sin))) {
+      return chave;
+    }
+  }
+  return null;
 }
 
-export interface ResultadoDeteccao {
-    ehTemplatePadrao: boolean;
-    razao: string;
-    aba?: string;
-    /** Linha do cabeçalho (1-indexed) — necessária pro parser saber onde começam os dados. */
-    linhaCabecalho?: number;
-    cabecalhosEncontrados?: Record<string, string>;
-}
+// ------- Núcleo -------
 
-interface TentativaCabecalho {
-    bate: boolean;
-    cabecalhos: Record<string, string>;
-    ausentes: string[];
-}
+/** Tenta identificar a linha de cabeçalho + posições das colunas numa aba. */
+function detectarCabecalhoNaAba(ws: XLSX.WorkSheet): {
+  linha: number;
+  colunas: ColunaTemplate;
+} | null {
+  // Converte para matriz com posições crus
+  const matriz: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: true, defval: null });
+  const limite = Math.min(matriz.length, MAX_LINHAS_BUSCA_CABECALHO);
 
-/** Verifica se a linha indicada de uma aba bate com a assinatura do template. */
-function verificarCabecalho(ws: XLSX.WorkSheet, linha: number): TentativaCabecalho {
-    const cabecalhos: Record<string, string> = {};
-    const ausentes: string[] = [];
+  for (let i = 0; i < limite; i++) {
+    const linha = matriz[i] ?? [];
+    const mapeamento: Partial<Record<keyof typeof SINONIMOS, number>> = {};
 
-    for (const [colLetra, opcoes] of Object.entries(CABECALHOS_ESPERADOS)) {
-        const cellRef = `${colLetra}${linha}`;
-        const cell = ws[cellRef];
-        const valor = cell ? normalizar(cell.v) : '';
-        cabecalhos[colLetra] = String(cell?.v ?? '');
-
-        const bate = opcoes.some((esperado) => valor === esperado);
-        if (!bate) {
-            ausentes.push(`${cellRef}="${valor}" (esperava "${opcoes[0]}")`);
-        }
+    for (let j = 0; j < linha.length; j++) {
+      const norm = normalizar(linha[j]);
+      const chave = classificarCelula(norm);
+      if (chave && mapeamento[chave] === undefined) {
+        mapeamento[chave] = j;
+      }
     }
 
-    return { bate: ausentes.length === 0, cabecalhos, ausentes };
+    // Confere se todas as obrigatórias foram encontradas
+    const todasObrigatorias = COLUNAS_OBRIGATORIAS.every(c => mapeamento[c] !== undefined);
+    if (todasObrigatorias) {
+      return {
+        linha: i + 1, // 1-indexed
+        colunas: {
+          matricula:    mapeamento.matricula!,
+          nome:         mapeamento.nome!,
+          codigoEvento: mapeamento.codigo_evento!,
+          descricao:    mapeamento.descricao    ?? null,
+          tipo:         mapeamento.tipo!,
+          referencia:   mapeamento.referencia   ?? null,
+          valor:        mapeamento.valor!,
+          observacao:   mapeamento.observacao   ?? null,
+        },
+      };
+    }
+  }
+  return null;
 }
 
 /**
- * Detecta se um arquivo .xlsx é o Template Padrão do app, em qualquer aba.
- *
- * @param arquivo File ou ArrayBuffer
- * @returns Resultado com flag e razão (pra debug/log)
+ * Ponto de entrada principal: recebe um WorkBook e devolve a detecção.
+ * Tenta TODAS as abas — retorna a primeira que bater.
  */
-export async function detectarTemplatePadrao(
-    arquivo: File | ArrayBuffer | Uint8Array,
-): Promise<ResultadoDeteccao> {
-    let buffer: ArrayBuffer | Uint8Array;
-    if (arquivo instanceof File) {
-        buffer = await arquivo.arrayBuffer();
-    } else {
-        buffer = arquivo;
+export function detectarTemplatePadrao(wb: XLSX.WorkBook): DeteccaoTemplate {
+  for (const nomeAba of wb.SheetNames) {
+    const ws = wb.Sheets[nomeAba];
+    if (!ws) continue;
+
+    const achou = detectarCabecalhoNaAba(ws);
+    if (achou) {
+      return {
+        ehTemplatePadrao: true,
+        abaNome: nomeAba,
+        linhaCabecalho: achou.linha,
+        colunas: achou.colunas,
+      };
     }
+  }
 
-    let wb: XLSX.WorkBook;
-    try {
-        wb = XLSX.read(buffer, { type: 'array', cellDates: true });
-    } catch (e) {
-        return {
-            ehTemplatePadrao: false,
-            razao: `Não foi possível abrir o arquivo como xlsx: ${(e as Error).message}`,
-        };
-    }
+  return {
+    ehTemplatePadrao: false,
+    abaNome: null,
+    linhaCabecalho: null,
+    colunas: null,
+    motivoFalha: 'Nenhuma aba contém o cabeçalho esperado nas 10 primeiras linhas (Matrícula, Nome, Código Evento, Tipo, Valor).',
+  };
+}
 
-    // Coleta as razões de cada aba pra debug útil se nada bater
-    const tentativas: string[] = [];
+// ------- Leitura das linhas de dados -------
 
-    for (const nomeAba of wb.SheetNames) {
-        if (ehAbaAuxiliar(nomeAba)) {
-            tentativas.push(`"${nomeAba}" (auxiliar — pulada)`);
-            continue;
-        }
+export interface LinhaApontamento {
+  matricula: string;
+  nome: string;
+  codigoEvento: string;          // sempre normalizado: 4 dígitos, padStart('0')
+  descricao: string | null;
+  tipo: 'R' | 'V' | null;        // R = Referência (proventos/descontos por hora/dia/%), V = Valor
+  referencia: number | null;
+  valor: number | null;
+  observacao: string | null;
+}
 
-        const ws = wb.Sheets[nomeAba];
-        let melhorTentativa: TentativaCabecalho | null = null;
-        let melhorLinha = -1;
+/** Normaliza código SAGE: aceita 5650, "5650", "0811", 811 → sempre devolve "5650"/"0811". */
+export function normalizarCodigoSage(raw: unknown): string {
+  if (raw == null) return '';
+  const apenasDigitos = String(raw).replace(/\D/g, '');
+  if (!apenasDigitos) return '';
+  return apenasDigitos.padStart(4, '0');
+}
 
-        for (const linha of LINHAS_SCAN) {
-            const t = verificarCabecalho(ws, linha);
-            if (t.bate) {
-                return {
-                    ehTemplatePadrao: true,
-                    razao: `Template padrão detectado · aba "${nomeAba}" · cabeçalho na linha ${linha}`,
-                    aba: nomeAba,
-                    linhaCabecalho: linha,
-                    cabecalhosEncontrados: t.cabecalhos,
-                };
-            }
-            // Guarda a tentativa com menos ausentes pra reportar no fim
-            if (!melhorTentativa || t.ausentes.length < melhorTentativa.ausentes.length) {
-                melhorTentativa = t;
-                melhorLinha = linha;
-            }
-        }
+/** Lê as linhas de dados, a partir da linha imediatamente seguinte ao cabeçalho. */
+export function lerLinhasApontamento(
+  wb: XLSX.WorkBook,
+  deteccao: DeteccaoTemplate
+): LinhaApontamento[] {
+  if (!deteccao.ehTemplatePadrao || !deteccao.abaNome || !deteccao.colunas || !deteccao.linhaCabecalho) {
+    return [];
+  }
+  const ws = wb.Sheets[deteccao.abaNome];
+  const matriz: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: true, defval: null });
+  const col = deteccao.colunas;
+  const linhas: LinhaApontamento[] = [];
 
-        if (melhorTentativa) {
-            tentativas.push(
-                `"${nomeAba}" linha ${melhorLinha}: ${melhorTentativa.ausentes.length} divergência(s) ` +
-                `(ex.: ${melhorTentativa.ausentes.slice(0, 2).join('; ')})`,
-            );
-        }
-    }
+  for (let i = deteccao.linhaCabecalho; i < matriz.length; i++) {
+    const linha = matriz[i] ?? [];
 
-    return {
-        ehTemplatePadrao: false,
-        razao: tentativas.length > 0
-            ? `Nenhuma aba bate com a assinatura do template padrão. Tentativas: ${tentativas.join(' | ')}`
-            : 'Arquivo sem abas reconhecíveis.',
-    };
+    const matricula    = linha[col.matricula]    != null ? String(linha[col.matricula]).trim() : '';
+    const nome         = linha[col.nome]         != null ? String(linha[col.nome]).trim() : '';
+    const codigoEvento = normalizarCodigoSage(linha[col.codigoEvento]);
+    const tipoRaw      = linha[col.tipo] != null ? String(linha[col.tipo]).trim().toUpperCase() : '';
+    const tipo: 'R' | 'V' | null = tipoRaw === 'R' ? 'R' : tipoRaw === 'V' ? 'V' : null;
+
+    // Pula linhas totalmente vazias e linhas sem nome/matricula/codigo
+    if (!matricula && !nome && !codigoEvento) continue;
+    if (!codigoEvento) continue;
+
+    linhas.push({
+      matricula,
+      nome,
+      codigoEvento,
+      descricao:  col.descricao  != null ? (linha[col.descricao]  != null ? String(linha[col.descricao]).trim()  : null) : null,
+      tipo,
+      referencia: col.referencia != null ? (toNumberOrNull(linha[col.referencia])) : null,
+      valor:      toNumberOrNull(linha[col.valor]),
+      observacao: col.observacao != null ? (linha[col.observacao] != null ? String(linha[col.observacao]).trim() : null) : null,
+    });
+  }
+  return linhas;
+}
+
+function toNumberOrNull(v: unknown): number | null {
+  if (v == null || v === '') return null;
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  const s = String(v).replace(/\./g, '').replace(',', '.'); // BR → US
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
 }
