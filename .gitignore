@@ -48,3 +48,5 @@ service-account.json
 service-account.json
 *.bkp
 *.bkp.ts
+*.bkp
+*.bkp.ts
