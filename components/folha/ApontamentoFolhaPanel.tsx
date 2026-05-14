@@ -161,10 +161,8 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
     useEffect(() => {
         (async () => {
             try {
-                const isAdminUser = (currentUser as any).role === 'admin';
-                const list = isAdminUser
-                    ? await listarTodasEmpresas()
-                    : await listarMinhasEmpresas((currentUser as any).uid);
+                // v2.2.0 — Firestore rules controlam visibilidade; listar sempre tudo.
+                const list = await listarTodasEmpresas();
                 setEmpresasCadastradas(list);
             } catch (e) {
                 console.warn('Não foi possível carregar empresas:', e);

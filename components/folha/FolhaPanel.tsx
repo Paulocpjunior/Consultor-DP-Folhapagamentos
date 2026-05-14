@@ -144,10 +144,8 @@ const SeletorEmpresa: React.FC<SeletorProps> = ({ currentUser, onSelecionar, onN
     useEffect(() => {
         (async () => {
             try {
-                const isAdminUser = (currentUser as any).role === 'admin';
-                const list = isAdminUser
-                    ? await listarTodasEmpresas()
-                    : await listarMinhasEmpresas((currentUser as any).uid);
+                // v2.2.0 — Firestore rules controlam visibilidade; listar sempre tudo.
+                const list = await listarTodasEmpresas();
                 setEmpresas(list);
             } catch (e) {
                 setErro(e instanceof Error ? e.message : String(e));
