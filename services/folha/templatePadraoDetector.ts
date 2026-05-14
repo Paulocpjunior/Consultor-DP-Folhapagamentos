@@ -128,7 +128,35 @@ function detectarCabecalhoNaAba(ws: XLSX.WorkSheet): {
  * Ponto de entrada principal: recebe um WorkBook e devolve a detecção.
  * Tenta TODAS as abas — retorna a primeira que bater.
  */
-export function detectarTemplatePadrao(wb: XLSX.WorkBook): DeteccaoTemplate {
+/** Aceita File, ArrayBuffer, Uint8Array ou XLSX.WorkBook já carregado. */
+export type EntradaDetector = File | ArrayBuffer | Uint8Array | XLSX.WorkBook;
+
+function ehWorkBook(x: any): x is XLSX.WorkBook {
+  return x && typeof x === 'object' && Array.isArray(x.SheetNames) && typeof x.Sheets === 'object';
+}
+
+async function carregarWorkBook(entrada: EntradaDetector): Promise<XLSX.WorkBook> {
+  if (ehWorkBook(entrada)) return entrada;
+
+  // File (browser)
+  if (typeof File !== 'undefined' && entrada instanceof File) {
+    const buf = await entrada.arrayBuffer();
+    return XLSX.read(buf, { type: 'array' });
+  }
+  // ArrayBuffer
+  if (entrada instanceof ArrayBuffer) {
+    return XLSX.read(entrada, { type: 'array' });
+  }
+  // Uint8Array
+  if (entrada instanceof Uint8Array) {
+    return XLSX.read(entrada, { type: 'array' });
+  }
+  throw new Error('Entrada inválida para detectarTemplatePadrao (esperado: File, ArrayBuffer, Uint8Array ou WorkBook)');
+}
+
+export async function detectarTemplatePadrao(entrada: EntradaDetector): Promise<DeteccaoTemplate> {
+  const wb = await carregarWorkBook(entrada);
+
   for (const nomeAba of wb.SheetNames) {
     const ws = wb.Sheets[nomeAba];
     if (!ws) continue;
@@ -179,6 +207,7 @@ export function lerLinhasApontamento(
   wb: XLSX.WorkBook,
   deteccao: DeteccaoTemplate
 ): LinhaApontamento[] {
+  // (assinatura preservada — caller que já tinha o WorkBook continua funcionando)
   if (!deteccao.ehTemplatePadrao || !deteccao.abaNome || !deteccao.colunas || !deteccao.linhaCabecalho) {
     return [];
   }
