@@ -50,6 +50,25 @@ export function abaCasaCompetencia(nomeAba: string, competencia: string): boolea
     return aba.includes(mesPT) && aba.includes(ano);
 }
 
+// ─── Helper: detecta o paradigma do arquivo ────────────────────────────
+// `true`  -> as abas do XLSX sao MESES (ex.: "ABRIL 2026", "MAIO 2026"):
+//            paradigma "1 aba = 1 mes" (ex.: VALUE PROJETOS). O filtro
+//            estrito por competencia se aplica.
+// `false` -> as abas sao RAZOES SOCIAIS (ex.: grupo Rede Genesis: REDE
+//            GENESIS, VITA, COLORADO...). A competencia vem so do seletor
+//            da UI; nao ha competencia no nome da aba, entao o filtro por
+//            aba NAO se aplica (nem bloqueia a exportacao).
+function arquivoEhPorMes(nomesAbas: string[]): boolean {
+    if (!nomesAbas || nomesAbas.length === 0) return false;
+    const meses = Object.values(MESES_PT);
+    return nomesAbas.some((nome) => {
+        const n = normalizar(nome);
+        const temMes = meses.some((mes) => n.includes(mes));
+        const temAno = /\b\d{4}\b/.test(n);
+        return temMes && temAno;
+    });
+}
+
 import type { User } from '../../types';
 import type {
     ApontamentoParseado,
@@ -661,29 +680,42 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
     // Ex: competência "04/2026" → mostra só a aba que contém "ABRIL" e "2026" no nome.
     // Auto-seleciona primeira aba filtrada quando competência ou parsed muda
     // (evita ficar travado numa empresa que sumiu do filtro)
+    // Detecta o paradigma do arquivo: abas = meses vs abas = empresas.
+    const ehArquivoPorMes = useMemo(
+        () => (parsed ? arquivoEhPorMes(parsed.empresas.map((e) => e.nome)) : false),
+        [parsed],
+    );
+
     useEffect(() => {
         if (!parsed) return;
-        const filtradas = parsed.empresas.filter((e) => abaCasaCompetencia(e.nome, competencia));
+        const filtradas = ehArquivoPorMes
+            ? parsed.empresas.filter((e) => abaCasaCompetencia(e.nome, competencia))
+            : parsed.empresas;
         const candidatas = filtradas.length > 0 ? filtradas : parsed.empresas;
         if (candidatas.length === 0) return;
         const ativaAindaExiste = candidatas.some((e) => e.nome === empresaAtiva);
         if (!ativaAindaExiste) {
             setEmpresaAtiva(candidatas[0].nome);
         }
-    }, [parsed, competencia, empresaAtiva]);
+    }, [parsed, competencia, empresaAtiva, ehArquivoPorMes]);
 
     const empresasFiltradas = useMemo(() => {
         if (!parsed) return [];
         if (parsed.empresas.length <= 1) return parsed.empresas;
+        // Multi-empresa (abas = empresas): mostra todas; nao ha filtro por mes.
+        if (!ehArquivoPorMes) return parsed.empresas;
         const filtradas = parsed.empresas.filter((e) => abaCasaCompetencia(e.nome, competencia));
         // Se nenhuma aba bate → mostra TODAS (fallback) pra não bloquear o usuário
         return filtradas.length > 0 ? filtradas : parsed.empresas;
-    }, [parsed, competencia]);
+    }, [parsed, competencia, ehArquivoPorMes]);
 
     const competenciaCasaAlguma = useMemo(() => {
         if (!parsed || parsed.empresas.length <= 1) return true;
+        // Arquivo multi-empresa (abas = empresas): competencia nao vem da aba,
+        // entao nao existe "casar competencia" - nunca bloqueia por esse motivo.
+        if (!ehArquivoPorMes) return true;
         return parsed.empresas.some((e) => abaCasaCompetencia(e.nome, competencia));
-    }, [parsed, competencia]);
+    }, [parsed, competencia, ehArquivoPorMes]);
 
     /**
      * `parsed` filtrado para a EXPORTAÇÃO.
@@ -702,15 +734,16 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
      */
     const parsedParaExportacao = useMemo(() => {
         if (!parsed) return null;
-        const empresasNoMapa = Object.keys(mapa?.empresas ?? {}).length;
-        const ehMonoEmpresaComHistorico =
-            empresasNoMapa === 1 && parsed.empresas.length > 1;
-        if (!ehMonoEmpresaComHistorico) return parsed;
+        // O filtro estrito por competencia so faz sentido quando as abas sao
+        // MESES (paradigma "1 aba = 1 mes", ex.: VALUE PROJETOS). Em arquivos
+        // multi-empresa (grupo Rede Genesis) as abas sao razoes sociais e a
+        // competencia vem so do seletor da UI - nao se filtra por aba.
+        if (!ehArquivoPorMes) return parsed;
         const filtradas = parsed.empresas.filter((e) =>
             abaCasaCompetencia(e.nome, competencia)
         );
         return { ...parsed, empresas: filtradas };
-    }, [parsed, mapa, competencia]);
+    }, [parsed, competencia, ehArquivoPorMes]);
 
     // Conta preenchimento por coluna na empresa ativa
     const preenchimentoPorColuna = useMemo(() => {
