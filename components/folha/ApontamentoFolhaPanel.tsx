@@ -135,6 +135,9 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
     const [parsed, setParsed] = useState<ApontamentoParseado | null>(null);
     const [snapshotArqProcessado, setSnapshotArqProcessado] = useState<string | null>(null);
     const [mapa, setMapa] = useState<MapeamentoApontamento | null>(null);
+    // Mapa Firestore de CADA empresa-aba do arquivo (chave = nome da aba).
+    // Multi-empresa (grupo Rede Genesis): cada aba tem doc proprio.
+    const [mapasPorEmpresa, setMapasPorEmpresa] = useState<Record<string, MapeamentoApontamento | null>>({});
     const [perfil, setPerfil] = useState<PerfilColunas | null>(null);
     const [empresaAtiva, setEmpresaAtiva] = useState<string | null>(null);
     const [matriculasEdit, setMatriculasEdit] = useState<Record<string, Record<string, string>>>({});
@@ -396,19 +399,48 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
     const handleSalvarMatriculas = async () => {
         try {
             let total = 0;
-            for (const [empresa, matriculas] of Object.entries(matriculasEdit)) {
+            const avisos: string[] = [];
+            const clienteDigits = (cliente ?? '').replace(/\D/g, '');
+            // matriculasEdit e chaveado por NOME DA ABA. Para cada aba,
+            // resolve (a) o doc Firestore correto via CNPJ da empresa e
+            // (b) a chave-no-mapa que o montarLancamentos usa para ler.
+            for (const [nomeAba, matriculas] of Object.entries(matriculasEdit)) {
                 const filtradas = Object.fromEntries(
                     Object.entries(matriculas).filter(([, v]) => v && v.trim())
                 );
-                if (Object.keys(filtradas).length > 0) {
-                    await saveMatriculas(cliente, empresa, filtradas);
-                    total += Object.keys(filtradas).length;
-                }
+                if (Object.keys(filtradas).length === 0) continue;
+                const empCad = acharEmpresaPorNome(nomeAba, empresasCadastradas);
+                const cnpjDigits = empCad ? (empCad.cnpj ?? '').replace(/\D/g, '') : '';
+                const docId = cnpjDigits || clienteDigits;
+                const empObjAba = parsed?.empresas.find((e) => e.nome === nomeAba) ?? null;
+                const mapaEmp = mapasPorEmpresa[nomeAba] ?? mapa;
+                const chaveNoMapa = empObjAba
+                    ? chaveEmpresa(empObjAba, mapaEmp)
+                    : nomeAba;
+                await saveMatriculas(docId, chaveNoMapa, filtradas);
+                total += Object.keys(filtradas).length;
+                if (!empCad) avisos.push(nomeAba);
             }
-            const m = await getMapeamento(cliente);
-            setMapa(m);
+            // Recarrega os mapas das empresas para a pre-visualizacao
+            // refletir o que acabou de ser salvo.
+            if (parsed) {
+                const acc: Record<string, MapeamentoApontamento | null> = {};
+                for (const emp of parsed.empresas) {
+                    const empCad = acharEmpresaPorNome(emp.nome, empresasCadastradas);
+                    const cnpjDigits = empCad ? (empCad.cnpj ?? '').replace(/\D/g, '') : '';
+                    try {
+                        acc[emp.nome] = cnpjDigits ? await getMapeamento(cnpjDigits) : null;
+                    } catch { acc[emp.nome] = null; }
+                }
+                setMapasPorEmpresa(acc);
+            }
             setMatriculasEdit({});
-            setMsg(`${total} matrícula(s) salva(s).`);
+            setMsg(
+                `${total} matricula(s) salva(s).` +
+                (avisos.length
+                    ? ` Atencao: aba(s) sem empresa no cadastro: ${avisos.join(', ')}.`
+                    : ''),
+            );
         } catch (e) {
             setErro(e instanceof Error ? e.message : String(e));
         }
@@ -570,22 +602,31 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                 const colunasAtivasUnion = new Set<string>();
                 Object.values(colunasAtivas).forEach((set) => set.forEach((c) => colunasAtivasUnion.add(c)));
 
-                // Aplica as edicoes de matricula da UI (matriculasEdit) sobre o
-                // `matriculas` de um mapa, preservando o que ja existe nele.
-                const aplicarEditsMatricula = (m: MapeamentoApontamento): MapeamentoApontamento => ({
-                    ...m,
-                    matriculas: Object.entries(matriculasEdit).reduce(
-                        (acc, [emp, mats]) => ({ ...acc, [emp]: { ...(acc[emp] ?? {}), ...mats } }),
-                        { ...(m.matriculas ?? {}) },
-                    ),
-                });
+                // Mescla matriculasEdit[nomeAba] no `matriculas` do mapa, sob a
+                // chave que o montarLancamentos usa para ler (chaveEmpresa
+                // resolve nomeAba -> nome-no-mapa). matriculasEdit e sempre
+                // chaveado por NOME DA ABA.
+                const mesclarEdits = (
+                    m: MapeamentoApontamento,
+                    empAba: { nome: string; funcionarios: unknown[]; colunas: string[] },
+                ): MapeamentoApontamento => {
+                    const editsEmp = matriculasEdit[empAba.nome];
+                    if (!editsEmp || Object.keys(editsEmp).length === 0) return m;
+                    const chave = chaveEmpresa(empAba, m);
+                    return {
+                        ...m,
+                        matriculas: {
+                            ...(m.matriculas ?? {}),
+                            [chave]: { ...(m.matriculas?.[chave] ?? {}), ...editsEmp },
+                        },
+                    };
+                };
 
                 // Orquestracao multi-empresa: arquivo onde cada aba e uma EMPRESA
                 // distinta (grupo Rede Genesis). Cada empresa tem doc proprio
-                // folha_mapeamentos/{CNPJ} com mapeamento_colunas proprio, entao
-                // carregamos 1 mapa por aba e rodamos montarLancamentos isolado.
-                // Demais casos (mono-empresa, VALUE por-mes, doc consolidado)
-                // seguem no caminho legado de chamada unica.
+                // folha_mapeamentos/{CNPJ}; carregamos 1 mapa por aba e rodamos
+                // montarLancamentos isolado. Demais casos (mono-empresa, VALUE
+                // por-mes, doc consolidado) seguem o caminho de chamada unica.
                 const ehMultiEmpresaArquivo =
                     !ehArquivoPorMes && parsedExport.empresas.length > 1;
 
@@ -622,12 +663,13 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                         }
                         const editsEmp = matriculasEdit[emp.nome];
                         if (editsEmp && Object.keys(editsEmp).length > 0) {
-                            try { await saveMatriculas(cnpjDigits, emp.nome, editsEmp); }
-                            catch (e) { console.warn(e); }
+                            try {
+                                await saveMatriculas(cnpjDigits, chaveEmpresa(emp, mapaEmp), editsEmp);
+                            } catch (e) { console.warn(e); }
                         }
                         const parcial = montarLancamentos(
                             { ...parsedExport, empresas: [emp] },
-                            aplicarEditsMatricula(mapaEmp),
+                            mesclarEdits(mapaEmp, emp),
                             catalogo,
                             { colunasAtivas: colunasAtivasUnion, exigirMatricula: true },
                         );
@@ -638,10 +680,14 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                         }
                     }
                 } else {
-                    const mapaComEdits = aplicarEditsMatricula(mapa);
-                    for (const [emp, mats] of Object.entries(matriculasEdit)) {
-                        if (Object.keys(mats).length > 0) {
-                            try { await saveMatriculas(cliente, emp, mats); } catch (e) { console.warn(e); }
+                    let mapaComEdits = mapa;
+                    for (const emp of parsedExport.empresas) {
+                        mapaComEdits = mesclarEdits(mapaComEdits, emp);
+                        const editsEmp = matriculasEdit[emp.nome];
+                        if (editsEmp && Object.keys(editsEmp).length > 0) {
+                            try {
+                                await saveMatriculas(cliente, chaveEmpresa(emp, mapa), editsEmp);
+                            } catch (e) { console.warn(e); }
                         }
                     }
                     r = montarLancamentos(parsedExport, mapaComEdits, catalogo, {
@@ -748,6 +794,38 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
         () => (parsed ? arquivoEhPorMes(parsed.empresas.map((e) => e.nome)) : false),
         [parsed],
     );
+
+    // Carrega o mapeamento Firestore de CADA empresa-aba do arquivo.
+    // Em arquivos multi-empresa (grupo Rede Genesis) cada aba e uma empresa
+    // distinta com doc proprio folha_mapeamentos/{CNPJ}; a pre-visualizacao
+    // precisa do mapa correto de cada uma para ler/gravar matricula no lugar
+    // certo. Sem isto, todas as abas usavam o mapa da sessao e as matriculas
+    // colapsavam sob a chave da empresa errada.
+    useEffect(() => {
+        if (!parsed) { setMapasPorEmpresa({}); return; }
+        let cancelado = false;
+        (async () => {
+            const clienteDigits = (cliente ?? '').replace(/\D/g, '');
+            const acc: Record<string, MapeamentoApontamento | null> = {};
+            for (const emp of parsed.empresas) {
+                const empCad = acharEmpresaPorNome(emp.nome, empresasCadastradas);
+                const cnpjDigits = empCad ? (empCad.cnpj ?? '').replace(/\D/g, '') : '';
+                try {
+                    if (cnpjDigits && cnpjDigits === clienteDigits) {
+                        acc[emp.nome] = mapa;
+                    } else if (cnpjDigits) {
+                        acc[emp.nome] = await getMapeamento(cnpjDigits);
+                    } else {
+                        acc[emp.nome] = null;
+                    }
+                } catch {
+                    acc[emp.nome] = null;
+                }
+            }
+            if (!cancelado) setMapasPorEmpresa(acc);
+        })();
+        return () => { cancelado = true; };
+    }, [parsed, empresasCadastradas, mapa, cliente]);
 
     useEffect(() => {
         if (!parsed) return;
@@ -998,9 +1076,13 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                             </thead>
                             <tbody>
                                 {empresaObj.funcionarios.map((f) => {
-                                    const chaveMapa = chaveEmpresa(empresaObj, mapa);
-                                    const salva = mapa?.matriculas?.[chaveMapa]?.[f.nome] ?? '';
-                                    const edit = matriculasEdit[chaveMapa]?.[f.nome];
+                                    // matriculasEdit e chaveado por NOME DA ABA; a
+                                    // leitura da matricula salva usa o mapa proprio
+                                    // da empresa-aba (suporte multi-empresa).
+                                    const mapaEmp = mapasPorEmpresa[empresaObj.nome] ?? mapa;
+                                    const chaveMapa = chaveEmpresa(empresaObj, mapaEmp);
+                                    const salva = mapaEmp?.matriculas?.[chaveMapa]?.[f.nome] ?? '';
+                                    const edit = matriculasEdit[empresaObj.nome]?.[f.nome];
                                     const mat = edit !== undefined ? edit : salva;
                                     return (
                                         <tr
@@ -1015,8 +1097,8 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                                                     onChange={(e) =>
                                                         setMatriculasEdit((prev) => ({
                                                             ...prev,
-                                                            [chaveMapa]: {
-                                                                ...(prev[chaveMapa] ?? {}),
+                                                            [empresaObj.nome]: {
+                                                                ...(prev[empresaObj.nome] ?? {}),
                                                                 [f.nome]: e.target.value,
                                                             },
                                                         }))
