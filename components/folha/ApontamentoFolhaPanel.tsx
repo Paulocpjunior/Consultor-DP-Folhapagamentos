@@ -332,6 +332,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                 // Popula `parsed` para a Section 3 (pré-visualização, matrículas
                 // e seleção de colunas) renderizar igual aos demais clientes.
                 setParsed(r.parsed);
+                setSnapshotArqProcessado(snapshotDoArquivo(file));
                 setEmpresaAtiva(r.parsed.empresas[0]?.nome ?? null);
                 setResultado({
                     lancamentos: r.lancamentos,
@@ -375,6 +376,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
             }
 
             setParsed(p);
+            setSnapshotArqProcessado(snapshotDoArquivo(file));
             setEmpresaAtiva(p.empresas[0]?.nome ?? null);
             setMatriculasEdit({});
             inicializarSelecaoColunas(p, perfil);
