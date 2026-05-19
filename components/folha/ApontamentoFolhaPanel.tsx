@@ -567,27 +567,88 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                     return;
                 }
                 const parsedExport = parsedParaExportacao ?? parsed;
-                const mapaComEdits: MapeamentoApontamento = {
-                    ...mapa,
-                    matriculas: Object.entries(matriculasEdit).reduce(
-                        (acc, [emp, mats]) => ({
-                            ...acc,
-                            [emp]: { ...(acc[emp] ?? {}), ...mats },
-                        }),
-                        { ...(mapa.matriculas ?? {}) },
-                    ),
-                };
-                for (const [emp, mats] of Object.entries(matriculasEdit)) {
-                    if (Object.keys(mats).length > 0) {
-                        try { await saveMatriculas(cliente, emp, mats); } catch (e) { console.warn(e); }
-                    }
-                }
                 const colunasAtivasUnion = new Set<string>();
                 Object.values(colunasAtivas).forEach((set) => set.forEach((c) => colunasAtivasUnion.add(c)));
-                r = montarLancamentos(parsedExport, mapaComEdits, catalogo, {
-                    colunasAtivas: colunasAtivasUnion,
-                    exigirMatricula: true,
+
+                // Aplica as edicoes de matricula da UI (matriculasEdit) sobre o
+                // `matriculas` de um mapa, preservando o que ja existe nele.
+                const aplicarEditsMatricula = (m: MapeamentoApontamento): MapeamentoApontamento => ({
+                    ...m,
+                    matriculas: Object.entries(matriculasEdit).reduce(
+                        (acc, [emp, mats]) => ({ ...acc, [emp]: { ...(acc[emp] ?? {}), ...mats } }),
+                        { ...(m.matriculas ?? {}) },
+                    ),
                 });
+
+                // Orquestracao multi-empresa: arquivo onde cada aba e uma EMPRESA
+                // distinta (grupo Rede Genesis). Cada empresa tem doc proprio
+                // folha_mapeamentos/{CNPJ} com mapeamento_colunas proprio, entao
+                // carregamos 1 mapa por aba e rodamos montarLancamentos isolado.
+                // Demais casos (mono-empresa, VALUE por-mes, doc consolidado)
+                // seguem no caminho legado de chamada unica.
+                const ehMultiEmpresaArquivo =
+                    !ehArquivoPorMes && parsedExport.empresas.length > 1;
+
+                if (ehMultiEmpresaArquivo) {
+                    r = { lancamentos: [], alertas: [], funcionariosSemMatricula: [] };
+                    const mapaCache = new Map<string, MapeamentoApontamento>();
+                    const clienteDigits = (cliente ?? '').replace(/\D/g, '');
+                    for (const emp of parsedExport.empresas) {
+                        const empresaCad = acharEmpresaPorNome(emp.nome, empresasCadastradas);
+                        if (!empresaCad) {
+                            r.alertas.push(
+                                `Aba "${emp.nome}": empresa nao encontrada no cadastro ` +
+                                `(aba Empresas). Lancamentos nao gerados para esta aba.`,
+                            );
+                            continue;
+                        }
+                        const cnpjDigits = (empresaCad.cnpj ?? '').replace(/\D/g, '');
+                        let mapaEmp = mapaCache.get(cnpjDigits) ?? null;
+                        if (!mapaEmp) {
+                            if (cnpjDigits === clienteDigits) {
+                                mapaEmp = mapa;
+                            } else {
+                                try { mapaEmp = await getMapeamento(cnpjDigits); }
+                                catch (e) { console.warn(e); mapaEmp = null; }
+                            }
+                            if (mapaEmp) mapaCache.set(cnpjDigits, mapaEmp);
+                        }
+                        if (!mapaEmp) {
+                            r.alertas.push(
+                                `Aba "${emp.nome}" (CNPJ ${cnpjDigits}): sem mapeamento ` +
+                                `no Firestore. Parametrize esta empresa antes de exportar.`,
+                            );
+                            continue;
+                        }
+                        const editsEmp = matriculasEdit[emp.nome];
+                        if (editsEmp && Object.keys(editsEmp).length > 0) {
+                            try { await saveMatriculas(cnpjDigits, emp.nome, editsEmp); }
+                            catch (e) { console.warn(e); }
+                        }
+                        const parcial = montarLancamentos(
+                            { ...parsedExport, empresas: [emp] },
+                            aplicarEditsMatricula(mapaEmp),
+                            catalogo,
+                            { colunasAtivas: colunasAtivasUnion, exigirMatricula: true },
+                        );
+                        r.lancamentos.push(...parcial.lancamentos);
+                        r.alertas.push(...parcial.alertas);
+                        if (parcial.funcionariosSemMatricula) {
+                            r.funcionariosSemMatricula.push(...parcial.funcionariosSemMatricula);
+                        }
+                    }
+                } else {
+                    const mapaComEdits = aplicarEditsMatricula(mapa);
+                    for (const [emp, mats] of Object.entries(matriculasEdit)) {
+                        if (Object.keys(mats).length > 0) {
+                            try { await saveMatriculas(cliente, emp, mats); } catch (e) { console.warn(e); }
+                        }
+                    }
+                    r = montarLancamentos(parsedExport, mapaComEdits, catalogo, {
+                        colunasAtivas: colunasAtivasUnion,
+                        exigirMatricula: true,
+                    });
+                }
                 setResultado(r);
                 if (r.funcionariosSemMatricula && r.funcionariosSemMatricula.length > 0) {
                     setErro(
