@@ -3,17 +3,16 @@
 // Pós-processador específico para clientes com fórmula de hora-aula por
 // funcionário (atualmente: EDUCATI).
 //
-// Aplica `valor = horas × valor-hora-aula[matricula]` aos lançamentos dos
-// eventos listados em EVENTOS_COM_VALOR_HORA_AULA, convertendo de
-// Referência (horas) para Valor (R$). Lançamentos de outros eventos passam
-// batido sem alteração.
+// Aplica `valor = horas × valor-hora-aula[matricula] × coeficiente` aos
+// lançamentos dos eventos listados em FORMULAS_POR_EVENTO, convertendo de
+// Referência (horas/aulas) para Valor (R$). Lançamentos de outros eventos
+// passam batido sem alteração.
 //
-// Eventos cobertos:
-//   - 0033 HORA AULA       (tipo V — vencimento)
-//   - 8920 FALTAS          (tipo D — desconto)
-// Ambos compartilham a mesma tabela: cada professor tem seu valor-hora
-// próprio, e tanto a aula dada quanto a aula faltada são calculadas pelo
-// mesmo R$/h.
+// Eventos cobertos e fórmula (SIMPROSP — Sindicato dos Professores SP):
+//   - 0033 HORA AULA  (tipo V): aulas_semanais × valor × 4,5 semanas/mês
+//     Ex.: 20 aulas/sem × R$ 34,35 × 4,5 = R$ 3.091,50
+//   - 8920 FALTAS     (tipo D): horas_faltadas × valor (sem multiplicar)
+//     Ex.: 4h faltadas × R$ 34,35 = R$ 137,40
 //
 // Roda DEPOIS do `parsearTemplatePadrao` e ANTES de exibir/exportar.
 // O `ApontamentoFolhaPanel` busca a tabela `valoresHoraAula` do mapeamento
@@ -29,13 +28,36 @@ export const EVENTO_HORA_AULA = '0033';
 export const EVENTO_FALTAS = '8920';
 
 /**
- * Eventos cujos lançamentos a fórmula horas × valor-hora-aula deve
- * processar. Convertidos de rv=R (horas) para rv=V (R$).
+ * Coeficiente de média de semanas no mês — usado pela CLT/SIMPROSP para
+ * converter aulas semanais em salário mensal.
  */
-export const EVENTOS_COM_VALOR_HORA_AULA: ReadonlyArray<string> = [
-    EVENTO_HORA_AULA,
-    EVENTO_FALTAS,
-];
+export const SEMANAS_MES = 4.5;
+
+interface FormulaEvento {
+    /** Multiplicador adicional (1 = direto; 4,5 = aulas semanais × 4,5 semanas/mês). */
+    coeficiente: number;
+    /** Unidade da referência da planilha (ex.: "aulas/sem", "h"). */
+    unidadeRef: string;
+}
+
+/**
+ * Fórmula por evento. Eventos não listados aqui passam batido.
+ *
+ * O `coeficiente` é multiplicado em cima de `horas × valor-hora-aula`:
+ *   - 0033 HORA AULA: planilha manda "20" = aulas semanais → ×34,35×4,5 = R$ 3.091,50
+ *   - 8920 FALTAS:    planilha manda "4"  = horas do mês  → ×34,35×1   = R$ 137,40
+ */
+const FORMULAS_POR_EVENTO: Record<string, FormulaEvento> = {
+    [EVENTO_HORA_AULA]: { coeficiente: SEMANAS_MES, unidadeRef: 'aulas/sem' },
+    [EVENTO_FALTAS]:    { coeficiente: 1,           unidadeRef: 'h'         },
+};
+
+/**
+ * Eventos cujos lançamentos a fórmula horas × valor-hora-aula deve
+ * processar. Convertidos de rv=R (horas/aulas) para rv=V (R$).
+ */
+export const EVENTOS_COM_VALOR_HORA_AULA: ReadonlyArray<string> =
+    Object.keys(FORMULAS_POR_EVENTO);
 
 export interface ResultadoPosProcessamentoHoraAula {
     lancamentos: Lancamento[];
@@ -58,9 +80,9 @@ function fmtBRL(n: number): string {
 const MARCADOR_CONVERTIDO = 'valor-hora-aula';
 
 /**
- * Aplica a fórmula `valor = horas × valor-hora-aula[matricula]` em todos
- * os lançamentos dos eventos listados em EVENTOS_COM_VALOR_HORA_AULA
- * (atualmente: 0033 HORA AULA e 8920 FALTAS).
+ * Aplica a fórmula `valor = horas × valor-hora-aula[matricula] × coeficiente`
+ * em todos os lançamentos dos eventos listados em FORMULAS_POR_EVENTO
+ * (atualmente: 0033 HORA AULA com coef=4,5 e 8920 FALTAS com coef=1).
  *
  * - Lançamentos com matrícula presente na tabela: convertidos para rv='V'
  *   com valor em R$. Uma observação é anexada com o detalhamento do cálculo.
@@ -72,7 +94,7 @@ const MARCADOR_CONVERTIDO = 'valor-hora-aula';
  * - Lançamentos de outros eventos: devolvidos sem alteração.
  *
  * Idempotência baseada na OBS: o pós-processador anexa um marcador
- * `valor-hora-aula R$ ... × ...h = R$ ...` ao convertir. Ao rodar de novo,
+ * `valor-hora-aula R$ ... × ... = R$ ...` ao convertir. Ao rodar de novo,
  * lançamentos cuja OBS já contém esse marcador são pulados.
  *
  * Importante: NÃO podemos usar `rv === 'V'` como guarda de idempotência
@@ -89,7 +111,8 @@ export function aplicarValorHoraAulaEducati(
     let totalMantidos = 0;
 
     const out = lancamentos.map((l) => {
-        if (!EVENTOS_COM_VALOR_HORA_AULA.includes(l.evento)) return l;
+        const formula = FORMULAS_POR_EVENTO[l.evento];
+        if (!formula) return l;
         if ((l.obs ?? '').includes(MARCADOR_CONVERTIDO)) return l; // já convertido
 
         const matricula = (l.matricula ?? '').trim();
@@ -106,19 +129,20 @@ export function aplicarValorHoraAulaEducati(
             return l;
         }
 
-        const horas = l.valor;
-        if (typeof horas !== 'number' || !Number.isFinite(horas) || horas <= 0) {
+        const referencia = l.valor;
+        if (typeof referencia !== 'number' || !Number.isFinite(referencia) || referencia <= 0) {
             totalMantidos++;
             alertas.push(
-                `EDUCATI: ${l.coluna} — referência inválida (${horas}) ` +
+                `EDUCATI: ${l.coluna} — referência inválida (${referencia}) ` +
                 `para matrícula ${matricula} no evento ${l.evento}. Sem conversão.`,
             );
             return l;
         }
 
-        const valorReais = round2(horas * valorHora);
-        const detalhe =
-            `valor-hora-aula ${fmtBRL(valorHora)} × ${horas}h = ${fmtBRL(valorReais)}`;
+        const valorReais = round2(referencia * valorHora * formula.coeficiente);
+        const detalhe = formula.coeficiente === 1
+            ? `valor-hora-aula ${fmtBRL(valorHora)} × ${referencia}${formula.unidadeRef} = ${fmtBRL(valorReais)}`
+            : `valor-hora-aula ${fmtBRL(valorHora)} × ${referencia} ${formula.unidadeRef} × ${formula.coeficiente} = ${fmtBRL(valorReais)}`;
         totalConvertidos++;
 
         return {
@@ -132,7 +156,8 @@ export function aplicarValorHoraAulaEducati(
     if (totalConvertidos > 0) {
         alertas.unshift(
             `EDUCATI: ${totalConvertidos} lançamento(s) (${EVENTOS_COM_VALOR_HORA_AULA.join(', ')}) ` +
-            `convertido(s) de horas para R$ usando a tabela valoresHoraAula do mapeamento.`,
+            `convertido(s) de referência para R$ usando a tabela valoresHoraAula do mapeamento ` +
+            `(0033 × ${SEMANAS_MES} semanas/mês; 8920 direto).`,
         );
     }
 
