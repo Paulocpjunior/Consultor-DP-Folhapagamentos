@@ -74,16 +74,20 @@ export const EDUCATI_EVENTOS_ESPERADOS: ReadonlyArray<{
         rv: 'V',
         nota:
             'Planilha EDUCATI envia em Referência (horas) com Tipo=R. ' +
-            'Parser respeita o que vem da planilha — não trocar para V automaticamente.',
+            'Pós-processador aplica horas × valor-hora-aula (mesma tabela do 0033) ' +
+            'e exporta como rv=V com valor em R$.',
     },
 ];
 
 /**
  * Valor da hora-aula por matrícula (R$/hora). Usado pelo pós-processador
- * `aplicarValorHoraAulaEducati` para converter lançamentos do evento 0033
- * (HORA AULA) de referência em horas para valor em R$.
+ * `aplicarValorHoraAulaEducati` para converter lançamentos dos eventos
+ * 0033 HORA AULA e 8920 FALTAS de referência em horas para valor em R$.
  *
  * Fórmula: `valor_rs = horas × EDUCATI_VALORES_HORA_AULA[matricula]`.
+ * Mesma tabela serve para HORA AULA (vencimento) e FALTAS (desconto):
+ * tanto a aula dada quanto a aula faltada são calculadas pelo mesmo R$/h
+ * — só o tipo V/D distingue.
  *
  * Suporta horas fracionadas — ex.: 20.5h × R$ 34,35 = R$ 704,18
  * (arredondamento financeiro para 2 casas decimais).
@@ -129,12 +133,11 @@ export const MAPEAMENTO_EDUCATI_DEFAULT: MapeamentoApontamento = {
         'Aba de dados: "Lançamentos" — cabeçalho na linha 4.',
         'Competência atualizada a cada upload (lida da célula A2 do XLSX).',
         'SAGE calcula salário automaticamente — regra_salario desativada.',
-        'Evento 0033 HORA AULA: fórmula valoresHoraAula aplica horas × R$/h. ' +
-            'Cada professor tem valor próprio. Suporta horas fracionadas.',
+        'Eventos 0033 HORA AULA e 8920 FALTAS: fórmula valoresHoraAula aplica ' +
+            'horas × R$/h (mesma tabela serve aos dois — HORA AULA é vencimento e ' +
+            'FALTAS é desconto). Cada professor tem valor próprio. Suporta horas fracionadas.',
         'Mensalistas (000078 Amanda, 000072 Milene) só recebem 0820 HE 100% — ' +
             'não entram na tabela de hora-aula; SAGE calcula HE pelo salário-hora.',
-        'Evento 8920 FALTAS (linhas com Tipo=R no XLSX): pendente confirmação ' +
-            'da contadora sobre criar evento próprio para faltas-em-horas.',
     ],
     empresas: {
         EDUCATI: { codigo_sage: EDUCATI_CODIGO_SAGE, ativa: true },
