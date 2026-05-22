@@ -115,7 +115,12 @@ export interface MapeamentoApontamento {
         evento_padrao: RegraColuna;
         regras: RegraObs[];
     };
-    regra_salario?: RegraSalario;
+    /**
+     * Regra do evento de salário. `null` (explícito) desativa a geração — útil
+     * para clientes onde o SAGE calcula salário do cadastro do funcionário.
+     * `undefined` (omitido) faz `getMapeamento` aplicar o default migrando o doc.
+     */
+    regra_salario?: RegraSalario | null;
     matriculas: Record<string, Record<string, string>>;
 }
 
