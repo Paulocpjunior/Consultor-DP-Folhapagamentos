@@ -85,8 +85,17 @@ export const EDUCATI_EVENTOS_ESPERADOS: ReadonlyArray<{
  *
  * Fórmula: `valor_rs = horas × EDUCATI_VALORES_HORA_AULA[matricula]`.
  *
+ * Suporta horas fracionadas — ex.: 20.5h × R$ 34,35 = R$ 704,18
+ * (arredondamento financeiro para 2 casas decimais).
+ *
  * Funcionários sem entrada nesta tabela mantêm o lançamento em horas
  * (rv=R) e geram alerta para revisão da contadora.
+ *
+ * NÃO inclui mensalistas. Em maio/2026:
+ *   - 000078 Amanda Oliveira  → mensalista, recebe apenas 0820 HE 100%
+ *   - 000072 Milene Ramos     → mensalista, recebe apenas 0820 HE 100%
+ * Para mensalistas, o SAGE calcula HE 100% a partir do salário-hora do
+ * cadastro — não há fórmula customizada e o pós-processador passa batido.
  */
 export const EDUCATI_VALORES_HORA_AULA: Record<string, number> = {
     '000046': 33.95, // Eduardo Fernando do Nascimento Batata
@@ -120,6 +129,12 @@ export const MAPEAMENTO_EDUCATI_DEFAULT: MapeamentoApontamento = {
         'Aba de dados: "Lançamentos" — cabeçalho na linha 4.',
         'Competência atualizada a cada upload (lida da célula A2 do XLSX).',
         'SAGE calcula salário automaticamente — regra_salario desativada.',
+        'Evento 0033 HORA AULA: fórmula valoresHoraAula aplica horas × R$/h. ' +
+            'Cada professor tem valor próprio. Suporta horas fracionadas.',
+        'Mensalistas (000078 Amanda, 000072 Milene) só recebem 0820 HE 100% — ' +
+            'não entram na tabela de hora-aula; SAGE calcula HE pelo salário-hora.',
+        'Evento 8920 FALTAS (linhas com Tipo=R no XLSX): pendente confirmação ' +
+            'da contadora sobre criar evento próprio para faltas-em-horas.',
     ],
     empresas: {
         EDUCATI: { codigo_sage: EDUCATI_CODIGO_SAGE, ativa: true },
