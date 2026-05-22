@@ -121,6 +121,14 @@ export interface MapeamentoApontamento {
      * `undefined` (omitido) faz `getMapeamento` aplicar o default migrando o doc.
      */
     regra_salario?: RegraSalario | null;
+    /**
+     * Tabela de valor-hora-aula por matrícula (R$/hora). Quando presente,
+     * o pós-processador `aplicarValorHoraAulaEducati` converte lançamentos
+     * do evento 0033 HORA AULA (rv=R, horas) em rv=V (valor em R$)
+     * multiplicando: `valor = horas × valoresHoraAula[matricula]`.
+     * Específico para clientes com hora-aula variável por professor.
+     */
+    valoresHoraAula?: Record<string, number>;
     matriculas: Record<string, Record<string, string>>;
 }
 

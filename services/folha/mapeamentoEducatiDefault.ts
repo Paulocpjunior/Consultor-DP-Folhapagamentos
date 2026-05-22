@@ -79,6 +79,26 @@ export const EDUCATI_EVENTOS_ESPERADOS: ReadonlyArray<{
 ];
 
 /**
+ * Valor da hora-aula por matrícula (R$/hora). Usado pelo pós-processador
+ * `aplicarValorHoraAulaEducati` para converter lançamentos do evento 0033
+ * (HORA AULA) de referência em horas para valor em R$.
+ *
+ * Fórmula: `valor_rs = horas × EDUCATI_VALORES_HORA_AULA[matricula]`.
+ *
+ * Funcionários sem entrada nesta tabela mantêm o lançamento em horas
+ * (rv=R) e geram alerta para revisão da contadora.
+ */
+export const EDUCATI_VALORES_HORA_AULA: Record<string, number> = {
+    '000046': 33.95, // Eduardo Fernando do Nascimento Batata
+    '000049': 33.95, // Paulo dos Santos
+    '000052': 33.95, // Célia Cristina Pereira da Silva
+    '000055': 33.95, // Flavio Lotto
+    '000075': 34.35, // Gislene do Carmo Lima
+    '000076': 34.35, // Euclides Contrucci de Oliveira
+    '000077': 34.35, // Bruna Michelle Nogueira da Silva
+};
+
+/**
  * Mapeamento default da EDUCATI gravado em `folha_mapeamentos/EDUCATI`
  * no Firestore na 1ª execução do seed. Mantido por consistência com
  * os demais clientes (ex.: MAPEAMENTO_IRB_GROUP_DEFAULT), embora o
@@ -117,6 +137,7 @@ export const MAPEAMENTO_EDUCATI_DEFAULT: MapeamentoApontamento = {
         regras: [],
     },
     regra_salario: null,
+    valoresHoraAula: EDUCATI_VALORES_HORA_AULA,
     matriculas: {
         // chave = nome da aba detectada no XLSX da EDUCATI
         Lançamentos: {},

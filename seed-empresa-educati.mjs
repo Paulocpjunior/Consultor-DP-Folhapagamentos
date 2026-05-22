@@ -42,6 +42,19 @@ const EVENTOS_EDUCATI = [
     { codigo: '8920', descricao: 'FALTAS (VALOR)' },
 ];
 
+// Tabela de valor-hora-aula por matrícula (R$/hora).
+// Mantenha sincronizada com EDUCATI_VALORES_HORA_AULA em
+// services/folha/mapeamentoEducatiDefault.ts.
+const VALORES_HORA_AULA = {
+    '000046': 33.95, // Eduardo Fernando do Nascimento Batata
+    '000049': 33.95, // Paulo dos Santos
+    '000052': 33.95, // Célia Cristina Pereira da Silva
+    '000055': 33.95, // Flavio Lotto
+    '000075': 34.35, // Gislene do Carmo Lima
+    '000076': 34.35, // Euclides Contrucci de Oliveira
+    '000077': 34.35, // Bruna Michelle Nogueira da Silva
+};
+
 const EVENTO_1010_PADRAO = {
     codigo: '1010',
     descricao: 'DSR',
@@ -139,17 +152,21 @@ let empresaId;
     if (snap.exists) {
         console.log('✓   Mapeamento folha_mapeamentos/' + CNPJ + ' já existe.');
         // Garante apenas que regra_salario esteja explicitamente null
-        // (para evitar a migração silenciosa em getMapeamento reaplicar default).
+        // (para evitar a migração silenciosa em getMapeamento reaplicar default)
+        // e que a tabela valoresHoraAula esteja sincronizada com o código.
         const d = snap.data();
-        if (d.regra_salario !== null) {
-            await ref.update({
-                regra_salario: null,
-                observacoes: admin.firestore.FieldValue.arrayUnion(
-                    `[${new Date().toISOString()}] seed-empresa-educati: ` +
-                    `regra_salario definida como null (SAGE calcula salário automaticamente).`,
-                ),
-            });
-            console.log('    └─ regra_salario ajustada para null.');
+        const patch = {};
+        if (d.regra_salario !== null) patch.regra_salario = null;
+        if (JSON.stringify(d.valoresHoraAula ?? {}) !== JSON.stringify(VALORES_HORA_AULA)) {
+            patch.valoresHoraAula = VALORES_HORA_AULA;
+        }
+        if (Object.keys(patch).length > 0) {
+            patch.observacoes = admin.firestore.FieldValue.arrayUnion(
+                `[${new Date().toISOString()}] seed-empresa-educati: ` +
+                `ajustes aplicados: ${Object.keys(patch).join(', ')}.`,
+            );
+            await ref.update(patch);
+            console.log('    └─ ajustes aplicados:', Object.keys(patch).filter(k => k !== 'observacoes').join(', '));
         }
     } else {
         const mapa = {
@@ -176,6 +193,7 @@ let empresaId;
                 regras: [],
             },
             regra_salario: null,
+            valoresHoraAula: VALORES_HORA_AULA,
             matriculas: {
                 // Chave = nome da aba que o parser detecta.
                 Lançamentos: {},
@@ -190,6 +208,12 @@ console.log('\n📋  Eventos esperados no apontamento EDUCATI:');
 for (const ev of EVENTOS_EDUCATI) {
     console.log(`    ${ev.codigo}  ${ev.descricao}`);
 }
+
+console.log('\n💰  Tabela de valor-hora-aula (R$/hora):');
+for (const [matricula, valor] of Object.entries(VALORES_HORA_AULA)) {
+    console.log(`    ${matricula}  R$ ${valor.toFixed(2).replace('.', ',')}`);
+}
+console.log('    (Aplicada ao evento 0033 HORA AULA — converte horas → R$.)');
 
 console.log('\n✅  Seed EDUCATI concluído.');
 console.log('    Próximos passos:');
