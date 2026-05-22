@@ -1201,6 +1201,69 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                         </div>
                     )}
 
+                    {resultado && resultado.lancamentos.length > 0 && (
+                        <details className="mt-2 border border-slate-200 dark:border-slate-700 rounded" open>
+                            <summary className="px-3 py-2 cursor-pointer bg-slate-50 dark:bg-slate-800 text-sm font-medium text-slate-700 dark:text-slate-200">
+                                Pré-visualização dos lançamentos ({resultado.lancamentos.length})
+                            </summary>
+                            <div className="overflow-auto max-h-[45vh]">
+                                <table className="w-full text-xs">
+                                    <thead className="sticky top-0 bg-slate-100 dark:bg-slate-800 z-10">
+                                        <tr className="text-left">
+                                            <th className="px-2 py-1.5 font-medium">Matr</th>
+                                            <th className="px-2 py-1.5 font-medium">Funcionário</th>
+                                            <th className="px-2 py-1.5 font-medium">Evento</th>
+                                            <th className="px-2 py-1.5 font-medium text-center">T</th>
+                                            <th className="px-2 py-1.5 font-medium text-center">R/V</th>
+                                            <th className="px-2 py-1.5 font-medium text-right">Ref</th>
+                                            <th className="px-2 py-1.5 font-medium text-right">Valor R$</th>
+                                            <th className="px-2 py-1.5 font-medium">Obs</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {resultado.lancamentos.map((l, i) => {
+                                            const refExibida =
+                                                typeof l.referenciaOriginal === 'number' && Number.isFinite(l.referenciaOriginal)
+                                                    ? l.referenciaOriginal
+                                                    : (l.rv === 'R' ? l.valor : null);
+                                            const valExibido = l.rv === 'V' ? l.valor : null;
+                                            return (
+                                                <tr
+                                                    key={i}
+                                                    className="border-t border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                                                >
+                                                    <td className="px-2 py-1 font-mono">{l.matricula ?? '—'}</td>
+                                                    <td className="px-2 py-1">{l.funcionario}</td>
+                                                    <td className="px-2 py-1 font-mono">
+                                                        <span className="text-slate-500">{l.evento}</span>{' '}
+                                                        <span>{l.descricao_evento}</span>
+                                                    </td>
+                                                    <td className="px-2 py-1 text-center">
+                                                        <span className={l.tipo === 'V' ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}>
+                                                            {l.tipo}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-2 py-1 text-center text-slate-500">{l.rv}</td>
+                                                    <td className="px-2 py-1 text-right font-mono tabular-nums">
+                                                        {refExibida !== null
+                                                            ? refExibida.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
+                                                            : <span className="text-slate-300">—</span>}
+                                                    </td>
+                                                    <td className="px-2 py-1 text-right font-mono tabular-nums">
+                                                        {valExibido !== null
+                                                            ? valExibido.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                                            : <span className="text-slate-300">—</span>}
+                                                    </td>
+                                                    <td className="px-2 py-1 text-slate-500 text-[11px]">{l.obs ?? ''}</td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </details>
+                    )}
+
                     {resultado && resultado.alertas.length > 0 && (
                         <div className="mt-2 text-xs">
                             <div className="font-semibold text-amber-700 dark:text-amber-400 mb-1">

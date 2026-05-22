@@ -149,6 +149,7 @@ export function aplicarValorHoraAulaEducati(
             ...l,
             rv: 'V' as const,
             valor: valorReais,
+            referenciaOriginal: referencia,
             obs: l.obs ? `${l.obs} · ${detalhe}` : detalhe,
         };
     });

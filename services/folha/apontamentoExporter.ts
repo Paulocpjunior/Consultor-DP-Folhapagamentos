@@ -50,7 +50,15 @@ export function exportarTXT(lancamentos: Lancamento[]): string {
                 const matr = matricula6(l.matricula);
                 const ev = evento4(l.evento);
                 const valNum = Number(l.valor) || 0;
-                const horas = l.rv === 'R' ? campoHoras(valNum) : campoHoras(0);
+                // Quando o pós-processador preservou a referência original
+                // (caso EDUCATI: aulas semanais ou horas faltadas), emite
+                // AMBOS os campos no TXT — o IOB SAGE mostra Ref + Venc/Desc
+                // no holerite. Caso contrário, segue o comportamento padrão.
+                const refOrig = l.referenciaOriginal;
+                const temRefOriginal = typeof refOrig === 'number' && Number.isFinite(refOrig) && refOrig > 0;
+                const horas = temRefOriginal
+                    ? campoHoras(refOrig as number)
+                    : (l.rv === 'R' ? campoHoras(valNum) : campoHoras(0));
                 const valor = l.rv === 'V' ? campoValor(valNum) : campoValor(0);
                 return matr + ev + horas + '  ' + valor;
             })

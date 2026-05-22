@@ -182,6 +182,15 @@ export interface Lancamento {
     valor: number;
     origem: 'coluna' | 'obs' | 'padrao' | 'salario';
     obs?: string | null;
+    /**
+     * Referência original preservada quando o pós-processador converte
+     * `rv=R` → `rv=V`. Permite ao exportador emitir AMBOS os campos do
+     * TXT (horas + valor R$) para que o IOB SAGE exiba a referência
+     * (ex.: 20 aulas/sem) ao lado do vencimento calculado (R$ 3.091,50).
+     * Quando undefined, o exportador segue o comportamento padrão
+     * (só horas se rv=R, só valor se rv=V).
+     */
+    referenciaOriginal?: number;
 }
 
 /** Resultado do mapeamento */
