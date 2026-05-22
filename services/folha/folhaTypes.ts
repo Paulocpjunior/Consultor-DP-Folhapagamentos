@@ -63,6 +63,20 @@ export interface RegraColuna {
     rv: ReferenciaValor;
     ignorar_se_zero?: boolean;
     nota?: string;
+    /**
+     * Se presente, ignora o valor da célula e usa este valor fixo.
+     * Útil para colunas marcadoras (ex.: CONTRIBUIÇÃO ASSISTENCIAL com SIM/NÃO)
+     * onde o valor real é cadastrado pelo sindicato.
+     */
+    valor_fixo?: number;
+    /**
+     * Se presente, a coluna só gera lançamento quando o valor textual da
+     * célula bate (comparação case-insensitive e sem acentos) com algum
+     * dos valores listados em `igual_a`. Útil para colunas SIM/NÃO.
+     */
+    condicao_celula?: {
+        igual_a: string[];
+    };
 }
 
 /** Regra condicional baseada em OBS */
@@ -115,7 +129,20 @@ export interface MapeamentoApontamento {
         evento_padrao: RegraColuna;
         regras: RegraObs[];
     };
-    regra_salario?: RegraSalario;
+    /**
+     * Regra do evento de salário. `null` (explícito) desativa a geração — útil
+     * para clientes onde o SAGE calcula salário do cadastro do funcionário.
+     * `undefined` (omitido) faz `getMapeamento` aplicar o default migrando o doc.
+     */
+    regra_salario?: RegraSalario | null;
+    /**
+     * Tabela de valor-hora-aula por matrícula (R$/hora). Quando presente,
+     * o pós-processador `aplicarValorHoraAulaEducati` converte lançamentos
+     * do evento 0033 HORA AULA (rv=R, horas) em rv=V (valor em R$)
+     * multiplicando: `valor = horas × valoresHoraAula[matricula]`.
+     * Específico para clientes com hora-aula variável por professor.
+     */
+    valoresHoraAula?: Record<string, number>;
     matriculas: Record<string, Record<string, string>>;
 }
 

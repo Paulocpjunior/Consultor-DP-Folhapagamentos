@@ -3,8 +3,8 @@
   "cliente": "IRB-GROUP",
   "empresa": "0229",
   "origem_pdf": "eventos.pdf",
-  "total_eventos": 712,
-  "total_vencimentos": 479,
+  "total_eventos": 713,
+  "total_vencimentos": 480,
   "total_descontos": 219,
   "legenda": {
     "tp": {
@@ -25,14 +25,14 @@
       "vr": "Venc. RAIS"
     },
     "ro": {
+      "120": "HE 60min",
+      "140": "% bruto",
+      "240": "Salário INSS",
       "000": "Salários",
       "020": "Horas",
       "040": "% salário",
       "060": "Normal",
-      "080": "Dias",
-      "120": "HE 60min",
-      "140": "% bruto",
-      "240": "Salário INSS"
+      "080": "Dias"
     }
   },
   "eventos": [
@@ -50,7 +50,7 @@
         "vr": "N"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -67,7 +67,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -84,7 +84,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -101,7 +101,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -118,7 +118,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -135,7 +135,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -152,7 +152,7 @@
         "vr": "N"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -169,7 +169,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -186,7 +186,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -203,7 +203,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -220,7 +220,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -237,7 +237,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -254,7 +254,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -271,7 +271,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -288,7 +288,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "080"
     },
     {
@@ -305,7 +305,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "080"
     },
     {
@@ -322,7 +322,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -339,7 +339,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -356,7 +356,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "080"
     },
     {
@@ -373,7 +373,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -390,7 +390,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "000"
     },
     {
@@ -407,7 +407,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "000"
     },
     {
@@ -424,7 +424,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -441,7 +441,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -458,7 +458,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -475,7 +475,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -492,7 +492,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -509,7 +509,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "000"
     },
     {
@@ -526,7 +526,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "000"
     },
     {
@@ -543,7 +543,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "000"
     },
     {
@@ -560,7 +560,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "000"
     },
     {
@@ -577,7 +577,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "020"
     },
     {
@@ -594,7 +594,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -611,7 +611,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -628,7 +628,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -645,7 +645,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -662,7 +662,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -679,7 +679,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -696,7 +696,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -713,7 +713,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -747,7 +747,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -764,7 +764,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -781,7 +781,7 @@
         "vr": "N"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "080"
     },
     {
@@ -798,7 +798,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -815,7 +815,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -832,7 +832,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "000"
     },
     {
@@ -849,7 +849,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -866,7 +866,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -900,7 +900,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -917,7 +917,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -934,7 +934,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -951,7 +951,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -968,7 +968,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -985,7 +985,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1002,7 +1002,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1019,7 +1019,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1036,7 +1036,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1053,7 +1053,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1070,7 +1070,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1087,7 +1087,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -1104,7 +1104,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -1121,7 +1121,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -1138,7 +1138,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -1155,7 +1155,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "080"
     },
     {
@@ -1172,7 +1172,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -1189,7 +1189,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -1240,7 +1240,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -1257,7 +1257,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -1274,7 +1274,7 @@
         "vr": "V"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -1325,7 +1325,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1342,7 +1342,7 @@
         "vr": "V"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -1359,7 +1359,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -1376,7 +1376,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1393,7 +1393,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -1410,7 +1410,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1427,7 +1427,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1444,7 +1444,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1461,7 +1461,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1478,7 +1478,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1495,7 +1495,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1512,7 +1512,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1529,7 +1529,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1546,7 +1546,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1563,7 +1563,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1580,7 +1580,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1597,7 +1597,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1614,7 +1614,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1648,7 +1648,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1665,7 +1665,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -1682,7 +1682,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1699,7 +1699,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1716,7 +1716,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1733,7 +1733,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1750,7 +1750,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1767,7 +1767,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1784,7 +1784,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1801,7 +1801,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1818,7 +1818,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1835,7 +1835,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1852,7 +1852,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1869,7 +1869,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1886,7 +1886,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1903,7 +1903,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1920,7 +1920,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1937,7 +1937,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1954,7 +1954,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -1971,7 +1971,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 10.0,
+      "coeficiente": 10,
       "ro": "000"
     },
     {
@@ -1988,7 +1988,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -2005,7 +2005,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -2022,7 +2022,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -2039,7 +2039,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -2056,7 +2056,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -2073,7 +2073,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -2090,7 +2090,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -2107,7 +2107,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -2124,7 +2124,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -2141,7 +2141,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -2158,7 +2158,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -2175,7 +2175,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -2209,7 +2209,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -2226,7 +2226,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -2243,7 +2243,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -2260,7 +2260,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -2277,7 +2277,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -2294,7 +2294,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -2311,7 +2311,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -2328,7 +2328,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -2345,7 +2345,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -2362,7 +2362,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -2379,7 +2379,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -2396,7 +2396,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -2413,7 +2413,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -2430,7 +2430,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -2447,7 +2447,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -2464,7 +2464,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -2481,7 +2481,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -2515,7 +2515,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -2532,7 +2532,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -2549,7 +2549,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -2566,7 +2566,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -2583,7 +2583,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -2600,7 +2600,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -2617,7 +2617,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -2634,7 +2634,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -2651,7 +2651,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -2668,7 +2668,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -2685,7 +2685,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -2702,7 +2702,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -2719,7 +2719,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -2736,7 +2736,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -2753,7 +2753,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 10.0,
+      "coeficiente": 10,
       "ro": "060"
     },
     {
@@ -2770,7 +2770,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 10.0,
+      "coeficiente": 10,
       "ro": "060"
     },
     {
@@ -2906,7 +2906,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 2.0,
+      "coeficiente": 2,
       "ro": "080"
     },
     {
@@ -2974,7 +2974,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -2991,7 +2991,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 2.0,
+      "coeficiente": 2,
       "ro": "020"
     },
     {
@@ -3025,7 +3025,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "180"
     },
     {
@@ -3076,7 +3076,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 2.0,
+      "coeficiente": 2,
       "ro": "020"
     },
     {
@@ -3127,7 +3127,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -3144,7 +3144,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "999"
     },
     {
@@ -3178,7 +3178,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "140"
     },
     {
@@ -3195,7 +3195,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "020"
     },
     {
@@ -3229,7 +3229,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 2.0,
+      "coeficiente": 2,
       "ro": "999"
     },
     {
@@ -3263,7 +3263,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -3280,7 +3280,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "999"
     },
     {
@@ -3297,7 +3297,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "999"
     },
     {
@@ -3314,7 +3314,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "999"
     },
     {
@@ -3331,7 +3331,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "999"
     },
     {
@@ -3348,7 +3348,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "180"
     },
     {
@@ -3365,7 +3365,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 2.0,
+      "coeficiente": 2,
       "ro": "999"
     },
     {
@@ -3382,7 +3382,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "040"
     },
     {
@@ -3399,7 +3399,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "080"
     },
     {
@@ -3416,7 +3416,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "999"
     },
     {
@@ -3433,7 +3433,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "999"
     },
     {
@@ -3450,7 +3450,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 2.0,
+      "coeficiente": 2,
       "ro": "999"
     },
     {
@@ -3467,7 +3467,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "999"
     },
     {
@@ -3484,7 +3484,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "999"
     },
     {
@@ -3501,7 +3501,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "999"
     },
     {
@@ -3518,7 +3518,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 2.0,
+      "coeficiente": 2,
       "ro": "080"
     },
     {
@@ -3535,7 +3535,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -3552,7 +3552,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -3586,7 +3586,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -3603,7 +3603,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 10.0,
+      "coeficiente": 10,
       "ro": "040"
     },
     {
@@ -3620,7 +3620,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -3637,7 +3637,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -3654,7 +3654,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 10.0,
+      "coeficiente": 10,
       "ro": "040"
     },
     {
@@ -3671,7 +3671,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -3688,7 +3688,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "160"
     },
     {
@@ -3705,7 +3705,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -3722,7 +3722,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -3739,7 +3739,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -3756,7 +3756,7 @@
         "vr": "N"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -3773,7 +3773,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -3790,7 +3790,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 30.0,
+      "coeficiente": 30,
       "ro": "060"
     },
     {
@@ -3807,7 +3807,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -3824,7 +3824,24 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
+      "ro": "060"
+    },
+    {
+      "codigo": "1010",
+      "descricao": "DSR",
+      "tipo": "V",
+      "incidencias": {
+        "ir": "S",
+        "in": "S",
+        "irf": "N",
+        "inf": "N",
+        "fg": "S",
+        "rt": "S",
+        "vr": "S"
+      },
+      "rv": "V",
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -3841,7 +3858,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 25.0,
+      "coeficiente": 25,
       "ro": "040"
     },
     {
@@ -3858,7 +3875,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -3875,7 +3892,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -3892,7 +3909,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "040"
     },
     {
@@ -3943,7 +3960,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -3977,7 +3994,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -3994,7 +4011,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -4011,7 +4028,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -4028,7 +4045,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -4062,7 +4079,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -4079,7 +4096,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -4096,7 +4113,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "999"
     },
     {
@@ -4113,7 +4130,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -4130,7 +4147,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -4147,7 +4164,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -4164,7 +4181,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -4181,7 +4198,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "040"
     },
     {
@@ -4198,7 +4215,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -4215,7 +4232,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "020"
     },
     {
@@ -4232,7 +4249,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -4249,7 +4266,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 5.0,
+      "coeficiente": 5,
       "ro": "140"
     },
     {
@@ -4266,7 +4283,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -4283,7 +4300,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -4300,7 +4317,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -4317,7 +4334,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -4334,7 +4351,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -4351,7 +4368,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -4368,7 +4385,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -4385,7 +4402,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -4402,7 +4419,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -4419,7 +4436,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -4453,7 +4470,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -4470,7 +4487,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "999"
     },
     {
@@ -4521,7 +4538,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -4538,7 +4555,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "999"
     },
     {
@@ -4555,7 +4572,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "999"
     },
     {
@@ -4589,7 +4606,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "999"
     },
     {
@@ -4606,7 +4623,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "999"
     },
     {
@@ -4623,7 +4640,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -4640,7 +4657,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -4657,7 +4674,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -4674,7 +4691,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -4691,7 +4708,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 10.0,
+      "coeficiente": 10,
       "ro": "060"
     },
     {
@@ -4708,7 +4725,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "180"
     },
     {
@@ -4725,7 +4742,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -4742,7 +4759,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "180"
     },
     {
@@ -4759,7 +4776,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -4776,7 +4793,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -4793,7 +4810,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -4810,7 +4827,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -4844,7 +4861,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -4861,7 +4878,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -4878,7 +4895,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -4895,7 +4912,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -4912,7 +4929,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -4929,7 +4946,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -4946,7 +4963,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -4963,7 +4980,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "999"
     },
     {
@@ -4980,7 +4997,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "999"
     },
     {
@@ -4997,7 +5014,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5014,7 +5031,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5031,7 +5048,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5048,7 +5065,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5065,7 +5082,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5099,7 +5116,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5116,7 +5133,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "999"
     },
     {
@@ -5133,7 +5150,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 10.0,
+      "coeficiente": 10,
       "ro": "999"
     },
     {
@@ -5150,7 +5167,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "999"
     },
     {
@@ -5167,7 +5184,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5184,7 +5201,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5201,7 +5218,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5218,7 +5235,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5235,7 +5252,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5252,7 +5269,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5269,7 +5286,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5286,7 +5303,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5303,7 +5320,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5320,7 +5337,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5337,7 +5354,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -5354,7 +5371,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5388,7 +5405,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5405,7 +5422,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5422,7 +5439,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5439,7 +5456,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5456,7 +5473,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5473,7 +5490,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5490,7 +5507,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5507,7 +5524,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -5524,7 +5541,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5541,7 +5558,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5558,7 +5575,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -5575,7 +5592,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5592,7 +5609,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5609,7 +5626,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "999"
     },
     {
@@ -5626,7 +5643,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5643,7 +5660,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5660,7 +5677,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5677,7 +5694,7 @@
         "vr": "V"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5694,7 +5711,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5711,7 +5728,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5728,7 +5745,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "000"
     },
     {
@@ -5745,7 +5762,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -5762,7 +5779,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5779,7 +5796,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5796,7 +5813,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5813,7 +5830,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5830,7 +5847,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5847,7 +5864,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5864,7 +5881,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5881,7 +5898,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5898,7 +5915,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5915,7 +5932,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5932,7 +5949,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5949,7 +5966,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -5966,7 +5983,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -5983,7 +6000,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6000,7 +6017,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6017,7 +6034,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -6034,7 +6051,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "180"
     },
     {
@@ -6051,7 +6068,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -6068,7 +6085,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 10.0,
+      "coeficiente": 10,
       "ro": "040"
     },
     {
@@ -6085,7 +6102,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 10.0,
+      "coeficiente": 10,
       "ro": "060"
     },
     {
@@ -6102,7 +6119,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "180"
     },
     {
@@ -6119,7 +6136,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6136,7 +6153,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6153,7 +6170,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6170,7 +6187,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6187,7 +6204,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6204,7 +6221,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -6221,7 +6238,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6238,7 +6255,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 10.0,
+      "coeficiente": 10,
       "ro": "060"
     },
     {
@@ -6255,7 +6272,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "010"
     },
     {
@@ -6289,7 +6306,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6306,7 +6323,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -6323,7 +6340,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -6340,7 +6357,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -6357,7 +6374,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -6374,7 +6391,7 @@
         "vr": "N"
       },
       "rv": "R",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "180"
     },
     {
@@ -6391,7 +6408,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "080"
     },
     {
@@ -6408,7 +6425,7 @@
         "vr": "N"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "240"
     },
     {
@@ -6425,7 +6442,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6442,7 +6459,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -6459,7 +6476,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6476,7 +6493,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6493,7 +6510,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6510,7 +6527,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6527,7 +6544,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6544,7 +6561,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6561,7 +6578,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6578,7 +6595,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6595,7 +6612,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6612,7 +6629,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6629,7 +6646,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6646,7 +6663,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6663,7 +6680,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6680,7 +6697,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6697,7 +6714,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6714,7 +6731,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6731,7 +6748,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6748,7 +6765,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6765,7 +6782,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6782,7 +6799,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6816,7 +6833,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6833,7 +6850,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6850,7 +6867,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6867,7 +6884,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6884,7 +6901,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6901,7 +6918,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6918,7 +6935,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6935,7 +6952,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6952,7 +6969,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6969,7 +6986,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -6986,7 +7003,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7003,7 +7020,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7020,7 +7037,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7037,7 +7054,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7054,7 +7071,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7071,7 +7088,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7088,7 +7105,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7105,7 +7122,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7122,7 +7139,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7139,7 +7156,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7156,7 +7173,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7173,7 +7190,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7190,7 +7207,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7207,7 +7224,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7224,7 +7241,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7241,7 +7258,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7258,7 +7275,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7275,7 +7292,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7292,7 +7309,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7309,7 +7326,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7326,7 +7343,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7343,7 +7360,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7360,7 +7377,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7377,7 +7394,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7394,7 +7411,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7411,7 +7428,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7428,7 +7445,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7445,7 +7462,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7462,7 +7479,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7479,7 +7496,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7496,7 +7513,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7513,7 +7530,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7530,7 +7547,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7547,7 +7564,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7564,7 +7581,7 @@
         "vr": "N"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7581,7 +7598,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "350"
     },
     {
@@ -7615,7 +7632,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -7632,7 +7649,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7649,7 +7666,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7666,7 +7683,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7683,7 +7700,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7700,7 +7717,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7717,7 +7734,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7734,7 +7751,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7751,7 +7768,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7768,7 +7785,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7785,7 +7802,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7802,7 +7819,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7819,7 +7836,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -7836,7 +7853,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "000"
     },
     {
@@ -7853,7 +7870,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "030"
     },
     {
@@ -7870,7 +7887,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "240"
     },
     {
@@ -7887,7 +7904,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7904,7 +7921,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7921,7 +7938,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7938,7 +7955,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7955,7 +7972,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7972,7 +7989,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -7989,7 +8006,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "240"
     },
     {
@@ -8006,7 +8023,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -8023,7 +8040,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -8040,7 +8057,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -8057,7 +8074,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -8074,7 +8091,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -8091,7 +8108,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -8108,7 +8125,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -8125,7 +8142,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -8142,7 +8159,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -8159,7 +8176,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -8176,7 +8193,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -8193,7 +8210,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "180"
     },
     {
@@ -8210,7 +8227,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -8227,7 +8244,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -8244,7 +8261,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "180"
     },
     {
@@ -8261,7 +8278,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -8278,7 +8295,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -8312,7 +8329,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -8329,7 +8346,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -8346,7 +8363,7 @@
         "vr": "N"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -8363,7 +8380,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -8380,7 +8397,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -8397,7 +8414,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -8414,7 +8431,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -8431,7 +8448,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -8448,7 +8465,7 @@
         "vr": "N"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "040"
     },
     {
@@ -8465,7 +8482,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -8482,7 +8499,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -8499,7 +8516,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -8516,7 +8533,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -8533,7 +8550,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -8550,7 +8567,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -8584,7 +8601,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -8601,7 +8618,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "180"
     },
     {
@@ -8618,7 +8635,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -8635,7 +8652,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "350"
     },
     {
@@ -8652,7 +8669,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -8669,7 +8686,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 10.0,
+      "coeficiente": 10,
       "ro": "060"
     },
     {
@@ -8686,7 +8703,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -8703,7 +8720,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -8720,7 +8737,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -8737,7 +8754,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -8754,7 +8771,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -8771,7 +8788,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -8788,7 +8805,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -8805,7 +8822,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -8822,7 +8839,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -8839,7 +8856,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -8856,7 +8873,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -8873,7 +8890,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -8890,7 +8907,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 10.0,
+      "coeficiente": 10,
       "ro": "060"
     },
     {
@@ -8907,7 +8924,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -8924,7 +8941,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -8941,7 +8958,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -8958,7 +8975,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -8975,7 +8992,7 @@
         "vr": "N"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "040"
     },
     {
@@ -8992,7 +9009,7 @@
         "vr": "N"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "040"
     },
     {
@@ -9009,7 +9026,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -9026,7 +9043,7 @@
         "vr": "N"
       },
       "rv": "R",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "040"
     },
     {
@@ -9043,7 +9060,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -9060,7 +9077,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -9077,7 +9094,7 @@
         "vr": "N"
       },
       "rv": "R",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "040"
     },
     {
@@ -9094,7 +9111,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -9111,7 +9128,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -9128,7 +9145,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -9145,7 +9162,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -9162,7 +9179,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -9179,7 +9196,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "140"
     },
     {
@@ -9196,7 +9213,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -9213,7 +9230,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -9230,7 +9247,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -9247,7 +9264,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -9264,7 +9281,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -9281,7 +9298,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -9298,7 +9315,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -9315,7 +9332,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -9332,7 +9349,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -9349,7 +9366,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -9366,7 +9383,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -9383,7 +9400,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -9400,7 +9417,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -9417,7 +9434,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "080"
     },
     {
@@ -9434,7 +9451,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "080"
     },
     {
@@ -9451,7 +9468,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "020"
     },
     {
@@ -9468,7 +9485,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -9485,7 +9502,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "080"
     },
     {
@@ -9502,7 +9519,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "080"
     },
     {
@@ -9519,7 +9536,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "080"
     },
     {
@@ -9536,7 +9553,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -9553,7 +9570,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -9570,7 +9587,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -9587,7 +9604,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -9604,7 +9621,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -9621,7 +9638,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -9638,7 +9655,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -9655,7 +9672,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -9672,7 +9689,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -9689,7 +9706,7 @@
         "vr": "N"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "040"
     },
     {
@@ -9706,7 +9723,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -9723,7 +9740,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -9740,7 +9757,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -9757,7 +9774,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -9774,7 +9791,7 @@
         "vr": "N"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "040"
     },
     {
@@ -9791,7 +9808,7 @@
         "vr": "N"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "140"
     },
     {
@@ -9808,7 +9825,7 @@
         "vr": "N"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "040"
     },
     {
@@ -9842,7 +9859,7 @@
         "vr": "N"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "080"
     },
     {
@@ -9859,7 +9876,7 @@
         "vr": "N"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "040"
     },
     {
@@ -9876,7 +9893,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -9893,7 +9910,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "020"
     },
     {
@@ -9910,7 +9927,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -9927,7 +9944,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -9944,7 +9961,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -9961,7 +9978,7 @@
         "vr": "N"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -9978,7 +9995,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -9995,7 +10012,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -10012,7 +10029,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -10029,7 +10046,7 @@
         "vr": "N"
       },
       "rv": "R",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "999"
     },
     {
@@ -10046,7 +10063,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -10063,7 +10080,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -10080,7 +10097,7 @@
         "vr": "N"
       },
       "rv": "R",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "999"
     },
     {
@@ -10097,7 +10114,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -10114,7 +10131,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -10131,7 +10148,7 @@
         "vr": "N"
       },
       "rv": "R",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "999"
     },
     {
@@ -10148,7 +10165,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -10165,7 +10182,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "999"
     },
     {
@@ -10182,7 +10199,7 @@
         "vr": "N"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "999"
     },
     {
@@ -10199,7 +10216,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "999"
     },
     {
@@ -10216,7 +10233,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -10233,7 +10250,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -10250,7 +10267,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -10267,7 +10284,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -10284,7 +10301,7 @@
         "vr": "N"
       },
       "rv": "R",
-      "coeficiente": 3.0,
+      "coeficiente": 3,
       "ro": "040"
     },
     {
@@ -10301,7 +10318,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -10318,7 +10335,7 @@
         "vr": "N"
       },
       "rv": "R",
-      "coeficiente": 3.0,
+      "coeficiente": 3,
       "ro": "040"
     },
     {
@@ -10335,7 +10352,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -10352,7 +10369,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "020"
     },
     {
@@ -10369,7 +10386,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "020"
     },
     {
@@ -10386,7 +10403,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "020"
     },
     {
@@ -10403,7 +10420,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "020"
     },
     {
@@ -10420,7 +10437,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "020"
     },
     {
@@ -10437,7 +10454,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -10454,7 +10471,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -10471,7 +10488,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -10488,7 +10505,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -10505,7 +10522,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -10539,7 +10556,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -10607,7 +10624,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -10624,7 +10641,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -10641,7 +10658,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -10658,7 +10675,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "080"
     },
     {
@@ -10675,7 +10692,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -10692,7 +10709,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -10709,7 +10726,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -10726,7 +10743,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -10743,7 +10760,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -10760,7 +10777,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -10777,7 +10794,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -10794,7 +10811,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -10811,7 +10828,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -10828,7 +10845,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -10845,7 +10862,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -10862,7 +10879,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -10879,7 +10896,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -10896,7 +10913,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -10913,7 +10930,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -10930,7 +10947,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -10947,7 +10964,7 @@
         "vr": "N"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -10964,7 +10981,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -10981,7 +10998,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -10998,7 +11015,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11015,7 +11032,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11032,7 +11049,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11049,7 +11066,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11066,7 +11083,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11083,7 +11100,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11100,7 +11117,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11117,7 +11134,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11134,7 +11151,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11151,7 +11168,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11168,7 +11185,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "080"
     },
     {
@@ -11185,7 +11202,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11202,7 +11219,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11219,7 +11236,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11236,7 +11253,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11253,7 +11270,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "020"
     },
     {
@@ -11270,7 +11287,7 @@
         "vr": "N"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11287,7 +11304,7 @@
         "vr": "N"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11304,7 +11321,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11321,7 +11338,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "240"
     },
     {
@@ -11338,7 +11355,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11355,7 +11372,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11372,7 +11389,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11389,7 +11406,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11406,7 +11423,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11423,7 +11440,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11440,7 +11457,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11457,7 +11474,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11474,7 +11491,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11491,7 +11508,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11508,7 +11525,7 @@
         "vr": "S"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11525,7 +11542,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11542,7 +11559,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11559,7 +11576,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "030"
     },
     {
@@ -11576,7 +11593,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11593,7 +11610,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11610,7 +11627,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11627,7 +11644,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11644,7 +11661,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11661,7 +11678,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11678,7 +11695,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11695,7 +11712,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11712,7 +11729,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11729,7 +11746,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11746,7 +11763,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11763,7 +11780,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11780,7 +11797,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11797,7 +11814,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11814,7 +11831,7 @@
         "vr": "S"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "240"
     },
     {
@@ -11831,7 +11848,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11848,7 +11865,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11865,7 +11882,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11882,7 +11899,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "030"
     },
     {
@@ -11899,7 +11916,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "030"
     },
     {
@@ -11916,7 +11933,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "030"
     },
     {
@@ -11933,7 +11950,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11950,7 +11967,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "030"
     },
     {
@@ -11967,7 +11984,7 @@
         "vr": "N"
       },
       "rv": "R",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -11984,7 +12001,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "060"
     },
     {
@@ -12001,7 +12018,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "030"
     },
     {
@@ -12018,7 +12035,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "030"
     },
     {
@@ -12035,7 +12052,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "030"
     },
     {
@@ -12052,7 +12069,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "030"
     },
     {
@@ -12069,7 +12086,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "030"
     },
     {
@@ -12086,7 +12103,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "030"
     },
     {
@@ -12103,7 +12120,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 1.0,
+      "coeficiente": 1,
       "ro": "030"
     },
     {
@@ -12120,7 +12137,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     },
     {
@@ -12137,7 +12154,7 @@
         "vr": "N"
       },
       "rv": "V",
-      "coeficiente": 0.0,
+      "coeficiente": 0,
       "ro": "060"
     }
   ]

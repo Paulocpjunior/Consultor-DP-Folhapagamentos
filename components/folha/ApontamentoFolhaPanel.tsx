@@ -83,6 +83,7 @@ import { parsearAutonomosSpa, type ResultadoAutonomosSpa } from '../../services/
 import WizardAutonomosSpa from './WizardAutonomosSpa';
 import { detectarTemplatePadrao } from '../../services/folha/templatePadraoDetector';
 import { parsearTemplatePadrao } from '../../services/folha/templatePadraoParser';
+import { aplicarValorHoraAulaEducati } from '../../services/folha/educatiPosProcessador';
 import { detectarLayoutInplaf } from '../../services/folha/inplafDetector';
 import { parsearInplaf } from '../../services/folha/inplafParser';
 import {
@@ -280,10 +281,37 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                     codigosSemCatalogo: r.codigosSemCatalogo,
                 });
 
+                // Pós-processamento por cliente: aplica fórmula valoresHoraAula
+                // ao evento 0033 HORA AULA se o mapeamento gravado em
+                // folha_mapeamentos/<CNPJ> tiver a tabela (ex.: EDUCATI).
+                let lancamentosFinais = r.lancamentos;
+                let alertasFinais = r.alertas;
+                try {
+                    const cnpjDigits = (sessao.empresa.cnpj ?? '').replace(/\D/g, '');
+                    if (cnpjDigits) {
+                        const mapaCliente = await getMapeamento(cnpjDigits);
+                        if (mapaCliente?.valoresHoraAula
+                            && Object.keys(mapaCliente.valoresHoraAula).length > 0) {
+                            const pos = aplicarValorHoraAulaEducati(
+                                lancamentosFinais,
+                                mapaCliente.valoresHoraAula,
+                            );
+                            lancamentosFinais = pos.lancamentos;
+                            alertasFinais = [...pos.alertas, ...alertasFinais];
+                            console.log('[ApontamentoPanel] valoresHoraAula aplicado:', {
+                                convertidos: pos.totalConvertidos,
+                                mantidos: pos.totalMantidos,
+                            });
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[ApontamentoPanel] Falha no pós-processamento hora-aula:', e);
+                }
+
                 setParsed(null);
                 setResultado({
-                    lancamentos: r.lancamentos,
-                    alertas: r.alertas,
+                    lancamentos: lancamentosFinais,
+                    alertas: alertasFinais,
                 });
                 setMatriculasEdit({});
                 setSnapshotArqProcessado(snapshotDoArquivo(file));

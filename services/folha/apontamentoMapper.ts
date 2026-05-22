@@ -27,7 +27,7 @@ import type {
     MapeamentoApontamento,
     ResultadoMapeamento,
 } from './folhaTypes';
-import { norm, round2, toNumber, extrairValor } from './apontamentoParser';
+import { norm, round2, toNumber, extrairValor, normalizarHeader } from './apontamentoParser';
 
 export function resolverEmpresa(
     abaParser: EmpresaApontamento,
@@ -142,13 +142,45 @@ function gerarLancamentosFuncionario(
     const codigoSalario = mapa.regra_salario?.evento;
 
     // 1) Colunas simples → evento direto
+    // Cria índice das células do funcionário com chave normalizada (NBSP→space,
+    // colapsa whitespace) para permitir lookup tolerante quando o mapeamento
+    // foi salvo com whitespace ligeiramente diferente da planilha real.
+    const celulasNormalizadas: Record<string, unknown> = {};
+    for (const k of Object.keys(celulas)) {
+        celulasNormalizadas[normalizarHeader(k)] = celulas[k];
+    }
     for (const [coluna, regra] of Object.entries(mapa.mapeamento_colunas)) {
-        if (!(coluna in celulas)) continue;
+        const chaveNorm = normalizarHeader(coluna);
+        if (!(chaveNorm in celulasNormalizadas)) continue;
         if (colunasAtivas && !colunasAtivas.has(coluna)) continue;
 
-        const valor = extrairValor(celulas[coluna], regra.rv);
-        if (valor === null) continue;
-        if (regra.ignorar_se_zero && valor === 0) continue;
+        // Coluna marcadora (ex.: CONTRIBUIÇÃO ASSISTENCIAL SIM/NÃO):
+        // só gera lançamento quando o texto da célula bate, e usa valor_fixo.
+        let valor: number | null;
+        if (regra.condicao_celula) {
+            const celula = norm(celulasNormalizadas[chaveNorm] ?? '');
+            const bate = regra.condicao_celula.igual_a.some(
+                (v) => norm(v) === celula,
+            );
+            if (!bate) continue;
+            valor = regra.valor_fixo ?? null;
+            if (valor === null) {
+                alertas.push(
+                    `Coluna "${coluna}" tem condicao_celula mas falta valor_fixo no mapeamento. ` +
+                    `Lançamento ignorado para "${funcionario.nome}".`,
+                );
+                continue;
+            }
+        } else if (regra.valor_fixo !== undefined) {
+            // valor_fixo sem condição: usa o fixo sempre que a célula tiver algo
+            const celula = celulasNormalizadas[chaveNorm];
+            if (celula === null || celula === undefined || celula === '') continue;
+            valor = regra.valor_fixo;
+        } else {
+            valor = extrairValor(celulasNormalizadas[chaveNorm], regra.rv);
+            if (valor === null) continue;
+            if (regra.ignorar_se_zero && valor === 0) continue;
+        }
 
         const eventoCat = catalogoMap.get(regra.evento);
         if (!eventoCat) {
