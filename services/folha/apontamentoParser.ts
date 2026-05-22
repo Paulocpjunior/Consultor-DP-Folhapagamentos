@@ -89,6 +89,24 @@ export function norm(s: unknown): string {
         .replace(/\s+/g, ' ');
 }
 
+/**
+ * Normaliza chave de cabeçalho preservando acentos e caixa, mas:
+ *   - Converte NBSP (U+00A0) e zero-width-space (U+200B) em espaço comum
+ *   - Colapsa whitespace consecutivo em 1 espaço
+ *   - Faz trim
+ *
+ * Necessário porque planilhas frequentemente vêm com NBSP (copy/paste de
+ * PDF/HTML), o que faz as chaves "ATRASOS  5850" do mapeamento não casarem
+ * com "ATRASOS<NBSP> 5850" da planilha — bug invisível ao olho humano.
+ */
+export function normalizarHeader(s: unknown): string {
+    if (s === null || s === undefined) return '';
+    return String(s)
+        .replace(/[\u00a0\u200b]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
 /** Trim tolerante a null/undefined/NaN. */
 export function trimOrNull(v: unknown): string | null {
     if (v === null || v === undefined) return null;
@@ -181,9 +199,11 @@ export function parseApontamentoBuffer(buffer: ArrayBuffer | Uint8Array): Aponta
         }
 
         const { headerRow, nameCol } = found;
-        const headerRaw = (rows[headerRow] as unknown[]).map((c) =>
-            c === null || c === undefined ? '' : String(c).trim()
-        );
+        // normalizarHeader: NBSP/ZWSP → space + colapsa whitespace. Necessário
+        // porque planilhas com headers vindos de copy/paste de PDF (ex.: Waldesa)
+        // têm NBSP entre palavras, que torna invisível mas as chaves não casam
+        // com o mapeamento gravado no Firestore.
+        const headerRaw = (rows[headerRow] as unknown[]).map(normalizarHeader);
 
         // Colunas de dados = todas as colunas do cabeçalho com nome,
         // excluindo a coluna do próprio funcionário.

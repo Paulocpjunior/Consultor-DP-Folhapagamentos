@@ -63,6 +63,20 @@ export interface RegraColuna {
     rv: ReferenciaValor;
     ignorar_se_zero?: boolean;
     nota?: string;
+    /**
+     * Se presente, ignora o valor da célula e usa este valor fixo.
+     * Útil para colunas marcadoras (ex.: CONTRIBUIÇÃO ASSISTENCIAL com SIM/NÃO)
+     * onde o valor real é cadastrado pelo sindicato.
+     */
+    valor_fixo?: number;
+    /**
+     * Se presente, a coluna só gera lançamento quando o valor textual da
+     * célula bate (comparação case-insensitive e sem acentos) com algum
+     * dos valores listados em `igual_a`. Útil para colunas SIM/NÃO.
+     */
+    condicao_celula?: {
+        igual_a: string[];
+    };
 }
 
 /** Regra condicional baseada em OBS */

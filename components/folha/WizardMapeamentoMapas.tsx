@@ -17,7 +17,7 @@ import {
     saveMapeamento,
     getCatalogo,
 } from '../../services/folha/folhaFirestoreService';
-import { norm } from '../../services/folha/apontamentoParser';
+import { norm, findHeader } from '../../services/folha/apontamentoParser';
 
 interface Props {
     empresa: Empresa;
@@ -51,20 +51,35 @@ export default function WizardMapeamentoMapas({
         const rows: unknown[][] = XLSX.utils.sheet_to_json(first, {
             header: 1,
             defval: null,
+            blankrows: false,
         });
-        const hdrs = (rows[0] ?? []).map((h) => String(h ?? '').trim());
-        // Acha a primeira coluna que parece ser o nome
-        let nameIdx = 0;
-        for (let i = 0; i < hdrs.length; i++) {
-            if (NAME_HEADERS.has(norm(hdrs[i]))) {
-                nameIdx = i;
-                break;
-            }
+
+        // Detecta linha do cabeçalho (mesma heurística do apontamentoParser):
+        // varre as primeiras 15 linhas/30 colunas procurando "Nome",
+        // "Funcionário", "Colaborador", etc. Layouts onde A1 é título
+        // (ex.: Waldesa "WALDESA MOTOMERCANTIL CNPJ...") são tratados
+        // corretamente — header em L2, não L0.
+        const found = findHeader(rows);
+        const headerRow = found?.headerRow ?? 0;
+        const nameIdx = found?.nameCol ?? 0;
+
+        const rawHdrs = (rows[headerRow] ?? []).map((h) => String(h ?? '').trim());
+
+        // Trim ao último cabeçalho não-vazio: evita expor centenas/milhares
+        // de colunas vazias quando o XLSX tem range inflado por formatação.
+        let lastNonEmpty = -1;
+        for (let i = 0; i < rawHdrs.length; i++) {
+            if (rawHdrs[i]) lastNonEmpty = i;
         }
+        const hdrs = rawHdrs.slice(0, lastNonEmpty + 1);
+
+        // Linha de dados de exemplo = primeira linha após o cabeçalho
+        const sample = rows[headerRow + 1] ?? [];
+
         return {
             sheetName: wb.SheetNames[0],
             headers: hdrs,
-            sampleRow: rows[1] ?? [],
+            sampleRow: sample,
             nameColIdx: nameIdx,
         };
     }, [fileBuffer]);
@@ -72,7 +87,7 @@ export default function WizardMapeamentoMapas({
     const [rows, setRows] = useState<ColRow[]>(() =>
         headers
             .map((h, i) => ({ h, i }))
-            .filter(({ i }) => i !== nameColIdx)
+            .filter(({ h, i }) => i !== nameColIdx && h.trim() !== '')
             .map(({ h, i }) => ({
                 headerLabel: h,
                 sample: sampleRow[i] === null || sampleRow[i] === undefined
