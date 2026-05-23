@@ -144,6 +144,13 @@ export interface MapeamentoApontamento {
      */
     valoresHoraAula?: Record<string, number>;
     matriculas: Record<string, Record<string, string>>;
+    /**
+     * Nome da coluna na planilha que contém a matrícula do funcionário.
+     * Quando presente, o mapper lê a matrícula direto da célula em vez de
+     * depender do mapeamento manual `matriculas[empresa][nome]`.
+     * Ex.: "Codigo", "CÓDIGO", "Matrícula".
+     */
+    campo_matricula?: string;
 }
 
 /** Funcionário extraído da planilha */

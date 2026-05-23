@@ -320,12 +320,26 @@ function gerarLancamentosFuncionario(
     const { consolidados, alertasConsolidacao } = consolidarPorEvento(lancamentos, funcionario.nome);
     alertas.push(...alertasConsolidacao);
 
-    // 4) Matrícula
-    const matriculas =
-        mapa.matriculas?.[nomeNoMapa] ??
-        mapa.matriculas?.[empresaNomeParser] ??
-        {};
-    const matricula = matriculas[funcionario.nome] ?? null;
+    // 4) Matrícula — prefer campo_matricula (coluna do XLSX) se disponível
+    let matricula: string | null = null;
+    if (mapa.campo_matricula) {
+        const celulasNorm = Object.fromEntries(
+            Object.entries(funcionario.celulas).map(([k, v]) => [norm(k), v]),
+        );
+        const chaveMatr = norm(mapa.campo_matricula);
+        const raw = celulasNorm[chaveMatr];
+        if (raw !== null && raw !== undefined && String(raw).trim() !== '') {
+            const n = Number(raw);
+            matricula = Number.isFinite(n) ? String(Math.floor(n)) : String(raw).trim();
+        }
+    }
+    if (!matricula) {
+        const matriculas =
+            mapa.matriculas?.[nomeNoMapa] ??
+            mapa.matriculas?.[empresaNomeParser] ??
+            {};
+        matricula = matriculas[funcionario.nome] ?? null;
+    }
 
     const ehPJ = typeof matricula === 'string' && matricula.trim().toUpperCase() === 'PJ';
     if (ehPJ) {
