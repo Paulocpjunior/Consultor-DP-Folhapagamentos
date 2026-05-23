@@ -38,6 +38,17 @@ interface FormulaEvento {
     coeficiente: number;
     /** Unidade da referência da planilha (ex.: "aulas/sem", "h"). */
     unidadeRef: string;
+    /**
+     * Se true, preserva a referência original no TXT (horas + valor) para
+     * que o IOB SAGE mostre Ref + Venc/Desc no holerite. Só funciona quando
+     * o cadastro do evento no IOB SAGE é `rv=V` (valor) — nesse caso o IOB
+     * usa o R$ e mostra as horas como ref informativa.
+     *
+     * Se false, o TXT manda só o R$ (horas=0). Necessário quando o cadastro
+     * no IOB SAGE é `rv=R` (referência) — senão o IOB usa as horas e
+     * recalcula o R$ pelo salário-hora do cadastro (valor errado).
+     */
+    preservarRef: boolean;
 }
 
 /**
@@ -48,8 +59,8 @@ interface FormulaEvento {
  *   - 8920 FALTAS:    planilha manda "4"  = horas do mês  → ×34,35×1   = R$ 137,40
  */
 const FORMULAS_POR_EVENTO: Record<string, FormulaEvento> = {
-    [EVENTO_HORA_AULA]: { coeficiente: SEMANAS_MES, unidadeRef: 'aulas/sem' },
-    [EVENTO_FALTAS]:    { coeficiente: 1,           unidadeRef: 'h'         },
+    [EVENTO_HORA_AULA]: { coeficiente: SEMANAS_MES, unidadeRef: 'aulas/sem', preservarRef: false },
+    [EVENTO_FALTAS]:    { coeficiente: 1,           unidadeRef: 'h',         preservarRef: true  },
 };
 
 /**
@@ -149,7 +160,7 @@ export function aplicarValorHoraAulaEducati(
             ...l,
             rv: 'V' as const,
             valor: valorReais,
-            referenciaOriginal: referencia,
+            referenciaOriginal: formula.preservarRef ? referencia : undefined,
             obs: l.obs ? `${l.obs} · ${detalhe}` : detalhe,
         };
     });
