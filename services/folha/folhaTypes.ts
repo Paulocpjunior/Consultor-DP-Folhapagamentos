@@ -77,6 +77,15 @@ export interface RegraColuna {
     condicao_celula?: {
         igual_a: string[];
     };
+    /**
+     * Quando true, o valor da célula é uma fração de dia do Excel
+     * (ex.: 1.4854 = 35h39m) e deve ser multiplicado por 24 para
+     * obter horas. Necessário para colunas de HE e Ad.Noturno
+     * formatadas como [h]:mm:ss no Excel (ex.: FR Climatização).
+     * O `extrairValor` padrão só converte frações < 1 automaticamente;
+     * esta flag cobre frações > 1 (acúmulo de vários dias).
+     */
+    excelTime?: boolean;
 }
 
 /** Regra condicional baseada em OBS */
