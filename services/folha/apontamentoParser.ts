@@ -32,6 +32,7 @@ const MAX_HEADER_COLS = 30;
 const NAME_HEADERS = new Set([
     'nome',
     'nome completo',
+    'nome_completo',
     'nome do funcionario',
     'nome do colaborador',
     'nome do empregado',
@@ -169,9 +170,13 @@ export function parseApontamentoBuffer(buffer: ArrayBuffer | Uint8Array): Aponta
     const empresas: EmpresaApontamento[] = [];
     const debug: string[] = [];
 
+    // Se TODAS as abas estão na blacklist, ignora a blacklist — caso comum
+    // de cliente com aba única chamada "Planilha1" ou "Sheet1".
+    const todasBlacklisted = workbook.SheetNames.length > 0
+        && workbook.SheetNames.every(isBlacklisted);
+
     for (const sheetName of workbook.SheetNames) {
-        // Lista negra de abas auxiliares
-        if (isBlacklisted(sheetName)) {
+        if (!todasBlacklisted && isBlacklisted(sheetName)) {
             debug.push(`[skip:blacklist] "${sheetName}"`);
             continue;
         }
