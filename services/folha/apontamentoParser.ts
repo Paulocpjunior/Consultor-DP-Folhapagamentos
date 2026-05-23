@@ -157,6 +157,113 @@ export function findHeader(
 }
 
 /**
+ * Tenta parsear uma aba como "grade de presença" — formato transposto onde
+ * funcionários são COLUNAS e datas são LINHAS, com status por dia:
+ *   "07:30 AS 17:15" (trabalhou), "FALTOU", "FERIAS", "FERIADO".
+ * Rodapé: "VALE" (R$) e "VALE TRANSPORTE" (SIM/NAO).
+ * Exemplo: Gesso Gimenez "CONTROLE DE HORARIO".
+ *
+ * Retorna EmpresaApontamento com colunas sintéticas (FALTAS, FERIAS, VALE,
+ * VT) calculadas a partir da grade, ou null se o formato não bater.
+ */
+function tentarParsearGradePresenca(
+    rows: unknown[][],
+    sheetName: string,
+): EmpresaApontamento | null {
+    let tituloIdx = -1;
+    for (let r = 0; r < Math.min(rows.length, 6); r++) {
+        const txt = norm(String((rows[r] as unknown[])?.[0] ?? ''));
+        if (txt.includes('controle de horario') || txt.includes('controle de ponto')) {
+            tituloIdx = r;
+            break;
+        }
+        for (const cell of (rows[r] as unknown[] ?? [])) {
+            const ct = norm(String(cell ?? ''));
+            if (ct.includes('controle de horario') || ct.includes('controle de ponto')) {
+                tituloIdx = r;
+                break;
+            }
+        }
+        if (tituloIdx >= 0) break;
+    }
+    if (tituloIdx < 0) return null;
+
+    let empRow = -1;
+    let empStartCol = -1;
+    for (let r = tituloIdx + 1; r < Math.min(rows.length, tituloIdx + 6); r++) {
+        const row = (rows[r] as unknown[]) || [];
+        let nonEmpty = 0;
+        let firstCol = -1;
+        for (let c = 1; c < row.length; c++) {
+            const v = String(row[c] ?? '').trim();
+            if (v && !/^data$/i.test(v) && isNaN(Number(v))) {
+                nonEmpty++;
+                if (firstCol < 0) firstCol = c;
+            }
+        }
+        if (nonEmpty >= 2) {
+            empRow = r;
+            empStartCol = firstCol;
+            break;
+        }
+    }
+    if (empRow < 0) return null;
+
+    const headerRaw = (rows[empRow] as unknown[]) || [];
+    const empNames: { col: number; nome: string }[] = [];
+    for (let c = empStartCol; c < headerRaw.length; c++) {
+        const nome = String(headerRaw[c] ?? '').trim();
+        if (nome) empNames.push({ col: c, nome });
+    }
+    if (empNames.length < 2) return null;
+
+    const faltas = new Map<number, number>();
+    const ferias = new Map<number, number>();
+    for (const e of empNames) { faltas.set(e.col, 0); ferias.set(e.col, 0); }
+
+    for (let r = empRow + 1; r < rows.length; r++) {
+        const row = (rows[r] as unknown[]) || [];
+        const label = norm(String(row[0] ?? ''));
+        if (label.includes('vale')) break;
+        for (const e of empNames) {
+            const v = norm(String(row[e.col] ?? ''));
+            if (v.includes('faltou')) faltas.set(e.col, (faltas.get(e.col) ?? 0) + 1);
+            else if (v.includes('ferias')) ferias.set(e.col, (ferias.get(e.col) ?? 0) + 1);
+        }
+    }
+
+    const valeRow = rows.findIndex(
+        (r) => norm(String((r as unknown[])?.[0] ?? '')).replace(/\s/g, '') === 'vale'
+            && !norm(String((r as unknown[])?.[0] ?? '')).includes('transporte'),
+    );
+    const vtRow = rows.findIndex(
+        (r) => norm(String((r as unknown[])?.[0] ?? '')).includes('vale transporte'),
+    );
+
+    const funcionarios: FuncionarioApontamento[] = empNames.map((e) => {
+        const valeVal = valeRow >= 0 ? toNumber((rows[valeRow] as unknown[])?.[e.col]) : null;
+        const vtVal = vtRow >= 0 ? String((rows[vtRow] as unknown[])?.[e.col] ?? '').trim() : '';
+        const faltasDias = faltas.get(e.col) ?? 0;
+        const feriasDias = ferias.get(e.col) ?? 0;
+        const celulas: Record<string, unknown> = {};
+        if (faltasDias > 0) celulas['FALTAS'] = faltasDias;
+        if (feriasDias > 0) celulas['FERIAS'] = feriasDias;
+        if (valeVal !== null && valeVal > 0) celulas['VALE'] = valeVal;
+        if (vtVal) celulas['VT'] = vtVal;
+        return { nome: e.nome, celulas, obs: null };
+    });
+
+    const colSet = new Set<string>();
+    for (const f of funcionarios) for (const k of Object.keys(f.celulas)) colSet.add(k);
+
+    return {
+        nome: sheetName,
+        colunas: [...colSet],
+        funcionarios,
+    };
+}
+
+/**
  * Lê um arquivo xlsx e devolve a estrutura bruta do apontamento.
  * Cada sheet com cabeçalho válido vira uma empresa.
  */
@@ -193,6 +300,18 @@ export function parseApontamentoBuffer(buffer: ArrayBuffer | Uint8Array): Aponta
             continue;
         }
 
+        // Grade de presença (transposta): funcionários como colunas, datas como linhas
+        const gradeResult = tentarParsearGradePresenca(rows, sheetName);
+        if (gradeResult) {
+            empresas.push(gradeResult);
+            debug.push(
+                `[ok:grade-presenca] "${sheetName}" — ${gradeResult.funcionarios.length} ` +
+                `funcionário(s), ${gradeResult.colunas.length} coluna(s) sintéticas ` +
+                `(${gradeResult.colunas.join(', ')}).`
+            );
+            continue;
+        }
+
         const found = findHeader(rows);
         if (!found) {
             debug.push(
@@ -210,6 +329,28 @@ export function parseApontamentoBuffer(buffer: ArrayBuffer | Uint8Array): Aponta
         // com o mapeamento gravado no Firestore.
         const headerRaw = (rows[headerRow] as unknown[]).map(normalizarHeader);
 
+        // Two-level header: quando a linha de baixo tem mais colunas com
+        // nomes específicos (ex.: FR Climatização — R2 tem "FUNCIONARIO" +
+        // grupos "DESCONTOS"/"PROVENTOS"; R3 tem sub-headers "FALTAS HORAS",
+        // "HE 100%", etc.), mescla os dois níveis e avança o início dos dados.
+        let dataStartRow = headerRow + 1;
+        if (dataStartRow < rows.length) {
+            const nextRow = ((rows[dataStartRow] as unknown[]) || []).map(normalizarHeader);
+            const curDataCols = headerRaw.filter((h, i) => i !== nameCol && !!h).length;
+            const nxtDataCols = nextRow.filter((h, i) => i !== nameCol && !!h).length;
+            if (nxtDataCols > curDataCols) {
+                for (let c = 0; c < Math.max(headerRaw.length, nextRow.length); c++) {
+                    if (c === nameCol) continue;
+                    const sub = c < nextRow.length ? nextRow[c] : '';
+                    if (sub) {
+                        while (headerRaw.length <= c) headerRaw.push('');
+                        headerRaw[c] = sub;
+                    }
+                }
+                dataStartRow = headerRow + 2;
+            }
+        }
+
         // Colunas de dados = todas as colunas do cabeçalho com nome,
         // excluindo a coluna do próprio funcionário.
         const colunas: string[] = [];
@@ -220,13 +361,13 @@ export function parseApontamentoBuffer(buffer: ArrayBuffer | Uint8Array): Aponta
         }
 
         const funcionarios: FuncionarioApontamento[] = [];
-        for (let i = headerRow + 1; i < rows.length; i++) {
+        for (let i = dataStartRow; i < rows.length; i++) {
             const r = rows[i] as unknown[];
             if (!r) continue;
             const nome = trimOrNull(r[nameCol]);
             if (!nome) continue;
             // Linhas de totalizadores ("TOTAL", "Total geral", etc.) são ignoradas.
-            if (/^(total|subtotal|incluir |excluir |observa)/i.test(nome)) continue;
+            if (/^(total|subtotal|incluir |excluir |observa|centro de custo)/i.test(nome)) continue;
             // Sub-totais por seção também aparecem com prefixos comuns.
             if (/^subtotal/i.test(nome)) continue;
 

@@ -179,6 +179,7 @@ function gerarLancamentosFuncionario(
         } else {
             valor = extrairValor(celulasNormalizadas[chaveNorm], regra.rv);
             if (valor === null) continue;
+            if (regra.excelTime && typeof valor === 'number') valor = round2(valor * 24);
             if (regra.ignorar_se_zero && valor === 0) continue;
         }
 
