@@ -157,6 +157,35 @@ const ESocialEventos: React.FC = () => {
                 <span className="text-xs text-slate-500 dark:text-slate-400 ml-auto">
                     {eventosFiltrados.length} evento(s)
                 </span>
+
+                {pendentes.length > 0 && (
+                    <button
+                        onClick={async () => {
+                            if (!app) return;
+                            if (!confirm(`Transmitir ${pendentes.length} evento(s) pendente(s) ao eSocial?`)) return;
+                            setTransmitindo('lote');
+                            setMsgTransmissao('');
+                            try {
+                                const functions = getFunctions(app, 'southamerica-east1');
+                                const transmitirLoteFn = httpsCallable(functions, 'transmitirLote');
+                                const result: any = await transmitirLoteFn({ eventosIds: pendentes.map(e => e.id) });
+                                const r = result.data?.resultados || [];
+                                const ok = r.filter((x: any) => x.sucesso).length;
+                                const fail = r.filter((x: any) => !x.sucesso).length;
+                                setMsgTransmissao(`Lote: ${ok} transmitido(s), ${fail} rejeitado(s)`);
+                                reload();
+                            } catch (e: any) {
+                                setMsgTransmissao(`Erro lote: ${e?.message || 'Falha'}`);
+                            } finally {
+                                setTransmitindo(null);
+                            }
+                        }}
+                        disabled={transmitindo !== null}
+                        className="px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-lg font-medium"
+                    >
+                        {transmitindo === 'lote' ? '⏳ Transmitindo...' : `📡 Transmitir ${pendentes.length} Pendente(s)`}
+                    </button>
+                )}
             </div>
 
             {/* Mensagem de transmissão */}
