@@ -84,44 +84,62 @@ export interface CertificadoStorage {
     contentType: string;
 }
 
+async function escanearPastaRecursivo(storageRef: any, resultado: CertificadoStorage[]): Promise<void> {
+    const lista = await listAll(storageRef);
+
+    for (const itemRef of lista.items) {
+        const nome = itemRef.name.toLowerCase();
+        if (nome.endsWith('.pfx') || nome.endsWith('.p12') || nome.endsWith('.cer') || nome.endsWith('.pem')) {
+            const partes = itemRef.fullPath.split('/');
+            let cnpj = '';
+            for (const parte of partes) {
+                const digits = parte.replace(/\D/g, '');
+                if (digits.length >= 11 && digits.length <= 14) {
+                    cnpj = digits.padStart(14, '0');
+                    break;
+                }
+            }
+
+            let tamanho = 0;
+            let atualizado = '';
+            let contentType = '';
+            try {
+                const meta = await getMetadata(itemRef);
+                tamanho = meta.size;
+                atualizado = meta.updated;
+                contentType = meta.contentType || '';
+            } catch {}
+
+            resultado.push({
+                cnpj,
+                nomeArquivo: itemRef.name,
+                storagePath: itemRef.fullPath,
+                tamanho,
+                atualizado,
+                contentType,
+            });
+        }
+    }
+
+    for (const prefixRef of lista.prefixes) {
+        await escanearPastaRecursivo(prefixRef, resultado);
+    }
+}
+
 export async function listarCertificadosNoStorage(): Promise<CertificadoStorage[]> {
     if (!storage) throw new Error('Firebase Storage não configurado');
 
-    const raiz = ref(storage, 'certificados');
     const resultado: CertificadoStorage[] = [];
+    const pastasRaiz = ['certificados', 'certificates', 'certs', ''];
 
-    try {
-        const pastasCnpj = await listAll(raiz);
-
-        for (const pastaRef of pastasCnpj.prefixes) {
-            const cnpj = pastaRef.name;
-            const arquivos = await listAll(pastaRef);
-
-            for (const itemRef of arquivos.items) {
-                try {
-                    const meta = await getMetadata(itemRef);
-                    resultado.push({
-                        cnpj,
-                        nomeArquivo: itemRef.name,
-                        storagePath: itemRef.fullPath,
-                        tamanho: meta.size,
-                        atualizado: meta.updated,
-                        contentType: meta.contentType || '',
-                    });
-                } catch {
-                    resultado.push({
-                        cnpj,
-                        nomeArquivo: itemRef.name,
-                        storagePath: itemRef.fullPath,
-                        tamanho: 0,
-                        atualizado: '',
-                        contentType: '',
-                    });
-                }
-            }
+    for (const pasta of pastasRaiz) {
+        try {
+            const storageRef = ref(storage, pasta || undefined);
+            await escanearPastaRecursivo(storageRef, resultado);
+            if (resultado.length > 0 && pasta !== '') break;
+        } catch (e: any) {
+            console.warn(`Storage: pasta "${pasta || '/'}" - ${e?.message || 'sem acesso'}`);
         }
-    } catch (e: any) {
-        console.warn('Erro ao listar certificados no Storage:', e?.message);
     }
 
     return resultado;

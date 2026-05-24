@@ -16,6 +16,7 @@ import type { Empresa } from '../../services/empresas/empresasTypes';
 const ESocialCertificados: React.FC = () => {
     const [cruzamentos, setCruzamentos] = useState<CruzamentoCertificado[]>([]);
     const [certsOrfaos, setCertsOrfaos] = useState<CertificadoStorage[]>([]);
+    const [todosArquivos, setTodosArquivos] = useState<CertificadoStorage[]>([]);
     const [loading, setLoading] = useState(true);
     const [erro, setErro] = useState('');
     const [vinculando, setVinculando] = useState<string | null>(null);
@@ -30,9 +31,10 @@ const ESocialCertificados: React.FC = () => {
                 listarCertificadosNoStorage(),
             ]);
             setCruzamentos(cruz);
+            setTodosArquivos(todosStorage);
 
             const cnpjsEmpresas = new Set(empresas.map(e => e.cnpj.replace(/\D/g, '')));
-            setCertsOrfaos(todosStorage.filter(c => !cnpjsEmpresas.has(c.cnpj.replace(/\D/g, ''))));
+            setCertsOrfaos(todosStorage.filter(c => !c.cnpj || !cnpjsEmpresas.has(c.cnpj.replace(/\D/g, ''))));
         } catch (e: any) {
             setErro(e?.message || 'Erro ao carregar certificados');
         } finally {
@@ -241,9 +243,13 @@ const ESocialCertificados: React.FC = () => {
                             {certsOrfaos.map(c => (
                                 <div key={c.storagePath} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
                                     <span>📄</span>
-                                    <span className="font-mono text-xs">{formatCnpj(c.cnpj)}</span>
+                                    {c.cnpj ? (
+                                        <span className="font-mono text-xs">{formatCnpj(c.cnpj)}</span>
+                                    ) : (
+                                        <span className="text-xs italic text-slate-400">CNPJ não identificado</span>
+                                    )}
                                     <span>—</span>
-                                    <span className="text-xs">{c.nomeArquivo} ({formatSize(c.tamanho)})</span>
+                                    <span className="text-xs">{c.storagePath} ({formatSize(c.tamanho)})</span>
                                 </div>
                             ))}
                         </div>
@@ -253,6 +259,30 @@ const ESocialCertificados: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {/* Diagnóstico */}
+            <div className="p-3 bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg">
+                <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">
+                    Diagnóstico do Storage
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Arquivos de certificado encontrados no Firebase Storage: <strong>{todosArquivos.length}</strong>
+                    {todosArquivos.length === 0 && (
+                        <span className="text-amber-600 dark:text-amber-400">
+                            {' '}— Nenhum arquivo .pfx, .p12, .cer ou .pem encontrado. Verifique se o Firebase Storage está ativado e contém certificados.
+                        </span>
+                    )}
+                </p>
+                {todosArquivos.length > 0 && (
+                    <ul className="mt-1 space-y-0.5">
+                        {todosArquivos.map(a => (
+                            <li key={a.storagePath} className="text-xs text-slate-400 font-mono">
+                                {a.storagePath}
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </div>
         </div>
     );
 };
