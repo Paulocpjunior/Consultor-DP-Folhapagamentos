@@ -44,15 +44,21 @@ const ESocialCertificados: React.FC = () => {
 
     useEffect(() => { reload(); }, []);
 
-    const vincularAutomatico = async (empresaId: string, cert: CertificadoStorage) => {
-        setVinculando(empresaId);
+    const vincularAutomatico = async (cruz: CruzamentoCertificado) => {
+        setVinculando(cruz.empresa.id);
         try {
-            await atualizarEmpresa(empresaId, {
+            const cert = cruz.certificadoStorage;
+            const meta = cruz.certificadoFirestore;
+            const storagePath = cert?.storagePath || meta?.storagePath || meta?.path || '';
+            const nomeArquivo = cert?.nomeArquivo || storagePath.split('/').pop() || 'certificado.pfx';
+            const validade = meta?.validade || meta?.expiry || meta?.validUntil || '';
+
+            await atualizarEmpresa(cruz.empresa.id, {
                 certificado: {
                     tipo: 'A1',
-                    storagePath: cert.storagePath,
-                    nomeArquivo: cert.nomeArquivo,
-                    validade: '',
+                    storagePath,
+                    nomeArquivo,
+                    validade,
                     uploadEm: serverTimestamp(),
                     uploadPor: 'auto-sync',
                 },
@@ -140,10 +146,13 @@ const ESocialCertificados: React.FC = () => {
                                                 — {c.certificadoStorage.nomeArquivo} ({formatSize(c.certificadoStorage.tamanho)})
                                             </span>
                                         )}
+                                        {!c.certificadoStorage && c.certificadoFirestore && (
+                                            <span className="ml-2">— via Firestore</span>
+                                        )}
                                     </div>
                                 </div>
                                 <button
-                                    onClick={() => c.certificadoStorage && vincularAutomatico(c.empresa.id, c.certificadoStorage)}
+                                    onClick={() => vincularAutomatico(c)}
                                     disabled={vinculando === c.empresa.id}
                                     className="px-3 py-1.5 text-xs bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white rounded font-medium whitespace-nowrap"
                                 >
