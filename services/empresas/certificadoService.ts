@@ -1,6 +1,7 @@
-import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { serverTimestamp } from 'firebase/firestore';
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject, listAll, getMetadata } from 'firebase/storage';
+import { collection, getDocs, serverTimestamp } from 'firebase/firestore';
 import app from '../firebaseConfig';
+import { db } from '../firebaseConfig';
 import { atualizarEmpresa } from './empresasService';
 import type { CertificadoDigital, CertificadoTipo, CertificadoStatus, Empresa } from './empresasTypes';
 
@@ -70,6 +71,129 @@ export function diasParaVencer(validade: string): number {
     hoje.setHours(0, 0, 0, 0);
     const dataVal = new Date(validade + 'T00:00:00');
     return Math.ceil((dataVal.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+// ──── Descoberta automática de certificados no Storage ────────────────────────
+
+export interface CertificadoStorage {
+    cnpj: string;
+    nomeArquivo: string;
+    storagePath: string;
+    tamanho: number;
+    atualizado: string;
+    contentType: string;
+}
+
+export async function listarCertificadosNoStorage(): Promise<CertificadoStorage[]> {
+    if (!storage) throw new Error('Firebase Storage não configurado');
+
+    const raiz = ref(storage, 'certificados');
+    const resultado: CertificadoStorage[] = [];
+
+    try {
+        const pastasCnpj = await listAll(raiz);
+
+        for (const pastaRef of pastasCnpj.prefixes) {
+            const cnpj = pastaRef.name;
+            const arquivos = await listAll(pastaRef);
+
+            for (const itemRef of arquivos.items) {
+                try {
+                    const meta = await getMetadata(itemRef);
+                    resultado.push({
+                        cnpj,
+                        nomeArquivo: itemRef.name,
+                        storagePath: itemRef.fullPath,
+                        tamanho: meta.size,
+                        atualizado: meta.updated,
+                        contentType: meta.contentType || '',
+                    });
+                } catch {
+                    resultado.push({
+                        cnpj,
+                        nomeArquivo: itemRef.name,
+                        storagePath: itemRef.fullPath,
+                        tamanho: 0,
+                        atualizado: '',
+                        contentType: '',
+                    });
+                }
+            }
+        }
+    } catch (e: any) {
+        console.warn('Erro ao listar certificados no Storage:', e?.message);
+    }
+
+    return resultado;
+}
+
+// ──── Buscar metadados de certificados em coleções Firestore ──────────────────
+
+export async function buscarCertificadosFirestore(): Promise<Record<string, any>[]> {
+    if (!db) return [];
+
+    const possiveisColecoes = ['certificados', 'empresas_certificados', 'certificates'];
+    const resultados: Record<string, any>[] = [];
+
+    for (const nome of possiveisColecoes) {
+        try {
+            const snap = await getDocs(collection(db, nome));
+            if (!snap.empty) {
+                snap.docs.forEach(d => {
+                    resultados.push({ id: d.id, _colecao: nome, ...d.data() });
+                });
+                break;
+            }
+        } catch {
+            // coleção não existe ou sem permissão
+        }
+    }
+
+    return resultados;
+}
+
+// ──── Cruzamento: Empresas × Certificados ────────────────────────────────────
+
+export interface CruzamentoCertificado {
+    empresa: Empresa;
+    certificadoStorage?: CertificadoStorage;
+    certificadoFirestore?: Record<string, any>;
+    status: 'vinculado' | 'no_storage' | 'sem_certificado';
+}
+
+export async function cruzarEmpresasComCertificados(
+    empresas: Empresa[],
+): Promise<CruzamentoCertificado[]> {
+    const [certsStorage, certsFirestore] = await Promise.all([
+        listarCertificadosNoStorage(),
+        buscarCertificadosFirestore(),
+    ]);
+
+    const storagePorCnpj = new Map<string, CertificadoStorage>();
+    for (const c of certsStorage) {
+        const cnpjLimpo = c.cnpj.replace(/\D/g, '');
+        if (!storagePorCnpj.has(cnpjLimpo)) {
+            storagePorCnpj.set(cnpjLimpo, c);
+        }
+    }
+
+    const firestorePorCnpj = new Map<string, Record<string, any>>();
+    for (const c of certsFirestore) {
+        const cnpj = (c.cnpj || c.CNPJ || '').replace(/\D/g, '');
+        if (cnpj) firestorePorCnpj.set(cnpj, c);
+    }
+
+    return empresas.map(emp => {
+        const cnpj = emp.cnpj.replace(/\D/g, '');
+        const certStorage = storagePorCnpj.get(cnpj);
+        const certFirestore = firestorePorCnpj.get(cnpj);
+
+        let status: CruzamentoCertificado['status'] = 'sem_certificado';
+        if (emp.certificado) status = 'vinculado';
+        else if (certStorage) status = 'no_storage';
+
+        return { empresa: emp, certificadoStorage: certStorage, certificadoFirestore: certFirestore, status };
+    });
 }
 
 export function getStatusLabel(status: CertificadoStatus): { label: string; cls: string } {

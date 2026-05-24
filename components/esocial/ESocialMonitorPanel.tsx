@@ -4,9 +4,10 @@ import ESocialEventos from './ESocialEventos';
 import ESocialFgts from './ESocialFgts';
 import ESocialCalendario from './ESocialCalendario';
 import ESocialTeses from './ESocialTeses';
+import ESocialCertificados from './ESocialCertificados';
 import type { User } from '../../types';
 
-type SubTab = 'dashboard' | 'eventos' | 'fgts' | 'calendario' | 'teses';
+type SubTab = 'dashboard' | 'eventos' | 'fgts' | 'calendario' | 'certificados' | 'teses';
 
 interface Props {
     currentUser: User;
@@ -19,8 +20,9 @@ const ESocialMonitorPanel: React.FC<Props> = ({ currentUser }) => {
         { id: 'dashboard',  label: 'Dashboard',   icon: '📊' },
         { id: 'eventos',    label: 'Eventos',     icon: '📄' },
         { id: 'fgts',       label: 'FGTS Digital', icon: '💰' },
-        { id: 'calendario', label: 'Calendário',  icon: '📅' },
-        { id: 'teses',      label: 'Recuperação', icon: '⚖️' },
+        { id: 'calendario',   label: 'Calendário',    icon: '📅' },
+        { id: 'certificados', label: 'Certificados', icon: '🔐' },
+        { id: 'teses',        label: 'Recuperação',  icon: '⚖️' },
     ];
 
     return (
@@ -55,6 +57,7 @@ const ESocialMonitorPanel: React.FC<Props> = ({ currentUser }) => {
             {subTab === 'eventos' && <ESocialEventos />}
             {subTab === 'fgts' && <ESocialFgts />}
             {subTab === 'calendario' && <ESocialCalendario />}
+            {subTab === 'certificados' && <ESocialCertificados />}
             {subTab === 'teses' && <ESocialTeses />}
         </div>
     );
