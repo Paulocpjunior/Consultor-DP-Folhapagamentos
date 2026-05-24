@@ -8,7 +8,7 @@ import type { CertificadoDigital, CertificadoTipo, CertificadoStatus, Empresa } 
 
 const storage = app ? getStorage(app) : null;
 
-const FISCAL_STORAGE_BUCKET = 'consultor-fiscal-inteligente.firebasestorage.app';
+const FISCAL_STORAGE_BUCKET = 'consultorfiscalapp.firebasestorage.app';
 
 function getFiscalStorage() {
     const appName = 'consultor-fiscal';
