@@ -4,6 +4,8 @@ import { formatCnpj } from '../../services/brasilApiService';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import type { User } from '../../types';
 import EmpresaForm from './EmpresaForm';
+import CertificadoManager from './CertificadoManager';
+import { calcularStatusCertificado, getStatusLabel } from '../../services/empresas/certificadoService';
 
 interface Props { currentUser: User; }
 
@@ -14,6 +16,7 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser }) => {
     const [showForm, setShowForm] = useState(false);
     const [empresaEditando, setEmpresaEditando] = useState<Empresa | null>(null);
     const [verTodas, setVerTodas] = useState(false);
+    const [expandedCert, setExpandedCert] = useState<string | null>(null);
 
     const isAdmin = currentUser.role === 'admin';
 
@@ -95,27 +98,49 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser }) => {
                                 <th className="px-3 py-2">Razão social</th>
                                 <th className="px-3 py-2">CNPJ</th>
                                 <th className="px-3 py-2 text-center">SAGE</th>
+                                <th className="px-3 py-2 text-center">Certificado</th>
                                 <th className="px-3 py-2 text-right">Ações</th>
                             </tr>
                         </thead>
                         <tbody>
                             {empresas.map((e) => (
-                                <tr key={e.id} className="border-t border-slate-100 dark:border-slate-700">
-                                    <td className="px-3 py-2 font-medium text-slate-800 dark:text-slate-200">{e.nomeFantasia}</td>
-                                    <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{e.razaoSocial}</td>
-                                    <td className="px-3 py-2 text-slate-600 dark:text-slate-400 font-mono text-xs">{formatCnpj(e.cnpj)}</td>
-                                    <td className="px-3 py-2 text-center"><code className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-xs">{e.codigoSage}</code></td>
-                                    <td className="px-3 py-2 text-right space-x-1">
-                                        <button onClick={() => { setEmpresaEditando(e); setShowForm(true); }}
-                                            className="px-2 py-1 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 dark:text-blue-300 rounded">
-                                            Editar
-                                        </button>
-                                        <button onClick={() => apagar(e.id, e.nomeFantasia)}
-                                            className="px-2 py-1 text-xs bg-red-50 hover:bg-red-100 text-red-700 dark:bg-red-900/20 dark:hover:bg-red-900/40 dark:text-red-300 rounded">
-                                            🗑 Excluir
-                                        </button>
-                                    </td>
-                                </tr>
+                                <React.Fragment key={e.id}>
+                                    <tr className="border-t border-slate-100 dark:border-slate-700">
+                                        <td className="px-3 py-2 font-medium text-slate-800 dark:text-slate-200">{e.nomeFantasia}</td>
+                                        <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{e.razaoSocial}</td>
+                                        <td className="px-3 py-2 text-slate-600 dark:text-slate-400 font-mono text-xs">{formatCnpj(e.cnpj)}</td>
+                                        <td className="px-3 py-2 text-center"><code className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-xs">{e.codigoSage}</code></td>
+                                        <td className="px-3 py-2 text-center">
+                                            {(() => {
+                                                const st = calcularStatusCertificado(e.certificado?.validade);
+                                                const info = getStatusLabel(st);
+                                                return (
+                                                    <button onClick={() => setExpandedCert(expandedCert === e.id ? null : e.id)}
+                                                        className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer hover:opacity-80 ${info.cls}`}>
+                                                        {e.certificado ? `🔐 ${e.certificado.tipo} · ${info.label}` : info.label}
+                                                    </button>
+                                                );
+                                            })()}
+                                        </td>
+                                        <td className="px-3 py-2 text-right space-x-1">
+                                            <button onClick={() => { setEmpresaEditando(e); setShowForm(true); }}
+                                                className="px-2 py-1 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 dark:text-blue-300 rounded">
+                                                Editar
+                                            </button>
+                                            <button onClick={() => apagar(e.id, e.nomeFantasia)}
+                                                className="px-2 py-1 text-xs bg-red-50 hover:bg-red-100 text-red-700 dark:bg-red-900/20 dark:hover:bg-red-900/40 dark:text-red-300 rounded">
+                                                🗑 Excluir
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {expandedCert === e.id && (
+                                        <tr>
+                                            <td colSpan={6} className="px-3 py-2 bg-slate-50 dark:bg-slate-800/50">
+                                                <CertificadoManager empresa={e} currentUser={currentUser} onAtualizado={reload} />
+                                            </td>
+                                        </tr>
+                                    )}
+                                </React.Fragment>
                             ))}
                         </tbody>
                     </table>

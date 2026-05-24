@@ -1,11 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { calcularResumoDashboard, listarEventos, calcularAlertasVencimento } from '../../services/esocial/esocialService';
+import { listarTodasEmpresas } from '../../services/empresas/empresasService';
+import { calcularStatusCertificado, diasParaVencer, getStatusLabel } from '../../services/empresas/certificadoService';
 import type { DashboardResumo, EventoEsocial } from '../../services/esocial/esocialTypes';
 import { EVENTO_LABELS } from '../../services/esocial/esocialTypes';
+import type { Empresa } from '../../services/empresas/empresasTypes';
 
 const ESocialDashboard: React.FC = () => {
     const [resumo, setResumo] = useState<DashboardResumo | null>(null);
     const [alertas, setAlertas] = useState<EventoEsocial[]>([]);
+    const [empresas, setEmpresas] = useState<Empresa[]>([]);
     const [loading, setLoading] = useState(true);
     const [erro, setErro] = useState('');
 
@@ -13,12 +17,14 @@ const ESocialDashboard: React.FC = () => {
         (async () => {
             try {
                 setLoading(true);
-                const [res, eventos] = await Promise.all([
+                const [res, eventos, emps] = await Promise.all([
                     calcularResumoDashboard(),
                     listarEventos(),
+                    listarTodasEmpresas(),
                 ]);
                 setResumo(res);
                 setAlertas(calcularAlertasVencimento(eventos));
+                setEmpresas(emps);
             } catch (e: any) {
                 setErro(e?.message || 'Erro ao carregar dashboard');
             } finally {
@@ -26,6 +32,10 @@ const ESocialDashboard: React.FC = () => {
             }
         })();
     }, []);
+
+    const certsVencendo = empresas.filter(e => calcularStatusCertificado(e.certificado?.validade) === 'vencendo');
+    const certsVencidos = empresas.filter(e => calcularStatusCertificado(e.certificado?.validade) === 'vencido');
+    const semCert = empresas.filter(e => !e.certificado);
 
     if (loading) {
         return (
@@ -86,6 +96,47 @@ const ESocialDashboard: React.FC = () => {
                             {resumo.tesesTotalEstimado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                         </span>
                     </div>
+                </div>
+            )}
+
+            {/* Certificados Digitais */}
+            {(certsVencidos.length > 0 || certsVencendo.length > 0 || semCert.length > 0) && (
+                <div className="space-y-2">
+                    <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">🔐 Certificados Digitais</h3>
+                    {certsVencidos.length > 0 && (
+                        <div className="p-3 rounded-lg border border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/20">
+                            <div className="text-sm font-medium text-red-700 dark:text-red-300 mb-1">Certificados Vencidos ({certsVencidos.length})</div>
+                            <ul className="space-y-0.5">
+                                {certsVencidos.map(e => (
+                                    <li key={e.id} className="text-xs text-red-600 dark:text-red-400 flex items-center gap-2">
+                                        <span>{e.nomeFantasia}</span>
+                                        <span className="opacity-75">— venceu em {new Date(e.certificado!.validade + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+                    {certsVencendo.length > 0 && (
+                        <div className="p-3 rounded-lg border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20">
+                            <div className="text-sm font-medium text-amber-700 dark:text-amber-300 mb-1">Vencendo em breve ({certsVencendo.length})</div>
+                            <ul className="space-y-0.5">
+                                {certsVencendo.map(e => (
+                                    <li key={e.id} className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-2">
+                                        <span>{e.nomeFantasia}</span>
+                                        <span className="opacity-75">— {diasParaVencer(e.certificado!.validade)} dias restantes</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+                    {semCert.length > 0 && (
+                        <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+                            <div className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-1">Sem certificado ({semCert.length})</div>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                                {semCert.map(e => e.nomeFantasia).join(', ')}
+                            </p>
+                        </div>
+                    )}
                 </div>
             )}
 

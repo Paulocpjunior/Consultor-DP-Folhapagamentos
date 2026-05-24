@@ -41,12 +41,13 @@ export async function criarEmpresa(uid: string, input: EmpresaInput): Promise<st
     return ref.id;
 }
 
-export async function atualizarEmpresa(id: string, input: Partial<EmpresaInput>): Promise<void> {
+export async function atualizarEmpresa(id: string, input: Partial<EmpresaInput> & Record<string, any>): Promise<void> {
     const patch: any = { atualizadoEm: serverTimestamp() };
     if (input.cnpj         !== undefined) patch.cnpj         = input.cnpj.replace(/\D/g, '');
     if (input.razaoSocial  !== undefined) patch.razaoSocial  = input.razaoSocial.trim();
     if (input.nomeFantasia !== undefined) patch.nomeFantasia = input.nomeFantasia.trim();
     if (input.codigoSage   !== undefined) patch.codigoSage   = input.codigoSage.padStart(4, '0').slice(0, 4);
+    if ('certificado' in input) patch.certificado = input.certificado;
     await updateDoc(doc(db, 'empresas', id), patch);
 }
 
