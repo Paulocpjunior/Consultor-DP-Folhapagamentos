@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { listarEventos, criarEvento, atualizarEvento, excluirEvento } from '../../services/esocial/esocialService';
 import { listarTodasEmpresas } from '../../services/empresas/empresasService';
 import type { EventoEsocial, EventoTipo, EventoStatus } from '../../services/esocial/esocialTypes';
 import { EVENTO_LABELS, STATUS_COLORS } from '../../services/esocial/esocialTypes';
+import app from '../../services/firebaseConfig';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 
 const STATUS_BADGES: Record<EventoStatus, { label: string; cls: string }> = {
@@ -77,6 +79,29 @@ const ESocialEventos: React.FC = () => {
         reload();
     };
 
+    const [transmitindo, setTransmitindo] = useState<string | null>(null);
+    const [msgTransmissao, setMsgTransmissao] = useState('');
+
+    const handleTransmitir = async (id: string) => {
+        if (!app) return;
+        if (!confirm('Transmitir este evento ao eSocial (produção)?')) return;
+        setTransmitindo(id);
+        setMsgTransmissao('');
+        try {
+            const functions = getFunctions(app, 'southamerica-east1');
+            const transmitir = httpsCallable(functions, 'transmitirEvento');
+            const result: any = await transmitir({ eventoId: id });
+            setMsgTransmissao(result.data?.sucesso
+                ? `Transmitido! Protocolo: ${result.data.protocolo || 'N/A'}`
+                : `Rejeitado: ${result.data.mensagem || 'Erro'}`);
+            reload();
+        } catch (e: any) {
+            setMsgTransmissao(`Erro: ${e?.message || 'Falha na transmissão'}`);
+        } finally {
+            setTransmitindo(null);
+        }
+    };
+
     const eventosFiltrados = eventos.filter(e => {
         if (filtroStatus !== 'todos' && e.status !== filtroStatus) return false;
         if (filtroEmpresa && e.empresaId !== filtroEmpresa) return false;
@@ -84,6 +109,8 @@ const ESocialEventos: React.FC = () => {
     });
 
     const getEmpresaNome = (id: string) => empresas.find(e => e.id === id)?.nomeFantasia || id;
+
+    const pendentes = eventosFiltrados.filter(e => e.status === 'pendente');
 
     if (loading) {
         return (
@@ -131,6 +158,14 @@ const ESocialEventos: React.FC = () => {
                     {eventosFiltrados.length} evento(s)
                 </span>
             </div>
+
+            {/* Mensagem de transmissão */}
+            {msgTransmissao && (
+                <div className={`p-3 rounded-lg text-sm ${msgTransmissao.startsWith('Transmitido') ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700' : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-700'}`}>
+                    {msgTransmissao}
+                    <button onClick={() => setMsgTransmissao('')} className="ml-2 underline text-xs">fechar</button>
+                </div>
+            )}
 
             {/* Form de novo evento */}
             {showForm && (
@@ -210,6 +245,18 @@ const ESocialEventos: React.FC = () => {
                                     </td>
                                     <td className="py-2 px-2">
                                         <div className="flex gap-1">
+                                            {ev.status === 'pendente' && (
+                                                <button onClick={() => handleTransmitir(ev.id)}
+                                                    disabled={transmitindo === ev.id}
+                                                    className="px-2 py-0.5 text-xs bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded font-medium">
+                                                    {transmitindo === ev.id ? '⏳' : '📡'} Transmitir
+                                                </button>
+                                            )}
+                                            {ev.status === 'transmitido' && ev.protocolo && (
+                                                <span className="px-1 py-0.5 text-xs text-blue-600 dark:text-blue-400 font-mono" title={ev.protocolo}>
+                                                    #{ev.protocolo.slice(-8)}
+                                                </span>
+                                            )}
                                             <select
                                                 value={ev.status}
                                                 onChange={e => handleStatusChange(ev.id, e.target.value as EventoStatus)}
