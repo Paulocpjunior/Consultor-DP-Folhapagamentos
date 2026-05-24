@@ -1,4 +1,5 @@
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject, listAll, getMetadata } from 'firebase/storage';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { collection, getDocs, serverTimestamp } from 'firebase/firestore';
 import app from '../firebaseConfig';
 import { db } from '../firebaseConfig';
@@ -6,6 +7,19 @@ import { atualizarEmpresa } from './empresasService';
 import type { CertificadoDigital, CertificadoTipo, CertificadoStatus, Empresa } from './empresasTypes';
 
 const storage = app ? getStorage(app) : null;
+
+const FISCAL_STORAGE_BUCKET = 'consultor-fiscal-inteligente.firebasestorage.app';
+
+function getFiscalStorage() {
+    const appName = 'consultor-fiscal';
+    let fiscalApp;
+    try {
+        fiscalApp = getApp(appName);
+    } catch {
+        fiscalApp = initializeApp({ storageBucket: FISCAL_STORAGE_BUCKET }, appName);
+    }
+    return getStorage(fiscalApp);
+}
 
 export async function uploadCertificado(
     empresaId: string,
@@ -127,19 +141,25 @@ async function escanearPastaRecursivo(storageRef: any, resultado: CertificadoSto
 }
 
 export async function listarCertificadosNoStorage(): Promise<CertificadoStorage[]> {
-    if (!storage) throw new Error('Firebase Storage não configurado');
-
     const resultado: CertificadoStorage[] = [];
     const pastasRaiz = ['certificados', 'certificates', 'certs', ''];
 
-    for (const pasta of pastasRaiz) {
-        try {
-            const storageRef = ref(storage, pasta || undefined);
-            await escanearPastaRecursivo(storageRef, resultado);
-            if (resultado.length > 0 && pasta !== '') break;
-        } catch (e: any) {
-            console.warn(`Storage: pasta "${pasta || '/'}" - ${e?.message || 'sem acesso'}`);
+    const fiscalStorage = getFiscalStorage();
+    const storages = [
+        { instance: fiscalStorage, label: 'fiscal' },
+        ...(storage ? [{ instance: storage, label: 'dp' }] : []),
+    ];
+
+    for (const { instance, label } of storages) {
+        for (const pasta of pastasRaiz) {
+            try {
+                const storageRef = ref(instance, pasta || undefined);
+                await escanearPastaRecursivo(storageRef, resultado);
+            } catch (e: any) {
+                console.warn(`Storage [${label}] pasta "${pasta || '/'}" - ${e?.message || 'sem acesso'}`);
+            }
         }
+        if (resultado.length > 0) break;
     }
 
     return resultado;
