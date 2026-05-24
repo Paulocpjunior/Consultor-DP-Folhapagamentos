@@ -5,12 +5,13 @@ import PendingScreen from './auth/PendingScreen';
 import AdminUsersPanel from './auth/AdminUsersPanel';
 import FolhaPanel from './folha/FolhaPanel';
 import EmpresasPanel from './empresas/EmpresasPanel';
+import ESocialMonitorPanel from './esocial/ESocialMonitorPanel';
 import Logo from './Logo';
 import UpdateBanner from './UpdateBanner';
 import { listarMinhasEmpresas, listarTodasEmpresas } from '../services/empresas/empresasService';
 import type { User } from '../types';
 
-type Tab = 'folha' | 'empresas' | 'admin';
+type Tab = 'folha' | 'empresas' | 'esocial' | 'admin';
 
 function extrairNomeAmigavel(user: any): string {
     if (!user) return 'Usuário';
@@ -108,6 +109,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
     const tabs: { id: Tab; label: string; icon: string; adminOnly: boolean }[] = [
         { id: 'folha',    label: 'Folha',     icon: '📋', adminOnly: false },
         { id: 'empresas', label: 'Empresas',  icon: '🏢', adminOnly: false },
+        { id: 'esocial',  label: 'eSocial',   icon: '📡', adminOnly: false },
         { id: 'admin',    label: 'Usuários',  icon: '👥', adminOnly: true  },
     ];
 
@@ -233,6 +235,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                     )
                 )}
                 {activeTab === 'empresas' && <EmpresasPanel currentUser={currentUser as any} />}
+                {activeTab === 'esocial' && <ESocialMonitorPanel currentUser={currentUser as any} />}
                 {activeTab === 'admin' && isAdmin && <AdminUsersPanel currentUser={currentUser as any} />}
             </main>
         </div>
