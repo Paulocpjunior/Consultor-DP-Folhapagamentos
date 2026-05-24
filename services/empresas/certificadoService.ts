@@ -8,7 +8,14 @@ import type { CertificadoDigital, CertificadoTipo, CertificadoStatus, Empresa } 
 
 const storage = app ? getStorage(app) : null;
 
-const FISCAL_STORAGE_BUCKET = 'consultorfiscalapp.firebasestorage.app';
+const FISCAL_CONFIG = {
+    apiKey: 'AIzaSyDIqWgUuLjkrrg1vQe5FuN1TY22WHoPQQs',
+    authDomain: 'consultorfiscalapp.firebaseapp.com',
+    projectId: 'consultorfiscalapp',
+    storageBucket: 'consultorfiscalapp.firebasestorage.app',
+    messagingSenderId: '631239634290',
+    appId: '1:631239634290:web:1edfcab8ba8e21f27c41eb',
+};
 
 function getFiscalStorage() {
     const appName = 'consultor-fiscal';
@@ -16,7 +23,7 @@ function getFiscalStorage() {
     try {
         fiscalApp = getApp(appName);
     } catch {
-        fiscalApp = initializeApp({ storageBucket: FISCAL_STORAGE_BUCKET }, appName);
+        fiscalApp = initializeApp(FISCAL_CONFIG, appName);
     }
     return getStorage(fiscalApp);
 }
