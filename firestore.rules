@@ -97,6 +97,29 @@ service cloud.firestore {
 
 
 
+    // ===== eSocial Monitor =====
+
+    match /esocial_eventos/{eventoId} {
+      allow read, list: if isApproved();
+      allow create:     if isApproved();
+      allow update:     if isApproved();
+      allow delete:     if isAdmin();
+    }
+
+    match /esocial_fgts/{registroId} {
+      allow read, list: if isApproved();
+      allow create:     if isApproved();
+      allow update:     if isApproved();
+      allow delete:     if isAdmin();
+    }
+
+    match /esocial_teses/{teseId} {
+      allow read, list: if isApproved();
+      allow create:     if isApproved();
+      allow update:     if isApproved();
+      allow delete:     if isAdmin();
+    }
+
     match /{document=**} { allow read, write: if false; }
   }
 }

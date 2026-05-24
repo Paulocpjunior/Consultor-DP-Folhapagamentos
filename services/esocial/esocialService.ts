@@ -1,0 +1,195 @@
+import {
+    collection,
+    doc,
+    getDocs,
+    getDoc,
+    addDoc,
+    updateDoc,
+    deleteDoc,
+    query,
+    where,
+    orderBy,
+    serverTimestamp,
+    Timestamp,
+} from 'firebase/firestore';
+import { db } from '../firebaseConfig';
+import type {
+    EventoEsocial,
+    FgtsDigitalRegistro,
+    TeseRecuperacao,
+    EmpresaEsocialResumo,
+    DashboardResumo,
+    EventoTipo,
+    EventoStatus,
+    ObrigacaoTrabalhista,
+} from './esocialTypes';
+import { EVENTO_PRAZOS } from './esocialTypes';
+
+const COLECAO_EVENTOS = 'esocial_eventos';
+const COLECAO_FGTS = 'esocial_fgts';
+const COLECAO_TESES = 'esocial_teses';
+
+function getCol(name: string) {
+    if (!db) throw new Error('Firebase não configurado');
+    return collection(db, name);
+}
+
+// ──── Eventos eSocial ────────────────────────────────────────────────────────
+
+export async function listarEventos(empresaId?: string): Promise<EventoEsocial[]> {
+    const col = getCol(COLECAO_EVENTOS);
+    const q = empresaId
+        ? query(col, where('empresaId', '==', empresaId), orderBy('criadoEm', 'desc'))
+        : query(col, orderBy('criadoEm', 'desc'));
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() } as EventoEsocial));
+}
+
+export async function criarEvento(evento: Omit<EventoEsocial, 'id' | 'criadoEm'>): Promise<string> {
+    const col = getCol(COLECAO_EVENTOS);
+    const docRef = await addDoc(col, { ...evento, criadoEm: serverTimestamp() });
+    return docRef.id;
+}
+
+export async function atualizarEvento(id: string, dados: Partial<EventoEsocial>): Promise<void> {
+    if (!db) throw new Error('Firebase não configurado');
+    const ref = doc(db, COLECAO_EVENTOS, id);
+    await updateDoc(ref, { ...dados, atualizadoEm: serverTimestamp() });
+}
+
+export async function excluirEvento(id: string): Promise<void> {
+    if (!db) throw new Error('Firebase não configurado');
+    await deleteDoc(doc(db, COLECAO_EVENTOS, id));
+}
+
+// ──── FGTS Digital ───────────────────────────────────────────────────────────
+
+export async function listarFgts(empresaId?: string): Promise<FgtsDigitalRegistro[]> {
+    const col = getCol(COLECAO_FGTS);
+    const q = empresaId
+        ? query(col, where('empresaId', '==', empresaId), orderBy('competencia', 'desc'))
+        : query(col, orderBy('competencia', 'desc'));
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() } as FgtsDigitalRegistro));
+}
+
+export async function criarFgts(registro: Omit<FgtsDigitalRegistro, 'id'>): Promise<string> {
+    const col = getCol(COLECAO_FGTS);
+    const docRef = await addDoc(col, registro);
+    return docRef.id;
+}
+
+export async function atualizarFgts(id: string, dados: Partial<FgtsDigitalRegistro>): Promise<void> {
+    if (!db) throw new Error('Firebase não configurado');
+    await updateDoc(doc(db, COLECAO_FGTS, id), dados);
+}
+
+// ──── Teses de Recuperação ───────────────────────────────────────────────────
+
+export async function listarTeses(empresaId?: string): Promise<TeseRecuperacao[]> {
+    const col = getCol(COLECAO_TESES);
+    const q = empresaId
+        ? query(col, where('empresaId', '==', empresaId), orderBy('criadoEm', 'desc'))
+        : query(col, orderBy('criadoEm', 'desc'));
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() } as TeseRecuperacao));
+}
+
+export async function criarTese(tese: Omit<TeseRecuperacao, 'id' | 'criadoEm'>): Promise<string> {
+    const col = getCol(COLECAO_TESES);
+    const docRef = await addDoc(col, { ...tese, criadoEm: serverTimestamp() });
+    return docRef.id;
+}
+
+export async function atualizarTese(id: string, dados: Partial<TeseRecuperacao>): Promise<void> {
+    if (!db) throw new Error('Firebase não configurado');
+    await updateDoc(doc(db, COLECAO_TESES, id), { ...dados });
+}
+
+// ──── Dashboard / Resumos ────────────────────────────────────────────────────
+
+export async function calcularResumoDashboard(): Promise<DashboardResumo> {
+    const eventos = await listarEventos();
+    const fgts = await listarFgts();
+    const teses = await listarTeses();
+
+    const empresasIds = new Set(eventos.map(e => e.empresaId));
+    fgts.forEach(f => empresasIds.add(f.empresaId));
+
+    return {
+        totalEmpresas: empresasIds.size,
+        eventosPendentes: eventos.filter(e => e.status === 'pendente').length,
+        eventosRejeitados: eventos.filter(e => e.status === 'rejeitado').length,
+        fgtsAtrasado: fgts.filter(f => f.status === 'atrasado').length,
+        tesesTotalEstimado: teses.reduce((acc, t) => acc + (t.valorEstimado || 0), 0),
+    };
+}
+
+export async function calcularResumoEmpresa(empresaId: string, razaoSocial: string, cnpj: string): Promise<EmpresaEsocialResumo> {
+    const eventos = await listarEventos(empresaId);
+    const fgts = await listarFgts(empresaId);
+
+    const fgtsDevidoTotal = fgts.reduce((acc, f) => acc + f.valorDevido, 0);
+    const fgtsRecolhidoTotal = fgts.reduce((acc, f) => acc + f.valorRecolhido, 0);
+
+    let fgtsStatus: 'em_dia' | 'atrasado' | 'parcial' = 'em_dia';
+    if (fgts.some(f => f.status === 'atrasado')) fgtsStatus = 'atrasado';
+    else if (fgts.some(f => f.status === 'parcial')) fgtsStatus = 'parcial';
+
+    return {
+        empresaId,
+        razaoSocial,
+        cnpj,
+        totalEventos: eventos.length,
+        pendentes: eventos.filter(e => e.status === 'pendente').length,
+        rejeitados: eventos.filter(e => e.status === 'rejeitado').length,
+        transmitidos: eventos.filter(e => e.status === 'transmitido').length,
+        fgtsStatus,
+        fgtsDevidoTotal,
+        fgtsRecolhidoTotal,
+    };
+}
+
+// ──── Calendário de Obrigações ───────────────────────────────────────────────
+
+export function gerarCalendarioObrigacoes(competencia: string): ObrigacaoTrabalhista[] {
+    const [ano, mes] = competencia.split('-').map(Number);
+    const hoje = new Date();
+
+    const obrigacoes: Omit<ObrigacaoTrabalhista, 'id' | 'competencia' | 'status'>[] = [
+        { nome: 'eSocial - Eventos Periódicos (S-1299)', sigla: 'S-1299', tipo: 'esocial', diaVencimento: 15, descricao: 'Fechamento dos eventos periódicos do eSocial' },
+        { nome: 'FGTS Digital - Recolhimento', sigla: 'FGTS', tipo: 'fgts', diaVencimento: 20, descricao: 'Recolhimento mensal do FGTS via FGTS Digital' },
+        { nome: 'DCTFWeb Previdenciária', sigla: 'DCTFWeb', tipo: 'dctfweb', diaVencimento: 15, descricao: 'Declaração de Débitos e Créditos Tributários Federais Previdenciários' },
+        { nome: 'INSS - GPS/DARF Previdenciário', sigla: 'INSS', tipo: 'inss', diaVencimento: 20, descricao: 'Recolhimento da contribuição previdenciária patronal e dos segurados' },
+    ];
+
+    return obrigacoes.map((o, idx) => {
+        const dataVenc = new Date(ano, mes, o.diaVencimento);
+        let status: 'pendente' | 'cumprida' | 'atrasada' = 'pendente';
+        if (dataVenc < hoje) status = 'atrasada';
+
+        return {
+            ...o,
+            id: `${competencia}-${idx}`,
+            competencia,
+            status,
+        };
+    });
+}
+
+// ──── Alertas de Vencimento ──────────────────────────────────────────────────
+
+export function calcularAlertasVencimento(eventos: EventoEsocial[]): EventoEsocial[] {
+    const hoje = new Date();
+    const em5Dias = new Date();
+    em5Dias.setDate(hoje.getDate() + 5);
+
+    return eventos.filter(e => {
+        if (e.status !== 'pendente') return false;
+        const [ano, mes] = e.competencia.split('-').map(Number);
+        const prazo = EVENTO_PRAZOS[e.tipo];
+        if (!prazo) return false;
+        const dataLimite = new Date(ano, mes, prazo.diaLimite);
+        return dataLimite <= em5Dias;
+    });
+}
