@@ -1,6 +1,6 @@
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject, listAll, getMetadata } from 'firebase/storage';
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { collection, getDocs, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, serverTimestamp, getFirestore } from 'firebase/firestore';
 import app from '../firebaseConfig';
 import { db } from '../firebaseConfig';
 import { atualizarEmpresa } from './empresasService';
@@ -17,15 +17,21 @@ const FISCAL_CONFIG = {
     appId: '1:631239634290:web:1edfcab8ba8e21f27c41eb',
 };
 
-function getFiscalStorage() {
+function getFiscalApp() {
     const appName = 'consultor-fiscal';
-    let fiscalApp;
     try {
-        fiscalApp = getApp(appName);
+        return getApp(appName);
     } catch {
-        fiscalApp = initializeApp(FISCAL_CONFIG, appName);
+        return initializeApp(FISCAL_CONFIG, appName);
     }
-    return getStorage(fiscalApp);
+}
+
+function getFiscalStorage() {
+    return getStorage(getFiscalApp());
+}
+
+function getFiscalFirestore() {
+    return getFirestore(getFiscalApp());
 }
 
 export async function uploadCertificado(
@@ -110,7 +116,7 @@ async function escanearPastaRecursivo(storageRef: any, resultado: CertificadoSto
 
     for (const itemRef of lista.items) {
         const nome = itemRef.name.toLowerCase();
-        if (nome.endsWith('.pfx') || nome.endsWith('.p12') || nome.endsWith('.cer') || nome.endsWith('.pem')) {
+        if (nome.endsWith('.pfx') || nome.endsWith('.p12') || nome.endsWith('.cer') || nome.endsWith('.pem') || nome.endsWith('.pfx.enc') || nome.endsWith('.p12.enc')) {
             const partes = itemRef.fullPath.split('/');
             let cnpj = '';
             for (const parte of partes) {
@@ -175,23 +181,28 @@ export async function listarCertificadosNoStorage(): Promise<CertificadoStorage[
 // ──── Buscar metadados de certificados em coleções Firestore ──────────────────
 
 export async function buscarCertificadosFirestore(): Promise<Record<string, any>[]> {
-    if (!db) return [];
-
-    const possiveisColecoes = ['certificados', 'empresas_certificados', 'certificates'];
+    const possiveisColecoes = ['certificados', 'empresas_certificados', 'certificates', 'certs', 'empresas'];
     const resultados: Record<string, any>[] = [];
 
-    for (const nome of possiveisColecoes) {
-        try {
-            const snap = await getDocs(collection(db, nome));
-            if (!snap.empty) {
-                snap.docs.forEach(d => {
-                    resultados.push({ id: d.id, _colecao: nome, ...d.data() });
-                });
-                break;
+    const databases = [
+        { instance: getFiscalFirestore(), label: 'fiscal' },
+        ...(db ? [{ instance: db, label: 'dp' }] : []),
+    ];
+
+    for (const { instance, label } of databases) {
+        for (const nome of possiveisColecoes) {
+            try {
+                const snap = await getDocs(collection(instance, nome));
+                if (!snap.empty) {
+                    snap.docs.forEach(d => {
+                        resultados.push({ id: d.id, _colecao: nome, _projeto: label, ...d.data() });
+                    });
+                }
+            } catch {
+                // coleção não existe ou sem permissão
             }
-        } catch {
-            // coleção não existe ou sem permissão
         }
+        if (resultados.length > 0) break;
     }
 
     return resultados;
@@ -216,16 +227,39 @@ export async function cruzarEmpresasComCertificados(
 
     const storagePorCnpj = new Map<string, CertificadoStorage>();
     for (const c of certsStorage) {
-        const cnpjLimpo = c.cnpj.replace(/\D/g, '');
-        if (!storagePorCnpj.has(cnpjLimpo)) {
-            storagePorCnpj.set(cnpjLimpo, c);
+        if (c.cnpj) {
+            const cnpjLimpo = c.cnpj.replace(/\D/g, '');
+            if (!storagePorCnpj.has(cnpjLimpo)) {
+                storagePorCnpj.set(cnpjLimpo, c);
+            }
         }
     }
 
     const firestorePorCnpj = new Map<string, Record<string, any>>();
+    const firestorePorId = new Map<string, Record<string, any>>();
     for (const c of certsFirestore) {
-        const cnpj = (c.cnpj || c.CNPJ || '').replace(/\D/g, '');
+        const cnpj = (c.cnpj || c.CNPJ || c.empresa_cnpj || '').replace(/\D/g, '');
         if (cnpj) firestorePorCnpj.set(cnpj, c);
+        if (c.id) firestorePorId.set(c.id, c);
+        if (c.certId) firestorePorId.set(c.certId, c);
+        if (c.storagePath) {
+            const uuid = c.storagePath.split('/').pop()?.replace(/\.pfx\.enc|\.pfx|\.p12/g, '') || '';
+            if (uuid) firestorePorId.set(uuid, c);
+        }
+    }
+
+    // Map storage certs to empresas via Firestore metadata (UUID → CNPJ)
+    for (const c of certsStorage) {
+        if (c.cnpj) continue;
+        const uuid = c.nomeArquivo.replace(/\.pfx\.enc|\.pfx|\.p12\.enc|\.p12/g, '');
+        const meta = firestorePorId.get(uuid) || firestorePorId.get(c.nomeArquivo);
+        if (meta) {
+            const cnpj = (meta.cnpj || meta.CNPJ || meta.empresa_cnpj || '').replace(/\D/g, '');
+            if (cnpj) {
+                c.cnpj = cnpj;
+                if (!storagePorCnpj.has(cnpj)) storagePorCnpj.set(cnpj, c);
+            }
+        }
     }
 
     return empresas.map(emp => {
@@ -235,7 +269,7 @@ export async function cruzarEmpresasComCertificados(
 
         let status: CruzamentoCertificado['status'] = 'sem_certificado';
         if (emp.certificado) status = 'vinculado';
-        else if (certStorage) status = 'no_storage';
+        else if (certStorage || certFirestore) status = 'no_storage';
 
         return { empresa: emp, certificadoStorage: certStorage, certificadoFirestore: certFirestore, status };
     });
