@@ -23,6 +23,8 @@ export interface EventoEsocial {
     erros?: string[];
     funcionarioNome?: string;
     funcionarioCpf?: string;
+    indRetif?: '1' | '2';
+    nrReciboRetificado?: string;
     criadoEm: any;
     atualizadoEm?: any;
 }

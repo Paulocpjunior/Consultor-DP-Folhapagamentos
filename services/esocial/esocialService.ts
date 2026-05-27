@@ -11,6 +11,10 @@ import {
     orderBy,
     serverTimestamp,
     Timestamp,
+    limit as firestoreLimit,
+    startAfter,
+    getCountFromServer,
+    QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import type {
@@ -36,6 +40,15 @@ function getCol(name: string) {
 
 // ──── Eventos eSocial ────────────────────────────────────────────────────────
 
+export interface PaginatedResult<T> {
+    items: T[];
+    total: number;
+    lastDoc: QueryDocumentSnapshot | null;
+    hasMore: boolean;
+}
+
+const PAGE_SIZE = 25;
+
 export async function listarEventos(empresaId?: string): Promise<EventoEsocial[]> {
     const col = getCol(COLECAO_EVENTOS);
     const q = empresaId
@@ -43,6 +56,39 @@ export async function listarEventos(empresaId?: string): Promise<EventoEsocial[]
         : query(col, orderBy('criadoEm', 'desc'));
     const snap = await getDocs(q);
     return snap.docs.map(d => ({ id: d.id, ...d.data() } as EventoEsocial));
+}
+
+export async function listarEventosPaginado(
+    empresaId?: string,
+    statusFiltro?: string,
+    cursor?: QueryDocumentSnapshot | null,
+    pageSize: number = PAGE_SIZE,
+): Promise<PaginatedResult<EventoEsocial>> {
+    const col = getCol(COLECAO_EVENTOS);
+    const constraints: any[] = [orderBy('criadoEm', 'desc')];
+
+    if (empresaId) constraints.unshift(where('empresaId', '==', empresaId));
+    if (statusFiltro && statusFiltro !== 'todos') constraints.push(where('status', '==', statusFiltro));
+    if (cursor) constraints.push(startAfter(cursor));
+    constraints.push(firestoreLimit(pageSize + 1));
+
+    const q = query(col, ...constraints);
+    const snap = await getDocs(q);
+    const docs = snap.docs;
+    const hasMore = docs.length > pageSize;
+    const sliced = hasMore ? docs.slice(0, pageSize) : docs;
+
+    const countConstraints: any[] = [orderBy('criadoEm', 'desc')];
+    if (empresaId) countConstraints.unshift(where('empresaId', '==', empresaId));
+    if (statusFiltro && statusFiltro !== 'todos') countConstraints.push(where('status', '==', statusFiltro));
+    const countSnap = await getCountFromServer(query(col, ...countConstraints));
+
+    return {
+        items: sliced.map(d => ({ id: d.id, ...d.data() } as EventoEsocial)),
+        total: countSnap.data().count,
+        lastDoc: sliced.length > 0 ? sliced[sliced.length - 1] : null,
+        hasMore,
+    };
 }
 
 export async function criarEvento(evento: Omit<EventoEsocial, 'id' | 'criadoEm'>): Promise<string> {

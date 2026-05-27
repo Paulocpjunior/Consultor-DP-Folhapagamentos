@@ -5,9 +5,11 @@ import ESocialFgts from './ESocialFgts';
 import ESocialCalendario from './ESocialCalendario';
 import ESocialTeses from './ESocialTeses';
 import ESocialCertificados from './ESocialCertificados';
+import PontoEditorPanel from '../ponto/PontoEditorPanel';
+import ExtratosProcessor from '../extratos/ExtratosProcessor';
 import type { User } from '../../types';
 
-type SubTab = 'dashboard' | 'eventos' | 'fgts' | 'calendario' | 'certificados' | 'teses';
+type SubTab = 'dashboard' | 'eventos' | 'fgts' | 'calendario' | 'certificados' | 'teses' | 'ponto' | 'extratos';
 
 interface Props {
     currentUser: User;
@@ -17,12 +19,14 @@ const ESocialMonitorPanel: React.FC<Props> = ({ currentUser }) => {
     const [subTab, setSubTab] = useState<SubTab>('dashboard');
 
     const tabs: { id: SubTab; label: string; icon: string }[] = [
-        { id: 'dashboard',  label: 'Dashboard',   icon: '📊' },
-        { id: 'eventos',    label: 'Eventos',     icon: '📄' },
-        { id: 'fgts',       label: 'FGTS Digital', icon: '💰' },
-        { id: 'calendario',   label: 'Calendário',    icon: '📅' },
+        { id: 'dashboard',    label: 'Dashboard',    icon: '📊' },
+        { id: 'eventos',      label: 'Eventos',      icon: '📄' },
+        { id: 'fgts',         label: 'FGTS Digital', icon: '💰' },
+        { id: 'calendario',   label: 'Calendário',   icon: '📅' },
         { id: 'certificados', label: 'Certificados', icon: '🔐' },
         { id: 'teses',        label: 'Recuperação',  icon: '⚖️' },
+        { id: 'ponto',        label: 'Ponto',        icon: '🕐' },
+        { id: 'extratos',     label: 'Extratos',     icon: '🏦' },
     ];
 
     return (
@@ -59,6 +63,8 @@ const ESocialMonitorPanel: React.FC<Props> = ({ currentUser }) => {
             {subTab === 'calendario' && <ESocialCalendario />}
             {subTab === 'certificados' && <ESocialCertificados />}
             {subTab === 'teses' && <ESocialTeses />}
+            {subTab === 'ponto' && <PontoEditorPanel currentUser={currentUser} />}
+            {subTab === 'extratos' && <ExtratosProcessor currentUser={currentUser} />}
         </div>
     );
 };

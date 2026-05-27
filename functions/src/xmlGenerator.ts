@@ -8,10 +8,14 @@ interface DadosEvento {
   competencia: string;
   funcionarioNome?: string;
   funcionarioCpf?: string;
-  dados?: Record<string, any>;
+  dados?: Record<string, any>; // indRetif, nrRecibo for retificações
 }
 
 const NAMESPACE = 'http://www.esocial.gov.br/schema/evt';
+
+function getTpAmb(): string {
+  return process.env.ESOCIAL_AMBIENTE || '2';
+}
 
 function gerarIdEvento(tipo: string, cnpj: string): string {
   const agora = new Date();
@@ -43,14 +47,27 @@ export function gerarXmlEvento(dados: DadosEvento): string {
   }
 }
 
+function getIndRetif(dados: DadosEvento): string {
+  return dados.dados?.indRetif || '1';
+}
+
+function addNrRecibo(node: any, dados: DadosEvento): any {
+  if (dados.dados?.indRetif === '2' && dados.dados?.nrRecibo) {
+    return node.ele('nrRecibo').txt(dados.dados.nrRecibo).up();
+  }
+  return node;
+}
+
 function gerarS1200(id: string, dados: DadosEvento, perApur: string): string {
-  const doc = create({ version: '1.0', encoding: 'UTF-8' })
+  let ideEvento = create({ version: '1.0', encoding: 'UTF-8' })
     .ele('eSocial', { xmlns: `${NAMESPACE}/evtRemun/v_S_01_02_00` })
       .ele('evtRemun', { Id: id })
         .ele('ideEvento')
-          .ele('indRetif').txt('1').up()
+          .ele('indRetif').txt(getIndRetif(dados)).up();
+  ideEvento = addNrRecibo(ideEvento, dados);
+  const doc = ideEvento
           .ele('perApur').txt(perApur).up()
-          .ele('tpAmb').txt('1').up()
+          .ele('tpAmb').txt(getTpAmb()).up()
           .ele('procEmi').txt('1').up()
           .ele('verProc').txt('ConsultorDP_1.0').up()
         .up()
@@ -70,13 +87,15 @@ function gerarS1200(id: string, dados: DadosEvento, perApur: string): string {
 }
 
 function gerarS1210(id: string, dados: DadosEvento, perApur: string): string {
-  const doc = create({ version: '1.0', encoding: 'UTF-8' })
+  let ideEvt = create({ version: '1.0', encoding: 'UTF-8' })
     .ele('eSocial', { xmlns: `${NAMESPACE}/evtPgtos/v_S_01_02_00` })
       .ele('evtPgtos', { Id: id })
         .ele('ideEvento')
-          .ele('indRetif').txt('1').up()
+          .ele('indRetif').txt(getIndRetif(dados)).up();
+  ideEvt = addNrRecibo(ideEvt, dados);
+  const doc = ideEvt
           .ele('perApur').txt(perApur).up()
-          .ele('tpAmb').txt('1').up()
+          .ele('tpAmb').txt(getTpAmb()).up()
           .ele('procEmi').txt('1').up()
           .ele('verProc').txt('ConsultorDP_1.0').up()
         .up()
@@ -93,13 +112,15 @@ function gerarS1210(id: string, dados: DadosEvento, perApur: string): string {
 }
 
 function gerarS1299(id: string, dados: DadosEvento, perApur: string): string {
-  const doc = create({ version: '1.0', encoding: 'UTF-8' })
+  let ideEvt1299 = create({ version: '1.0', encoding: 'UTF-8' })
     .ele('eSocial', { xmlns: `${NAMESPACE}/evtFechaEvPer/v_S_01_02_00` })
       .ele('evtFechaEvPer', { Id: id })
         .ele('ideEvento')
-          .ele('indRetif').txt('1').up()
+          .ele('indRetif').txt(getIndRetif(dados)).up();
+  ideEvt1299 = addNrRecibo(ideEvt1299, dados);
+  const doc = ideEvt1299
           .ele('perApur').txt(perApur).up()
-          .ele('tpAmb').txt('1').up()
+          .ele('tpAmb').txt(getTpAmb()).up()
           .ele('procEmi').txt('1').up()
           .ele('verProc').txt('ConsultorDP_1.0').up()
         .up()
@@ -119,12 +140,14 @@ function gerarS1299(id: string, dados: DadosEvento, perApur: string): string {
 }
 
 function gerarS2200(id: string, dados: DadosEvento): string {
-  const doc = create({ version: '1.0', encoding: 'UTF-8' })
+  let ideEvt2200 = create({ version: '1.0', encoding: 'UTF-8' })
     .ele('eSocial', { xmlns: `${NAMESPACE}/evtAdmissao/v_S_01_02_00` })
       .ele('evtAdmissao', { Id: id })
         .ele('ideEvento')
-          .ele('indRetif').txt('1').up()
-          .ele('tpAmb').txt('1').up()
+          .ele('indRetif').txt(getIndRetif(dados)).up();
+  ideEvt2200 = addNrRecibo(ideEvt2200, dados);
+  const doc = ideEvt2200
+          .ele('tpAmb').txt(getTpAmb()).up()
           .ele('procEmi').txt('1').up()
           .ele('verProc').txt('ConsultorDP_1.0').up()
         .up()
@@ -142,12 +165,14 @@ function gerarS2200(id: string, dados: DadosEvento): string {
 }
 
 function gerarS2299(id: string, dados: DadosEvento): string {
-  const doc = create({ version: '1.0', encoding: 'UTF-8' })
+  let ideEvt2299 = create({ version: '1.0', encoding: 'UTF-8' })
     .ele('eSocial', { xmlns: `${NAMESPACE}/evtDeslig/v_S_01_02_00` })
       .ele('evtDeslig', { Id: id })
         .ele('ideEvento')
-          .ele('indRetif').txt('1').up()
-          .ele('tpAmb').txt('1').up()
+          .ele('indRetif').txt(getIndRetif(dados)).up();
+  ideEvt2299 = addNrRecibo(ideEvt2299, dados);
+  const doc = ideEvt2299
+          .ele('tpAmb').txt(getTpAmb()).up()
           .ele('procEmi').txt('1').up()
           .ele('verProc').txt('ConsultorDP_1.0').up()
         .up()
@@ -164,12 +189,14 @@ function gerarS2299(id: string, dados: DadosEvento): string {
 }
 
 function gerarS2300(id: string, dados: DadosEvento): string {
-  const doc = create({ version: '1.0', encoding: 'UTF-8' })
+  let ideEvt2300 = create({ version: '1.0', encoding: 'UTF-8' })
     .ele('eSocial', { xmlns: `${NAMESPACE}/evtTSVInicio/v_S_01_02_00` })
       .ele('evtTSVInicio', { Id: id })
         .ele('ideEvento')
-          .ele('indRetif').txt('1').up()
-          .ele('tpAmb').txt('1').up()
+          .ele('indRetif').txt(getIndRetif(dados)).up();
+  ideEvt2300 = addNrRecibo(ideEvt2300, dados);
+  const doc = ideEvt2300
+          .ele('tpAmb').txt(getTpAmb()).up()
           .ele('procEmi').txt('1').up()
           .ele('verProc').txt('ConsultorDP_1.0').up()
         .up()

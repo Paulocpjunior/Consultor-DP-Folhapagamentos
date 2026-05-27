@@ -1,5 +1,6 @@
 import * as admin from 'firebase-admin';
 import * as forge from 'node-forge';
+import { SecretManagerServiceClient } from '@google-cloud/secret-manager';
 
 export interface CertificadoInfo {
   key: forge.pki.PrivateKey;
@@ -50,6 +51,25 @@ export async function carregarCertificado(
   };
 }
 
+async function buscarSenhaSecretManager(cnpj: string): Promise<string | null> {
+  try {
+    const client = new SecretManagerServiceClient();
+    const projectId = process.env.GCP_PROJECT || process.env.GCLOUD_PROJECT || 'consultorfiscalapp';
+    const secretName = `projects/${projectId}/secrets/cert-senha-${cnpj.replace(/\D/g, '')}/versions/latest`;
+    const [version] = await client.accessSecretVersion({ name: secretName });
+    const payload = version.payload?.data;
+    if (payload) {
+      return typeof payload === 'string' ? payload : Buffer.from(payload).toString('utf8');
+    }
+  } catch {}
+  return null;
+}
+
+function buscarSenhaEnvVar(cnpj: string): string | null {
+  const cnpjLimpo = cnpj.replace(/\D/g, '');
+  return process.env[`CERT_SENHA_${cnpjLimpo}`] || null;
+}
+
 export function extrairInfoCertificado(cert: forge.pki.Certificate) {
   const subject = cert.subject.attributes.reduce((acc: any, attr: any) => {
     acc[attr.shortName || attr.name] = attr.value;
@@ -67,6 +87,15 @@ export function extrairInfoCertificado(cert: forge.pki.Certificate) {
 }
 
 export async function buscarSenhaCertificado(cnpj: string): Promise<string> {
+  // 1. Secret Manager (most secure)
+  const smSenha = await buscarSenhaSecretManager(cnpj);
+  if (smSenha) return smSenha;
+
+  // 2. Environment variable fallback
+  const envSenha = buscarSenhaEnvVar(cnpj);
+  if (envSenha) return envSenha;
+
+  // 3. Firestore fallback
   const db = admin.firestore();
   const colecoes = ['certificados', 'empresas_certificados', 'certificates', 'certs'];
 

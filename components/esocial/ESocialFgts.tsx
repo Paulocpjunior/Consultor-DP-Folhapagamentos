@@ -16,6 +16,7 @@ const ESocialFgts: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [filtroEmpresa, setFiltroEmpresa] = useState('');
+    const [showSubmissao, setShowSubmissao] = useState(false);
 
     // Form
     const [fEmpresaId, setFEmpresaId] = useState('');
@@ -65,6 +66,15 @@ const ESocialFgts: React.FC = () => {
         reload();
     };
 
+    const handleMarcarRecolhido = async (id: string, valorDevido: number) => {
+        await atualizarFgts(id, {
+            valorRecolhido: valorDevido,
+            status: 'em_dia',
+            dataRecolhimento: new Date().toISOString().split('T')[0],
+        });
+        reload();
+    };
+
     const filtrados = filtroEmpresa
         ? registros.filter(r => r.empresaId === filtroEmpresa)
         : registros;
@@ -72,9 +82,21 @@ const ESocialFgts: React.FC = () => {
     const totalDevido = filtrados.reduce((a, r) => a + r.valorDevido, 0);
     const totalRecolhido = filtrados.reduce((a, r) => a + r.valorRecolhido, 0);
     const totalPendente = totalDevido - totalRecolhido;
+    const atrasados = filtrados.filter(r => r.status === 'atrasado');
+    const parciais = filtrados.filter(r => r.status === 'parcial');
 
     const getEmpresaNome = (id: string) => empresas.find(e => e.id === id)?.nomeFantasia || id;
     const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+    // Group by empresa for summary
+    const empresaResume = new Map<string, { devido: number; recolhido: number; atrasados: number }>();
+    filtrados.forEach(r => {
+        const curr = empresaResume.get(r.empresaId) || { devido: 0, recolhido: 0, atrasados: 0 };
+        curr.devido += r.valorDevido;
+        curr.recolhido += r.valorRecolhido;
+        if (r.status === 'atrasado') curr.atrasados++;
+        empresaResume.set(r.empresaId, curr);
+    });
 
     if (loading) {
         return (
@@ -87,7 +109,7 @@ const ESocialFgts: React.FC = () => {
     return (
         <div className="space-y-4">
             {/* Resumo financeiro */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div className="p-3 rounded-lg border bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700">
                     <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Total Devido</div>
                     <div className="text-lg font-bold text-slate-800 dark:text-white">{fmt(totalDevido)}</div>
@@ -100,7 +122,39 @@ const ESocialFgts: React.FC = () => {
                     <div className={`text-xs uppercase tracking-wide ${totalPendente > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>Saldo Pendente</div>
                     <div className={`text-lg font-bold ${totalPendente > 0 ? 'text-red-700 dark:text-red-300' : 'text-green-700 dark:text-green-300'}`}>{fmt(totalPendente)}</div>
                 </div>
+                <div className="p-3 rounded-lg border bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700">
+                    <div className="text-xs text-amber-600 dark:text-amber-400 uppercase tracking-wide">Guias em Atraso</div>
+                    <div className="text-lg font-bold text-amber-700 dark:text-amber-300">{atrasados.length + parciais.length}</div>
+                </div>
             </div>
+
+            {/* Resumo por empresa */}
+            {empresaResume.size > 1 && (
+                <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                        <thead>
+                            <tr className="border-b border-slate-200 dark:border-slate-700">
+                                <th className="py-1.5 px-2 text-left font-medium text-slate-500">Empresa</th>
+                                <th className="py-1.5 px-2 text-right font-medium text-slate-500">Devido</th>
+                                <th className="py-1.5 px-2 text-right font-medium text-slate-500">Recolhido</th>
+                                <th className="py-1.5 px-2 text-right font-medium text-slate-500">Pendente</th>
+                                <th className="py-1.5 px-2 text-center font-medium text-slate-500">Atrasos</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {Array.from(empresaResume.entries()).map(([empId, data]) => (
+                                <tr key={empId} className="border-b border-slate-100 dark:border-slate-800">
+                                    <td className="py-1.5 px-2 text-slate-700 dark:text-slate-300">{getEmpresaNome(empId)}</td>
+                                    <td className="py-1.5 px-2 text-right font-mono">{fmt(data.devido)}</td>
+                                    <td className="py-1.5 px-2 text-right font-mono text-green-600">{fmt(data.recolhido)}</td>
+                                    <td className="py-1.5 px-2 text-right font-mono text-red-600">{fmt(data.devido - data.recolhido)}</td>
+                                    <td className="py-1.5 px-2 text-center">{data.atrasados > 0 ? <span className="text-red-600 font-bold">{data.atrasados}</span> : '—'}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
 
             {/* Toolbar */}
             <div className="flex flex-wrap items-center gap-2">
@@ -108,12 +162,57 @@ const ESocialFgts: React.FC = () => {
                     className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">
                     + Novo Registro FGTS
                 </button>
+                <button onClick={() => setShowSubmissao(!showSubmissao)}
+                    className="px-3 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium">
+                    FGTS Digital (gov.br)
+                </button>
                 <select value={filtroEmpresa} onChange={e => setFiltroEmpresa(e.target.value)}
                     className="px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200">
                     <option value="">Todas as empresas</option>
                     {empresas.map(emp => <option key={emp.id} value={emp.id}>{emp.nomeFantasia}</option>)}
                 </select>
             </div>
+
+            {/* FGTS Digital gov.br panel (Item 9) */}
+            {showSubmissao && (
+                <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700 rounded-lg space-y-3">
+                    <h3 className="font-medium text-indigo-700 dark:text-indigo-300 text-sm">
+                        Submissão FGTS Digital via gov.br
+                    </h3>
+                    <p className="text-xs text-indigo-600 dark:text-indigo-400">
+                        A integração com o portal FGTS Digital requer autenticação gov.br nível Ouro/Prata via certificado digital.
+                        Empresas com certificado A1 vinculado podem gerar a guia GRFGTS automaticamente.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Empresa</label>
+                            <select className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200">
+                                <option value="">Selecione...</option>
+                                {empresas.filter(e => (e as any).certificado?.storagePath).map(emp => (
+                                    <option key={emp.id} value={emp.id}>{emp.nomeFantasia}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Competência</label>
+                            <input type="month" className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200" />
+                        </div>
+                        <div className="flex items-end">
+                            <button
+                                className="px-3 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded font-medium opacity-60 cursor-not-allowed"
+                                disabled
+                                title="Em desenvolvimento — aguardando homologação gov.br"
+                            >
+                                Gerar Guia GRFGTS
+                            </button>
+                        </div>
+                    </div>
+                    <div className="text-xs text-indigo-500 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-900/30 p-2 rounded">
+                        Status: Aguardando homologação do endpoint gov.br/fgtsdigital. A geração de guias GRFGTS será habilitada
+                        após certificação do sistema junto à Caixa Econômica Federal.
+                    </div>
+                </div>
+            )}
 
             {/* Form */}
             {showForm && (
@@ -182,6 +281,7 @@ const ESocialFgts: React.FC = () => {
                                 <th className="py-2 px-2 font-medium text-slate-600 dark:text-slate-400 text-right">Recolhido</th>
                                 <th className="py-2 px-2 font-medium text-slate-600 dark:text-slate-400">Status</th>
                                 <th className="py-2 px-2 font-medium text-slate-600 dark:text-slate-400">Vencimento</th>
+                                <th className="py-2 px-2 font-medium text-slate-600 dark:text-slate-400">Ações</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -201,6 +301,16 @@ const ESocialFgts: React.FC = () => {
                                         </span>
                                     </td>
                                     <td className="py-2 px-2 text-xs text-slate-600 dark:text-slate-400">{r.dataVencimento}</td>
+                                    <td className="py-2 px-2">
+                                        {(r.status === 'atrasado' || r.status === 'parcial') && (
+                                            <button
+                                                onClick={() => handleMarcarRecolhido(r.id, r.valorDevido)}
+                                                className="px-2 py-0.5 text-xs bg-green-600 hover:bg-green-700 text-white rounded"
+                                            >
+                                                Marcar Recolhido
+                                            </button>
+                                        )}
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>

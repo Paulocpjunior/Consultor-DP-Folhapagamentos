@@ -1,5 +1,6 @@
 import * as admin from 'firebase-admin';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { carregarCertificado, buscarSenhaCertificado, extrairInfoCertificado } from './certificado';
 import { gerarXmlEvento, gerarLoteEventos, type EventoTipo } from './xmlGenerator';
 import { assinarXml, assinarLote } from './xmlSigner';
@@ -7,6 +8,33 @@ import { enviarLote, consultarLote } from './esocialApi';
 
 admin.initializeApp();
 const db = admin.firestore();
+
+const RATE_LIMIT_MS = 5000;
+
+function delay(ms: number): Promise<void> {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+async function verificarDuplicidade(
+  empresaId: string,
+  tipo: string,
+  competencia: string,
+  cpf?: string,
+): Promise<string | null> {
+  let q = db.collection('esocial_eventos')
+    .where('empresaId', '==', empresaId)
+    .where('tipo', '==', tipo)
+    .where('competencia', '==', competencia)
+    .where('status', 'in', ['transmitido', 'processado']);
+
+  const snap = await q.limit(5).get();
+  for (const doc of snap.docs) {
+    const d = doc.data();
+    if (cpf && d.funcionarioCpf && d.funcionarioCpf !== cpf) continue;
+    return doc.id;
+  }
+  return null;
+}
 
 // ──── Transmitir evento ao eSocial ───────────────────────────────────────────
 
@@ -170,7 +198,9 @@ export const transmitirLote = onCall(
 
     const resultados: Array<{ eventoId: string; sucesso: boolean; mensagem: string }> = [];
 
-    for (const eventoId of eventosIds) {
+    for (let i = 0; i < eventosIds.length; i++) {
+      if (i > 0) await delay(RATE_LIMIT_MS);
+      const eventoId = eventosIds[i];
       try {
         const resultado = await transmitirEventoInterno(eventoId);
         resultados.push({ eventoId, sucesso: resultado.sucesso, mensagem: resultado.mensagem || '' });
@@ -189,6 +219,19 @@ async function transmitirEventoInterno(eventoId: string) {
   if (!eventoSnap.exists) return { sucesso: false, mensagem: 'Evento não encontrado' };
 
   const evento = eventoSnap.data()!;
+
+  // Deduplication check
+  const duplicadoId = await verificarDuplicidade(
+    evento.empresaId, evento.tipo, evento.competencia, evento.funcionarioCpf,
+  );
+  if (duplicadoId && duplicadoId !== eventoId) {
+    await eventoRef.update({
+      status: 'rejeitado',
+      erros: [`Duplicado: evento ${duplicadoId} já transmitido/processado`],
+    });
+    return { sucesso: false, mensagem: `Duplicado do evento ${duplicadoId}` };
+  }
+
   const empresaSnap = await db.collection('empresas').doc(evento.empresaId).get();
   if (!empresaSnap.exists) return { sucesso: false, mensagem: 'Empresa não encontrada' };
 
@@ -199,12 +242,14 @@ async function transmitirEventoInterno(eventoId: string) {
   const senha = await buscarSenhaCertificado(empresa.cnpj);
   const certInfo = await carregarCertificado(storagePath, senha);
 
+  const isRetificacao = evento.indRetif === '2';
   const xmlEvento = gerarXmlEvento({
     tipo: evento.tipo as EventoTipo,
     empresaCnpj: empresa.cnpj,
     competencia: evento.competencia,
     funcionarioNome: evento.funcionarioNome,
     funcionarioCpf: evento.funcionarioCpf,
+    dados: isRetificacao ? { indRetif: '2', nrRecibo: evento.nrReciboRetificado } : undefined,
   });
 
   const xmlAssinado = assinarXml(xmlEvento, certInfo);
@@ -221,3 +266,53 @@ async function transmitirEventoInterno(eventoId: string) {
 
   return { sucesso: resposta.sucesso, mensagem: resposta.descricaoResposta || '' };
 }
+
+// ──── Polling automático de status eSocial (Cloud Scheduler) ────────────────
+
+export const pollingEsocialStatus = onSchedule(
+  {
+    schedule: 'every 30 minutes',
+    region: 'southamerica-east1',
+    timeoutSeconds: 300,
+  },
+  async () => {
+    const snap = await db.collection('esocial_eventos')
+      .where('status', '==', 'transmitido')
+      .where('protocolo', '!=', null)
+      .limit(50)
+      .get();
+
+    if (snap.empty) return;
+
+    const empresaCache = new Map<string, any>();
+
+    for (const doc of snap.docs) {
+      const evento = doc.data();
+      try {
+        let empresa = empresaCache.get(evento.empresaId);
+        if (!empresa) {
+          const empSnap = await db.collection('empresas').doc(evento.empresaId).get();
+          empresa = empSnap.data();
+          if (empresa) empresaCache.set(evento.empresaId, empresa);
+        }
+        if (!empresa?.certificado?.storagePath) continue;
+
+        const senha = await buscarSenhaCertificado(empresa.cnpj);
+        const certInfo = await carregarCertificado(empresa.certificado.storagePath, senha);
+        const resposta = await consultarLote(evento.protocolo, certInfo);
+
+        if (resposta.sucesso) {
+          await doc.ref.update({
+            status: 'processado',
+            dataProcessamento: admin.firestore.FieldValue.serverTimestamp(),
+            xmlResposta: resposta.xmlResposta?.substring(0, 5000) || '',
+          });
+        }
+
+        await delay(RATE_LIMIT_MS);
+      } catch (err: any) {
+        console.error(`Polling falhou para evento ${doc.id}:`, err?.message);
+      }
+    }
+  },
+);

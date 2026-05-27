@@ -3,11 +3,35 @@ import * as https from 'https';
 import { parseStringPromise } from 'xml2js';
 import type { CertificadoInfo } from './certificado';
 
-const ESOCIAL_ENVIO_URL =
-  'https://webservices.esocial.gov.br/servicos/empregador/enviarloteeventos/WsEnviarLoteEventos.svc';
+const ESOCIAL_PRODUCAO_ENVIO = 'https://webservices.esocial.gov.br/servicos/empregador/enviarloteeventos/WsEnviarLoteEventos.svc';
+const ESOCIAL_PRODUCAO_CONSULTA = 'https://webservices.esocial.gov.br/servicos/empregador/consultarloteeventos/WsConsultarLoteEventos.svc';
+const ESOCIAL_HOMOLOG_ENVIO = 'https://webservices.producaorestrita.esocial.gov.br/servicos/empregador/enviarloteeventos/WsEnviarLoteEventos.svc';
+const ESOCIAL_HOMOLOG_CONSULTA = 'https://webservices.producaorestrita.esocial.gov.br/servicos/empregador/consultarloteeventos/WsConsultarLoteEventos.svc';
 
-const ESOCIAL_CONSULTA_URL =
-  'https://webservices.esocial.gov.br/servicos/empregador/consultarloteeventos/WsConsultarLoteEventos.svc';
+function getUrls() {
+  const amb = process.env.ESOCIAL_AMBIENTE || '2';
+  return amb === '1'
+    ? { envio: ESOCIAL_PRODUCAO_ENVIO, consulta: ESOCIAL_PRODUCAO_CONSULTA }
+    : { envio: ESOCIAL_HOMOLOG_ENVIO, consulta: ESOCIAL_HOMOLOG_CONSULTA };
+}
+
+const RETRY_DELAYS = [2000, 4000, 8000];
+
+async function comRetry<T>(fn: () => Promise<T>): Promise<T> {
+  let lastError: any;
+  for (let tentativa = 0; tentativa <= RETRY_DELAYS.length; tentativa++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      lastError = err;
+      const isRetryable = err?.code === 'ECONNRESET' || err?.code === 'ETIMEDOUT' ||
+        err?.code === 'ECONNREFUSED' || err?.response?.status === 503 || err?.response?.status === 429;
+      if (!isRetryable || tentativa >= RETRY_DELAYS.length) throw err;
+      await new Promise(r => setTimeout(r, RETRY_DELAYS[tentativa]));
+    }
+  }
+  throw lastError;
+}
 
 export interface RespostaEnvio {
   sucesso: boolean;
@@ -60,16 +84,19 @@ export async function enviarLote(
 
   const soapEnvelope = envelopeSoap(soapBody, 'EnviarLoteEventos');
   const agent = criarAgenteMTLS(certInfo);
+  const { envio: url } = getUrls();
 
   try {
-    const response = await axios.post(ESOCIAL_ENVIO_URL, soapEnvelope, {
-      httpsAgent: agent,
-      headers: {
-        'Content-Type': 'application/soap+xml; charset=utf-8',
-        'SOAPAction': 'http://www.esocial.gov.br/servicos/empregador/lote/eventos/envio/v1_1_0/ServicoEnviarLoteEventos/EnviarLoteEventos',
-      },
-      timeout: 60000,
-    });
+    const response = await comRetry(() =>
+      axios.post(url, soapEnvelope, {
+        httpsAgent: agent,
+        headers: {
+          'Content-Type': 'application/soap+xml; charset=utf-8',
+          'SOAPAction': 'http://www.esocial.gov.br/servicos/empregador/lote/eventos/envio/v1_1_0/ServicoEnviarLoteEventos/EnviarLoteEventos',
+        },
+        timeout: 60000,
+      })
+    );
 
     const parsed = await parseStringPromise(response.data, { explicitArray: false });
     const retorno = extrairRetornoEnvio(parsed);
@@ -111,14 +138,15 @@ export async function consultarLote(
   const agent = criarAgenteMTLS(certInfo);
 
   try {
-    const response = await axios.post(ESOCIAL_CONSULTA_URL, soapEnvelope, {
+    const { consulta: urlConsulta } = getUrls();
+    const response = await comRetry(() => axios.post(urlConsulta, soapEnvelope, {
       httpsAgent: agent,
       headers: {
         'Content-Type': 'application/soap+xml; charset=utf-8',
         'SOAPAction': 'http://www.esocial.gov.br/servicos/empregador/lote/eventos/envio/consulta/retornoProcessamento/v1_1_0/ServicoConsultarLoteEventos/ConsultarLoteEventos',
       },
       timeout: 60000,
-    });
+    }));
 
     return {
       sucesso: true,
