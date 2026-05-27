@@ -37,10 +37,10 @@ if (isFirebaseConfigured) {
   try {
     db = initializeFirestore(app, {
       experimentalForceLongPolling: true,
-    });
+      experimentalAutoDetectLongPolling: false,
+      useFetchStreams: false,
+    } as any);
   } catch {
-    // Já inicializado em outra parte do app (HMR / múltiplos imports) —
-    // só pega a instância existente.
     db = getFirestore(app);
   }
 } else {
