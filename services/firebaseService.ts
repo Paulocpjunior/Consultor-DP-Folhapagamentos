@@ -5,6 +5,7 @@
  */
 
 import {
+  initializeFirestore,
   getFirestore,
   collection,
   doc,
@@ -66,7 +67,15 @@ if (isFirebaseConfigured) {
 
 // ─── Exports das instâncias ───────────────────────────────────────────────────
 export const auth = isFirebaseConfigured ? getAuth(app!) : null;
-export const db   = isFirebaseConfigured ? getFirestore(app!) : null;
+export const db   = isFirebaseConfigured ? (() => {
+  try {
+    return initializeFirestore(app!, {
+      experimentalForceLongPolling: true,
+      experimentalAutoDetectLongPolling: false,
+      useFetchStreams: false,
+    } as any);
+  } catch { return getFirestore(app!); }
+})() : null;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AUTH SERVICE

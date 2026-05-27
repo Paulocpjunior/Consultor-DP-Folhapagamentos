@@ -1,11 +1,9 @@
 import {
-    getFirestore, collection, doc, addDoc, getDocs, getDoc, updateDoc, deleteDoc,
+    collection, doc, addDoc, getDocs, getDoc, updateDoc, deleteDoc,
     query, where, orderBy, serverTimestamp,
 } from 'firebase/firestore';
-import app from '../firebaseConfig';
+import { db } from '../firebaseConfig';
 import type { Empresa, EmpresaInput } from './empresasTypes';
-
-const db = getFirestore(app!);
 
 export async function listarMinhasEmpresas(uid: string): Promise<Empresa[]> {
     const q = query(
