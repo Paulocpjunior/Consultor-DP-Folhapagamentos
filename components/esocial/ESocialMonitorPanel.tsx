@@ -8,9 +8,10 @@ import ESocialCertificados from './ESocialCertificados';
 import ESocialRelatorio from './ESocialRelatorio';
 import ESocialAuditLog from './ESocialAuditLog';
 import PontoEditorPanel from '../ponto/PontoEditorPanel';
+import PontoPanel from '../ponto/PontoPanel';
 import type { User } from '../../types';
 
-type SubTab = 'dashboard' | 'eventos' | 'fgts' | 'calendario' | 'certificados' | 'teses' | 'ponto' | 'relatorio' | 'audit';
+type SubTab = 'dashboard' | 'eventos' | 'fgts' | 'calendario' | 'certificados' | 'teses' | 'ponto' | 'ponto_eletronico' | 'relatorio' | 'audit';
 
 interface Props {
     currentUser: User;
@@ -26,8 +27,9 @@ const ESocialMonitorPanel: React.FC<Props> = ({ currentUser }) => {
         { id: 'calendario',   label: 'Calendário',   icon: '📅' },
         { id: 'certificados', label: 'Certificados', icon: '🔐' },
         { id: 'teses',        label: 'Recuperação',  icon: '⚖️' },
-        { id: 'ponto',        label: 'Ponto',        icon: '🕐' },
-        { id: 'relatorio',    label: 'Relatório',    icon: '📋' },
+        { id: 'ponto',             label: 'Ponto Editor', icon: '🕐' },
+        { id: 'ponto_eletronico',  label: 'Ponto',        icon: '⏰' },
+        { id: 'relatorio',         label: 'Relatório',    icon: '📋' },
         { id: 'audit',        label: 'Audit Log',    icon: '📝' },
     ];
 
@@ -66,6 +68,7 @@ const ESocialMonitorPanel: React.FC<Props> = ({ currentUser }) => {
             {subTab === 'certificados' && <ESocialCertificados />}
             {subTab === 'teses' && <ESocialTeses />}
             {subTab === 'ponto' && <PontoEditorPanel currentUser={currentUser} />}
+            {subTab === 'ponto_eletronico' && <PontoPanel currentUser={currentUser} />}
             {subTab === 'relatorio' && <ESocialRelatorio />}
             {subTab === 'audit' && <ESocialAuditLog />}
         </div>

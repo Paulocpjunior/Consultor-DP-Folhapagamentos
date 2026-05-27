@@ -91,6 +91,44 @@ export async function listarEventosPaginado(
     };
 }
 
+/** Verifica se já existe um evento transmitido/processado com mesma (empresaId, tipo, competencia). */
+export async function verificarDuplicidade(
+    empresaId: string,
+    tipo: EventoTipo,
+    competencia: string,
+): Promise<EventoEsocial | null> {
+    const col = getCol(COLECAO_EVENTOS);
+    // Busca eventos transmitidos
+    const qTransmitido = query(
+        col,
+        where('empresaId', '==', empresaId),
+        where('tipo', '==', tipo),
+        where('competencia', '==', competencia),
+        where('status', '==', 'transmitido'),
+        firestoreLimit(1),
+    );
+    const snapT = await getDocs(qTransmitido);
+    if (!snapT.empty) {
+        const d = snapT.docs[0];
+        return { id: d.id, ...d.data() } as EventoEsocial;
+    }
+    // Busca eventos processados
+    const qProcessado = query(
+        col,
+        where('empresaId', '==', empresaId),
+        where('tipo', '==', tipo),
+        where('competencia', '==', competencia),
+        where('status', '==', 'processado'),
+        firestoreLimit(1),
+    );
+    const snapP = await getDocs(qProcessado);
+    if (!snapP.empty) {
+        const d = snapP.docs[0];
+        return { id: d.id, ...d.data() } as EventoEsocial;
+    }
+    return null;
+}
+
 export async function criarEvento(evento: Omit<EventoEsocial, 'id' | 'criadoEm'>): Promise<string> {
     const col = getCol(COLECAO_EVENTOS);
     const docRef = await addDoc(col, { ...evento, criadoEm: serverTimestamp() });

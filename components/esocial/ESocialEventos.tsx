@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { listarEventosPaginado, criarEvento, atualizarEvento, excluirEvento, registrarAudit } from '../../services/esocial/esocialService';
+import { listarEventosPaginado, criarEvento, atualizarEvento, excluirEvento, registrarAudit, verificarDuplicidade } from '../../services/esocial/esocialService';
 import type { PaginatedResult } from '../../services/esocial/esocialService';
 import { listarTodasEmpresas } from '../../services/empresas/empresasService';
 import type { EventoEsocial, EventoTipo, EventoStatus } from '../../services/esocial/esocialTypes';
@@ -153,6 +153,19 @@ const ESocialEventos: React.FC<Props> = ({ currentUser }) => {
 
     const handleTransmitir = async (id: string) => {
         if (!app) return;
+        // Deduplication check
+        const evento = eventos.find(e => e.id === id);
+        if (evento) {
+            try {
+                const duplicado = await verificarDuplicidade(evento.empresaId, evento.tipo, evento.competencia);
+                if (duplicado && duplicado.id !== id) {
+                    const comp = evento.competencia.split('-').reverse().join('/');
+                    if (!confirm(`Evento ${evento.tipo} ja transmitido para competencia ${comp}. Deseja retransmitir?`)) return;
+                }
+            } catch (e) {
+                console.error('Erro ao verificar duplicidade:', e);
+            }
+        }
         if (!confirm('Transmitir este evento ao eSocial?')) return;
         setTransmitindo(id);
         setMsgTransmissao('');
@@ -267,7 +280,7 @@ const ESocialEventos: React.FC<Props> = ({ currentUser }) => {
                 </button>
 
                 <span className="text-xs text-slate-500 dark:text-slate-400 ml-auto">
-                    {page?.total || 0} evento(s)
+                    Mostrando {eventos.length} de {page?.total || 0} evento(s)
                 </span>
 
                 {pendentes.length > 0 && (
@@ -564,26 +577,38 @@ const ESocialEventos: React.FC<Props> = ({ currentUser }) => {
                     </div>
 
                     {/* Pagination */}
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-700">
-                        <span className="text-xs text-slate-500 dark:text-slate-400">
-                            Página {currentPage + 1} — {page?.total || 0} evento(s) no total
-                        </span>
-                        <div className="flex gap-2">
-                            <button
-                                onClick={goPrevPage}
-                                disabled={currentPage === 0}
-                                className="px-3 py-1 text-xs border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 disabled:opacity-40"
-                            >
-                                Anterior
-                            </button>
-                            <button
-                                onClick={goNextPage}
-                                disabled={!page?.hasMore}
-                                className="px-3 py-1 text-xs border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 disabled:opacity-40"
-                            >
-                                Próxima
-                            </button>
+                    <div className="flex flex-col gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs text-slate-500 dark:text-slate-400">
+                                Mostrando {Math.min((currentPage + 1) * 25, page?.total || 0)} de {page?.total || 0} evento(s) — Pagina {currentPage + 1}
+                            </span>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={goPrevPage}
+                                    disabled={currentPage === 0}
+                                    className="px-3 py-1 text-xs border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 disabled:opacity-40"
+                                >
+                                    Anterior
+                                </button>
+                                <button
+                                    onClick={goNextPage}
+                                    disabled={!page?.hasMore}
+                                    className="px-3 py-1 text-xs border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 disabled:opacity-40"
+                                >
+                                    Proxima
+                                </button>
+                            </div>
                         </div>
+                        {page?.hasMore && (
+                            <div className="text-center">
+                                <button
+                                    onClick={goNextPage}
+                                    className="px-4 py-1.5 text-sm bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300 border border-blue-200 dark:border-blue-700 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 font-medium"
+                                >
+                                    Carregar mais
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </>
             )}
