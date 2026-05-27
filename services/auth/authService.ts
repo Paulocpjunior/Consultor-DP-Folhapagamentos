@@ -8,7 +8,6 @@ import {
     type User as FirebaseUser,
 } from 'firebase/auth';
 import {
-    getFirestore,
     doc,
     getDoc,
     setDoc,
@@ -19,15 +18,15 @@ import {
     query,
     orderBy,
 } from 'firebase/firestore';
-import app, { isFirebaseConfigured } from '../firebaseConfig';
+import app, { isFirebaseConfigured, db } from '../firebaseConfig';
 import type { User } from '../../types';
 
-if (!isFirebaseConfigured || !app) {
+if (!isFirebaseConfigured || !app || !db) {
     throw new Error('Firebase não configurado. Verifique o .env.local com as 6 variáveis VITE_FIREBASE_*.');
 }
 
 const auth = getAuth(app);
-const db = getFirestore(app);
+const firestore = db;
 
 export type AuthRole = 'admin' | 'colaborador' | 'pendente';
 
@@ -42,13 +41,13 @@ export interface UserDoc {
 }
 
 async function fetchUserDoc(uid: string): Promise<UserDoc | null> {
-    const snap = await getDoc(doc(db, 'users', uid));
+    const snap = await getDoc(doc(firestore,'users', uid));
     return snap.exists() ? (snap.data() as UserDoc) : null;
 }
 
 async function ensureFirstUserIsAdmin(uid: string, email: string, name: string): Promise<UserDoc> {
     // Se a coleção users estiver vazia, esse cadastro é o primeiro admin
-    const all = await getDocs(collection(db, 'users'));
+    const all = await getDocs(collection(firestore,'users'));
     const isFirst = all.empty;
     const role: AuthRole = isFirst ? 'admin' : 'pendente';
     const docData: UserDoc = {
@@ -56,7 +55,7 @@ async function ensureFirstUserIsAdmin(uid: string, email: string, name: string):
         createdAt: serverTimestamp(),
         ...(isFirst ? { approvedAt: serverTimestamp(), approvedBy: 'self' } : {}),
     };
-    await setDoc(doc(db, 'users', uid), docData);
+    await setDoc(doc(firestore,'users', uid), docData);
     return docData;
 }
 
@@ -101,13 +100,13 @@ export async function resetPassword(email: string): Promise<void> {
 // ─── Admin: gerencia usuários ───────────────────────────────────────
 
 export async function listUsers(): Promise<UserDoc[]> {
-    const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
+    const q = query(collection(firestore,'users'), orderBy('createdAt', 'desc'));
     const snap = await getDocs(q);
     return snap.docs.map((d) => d.data() as UserDoc);
 }
 
 export async function approveUser(uid: string, approvedBy: string, role: AuthRole = 'colaborador'): Promise<void> {
-    await updateDoc(doc(db, 'users', uid), {
+    await updateDoc(doc(firestore,'users', uid), {
         role,
         approvedAt: serverTimestamp(),
         approvedBy,
@@ -115,5 +114,5 @@ export async function approveUser(uid: string, approvedBy: string, role: AuthRol
 }
 
 export async function setRole(uid: string, role: AuthRole): Promise<void> {
-    await updateDoc(doc(db, 'users', uid), { role });
+    await updateDoc(doc(firestore,'users', uid), { role });
 }
