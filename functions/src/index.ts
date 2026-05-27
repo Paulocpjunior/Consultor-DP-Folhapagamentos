@@ -271,7 +271,7 @@ async function transmitirEventoInterno(eventoId: string) {
 
 export const pollingEsocialStatus = onSchedule(
   {
-    schedule: 'every 30 minutes',
+    schedule: 'every 10 minutes',
     region: 'southamerica-east1',
     timeoutSeconds: 300,
   },
@@ -314,5 +314,86 @@ export const pollingEsocialStatus = onSchedule(
         console.error(`Polling falhou para evento ${doc.id}:`, err?.message);
       }
     }
+  },
+);
+
+// ──── Transmitir lote multi-empresa ─────────────────────────────────────────
+// Busca todos os eventos pendentes, agrupa por empresa e transmite cada grupo
+// como um lote separado (cada empresa usa seu próprio certificado).
+
+export const transmitirMultiEmpresa = onCall(
+  { region: 'southamerica-east1', timeoutSeconds: 540 },
+  async (request) => {
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Login obrigatório');
+
+    const { empresasIds } = request.data;
+    if (!empresasIds || !Array.isArray(empresasIds) || empresasIds.length === 0) {
+      throw new HttpsError('invalid-argument', 'empresasIds obrigatório (array)');
+    }
+
+    const resumo: Array<{
+      empresaId: string;
+      empresaNome: string;
+      total: number;
+      sucesso: number;
+      falha: number;
+      erros: string[];
+    }> = [];
+
+    for (const empresaId of empresasIds) {
+      const empresaSnap = await db.collection('empresas').doc(empresaId).get();
+      if (!empresaSnap.exists) {
+        resumo.push({ empresaId, empresaNome: empresaId, total: 0, sucesso: 0, falha: 0, erros: ['Empresa não encontrada'] });
+        continue;
+      }
+      const empresa = empresaSnap.data()!;
+
+      if (!empresa.certificado?.storagePath) {
+        resumo.push({ empresaId, empresaNome: empresa.nomeFantasia || empresaId, total: 0, sucesso: 0, falha: 0, erros: ['Sem certificado vinculado'] });
+        continue;
+      }
+
+      const pendentesSnap = await db.collection('esocial_eventos')
+        .where('empresaId', '==', empresaId)
+        .where('status', '==', 'pendente')
+        .limit(50)
+        .get();
+
+      if (pendentesSnap.empty) {
+        resumo.push({ empresaId, empresaNome: empresa.nomeFantasia || empresaId, total: 0, sucesso: 0, falha: 0, erros: [] });
+        continue;
+      }
+
+      const ids = pendentesSnap.docs.map(d => d.id);
+      let ok = 0;
+      let fail = 0;
+      const erros: string[] = [];
+
+      for (let i = 0; i < ids.length; i++) {
+        if (i > 0) await delay(RATE_LIMIT_MS);
+        try {
+          const r = await transmitirEventoInterno(ids[i]);
+          if (r.sucesso) ok++;
+          else { fail++; if (r.mensagem) erros.push(`${ids[i]}: ${r.mensagem}`); }
+        } catch (err: any) {
+          fail++;
+          erros.push(`${ids[i]}: ${err?.message || 'Erro'}`);
+        }
+      }
+
+      resumo.push({
+        empresaId,
+        empresaNome: empresa.nomeFantasia || empresaId,
+        total: ids.length,
+        sucesso: ok,
+        falha: fail,
+        erros: erros.slice(0, 10),
+      });
+
+      // Rate limit between companies
+      await delay(RATE_LIMIT_MS);
+    }
+
+    return { resumo };
   },
 );

@@ -138,6 +138,9 @@ const ESocialEventos: React.FC = () => {
 
     const [transmitindo, setTransmitindo] = useState<string | null>(null);
     const [msgTransmissao, setMsgTransmissao] = useState('');
+    const [showMultiEmpresa, setShowMultiEmpresa] = useState(false);
+    const [empresasSelecionadas, setEmpresasSelecionadas] = useState<string[]>([]);
+    const [resumoMulti, setResumoMulti] = useState<any[] | null>(null);
 
     const handleTransmitir = async (id: string) => {
         if (!app) return;
@@ -157,6 +160,35 @@ const ESocialEventos: React.FC = () => {
         } finally {
             setTransmitindo(null);
         }
+    };
+
+    const handleTransmitirMultiEmpresa = async () => {
+        if (!app || empresasSelecionadas.length === 0) return;
+        if (!confirm(`Transmitir pendentes de ${empresasSelecionadas.length} empresa(s)?`)) return;
+        setTransmitindo('multi');
+        setMsgTransmissao('');
+        setResumoMulti(null);
+        try {
+            const functions = getFunctions(app, 'southamerica-east1');
+            const fn = httpsCallable(functions, 'transmitirMultiEmpresa');
+            const result: any = await fn({ empresasIds: empresasSelecionadas });
+            const resumo = result.data?.resumo || [];
+            setResumoMulti(resumo);
+            const totalOk = resumo.reduce((a: number, r: any) => a + (r.sucesso || 0), 0);
+            const totalFail = resumo.reduce((a: number, r: any) => a + (r.falha || 0), 0);
+            setMsgTransmissao(`Multi-empresa: ${totalOk} transmitido(s), ${totalFail} rejeitado(s) em ${resumo.length} empresa(s)`);
+            reload();
+        } catch (e: any) {
+            setMsgTransmissao(`Erro multi-empresa: ${e?.message || 'Falha'}`);
+        } finally {
+            setTransmitindo(null);
+        }
+    };
+
+    const toggleEmpresa = (id: string) => {
+        setEmpresasSelecionadas(prev =>
+            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+        );
     };
 
     const eventos = page?.items || [];
@@ -213,6 +245,13 @@ const ESocialEventos: React.FC = () => {
                     ))}
                 </select>
 
+                <button
+                    onClick={() => { setShowMultiEmpresa(!showMultiEmpresa); setShowForm(false); setShowRetifForm(false); }}
+                    className="px-3 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium"
+                >
+                    Multi-Empresa
+                </button>
+
                 <span className="text-xs text-slate-500 dark:text-slate-400 ml-auto">
                     {page?.total || 0} evento(s)
                 </span>
@@ -249,7 +288,7 @@ const ESocialEventos: React.FC = () => {
 
             {/* Mensagem de transmissão */}
             {msgTransmissao && (
-                <div className={`p-3 rounded-lg text-sm ${msgTransmissao.startsWith('Transmitido') || msgTransmissao.startsWith('Lote:') ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700' : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-700'}`}>
+                <div className={`p-3 rounded-lg text-sm ${msgTransmissao.startsWith('Transmitido') || msgTransmissao.startsWith('Lote:') || msgTransmissao.startsWith('Multi-empresa:') ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700' : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-700'}`}>
                     {msgTransmissao}
                     <button onClick={() => setMsgTransmissao('')} className="ml-2 underline text-xs">fechar</button>
                 </div>
@@ -336,6 +375,86 @@ const ESocialEventos: React.FC = () => {
                         <button type="button" onClick={() => setShowRetifForm(false)} className="px-3 py-1.5 text-sm bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-200 rounded font-medium">Cancelar</button>
                     </div>
                 </form>
+            )}
+
+            {/* Painel multi-empresa */}
+            {showMultiEmpresa && (
+                <div className="p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-lg space-y-3">
+                    <h3 className="font-medium text-purple-700 dark:text-purple-300 text-sm">
+                        Transmitir Pendentes — Múltiplas Empresas
+                    </h3>
+                    <p className="text-xs text-purple-600 dark:text-purple-400">
+                        Selecione as empresas cujos eventos pendentes serão transmitidos em lote.
+                        Cada empresa usa seu próprio certificado digital.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-48 overflow-y-auto">
+                        {empresas.map(emp => (
+                            <label key={emp.id} className="flex items-center gap-2 p-2 rounded hover:bg-purple-100 dark:hover:bg-purple-900/30 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={empresasSelecionadas.includes(emp.id)}
+                                    onChange={() => toggleEmpresa(emp.id)}
+                                    className="rounded border-purple-300"
+                                />
+                                <span className="text-sm text-slate-700 dark:text-slate-300 truncate">{emp.nomeFantasia}</span>
+                            </label>
+                        ))}
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setEmpresasSelecionadas(empresas.map(e => e.id))}
+                            className="px-2 py-1 text-xs text-purple-600 hover:underline"
+                        >
+                            Selecionar todas
+                        </button>
+                        <button
+                            onClick={() => setEmpresasSelecionadas([])}
+                            className="px-2 py-1 text-xs text-purple-600 hover:underline"
+                        >
+                            Limpar
+                        </button>
+                    </div>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={handleTransmitirMultiEmpresa}
+                            disabled={empresasSelecionadas.length === 0 || transmitindo !== null}
+                            className="px-4 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded font-medium"
+                        >
+                            {transmitindo === 'multi'
+                                ? 'Transmitindo...'
+                                : `Transmitir ${empresasSelecionadas.length} empresa(s)`}
+                        </button>
+                        <button onClick={() => setShowMultiEmpresa(false)}
+                            className="px-3 py-1.5 text-sm bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 rounded font-medium">
+                            Fechar
+                        </button>
+                    </div>
+                    {/* Resumo multi-empresa */}
+                    {resumoMulti && (
+                        <div className="mt-2 border-t border-purple-200 dark:border-purple-700 pt-2">
+                            <table className="w-full text-xs">
+                                <thead>
+                                    <tr className="text-left text-purple-600 dark:text-purple-400">
+                                        <th className="py-1 px-2">Empresa</th>
+                                        <th className="py-1 px-2 text-center">Total</th>
+                                        <th className="py-1 px-2 text-center">OK</th>
+                                        <th className="py-1 px-2 text-center">Falha</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {resumoMulti.map((r: any, i: number) => (
+                                        <tr key={i} className="border-t border-purple-100 dark:border-purple-800">
+                                            <td className="py-1 px-2 text-slate-700 dark:text-slate-300">{r.empresaNome}</td>
+                                            <td className="py-1 px-2 text-center">{r.total}</td>
+                                            <td className="py-1 px-2 text-center text-green-600">{r.sucesso}</td>
+                                            <td className="py-1 px-2 text-center text-red-600">{r.falha}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
             )}
 
             {/* Lista de eventos */}
