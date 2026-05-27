@@ -251,15 +251,24 @@ export interface ResumoPendencias {
     alertasVencimento: number;
     certsVencendo: number;
     certsVencidos: number;
+    totalEmpresas: number;
     temPendencias: boolean;
 }
 
 export async function calcularResumoPendencias(): Promise<ResumoPendencias> {
-    const [eventos, fgts, empresas] = await Promise.all([
-        listarEventos(),
-        listarFgts(),
-        listarTodasEmpresas(),
-    ]);
+    let eventos: EventoEsocial[] = [];
+    let fgts: FgtsDigitalRegistro[] = [];
+    let empresas: any[] = [];
+
+    try {
+        [eventos, fgts, empresas] = await Promise.all([
+            listarEventos().catch(() => []),
+            listarFgts().catch(() => []),
+            listarTodasEmpresas().catch(() => []),
+        ]);
+    } catch {
+        // All failed — return empty summary
+    }
 
     const fgtsAtrasados = fgts.filter(f => f.status === 'atrasado').length;
     const fgtsParciais = fgts.filter(f => f.status === 'parcial').length;
@@ -292,6 +301,7 @@ export async function calcularResumoPendencias(): Promise<ResumoPendencias> {
         alertasVencimento,
         certsVencendo,
         certsVencidos,
+        totalEmpresas: empresas.length,
         temPendencias,
     };
 }

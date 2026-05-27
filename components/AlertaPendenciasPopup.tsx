@@ -60,15 +60,17 @@ const AlertaPendenciasPopup: React.FC<Props> = ({ currentUser, onNavigateEsocial
             try {
                 const res = await calcularResumoPendencias();
                 if (cancelled) return;
-                if (!res.temPendencias) {
-                    onDismiss();
-                    return;
-                }
                 setResumo(res);
                 setVisible(true);
             } catch (e) {
                 console.warn('Erro ao calcular pendencias:', e);
-                onDismiss();
+                setResumo({
+                    fgtsAtrasados: 0, fgtsParciais: 0, fgtsValorPendente: 0,
+                    eventosPendentes: 0, eventosRejeitados: 0,
+                    alertasVencimento: 0, certsVencendo: 0, certsVencidos: 0,
+                    totalEmpresas: 0, temPendencias: false,
+                });
+                setVisible(true);
             } finally {
                 if (!cancelled) setLoading(false);
             }
@@ -95,14 +97,14 @@ const AlertaPendenciasPopup: React.FC<Props> = ({ currentUser, onNavigateEsocial
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4">
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-lg w-full border border-slate-200 dark:border-slate-700 overflow-hidden max-h-[90vh] flex flex-col">
                 {/* Header */}
-                <div className="px-6 pt-6 pb-4 bg-gradient-to-br from-amber-500/10 to-red-500/10 dark:from-amber-500/20 dark:to-red-500/20 border-b border-slate-200 dark:border-slate-700 shrink-0">
+                <div className={`px-6 pt-6 pb-4 border-b border-slate-200 dark:border-slate-700 shrink-0 bg-gradient-to-br ${resumo.temPendencias ? 'from-amber-500/10 to-red-500/10 dark:from-amber-500/20 dark:to-red-500/20' : 'from-green-500/10 to-blue-500/10 dark:from-green-500/20 dark:to-blue-500/20'}`}>
                     <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center text-2xl shrink-0">
-                            <span role="img" aria-label="alerta">&#9888;&#65039;</span>
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl shrink-0 ${resumo.temPendencias ? 'bg-amber-100 dark:bg-amber-900/40' : 'bg-green-100 dark:bg-green-900/40'}`}>
+                            <span role="img" aria-label="status">{resumo.temPendencias ? '⚠️' : '✅'}</span>
                         </div>
                         <div className="min-w-0">
-                            <div className="text-[11px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300">
-                                Pendencias Encontradas
+                            <div className={`text-[11px] font-semibold uppercase tracking-wider ${resumo.temPendencias ? 'text-amber-700 dark:text-amber-300' : 'text-green-700 dark:text-green-300'}`}>
+                                {resumo.temPendencias ? 'Pendencias Encontradas' : 'Resumo Diario'}
                             </div>
                             <div className="text-xl font-bold text-slate-900 dark:text-white truncate">
                                 {saudacaoPorHora()}, {extrairNomeAmigavel(currentUser)}!
@@ -113,6 +115,27 @@ const AlertaPendenciasPopup: React.FC<Props> = ({ currentUser, onNavigateEsocial
 
                 {/* Scrollable body */}
                 <div className="px-6 py-5 space-y-4 overflow-y-auto flex-1">
+                    {/* Empresa count */}
+                    {resumo.totalEmpresas > 0 && (
+                        <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                            <span className="font-bold text-lg text-slate-800 dark:text-white">{resumo.totalEmpresas}</span>
+                            empresa{resumo.totalEmpresas > 1 ? 's' : ''} cadastrada{resumo.totalEmpresas > 1 ? 's' : ''}
+                        </div>
+                    )}
+
+                    {/* Tudo em dia */}
+                    {!resumo.temPendencias && (
+                        <div className="p-4 rounded-lg border border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-center">
+                            <p className="text-green-700 dark:text-green-300 font-semibold">Tudo em dia!</p>
+                            <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                                Nenhuma pendencia de eSocial, FGTS ou certificados encontrada.
+                            </p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                                Cadastre eventos e FGTS na aba eSocial para acompanhar pendencias automaticamente.
+                            </p>
+                        </div>
+                    )}
+
                     {/* Section 1: FGTS */}
                     {(resumo.fgtsAtrasados > 0 || resumo.fgtsParciais > 0) && (
                         <div className="space-y-2">
