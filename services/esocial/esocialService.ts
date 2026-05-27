@@ -11,10 +11,6 @@ import {
     orderBy,
     serverTimestamp,
     Timestamp,
-    limit as firestoreLimit,
-    startAfter,
-    getCountFromServer,
-    QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import type {
@@ -26,15 +22,14 @@ import type {
     EventoTipo,
     EventoStatus,
     ObrigacaoTrabalhista,
-    AuditLog,
-    AuditAcao,
 } from './esocialTypes';
 import { EVENTO_PRAZOS } from './esocialTypes';
+import { listarTodasEmpresas } from '../empresas/empresasService';
+import { calcularStatusCertificado } from '../empresas/certificadoService';
 
 const COLECAO_EVENTOS = 'esocial_eventos';
 const COLECAO_FGTS = 'esocial_fgts';
 const COLECAO_TESES = 'esocial_teses';
-const COLECAO_AUDIT = 'esocial_audit';
 
 function getCol(name: string) {
     if (!db) throw new Error('Firebase não configurado');
@@ -43,15 +38,6 @@ function getCol(name: string) {
 
 // ──── Eventos eSocial ────────────────────────────────────────────────────────
 
-export interface PaginatedResult<T> {
-    items: T[];
-    total: number;
-    lastDoc: QueryDocumentSnapshot | null;
-    hasMore: boolean;
-}
-
-const PAGE_SIZE = 25;
-
 export async function listarEventos(empresaId?: string): Promise<EventoEsocial[]> {
     const col = getCol(COLECAO_EVENTOS);
     const q = empresaId
@@ -59,39 +45,6 @@ export async function listarEventos(empresaId?: string): Promise<EventoEsocial[]
         : query(col, orderBy('criadoEm', 'desc'));
     const snap = await getDocs(q);
     return snap.docs.map(d => ({ id: d.id, ...d.data() } as EventoEsocial));
-}
-
-export async function listarEventosPaginado(
-    empresaId?: string,
-    statusFiltro?: string,
-    cursor?: QueryDocumentSnapshot | null,
-    pageSize: number = PAGE_SIZE,
-): Promise<PaginatedResult<EventoEsocial>> {
-    const col = getCol(COLECAO_EVENTOS);
-    const constraints: any[] = [orderBy('criadoEm', 'desc')];
-
-    if (empresaId) constraints.unshift(where('empresaId', '==', empresaId));
-    if (statusFiltro && statusFiltro !== 'todos') constraints.push(where('status', '==', statusFiltro));
-    if (cursor) constraints.push(startAfter(cursor));
-    constraints.push(firestoreLimit(pageSize + 1));
-
-    const q = query(col, ...constraints);
-    const snap = await getDocs(q);
-    const docs = snap.docs;
-    const hasMore = docs.length > pageSize;
-    const sliced = hasMore ? docs.slice(0, pageSize) : docs;
-
-    const countConstraints: any[] = [orderBy('criadoEm', 'desc')];
-    if (empresaId) countConstraints.unshift(where('empresaId', '==', empresaId));
-    if (statusFiltro && statusFiltro !== 'todos') countConstraints.push(where('status', '==', statusFiltro));
-    const countSnap = await getCountFromServer(query(col, ...countConstraints));
-
-    return {
-        items: sliced.map(d => ({ id: d.id, ...d.data() } as EventoEsocial)),
-        total: countSnap.data().count,
-        lastDoc: sliced.length > 0 ? sliced[sliced.length - 1] : null,
-        hasMore,
-    };
 }
 
 export async function criarEvento(evento: Omit<EventoEsocial, 'id' | 'criadoEm'>): Promise<string> {
@@ -243,27 +196,58 @@ export function calcularAlertasVencimento(eventos: EventoEsocial[]): EventoEsoci
     });
 }
 
-// ──── Audit Log ─────────────────────────────────────────────────────────────
+// ──── Resumo de Pendências (popup de login) ─────────────────────────────────
 
-export async function registrarAudit(log: Omit<AuditLog, 'id' | 'criadoEm'>): Promise<void> {
-    try {
-        const col = getCol(COLECAO_AUDIT);
-        await addDoc(col, { ...log, criadoEm: serverTimestamp() });
-    } catch (e) {
-        console.error('Falha ao registrar audit log:', e);
-    }
+export interface ResumoPendencias {
+    fgtsAtrasados: number;
+    fgtsParciais: number;
+    fgtsValorPendente: number;
+    eventosPendentes: number;
+    eventosRejeitados: number;
+    alertasVencimento: number;
+    certsVencendo: number;
+    certsVencidos: number;
+    temPendencias: boolean;
 }
 
-export async function listarAuditLogs(limite: number = 50): Promise<AuditLog[]> {
-    const col = getCol(COLECAO_AUDIT);
-    const q = query(col, orderBy('criadoEm', 'desc'), firestoreLimit(limite));
-    const snap = await getDocs(q);
-    return snap.docs.map(d => ({ id: d.id, ...d.data() } as AuditLog));
-}
+export async function calcularResumoPendencias(): Promise<ResumoPendencias> {
+    const [eventos, fgts, empresas] = await Promise.all([
+        listarEventos(),
+        listarFgts(),
+        listarTodasEmpresas(),
+    ]);
 
-export async function listarAuditPorEvento(eventoId: string): Promise<AuditLog[]> {
-    const col = getCol(COLECAO_AUDIT);
-    const q = query(col, where('eventoId', '==', eventoId), orderBy('criadoEm', 'desc'));
-    const snap = await getDocs(q);
-    return snap.docs.map(d => ({ id: d.id, ...d.data() } as AuditLog));
+    const fgtsAtrasados = fgts.filter(f => f.status === 'atrasado').length;
+    const fgtsParciais = fgts.filter(f => f.status === 'parcial').length;
+    const fgtsValorPendente = fgts.reduce((acc, f) => acc + Math.max(0, f.valorDevido - f.valorRecolhido), 0);
+
+    const eventosPendentes = eventos.filter(e => e.status === 'pendente').length;
+    const eventosRejeitados = eventos.filter(e => e.status === 'rejeitado').length;
+
+    const alertas = calcularAlertasVencimento(eventos);
+    const alertasVencimento = alertas.length;
+
+    const certsVencendo = empresas.filter(e => calcularStatusCertificado(e.certificado?.validade) === 'vencendo').length;
+    const certsVencidos = empresas.filter(e => calcularStatusCertificado(e.certificado?.validade) === 'vencido').length;
+
+    const temPendencias =
+        fgtsAtrasados > 0 ||
+        fgtsParciais > 0 ||
+        eventosPendentes > 0 ||
+        eventosRejeitados > 0 ||
+        alertasVencimento > 0 ||
+        certsVencendo > 0 ||
+        certsVencidos > 0;
+
+    return {
+        fgtsAtrasados,
+        fgtsParciais,
+        fgtsValorPendente,
+        eventosPendentes,
+        eventosRejeitados,
+        alertasVencimento,
+        certsVencendo,
+        certsVencidos,
+        temPendencias,
+    };
 }

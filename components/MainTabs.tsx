@@ -6,6 +6,7 @@ import AdminUsersPanel from './auth/AdminUsersPanel';
 import FolhaPanel from './folha/FolhaPanel';
 import EmpresasPanel from './empresas/EmpresasPanel';
 import ESocialMonitorPanel from './esocial/ESocialMonitorPanel';
+import AlertaPendenciasPopup from './AlertaPendenciasPopup';
 import Logo from './Logo';
 import UpdateBanner from './UpdateBanner';
 import { listarMinhasEmpresas, listarTodasEmpresas } from '../services/empresas/empresasService';
@@ -43,6 +44,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
     const [activeTab, setActiveTab] = useState<Tab>('folha');
     const [empresasCount, setEmpresasCount] = useState<number | null>(null);
     const [showWelcome, setShowWelcome] = useState(false);
+    const [showPendencias, setShowPendencias] = useState(false);
     const prevUserUidRef = useRef<string | null>(null);
 
     useEffect(() => {
@@ -154,7 +156,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
 
                         <div className="px-6 pb-6 pt-2">
                             <button
-                                onClick={() => setShowWelcome(false)}
+                                onClick={() => { setShowWelcome(false); setShowPendencias(true); }}
                                 className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
                             >
                                 Iniciar Folha de Pagamento
@@ -163,6 +165,14 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {showPendencias && currentUser && !showWelcome && (
+                <AlertaPendenciasPopup
+                    currentUser={currentUser}
+                    onNavigateEsocial={() => { setShowPendencias(false); setActiveTab('esocial'); }}
+                    onDismiss={() => setShowPendencias(false)}
+                />
             )}
 
             <UpdateBanner />
