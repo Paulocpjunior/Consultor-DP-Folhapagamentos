@@ -5,9 +5,12 @@ import ESocialFgts from './ESocialFgts';
 import ESocialCalendario from './ESocialCalendario';
 import ESocialTeses from './ESocialTeses';
 import ESocialCertificados from './ESocialCertificados';
+import ESocialRelatorio from './ESocialRelatorio';
+import ESocialAuditLog from './ESocialAuditLog';
+import PontoEditorPanel from '../ponto/PontoEditorPanel';
 import type { User } from '../../types';
 
-type SubTab = 'dashboard' | 'eventos' | 'fgts' | 'calendario' | 'certificados' | 'teses';
+type SubTab = 'dashboard' | 'eventos' | 'fgts' | 'calendario' | 'certificados' | 'teses' | 'ponto' | 'relatorio' | 'audit';
 
 interface Props {
     currentUser: User;
@@ -17,19 +20,22 @@ const ESocialMonitorPanel: React.FC<Props> = ({ currentUser }) => {
     const [subTab, setSubTab] = useState<SubTab>('dashboard');
 
     const tabs: { id: SubTab; label: string; icon: string }[] = [
-        { id: 'dashboard',  label: 'Dashboard',   icon: '📊' },
-        { id: 'eventos',    label: 'Eventos',     icon: '📄' },
-        { id: 'fgts',       label: 'FGTS Digital', icon: '💰' },
-        { id: 'calendario',   label: 'Calendário',    icon: '📅' },
+        { id: 'dashboard',    label: 'Dashboard',    icon: '📊' },
+        { id: 'eventos',      label: 'Eventos',      icon: '📄' },
+        { id: 'fgts',         label: 'FGTS Digital', icon: '💰' },
+        { id: 'calendario',   label: 'Calendário',   icon: '📅' },
         { id: 'certificados', label: 'Certificados', icon: '🔐' },
         { id: 'teses',        label: 'Recuperação',  icon: '⚖️' },
+        { id: 'ponto',        label: 'Ponto',        icon: '🕐' },
+        { id: 'relatorio',    label: 'Relatório',    icon: '📋' },
+        { id: 'audit',        label: 'Audit Log',    icon: '📝' },
     ];
 
     return (
         <div>
             <header className="mb-4">
                 <h2 className="text-xl font-bold text-slate-800 dark:text-white">
-                    📡 eSocial Monitor
+                    eSocial Monitor
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                     Monitoramento de eventos, FGTS Digital e obrigações trabalhistas
@@ -54,11 +60,14 @@ const ESocialMonitorPanel: React.FC<Props> = ({ currentUser }) => {
             </div>
 
             {subTab === 'dashboard' && <ESocialDashboard />}
-            {subTab === 'eventos' && <ESocialEventos />}
+            {subTab === 'eventos' && <ESocialEventos currentUser={currentUser} />}
             {subTab === 'fgts' && <ESocialFgts />}
             {subTab === 'calendario' && <ESocialCalendario />}
             {subTab === 'certificados' && <ESocialCertificados />}
             {subTab === 'teses' && <ESocialTeses />}
+            {subTab === 'ponto' && <PontoEditorPanel currentUser={currentUser} />}
+            {subTab === 'relatorio' && <ESocialRelatorio />}
+            {subTab === 'audit' && <ESocialAuditLog />}
         </div>
     );
 };

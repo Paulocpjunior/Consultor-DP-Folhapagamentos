@@ -23,6 +23,8 @@ export interface EventoEsocial {
     erros?: string[];
     funcionarioNome?: string;
     funcionarioCpf?: string;
+    indRetif?: '1' | '2';
+    nrReciboRetificado?: string;
     criadoEm: any;
     atualizadoEm?: any;
 }
@@ -110,3 +112,27 @@ export const STATUS_COLORS: Record<EventoStatus, string> = {
     rejeitado: 'red',
     processado: 'green',
 };
+
+export type AuditAcao =
+    | 'transmitir_evento'
+    | 'transmitir_lote'
+    | 'transmitir_multi_empresa'
+    | 'consultar_protocolo'
+    | 'retificar_evento'
+    | 'criar_evento'
+    | 'excluir_evento'
+    | 'alterar_status';
+
+export interface AuditLog {
+    id: string;
+    acao: AuditAcao;
+    usuarioEmail: string;
+    usuarioUid: string;
+    empresaId?: string;
+    empresaNome?: string;
+    eventoId?: string;
+    eventoTipo?: string;
+    detalhes: string;
+    sucesso: boolean;
+    criadoEm: any;
+}
