@@ -26,12 +26,15 @@ import type {
     EventoTipo,
     EventoStatus,
     ObrigacaoTrabalhista,
+    AuditLog,
+    AuditAcao,
 } from './esocialTypes';
 import { EVENTO_PRAZOS } from './esocialTypes';
 
 const COLECAO_EVENTOS = 'esocial_eventos';
 const COLECAO_FGTS = 'esocial_fgts';
 const COLECAO_TESES = 'esocial_teses';
+const COLECAO_AUDIT = 'esocial_audit';
 
 function getCol(name: string) {
     if (!db) throw new Error('Firebase não configurado');
@@ -238,4 +241,29 @@ export function calcularAlertasVencimento(eventos: EventoEsocial[]): EventoEsoci
         const dataLimite = new Date(ano, mes, prazo.diaLimite);
         return dataLimite <= em5Dias;
     });
+}
+
+// ──── Audit Log ─────────────────────────────────────────────────────────────
+
+export async function registrarAudit(log: Omit<AuditLog, 'id' | 'criadoEm'>): Promise<void> {
+    try {
+        const col = getCol(COLECAO_AUDIT);
+        await addDoc(col, { ...log, criadoEm: serverTimestamp() });
+    } catch (e) {
+        console.error('Falha ao registrar audit log:', e);
+    }
+}
+
+export async function listarAuditLogs(limite: number = 50): Promise<AuditLog[]> {
+    const col = getCol(COLECAO_AUDIT);
+    const q = query(col, orderBy('criadoEm', 'desc'), firestoreLimit(limite));
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() } as AuditLog));
+}
+
+export async function listarAuditPorEvento(eventoId: string): Promise<AuditLog[]> {
+    const col = getCol(COLECAO_AUDIT);
+    const q = query(col, where('eventoId', '==', eventoId), orderBy('criadoEm', 'desc'));
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() } as AuditLog));
 }

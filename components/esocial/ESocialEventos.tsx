@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { listarEventosPaginado, criarEvento, atualizarEvento, excluirEvento } from '../../services/esocial/esocialService';
+import { listarEventosPaginado, criarEvento, atualizarEvento, excluirEvento, registrarAudit } from '../../services/esocial/esocialService';
 import type { PaginatedResult } from '../../services/esocial/esocialService';
 import { listarTodasEmpresas } from '../../services/empresas/empresasService';
 import type { EventoEsocial, EventoTipo, EventoStatus } from '../../services/esocial/esocialTypes';
@@ -8,6 +8,12 @@ import { EVENTO_LABELS } from '../../services/esocial/esocialTypes';
 import app from '../../services/firebaseConfig';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import type { QueryDocumentSnapshot } from 'firebase/firestore';
+import type { User } from '../../types';
+import { validarCPF, formatarCPF } from '../../utils/validacoes';
+
+interface Props {
+    currentUser?: User;
+}
 
 const STATUS_BADGES: Record<EventoStatus, { label: string; cls: string }> = {
     pendente:    { label: 'Pendente',    cls: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300' },
@@ -16,7 +22,8 @@ const STATUS_BADGES: Record<EventoStatus, { label: string; cls: string }> = {
     processado:  { label: 'Processado',  cls: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' },
 };
 
-const ESocialEventos: React.FC = () => {
+const ESocialEventos: React.FC<Props> = ({ currentUser }) => {
+    const auditUser = { email: currentUser?.email || '', uid: (currentUser as any)?.uid || '' };
     const [page, setPage] = useState<PaginatedResult<EventoEsocial> | null>(null);
     const [empresas, setEmpresas] = useState<Empresa[]>([]);
     const [loading, setLoading] = useState(true);
@@ -95,6 +102,7 @@ const ESocialEventos: React.FC = () => {
             funcionarioNome: formFuncionario || undefined,
             funcionarioCpf: formCpf || undefined,
         });
+        registrarAudit({ acao: 'criar_evento', ...auditUser, usuarioEmail: auditUser.email, usuarioUid: auditUser.uid, empresaId: formEmpresaId, eventoTipo: formTipo, detalhes: `${formTipo} ${formCompetencia}`, sucesso: true });
         setShowForm(false);
         setFormEmpresaId(''); setFormCompetencia(''); setFormFuncionario(''); setFormCpf('');
         reload();
@@ -133,6 +141,7 @@ const ESocialEventos: React.FC = () => {
     const handleExcluir = async (id: string) => {
         if (!confirm('Excluir este evento?')) return;
         await excluirEvento(id);
+        registrarAudit({ acao: 'excluir_evento', ...auditUser, usuarioEmail: auditUser.email, usuarioUid: auditUser.uid, eventoId: id, detalhes: 'Evento excluído', sucesso: true });
         reload();
     };
 
@@ -151,12 +160,15 @@ const ESocialEventos: React.FC = () => {
             const functions = getFunctions(app, 'southamerica-east1');
             const transmitir = httpsCallable(functions, 'transmitirEvento');
             const result: any = await transmitir({ eventoId: id });
-            setMsgTransmissao(result.data?.sucesso
+            const sucesso = !!result.data?.sucesso;
+            setMsgTransmissao(sucesso
                 ? `Transmitido! Protocolo: ${result.data.protocolo || 'N/A'}`
                 : `Rejeitado: ${result.data.mensagem || 'Erro'}`);
+            registrarAudit({ acao: 'transmitir_evento', ...auditUser, usuarioEmail: auditUser.email, usuarioUid: auditUser.uid, eventoId: id, detalhes: result.data?.mensagem || (sucesso ? 'OK' : 'Erro'), sucesso });
             reload();
         } catch (e: any) {
             setMsgTransmissao(`Erro: ${e?.message || 'Falha na transmissão'}`);
+            registrarAudit({ acao: 'transmitir_evento', ...auditUser, usuarioEmail: auditUser.email, usuarioUid: auditUser.uid, eventoId: id, detalhes: e?.message || 'Erro', sucesso: false });
         } finally {
             setTransmitindo(null);
         }
@@ -176,7 +188,9 @@ const ESocialEventos: React.FC = () => {
             setResumoMulti(resumo);
             const totalOk = resumo.reduce((a: number, r: any) => a + (r.sucesso || 0), 0);
             const totalFail = resumo.reduce((a: number, r: any) => a + (r.falha || 0), 0);
-            setMsgTransmissao(`Multi-empresa: ${totalOk} transmitido(s), ${totalFail} rejeitado(s) em ${resumo.length} empresa(s)`);
+            const msg = `Multi-empresa: ${totalOk} transmitido(s), ${totalFail} rejeitado(s) em ${resumo.length} empresa(s)`;
+            setMsgTransmissao(msg);
+            registrarAudit({ acao: 'transmitir_multi_empresa', ...auditUser, usuarioEmail: auditUser.email, usuarioUid: auditUser.uid, detalhes: msg, sucesso: totalFail === 0 });
             reload();
         } catch (e: any) {
             setMsgTransmissao(`Erro multi-empresa: ${e?.message || 'Falha'}`);
@@ -328,8 +342,11 @@ const ESocialEventos: React.FC = () => {
                         </div>
                         <div>
                             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">CPF</label>
-                            <input type="text" value={formCpf} onChange={e => setFormCpf(e.target.value)} placeholder="000.000.000-00"
-                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200" />
+                            <input type="text" value={formCpf} onChange={e => setFormCpf(formatarCPF(e.target.value))} placeholder="000.000.000-00"
+                                className={`w-full px-2 py-1.5 text-sm border rounded bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 ${formCpf && !validarCPF(formCpf) ? 'border-red-400 dark:border-red-600' : 'border-slate-300 dark:border-slate-600'}`} />
+                            {formCpf && !validarCPF(formCpf) && (
+                                <span className="text-xs text-red-500 mt-0.5 block">CPF inválido</span>
+                            )}
                         </div>
                     </div>
                     <div className="flex gap-2">
@@ -506,6 +523,16 @@ const ESocialEventos: React.FC = () => {
                                                             disabled={transmitindo === ev.id}
                                                             className="px-2 py-0.5 text-xs bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded font-medium">
                                                             {transmitindo === ev.id ? '...' : 'Transmitir'}
+                                                        </button>
+                                                    )}
+                                                    {ev.status === 'rejeitado' && (
+                                                        <button onClick={async () => {
+                                                            await atualizarEvento(ev.id, { status: 'pendente', erros: [] });
+                                                            registrarAudit({ acao: 'alterar_status', ...auditUser, usuarioEmail: auditUser.email, usuarioUid: auditUser.uid, eventoId: ev.id, detalhes: 'Re-enfileirado para retransmissão', sucesso: true });
+                                                            reload();
+                                                        }}
+                                                            className="px-2 py-0.5 text-xs bg-amber-600 hover:bg-amber-700 text-white rounded font-medium">
+                                                            Retransmitir
                                                         </button>
                                                     )}
                                                     {ev.status === 'transmitido' && ev.protocolo && (
