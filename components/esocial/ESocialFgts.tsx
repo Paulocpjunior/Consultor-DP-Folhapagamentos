@@ -3,6 +3,7 @@ import { listarFgts, criarFgts, atualizarFgts } from '../../services/esocial/eso
 import { listarTodasEmpresas } from '../../services/empresas/empresasService';
 import type { FgtsDigitalRegistro, FgtsStatus } from '../../services/esocial/esocialTypes';
 import type { Empresa } from '../../services/empresas/empresasTypes';
+import { consultarFgtsRecolhimento, consultarCrfFgts } from '../../services/serpro/serproIntegrationService';
 
 const FGTS_STATUS_BADGE: Record<FgtsStatus, { label: string; cls: string }> = {
     em_dia:   { label: 'Em dia',   cls: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' },
@@ -17,6 +18,17 @@ const ESocialFgts: React.FC = () => {
     const [showForm, setShowForm] = useState(false);
     const [filtroEmpresa, setFiltroEmpresa] = useState('');
     const [showSubmissao, setShowSubmissao] = useState(false);
+
+    // SERPRO query state
+    const [serproEmpresaId, setSerproEmpresaId] = useState('');
+    const [serproCompetencia, setSerproCompetencia] = useState(() => {
+        const d = new Date();
+        d.setMonth(d.getMonth() - 1);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    });
+    const [serproLoading, setSerproLoading] = useState(false);
+    const [serproResult, setSerproResult] = useState<any>(null);
+    const [serproError, setSerproError] = useState<string | null>(null);
 
     // Form
     const [fEmpresaId, setFEmpresaId] = useState('');
@@ -72,6 +84,57 @@ const ESocialFgts: React.FC = () => {
             status: 'em_dia',
             dataRecolhimento: new Date().toISOString().split('T')[0],
         });
+        reload();
+    };
+
+    const handleConsultarSerpro = async () => {
+        if (!serproEmpresaId) {
+            setSerproError('Selecione uma empresa');
+            return;
+        }
+        const empresa = empresas.find(e => e.id === serproEmpresaId);
+        if (!empresa?.cnpj) {
+            setSerproError('Empresa sem CNPJ cadastrado');
+            return;
+        }
+        setSerproLoading(true);
+        setSerproError(null);
+        setSerproResult(null);
+        try {
+            const cnpj = empresa.cnpj.replace(/\D/g, '');
+            const [recolhimento, crf] = await Promise.all([
+                consultarFgtsRecolhimento(cnpj, serproCompetencia),
+                consultarCrfFgts(cnpj),
+            ]);
+            setSerproResult({ empresa, recolhimento, crf });
+        } catch (err: any) {
+            setSerproError(err?.message || 'Erro ao consultar SERPRO');
+        } finally {
+            setSerproLoading(false);
+        }
+    };
+
+    const handleImportarSerpro = async () => {
+        if (!serproResult?.recolhimento?.ok || !serproEmpresaId) return;
+        const r = serproResult.recolhimento;
+        const devido = r.depositoDevido || 0;
+        const recolhido = r.depositoRealizado || 0;
+        let status: FgtsStatus = 'em_dia';
+        if (recolhido === 0 && devido > 0) status = 'atrasado';
+        else if (recolhido < devido) status = 'parcial';
+
+        await criarFgts({
+            empresaId: serproEmpresaId,
+            competencia: serproCompetencia,
+            funcionarioNome: 'TOTAL EMPRESA (SERPRO)',
+            funcionarioCpf: '',
+            valorDevido: devido,
+            valorRecolhido: recolhido,
+            status,
+            dataVencimento: serproCompetencia + '-20',
+        });
+        setSerproResult(null);
+        setSerproEmpresaId('');
         reload();
     };
 
@@ -163,8 +226,8 @@ const ESocialFgts: React.FC = () => {
                     + Novo Registro FGTS
                 </button>
                 <button onClick={() => setShowSubmissao(!showSubmissao)}
-                    className="px-3 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium">
-                    FGTS Digital (gov.br)
+                    className="px-3 py-1.5 text-sm bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium">
+                    Consultar FGTS via SERPRO (real)
                 </button>
                 <select value={filtroEmpresa} onChange={e => setFiltroEmpresa(e.target.value)}
                     className="px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200">
@@ -173,44 +236,124 @@ const ESocialFgts: React.FC = () => {
                 </select>
             </div>
 
-            {/* FGTS Digital gov.br panel (Item 9) */}
+            {/* Consulta FGTS via SERPRO Integra Contador (dados reais) */}
             {showSubmissao && (
-                <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700 rounded-lg space-y-3">
-                    <h3 className="font-medium text-indigo-700 dark:text-indigo-300 text-sm">
-                        Submissão FGTS Digital via gov.br
-                    </h3>
-                    <p className="text-xs text-indigo-600 dark:text-indigo-400">
-                        A integração com o portal FGTS Digital requer autenticação gov.br nível Ouro/Prata via certificado digital.
-                        Empresas com certificado A1 vinculado podem gerar a guia GRFGTS automaticamente.
+                <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700 rounded-lg space-y-3">
+                    <div className="flex items-center justify-between">
+                        <h3 className="font-medium text-emerald-700 dark:text-emerald-300 text-sm">
+                            Consulta FGTS via SERPRO Integra Contador
+                        </h3>
+                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
+                            Dados Reais
+                        </span>
+                    </div>
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                        Consulta direta no SERPRO: depósitos devidos vs realizados (CONSULTARRECOLHIMENTO)
+                        + Certificado de Regularidade (CRF FGTS). Requer empresa com procuração eletrônica vigente.
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
                             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Empresa</label>
-                            <select className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200">
+                            <select
+                                value={serproEmpresaId}
+                                onChange={e => setSerproEmpresaId(e.target.value)}
+                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200"
+                            >
                                 <option value="">Selecione...</option>
-                                {empresas.filter(e => (e as any).certificado?.storagePath).map(emp => (
-                                    <option key={emp.id} value={emp.id}>{emp.nomeFantasia}</option>
+                                {empresas.map(emp => (
+                                    <option key={emp.id} value={emp.id}>{emp.nomeFantasia} ({emp.cnpj})</option>
                                 ))}
                             </select>
                         </div>
                         <div>
                             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Competência</label>
-                            <input type="month" className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200" />
+                            <input
+                                type="month"
+                                value={serproCompetencia}
+                                onChange={e => setSerproCompetencia(e.target.value)}
+                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200"
+                            />
                         </div>
                         <div className="flex items-end">
                             <button
-                                className="px-3 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded font-medium opacity-60 cursor-not-allowed"
-                                disabled
-                                title="Em desenvolvimento — aguardando homologação gov.br"
+                                onClick={handleConsultarSerpro}
+                                disabled={serproLoading || !serproEmpresaId}
+                                className="px-3 py-1.5 text-sm bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded font-medium"
                             >
-                                Gerar Guia GRFGTS
+                                {serproLoading ? 'Consultando...' : 'Consultar SERPRO'}
                             </button>
                         </div>
                     </div>
-                    <div className="text-xs text-indigo-500 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-900/30 p-2 rounded">
-                        Status: Aguardando homologação do endpoint gov.br/fgtsdigital. A geração de guias GRFGTS será habilitada
-                        após certificação do sistema junto à Caixa Econômica Federal.
-                    </div>
+
+                    {serproError && (
+                        <div className="text-xs p-2 rounded bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300">
+                            {serproError}
+                        </div>
+                    )}
+
+                    {serproResult && (
+                        <div className="space-y-2 mt-3">
+                            <div className="text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                                Resultado para {serproResult.empresa?.nomeFantasia}
+                            </div>
+
+                            {/* Recolhimento */}
+                            <div className="p-3 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                                <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Recolhimento FGTS {serproCompetencia}</div>
+                                {serproResult.recolhimento.ok ? (
+                                    <div className="grid grid-cols-3 gap-2 text-xs">
+                                        <div>
+                                            <div className="text-slate-500">Devido</div>
+                                            <div className="font-mono font-bold">{fmt(serproResult.recolhimento.depositoDevido)}</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-slate-500">Recolhido</div>
+                                            <div className="font-mono font-bold text-green-600">{fmt(serproResult.recolhimento.depositoRealizado)}</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-slate-500">Situação</div>
+                                            <div className={`font-bold ${serproResult.recolhimento.regular ? 'text-green-600' : 'text-red-600'}`}>
+                                                {serproResult.recolhimento.regular ? 'Regular' : 'Pendente'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="text-xs text-red-600">Erro: {serproResult.recolhimento.erro || 'Indisponível'}</div>
+                                )}
+                            </div>
+
+                            {/* CRF */}
+                            <div className="p-3 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                                <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">CRF (Certificado de Regularidade FGTS)</div>
+                                <div className="flex items-center gap-3 text-xs">
+                                    <span className={`px-2 py-0.5 rounded-full font-bold ${
+                                        serproResult.crf.status === 'negativa' ? 'bg-green-100 text-green-800' :
+                                        serproResult.crf.status === 'positiva' ? 'bg-red-100 text-red-800' :
+                                        'bg-amber-100 text-amber-800'
+                                    }`}>
+                                        {serproResult.crf.status === 'negativa' ? 'Regular (CRF Negativa)' :
+                                         serproResult.crf.status === 'positiva' ? 'Irregular (CRF Positiva)' :
+                                         serproResult.crf.status}
+                                    </span>
+                                    {serproResult.crf.validade && (
+                                        <span className="text-slate-500">Válida até: {new Date(serproResult.crf.validade).toLocaleDateString('pt-BR')}</span>
+                                    )}
+                                </div>
+                                {serproResult.crf.motivo && (
+                                    <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">{serproResult.crf.motivo}</div>
+                                )}
+                            </div>
+
+                            {serproResult.recolhimento.ok && (
+                                <button
+                                    onClick={handleImportarSerpro}
+                                    className="w-full px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded font-medium"
+                                >
+                                    Importar como registro FGTS
+                                </button>
+                            )}
+                        </div>
+                    )}
                 </div>
             )}
 
