@@ -119,7 +119,20 @@ export function trimOrNull(v: unknown): string | null {
 export function toNumber(v: unknown): number | null {
     if (v === null || v === undefined || v === '') return null;
     if (typeof v === 'number') return Number.isFinite(v) ? v : null;
-    const s = String(v).replace(/\./g, '').replace(',', '.').trim();
+    let s = String(v).trim();
+    if (s === '') return null;
+    if (s.includes(',')) {
+        // Tem virgula: separador decimal pt-BR. Se tambem tem ponto, o ponto
+        // e separador de milhar ("1.234,56"); senao so a virgula e decimal.
+        s = s.includes('.')
+            ? s.replace(/\./g, '').replace(',', '.')
+            : s.replace(',', '.');
+    }
+    // Apenas ponto ("0.68", "7011.9", "0.027083..."): o ponto JA e o separador
+    // decimal — nao remover. Antes, o replace(/\./g,'') destruia fracoes-de-dia
+    // do Excel ([h]:mm:ss vira 0.027) e valores R$ com ponto decimal (90.96),
+    // gerando numeros gigantes e lancamentos de hora perdidos (ex.: Waldesa).
+    // Milhar com ponto e SEM decimais ("2.500") nao ocorre nestes layouts.
     const n = Number(s);
     return Number.isFinite(n) ? n : null;
 }
