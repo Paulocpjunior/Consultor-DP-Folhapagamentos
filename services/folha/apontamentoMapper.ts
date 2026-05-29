@@ -152,7 +152,13 @@ function gerarLancamentosFuncionario(
     for (const [coluna, regra] of Object.entries(mapa.mapeamento_colunas)) {
         const chaveNorm = normalizarHeader(coluna);
         if (!(chaveNorm in celulasNormalizadas)) continue;
-        if (colunasAtivas && !colunasAtivas.has(coluna)) continue;
+        // colunasAtivas (vindo da UI) e empresa.colunas (parser) usam o nome
+        // NORMALIZADO (normalizarHeader: NBSP->espaco, colapsa whitespace).
+        // A chave `coluna` aqui e a ORIGINAL do mapeamento_colunas (Firestore),
+        // que pode ter espacos multiplos/NBSP. Comparar com o nome normalizado
+        // evita cortar colunas cujo nome no Firestore difere do header limpo
+        // (ex.: Waldesa "ATRASOS  5850", "H. E 60%      811").
+        if (colunasAtivas && !colunasAtivas.has(coluna) && !colunasAtivas.has(chaveNorm)) continue;
 
         // Coluna marcadora (ex.: CONTRIBUIÇÃO ASSISTENCIAL SIM/NÃO):
         // só gera lançamento quando o texto da célula bate, e usa valor_fixo.
