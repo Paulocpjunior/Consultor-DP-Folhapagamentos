@@ -86,6 +86,16 @@ export interface RegraColuna {
      * esta flag cobre frações > 1 (acúmulo de vários dias).
      */
     excelTime?: boolean;
+
+    /**
+     * Quando true, a referencia de hora (rv:'R') e exportada no formato
+     * HH,MM posicional em vez de horas decimais/centesimais.
+     * Ex.: 16:19 -> 16,19 (e nao 16,32). Por empresa/coluna, pois cada
+     * cliente tem sua convencao no IOB SAGE (ex.: Waldesa usa HH,MM;
+     * Ferrante usa decimal). Aplica-se sobre o valor JA convertido em
+     * horas decimais.
+     */
+    ref_hhmm?: boolean;
 }
 
 /** Regra condicional baseada em OBS */

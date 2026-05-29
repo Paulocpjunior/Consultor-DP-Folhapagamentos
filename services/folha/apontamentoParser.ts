@@ -437,6 +437,16 @@ export function parseApontamentoBuffer(buffer: ArrayBuffer | Uint8Array): Aponta
 // v2.3 - extrai valor tolerante para layouts tipo Ferrante:
 // - String com % (ex "20%" Insalubridade) -> 20
 // - Fração de dia Excel para rv='R' (ex 0.5833 = 14h) -> *24
+// Converte horas decimais (ex.: 16.32 = 16h19) em referencia HH,MM posicional
+// (16.19), arredondando ao minuto. Usada quando a regra tem ref_hhmm:true.
+export function horasDecimalParaHHMM(horasDecimais: number): number {
+    if (!Number.isFinite(horasDecimais) || horasDecimais <= 0) return horasDecimais;
+    const totalMin = Math.round(horasDecimais * 60);
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    return Number(`${h}.${String(m).padStart(2, '0')}`);
+}
+
 export function extrairValor(raw: unknown, rv?: string): number | null {
     if (raw === null || raw === undefined || raw === '') return null;
     if (typeof raw === 'string') {

@@ -27,7 +27,7 @@ import type {
     MapeamentoApontamento,
     ResultadoMapeamento,
 } from './folhaTypes';
-import { norm, round2, toNumber, extrairValor, normalizarHeader } from './apontamentoParser';
+import { norm, round2, toNumber, extrairValor, normalizarHeader, horasDecimalParaHHMM } from './apontamentoParser';
 
 export function resolverEmpresa(
     abaParser: EmpresaApontamento,
@@ -186,6 +186,11 @@ function gerarLancamentosFuncionario(
             valor = extrairValor(celulasNormalizadas[chaveNorm], regra.rv);
             if (valor === null) continue;
             if (regra.excelTime && typeof valor === 'number') valor = round2(valor * 24);
+            // ref_hhmm: converte a hora decimal para HH,MM posicional (16.32 -> 16.19)
+            // quando a empresa usa essa convencao no IOB SAGE (ex.: Waldesa).
+            if (regra.ref_hhmm && regra.rv === 'R' && typeof valor === 'number') {
+                valor = horasDecimalParaHHMM(valor);
+            }
             if (regra.ignorar_se_zero && valor === 0) continue;
         }
 
