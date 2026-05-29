@@ -5,6 +5,12 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Anti-cache do HTML: garante que o navegador sempre revalide o index e
+         baixe o bundle JS mais recente apos um deploy. Sem isto, o index.html
+         podia ficar preso em cache apontando para um bundle antigo. -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <title>Consultor DP — Folha</title>
     <style>
       body {
