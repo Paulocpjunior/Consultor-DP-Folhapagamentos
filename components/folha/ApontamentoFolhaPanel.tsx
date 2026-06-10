@@ -1314,6 +1314,10 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                         setShowWizardAutonomos(false);
                         setResultado({ lancamentos, alertas: [] });
                         setMatriculasEdit({});
+                        // Marca o snapshot do arquivo como processado, senão o
+                        // handleExportar bloqueia com aviso de "arquivo alterado"
+                        // (os outros 3 fluxos já fazem isso no handleProcessar).
+                        if (file) setSnapshotArqProcessado(snapshotDoArquivo(file));
                         setMsg(`Autônomos SPA · ${lancamentos.length} lançamento(s) gerado(s). Use 'Exportar TXTs' abaixo.`);
                         setResultadoAutonomos(null);
                     }}
