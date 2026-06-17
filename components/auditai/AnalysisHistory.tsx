@@ -131,6 +131,7 @@ const AnalysisHistory: React.FC<Props> = ({
         data = data.filter(item =>
           item.headerData.companyName?.toLowerCase().includes(s) ||
           item.fileName?.toLowerCase().includes(s) ||
+          item.fileNames?.some(fileName => fileName.toLowerCase().includes(s)) ||
           item.summary.document_type.toLowerCase().includes(s)
         );
     }

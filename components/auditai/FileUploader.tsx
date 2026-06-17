@@ -20,7 +20,7 @@ export interface UploadedFile {
 }
 
 interface Props {
-  onFilesSelected: (files: FileList | File[]) => void;
+  onFilesSelected: (files: UploadedFile[]) => void;
   isLoading: boolean;
   disabled?: boolean;
   isGroupAnalysis?: boolean;

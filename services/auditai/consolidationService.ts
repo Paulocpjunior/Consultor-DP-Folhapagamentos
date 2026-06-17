@@ -1,6 +1,41 @@
 
 import { AnalysisResult, HistoryItem, ConsolidationResult, ConsolidatedRow, ConsolidatedCompany } from "../../types.auditai";
 
+export interface ConsolidationInput {
+    item: HistoryItem;
+    result: AnalysisResult;
+}
+
+const cleanCnpj = (value: string | undefined | null): string => String(value || '').replace(/\D/g, '');
+
+export const isValidCnpj = (value: string | undefined | null): boolean => {
+    const cnpj = cleanCnpj(value);
+    if (cnpj.length !== 14) return false;
+    if (/^(\d)\1+$/.test(cnpj)) return false;
+
+    const calcDigit = (base: string, weights: number[]) => {
+        const sum = weights.reduce((acc, weight, index) => acc + Number(base[index]) * weight, 0);
+        const mod = sum % 11;
+        return mod < 2 ? 0 : 11 - mod;
+    };
+
+    const firstDigit = calcDigit(cnpj.slice(0, 12), [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+    const secondDigit = calcDigit(cnpj.slice(0, 13), [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+
+    return firstDigit === Number(cnpj[12]) && secondDigit === Number(cnpj[13]);
+};
+
+const formatCnpj = (value: string): string => {
+    const cnpj = cleanCnpj(value);
+    if (cnpj.length !== 14) return value;
+    return `${cnpj.slice(0, 2)}.${cnpj.slice(2, 5)}.${cnpj.slice(5, 8)}/${cnpj.slice(8, 12)}-${cnpj.slice(12)}`;
+};
+
+const getCompanyLabel = (item: HistoryItem): string => {
+    const fileNames = item.fileNames?.length ? item.fileNames.join(', ') : item.fileName;
+    return item.headerData.companyName || fileNames || item.id;
+};
+
 // Helper to normalize account keys for merging
 const getAccountKey = (code: string | null, name: string): string => {
     // Priority: Code. If code exists, use it as primary key (stripping dots for loose matching).
@@ -11,17 +46,42 @@ const getAccountKey = (code: string | null, name: string): string => {
     return name.trim().toUpperCase();
 };
 
-export const consolidateDREs = (items: { item: HistoryItem, result: AnalysisResult }[]): ConsolidationResult => {
-    const companies: ConsolidatedCompany[] = items.map(i => ({
-        id: i.item.id,
-        name: i.item.headerData.companyName,
-        cnpj: i.item.headerData.cnpj
-    }));
+export const consolidateDREs = (items: ConsolidationInput[]): ConsolidationResult => {
+    if (!Array.isArray(items) || items.length < 2) {
+        throw new Error('Selecione pelo menos 2 DREs para consolidar o Grupo / Holding.');
+    }
+
+    const seenCnpjs = new Map<string, string>();
+    const companies: ConsolidatedCompany[] = items.map(({ item }) => {
+        const cnpjDigits = cleanCnpj(item.headerData.cnpj);
+        const companyName = getCompanyLabel(item);
+
+        if (!isValidCnpj(cnpjDigits)) {
+            throw new Error(`CNPJ inválido ou ausente na aba Grupo / Holding: ${companyName}. Abra a análise da empresa, informe um CNPJ válido e salve novamente antes de consolidar.`);
+        }
+
+        const duplicatedCompany = seenCnpjs.get(cnpjDigits);
+        if (duplicatedCompany) {
+            throw new Error(`CNPJ duplicado na consolidação (${formatCnpj(cnpjDigits)}): ${duplicatedCompany} e ${companyName}. Cada empresa do Grupo / Holding precisa ter um CNPJ único.`);
+        }
+
+        seenCnpjs.set(cnpjDigits, companyName);
+
+        return {
+            id: cnpjDigits,
+            name: companyName,
+            cnpj: formatCnpj(cnpjDigits),
+            cnpjDigits,
+            sourceHistoryId: item.id
+        };
+    });
 
     const accountMap = new Map<string, ConsolidatedRow>();
 
     // 1. Iterate over all companies to build the superset of accounts
-    items.forEach(({ item, result }) => {
+    items.forEach(({ result }, index) => {
+        const company = companies[index];
+
         result.accounts.forEach(acc => {
             const key = getAccountKey(acc.account_code, acc.account_name);
             
@@ -40,11 +100,11 @@ export const consolidateDREs = (items: { item: HistoryItem, result: AnalysisResu
             
             // Populate value for this company
             // Ensure we initialize if undefined
-            if (row.values[item.id] === undefined) row.values[item.id] = 0;
+            if (row.values[company.id] === undefined) row.values[company.id] = 0;
             
             // Add value (Assuming final_balance represents the DRE line value)
             // Note: In our extraction logic, final_balance for DRE is the line amount.
-            row.values[item.id] = acc.final_balance;
+            row.values[company.id] = acc.final_balance;
         });
     });
 

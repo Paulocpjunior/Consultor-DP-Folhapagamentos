@@ -50,7 +50,8 @@ export interface HistoryItem {
   id: string;
   timestamp: string;
   headerData: HeaderData;
-  fileName: string;
+  fileName?: string;
+  fileNames?: string[];
   summary: AnalysisSummary;
   fullResult?: AnalysisResult; // Optional to allow optimizing localStorage usage
 }
@@ -79,6 +80,8 @@ export interface ConsolidatedCompany {
   id: string;
   name: string;
   cnpj: string;
+  cnpjDigits: string;
+  sourceHistoryId: string;
 }
 
 export interface ConsolidatedRow {

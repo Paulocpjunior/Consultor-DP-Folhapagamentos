@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import HeaderInputs from './HeaderInputs';
 import FileUploader, { UploadedFile } from './FileUploader';
 import AnalysisViewer from './AnalysisViewer';
@@ -69,6 +69,54 @@ const AuditAIPanel: React.FC<AuditAIPanelProps> = ({ currentUser }) => {
         catch (e) { console.warn('cache failed', e); }
     };
 
+    const getHistoryResult = (item: HistoryItem): AnalysisResult | null => {
+        if (item.fullResult) return item.fullResult;
+        try { return JSON.parse(localStorage.getItem(`${CACHE_PREFIX}${item.id}`) || 'null'); }
+        catch { return null; }
+    };
+
+    const buildComparison = (olderItem: HistoryItem, newerItem: HistoryItem): ComparisonResult | null => {
+        const older = getHistoryResult(olderItem);
+        const newer = getHistoryResult(newerItem);
+        if (!older || !newer) return null;
+
+        const byCode = new Map<string, ComparisonRow>();
+        const add = (analysis: AnalysisResult, which: 1 | 2) => {
+            analysis.accounts.forEach(acc => {
+                const key = acc.account_code || acc.account_name;
+                const existing = byCode.get(key) || {
+                    code: acc.account_code || '',
+                    name: acc.account_name,
+                    val1: 0,
+                    val2: 0,
+                    varAbs: 0,
+                    varPct: 0,
+                    is_synthetic: acc.is_synthetic,
+                    level: acc.level
+                };
+                if (which === 1) existing.val1 = acc.final_balance;
+                else existing.val2 = acc.final_balance;
+                byCode.set(key, existing);
+            });
+        };
+
+        add(older, 1);
+        add(newer, 2);
+
+        const rows = Array.from(byCode.values()).map(row => {
+            const varAbs = row.val2 - row.val1;
+            const varPct = row.val1 !== 0 ? (varAbs / Math.abs(row.val1)) * 100 : 0;
+            return { ...row, varAbs, varPct };
+        });
+
+        return {
+            period1Label: olderItem.summary?.period || 'Período 1',
+            period2Label: newerItem.summary?.period || 'Período 2',
+            documentType: newer.summary?.document_type || older.summary?.document_type || 'Documento',
+            rows
+        };
+    };
+
     const handleAnalyze = async () => {
         if (selectedFiles.length === 0) {
             setError('Selecione pelo menos um arquivo.');
@@ -106,8 +154,9 @@ const AuditAIPanel: React.FC<AuditAIPanelProps> = ({ currentUser }) => {
                 headerData,
                 summary: finalResult.summary,
                 fullResult: finalResult,
-                fileNames: selectedFiles.map(f => f.name)
-            } as HistoryItem;
+                fileName: selectedFiles[0]?.file.name || '',
+                fileNames: selectedFiles.map(f => f.file.name)
+            };
 
             persistHistory([newItem, ...history]);
             cacheResult(newItem.id, finalResult);
@@ -122,14 +171,13 @@ const AuditAIPanel: React.FC<AuditAIPanelProps> = ({ currentUser }) => {
     };
 
     const handleLoadFromHistory = (item: HistoryItem) => {
-        const cached = item.fullResult || (() => {
-            try { return JSON.parse(localStorage.getItem(`${CACHE_PREFIX}${item.id}`) || 'null'); }
-            catch { return null; }
-        })();
+        const cached = getHistoryResult(item);
         if (cached) {
             setResult(cached);
             setHeaderData(item.headerData);
             setTimestamp(item.timestamp);
+            setComparisonResult(null);
+            setConsolidationResult(null);
             setView('analysis');
             setHistoryOpen(false);
         }
@@ -146,68 +194,67 @@ const AuditAIPanel: React.FC<AuditAIPanelProps> = ({ currentUser }) => {
         persistHistory([]);
     };
 
-    const runComparison = () => {
-        if (history.length < 2) {
-            setError('Precisa de pelo menos 2 análises no histórico para comparar.');
+    const runComparisonFromItems = (olderItem: HistoryItem, newerItem: HistoryItem) => {
+        const comparison = buildComparison(olderItem, newerItem);
+        if (!comparison) {
+            setError('Não foi possível carregar os resultados completos dessas análises.');
             return;
         }
-        const a = history[0].fullResult;
-        const b = history[1].fullResult;
-        if (!a || !b) return;
-
-        const byCode = new Map<string, ComparisonRow>();
-        const add = (r: AnalysisResult, which: 1 | 2) => {
-            r.accounts.forEach(acc => {
-                const key = acc.account_code || acc.account_name;
-                const ex = byCode.get(key) || {
-                    code: acc.account_code || '',
-                    name: acc.account_name,
-                    val1: 0, val2: 0, varAbs: 0, varPct: 0,
-                    is_synthetic: acc.is_synthetic
-                } as ComparisonRow;
-                if (which === 1) ex.val1 = acc.final_balance;
-                else ex.val2 = acc.final_balance;
-                byCode.set(key, ex);
-            });
-        };
-        add(a, 1);
-        add(b, 2);
-
-        const rows: ComparisonRow[] = Array.from(byCode.values()).map(r => {
-            const varAbs = r.val2 - r.val1;
-            const varPct = r.val1 !== 0 ? (varAbs / Math.abs(r.val1)) * 100 : 0;
-            return { ...r, varAbs, varPct };
-        });
-
-        setComparisonResult({
-            period1: history[1].summary?.period || 'Período 1',
-            period2: history[0].summary?.period || 'Período 2',
-            rows
-        });
+        setError(null);
+        setComparisonResult(comparison);
+        setResult(null);
+        setConsolidationResult(null);
+        setHistoryOpen(false);
         setView('comparison');
     };
 
-    const runConsolidation = async () => {
-        if (history.length < 2) {
-            setError('Precisa de pelo menos 2 análises no histórico para consolidar.');
+    const runComparison = () => {
+        const comparable = history.filter(item => !!getHistoryResult(item)).slice(0, 2);
+        if (comparable.length < 2) {
+            setError('Precisa de pelo menos 2 análises no histórico para comparar.');
             return;
         }
-        const validResults = history
-            .map(h => h.fullResult)
-            .filter((r): r is AnalysisResult => !!r && r.summary?.document_type === 'DRE');
+        const [newerItem, olderItem] = comparable;
+        runComparisonFromItems(olderItem, newerItem);
+    };
 
-        if (validResults.length < 2) {
+    const runConsolidationFromItems = (items: HistoryItem[]) => {
+        const dreItems = items.filter(item => item.summary?.document_type === 'DRE');
+        if (dreItems.length < 2) {
+            setError('Precisa de pelo menos 2 DREs no histórico para consolidar.');
+            return;
+        }
+
+        const inputs = dreItems
+            .map(item => ({ item, result: getHistoryResult(item) }))
+            .filter((entry): entry is { item: HistoryItem; result: AnalysisResult } => !!entry.result);
+
+        if (inputs.length < 2) {
             setError('Precisa de pelo menos 2 DREs no histórico para consolidar.');
             return;
         }
 
         try {
-            const consolidated = consolidateDREs(validResults);
+            const consolidated = consolidateDREs(inputs);
+            setError(null);
             setConsolidationResult(consolidated);
+            setResult(null);
+            setComparisonResult(null);
+            setHistoryOpen(false);
             setView('consolidation');
         } catch (e: any) {
             setError(e?.message || 'Falha na consolidação.');
         }
+    };
+
+    const runConsolidation = () => {
+        const latestByCnpj = new Map<string, HistoryItem>();
+        history.forEach(item => {
+            if (item.summary?.document_type !== 'DRE' || !getHistoryResult(item)) return;
+            const cnpjKey = item.headerData.cnpj?.replace(/\D/g, '') || item.id;
+            if (!latestByCnpj.has(cnpjKey)) latestByCnpj.set(cnpjKey, item);
+        });
+        runConsolidationFromItems(Array.from(latestByCnpj.values()));
     };
 
     return (
@@ -248,7 +295,12 @@ const AuditAIPanel: React.FC<AuditAIPanelProps> = ({ currentUser }) => {
                 <HeaderInputs data={headerData} onChange={setHeaderData} />
 
                 <div className="mt-4">
-                    <FileUploader files={selectedFiles} onChange={setSelectedFiles} />
+                    <FileUploader
+                        onFilesSelected={setSelectedFiles}
+                        isLoading={isLoading}
+                        isGroupAnalysis={headerData.isGroupAnalysis}
+                        selectedFileNames={selectedFiles.map(f => f.file.name)}
+                    />
                 </div>
 
                 {error && (
@@ -275,26 +327,34 @@ const AuditAIPanel: React.FC<AuditAIPanelProps> = ({ currentUser }) => {
             </div>
 
             {view === 'analysis' && result && timestamp && (
-                <AnalysisViewer result={result} headerData={headerData} timestamp={timestamp} />
+                <AnalysisViewer result={result} headerData={headerData} analysisTimestamp={timestamp} />
             )}
 
             {view === 'comparison' && comparisonResult && (
-                <ComparisonViewer result={comparisonResult} headerData={headerData} />
+                <ComparisonViewer data={comparisonResult} onBack={() => setView('analysis')} />
             )}
 
             {view === 'consolidation' && consolidationResult && (
-                <ConsolidationViewer result={consolidationResult} headerData={headerData} />
+                <ConsolidationViewer
+                    data={consolidationResult}
+                    onBack={() => setView('analysis')}
+                    collaboratorName={headerData.collaboratorName || currentUser?.name || ''}
+                />
             )}
 
-            {result && <ChatAssistant analysisData={result} />}
+            {result && <ChatAssistant />}
 
             {historyOpen && (
                 <AnalysisHistory
+                    isOpen={historyOpen}
                     history={history}
-                    onLoad={handleLoadFromHistory}
-                    onDelete={handleDeleteHistory}
-                    onClearAll={handleClearAll}
+                    onSelect={handleLoadFromHistory}
+                    onClear={handleClearAll}
+                    onDeleteItem={handleDeleteHistory}
+                    onCompare={runComparisonFromItems}
+                    onConsolidate={runConsolidationFromItems}
                     onClose={() => setHistoryOpen(false)}
+                    currentUser={currentUser?.name}
                 />
             )}
         </div>
