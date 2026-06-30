@@ -5,6 +5,7 @@
 
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
+import { normalizarHeader } from './apontamentoParser';
 
 const COL = 'folha_perfis_colunas';
 
@@ -64,7 +65,10 @@ export async function savePerfilColunas(
     await setDoc(ref, {
         cnpj: c,
         cliente: cliente ?? null,
-        colunas_ativas: Array.from(new Set(colunasAtivas)).sort(),
+        // Salva sempre o nome NORMALIZADO (NBSP→espaço, colapsa whitespace).
+        // Evita reintroduzir entradas "cruas" que não casam com os headers
+        // normalizados do parser (bug HE 60% Waldesa).
+        colunas_ativas: Array.from(new Set(colunasAtivas.map(normalizarHeader))).sort(),
         atualizadoEm: serverTimestamp(),
         atualizadoPor: userInfo(),
     }, { merge: false });
@@ -83,8 +87,14 @@ export function calcularSelecaoInicial(
     perfilSalvo: PerfilColunas | null,
 ): Set<string> {
     if (perfilSalvo && Array.isArray(perfilSalvo.colunas_ativas)) {
-        // Usa perfil salvo, mas só pra colunas que ainda existem nesta aba
-        return new Set(perfilSalvo.colunas_ativas.filter((c) => colunasDaAba.includes(c)));
+        // Usa perfil salvo, mas só pra colunas que ainda existem nesta aba.
+        // Compara pelo nome NORMALIZADO dos dois lados: `colunasDaAba` vem do
+        // parser já normalizado (NBSP→espaço, whitespace colapsado), mas
+        // `colunas_ativas` pode ter sido salvo com o header cru (NBSP/espaços
+        // múltiplos). Sem normalizar, colunas como "H. E 60%      811" da
+        // Waldesa não casam e vêm DESMARCADAS — deixando de exportar. (bug 811)
+        const ativasNorm = new Set(perfilSalvo.colunas_ativas.map(normalizarHeader));
+        return new Set(colunasDaAba.filter((c) => ativasNorm.has(normalizarHeader(c))));
     }
 
     // Sem perfil → auto-detect: marca colunas com pelo menos 1 funcionário com dado

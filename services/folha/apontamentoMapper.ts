@@ -27,7 +27,7 @@ import type {
     MapeamentoApontamento,
     ResultadoMapeamento,
 } from './folhaTypes';
-import { norm, round2, toNumber, extrairValor, normalizarHeader, horasDecimalParaHHMM } from './apontamentoParser';
+import { norm, round2, toNumber, extrairValor, normalizarHeader, horasDecimalParaHHMM, horasDeCelulaTempo } from './apontamentoParser';
 
 export function resolverEmpresa(
     abaParser: EmpresaApontamento,
@@ -182,15 +182,20 @@ function gerarLancamentosFuncionario(
             const celula = celulasNormalizadas[chaveNorm];
             if (celula === null || celula === undefined || celula === '') continue;
             valor = regra.valor_fixo;
+        } else if (regra.ref_hhmm && regra.rv === 'R') {
+            // Campo de HORA em referência posicional HH,MM (convenção Waldesa no
+            // IOB SAGE: 1:15 -> 1,15 ; 28:46 -> 28,46 ; 6:32 -> 6,32).
+            // Converte direto da célula bruta (fração de dia do Excel ou string
+            // "HH:MM:SS"), tratando QUALQUER magnitude — inclusive >= 24h, que o
+            // gate `n<1` do extrairValor errava (28:46 saía como 1,2).
+            const horasDecimais = horasDeCelulaTempo(celulasNormalizadas[chaveNorm]);
+            if (horasDecimais === null) continue;
+            valor = horasDecimalParaHHMM(horasDecimais);
+            if (regra.ignorar_se_zero && valor === 0) continue;
         } else {
             valor = extrairValor(celulasNormalizadas[chaveNorm], regra.rv);
             if (valor === null) continue;
             if (regra.excelTime && typeof valor === 'number') valor = round2(valor * 24);
-            // ref_hhmm: converte a hora decimal para HH,MM posicional (16.32 -> 16.19)
-            // quando a empresa usa essa convencao no IOB SAGE (ex.: Waldesa).
-            if (regra.ref_hhmm && regra.rv === 'R' && typeof valor === 'number') {
-                valor = horasDecimalParaHHMM(valor);
-            }
             if (regra.ignorar_se_zero && valor === 0) continue;
         }
 

@@ -447,6 +447,45 @@ export function horasDecimalParaHHMM(horasDecimais: number): number {
     return Number(`${h}.${String(m).padStart(2, '0')}`);
 }
 
+/**
+ * Converte uma célula de TEMPO do Excel em horas decimais — para QUALQUER
+ * magnitude, inclusive ≥ 24h (ex.: "28:46" = 28,766h).
+ *
+ * Aceita:
+ *   - número (fração de dia do Excel: 1:15 = 0,052083 → 1,25h; 28:46 = 1,1986 → 28,766h)
+ *   - string "H:MM", "HH:MM:SS" ou "HH,MM"/"HH.MM" decimal
+ *
+ * Usada no caminho `ref_hhmm`, onde a coluna é sabidamente um campo de hora
+ * (HE, Atrasos, Adicional Noturno na Waldesa). Não passa pelo gate `n<1` do
+ * extrairValor — que silenciosamente errava valores de ≥24h.
+ *
+ * Retorna horas decimais ou null se vazio/inválido.
+ */
+export function horasDeCelulaTempo(raw: unknown): number | null {
+    if (raw === null || raw === undefined || raw === '') return null;
+
+    // Número → fração de dia do Excel → horas decimais.
+    if (typeof raw === 'number') {
+        return Number.isFinite(raw) ? round2(raw * 24) : null;
+    }
+
+    const s = String(raw).trim();
+    if (s === '') return null;
+
+    // "H:MM" ou "HH:MM:SS"
+    const m = s.match(/^(\d+):([0-5]?\d)(?::([0-5]?\d))?$/);
+    if (m) {
+        const h = Number(m[1]);
+        const min = Number(m[2]);
+        const sec = m[3] ? Number(m[3]) : 0;
+        return round2(h + min / 60 + sec / 3600);
+    }
+
+    // Decimal puro ("1,25" / "1.25"): já são horas decimais.
+    const n = toNumber(s);
+    return n === null ? null : n;
+}
+
 export function extrairValor(raw: unknown, rv?: string): number | null {
     if (raw === null || raw === undefined || raw === '') return null;
     if (typeof raw === 'string') {
