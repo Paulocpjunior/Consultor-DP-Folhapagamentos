@@ -10,11 +10,26 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { horasDeCelulaTempo, horasDecimalParaHHMM } from '../apontamentoParser';
+import { horasDeCelulaTempo, horasDecimalParaHHMM, chaveComparacaoHeader } from '../apontamentoParser';
 
 // fração de dia do Excel a partir de h:m (como o SheetJS entrega a célula)
 const f = (h: number, m: number) => (h * 3600 + m * 60) / 86400;
 const refHHMM = (frac: number) => horasDecimalParaHHMM(horasDeCelulaTempo(frac) as number);
+
+describe('chaveComparacaoHeader — casa grafias diferentes do mesmo campo', () => {
+    it('iguala "H. E 60%" e "H.E 60%" (com/sem espaço após o ponto)', () => {
+        expect(chaveComparacaoHeader('H. E 60%      811'))
+            .toBe(chaveComparacaoHeader('H.E 60% 811'));
+    });
+    it('iguala NBSP e espaços múltiplos', () => {
+        expect(chaveComparacaoHeader('ATRASOS  5850'))
+            .toBe(chaveComparacaoHeader('ATRASOS  5850'));
+    });
+    it('mantém colunas distintas distintas', () => {
+        expect(chaveComparacaoHeader('DSR 5651'))
+            .not.toBe(chaveComparacaoHeader('DSR S/ COMISSÕES 1220'));
+    });
+});
 
 describe('horasDeCelulaTempo', () => {
     it('número (fração de dia) → horas decimais, qualquer magnitude', () => {

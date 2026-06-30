@@ -100,6 +100,20 @@ export function norm(s: unknown): string {
  * PDF/HTML), o que faz as chaves "ATRASOS  5850" do mapeamento não casarem
  * com "ATRASOS<NBSP> 5850" da planilha — bug invisível ao olho humano.
  */
+/**
+ * Chave de COMPARAÇÃO de cabeçalho — para CASAR nomes de coluna entre a
+ * planilha, o mapeamento e o perfil salvo, tolerando variações de espaçamento.
+ *
+ * Aplica normalizarHeader (NBSP/ZWSP→espaço, colapsa, trim) e REMOVE todos os
+ * espaços restantes. Assim "H. E 60%   811", "H.E 60% 811" e "H.E 60%<NBSP>811"
+ * viram todos "H.E60%811" e casam. Resolve a classe de bug em que o mesmo campo
+ * vem grafado com/sem espaço (ex.: Waldesa empresa 27: mapa "H. E 60%" x
+ * arquivo "H.E 60%"). NÃO é usada para exibição/armazenamento — só comparação.
+ */
+export function chaveComparacaoHeader(s: unknown): string {
+    return normalizarHeader(s).replace(/\s+/g, '');
+}
+
 export function normalizarHeader(s: unknown): string {
     if (s === null || s === undefined) return '';
     return String(s)

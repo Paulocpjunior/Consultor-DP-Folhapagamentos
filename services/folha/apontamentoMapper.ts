@@ -27,7 +27,7 @@ import type {
     MapeamentoApontamento,
     ResultadoMapeamento,
 } from './folhaTypes';
-import { norm, round2, toNumber, extrairValor, normalizarHeader, horasDecimalParaHHMM, horasDeCelulaTempo } from './apontamentoParser';
+import { norm, round2, toNumber, extrairValor, chaveComparacaoHeader, horasDecimalParaHHMM, horasDeCelulaTempo } from './apontamentoParser';
 
 export function resolverEmpresa(
     abaParser: EmpresaApontamento,
@@ -145,20 +145,23 @@ function gerarLancamentosFuncionario(
     // Cria índice das células do funcionário com chave normalizada (NBSP→space,
     // colapsa whitespace) para permitir lookup tolerante quando o mapeamento
     // foi salvo com whitespace ligeiramente diferente da planilha real.
+    // Índice das células por chave de COMPARAÇÃO (insensível a espaços: NBSP,
+    // espaços múltiplos e "H. E" vs "H.E" colapsam todos). Permite casar o
+    // mapeamento com o cabeçalho real mesmo com grafias diferentes do mesmo campo.
     const celulasNormalizadas: Record<string, unknown> = {};
     for (const k of Object.keys(celulas)) {
-        celulasNormalizadas[normalizarHeader(k)] = celulas[k];
+        celulasNormalizadas[chaveComparacaoHeader(k)] = celulas[k];
     }
+    // colunasAtivas (UI/perfil) também comparado pela chave de comparação.
+    const colunasAtivasComp = colunasAtivas
+        ? new Set([...colunasAtivas].map(chaveComparacaoHeader))
+        : null;
     for (const [coluna, regra] of Object.entries(mapa.mapeamento_colunas)) {
-        const chaveNorm = normalizarHeader(coluna);
+        // chaveNorm passa a ser a chave de COMPARAÇÃO (sem espaços). Resolve o
+        // caso da Waldesa empresa 27: mapa "H. E 60%" x arquivo "H.E 60%".
+        const chaveNorm = chaveComparacaoHeader(coluna);
         if (!(chaveNorm in celulasNormalizadas)) continue;
-        // colunasAtivas (vindo da UI) e empresa.colunas (parser) usam o nome
-        // NORMALIZADO (normalizarHeader: NBSP->espaco, colapsa whitespace).
-        // A chave `coluna` aqui e a ORIGINAL do mapeamento_colunas (Firestore),
-        // que pode ter espacos multiplos/NBSP. Comparar com o nome normalizado
-        // evita cortar colunas cujo nome no Firestore difere do header limpo
-        // (ex.: Waldesa "ATRASOS  5850", "H. E 60%      811").
-        if (colunasAtivas && !colunasAtivas.has(coluna) && !colunasAtivas.has(chaveNorm)) continue;
+        if (colunasAtivasComp && !colunasAtivasComp.has(chaveNorm)) continue;
 
         // Coluna marcadora (ex.: CONTRIBUIÇÃO ASSISTENCIAL SIM/NÃO):
         // só gera lançamento quando o texto da célula bate, e usa valor_fixo.
@@ -240,7 +243,7 @@ function gerarLancamentosFuncionario(
 
     // 2) DESCONTOS EMPRESA → depende do OBS
     const regrasDE = mapa.regras_descontos_empresa;
-    if (regrasDE && (!colunasAtivas || colunasAtivas.has(regrasDE.coluna))) {
+    if (regrasDE && (!colunasAtivasComp || colunasAtivasComp.has(chaveComparacaoHeader(regrasDE.coluna)))) {
         const valorDE = toNumber(celulas[regrasDE.coluna]);
         if (valorDE !== null && valorDE > 0) {
             const obsNorm = norm(

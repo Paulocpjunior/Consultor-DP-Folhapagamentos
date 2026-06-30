@@ -5,7 +5,7 @@
 
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
-import { normalizarHeader } from './apontamentoParser';
+import { normalizarHeader, chaveComparacaoHeader } from './apontamentoParser';
 
 const COL = 'folha_perfis_colunas';
 
@@ -93,8 +93,10 @@ export function calcularSelecaoInicial(
         // `colunas_ativas` pode ter sido salvo com o header cru (NBSP/espaços
         // múltiplos). Sem normalizar, colunas como "H. E 60%      811" da
         // Waldesa não casam e vêm DESMARCADAS — deixando de exportar. (bug 811)
-        const ativasNorm = new Set(perfilSalvo.colunas_ativas.map(normalizarHeader));
-        return new Set(colunasDaAba.filter((c) => ativasNorm.has(normalizarHeader(c))));
+        // Compara pela chave de COMPARAÇÃO (insensível a espaços): além de NBSP
+        // e espaços múltiplos, casa "H. E 60%" com "H.E 60%" (bug empresa 27).
+        const ativasComp = new Set(perfilSalvo.colunas_ativas.map(chaveComparacaoHeader));
+        return new Set(colunasDaAba.filter((c) => ativasComp.has(chaveComparacaoHeader(c))));
     }
 
     // Sem perfil → auto-detect: marca colunas com pelo menos 1 funcionário com dado

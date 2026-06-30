@@ -50,6 +50,19 @@ describe('calcularSelecaoInicial — tolerância a NBSP/espaços no perfil salvo
         expect(sel.has('FALTAS 5650')).toBe(false);
     });
 
+    it('casa "H. E 60%" (perfil) com "H.E 60%" (aba) — bug empresa 27', () => {
+        // arquivo da empresa 27 usa "H.E 60%" (sem espaço); perfil salvo idem.
+        const colunasAba = ['CÓDIGO', 'ATRASOS 5850', 'H.E 60% 811', 'PRÊMIO'];
+        const perfil: PerfilColunas = {
+            cnpj: '61082673000122',
+            // perfil salvo com a grafia "H. E" (com espaço), do mapeamento/matriz
+            colunas_ativas: ['ATRASOS 5850', 'H. E 60%      811'],
+        };
+        const sel = calcularSelecaoInicial(colunasAba, [], perfil);
+        expect(sel.has('H.E 60% 811')).toBe(true);   // marcou apesar de "H. E" x "H.E"
+        expect(sel.has('ATRASOS 5850')).toBe(true);
+    });
+
     it('só retorna colunas que existem na aba atual', () => {
         const perfil: PerfilColunas = {
             cnpj: '0',
