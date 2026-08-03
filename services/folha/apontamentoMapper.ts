@@ -25,6 +25,7 @@ import type {
     FuncionarioApontamento,
     Lancamento,
     MapeamentoApontamento,
+    RegraColuna,
     ResultadoMapeamento,
 } from './folhaTypes';
 import { norm, round2, toNumber, extrairValor, chaveComparacaoHeader, horasDecimalParaHHMM, horasDeCelulaTempo } from './apontamentoParser';
@@ -67,6 +68,57 @@ export function resolverEmpresa(
     }
 
     return null;
+}
+
+/**
+ * Resultado da leitura de UMA célula sob UMA regra de coluna.
+ *   - 'ok'             → gera lançamento com `valor`
+ *   - 'ignorado'       → célula vazia / não-numérica / zero com ignorar_se_zero
+ *   - 'sem_valor_fixo' → regra com condicao_celula bateu mas falta valor_fixo
+ *
+ * Extraído de `gerarLancamentosFuncionario` para que o DIAGNÓSTICO de colunas
+ * (por que nada foi gerado?) use exatamente a mesma lógica da exportação —
+ * sem risco de divergir e apontar o motivo errado.
+ */
+type ValorColuna =
+    | { tipo: 'ok'; valor: number }
+    | { tipo: 'ignorado' }
+    | { tipo: 'sem_valor_fixo' };
+
+function calcularValorColuna(regra: RegraColuna, celula: unknown): ValorColuna {
+    // Coluna marcadora (ex.: CONTRIBUIÇÃO ASSISTENCIAL SIM/NÃO):
+    // só gera lançamento quando o texto da célula bate, e usa valor_fixo.
+    if (regra.condicao_celula) {
+        const valorCelula = norm(celula ?? '');
+        const bate = regra.condicao_celula.igual_a.some((v) => norm(v) === valorCelula);
+        if (!bate) return { tipo: 'ignorado' };
+        if (regra.valor_fixo === undefined || regra.valor_fixo === null) {
+            return { tipo: 'sem_valor_fixo' };
+        }
+        return { tipo: 'ok', valor: regra.valor_fixo };
+    }
+
+    // valor_fixo sem condição: usa o fixo sempre que a célula tiver algo
+    if (regra.valor_fixo !== undefined) {
+        if (celula === null || celula === undefined || celula === '') return { tipo: 'ignorado' };
+        return { tipo: 'ok', valor: regra.valor_fixo };
+    }
+
+    // Campo de HORA em referência posicional HH,MM (convenção Waldesa no
+    // IOB SAGE: 1:15 -> 1,15 ; 28:46 -> 28,46 ; 6:32 -> 6,32).
+    if (regra.ref_hhmm && regra.rv === 'R') {
+        const horasDecimais = horasDeCelulaTempo(celula);
+        if (horasDecimais === null) return { tipo: 'ignorado' };
+        const valor = horasDecimalParaHHMM(horasDecimais);
+        if (regra.ignorar_se_zero && valor === 0) return { tipo: 'ignorado' };
+        return { tipo: 'ok', valor };
+    }
+
+    let valor = extrairValor(celula, regra.rv);
+    if (valor === null) return { tipo: 'ignorado' };
+    if (regra.excelTime && typeof valor === 'number') valor = round2(valor * 24);
+    if (regra.ignorar_se_zero && valor === 0) return { tipo: 'ignorado' };
+    return { tipo: 'ok', valor };
 }
 
 /**
@@ -163,44 +215,17 @@ function gerarLancamentosFuncionario(
         if (!(chaveNorm in celulasNormalizadas)) continue;
         if (colunasAtivasComp && !colunasAtivasComp.has(chaveNorm)) continue;
 
-        // Coluna marcadora (ex.: CONTRIBUIÇÃO ASSISTENCIAL SIM/NÃO):
-        // só gera lançamento quando o texto da célula bate, e usa valor_fixo.
-        let valor: number | null;
-        if (regra.condicao_celula) {
-            const celula = norm(celulasNormalizadas[chaveNorm] ?? '');
-            const bate = regra.condicao_celula.igual_a.some(
-                (v) => norm(v) === celula,
+        // Leitura da célula sob a regra (mesma função usada pelo diagnóstico).
+        const lido = calcularValorColuna(regra, celulasNormalizadas[chaveNorm]);
+        if (lido.tipo === 'sem_valor_fixo') {
+            alertas.push(
+                `Coluna "${coluna}" tem condicao_celula mas falta valor_fixo no mapeamento. ` +
+                `Lançamento ignorado para "${funcionario.nome}".`,
             );
-            if (!bate) continue;
-            valor = regra.valor_fixo ?? null;
-            if (valor === null) {
-                alertas.push(
-                    `Coluna "${coluna}" tem condicao_celula mas falta valor_fixo no mapeamento. ` +
-                    `Lançamento ignorado para "${funcionario.nome}".`,
-                );
-                continue;
-            }
-        } else if (regra.valor_fixo !== undefined) {
-            // valor_fixo sem condição: usa o fixo sempre que a célula tiver algo
-            const celula = celulasNormalizadas[chaveNorm];
-            if (celula === null || celula === undefined || celula === '') continue;
-            valor = regra.valor_fixo;
-        } else if (regra.ref_hhmm && regra.rv === 'R') {
-            // Campo de HORA em referência posicional HH,MM (convenção Waldesa no
-            // IOB SAGE: 1:15 -> 1,15 ; 28:46 -> 28,46 ; 6:32 -> 6,32).
-            // Converte direto da célula bruta (fração de dia do Excel ou string
-            // "HH:MM:SS"), tratando QUALQUER magnitude — inclusive >= 24h, que o
-            // gate `n<1` do extrairValor errava (28:46 saía como 1,2).
-            const horasDecimais = horasDeCelulaTempo(celulasNormalizadas[chaveNorm]);
-            if (horasDecimais === null) continue;
-            valor = horasDecimalParaHHMM(horasDecimais);
-            if (regra.ignorar_se_zero && valor === 0) continue;
-        } else {
-            valor = extrairValor(celulasNormalizadas[chaveNorm], regra.rv);
-            if (valor === null) continue;
-            if (regra.excelTime && typeof valor === 'number') valor = round2(valor * 24);
-            if (regra.ignorar_se_zero && valor === 0) continue;
+            continue;
         }
+        if (lido.tipo === 'ignorado') continue;
+        const valor = lido.valor;
 
         const eventoCat = catalogoMap.get(regra.evento);
         if (!eventoCat) {
@@ -416,6 +441,7 @@ export function montarLancamentos(
             alertas.push(resolvido.alerta);
         }
 
+        let gerouNaAba = 0;
         for (const func of empresa.funcionarios) {
             const out = gerarLancamentosFuncionario(
                 func,
@@ -428,12 +454,22 @@ export function montarLancamentos(
             );
             const algumLancamento = out.lancamentos.length > 0;
             const matriculaCadastrada = out.lancamentos[0]?.matricula;
+            // Conta ANTES do filtro de matrícula: se a aba só falhou por
+            // matrícula faltando, quem explica isso é a mensagem específica.
+            gerouNaAba += out.lancamentos.length;
             if (exigirMatricula && algumLancamento && !matriculaCadastrada) {
                 semMatricula.push(`${empresa.nome} / ${func.nome}`);
             } else {
                 todos.push(...out.lancamentos);
             }
             alertas.push(...out.alertas);
+        }
+
+        // Aba que não produziu NADA: diz por quê (coluna fora do mapeamento,
+        // nada marcado, colunas sem valor…). Sem isto o usuário só via
+        // "Nenhum lançamento foi gerado", sem pista do motivo.
+        if (gerouNaAba === 0) {
+            alertas.push(resumoZeroLancamentos(diagnosticarColunas(empresa, mapa, colunasAtivas)));
         }
     }
 
@@ -451,4 +487,213 @@ export function montarLancamentos(
         alertas: alertasDedup,
         funcionariosSemMatricula: semMatricula,
     };
+}
+
+// ─── Diagnóstico de colunas ────────────────────────────────────────────────
+//
+// Por que isto existe: quando o layout da planilha muda (a empresa renomeia
+// uma coluna, manda a aba com outro nome, troca "ATRASOS 5850" por "Atraso"…),
+// o mapeamento gravado deixa de casar com o cabeçalho e a exportação sai com
+// ZERO lançamentos — sem nenhum alerta, porque o laço simplesmente não acha a
+// coluna. A operadora via só "Nenhum lançamento foi gerado" e não tinha como
+// saber o motivo. As funções abaixo respondem "por quê" em português claro.
+
+export interface DiagnosticoColunasAba {
+    aba: string;
+    /** Colunas de dados que a planilha tem nesta aba. */
+    totalColunasAba: number;
+    /** Quantas colunas o mapeamento do cliente conhece (coluna → evento). */
+    totalRegras: number;
+    /** Colunas marcadas na UI que existem nesta aba. */
+    selecionadas: string[];
+    /** Marcadas, mas sem regra no mapeamento → nunca viram lançamento. */
+    selecionadasSemRegra: string[];
+    /** Marcadas e mapeadas, mas nenhuma célula tem valor aproveitável. */
+    selecionadasSemValor: string[];
+    /** Marcadas, mapeadas e com pelo menos 1 valor → geram lançamento. */
+    selecionadasOk: string[];
+    /** Mapeadas e com dado na planilha, porém DESmarcadas na UI. */
+    mapeadasNaoSelecionadas: string[];
+}
+
+/**
+ * Conjunto de chaves de comparação de todas as colunas que o mapeamento
+ * "conhece" — inclusive as que não geram evento (matrícula, dias de salário).
+ * Usado pela UI para marcar no cabeçalho as colunas fora do mapeamento.
+ */
+export function chavesDeColunasMapeadas(mapa: MapeamentoApontamento): Set<string> {
+    const chaves = new Set<string>();
+    for (const k of Object.keys(mapa.mapeamento_colunas ?? {})) {
+        chaves.add(chaveComparacaoHeader(k));
+    }
+    const colunaDE = mapa.regras_descontos_empresa?.coluna;
+    if (colunaDE) chaves.add(chaveComparacaoHeader(colunaDE));
+    const colunaDias = mapa.regra_salario?.coluna_dias;
+    if (colunaDias) chaves.add(chaveComparacaoHeader(colunaDias));
+    if (mapa.campo_matricula) chaves.add(chaveComparacaoHeader(mapa.campo_matricula));
+    return chaves;
+}
+
+/**
+ * Classifica as colunas de UMA aba em relação ao mapeamento e à seleção da UI.
+ * `colunasAtivas` null = todas as colunas contam como marcadas.
+ */
+export function diagnosticarColunas(
+    empresa: EmpresaApontamento,
+    mapa: MapeamentoApontamento,
+    colunasAtivas?: Set<string> | null,
+): DiagnosticoColunasAba {
+    const regras = mapa.mapeamento_colunas ?? {};
+    const regraPorChave = new Map<string, RegraColuna>();
+    for (const [coluna, regra] of Object.entries(regras)) {
+        regraPorChave.set(chaveComparacaoHeader(coluna), regra);
+    }
+    const ativasComp = colunasAtivas
+        ? new Set([...colunasAtivas].map(chaveComparacaoHeader))
+        : null;
+    const outrasUsadas = new Set<string>();
+    const colunaDE = mapa.regras_descontos_empresa?.coluna;
+    if (colunaDE) outrasUsadas.add(chaveComparacaoHeader(colunaDE));
+    const colunaDias = mapa.regra_salario?.coluna_dias;
+    if (colunaDias) outrasUsadas.add(chaveComparacaoHeader(colunaDias));
+    if (mapa.campo_matricula) outrasUsadas.add(chaveComparacaoHeader(mapa.campo_matricula));
+
+    const d: DiagnosticoColunasAba = {
+        aba: empresa.nome,
+        totalColunasAba: empresa.colunas.length,
+        totalRegras: Object.keys(regras).length,
+        selecionadas: [],
+        selecionadasSemRegra: [],
+        selecionadasSemValor: [],
+        selecionadasOk: [],
+        mapeadasNaoSelecionadas: [],
+    };
+
+    for (const coluna of empresa.colunas) {
+        const chave = chaveComparacaoHeader(coluna);
+        const marcada = !ativasComp || ativasComp.has(chave);
+        const regra = regraPorChave.get(chave);
+
+        if (marcada) d.selecionadas.push(coluna);
+
+        if (!regra) {
+            if (marcada && !outrasUsadas.has(chave)) d.selecionadasSemRegra.push(coluna);
+            continue;
+        }
+
+        // A coluna produz lançamento se ao menos 1 funcionário tiver valor.
+        const temValor = empresa.funcionarios.some(
+            (f) => calcularValorColuna(regra, acharCelula(f, chave)).tipo === 'ok',
+        );
+
+        if (marcada) {
+            if (temValor) d.selecionadasOk.push(coluna);
+            else d.selecionadasSemValor.push(coluna);
+        } else if (temValor) {
+            d.mapeadasNaoSelecionadas.push(coluna);
+        }
+    }
+
+    return d;
+}
+
+/** Lê a célula do funcionário pela chave de COMPARAÇÃO do cabeçalho. */
+function acharCelula(f: FuncionarioApontamento, chaveComp: string): unknown {
+    for (const k of Object.keys(f.celulas)) {
+        if (chaveComparacaoHeader(k) === chaveComp) return f.celulas[k];
+    }
+    return undefined;
+}
+
+function listar(nomes: string[], max = 8): string {
+    const mostra = nomes.slice(0, max).map((n) => `"${n}"`).join(', ');
+    return nomes.length > max ? `${mostra} e mais ${nomes.length - max}` : mostra;
+}
+
+/**
+ * Resumo de 1 linha do motivo de uma aba não ter gerado nada. Vai pros alertas.
+ */
+export function resumoZeroLancamentos(d: DiagnosticoColunasAba): string {
+    if (d.totalRegras === 0) {
+        return `Aba "${d.aba}": o cliente não tem nenhuma coluna mapeada (coluna → evento IOB). ` +
+            `Parametrize o layout antes de exportar.`;
+    }
+    if (d.selecionadas.length === 0) {
+        return `Aba "${d.aba}": nenhuma coluna marcada na pré-visualização — nada a exportar.`;
+    }
+    if (d.selecionadasSemRegra.length > 0 && d.selecionadasOk.length === 0) {
+        return `Aba "${d.aba}": nenhum lançamento gerado. As colunas marcadas ` +
+            `(${listar(d.selecionadasSemRegra)}) não existem no mapeamento deste cliente — ` +
+            `o título da coluna na planilha mudou ou nunca foi parametrizado.`;
+    }
+    if (d.selecionadasSemValor.length > 0 && d.selecionadasOk.length === 0) {
+        return `Aba "${d.aba}": nenhum lançamento gerado. As colunas marcadas e mapeadas ` +
+            `(${listar(d.selecionadasSemValor)}) estão sem valor numérico aproveitável ` +
+            `(células vazias, com "-" ou zeradas).`;
+    }
+    return `Aba "${d.aba}": nenhum lançamento gerado a partir das colunas marcadas.`;
+}
+
+/**
+ * Explicação completa (multi-linha) de por que a exportação saiu vazia.
+ * Mostrada na caixa de erro do painel — é o texto que a operadora lê.
+ */
+export function explicarZeroLancamentos(
+    parsed: ApontamentoParseado,
+    mapa: MapeamentoApontamento,
+    colunasAtivas?: Set<string> | null,
+): string {
+    const linhas: string[] = ['Nenhum lançamento foi gerado a partir do apontamento.'];
+
+    for (const empresa of parsed.empresas) {
+        const d = diagnosticarColunas(empresa, mapa, colunasAtivas);
+        linhas.push('');
+        linhas.push(
+            `Aba "${d.aba}" — ${empresa.funcionarios.length} funcionário(s), ` +
+            `${d.totalColunasAba} coluna(s) na planilha, ${d.selecionadas.length} marcada(s). ` +
+            `Mapeamento do cliente: ${d.totalRegras} coluna(s) cadastrada(s).`,
+        );
+
+        if (d.totalRegras === 0) {
+            linhas.push(
+                '• O cliente não tem nenhuma coluna mapeada. Use "Ajustar mapeamento de colunas" ' +
+                'para dizer qual coluna vira qual evento do IOB SAGE.',
+            );
+            continue;
+        }
+        if (d.selecionadas.length === 0) {
+            linhas.push('• Nenhuma coluna está marcada na pré-visualização. Marque as que quer exportar.');
+            continue;
+        }
+        if (d.selecionadasSemRegra.length > 0) {
+            linhas.push(
+                `• ${d.selecionadasSemRegra.length} coluna(s) marcada(s) NÃO estão no mapeamento e ` +
+                `foram ignoradas: ${listar(d.selecionadasSemRegra)}.`,
+            );
+            linhas.push(
+                '  → É este o motivo mais comum: o título da coluna na planilha mudou (ou a empresa ' +
+                'mandou o arquivo em outro layout). Clique em "Ajustar mapeamento de colunas" e ' +
+                'aponte cada uma delas para o evento IOB correspondente.',
+            );
+        }
+        if (d.selecionadasSemValor.length > 0) {
+            linhas.push(
+                `• ${d.selecionadasSemValor.length} coluna(s) marcada(s) e mapeada(s) estão sem valor ` +
+                `aproveitável neste mês (vazias, com "-" ou zeradas): ${listar(d.selecionadasSemValor)}.`,
+            );
+        }
+        if (d.mapeadasNaoSelecionadas.length > 0) {
+            linhas.push(
+                `• Há coluna(s) mapeada(s) COM dados que estão desmarcadas: ` +
+                `${listar(d.mapeadasNaoSelecionadas)}. Marque no cabeçalho da tabela se quiser exportá-las.`,
+            );
+        }
+    }
+
+    linhas.push('');
+    linhas.push(
+        'Obs.: planilha protegida por senha não causa este erro — se a importação funcionou, ' +
+        'o arquivo foi lido. O que falta é o mapeamento das colunas.',
+    );
+    return linhas.join('\n');
 }
