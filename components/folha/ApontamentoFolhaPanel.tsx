@@ -76,8 +76,12 @@ import type {
     ResultadoMapeamento,
 } from '../../services/folha/folhaTypes';
 import type { Empresa } from '../../types';
-import { parseApontamentoFile, parseApontamentoBuffer } from '../../services/folha/apontamentoParser';
-import { resolverEmpresa } from '../../services/folha/apontamentoMapper';
+import { parseApontamentoFile, parseApontamentoBuffer, chaveComparacaoHeader } from '../../services/folha/apontamentoParser';
+import {
+    resolverEmpresa,
+    chavesDeColunasMapeadas,
+    explicarZeroLancamentos,
+} from '../../services/folha/apontamentoMapper';
 import { detectarAutonomosSpa } from '../../services/folha/autonomosSpaDetector';
 import { parsearAutonomosSpa, type ResultadoAutonomosSpa } from '../../services/folha/autonomosSpaParser';
 import WizardAutonomosSpa from './WizardAutonomosSpa';
@@ -518,6 +522,27 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
         }
     };
 
+    /**
+     * Reabre o Wizard de mapeamento com o arquivo atual para CORRIGIR o
+     * layout já cadastrado (ex.: a empresa renomeou uma coluna e o
+     * mapeamento parou de casar). Antes o Wizard só abria na primeira
+     * parametrização — quem já tinha mapa não tinha como ajustar pela tela.
+     */
+    const handleAbrirWizardMapeamento = async () => {
+        if (!file) {
+            setErro('Selecione a planilha do mês no passo 2 antes de ajustar o mapeamento.');
+            return;
+        }
+        setErro(null);
+        try {
+            const buffer = await file.arrayBuffer();
+            setPendingBuffer(buffer);
+            setShowWizard(true);
+        } catch (e) {
+            setErro(e instanceof Error ? e.message : String(e));
+        }
+    };
+
     const handleExportar = async () => {
         // INPLAF (e Template Padrão) já têm `resultado` pronto pelo parser dedicado;
         // não precisam rodar o `montarLancamentos`. Diferenciamos pelo `parser`
@@ -735,7 +760,17 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
             }
 
             if (!r.lancamentos.length) {
-                setErro('Nenhum lançamento foi gerado a partir do apontamento.');
+                // Fluxo legado (parser por coluna): explica EXATAMENTE por que
+                // saiu vazio — coluna fora do mapeamento, nada marcado, coluna
+                // sem valor. Antes a mensagem era um beco sem saída.
+                const parsedDiag = parsedParaExportacao ?? parsed;
+                if (parsedDiag && mapa && !ehInplaf) {
+                    const colunasUnion = new Set<string>();
+                    Object.values(colunasAtivas).forEach((set) => set.forEach((c) => colunasUnion.add(c)));
+                    setErro(explicarZeroLancamentos(parsedDiag, mapa, colunasUnion));
+                } else {
+                    setErro('Nenhum lançamento foi gerado a partir do apontamento.');
+                }
                 return;
             }
 
@@ -930,6 +965,29 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
         return m;
     }, [empresaObj]);
 
+    // Colunas que o mapeamento do cliente conhece (chave de comparação:
+    // insensível a NBSP/espaços). Serve pra sinalizar no cabeçalho da
+    // pré-visualização as colunas que NÃO viram lançamento nenhum.
+    // Só faz sentido no fluxo legado (parser por coluna + mapa do Firestore).
+    const usaMapeamentoDeColunas = !!mapa && !!parsed && parsed.parser !== 'inplaf-folha';
+    const chavesMapeadas = useMemo(
+        () => (mapa ? chavesDeColunasMapeadas(mapa) : new Set<string>()),
+        [mapa],
+    );
+    const colunaEstaMapeada = (c: string) =>
+        !usaMapeamentoDeColunas || chavesMapeadas.has(chaveComparacaoHeader(c));
+
+    // Colunas marcadas que o mapeamento não conhece → serão ignoradas na
+    // exportação. É a causa nº1 de "exportei e não gerou nada".
+    const marcadasSemMapeamento = useMemo(() => {
+        if (!empresaObj || !usaMapeamentoDeColunas) return [];
+        const ativas = colunasAtivas[empresaObj.nome];
+        if (!ativas) return [];
+        return empresaObj.colunas.filter(
+            (c) => ativas.has(c) && !chavesMapeadas.has(chaveComparacaoHeader(c)),
+        );
+    }, [empresaObj, colunasAtivas, chavesMapeadas, usaMapeamentoDeColunas]);
+
     return (
         <div className="space-y-4">
             <ContextBar sessao={sessao} currentUser={currentUser} onTrocar={onTrocarEmpresa} />
@@ -1059,6 +1117,29 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                         )}
                     </div>
 
+                    {/* Colunas marcadas que o mapeamento não conhece — avisa ANTES
+                        de exportar, em vez de deixar a exportação sair vazia. */}
+                    {marcadasSemMapeamento.length > 0 && (
+                        <div className="mb-3 p-2 text-xs bg-rose-50 dark:bg-rose-900/20 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 rounded">
+                            <div className="font-semibold">
+                                ⚠ {marcadasSemMapeamento.length} coluna(s) marcada(s) não estão no mapeamento deste cliente
+                                e serão ignoradas na exportação:
+                            </div>
+                            <div className="mt-1 font-mono">{marcadasSemMapeamento.join(' · ')}</div>
+                            <div className="mt-1">
+                                Acontece quando a empresa muda o título da coluna ou manda a planilha em outro
+                                layout. Clique em <strong>Ajustar mapeamento de colunas</strong> e aponte cada uma
+                                para o evento IOB correspondente — as matrículas já cadastradas são preservadas.
+                            </div>
+                            <button
+                                onClick={handleAbrirWizardMapeamento}
+                                className="mt-2 px-2 py-1 text-xs font-medium bg-rose-600 hover:bg-rose-700 text-white rounded"
+                            >
+                                🛠 Ajustar mapeamento de colunas
+                            </button>
+                        </div>
+                    )}
+
                     {/* Tabela */}
                     <div className="overflow-auto max-h-[55vh] border border-slate-200 dark:border-slate-700 rounded-lg">
                         <table className="w-full text-sm">
@@ -1071,6 +1152,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                                         const preench = preenchimentoPorColuna.get(c) ?? 0;
                                         const totalFunc = empresaObj.funcionarios.length;
                                         const pct = totalFunc > 0 ? (preench * 100) / totalFunc : 0;
+                                        const mapeada = colunaEstaMapeada(c);
                                         const corBadge =
                                             preench === 0
                                                 ? 'text-slate-400 bg-slate-100 dark:bg-slate-700'
@@ -1093,8 +1175,18 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                                                         />
                                                         <span className="text-xs">{c}</span>
                                                     </span>
-                                                    <span className={`text-[10px] px-1 rounded ${corBadge}`}>
-                                                        {preench}/{totalFunc}
+                                                    <span className="flex items-center gap-1">
+                                                        <span className={`text-[10px] px-1 rounded ${corBadge}`}>
+                                                            {preench}/{totalFunc}
+                                                        </span>
+                                                        {!mapeada && (
+                                                            <span
+                                                                className="text-[10px] px-1 rounded bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
+                                                                title={`A coluna "${c}" não está no mapeamento deste cliente. Mesmo marcada, ela não vira lançamento no TXT. Use "Ajustar mapeamento de colunas".`}
+                                                            >
+                                                                sem mapeamento
+                                                            </span>
+                                                        )}
                                                     </span>
                                                 </label>
                                             </th>
@@ -1171,6 +1263,15 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                         >
                             💾 Salvar matrículas
                         </button>
+                        {usaMapeamentoDeColunas && (
+                            <button
+                                onClick={handleAbrirWizardMapeamento}
+                                className="ml-2 px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
+                                title="Revisar/ajustar quais colunas da planilha viram quais eventos do IOB SAGE."
+                            >
+                                🛠 Ajustar mapeamento de colunas
+                            </button>
+                        )}
                         <span className="ml-3 text-xs text-slate-500 dark:text-slate-400">
                             Matrículas e perfil de colunas são memorizados no Firestore para os próximos meses.
                         </span>
@@ -1295,7 +1396,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                 </div>
             )}
             {erro && (
-                <div className="text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded border border-red-200 dark:border-red-800">
+                <div className="text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded border border-red-200 dark:border-red-800 whitespace-pre-line">
                     {erro}
                 </div>
             )}
@@ -1329,15 +1430,23 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                     empresa={sessao.empresa}
                     fileBuffer={pendingBuffer}
                     fileName={file.name}
+                    mapaExistente={mapa}
+                    abaPreferida={empresaAtiva}
                     onCancel={() => { setShowWizard(false); setPendingBuffer(null); }}
                     onSaved={async (novoMapa) => {
                         setShowWizard(false);
                         setMapa(novoMapa);
+                        setErro(null);
                         try {
                             const blob = new Blob([pendingBuffer]);
                             const p = await parseApontamentoFile(blob);
                             setParsed(p);
-                            setEmpresaAtiva(p.empresas[0]?.nome ?? null);
+                            setSnapshotArqProcessado(snapshotDoArquivo(file));
+                            // Mantém a aba que o usuário estava vendo, se ainda existir.
+                            const abaAtual = p.empresas.some((e) => e.nome === empresaAtiva)
+                                ? empresaAtiva
+                                : (p.empresas[0]?.nome ?? null);
+                            setEmpresaAtiva(abaAtual);
                             setMatriculasEdit({});
                             inicializarSelecaoColunas(p, perfil);
                             setMsg(`Layout salvo · ${p.empresas.reduce((a, e) => a + e.funcionarios.length, 0)} funcionário(s) processado(s).`);

@@ -1,8 +1,15 @@
 // components/folha/WizardMapeamentoMapas.tsx
-// Wizard de primeira parametrização de uma empresa.
-// Lê a primeira aba do xlsx, mostra colunas detectadas, e o usuário mapeia
+// Wizard de parametrização do layout de uma empresa.
+// Lê a aba escolhida do xlsx, mostra colunas detectadas, e o usuário mapeia
 // cada coluna -> evento SAGE. Ao salvar, grava no formato MapeamentoApontamento
 // existente (folha_mapeamentos/{cnpj}) — sem inventar coleção nova.
+//
+// v2 — modo AJUSTE: quando a empresa já tem mapeamento (`mapaExistente`), o
+// wizard vem pré-preenchido com as regras atuais e o salvamento PRESERVA o
+// resto do documento (matrículas, empresas, campo_matricula, regra_salario,
+// regras_descontos_empresa…). Antes o setDoc gravava um doc novo do zero e
+// apagava as matrículas já cadastradas. Também dá pra escolher a aba —
+// arquivos com várias abas não ficam presos na primeira.
 
 import { useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
@@ -17,12 +24,21 @@ import {
     saveMapeamento,
     getCatalogo,
 } from '../../services/folha/folhaFirestoreService';
-import { norm, findHeader } from '../../services/folha/apontamentoParser';
+import {
+    norm,
+    findHeader,
+    normalizarHeader,
+    chaveComparacaoHeader,
+} from '../../services/folha/apontamentoParser';
 
 interface Props {
     empresa: Empresa;
     fileBuffer: ArrayBuffer;
     fileName: string;
+    /** Mapeamento já gravado no Firestore — ativa o modo AJUSTE. */
+    mapaExistente?: MapeamentoApontamento | null;
+    /** Aba que o usuário está vendo no painel; vira a aba inicial do wizard. */
+    abaPreferida?: string | null;
     onCancel: () => void;
     onSaved: (mapa: MapeamentoApontamento) => void;
 }
@@ -43,11 +59,20 @@ const NAME_HEADERS = new Set([
 ]);
 
 export default function WizardMapeamentoMapas({
-    empresa, fileBuffer, fileName, onCancel, onSaved,
+    empresa, fileBuffer, fileName, mapaExistente, abaPreferida, onCancel, onSaved,
 }: Props) {
-    const { sheetName, headers, sampleRow, nameColIdx } = useMemo(() => {
-        const wb = XLSX.read(fileBuffer, { type: 'array' });
-        const first = wb.Sheets[wb.SheetNames[0]];
+    const modoAjuste = !!mapaExistente;
+
+    const workbook = useMemo(() => XLSX.read(fileBuffer, { type: 'array' }), [fileBuffer]);
+    const sheetNames = workbook.SheetNames;
+
+    // Aba inicial = a que o painel está exibindo (quando existe no arquivo).
+    const [sheetName, setSheetName] = useState<string>(() =>
+        abaPreferida && sheetNames.includes(abaPreferida) ? abaPreferida : sheetNames[0],
+    );
+
+    const { headers, sampleRow, nameColIdx } = useMemo(() => {
+        const first = workbook.Sheets[sheetName];
         const rows: unknown[][] = XLSX.utils.sheet_to_json(first, {
             header: 1,
             defval: null,
@@ -63,7 +88,10 @@ export default function WizardMapeamentoMapas({
         const headerRow = found?.headerRow ?? 0;
         const nameIdx = found?.nameCol ?? 0;
 
-        const rawHdrs = (rows[headerRow] ?? []).map((h) => String(h ?? '').trim());
+        // normalizarHeader (NBSP/ZWSP → espaço, colapsa whitespace) — mesma
+        // normalização do apontamentoParser, pra gravar no mapeamento a MESMA
+        // grafia que o parser vai produzir ao ler a planilha.
+        const rawHdrs = (rows[headerRow] ?? []).map((h) => normalizarHeader(h));
 
         // Trim ao último cabeçalho não-vazio: evita expor centenas/milhares
         // de colunas vazias quando o XLSX tem range inflado por formatação.
@@ -77,29 +105,40 @@ export default function WizardMapeamentoMapas({
         const sample = rows[headerRow + 1] ?? [];
 
         return {
-            sheetName: wb.SheetNames[0],
             headers: hdrs,
             sampleRow: sample,
             nameColIdx: nameIdx,
         };
-    }, [fileBuffer]);
+    }, [workbook, sheetName]);
 
-    const [rows, setRows] = useState<ColRow[]>(() =>
-        headers
+    // Linhas do wizard, pré-preenchidas com o mapeamento atual do cliente
+    // (modo AJUSTE). Sem isso, reabrir o wizard obrigaria a remapear tudo.
+    const linhasIniciais = useMemo<ColRow[]>(() => {
+        const regrasPorChave = new Map<string, RegraColuna>();
+        for (const [col, regra] of Object.entries(mapaExistente?.mapeamento_colunas ?? {})) {
+            regrasPorChave.set(chaveComparacaoHeader(col), regra);
+        }
+        return headers
             .map((h, i) => ({ h, i }))
             .filter(({ h, i }) => i !== nameColIdx && h.trim() !== '')
-            .map(({ h, i }) => ({
-                headerLabel: h,
-                sample: sampleRow[i] === null || sampleRow[i] === undefined
-                    ? '—'
-                    : String(sampleRow[i]),
-                eventCode: '',
-                descricao: '',
-                tipo: 'V',
-                rv: 'V',
-                ignorarSeZero: true,
-            }))
-    );
+            .map(({ h, i }) => {
+                const regra = regrasPorChave.get(chaveComparacaoHeader(h));
+                return {
+                    headerLabel: h,
+                    sample: sampleRow[i] === null || sampleRow[i] === undefined
+                        ? '—'
+                        : String(sampleRow[i]),
+                    eventCode: regra?.evento ?? '',
+                    descricao: regra?.descricao_evento ?? '',
+                    tipo: regra?.tipo ?? 'V',
+                    rv: regra?.rv ?? 'V',
+                    ignorarSeZero: regra?.ignorar_se_zero ?? true,
+                } as ColRow;
+            });
+    }, [headers, sampleRow, nameColIdx, mapaExistente]);
+
+    const [rows, setRows] = useState<ColRow[]>(linhasIniciais);
+    useEffect(() => { setRows(linhasIniciais); }, [linhasIniciais]);
 
     const [catalogoEventos, setCatalogoEventos] = useState<string[]>([]);
     useEffect(() => {
@@ -129,15 +168,28 @@ export default function WizardMapeamentoMapas({
 
     const handleSave = async () => {
         setError(null);
-        if (mappedCount === 0) {
+        // No modo ajuste o cliente já tem regras gravadas (inclusive de colunas
+        // que não estão nesta aba), então zero colunas aqui é um estado válido.
+        if (mappedCount === 0 && !modoAjuste) {
             setError('Mapeie pelo menos uma coluna pra um evento SAGE.');
             return;
         }
         setSaving(true);
         try {
-            const mapeamento_colunas: Record<string, RegraColuna> = {};
+            // Parte das regras já gravadas: colunas de OUTROS layouts/abas que
+            // não aparecem nesta tela continuam valendo. As colunas listadas
+            // aqui são sobrescritas (ou removidas, se o código foi apagado).
+            const mapeamento_colunas: Record<string, RegraColuna> = {
+                ...(mapaExistente?.mapeamento_colunas ?? {}),
+            };
             for (const r of rows) {
+                const chave = chaveComparacaoHeader(r.headerLabel);
+                const chaveAntiga = Object.keys(mapeamento_colunas).find(
+                    (k) => chaveComparacaoHeader(k) === chave,
+                );
                 const code = r.eventCode.trim();
+                // Grafia antiga da mesma coluna sai — fica só a da planilha atual.
+                if (chaveAntiga) delete mapeamento_colunas[chaveAntiga];
                 if (!code) continue;
                 mapeamento_colunas[r.headerLabel] = {
                     evento: code,
@@ -148,36 +200,51 @@ export default function WizardMapeamentoMapas({
                 };
             }
 
-            const mapa: MapeamentoApontamento = {
-                $schema: 'apontamento-folha/mapeamento/v1',
-                cliente: empresa.cnpj,
-                empresa_base: empresa.codigoSage,
-                competencia_default: '',
-                observacoes: [
-                    `Mapeamento criado via Wizard em ${new Date().toISOString()}`,
-                    `Empresa: ${empresa.razaoSocial} (${empresa.cnpj})`,
-                    `Aba detectada: ${sheetName}`,
-                ],
-                empresas: {
-                    [sheetName]: {
-                        codigo_sage: empresa.codigoSage,
-                        ativa: true,
+            const carimbo = modoAjuste
+                ? `Mapeamento ajustado via Wizard em ${new Date().toISOString()} (aba "${sheetName}")`
+                : `Mapeamento criado via Wizard em ${new Date().toISOString()}`;
+
+            const mapa: MapeamentoApontamento = mapaExistente
+                // Modo AJUSTE: preserva TUDO que já existe no documento
+                // (matrículas, empresas, campo_matricula, regra_salario,
+                // regras_descontos_empresa…) e troca só as regras de coluna.
+                ? {
+                    ...mapaExistente,
+                    cliente: empresa.cnpj,
+                    empresa_base: mapaExistente.empresa_base || empresa.codigoSage,
+                    mapeamento_colunas,
+                    observacoes: [...(mapaExistente.observacoes ?? []), carimbo].slice(-10),
+                }
+                : {
+                    $schema: 'apontamento-folha/mapeamento/v1',
+                    cliente: empresa.cnpj,
+                    empresa_base: empresa.codigoSage,
+                    competencia_default: '',
+                    observacoes: [
+                        carimbo,
+                        `Empresa: ${empresa.razaoSocial} (${empresa.cnpj})`,
+                        `Aba detectada: ${sheetName}`,
+                    ],
+                    empresas: {
+                        [sheetName]: {
+                            codigo_sage: empresa.codigoSage,
+                            ativa: true,
+                        },
                     },
-                },
-                mapeamento_colunas,
-                regras_descontos_empresa: {
-                    coluna: '',
-                    campo_obs: 'OBS',
-                    evento_padrao: {
-                        evento: '',
-                        descricao_evento: '',
-                        tipo: 'D',
-                        rv: 'V',
+                    mapeamento_colunas,
+                    regras_descontos_empresa: {
+                        coluna: '',
+                        campo_obs: 'OBS',
+                        evento_padrao: {
+                            evento: '',
+                            descricao_evento: '',
+                            tipo: 'D',
+                            rv: 'V',
+                        },
+                        regras: [],
                     },
-                    regras: [],
-                },
-                matriculas: {},
-            };
+                    matriculas: {},
+                };
 
             await saveMapeamento(mapa);
             onSaved(mapa);
@@ -193,18 +260,39 @@ export default function WizardMapeamentoMapas({
             <div className="bg-white dark:bg-slate-800 rounded-lg shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-auto p-6">
                 <header className="border-b border-slate-200 dark:border-slate-700 pb-4 mb-4">
                     <h2 className="text-xl font-bold text-slate-800 dark:text-white">
-                        Mapear layout · {empresa.razaoSocial}
+                        {modoAjuste ? 'Ajustar mapeamento' : 'Mapear layout'} · {empresa.razaoSocial}
                     </h2>
                     <div className="text-sm text-slate-600 dark:text-slate-400 mt-1 space-y-0.5">
-                        <div>
-                            Arquivo: <code className="font-mono">{fileName}</code> · aba <code className="font-mono">{sheetName}</code> ·{' '}
-                            {headers.length} colunas detectadas · SAGE {empresa.codigoSage}
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span>Arquivo: <code className="font-mono">{fileName}</code></span>
+                            <span>· aba</span>
+                            {sheetNames.length > 1 ? (
+                                <select
+                                    value={sheetName}
+                                    onChange={(e) => setSheetName(e.target.value)}
+                                    className="px-2 py-0.5 text-sm font-mono border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-white"
+                                >
+                                    {sheetNames.map((s) => (
+                                        <option key={s} value={s}>{s}</option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <code className="font-mono">{sheetName}</code>
+                            )}
+                            <span>· {headers.length} colunas detectadas · SAGE {empresa.codigoSage}</span>
                         </div>
                         <div>
                             Esse mapeamento é salvo no Firestore (folha_mapeamentos/{empresa.cnpj}).
                             Próximos meses não precisam refazer.
                         </div>
                     </div>
+                    {modoAjuste && (
+                        <div className="mt-3 px-3 py-2 text-xs bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200 rounded">
+                            As colunas já mapeadas vêm preenchidas. Preencha o evento das que estão em branco
+                            (é o que faz a coluna virar lançamento no TXT) ou apague o código para desativar
+                            uma coluna. <strong>Matrículas cadastradas e demais configurações são preservadas.</strong>
+                        </div>
+                    )}
                 </header>
 
                 <div className="mb-3 text-xs text-slate-600 dark:text-slate-400">
@@ -321,7 +409,7 @@ export default function WizardMapeamentoMapas({
                         </button>
                         <button
                             onClick={handleSave}
-                            disabled={saving || mappedCount === 0}
+                            disabled={saving || (mappedCount === 0 && !modoAjuste)}
                             className="px-4 py-1.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded"
                         >
                             {saving ? 'Salvando…' : 'Salvar e processar'}
