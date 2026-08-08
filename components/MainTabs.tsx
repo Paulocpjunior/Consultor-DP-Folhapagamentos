@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import * as authService from '../services/auth/authService';
+import { consultarGateDepartamento, type GateDepartamento } from '../services/departamentoGate';
+import { getAuth } from 'firebase/auth';
 import LoginScreen from './auth/LoginScreen';
 import PendingScreen from './auth/PendingScreen';
 import AdminUsersPanel from './auth/AdminUsersPanel';
@@ -86,6 +88,28 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
         return () => { if (typeof unsub === 'function') unsub(); };
     }, []);
 
+    // Gate de departamento do SaaS (08/08): pergunta ao cadastro central do
+    // CFI se este e-mail abre o módulo DP/Folha. Em modo aviso nunca bloqueia;
+    // falha do túnel LIBERA (indeterminado é log, não banner).
+    const [gate, setGate] = useState<GateDepartamento | null>(null);
+    useEffect(() => {
+        if (!currentUser || currentUser.role === 'pendente') { setGate(null); return; }
+        let vivo = true;
+        consultarGateDepartamento(
+            currentUser.email || '',
+            async () => {
+                const u = getAuth().currentUser;
+                if (!u) throw new Error('sem sessão');
+                return await u.getIdToken();
+            },
+        ).then((g) => {
+            if (!vivo) return;
+            if (g.indeterminado) console.warn('[departamento-gate] indeterminado:', g.motivo);
+            setGate(g);
+        });
+        return () => { vivo = false; };
+    }, [currentUser]);
+
     const handleLogout = async () => {
         try { await authService.logout(); } catch {}
         setCurrentUser(null);
@@ -101,6 +125,19 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
 
     if (!currentUser) return (<><UpdateBanner /><LoginScreen /></>);
     if (currentUser.role === 'pendente') return (<><UpdateBanner /><PendingScreen user={currentUser} /></>);
+    if (gate && !gate.permitido) {
+        // Modo bloqueio: quem vincula é o admin, no Gerenciar Usuários do CFI.
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-6 text-center">
+                <div className="max-w-lg">
+                    <div className="text-5xl mb-3">🔒</div>
+                    <h2 className="text-xl font-extrabold mb-2 text-slate-800 dark:text-slate-100">Sem vínculo com o módulo DP/Folha</h2>
+                    <p className="text-sm leading-relaxed text-slate-500 dark:text-slate-400">{gate.motivo}</p>
+                    <button onClick={handleLogout} className="mt-4 px-4 py-2 rounded-lg text-sm font-bold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">Sair</button>
+                </div>
+            </div>
+        );
+    }
 
     const isAdmin = currentUser.role === 'admin';
 
@@ -117,6 +154,11 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
+            {gate?.aviso && (
+                <div className="px-4 py-2 text-center text-[13px] bg-amber-50 text-amber-800 border-b border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800">
+                    ⚠ {gate.aviso}
+                </div>
+            )}
             {showWelcome && currentUser && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4">
                     <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 dark:border-slate-700 overflow-hidden">
