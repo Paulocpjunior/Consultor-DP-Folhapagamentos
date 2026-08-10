@@ -130,8 +130,8 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
         return (
             <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-6 text-center">
                 <div className="max-w-lg">
-                    <div className="text-5xl mb-3">🔒</div>
-                    <h2 className="text-xl font-extrabold mb-2 text-slate-800 dark:text-slate-100">Sem vínculo com o módulo DP/Folha</h2>
+                    <div className="text-5xl mb-3">{gate.bloqueio === 'horario' ? '⏰' : '🔒'}</div>
+                    <h2 className="text-xl font-extrabold mb-2 text-slate-800 dark:text-slate-100">{gate.titulo || 'Sem vínculo com o módulo DP/Folha'}</h2>
                     <p className="text-sm leading-relaxed text-slate-500 dark:text-slate-400">{gate.motivo}</p>
                     <button onClick={handleLogout} className="mt-4 px-4 py-2 rounded-lg text-sm font-bold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">Sair</button>
                 </div>

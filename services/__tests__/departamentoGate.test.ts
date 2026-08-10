@@ -9,7 +9,7 @@
  * mesma pessoa.
  */
 import { describe, it, expect } from 'vitest';
-import { decidirGate, modoAtual, consultarGateDepartamento } from '../departamentoGate';
+import { decidirGate, modoAtual, consultarGateDepartamento, avaliarHorario } from '../departamentoGate';
 
 describe('modo por env, default aviso', () => {
     it('sem env nasce em aviso; valor torto não vira bloqueio por acidente', () => {
@@ -52,6 +52,36 @@ describe('a tabela de verdade', () => {
             expect(d.indeterminado).toBe(true);
             expect(d.aviso).toBeNull();
         }
+    });
+});
+
+describe('trava de horário (10/08) — chega no corpo do túnel, já decidida pelo CFI', () => {
+    it('ausente ou permitido:true não barra', () => {
+        expect(avaliarHorario(null)).toEqual({ bloqueia: false, mensagem: null });
+        expect(avaliarHorario({ permitido: true })).toEqual({ bloqueia: false, mensagem: null });
+    });
+    it('permitido:false barra com a mensagem do CFI', () => {
+        const h = avaliarHorario({ permitido: false, mensagem: 'Acesso fora do horário permitido — o expediente já encerrou.' });
+        expect(h.bloqueia).toBe(true);
+        expect(h.mensagem).toMatch(/fora do horário/);
+    });
+    it('horário barra MESMO com departamento OK e MESMO em aviso; o título diz que foi horário', () => {
+        for (const modo of ['aviso', 'bloqueio'] as const) {
+            const d = decidirGate({ acesso: { temAcesso: true, motivo: 'Vinculado.', horario: { permitido: false, mensagem: 'Fora do horário.' } }, modo });
+            expect(d.permitido).toBe(false);
+            expect(d.bloqueio).toBe('horario');
+            expect(d.titulo).toMatch(/horário/i);
+        }
+    });
+    it('dentro do horário segue a régua de departamento normalmente', () => {
+        const d = decidirGate({ acesso: { temAcesso: true, motivo: 'ok', horario: { permitido: true } }, modo: 'bloqueio' });
+        expect(d.permitido).toBe(true);
+    });
+    it('o horário do corpo do túnel flui para a decisão', async () => {
+        const fetchImpl = (async () => ({ ok: true, status: 200, json: async () => ({ ok: true, temAcesso: true, motivo: 'ok', horario: { permitido: false, mensagem: 'Fora do horário.' } }) })) as unknown as typeof fetch;
+        const g = await consultarGateDepartamento('a@b.com', async () => 'tok', { fetchImpl, env: {} });
+        expect(g.permitido).toBe(false);
+        expect(g.bloqueio).toBe('horario');
     });
 });
 
