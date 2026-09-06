@@ -24,8 +24,8 @@ const ai = {
     }
 };
 
-// Modelo atualizado para 2.5-flash (mais rápido e preciso)
-const GEMINI_MODEL = 'gemini-2.5-flash';
+// O modelo mora em geminiModelo.ts (dono único) — Paulo, 06/09: família 3.8.
+import { GEMINI_MODEL } from './geminiModelo';
 
 /**
  * Deep JSON repair for truncated LLM responses.

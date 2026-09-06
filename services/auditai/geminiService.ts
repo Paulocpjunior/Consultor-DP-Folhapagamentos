@@ -1,4 +1,6 @@
 import type { AnalysisResult, ExtractedAccount, ComparisonRow } from '../../types.auditai';
+// Paulo, 06/09: motor na família 3.8 em todos os apps — o ID mora num lugar só.
+import { GEMINI_MODEL } from '../geminiModelo';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 async function callGemini(body: any, endpoint: 'generate' | 'chat' = 'generate'): Promise<string> {
@@ -250,7 +252,7 @@ CRITICAL RULES:
         for (let i = 0; i < allLines.length; i += CHUNK) {
             const chunk = allLines.slice(i, i + CHUNK).join('\n');
             const text = await retryWithBackoff(() => callGemini({
-                model: 'gemini-2.5-flash',
+                model: GEMINI_MODEL,
                 contents: { parts: [{ text: basePrompt + `\n\n--- SEGMENT ${Math.floor(i/CHUNK)+1} ---\n${chunk}` }] },
                 config: { temperature: 0.0, maxOutputTokens: 8192 }
             }));
@@ -258,7 +260,7 @@ CRITICAL RULES:
         }
     } else if (mimeType === 'application/pdf') {
         extractedText = await retryWithBackoff(() => callGemini({
-            model: 'gemini-2.5-flash',
+            model: GEMINI_MODEL,
             contents: { parts: [
                 { inlineData: { mimeType: 'application/pdf', data: fileBase64 } },
                 { text: basePrompt + '\n\nEXTRACT EVERY SINGLE ROW FROM ALL PAGES.' }
@@ -267,7 +269,7 @@ CRITICAL RULES:
         }));
     } else {
         extractedText = await retryWithBackoff(() => callGemini({
-            model: 'gemini-2.5-flash',
+            model: GEMINI_MODEL,
             contents: { parts: [
                 { inlineData: { mimeType, data: fileBase64 } },
                 { text: basePrompt + '\n\nEXTRACT EVERYTHING.' }
@@ -300,7 +302,7 @@ SAÍDA JSON:
 {"period":"01/01/2025 a 31/12/2025","observations":["Destaque 1"],"spellcheck":[{"original_term":"RESEITA","suggested_correction":"RECEITA","confidence":"High"}]}`;
     try {
         const text = await retryWithBackoff(() => callGemini({
-            model: 'gemini-2.5-flash',
+            model: GEMINI_MODEL,
             contents: { parts: [{ text: prompt }] },
             config: { responseMimeType: 'application/json', temperature: 0.4 }
         }));
@@ -333,7 +335,7 @@ export const generateFinancialInsight = async (data: AnalysisResult, userPrompt:
         .sort((a, b) => b.total_value - a.total_value).slice(0, 150)
         .map(a => `${a.account_name}: ${a.final_balance}`).join('\n');
     return await callGemini({
-        model: 'gemini-2.5-pro',
+        model: GEMINI_MODEL,
         contents: { parts: [{ text: `DADOS:\n${top}\n\nPEDIDO:\n${userPrompt}` }] },
         systemInstruction: 'Especialista SP Assessoria. Analise a saúde financeira.',
         config: { temperature: 0.4 }
@@ -344,7 +346,7 @@ export const generateCMVAnalysis = async (data: AnalysisResult, standard: string
     const accs = (data.accounts || []).slice(0, 300)
         .map(a => `${a.account_code} ${a.account_name}: ${a.total_value}`).join('\n');
     return await callGemini({
-        model: 'gemini-2.5-pro',
+        model: GEMINI_MODEL,
         contents: { parts: [{ text: `Analise CMV:\n${accs}` }] },
         systemInstruction: 'Auditor de Custos SP Assessoria.',
         config: { temperature: 0.3 }
@@ -355,7 +357,7 @@ export const generateSpedComplianceCheck = async (data: AnalysisResult): Promise
     const accs = (data.accounts || []).slice(0, 250)
         .map(a => `${a.account_code || '?'} | ${a.account_name} | ${a.final_balance}`).join('\n');
     return await callGemini({
-        model: 'gemini-2.5-pro',
+        model: GEMINI_MODEL,
         contents: { parts: [{ text: `Auditoria SPED:\n\n${accs}` }] },
         systemInstruction: 'Especialista em SPED ECD/ECF SP Assessoria.',
         config: { temperature: 0.2 }
@@ -367,7 +369,7 @@ export const chatWithFinancialAgent = async (
     message: string
 ): Promise<string> => {
     return await callGemini({
-        model: 'gemini-2.5-pro',
+        model: GEMINI_MODEL,
         history, message,
         systemInstruction: 'Assistente contábil sênior SP Assessoria.',
         tools: [{ googleSearch: {} }]
@@ -381,7 +383,7 @@ export const generateComparisonAnalysis = async (rows: ComparisonRow[], period1:
         .map(r => `${r.code} ${r.name}: De ${r.val1} para ${r.val2} (VarAbs: ${r.varAbs}, VarPct: ${r.varPct.toFixed(2)}%)`)
         .join('\n');
     return await callGemini({
-        model: 'gemini-2.5-pro',
+        model: GEMINI_MODEL,
         contents: { parts: [{ text: `Analise variações entre ${period1} e ${period2}:\n\n${top}` }] },
         systemInstruction: 'Auditor Contábil Senior SP Assessoria especialista em análise horizontal.',
         config: { temperature: 0.3 }
