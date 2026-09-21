@@ -1,3 +1,4 @@
+import { limparSessaoImplantacao } from '../services/implantacao/sessao';
 import React, { useState, useEffect, useRef } from 'react';
 import * as authService from '../services/auth/authService';
 import { consultarGateDepartamento, type GateDepartamento } from '../services/departamentoGate';
@@ -82,6 +83,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
 
     useEffect(() => {
         const unsub = authService.subscribeAuthState((user: User | null) => {
+            if (!user) limparSessaoImplantacao();
             setCurrentUser(user);
             setAuthReady(true);
         });
