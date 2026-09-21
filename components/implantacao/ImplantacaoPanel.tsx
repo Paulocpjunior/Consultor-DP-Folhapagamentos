@@ -93,7 +93,7 @@ export default function ImplantacaoPanel({ usuario }: { usuario: string }) {
     }
     return <section className="space-y-4 text-slate-800 dark:text-slate-100">
         <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 dark:bg-slate-800 dark:border-slate-700">
-            <h3 className="text-xl font-bold">Implantação de funcionários</h3>
+            <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="text-xl font-bold">Implantação de funcionários</h3><a className="text-sm font-semibold text-blue-700 underline dark:text-blue-300" href={`${import.meta.env.BASE_URL}manuais/implantacao-funcionarios.html`} target="_blank" rel="noopener noreferrer">Manual passo a passo ↗</a></div>
             <p className="mt-1 text-sm">Reúna XMLs do eSocial e confira os dados com os documentos do cliente.</p>
             <p className="mt-2 text-sm">O dossiê fica nesta sessão. Use <strong>Baixar dossiê</strong> para continuar depois. Documentos não são enviados ao eSocial ou à base operacional.</p>
         </div>
