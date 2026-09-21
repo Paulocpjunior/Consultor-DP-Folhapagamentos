@@ -9,7 +9,9 @@ const EventosIobSagePanel = lazy(() => import('./EventosIobSagePanel'));
 const ApontamentoFolhaPanel = lazy(() => import('./ApontamentoFolhaPanel'));
 const ValidadorACJEFPanel = lazy(() => import('../ponto/ValidadorACJEFPanel'));
 
-type SubTab = 'eventos' | 'apontamento' | 'validador-ponto';
+const ImplantacaoPanel = lazy(() => import('../implantacao/ImplantacaoPanel'));
+
+type SubTab = 'eventos' | 'apontamento' | 'validador-ponto' | 'implantacao';
 
 interface FolhaPanelProps {
     currentUser: User;
@@ -25,6 +27,7 @@ export interface SessaoFolha {
 
 const FolhaPanel: React.FC<FolhaPanelProps> = ({ currentUser, onIrParaEmpresas }) => {
     const [sub, setSub] = useState<SubTab>('apontamento');
+    const [implantacaoAberta, setImplantacaoAberta] = useState(false);
     const [sessao, setSessao] = useState<SessaoFolha | null>(null);
 
     return (
@@ -72,6 +75,9 @@ const FolhaPanel: React.FC<FolhaPanelProps> = ({ currentUser, onIrParaEmpresas }
                     <span className="mr-1">🕐</span>
                     Validador ACJEF (teste)
                 </button>
+                <button onClick={() => { setImplantacaoAberta(true); setSub('implantacao'); }} className={`px-3 py-2 -mb-px text-sm font-medium border-b-2 ${sub === 'implantacao' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500'}`}>
+                    Implantação de funcionários
+                </button>
             </div>
 
             <Suspense
@@ -81,6 +87,7 @@ const FolhaPanel: React.FC<FolhaPanelProps> = ({ currentUser, onIrParaEmpresas }
                     </div>
                 }
             >
+                {implantacaoAberta && <div hidden={sub !== 'implantacao'}><ImplantacaoPanel usuario={currentUser.id} /></div>}
                 {sub === 'eventos' && <EventosIobSagePanel currentUser={currentUser} />}
 
                 {sub === 'apontamento' && !sessao && (
