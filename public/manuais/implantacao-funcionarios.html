@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Manual de implantação de funcionários | Consultor DP</title>
+<style>
+:root{font-family:system-ui,-apple-system,sans-serif;color:#183047;background:#eef3f8;line-height:1.65}*{box-sizing:border-box}body{margin:0}main{max-width:920px;margin:32px auto;padding:40px;background:white;border-radius:16px;box-shadow:0 8px 32px #1830470c}header{border-bottom:1px solid #dbe4ed;padding-bottom:24px}small{color:#52677c}h1{font-size:2rem;line-height:1.2;margin:12px 0}h2{font-size:1.3rem;margin-top:32px}h3{font-size:1.05rem}a{color:#175cba}nav{padding:16px;background:#f3f7fb;border-radius:10px;margin:24px 0}nav a{display:inline-block;margin:4px 14px 4px 0}.notice{padding:16px 20px;border-left:4px solid #d79114;background:#fff8e7;border-radius:4px}.step{border-top:1px solid #e1e8ef;padding:12px 0}.step h3{color:#164d83}li{margin:8px 0}table{border-collapse:collapse;width:100%;font-size:.94rem}th,td{text-align:left;border:1px solid #dbe4ed;padding:12px;vertical-align:top}th{background:#eef4fa}.table{overflow:auto}code{background:#eef3f8;padding:2px 5px;border-radius:4px}footer{border-top:1px solid #dbe4ed;margin-top:32px;padding-top:20px;color:#52677c;font-size:.9rem}.actions{display:flex;gap:12px;flex-wrap:wrap}.actions a{border:1px solid #175cba;border-radius:7px;padding:8px 14px;text-decoration:none}@media(max-width:640px){main{margin:0;padding:22px;border-radius:0}h1{font-size:1.6rem}th,td{padding:8px}}@media print{:root{background:white}main{max-width:none;margin:0;padding:0;box-shadow:none}.actions,nav{display:none}h2,h3{break-after:avoid}.step,tr,.notice{break-inside:avoid}a{color:inherit}}
+</style>
+</head>
+<body><main>
+<header><small>CONSULTOR DP · GUIA DO COLABORADOR · VERSÃO 2.2.1</small>
+<h1>Implantação de funcionários</h1><p>Passo a passo para reunir XMLs do eSocial, conferir informações com os documentos do cliente e guardar o trabalho para continuar depois.</p>
+<div class="actions"><a href="../">Abrir aplicativo</a><a href="#roteiro">Começar o passo a passo</a></div></header>
+<nav aria-label="Índice"><a href="#preparar">Preparação</a><a href="#roteiro">Passo a passo</a><a href="#pendencias">Resolver pendências</a><a href="#teste">Roteiro de teste</a><a href="#limites">Limites da versão</a></nav>
+<aside class="notice"><strong>Esta versão prepara o cadastro para conferência.</strong> A exportação cadastral para IOB SAGE ainda não está disponível. O CSV gerado não deve ser importado na IOB. O módulo não transmite eventos ao eSocial nem grava os funcionários na base operacional.</aside>
+<section id="preparar"><h2>Antes de começar</h2><ul>
+<li>Separe o CNPJ da empresa e a data definida para a implantação.</li>
+<li>Reúna os XMLs disponíveis do mesmo empregador. O <strong>S-2200</strong> é a base de admissão; arquivos de alteração, isoladamente, podem não trazer nome, nascimento ou admissão.</li>
+<li>Separe as fichas cadastrais e os documentos complementares do cliente. Para vincular informações, confira <strong>empregador, CPF e matrícula eSocial</strong>.</li>
+<li>Crie uma pasta de trabalho por cliente para guardar os arquivos originais, o dossiê e a conferência. Evite sobrescrever a última cópia válida.</li>
+</ul><p>O acesso ao aplicativo usa o login habitual do colaborador e as permissões já existentes. Este manual pode ser compartilhado por link e não contém dados de clientes.</p></section>
+<section id="roteiro"><h2>Passo a passo</h2>
+<div class="step"><h3>1. Acesse a área de implantação</h3><p>Entre no aplicativo e abra <strong>Folha → Implantação de funcionários</strong>. Se a opção não aparecer, atualize a página. Salve primeiro qualquer trabalho em andamento.</p></div>
+<div class="step"><h3>2. Informe empresa e data</h3><p>Preencha <strong>CNPJ da empresa na implantação</strong> com os 14 dígitos e escolha a <strong>Data da implantação</strong>. Essa data define quais alterações serão consideradas. Eventos posteriores ficam fora da consolidação e geram aviso.</p><p>Alguns XMLs identificam o empregador pelos oito primeiros dígitos do CNPJ. Confira também o estabelecimento exibido na ficha; a raiz não distingue todas as filiais.</p></div>
+<div class="step"><h3>3. Adicione os XMLs</h3><p>Clique em <strong>Adicionar XMLs</strong> e selecione um ou mais arquivos <code>.xml</code>. É possível adicionar outros arquivos depois. Extraia arquivos ZIP antes de selecionar os XMLs.</p><p>Abra <strong>Fontes</strong> para conferir o que foi incluído. Arquivos idênticos não são adicionados novamente. Se um arquivo estiver incorreto, use <strong>Remover</strong>; isso o retira apenas do dossiê e recalcula a conferência.</p></div>
+<div class="step"><h3>4. Leia os avisos do conjunto</h3><p>Confira mensagens sobre outra empresa, evento não suportado, retificação sem original, ambiente de testes ou datas posteriores. Não conclua a revisão apenas porque a tabela de funcionários apareceu: os avisos gerais também fazem parte da conferência.</p></div>
+<div class="step"><h3>5. Confira cada funcionário</h3><p>Use a busca por nome, CPF ou matrícula e clique em <strong>Conferir ficha</strong>. Revise valores, origem de cada campo e pendências. Abra a relação de eventos que compõem a ficha quando precisar identificar o arquivo de origem.</p><p>A <strong>matrícula eSocial</strong> é preservada como veio no arquivo. O <strong>código interno do funcionário na IOB</strong> é outro campo: não copie um para o outro sem confirmação.</p></div>
+<div class="step"><h3>6. Abra a ficha PDF</h3><p>Na seção <strong>Documento complementar do cliente</strong>, clique em <strong>Abrir ficha PDF</strong>. Nesta versão, o PDF é apresentado para leitura visual; os campos não são preenchidos automaticamente.</p><p>Compare o empregador e o CPF do PDF com o vínculo selecionado. Se forem diferentes, não transfira os dados para essa ficha. Documentos de exemplo podem pertencer a empresas ou pessoas diferentes.</p></div>
+<div class="step"><h3>7. Registre um complemento conferido</h3><ol><li>Na ficha, escolha o campo em <strong>Registrar informação conferida</strong>.</li><li>Informe o valor. Para datas, use <code>AAAA-MM-DD</code>; para salário, use ponto decimal, sem separador de milhares, como <code>2400.00</code>.</li><li>Identifique o documento ou responsável que forneceu a informação.</li><li>Explique a justificativa da inclusão ou alteração.</li><li>Marque a confirmação de empregador, CPF e matrícula e clique em <strong>Registrar complemento</strong>.</li></ol><p>A origem passa a indicar a conferência registrada. O XML original é preservado, e um complemento não elimina uma pendência de histórico, como a falta do S-2200.</p></div>
+<div class="step"><h3>8. Baixe a conferência</h3><p>Clique em <strong>Baixar conferência CSV</strong> para revisar os campos, origens e pendências em uma planilha. Ao abrir no Excel, importe CPF, CNPJ e matrículas como <strong>texto</strong> para preservar zeros iniciais.</p><p><strong>Esse CSV é somente de conferência. Não é arquivo cadastral IOB.</strong></p></div>
+<div class="step"><h3>9. Salve o dossiê antes de sair</h3><p>Clique em <strong>Baixar dossiê</strong>. O arquivo <code>.json</code> guarda os XMLs e os complementos para retomada. O asterisco no botão indica alterações desde o último download/abertura. Confirme que o download foi concluído e guarde uma cópia identificada pelo cliente e pela data.</p><p>O PDF original não fica dentro do dossiê: mantenha-o na pasta do cliente. O arquivo JSON contém dados pessoais; compartilhe-o apenas pelo canal autorizado do escritório.</p></div>
+<div class="step"><h3>10. Retome ou encaminhe a conferência</h3><p>Para continuar, entre na área e clique em <strong>Abrir dossiê</strong>, selecionando o JSON salvo. Os XMLs são conferidos e os dados são recalculados. Reabra o PDF original quando necessário.</p><p>Para outro colaborador continuar, encaminhe o dossiê e os documentos necessários pelo canal autorizado. Não há sincronização automática entre computadores. Antes de abrir outro dossiê, baixe as alterações do atual.</p></div>
+</section>
+<section id="pendencias"><h2>Como tratar as mensagens mais comuns</h2><div class="table"><table><thead><tr><th>Mensagem ou situação</th><th>O que fazer</th></tr></thead><tbody>
+<tr><td>Falta S-2200</td><td>Solicite o XML de admissão/cadastramento inicial. Um S-2206 isolado não substitui essa base.</td></tr>
+<tr><td>Nome não informado</td><td>Verifique se foi importado apenas um evento contratual. Inclua a base disponível e complemente somente com fonte comprovada.</td></tr>
+<tr><td>Empregador diferente</td><td>Confira o CNPJ digitado e o cliente ao qual o XML pertence. O evento não é incluído no cadastro dessa empresa.</td></tr>
+<tr><td>Sem retorno de processamento 201</td><td>O conteúdo pode aparecer para conferência, mas a aceitação não está comprovada pelo arquivo. Obtenha o retorno/recibo associado.</td></tr>
+<tr><td>Recibo alvo ausente ou histórico incompleto</td><td>Inclua o evento original e os demais arquivos da cadeia de retificação/exclusão. Não escolha um evento arbitrariamente.</td></tr>
+<tr><td>ID divergente, eventos na mesma vigência ou operações concorrentes</td><td>Confira os arquivos de origem e encaminhe a divergência ao responsável pelo DP antes de concluir a revisão.</td></tr>
+<tr><td>Data posterior à implantação</td><td>Confira a data de corte escolhida. Não a altere apenas para eliminar o aviso.</td></tr>
+<tr><td>Nenhum vínculo identificado</td><td>Confira CNPJ, data e avisos. S-2205 sem base/vínculo correspondente, eventos de outra empresa ou eventos não suportados podem não formar uma ficha.</td></tr>
+<tr><td>Código IOB repetido ou inválido</td><td>Confirme o código correto por funcionário. O módulo não cria nem confirma códigos diretamente no sistema IOB.</td></tr>
+<tr><td>Alteração com efeitos remuneratórios retroativos</td><td>Encaminhe para revisão do responsável. Esta etapa não calcula retroativos.</td></tr>
+</tbody></table></div></section>
+<section id="teste"><h2>Roteiro sugerido para o teste do colaborador</h2><ol>
+<li>Importe um XML conhecido e compare cargo, salário, CPF e matrícula com a origem.</li>
+<li>Importe o mesmo arquivo novamente e confira que o vínculo não foi duplicado.</li>
+<li>Abra a ficha e verifique se as informações ausentes foram sinalizadas, sem valores inventados.</li>
+<li>Registre um complemento comprovado e confira a indicação de origem.</li>
+<li>Baixe o dossiê, confirme o arquivo salvo e reabra-o para verificar a continuidade.</li>
+<li>Baixe o CSV e confira valores, identificadores, origens e pendências.</li>
+</ol><p>Ao relatar um problema, informe a versão exibida, a etapa, o nome do arquivo, o resultado esperado e o encontrado. Encaminhe arquivos ou capturas com dados de funcionários somente pelo canal autorizado.</p></section>
+<section id="limites"><h2>O que esta versão faz e o que ainda falta</h2><ul>
+<li>Lê S-2200, S-2205, S-2206, S-2299 e S-3000, nas versões S-1.0 a S-1.3, inclusive arquivos com evento e recibo. Outros eventos geram aviso.</li>
+<li>O fluxo atual trabalha com empregador identificado por CNPJ. Casos de empregador CPF e outros históricos específicos precisam de tratamento adicional.</li>
+<li>Permite até 200 XMLs; cada XML pode ter até 10 MB e 5.000 eventos. Há também limites de tamanho total do dossiê. O PDF pode ter até 15 MB. Se aparecer aviso de tamanho, divida o trabalho por lotes organizados, preservando a cadeia de cada vínculo.</li>
+<li>Os dados permanecem em memória durante a sessão. <strong>Recarregar/fechar a página ou sair da conta pode encerrar o trabalho não baixado.</strong> A navegação interna preserva o dossiê; isso não substitui o download.</li>
+<li>Não há OCR automático, exportação cadastral IOB, sincronização de dossiês nem cálculo de férias, folha, saldos ou retroativos nesta etapa.</li>
+<li>Ausência de pendências nos campos apresentados não comprova que toda a implantação da folha esteja completa. A revisão do responsável continua necessária.</li>
+</ul></section>
+<footer>Manual atualizado em 21/09/2026 · Consultor DP · Implantação de funcionários, versão 2.2.1.<br>Para imprimir ou salvar em PDF, use a opção Imprimir do navegador. Antes de iniciar a impressão, confira o destino escolhido.</footer>
+</main></body></html>
