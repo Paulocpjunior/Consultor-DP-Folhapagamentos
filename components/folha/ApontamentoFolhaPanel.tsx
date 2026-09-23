@@ -10,6 +10,7 @@
 //   4. Exportar passa o Set de colunas ativas pro mapper.
 //   5. Funcionários sem matrícula bloqueiam a exportação (mensagem clara).
 
+import ExportacaoIobModal from './ExportacaoIobModal';
 import React, { useEffect, useMemo, useState } from 'react';
 // ─── Helper: filtro de abas por competência ────────────────────────────
 // Aceita variações: "ABRIL 2026 ", "ABRIL 2026", "ABRIL/2026", "abril 2026"
@@ -115,6 +116,7 @@ interface Props {
     currentUser: User;
     sessao: SessaoFolha;
     onTrocarEmpresa: () => void;
+    onImplantacao?: () => void;
 }
 
 function tipoParaFlag(tipo: string): FolhaFlag {
@@ -132,9 +134,10 @@ function snapshotDoArquivo(f: File | null): string | null {
     return `${f.name}::${f.size}::${f.lastModified}`;
 }
 
-const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarEmpresa }) => {
+const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarEmpresa, onImplantacao }) => {
     const cliente = sessao.empresa.cnpj;
 
+    const [exportacaoAberta, setExportacaoAberta] = useState(false);
     const [competencia, setCompetencia] = useState(sessao.competencia);
     const [file, setFile] = useState<File | null>(null);
     const [parsed, setParsed] = useState<ApontamentoParseado | null>(null);
@@ -1281,9 +1284,10 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
 
             {((parsed && mapa) || (resultado && resultado.lancamentos.length > 0)) && (
                 <Section numero={4} titulo="Exportar para IOB SAGE">
+                    {exportacaoAberta && <ExportacaoIobModal modo="apontamentos" quantidade={resultado?.lancamentos.length ?? null} ocupado={processando} onFechar={() => setExportacaoAberta(false)} onModo={onImplantacao ? modo => { if (modo === 'cadastro') { setExportacaoAberta(false); onImplantacao(); } } : undefined} onExportar={() => { setExportacaoAberta(false); void handleExportar(); }} />}
                     <div className="flex flex-wrap gap-3 items-center">
                         <button
-                            onClick={handleExportar}
+                            onClick={() => setExportacaoAberta(true)}
                             disabled={processando}
                             className="px-4 py-1.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded"
                         >

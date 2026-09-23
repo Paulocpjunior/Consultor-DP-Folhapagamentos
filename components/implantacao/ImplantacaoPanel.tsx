@@ -1,20 +1,28 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CAMPOS, consolidar, digitos, lerXml, type Cadastro, type Campo } from '../../services/implantacao/implantacao';
-import { csvConferencia, hashArquivo, lerDossie, novoDossie, type Dossie } from '../../services/implantacao/dossie';
+import { csvConferencia, pacoteCadastral, hashArquivo, lerDossie, novoDossie, type Dossie } from '../../services/implantacao/dossie';
 import { downloadFile } from '../../services/folha/apontamentoExporter';
+
+import ExportacaoIobModal, { type ModoExportacao } from '../folha/ExportacaoIobModal';
+import ConferenciaPdf from './ConferenciaPdf';
+import { lerFichaPdf } from '../../services/implantacao/lerPdf';
+import type { FichaExtraida } from '../../services/implantacao/fichaPdf';
 
 import { guardarSessao, lerSessao } from '../../services/implantacao/sessao';
 
 const input = 'w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 p-2 text-sm';
 const button = 'rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-40';
 
-export default function ImplantacaoPanel({ usuario }: { usuario: string }) {
+export default function ImplantacaoPanel({ usuario, onModo }: { usuario: string; onModo?: (modo: ModoExportacao) => void }) {
     const [dossie, setDossie] = useState<Dossie>(() => lerSessao(usuario)?.dossie || novoDossie());
     const [erros, setErros] = useState<string[]>([]);
     const [ocupado, setOcupado] = useState(false);
     const [alterado, setAlterado] = useState(lerSessao(usuario)?.alterado || false);
     const [selecionado, setSelecionado] = useState('');
-    const [pdf, setPdf] = useState<{ url: string; nome: string } | null>(null);
+    const [pdf, setPdf] = useState<{ url: string; nome: string; hash: string } | null>(null);
+    const [fichaPdf, setFichaPdf] = useState<FichaExtraida | null>(null);
+    const [progresso, setProgresso] = useState('');
+    const [exportacao, setExportacao] = useState(false);
     const [busca, setBusca] = useState('');
     const abrirRef = useRef<HTMLInputElement>(null);
     const bloqueado = useRef(false);
@@ -35,7 +43,7 @@ export default function ImplantacaoPanel({ usuario }: { usuario: string }) {
         }
         return { eventos, avisos };
     }, [dossie.fontes]);
-    const resultado = useMemo(() => consolidar(leitura.eventos, dossie.cnpj, dossie.corte, dossie.complementos), [leitura, dossie]);
+    const resultado = useMemo(() => consolidar(leitura.eventos, dossie.cnpj, dossie.corte, dossie.complementos, { revisarAdmissaoRetificada: true }), [leitura, dossie]);
     const avisos = [...leitura.avisos, ...resultado.avisos];
     const atual = resultado.cadastros.find(c => c.chave === selecionado);
     const filtrados = resultado.cadastros.filter(c => `${c.dados.nome || ''} ${c.cpf} ${c.matricula}`.toLocaleLowerCase().includes(busca.toLocaleLowerCase()));
@@ -61,7 +69,7 @@ export default function ImplantacaoPanel({ usuario }: { usuario: string }) {
                 } catch (e) { problemas.push(`${f.name}: ${(e as Error).message}`); }
             }
             atualizar({ ...dossie, fontes: novas }); setErros(problemas);
-        } finally { bloqueado.current = false; setOcupado(false); }
+        } finally { bloqueado.current = false; setOcupado(false); setProgresso(''); }
     }
     async function abrir(file?: File) {
         if (!file || bloqueado.current) return;
@@ -74,9 +82,9 @@ export default function ImplantacaoPanel({ usuario }: { usuario: string }) {
                 if (await hashArquivo(new TextEncoder().encode(f.xml).buffer) !== f.hash) throw new Error(`Conteúdo XML alterado: ${f.nome}.`);
                 lerXml(f);
             }
-            setDossie(novo); setAlterado(false); setSelecionado(''); setPdf(null);
+            setDossie(novo); setAlterado(false); setSelecionado(''); setPdf(null); setFichaPdf(null);
         } catch (e) { setErros([(e as Error).message]); }
-        finally { bloqueado.current = false; setOcupado(false); }
+        finally { bloqueado.current = false; setOcupado(false); setProgresso(''); }
     }
     async function anexarPdf(file?: File) {
         if (!file || bloqueado.current) return;
@@ -86,10 +94,13 @@ export default function ImplantacaoPanel({ usuario }: { usuario: string }) {
             const bytes = await file.arrayBuffer();
             if (new TextDecoder().decode(bytes.slice(0, 5)) !== '%PDF-') throw new Error('Arquivo não é PDF válido.');
             const hash = await hashArquivo(bytes);
-            setPdf({ url: URL.createObjectURL(file), nome: file.name });
+            setFichaPdf(null);
+            setPdf({ url: URL.createObjectURL(file), nome: file.name, hash });
             if (!dossie.documentos.some(p => p.hash === hash)) atualizar({ ...dossie, documentos: [...dossie.documentos, { nome: file.name, tamanho: file.size, hash }] });
+            setProgresso('Extraindo campos da ficha…');
+            setFichaPdf(await lerFichaPdf(bytes, setProgresso));
         } catch (e) { setErros([(e as Error).message]); }
-        finally { bloqueado.current = false; setOcupado(false); }
+        finally { bloqueado.current = false; setOcupado(false); setProgresso(''); }
     }
     return <section className="space-y-4 text-slate-800 dark:text-slate-100">
         <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 dark:bg-slate-800 dark:border-slate-700">
@@ -97,7 +108,7 @@ export default function ImplantacaoPanel({ usuario }: { usuario: string }) {
             <p className="mt-1 text-sm">Reúna XMLs do eSocial e confira os dados com os documentos do cliente.</p>
             <p className="mt-2 text-sm">O dossiê fica nesta sessão. Use <strong>Baixar dossiê</strong> para continuar depois. Documentos não são enviados ao eSocial ou à base operacional.</p>
         </div>
-        {ocupado && <p role="status">Lendo e verificando arquivos…</p>}
+        {ocupado && <p role="status">{progresso || 'Lendo e verificando arquivos…'}</p>}
         <fieldset disabled={ocupado} className="space-y-4 disabled:opacity-60">
             <div className="grid gap-4 sm:grid-cols-2">
                 <label className="text-sm font-medium">CNPJ da empresa na implantação<input className={input} value={dossie.cnpj} maxLength={18} placeholder="14 dígitos" onChange={e => atualizar({ ...dossie, cnpj: digitos(e.target.value) })} /></label>
@@ -110,6 +121,7 @@ export default function ImplantacaoPanel({ usuario }: { usuario: string }) {
                 <input ref={abrirRef} aria-label="Abrir dossiê" type="file" accept=".json" className="hidden" onChange={e => { void abrir(e.target.files?.[0]); e.target.value = ''; }} />
                 <button className={button} disabled={!dossie.fontes.length} onClick={() => { downloadFile('dossie-implantacao.json', JSON.stringify(dossie, null, 2), 'application/json'); setAlterado(false); }}>Baixar dossiê{alterado ? ' *' : ''}</button>
                 <button className={button} disabled={!resultado.cadastros.length} onClick={() => downloadFile('conferencia-implantacao.csv', csvConferencia(resultado.cadastros, avisos), 'text/csv;charset=utf-8')}>Baixar conferência CSV</button>
+                <button className={button} disabled={!resultado.cadastros.length} onClick={() => setExportacao(true)}>Exportar para IOB SAGE</button>
             </div>
             <div className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
                 <strong>Exportação cadastral IOB pendente de homologação.</strong> O CSV é para conferência e não deve ser importado como cadastro na IOB. O layout de apontamentos mensais não cadastra funcionários.
@@ -123,15 +135,18 @@ export default function ImplantacaoPanel({ usuario }: { usuario: string }) {
             <div className="flex flex-wrap items-center justify-between gap-3"><h4 className="font-bold">{resultado.cadastros.length} vínculo(s) identificado(s)</h4><input aria-label="Buscar funcionário" className={input + ' sm:!w-72'} value={busca} placeholder="Buscar nome, CPF ou matrícula" onChange={e => setBusca(e.target.value)} /></div>
             {!resultado.cadastros.length && <p className="rounded border border-dashed p-6 text-center text-sm text-slate-500">Informe o CNPJ e importe os XMLs. Para montar o cadastro completo, inclua o S-2200 e suas alterações.</p>}
             {!!filtrados.length && <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b"><th className="p-2">Funcionário / CPF</th><th className="p-2">Matrícula eSocial</th><th className="p-2">Cargo</th><th className="p-2">Pendências</th><th className="p-2">Conferência</th></tr></thead><tbody>{filtrados.map(c => <tr key={c.chave} className="border-b"><td className="p-2">{c.dados.nome || 'Nome não informado'}<br /><span className="text-xs text-slate-500">{c.cpf}</span></td><td className="p-2 font-mono">{c.matricula}</td><td className="p-2">{c.dados.cargo || '—'}</td><td className="p-2">{c.pendencias.length || 'Revisar cadastro'}</td><td className="p-2"><button className="text-blue-600 underline" onClick={() => setSelecionado(c.chave)}>Conferir ficha</button></td></tr>)}</tbody></table></div>}
+            {atual && fichaPdf && pdf && <ConferenciaPdf key={`${atual.chave}|${dossie.cnpj}|${pdf.url}|${dossie.complementos.length}`} ficha={fichaPdf} cadastro={atual} cnpj={dossie.cnpj} nome={pdf.nome} onAplicar={(campos, justificativa) => atualizar({ ...dossie, complementos: [...dossie.complementos, ...campos.map(({ campo, valor }) => ({ empregador: atual.empregador, cpf: atual.cpf, matricula: atual.matricula, campo, valor, fonte: `${pdf.nome} · SHA-256 ${pdf.hash}`, justificativa, registradoEm: new Date().toISOString() }))] })} />}
             {atual && <Ficha key={atual.chave} cadastro={atual} fontePdf={pdf?.nome || ''} onSalvar={(campo, valor, fonte, justificativa) => atualizar({ ...dossie, complementos: [...dossie.complementos, { empregador: atual.empregador, cpf: atual.cpf, matricula: atual.matricula, campo, valor, fonte, justificativa, registradoEm: new Date().toISOString() }] })} />}
             <div className="rounded border border-slate-300 p-4">
                 <h4 className="font-semibold">Documento complementar do cliente</h4>
-                <p className="my-2 text-sm">Abra a ficha PDF e confira empregador e CPF antes de registrar um complemento. Nesta versão, a leitura do PDF é visual; não há extração automática por OCR.</p>
+                <p className="my-2 text-sm">Abra a ficha PDF e confira empregador e CPF antes de registrar um complemento. Fichas do modelo Registro de Empregado com texto selecionável são extraídas para revisão. PDFs digitalizados exigem conferência visual; não há OCR.</p>
                 <label className="text-sm">Abrir ficha PDF<input aria-label="Abrir ficha PDF" className="mt-2 block" type="file" accept=".pdf" onChange={e => { void anexarPdf(e.target.files?.[0]); e.target.value = ''; }} /></label>
                 <p className="mt-2 text-xs text-slate-500">O dossiê guarda nome e hash do PDF; mantenha o arquivo original para reabri-lo depois.</p>
+                {fichaPdf && !atual && <p className="my-2 text-sm text-blue-700">Ficha extraída. Selecione “Conferir ficha” no vínculo acima para comparar e aplicar os campos.</p>}
                 {pdf && <><p className="my-2 text-sm">{pdf.nome}</p><object aria-label="Ficha PDF para conferência" data={pdf.url} type="application/pdf" className="h-[650px] w-full"><a href={pdf.url} target="_blank" rel="noreferrer">Abrir PDF para conferir</a></object></>}
             </div>
         </fieldset>
+        {exportacao && <ExportacaoIobModal modo="cadastro" quantidade={resultado.cadastros.length} onFechar={() => setExportacao(false)} onModo={onModo ? modo => { if (modo !== 'cadastro') { setExportacao(false); onModo(modo); } } : undefined} onExportar={() => downloadFile('implantacao-cadastral-conferencia.json', pacoteCadastral(dossie, resultado.cadastros, avisos), 'application/json')} onConferencia={() => downloadFile('conferencia-implantacao.csv', csvConferencia(resultado.cadastros, avisos), 'text/csv;charset=utf-8')} />}
     </section>;
 }
 
