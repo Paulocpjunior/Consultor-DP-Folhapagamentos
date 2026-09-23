@@ -1,6 +1,9 @@
 /** Importação local: nunca transmite eventos ou escreve no cadastro operacional. */
 export const CAMPOS = {
-    mae: 'Nome da mãe', pai: 'Nome do pai', pis: 'PIS/PASEP', ctps: 'CTPS', serieCtps: 'Série CTPS', rg: 'RG',
+    mae: 'Nome da mãe', pai: 'Nome do pai', pis: 'PIS/PASEP', ctps: 'CTPS', serieCtps: 'Série CTPS', rg: 'Identidade (RG/CIN)',
+    naturalidade: 'Naturalidade', ufCtps: 'UF CTPS', orgaoRg: 'Órgão/UF da identidade', emissaoRg: 'Emissão da identidade',
+    tituloEleitor: 'Título eleitoral', zonaEleitoral: 'Zona eleitoral', secaoEleitoral: 'Seção eleitoral',
+    documentoMilitar: 'Documento militar', opcaoFgts: 'Opção FGTS', cadastroPis: 'Cadastro PIS',
     dependentes: 'Dependentes (dados do XML)', deficiencia: 'Informações de deficiência (XML)', enderecoExterior: 'Endereço no exterior (XML)',
     nome: 'Nome', nascimento: 'Nascimento', admissao: 'Admissão', sexo: 'Sexo',
     estadoCivil: 'Estado civil (eSocial)', raca: 'Raça/cor (eSocial)', escolaridade: 'Escolaridade (eSocial)',
@@ -151,7 +154,7 @@ export function lerXml(fonte: FonteXml): { eventos: Evento[]; avisos: string[] }
     return { eventos, avisos };
 }
 
-export function consolidar(eventos: Evento[], empregador: string, corte: string, complementos: Complemento[] = []): Resultado {
+export function consolidar(eventos: Evento[], empregador: string, corte: string, complementos: Complemento[] = [], opcoes: { revisarAdmissaoRetificada?: boolean } = {}): Resultado {
     const raiz = digitos(empregador).slice(0, 8);
     const avisos: string[] = [];
     if (digitos(empregador).length !== 14 || !dataValida(corte)) return { cadastros: [], avisos: ['Informe CNPJ com 14 dígitos e data de implantação válida.'] };
@@ -190,6 +193,15 @@ export function consolidar(eventos: Evento[], empregador: string, corte: string,
         if (conflitosId.has(e.id)) return false;
         if (!e.retifica && e.tipo !== 'S-3000') return true;
         const alvo = lista.filter(a => a.recibo && a.recibo === (e.retifica || e.exclui));
+        // Exceção exclusivamente para revisão: uma admissão aceita contém o bloco cadastral completo.
+        // Não aceita alvo ambíguo, admissões concorrentes nem transforma o histórico em validado.
+        if (!alvo.length && opcoes.revisarAdmissaoRetificada && e.tipo === 'S-2200' && e.retifica && e.processado && e.recibo
+            && cpfValido(e.cpf) && e.matricula && dataValida(e.data)
+            && !lista.some(a => a.id !== e.id && a.tipo === 'S-2200' && a.cpf === e.cpf && a.matricula === e.matricula)) {
+            validacao.set(e.id, true);
+            avisos.push(`${e.fonte}: admissão retificada apresentada apenas para revisão; recibo anterior ${e.retifica} ausente. Histórico incompleto.`);
+            return true;
+        }
         let motivo = '';
         if (alvo.length !== 1) motivo = 'recibo alvo ausente ou ambíguo; histórico incompleto';
         else if (alvo[0].tipo === 'S-3000') motivo = 'exclusão não pode ser alvo desta operação';
@@ -225,6 +237,7 @@ export function consolidar(eventos: Evento[], empregador: string, corte: string,
         if (!itens.some(e => e.tipo === 'S-2200')) c.pendencias.push('Falta S-2200: dados iniciais/admissão não comprovados.');
         const datasTipos = new Set<string>();
         for (const e of itens) {
+            if (e.retifica && !alvos.has(e.id)) c.pendencias.push(`Cadastro provisório: recibo anterior ${e.retifica} ausente; conferir histórico antes de implantar.`);
             c.pendencias.push(...e.avisos.map(a => `${e.tipo}: ${a}`));
             if (!dataValida(e.data)) continue;
             const dt = `${e.tipo}|${e.data}`;

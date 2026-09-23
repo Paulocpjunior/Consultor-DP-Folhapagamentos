@@ -1,10 +1,10 @@
 {
   "name": "consultor-fiscal-inteligente",
-  "version": "2.2.1",
+  "version": "2.3.0",
   "type": "module",
   "description": "Uma ferramenta de consulta de CFOP e NCM com IA para escritórios de contabilidade.",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.13.0"
   },
   "scripts": {
     "dev": "vite",
@@ -53,6 +53,7 @@
     "jspdf-autotable": "^3.8.2",
     "lucide-react": "^0.575.0",
     "motion": "^12.34.3",
+    "pdfjs-dist": "6.3.289",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-markdown": "^10.1.0",

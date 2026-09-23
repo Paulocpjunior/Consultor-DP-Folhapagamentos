@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 import { consolidar, lerXml, type Evento } from '../implantacao';
-import { csvConferencia, lerDossie, novoDossie } from '../dossie';
+import { csvConferencia, pacoteCadastral, lerDossie, novoDossie } from '../dossie';
 
 const cnpj = '11222333000181';
 const cpf = '52998224725';
@@ -117,5 +117,33 @@ describe('leitura e consolidação cadastral', () => {
         expect(lerDossie(JSON.stringify(novoDossie())).versao).toBe(1);
         expect(() => lerDossie('{"versao":9}')).toThrow();
         expect(() => lerDossie(JSON.stringify({ ...novoDossie(), complementos: [{ campo: '__proto__' }] }))).toThrow();
+    });
+});
+
+
+describe('implantação em modo de revisão', () => {
+    it('admissão retificadora isolada aceita só aparece com opção de revisão e mantém pendência', () => {
+        const a = { ...admissao(), retifica: 'ANTERIOR' };
+        expect(consolidado([a]).cadastros).toHaveLength(0);
+        const r = consolidar([a], cnpj, '2026-09-01', [], { revisarAdmissaoRetificada: true });
+        expect(r.cadastros).toHaveLength(1);
+        expect(r.cadastros[0].pendencias.join()).toContain('Cadastro provisório');
+        expect(r.avisos.join()).toContain('Histórico incompleto');
+        expect(a.avisos).toEqual([]);
+        expect(consolidar([{ ...a, processado: false }], cnpj, '2026-09-01', [], { revisarAdmissaoRetificada: true }).cadastros).toHaveLength(0);
+    });
+    it('não usa a exceção de revisão em admissões concorrentes', () => {
+        const a = { ...admissao(), retifica: 'ANTERIOR' };
+        const b = { ...a, id: 'OUTRO', recibo: 'OUTRO', retifica: 'OUTROALVO' };
+        expect(consolidar([a, b], cnpj, '2026-09-01', [], { revisarAdmissaoRetificada: true }).cadastros).toHaveLength(0);
+    });
+    it('pacote cadastral contém salário contratual, fontes e pendências, sem lançamentos mensais', () => {
+        const r = consolidado([admissao()]);
+        const pacote = JSON.parse(pacoteCadastral({ ...novoDossie(), cnpj, corte: '2026-09-01' }, r.cadastros, ['histórico a conferir']));
+        expect(pacote.importavelIob).toBe(false);
+        expect(pacote.funcionarios[0].dados.salario).toBe('2000.00');
+        expect(pacote.funcionarios[0].matriculaEsocial).toBe('ABC-000123');
+        expect(pacote.funcionarios[0].pendencias.length).toBeGreaterThan(0);
+        expect(pacote.lancamentos).toBeUndefined(); expect(pacote.funcionarios[0].eventos).toBeUndefined();
     });
 });

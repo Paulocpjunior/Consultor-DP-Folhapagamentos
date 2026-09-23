@@ -1,5 +1,6 @@
 // components/folha/FolhaPanel.tsx
 import React, { useEffect, useMemo, useState, Suspense, lazy } from 'react';
+import type { ModoExportacao } from './ExportacaoIobModal';
 import type { User } from '../../types';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { listarTodasEmpresas } from '../../services/empresas/empresasService';
@@ -30,6 +31,8 @@ const FolhaPanel: React.FC<FolhaPanelProps> = ({ currentUser, onIrParaEmpresas }
     const [implantacaoAberta, setImplantacaoAberta] = useState(false);
     const [sessao, setSessao] = useState<SessaoFolha | null>(null);
 
+    const selecionarModo = (modo: ModoExportacao) => { if (modo === 'cadastro') { setImplantacaoAberta(true); setSub('implantacao'); } else setSub('apontamento'); };
+
     return (
         <div>
             <header className="mb-4">
@@ -37,10 +40,14 @@ const FolhaPanel: React.FC<FolhaPanelProps> = ({ currentUser, onIrParaEmpresas }
                     📋 Folha de Pagamento — IOB SAGE FOLHAMATIC
                 </h2>
                 <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                    Parametrização e exportação do apontamento de folha para o SAGE.
+                    Implantação cadastral e apontamentos mensais para a folha.
                 </p>
             </header>
 
+            {!sessao && <div className="mb-4 flex flex-wrap gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 dark:bg-slate-800">
+                <button className="rounded bg-blue-700 px-4 py-2 text-sm text-white" onClick={() => selecionarModo('cadastro')}>Primeiro acesso da empresa — unificar eSocial + ficha</button>
+                <button className="rounded border px-4 py-2 text-sm" onClick={() => selecionarModo('apontamentos')}>Rotina mensal — apontamentos</button>
+            </div>}
             <div className="flex gap-2 mb-4 border-b border-slate-200 dark:border-slate-700">
                 <button
                     onClick={() => setSub('apontamento')}
@@ -87,7 +94,7 @@ const FolhaPanel: React.FC<FolhaPanelProps> = ({ currentUser, onIrParaEmpresas }
                     </div>
                 }
             >
-                {implantacaoAberta && <div hidden={sub !== 'implantacao'}><ImplantacaoPanel usuario={currentUser.id} /></div>}
+                {implantacaoAberta && <div hidden={sub !== 'implantacao'}><ImplantacaoPanel usuario={currentUser.id} onModo={selecionarModo} /></div>}
                 {sub === 'eventos' && <EventosIobSagePanel currentUser={currentUser} />}
 
                 {sub === 'apontamento' && !sessao && (
@@ -98,12 +105,13 @@ const FolhaPanel: React.FC<FolhaPanelProps> = ({ currentUser, onIrParaEmpresas }
                     />
                 )}
 
-                {sub === 'apontamento' && sessao && (
-                    <ApontamentoFolhaPanel
+                {sessao && (
+                    <div hidden={sub !== 'apontamento'}><ApontamentoFolhaPanel
                         currentUser={currentUser}
                         sessao={sessao}
                         onTrocarEmpresa={() => setSessao(null)}
-                    />
+                        onImplantacao={() => selecionarModo('cadastro')}
+                    /></div>
                 )}
 
                 {sub === 'validador-ponto' && (

@@ -35,3 +35,14 @@ export function csvConferencia(cadastros: Cadastro[], avisos: string[] = []): st
     for (const c of cadastros) linhas.push([c.empregador, c.cpf, c.matricula, ...campos.map(k => c.dados[k] || ''), c.pendencias.join(' | '), avisos.join(' | '), campos.filter(k => c.origens[k]).map(k => `${CAMPOS[k]}: ${c.origens[k]}`).join(' | ')]);
     return '\uFEFF' + linhas.map(l => l.map(cell).join(';')).join('\r\n');
 }
+
+/** Contrato de revisão cadastral, explicitamente separado de um layout homologado IOB. */
+export function pacoteCadastral(dossie: Dossie, cadastros: Cadastro[], avisos: string[]): string {
+    return JSON.stringify({
+        formato: 'consultor-dp-cadastro-conferencia', versao: 1, importavelIob: false,
+        modo: 'implantacao-cadastral', cnpj: dossie.cnpj, dataImplantacao: dossie.corte,
+        avisos, fontes: [...dossie.fontes.map(({ nome, hash }) => ({ nome, hash })), ...dossie.documentos],
+        funcionarios: cadastros.map(c => ({ empregador: c.empregador, cpf: c.cpf, matriculaEsocial: c.matricula,
+            dados: c.dados, origens: c.origens, pendencias: c.pendencias, desligado: c.desligado })),
+    }, null, 2);
+}
