@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CAMPOS, consolidar, digitos, lerXml, type Cadastro, type Campo } from '../../services/implantacao/implantacao';
 import { csvConferencia, pacoteCadastral, hashArquivo, lerDossie, novoDossie, type Dossie } from '../../services/implantacao/dossie';
+import { baixarModeloCadastro } from '../../services/implantacao/modeloExcel';
 import { downloadFile } from '../../services/folha/apontamentoExporter';
 
 import ExportacaoIobModal, { type ModoExportacao } from '../folha/ExportacaoIobModal';
@@ -146,7 +147,7 @@ export default function ImplantacaoPanel({ usuario, onModo }: { usuario: string;
                 {pdf && <><p className="my-2 text-sm">{pdf.nome}</p><object aria-label="Ficha PDF para conferência" data={pdf.url} type="application/pdf" className="h-[650px] w-full"><a href={pdf.url} target="_blank" rel="noreferrer">Abrir PDF para conferir</a></object></>}
             </div>
         </fieldset>
-        {exportacao && <ExportacaoIobModal modo="cadastro" quantidade={resultado.cadastros.length} onFechar={() => setExportacao(false)} onModo={onModo ? modo => { if (modo !== 'cadastro') { setExportacao(false); onModo(modo); } } : undefined} onExportar={() => downloadFile('implantacao-cadastral-conferencia.json', pacoteCadastral(dossie, resultado.cadastros, avisos), 'application/json')} onConferencia={() => downloadFile('conferencia-implantacao.csv', csvConferencia(resultado.cadastros, avisos), 'text/csv;charset=utf-8')} />}
+        {exportacao && <ExportacaoIobModal onModeloExcel={() => baixarModeloCadastro(dossie, resultado.cadastros, avisos)} modo="cadastro" quantidade={resultado.cadastros.length} onFechar={() => setExportacao(false)} onModo={onModo ? modo => { if (modo !== 'cadastro') { setExportacao(false); onModo(modo); } } : undefined} onExportar={() => downloadFile('implantacao-cadastral-conferencia.json', pacoteCadastral(dossie, resultado.cadastros, avisos), 'application/json')} onConferencia={() => downloadFile('conferencia-implantacao.csv', csvConferencia(resultado.cadastros, avisos), 'text/csv;charset=utf-8')} />}
     </section>;
 }
 
