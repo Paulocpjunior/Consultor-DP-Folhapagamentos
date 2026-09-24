@@ -34,8 +34,11 @@ function campoHoras(n: number): string { return padNum(n, 8, 6); }
 function campoValor(n: number): string { return padNum(n, 12, 2); }
 
 function matricula6(m: string | null | undefined): string {
-    const dig = String(m ?? '').replace(/\D/g, '');
-    return dig.padStart(6, '0').slice(-6);
+    const matricula = String(m ?? '').trim();
+    if (!/^\d{1,6}$/.test(matricula)) {
+        throw new Error(`Matrícula "${matricula}" incompatível com o TXT de 6 dígitos. A exportação foi interrompida para não alterar a identificação do funcionário.`);
+    }
+    return matricula.padStart(6, '0');
 }
 
 function evento4(e: string | null | undefined): string {
