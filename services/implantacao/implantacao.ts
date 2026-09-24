@@ -14,7 +14,7 @@ export const CAMPOS = {
     unidadeSalario: 'Unidade salarial (eSocial)', horasSemanais: 'Horas semanais', jornada: 'Descrição da jornada',
     tipoContrato: 'Tipo de contrato (eSocial)', fimContrato: 'Fim do contrato', sindicato: 'CNPJ do sindicato',
     estabelecimento: 'Inscrição do local de trabalho', regimeTrabalhista: 'Regime trabalhista', regimePrevidenciario: 'Regime previdenciário',
-    matriculaIob: 'Código interno do funcionário na IOB', departamentoIob: 'Departamento IOB',
+    matriculaIob: 'Matrícula para IOB (original do eSocial)', departamentoIob: 'Departamento IOB',
     cargoIob: 'Código do cargo IOB', sindicatoIob: 'Código do sindicato IOB',
 } as const;
 export type Campo = keyof typeof CAMPOS;
@@ -254,15 +254,19 @@ export function consolidar(eventos: Evento[], empregador: string, corte: string,
         }
         for (const manual of complementos.filter(m => m.empregador === raiz && m.cpf === c.cpf && m.matricula === c.matricula)) {
             if (!manual.justificativa.trim() || !manual.fonte.trim()) continue;
+            if (manual.campo === 'matriculaIob') continue;
             c.dados[manual.campo] = manual.valor;
             c.origens[manual.campo] = `Conferência: ${manual.fonte} · ${manual.justificativa}`;
         }
+        // A implantação preserva a identificação do vínculo, inclusive em dossiês antigos.
+        c.dados.matriculaIob = c.matricula;
+        c.origens.matriculaIob = 'Matrícula original do XML eSocial — preservada sem renumeração';
         for (const key of ['nome', 'nascimento', 'admissao', 'cargo', 'cbo', 'salario', 'matriculaIob'] as Campo[]) {
             if (!c.dados[key]) c.pendencias.push(`Preencher/conferir ${CAMPOS[key]}.`);
         }
         for (const key of ['nascimento', 'admissao', 'fimContrato'] as Campo[]) if (c.dados[key] && !dataValida(c.dados[key]!)) c.pendencias.push(`${CAMPOS[key]} inválida.`);
         if (c.dados.salario && !/^\d+(\.\d{1,2})?$/.test(c.dados.salario)) c.pendencias.push('Salário inválido: use decimal com ponto, sem separador de milhares.');
-        if (c.dados.matriculaIob && !/^\d{1,6}$/.test(c.dados.matriculaIob)) c.pendencias.push('Código IOB deve ter de 1 a 6 dígitos; não será truncado.');
+        if (c.dados.matriculaIob && !/^\d{1,6}$/.test(c.dados.matriculaIob)) c.pendencias.push('Matrícula eSocial incompatível com o campo de 6 dígitos do TXT de apontamentos; a matrícula original foi preservada, sem conversão ou truncamento.');
         if (c.desligado) c.pendencias.push('Desligamento identificado: revisar situação na implantação.');
         c.pendencias = [...new Set(c.pendencias)];
     }

@@ -147,3 +147,25 @@ describe('implantação em modo de revisão', () => {
         expect(pacote.lancamentos).toBeUndefined(); expect(pacote.funcionarios[0].eventos).toBeUndefined();
     });
 });
+
+ describe('matrícula original na implantação', () => {
+    it.each(['836292', '000123', '1234567', 'ABC-000123'])('preserva %s no cadastro e nos arquivos de conferência', matricula => {
+        const e = { ...admissao(), matricula };
+        const c = consolidado([e]).cadastros[0];
+        expect(c.dados.matriculaIob).toBe(matricula);
+        const pacote = JSON.parse(pacoteCadastral(novoDossie(), [c], []));
+        expect(pacote.funcionarios[0].matriculaEsocial).toBe(matricula);
+        expect(pacote.funcionarios[0].dados.matriculaIob).toBe(matricula);
+        expect(csvConferencia([c])).toContain('"' + matricula + '"');
+        if (!/^\d{1,6}$/.test(matricula)) expect(c.pendencias.join()).toContain('sem conversão ou truncamento');
+    });
+    it('ignora renumeração de complemento antigo ao reabrir o dossiê', () => {
+        const e = { ...admissao(), matricula: '836292' };
+        const c = consolidar([e], cnpj, '2026-09-01', [{
+            empregador: '11222333', cpf, matricula: '836292', campo: 'matriculaIob',
+            valor: '000001', fonte: 'conferência antiga', justificativa: 'código manual', registradoEm: '2026-09-01',
+        }]).cadastros[0];
+        expect(c.dados.matriculaIob).toBe('836292');
+        expect(c.origens.matriculaIob).toContain('XML eSocial');
+    });
+});
