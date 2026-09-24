@@ -37,3 +37,14 @@ it('modo mensal conserva ação de TXT e não oferece pacote cadastral', () => {
     expect(screen.queryByText('Baixar pacote cadastral (JSON)')).toBeNull();
     fireEvent.click(screen.getByText('Confirmar exportação dos TXTs')); expect(exportar).toHaveBeenCalledOnce();
 });
+it('oferece Excel preenchido apenas na implantação e impede download vazio', () => {
+    const excel = vi.fn();
+    const props = { onFechar: vi.fn(), onExportar: vi.fn(), onModeloExcel: excel };
+    const view = render(<ExportacaoIobModal {...props} modo="cadastro" quantidade={1} />);
+    fireEvent.click(screen.getByText('Baixar Excel preenchido (conferência)'));
+    expect(excel).toHaveBeenCalledOnce();
+    view.rerender(<ExportacaoIobModal {...props} modo="cadastro" quantidade={0} />);
+    expect(screen.getByText('Baixar Excel preenchido (conferência)').hasAttribute('disabled')).toBe(true);
+    view.rerender(<ExportacaoIobModal {...props} modo="apontamentos" quantidade={1} />);
+    expect(screen.queryByText('Baixar Excel preenchido (conferência)')).toBeNull();
+});

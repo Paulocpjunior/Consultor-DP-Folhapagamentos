@@ -1,9 +1,9 @@
 // services/folha/templateApontamentoIobSage.ts
-// Gera um template .xlsx pronto para importação no IOB SAGE FOLHAMATIC.
+// Gera o modelo de entrada do Consultor DP para preparar apontamentos.
 //
 // Uso: o colaborador que recebe o apontamento por e-mail (sem planilha do
-// cliente) baixa este arquivo, preenche linha a linha e importa direto no
-// IOB SAGE — Folha de Pagamento → Importação de Lançamentos.
+// cliente) preenche este arquivo e o importa no Consultor DP. O app gera
+// o TXT de apontamentos; a planilha não é um layout de cadastro SAGE.
 //
 // Layout das colunas (na aba "Lançamentos"):
 //   A. Matrícula           — 6 dígitos, texto. Ex.: 000123
@@ -63,10 +63,9 @@ const EVENTOS_REFERENCIA: EventoExemplo[] = [
 ];
 
 /**
- * Cabeçalhos da aba de lançamentos. A ordem das colunas reflete o layout
- * de importação aceito pelo IOB SAGE FOLHAMATIC.
+ * Cabeçalhos do modelo de entrada aceito pelo parser de apontamentos do app.
  */
-const HEADERS_LANCAMENTOS = [
+export const HEADERS_LANCAMENTOS = [
     'Matrícula',
     'Nome do Funcionário',
     'Código Evento',
@@ -85,7 +84,7 @@ interface GerarTemplateOpts {
 /**
  * Monta o workbook do template e retorna como ArrayBuffer pronto para download.
  */
-export function gerarTemplateApontamentoXlsx(opts: GerarTemplateOpts = {}): ArrayBuffer {
+export function montarTemplateApontamento(opts: GerarTemplateOpts = {}): XLSX.WorkBook {
     const wb = XLSX.utils.book_new();
 
     // ─── Aba 1: Lançamentos ────────────────────────────────────────────────
@@ -141,7 +140,7 @@ export function gerarTemplateApontamentoXlsx(opts: GerarTemplateOpts = {}): Arra
 
     // ─── Aba 2: Instruções ─────────────────────────────────────────────────
     const instrucoes: string[][] = [
-        ['INSTRUÇÕES DE PREENCHIMENTO E IMPORTAÇÃO NO IOB SAGE FOLHAMATIC'],
+        ['MODELO DE APONTAMENTOS — ENTRADA NO CONSULTOR DP'],
         [''],
         ['1. Preencha apenas a aba "Lançamentos".'],
         ['2. Cada linha representa UM lançamento (um evento de um funcionário).'],
@@ -164,17 +163,17 @@ export function gerarTemplateApontamentoXlsx(opts: GerarTemplateOpts = {}): Arra
         ['  000123 | JOÃO DA SILVA | 0080 (HE 50%)   | Tipo R | Referência 10  → 10 horas extras 50%'],
         ['  000123 | JOÃO DA SILVA | 0700 (VT desc.) | Tipo V | Valor 88,50    → R$ 88,50 de vale-transporte'],
         [''],
-        ['COMO IMPORTAR NO IOB SAGE FOLHAMATIC:'],
-        ['1. Abra o IOB SAGE FOLHAMATIC e selecione a empresa e a competência.'],
-        ['2. Acesse: Folha de Pagamento → Movimento → Importação de Lançamentos.'],
-        ['3. Selecione este arquivo .xlsx e confirme.'],
-        ['4. Confira o relatório de inconsistências (matrículas inválidas, eventos inexistentes).'],
-        ['5. Execute o cálculo da folha e revise os totais.'],
+        ['COMO USAR NO CONSULTOR DP:'],
+        ['1. Remova as linhas de exemplo e preencha os apontamentos reais.'],
+        ['2. No Consultor DP, selecione a empresa e a competência e importe este Excel.'],
+        ['3. Confira os funcionários, eventos, referências e valores identificados.'],
+        ['4. Use Exportar para IOB SAGE para baixar os TXTs e importá-los na rotina de apontamentos da SAGE.'],
+        ['5. O TXT mensal contém matrícula, evento, referência e valor. Ele não transporta os dados cadastrais do funcionário.'],
         [''],
         ['DICAS:'],
         ['• Salve sempre como .xlsx (Excel) — não converta para .xls antigo.'],
         ['• Não altere nem remova a linha de cabeçalho (linha 4 da aba Lançamentos).'],
-        ['• Linhas em branco no meio da planilha são ignoradas pelo IOB.'],
+        ['• Linhas em branco no meio da planilha são ignoradas pelo Consultor DP.'],
         ['• Em caso de dúvida sobre o código do evento, peça ao DP a "tabela de eventos do cliente".'],
         [''],
         ['Em caso de erro na importação, verifique:'],
@@ -206,9 +205,11 @@ export function gerarTemplateApontamentoXlsx(opts: GerarTemplateOpts = {}): Arra
     ];
     XLSX.utils.book_append_sheet(wb, wsEv, 'Tabela de Eventos');
 
-    // ─── Serialização ──────────────────────────────────────────────────────
-    const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer;
-    return out;
+    return wb;
+}
+
+export function gerarTemplateApontamentoXlsx(opts: GerarTemplateOpts = {}): ArrayBuffer {
+    return XLSX.write(montarTemplateApontamento(opts), { bookType: 'xlsx', type: 'array' }) as ArrayBuffer;
 }
 
 /**
