@@ -5,8 +5,11 @@
 // online da IOB em 25/09/2026:
 //   ajudaonline.ebs.com.br/sgc/index.html?crhoutimp.htm
 //
-// ATENÇÃO — transcrição feita a partir das telas da ajuda, não de um arquivo
-// entregue pela IOB. Confira contra a ajuda antes de confiar em produção.
+// ATENÇÃO — transcrição feita a partir das telas da AJUDA ONLINE, que pode
+// estar atrás da versão instalada. A fonte que manda é o layout impresso pela
+// própria instalação (Folha de Pagamento > Utilitários > ... > Layout), do
+// mesmo jeito que foi feito com os layouts de ponto. Onde os dois divergirem,
+// vale o impresso.
 //
 // Substitui o layout de 781 posições inventado antes: aquele não existe.
 // A tela de importação tem 5 opções independentes, cada uma com seu arquivo:
@@ -48,7 +51,17 @@ export const HEADER_IOB: CampoLayoutIob[] = [
 export const LAYOUT_FUNCIONARIOS_OBRIGATORIOS: CampoLayoutIob[] = [
     { campo: '001', nome: 'TIPO',            formato: '9(001)',    ini: 1,   fim: 1,   descricao: 'Tipo de Registro: 1 - Detalhe' },
     { campo: '002', nome: 'SEQUENCIA',       formato: '9(006)',    ini: 2,   fim: 7,   descricao: 'Número sequencial do registro' },
-    { campo: '003', nome: 'FUNCIONARIO',     formato: '9(005)',    ini: 8,   fim: 12,  descricao: 'Código do funcionário — SÓ 5 DÍGITOS' },
+    // ⚠ EM ABERTO — largura deste campo. A ajuda online publica 9(005), mas o
+    // layout de PONTO impresso pela instalação da 2XR em 25/09/2026 usa 9(006),
+    // e a decisão do Paulo (25/09) é que o código do funcionário na IOB É a
+    // matrícula do eSocial (ex.: 836292, seis dígitos). Ou seja: a ajuda online
+    // provavelmente está desatualizada.
+    //
+    // Não dá para simplesmente escrever 6 dígitos aqui: se o campo virou
+    // 008-013, TODOS os campos seguintes andam +1 e o registro passa a ter 159
+    // posições, não 158. De onde sai a posição extra, só o layout impresso pela
+    // instalação diz — e é ele que manda, não este arquivo.
+    { campo: '003', nome: 'FUNCIONARIO',     formato: '9(005)',    ini: 8,   fim: 12,  descricao: 'Código do funcionário = matrícula do eSocial. Largura a confirmar (ver nota acima)' },
     { campo: '004', nome: 'NOME',            formato: 'X(040)',    ini: 13,  fim: 52 },
     { campo: '005', nome: 'SEXO',            formato: 'X(001)',    ini: 53,  fim: 53,  descricao: 'M/F' },
     { campo: '006', nome: 'ESTADO CIVIL',    formato: '9(001)',    ini: 54,  fim: 54 },
