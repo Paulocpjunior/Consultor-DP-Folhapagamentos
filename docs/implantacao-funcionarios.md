@@ -29,7 +29,120 @@ Limites: 10 MB por XML, 200 XMLs, 5.000 eventos por XML, 20 MB de texto XML no c
 - **Baixar conferência CSV**: revisão dos campos, origens, avisos e pendências; não é formato de cadastro IOB. Fórmulas em células são neutralizadas.
 - **Cadastro IOB (TXT, Excel e XML)**: gerado no modal *Unificar XML + PDF e gerar cadastro IOB* (seção abaixo). O TXT de 40 posições continua exclusivo dos lançamentos mensais e não cria empregados.
 
+**Qual IOB:** a rotina *Importação de Funcionários/Base de Cálculo* pertence ao **IOB Gestão Contábil**. No **IOB Office Folha de Pagamento** (verificado na instalação da 2XR, release R2026.08.20, em 25/09/2026) o menu Utilitários > Importações traz apenas RAIS, SEFIP, Ponto, Valores e Digitação Diária — nenhuma importa cadastro. Para quem usa o Office, o TXT cadastral não tem destino e o Excel é o roteiro de digitação; os layouts oficiais de importação de ponto estão em `services/folha/layoutCadastroIob.ts` e no exportador de apontamento.
+
 Para concluir a integração é necessário validar o TXT cadastral em base de teste da IOB, comparando a tela "Layout" da rotina Importação de Funcionários/Base de Cálculo com a aba "Layout TXT" do Excel gerado. A leitura dos XMLs e complementos já pode ser avaliada sem esse contrato.
+
+## Carga de cadastro no IOB Office: a rota GDRAIS 2009
+
+Levantamento feito na instalação da 2XR (IOB Office Folha de Pagamento, release
+R2026.08.20) em 25/09/2026, com as telas do sistema.
+
+*Utilitários > Importações* oferece cinco rotinas: RAIS, SEFIP, Ponto, Valores e
+Digitação Diária. Quatro delas são movimento. A **Importação de Dados da RAIS2009
+— (Engenharia Reversa)** é a única que carrega cadastro, e o aviso "Informações
+Iniciais" da própria rotina diz o que ela espera:
+
+> "importar para o Sistema, os dados contidos no arquivo gerado pelo sistema
+> **GDRAIS 2009**, utilizando o método de Engenharia reversa (…) selecionando em
+> seguida um **código de Empresa que ainda não exista no Sistema**."
+
+Duas consequências, e elas definem o caso de uso:
+
+1. **O formato é o arquivo de entrega do GDRAIS 2009** — o declarador do governo,
+   não um layout proprietário da IOB. Está congelado desde 2009: é um alvo
+   parado, diferente do TXT cadastral do Gestão Contábil. A RAIS ter sido
+   extinta pelo eSocial não atrapalha, porque nada é declarado — o arquivo é só
+   o veículo.
+2. **A rotina CRIA uma empresa nova.** Ela não injeta vínculo em empresa
+   existente; exige um código ainda não usado, lista as empresas encontradas no
+   arquivo e monta a base. Por isso ela também não tem como sobrescrever
+   cadastro que já está lá.
+
+Logo:
+
+- **Admissão avulsa em empresa já cadastrada** (o caso que motivou esta
+  investigação): a rota RAIS não serve — criaria a empresa em duplicidade, e o
+  IOB Office não tem transferência de funcionários entre empresas. A ficha se
+  digita, usando o Excel deste módulo como roteiro.
+- **Implantação de cliente novo**: é exatamente onde ela encaixa. Um arquivo no
+  formato GDRAIS 2009 cria a empresa e todos os vínculos de uma vez, que é o
+  problema que este módulo existe para resolver.
+
+### Dois layouts de RAIS, e como saber qual é o certo
+
+Transcrição em `services/implantacao/layoutRais.ts`. Existem dois, e eles não
+são intercambiáveis:
+
+| Layout | Registro | O que é |
+|---|---|---|
+| **GDRAIS Genérico 1976-2022** | **461 posições** | declarador mantido para anos-base anteriores, 2009 incluído — o candidato para a rotina da IOB |
+| Anual ano-base 2022 | 584 posições | guardado como contraponto |
+
+**Como decidir sem adivinhar:** o comprimento da linha denuncia o layout. Num
+arquivo RAIS real, linha de 461 = genérico, 584 = anual. Um `wc -L` em qualquer
+arquivo antigo do escritório responde, e é o teste que falta.
+
+### O que a RAIS carrega, e o que ela não carrega
+
+Transcrição em `services/implantacao/layoutRais.ts`, a partir do layout
+**ano-base 2022** do MTE (⚠ a IOB pede o **2009**; entre um e outro a RAIS
+ganhou campos, então as posições daquele arquivo não servem para gerar — a
+estrutura, sim, é a mesma desde sempre).
+
+O arquivo é texto, todos os registros com 584 posições: TIPO-0 (responsável),
+TIPO-1 (estabelecimento), TIPO-2 (um por vínculo) e TIPO-9 (totais).
+
+Do registro TIPO-2, o módulo já tem fonte para: PIS, nome, nascimento,
+nacionalidade, grau de instrução, CPF, CTPS e série, admissão, tipo de
+admissão, salário contratual, tipo de salário, horas semanais, CBO, vínculo,
+raça/cor, sexo, município do local de trabalho, categoria e **matrícula** —
+este último com 30 posições alfanuméricas, onde a matrícula do eSocial cabe
+inteira, o que resolve o atrito de largura que o TXT cadastral tinha.
+
+As tabelas de código da RAIS são próprias: nacionalidade, grau de instrução,
+raça/cor, tipo de admissão e vínculo não coincidem com as do eSocial, e sexo é
+1/2 na RAIS contra M/F no eSocial. Vale o mesmo cuidado dos de/para em
+`services/folha/layoutCadastroIob.ts`.
+
+**A RAIS não tem** endereço do trabalhador, filiação, estado civil, e-mail,
+telefone, identidade, naturalidade nem registro de dependentes. Mesmo com a
+rota funcionando, esses campos continuam na digitação — a carga resolve a
+identificação e o contrato, não a ficha inteira.
+
+No **genérico** a lista de ausências é maior: ele também não tem nacionalidade,
+grau de instrução, raça/cor nem município do local de trabalho. Sobram PIS,
+nome, nascimento, CPF, CTPS e série, admissão, tipo de admissão, salário, tipo
+de salário, horas semanais, CBO, vínculo, deficiência, sexo, matrícula e
+categoria — o núcleo de identificação e contrato.
+
+### Gerador (`services/implantacao/geradorRais.ts`)
+
+`gerarArquivoRais(funcionarios, opcoes)` monta o arquivo completo — TIPO-0,
+TIPO-1, um TIPO-2 por vínculo ativo e TIPO-9 com os totais — **parametrizado
+pela variante**, porque ainda não se sabe qual a IOB lê. Gere as duas: a de
+comprimento errado é rejeitada, e isso mesmo responde a pergunta.
+
+Decisões que valem registrar:
+
+- **Só cadastro.** Remunerações mês a mês, 13º, afastamentos, horas extras e
+  contribuições saem zerados de propósito. Este módulo nunca exporta valor.
+- **Códigos sem tabela confirmada** (tipo de admissão, vínculo empregatício,
+  tipo de salário, categoria) não são chutados: saem zerados e o resultado
+  traz um aviso nomeando cada um. Quando informados nas opções, entram.
+- **Sexo** é convertido: M/F do eSocial → 1/2 da RAIS, conforme o manual.
+- **Matrícula** vai inteira nas 30 posições alfanuméricas.
+- Funcionário desligado não entra; nome vazio ou CPF inválido viram erro com o
+  nome de quem ficou de fora, em vez de um registro torto.
+
+Na interface, o passo 5 do modal *Unificar XML + PDF* pede os dados da empresa
+que o dossiê não guarda (razão social, endereço, município, UF) e o ano-base,
+guardados no navegador como o layout do TXT.
+
+**Pendente:** confirmar contra um arquivo RAIS real e contra a própria rotina
+da IOB. O gerador está fiel à transcrição do manual, o que não é o mesmo que
+estar certo — chutar posição foi o que produziu o TXT de 781 posições que a
+IOB leu sem importar nada.
 
 ## Validação
 

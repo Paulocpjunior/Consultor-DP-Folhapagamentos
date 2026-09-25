@@ -35,7 +35,7 @@ describe('modal Cadastro IOB', () => {
         fireEvent.click(screen.getByText('Registrar complementos no dossiê'));
         expect(registrar.mock.calls[0][0].map((c: { campo: string }) => c.campo).sort()).toEqual(['mae', 'pis']);
 
-        fireEvent.click(screen.getByText('Baixar TXT de cadastro (Importação de Funcionários)'));
+        fireEvent.click(screen.getByText('Baixar TXT de cadastro (só IOB Gestão Contábil)'));
         const [nomeTxt, bytesTxt] = baixar.mock.calls[0] as [string, Uint8Array];
         expect(nomeTxt).toBe('cadastro-funcionarios-iob-11222333000181.txt');
         const texto = new TextDecoder('latin1').decode(bytesTxt);
@@ -64,8 +64,8 @@ describe('modal Cadastro IOB', () => {
         expect((screen.getByLabelText('Tamanho do campo 2') as HTMLInputElement).value).toBe('30');
         fireEvent.change(screen.getByLabelText('Tamanho do campo 2'), { target: { value: '0' } });
         expect(screen.getByRole('alert').textContent).toContain('tamanho');
-        expect(screen.getByText('Baixar TXT de cadastro (Importação de Funcionários)').hasAttribute('disabled')).toBe(true);
+        expect(screen.getByText('Baixar TXT de cadastro (só IOB Gestão Contábil)').hasAttribute('disabled')).toBe(true);
         fireEvent.click(screen.getByText('Restaurar padrão'));
-        expect(screen.getByText('Baixar TXT de cadastro (Importação de Funcionários)').hasAttribute('disabled')).toBe(false);
+        expect(screen.getByText('Baixar TXT de cadastro (só IOB Gestão Contábil)').hasAttribute('disabled')).toBe(false);
     });
 });
