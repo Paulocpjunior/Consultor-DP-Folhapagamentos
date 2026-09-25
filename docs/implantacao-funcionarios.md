@@ -69,6 +69,20 @@ Logo:
   formato GDRAIS 2009 cria a empresa e todos os vínculos de uma vez, que é o
   problema que este módulo existe para resolver.
 
+### Dois layouts de RAIS, e como saber qual é o certo
+
+Transcrição em `services/implantacao/layoutRais.ts`. Existem dois, e eles não
+são intercambiáveis:
+
+| Layout | Registro | O que é |
+|---|---|---|
+| **GDRAIS Genérico 1976-2022** | **461 posições** | declarador mantido para anos-base anteriores, 2009 incluído — o candidato para a rotina da IOB |
+| Anual ano-base 2022 | 584 posições | guardado como contraponto |
+
+**Como decidir sem adivinhar:** o comprimento da linha denuncia o layout. Num
+arquivo RAIS real, linha de 461 = genérico, 584 = anual. Um `wc -L` em qualquer
+arquivo antigo do escritório responde, e é o teste que falta.
+
 ### O que a RAIS carrega, e o que ela não carrega
 
 Transcrição em `services/implantacao/layoutRais.ts`, a partir do layout
@@ -95,6 +109,12 @@ raça/cor, tipo de admissão e vínculo não coincidem com as do eSocial, e sexo
 telefone, identidade, naturalidade nem registro de dependentes. Mesmo com a
 rota funcionando, esses campos continuam na digitação — a carga resolve a
 identificação e o contrato, não a ficha inteira.
+
+No **genérico** a lista de ausências é maior: ele também não tem nacionalidade,
+grau de instrução, raça/cor nem município do local de trabalho. Sobram PIS,
+nome, nascimento, CPF, CTPS e série, admissão, tipo de admissão, salário, tipo
+de salário, horas semanais, CBO, vínculo, deficiência, sexo, matrícula e
+categoria — o núcleo de identificação e contrato.
 
 **Pendente para implementar:** o layout do arquivo do GDRAIS 2009. Enquanto ele
 não for obtido e conferido contra um arquivo real, nada é gerado — chutar
