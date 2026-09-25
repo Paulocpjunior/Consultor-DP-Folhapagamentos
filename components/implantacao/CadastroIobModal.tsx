@@ -9,12 +9,34 @@ import {
     LAYOUT_PADRAO, ORIGENS, TIPOS_CAMPO, carregarLayoutLocal, codificar, gerarRegistros, lerLayout, nomeArquivoTxtCadastro,
     posicoes, salvarLayoutLocal, serializarLayout, validarLayout, type CampoLayout, type LayoutCadastroIob, type OrigemCampo, type TipoCampo,
 } from '../../services/implantacao/layoutCadastroIob';
+import { gerarArquivoRais, VARIANTES_RAIS, type VarianteRais, type EmpresaRais, type PadroesRais } from '../../services/implantacao/geradorRais';
 import { gerarModeloCadastroIobXlsx, nomeArquivoModeloCadastro } from '../../services/implantacao/modeloCadastroExcel';
 import { baixarBytes, gerarZip } from '../../services/implantacao/zip';
 
 const input = 'w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 p-2 text-sm text-slate-900 dark:text-white';
 const botao = 'rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-40';
 const botaoSec = 'rounded border border-slate-400 px-3 py-2 text-sm disabled:opacity-40';
+
+/** Dados que a RAIS exige e o dossiê não guarda. Ficam no navegador do usuário. */
+interface ConfigRais { empresa: EmpresaRais; anoBase: string; padroes: PadroesRais }
+
+const CHAVE_RAIS = 'consultor-dp:rais:';
+const RAIS_INICIAL = (cnpj: string): ConfigRais => ({
+    empresa: { cnpj, razaoSocial: '' },
+    anoBase: String(new Date().getFullYear() - 1),
+    padroes: { tipoAdmissao: '', vinculoEmpregaticio: '', tipoSalarioContratual: '', categoria: '' },
+});
+function carregarRaisLocal(usuario: string, cnpj: string): ConfigRais {
+    try {
+        const cru = localStorage.getItem(CHAVE_RAIS + usuario);
+        if (!cru) return RAIS_INICIAL(cnpj);
+        const d = JSON.parse(cru) as ConfigRais;
+        return { ...RAIS_INICIAL(cnpj), ...d, empresa: { ...RAIS_INICIAL(cnpj).empresa, ...(d.empresa || {}), cnpj } };
+    } catch { return RAIS_INICIAL(cnpj); }
+}
+function salvarRaisLocal(usuario: string, cfg: ConfigRais): void {
+    try { localStorage.setItem(CHAVE_RAIS + usuario, JSON.stringify(cfg)); } catch { /* sem persistência */ }
+}
 
 interface Props {
     usuario: string; dossie: Dossie; cadastros: Cadastro[]; avisos: string[];
@@ -38,6 +60,9 @@ export default function CadastroIobModal({ usuario, dossie, cadastros, avisos, o
     const [progresso, setProgresso] = useState('');
     const [layout, setLayout] = useState<LayoutCadastroIob>(() => carregarLayoutLocal(usuario) || LAYOUT_PADRAO);
     const [editor, setEditor] = useState(false);
+    // Carga de cadastro pela RAIS: exige dados da empresa que o dossiê não
+    // guarda (razão social, endereço, município), pedidos aqui.
+    const [rais, setRais] = useState<ConfigRais>(() => carregarRaisLocal(usuario, dossie.cnpj));
     const [previa, setPrevia] = useState(false);
     const bloqueado = useRef(false);
     useEffect(() => {
@@ -95,6 +120,18 @@ export default function CadastroIobModal({ usuario, dossie, cadastros, avisos, o
         baixarBytes(`esocial-s2200-${dossie.cnpj.replace(/\D/g, '') || 'empresa'}.zip`, gerarZip(r.arquivos), 'application/zip');
         setErros(r.avisos);
         setMensagem(`${r.arquivos.length} XML(s) S-2200 no ZIP, um por vínculo, com assinatura original. Use na rotina "Importação de Dados por XML" da IOB, se disponível na sua versão.`);
+    }
+    function aplicarRais(novo: ConfigRais) { setRais(novo); salvarRaisLocal(usuario, novo); }
+    function baixarRais(variante: VarianteRais) {
+        const r = gerarArquivoRais(unificacao.funcionarios, {
+            variante, anoBase: rais.anoBase, empresa: { ...rais.empresa, cnpj: dossie.cnpj }, padroes: rais.padroes,
+        });
+        setErros([...r.erros, ...r.avisos]);
+        if (r.erros.length) { setMensagem(''); return; }
+        const cnpj = dossie.cnpj.replace(/\D/g, '') || 'empresa';
+        baixarBytes(`rais-${variante}-${rais.anoBase}-${cnpj}.txt`,
+            codificar(r.conteudo, { ...layout, codificacao: 'ANSI' }), 'text/plain;charset=windows-1252');
+        setMensagem(`RAIS ${VARIANTES_RAIS[variante].rotulo}: ${r.totalVinculos} vinculo(s), ${r.linhas.length} registro(s) de ${r.tamanhoRegistro} posicoes. Leia os avisos antes de importar.`);
     }
     function registrar() {
         onRegistrarComplementos(complementos);
@@ -198,6 +235,69 @@ export default function CadastroIobModal({ usuario, dossie, cadastros, avisos, o
                     <li><strong>XMLs S-2200:</strong> eventos originais, sem alteração, para a rotina "Importação de Dados por XML" (S-2200/S-2300/S-1030) quando disponível na versão da IOB.</li>
                     <li>A matrícula do eSocial é preservada como código do funcionário. Nenhum dado é enviado ao eSocial nem à SAGE por este app.</li>
                 </ul>
+            </section>
+            <section>
+                <h4 className="font-semibold">5. Carga de cadastro pela RAIS (experimental)</h4>
+                <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                    No <strong>IOB Office</strong>, a única rotina que cria cadastro é <em>Utilitários › Importações ›
+                    Importação de Dados da RAIS2009 (Engenharia Reversa)</em>. Ela <strong>cria uma empresa nova</strong> —
+                    exige um código que ainda não exista — então serve para implantar cliente novo, não para incluir
+                    admissão em empresa já cadastrada. Ainda não se sabe qual dos dois layouts ela aceita: gere os dois
+                    e veja qual entra.
+                </p>
+                <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <label className="text-xs">Razão social
+                        <input className={input} value={rais.empresa.razaoSocial}
+                            onChange={e => aplicarRais({ ...rais, empresa: { ...rais.empresa, razaoSocial: e.target.value } })} /></label>
+                    <label className="text-xs">Ano-base
+                        <input className={input} value={rais.anoBase} inputMode="numeric"
+                            onChange={e => aplicarRais({ ...rais, anoBase: e.target.value })} /></label>
+                    <label className="text-xs">Logradouro
+                        <input className={input} value={rais.empresa.logradouro ?? ''}
+                            onChange={e => aplicarRais({ ...rais, empresa: { ...rais.empresa, logradouro: e.target.value } })} /></label>
+                    <label className="text-xs">Número
+                        <input className={input} value={rais.empresa.numero ?? ''}
+                            onChange={e => aplicarRais({ ...rais, empresa: { ...rais.empresa, numero: e.target.value } })} /></label>
+                    <label className="text-xs">Bairro
+                        <input className={input} value={rais.empresa.bairro ?? ''}
+                            onChange={e => aplicarRais({ ...rais, empresa: { ...rais.empresa, bairro: e.target.value } })} /></label>
+                    <label className="text-xs">CEP
+                        <input className={input} value={rais.empresa.cep ?? ''}
+                            onChange={e => aplicarRais({ ...rais, empresa: { ...rais.empresa, cep: e.target.value } })} /></label>
+                    <label className="text-xs">Município (IBGE)
+                        <input className={input} value={rais.empresa.municipio ?? ''}
+                            onChange={e => aplicarRais({ ...rais, empresa: { ...rais.empresa, municipio: e.target.value } })} /></label>
+                    <label className="text-xs">Nome do município
+                        <input className={input} value={rais.empresa.nomeMunicipio ?? ''}
+                            onChange={e => aplicarRais({ ...rais, empresa: { ...rais.empresa, nomeMunicipio: e.target.value } })} /></label>
+                    <label className="text-xs">UF
+                        <input className={input} value={rais.empresa.uf ?? ''} maxLength={2}
+                            onChange={e => aplicarRais({ ...rais, empresa: { ...rais.empresa, uf: e.target.value } })} /></label>
+                </div>
+                <p className="mt-3 text-xs font-semibold text-slate-700 dark:text-slate-200">
+                    Códigos com tabela própria da RAIS — sem eles o campo sai zerado
+                </p>
+                <div className="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <label className="text-xs">Tipo de admissão
+                        <input className={input} value={rais.padroes.tipoAdmissao}
+                            onChange={e => aplicarRais({ ...rais, padroes: { ...rais.padroes, tipoAdmissao: e.target.value } })} /></label>
+                    <label className="text-xs">Vínculo empregatício
+                        <input className={input} value={rais.padroes.vinculoEmpregaticio}
+                            onChange={e => aplicarRais({ ...rais, padroes: { ...rais.padroes, vinculoEmpregaticio: e.target.value } })} /></label>
+                    <label className="text-xs">Tipo de salário
+                        <input className={input} value={rais.padroes.tipoSalarioContratual}
+                            onChange={e => aplicarRais({ ...rais, padroes: { ...rais.padroes, tipoSalarioContratual: e.target.value } })} /></label>
+                    <label className="text-xs">Categoria
+                        <input className={input} value={rais.padroes.categoria}
+                            onChange={e => aplicarRais({ ...rais, padroes: { ...rais.padroes, categoria: e.target.value } })} /></label>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-3">
+                    {(Object.keys(VARIANTES_RAIS) as VarianteRais[]).map(v => (
+                        <button key={v} className={botao} disabled={!total} onClick={() => baixarRais(v)}>
+                            Baixar RAIS — {VARIANTES_RAIS[v].rotulo}
+                        </button>
+                    ))}
+                </div>
             </section>
         </fieldset>
     </dialog>;

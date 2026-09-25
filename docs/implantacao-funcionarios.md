@@ -116,10 +116,33 @@ nome, nascimento, CPF, CTPS e série, admissão, tipo de admissão, salário, ti
 de salário, horas semanais, CBO, vínculo, deficiência, sexo, matrícula e
 categoria — o núcleo de identificação e contrato.
 
-**Pendente para implementar:** o layout do arquivo do GDRAIS 2009. Enquanto ele
-não for obtido e conferido contra um arquivo real, nada é gerado — chutar
-posição foi o que produziu o TXT de 781 posições que a IOB leu sem importar
-nada.
+### Gerador (`services/implantacao/geradorRais.ts`)
+
+`gerarArquivoRais(funcionarios, opcoes)` monta o arquivo completo — TIPO-0,
+TIPO-1, um TIPO-2 por vínculo ativo e TIPO-9 com os totais — **parametrizado
+pela variante**, porque ainda não se sabe qual a IOB lê. Gere as duas: a de
+comprimento errado é rejeitada, e isso mesmo responde a pergunta.
+
+Decisões que valem registrar:
+
+- **Só cadastro.** Remunerações mês a mês, 13º, afastamentos, horas extras e
+  contribuições saem zerados de propósito. Este módulo nunca exporta valor.
+- **Códigos sem tabela confirmada** (tipo de admissão, vínculo empregatício,
+  tipo de salário, categoria) não são chutados: saem zerados e o resultado
+  traz um aviso nomeando cada um. Quando informados nas opções, entram.
+- **Sexo** é convertido: M/F do eSocial → 1/2 da RAIS, conforme o manual.
+- **Matrícula** vai inteira nas 30 posições alfanuméricas.
+- Funcionário desligado não entra; nome vazio ou CPF inválido viram erro com o
+  nome de quem ficou de fora, em vez de um registro torto.
+
+Na interface, o passo 5 do modal *Unificar XML + PDF* pede os dados da empresa
+que o dossiê não guarda (razão social, endereço, município, UF) e o ano-base,
+guardados no navegador como o layout do TXT.
+
+**Pendente:** confirmar contra um arquivo RAIS real e contra a própria rotina
+da IOB. O gerador está fiel à transcrição do manual, o que não é o mesmo que
+estar certo — chutar posição foi o que produziu o TXT de 781 posições que a
+IOB leu sem importar nada.
 
 ## Validação
 
