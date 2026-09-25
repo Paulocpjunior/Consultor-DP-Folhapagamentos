@@ -179,14 +179,22 @@ export default function CadastroIobModal({ usuario, dossie, cadastros, avisos, o
             <section>
                 <h4 className="font-semibold">4. Exportar para a IOB</h4>
                 <div className="mt-2 flex flex-wrap gap-3">
-                    <button className={botao} disabled={!total || !!errosLayout.length} onClick={baixarTxt}>Baixar TXT de cadastro (Importação de Funcionários)</button>
+                    <button className={botao} disabled={!total || !!errosLayout.length} onClick={baixarTxt}>Baixar TXT de cadastro (só IOB Gestão Contábil)</button>
                     <button className={botao} disabled={!total} onClick={baixarExcel}>Baixar Excel de cadastro</button>
                     <button className={botao} disabled={!total} onClick={baixarXmls}>Baixar XMLs S-2200 (ZIP)</button>
                     <button className={botaoSec} onClick={() => baixarBytes('layout-cadastro-iob.json', new TextEncoder().encode(serializarLayout(layout)), 'application/json')}>Baixar layout (JSON)</button>
                 </div>
+                <div className="mt-2 rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200">
+                    <strong>Confira qual IOB você usa antes de contar com o TXT.</strong> A rotina
+                    <em> Importação de Funcionários/Base de Cálculo</em> existe no <strong>IOB Gestão Contábil</strong>.
+                    No <strong>IOB Office Folha de Pagamento</strong> ela não existe: em Utilitários › Importações há só
+                    RAIS, SEFIP, Ponto, Valores e Digitação Diária — nenhuma importa cadastro. Verificado na
+                    instalação da 2XR (release R2026.08.20) em 25/09/2026. Nesse caso a ficha se digita, e o Excel
+                    abaixo é o roteiro.
+                </div>
                 <ul className="mt-3 list-disc space-y-1 pl-5 text-xs text-slate-600 dark:text-slate-300">
-                    <li><strong>TXT:</strong> IOB Gestão Contábil › Folha de Pagamento › Utilitários › Importação de Funcionários/Base de Cálculo. Compare a tela "Layout" da rotina com a aba "Layout TXT" do Excel; ajuste posições no editor se necessário.</li>
-                    <li><strong>Excel:</strong> conferência e preenchimento dos códigos internos da IOB (departamento, cargo, sindicato). Mesmo padrão do modelo de apontamentos, sem valores.</li>
+                    <li><strong>TXT:</strong> IOB Gestão Contábil › Folha de Pagamento › Utilitários › Importação de Funcionários/Base de Cálculo. Compare a tela "Layout" da rotina com a aba "Layout TXT" do Excel; ajuste posições no editor se necessário. Não serve para o IOB Office.</li>
+                    <li><strong>Excel:</strong> conferência, roteiro de digitação da ficha e preenchimento dos códigos internos da IOB (departamento, cargo, sindicato). Mesmo padrão do modelo de apontamentos, sem valores. Ao digitar, escolha estado civil, raça, instrução e nacionalidade <em>pelo nome</em> na tela da IOB: os números da planilha são os do eSocial e as tabelas da IOB são outras.</li>
                     <li><strong>XMLs S-2200:</strong> eventos originais, sem alteração, para a rotina "Importação de Dados por XML" (S-2200/S-2300/S-1030) quando disponível na versão da IOB.</li>
                     <li>A matrícula do eSocial é preservada como código do funcionário. Nenhum dado é enviado ao eSocial nem à SAGE por este app.</li>
                 </ul>

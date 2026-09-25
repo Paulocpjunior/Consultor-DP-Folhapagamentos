@@ -29,6 +29,8 @@ Limites: 10 MB por XML, 200 XMLs, 5.000 eventos por XML, 20 MB de texto XML no c
 - **Baixar conferência CSV**: revisão dos campos, origens, avisos e pendências; não é formato de cadastro IOB. Fórmulas em células são neutralizadas.
 - **Cadastro IOB (TXT, Excel e XML)**: gerado no modal *Unificar XML + PDF e gerar cadastro IOB* (seção abaixo). O TXT de 40 posições continua exclusivo dos lançamentos mensais e não cria empregados.
 
+**Qual IOB:** a rotina *Importação de Funcionários/Base de Cálculo* pertence ao **IOB Gestão Contábil**. No **IOB Office Folha de Pagamento** (verificado na instalação da 2XR, release R2026.08.20, em 25/09/2026) o menu Utilitários > Importações traz apenas RAIS, SEFIP, Ponto, Valores e Digitação Diária — nenhuma importa cadastro. Para quem usa o Office, o TXT cadastral não tem destino e o Excel é o roteiro de digitação; os layouts oficiais de importação de ponto estão em `services/folha/layoutCadastroIob.ts` e no exportador de apontamento.
+
 Para concluir a integração é necessário validar o TXT cadastral em base de teste da IOB, comparando a tela "Layout" da rotina Importação de Funcionários/Base de Cálculo com a aba "Layout TXT" do Excel gerado. A leitura dos XMLs e complementos já pode ser avaliada sem esse contrato.
 
 ## Validação
