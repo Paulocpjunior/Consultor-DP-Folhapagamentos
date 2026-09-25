@@ -16,6 +16,7 @@ export const CAMPOS = {
     estabelecimento: 'Inscrição do local de trabalho', regimeTrabalhista: 'Regime trabalhista', regimePrevidenciario: 'Regime previdenciário',
     matriculaIob: 'Matrícula para IOB (original do eSocial)', departamentoIob: 'Departamento IOB',
     cargoIob: 'Código do cargo IOB', sindicatoIob: 'Código do sindicato IOB',
+    funcao: 'Função', horarioTrabalho: 'Horário de trabalho (ficha)', horarioIntervalo: 'Horário de intervalo (ficha)',
 } as const;
 export type Campo = keyof typeof CAMPOS;
 export type Dados = Partial<Record<Campo, string>>;

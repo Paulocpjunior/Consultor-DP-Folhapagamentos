@@ -27,9 +27,9 @@ Limites: 10 MB por XML, 200 XMLs, 5.000 eventos por XML, 20 MB de texto XML no c
 
 - **Baixar dossiê**: continuar a conferência neste aplicativo.
 - **Baixar conferência CSV**: revisão dos campos, origens, avisos e pendências; não é formato de cadastro IOB. Fórmulas em células são neutralizadas.
-- **Exportação cadastral IOB**: ainda não implementada/homologada. O layout existente no repositório é de lançamentos mensais, com 40 posições. Não deve ser utilizado para criar empregados.
+- **Cadastro IOB (TXT, Excel e XML)**: gerado no modal *Unificar XML + PDF e gerar cadastro IOB* (seção abaixo). O TXT de 40 posições continua exclusivo dos lançamentos mensais e não cria empregados.
 
-Para concluir a integração é necessário obter o layout da rotina cadastral da linha IOB SAGE FOLHAMATIC efetivamente utilizada e validar um arquivo em base de teste. A leitura dos XMLs e complementos já pode ser avaliada sem esse contrato.
+Para concluir a integração é necessário validar o TXT cadastral em base de teste da IOB, comparando a tela "Layout" da rotina Importação de Funcionários/Base de Cálculo com a aba "Layout TXT" do Excel gerado. A leitura dos XMLs e complementos já pode ser avaliada sem esse contrato.
 
 ## Validação
 
@@ -44,3 +44,20 @@ Referência consultada para os caminhos S-2200/S-2205/S-2206: https://www.gov.br
 A área Folha oferece Primeiro acesso — implantação cadastral e Rotina mensal — apontamentos. O componente ExportacaoIobModal é compartilhado pelos dois fluxos. O modo mensal mantém o exportador de 40 posições e suas validações. O modo cadastral gera um pacote de conferência (`importavelIob: false`) com identidades, dados, origens, pendências e hashes, sem lançamentos, referências ou valores de apontamento. Salário contratual continua no cadastro. O pacote não deve ser aberto como dossiê.
 
 PDF: até 30 páginas, limite de 45 segundos, um funcionário por arquivo. Dados pessoais dos exemplos não são versionados. Testes usam dados fictícios e cobrem identidade, colunas do PDF, campos vazios, divergências, confirmação, modal e admissão retificadora provisória. Node.js 22.13+ é necessário para a versão atual do PDF.js; o pipeline usa Node 22.
+
+## Cadastro IOB: unificação automática e exportação (2.4.0)
+
+O botão **Unificar XML + PDF e gerar cadastro IOB** (painel de implantação e modo cadastral do modal de exportação) abre o modal `CadastroIobModal`. Ele recebe, em uma única seleção, os XMLs do eSocial e as fichas PDF "Registro de Empregado", e:
+
+- adiciona os XMLs ao dossiê pelo mesmo fluxo de `lerXml`/`consolidar`;
+- lê cada PDF localmente (`lerFichaPdf`) e o une ao vínculo cuja identidade confere (CNPJ completo, CPF válido e matrícula eSocial, via `conferirIdentidade`). Fichas sem correspondência ficam listadas com o motivo. Uma segunda ficha para o mesmo vínculo é ignorada com aviso;
+- mantém o XML como fonte principal: campos ausentes são preenchidos pela ficha (origem com nome e hash do PDF); divergências XML × PDF são listadas por campo e viram pendência, sem substituição automática;
+- permite registrar os complementos da ficha no dossiê (`complementosDaUnificacao`), com justificativa padrão de identidade conferida;
+- exporta três saídas, todas sem eventos, referências ou valores de apontamento:
+  1. **TXT de cadastro** para *Folha de Pagamento > Utilitários > Importação de Funcionários/Base de Cálculo*. O layout é dado (`services/implantacao/layoutCadastroIob.ts`, `LAYOUT_PADRAO`): ordem, tamanho, tipo (alfanumérico, numérico, data, valor decimal), constantes e preenchimentos em branco são editáveis no modal, salvos por usuário no navegador e exportáveis em JSON. Convenções da documentação IOB: numéricos à direita com zeros, alfanuméricos à esquerda sem acentos, decimais implícitos, ANSI, CRLF. O padrão está marcado como **não homologado** até ser validado em base de teste; a matrícula eSocial é o código do funcionário e nunca é truncada (erro explícito).
+  2. **Excel de cadastro** (`template-cadastro-iob-sage-<CNPJ>.xlsx`), no mesmo espírito do modelo de apontamentos: aba *Funcionários* com uma coluna por campo do layout, *Dependentes* (do XML), *Origem dos campos*, *Pendências*, *Layout TXT* (posições) e *Instruções*. A aba *Layout TXT* pode ser reimportada no editor.
+  3. **XMLs S-2200 (ZIP)**: o evento original é extraído do envelope `retornoEventoCompleto`, com assinatura, um arquivo por vínculo, para a rotina "Importação de Dados por XML" da IOB Gestão Contábil (eventos S-2200/S-2300/S-1030), quando disponível na versão instalada.
+
+Referências consultadas: IOB Gestão Contábil, ajuda on-line das rotinas "Importação de Funcionários/Base de Cálculo" (layouts de funções e dependentes, regras de preenchimento) e "Importação de Dados por XML". O conteúdo integral das páginas de layout não pôde ser reproduzido no ambiente de desenvolvimento; por isso o layout é configurável e a homologação depende do teste na SAGE.
+
+Novos campos cadastrais lidos da ficha: Função, Horário de trabalho e Horário de intervalo. Testes: `services/implantacao/__tests__/unificacaoAutomatica.test.ts`, `layoutCadastroIob.test.ts`, `modeloCadastroExcel.test.ts`, `zip.test.ts` e `cadastroIobModal.test.tsx`, com dados fictícios.
