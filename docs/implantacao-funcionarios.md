@@ -69,6 +69,33 @@ Logo:
   formato GDRAIS 2009 cria a empresa e todos os vínculos de uma vez, que é o
   problema que este módulo existe para resolver.
 
+### O que a RAIS carrega, e o que ela não carrega
+
+Transcrição em `services/implantacao/layoutRais.ts`, a partir do layout
+**ano-base 2022** do MTE (⚠ a IOB pede o **2009**; entre um e outro a RAIS
+ganhou campos, então as posições daquele arquivo não servem para gerar — a
+estrutura, sim, é a mesma desde sempre).
+
+O arquivo é texto, todos os registros com 584 posições: TIPO-0 (responsável),
+TIPO-1 (estabelecimento), TIPO-2 (um por vínculo) e TIPO-9 (totais).
+
+Do registro TIPO-2, o módulo já tem fonte para: PIS, nome, nascimento,
+nacionalidade, grau de instrução, CPF, CTPS e série, admissão, tipo de
+admissão, salário contratual, tipo de salário, horas semanais, CBO, vínculo,
+raça/cor, sexo, município do local de trabalho, categoria e **matrícula** —
+este último com 30 posições alfanuméricas, onde a matrícula do eSocial cabe
+inteira, o que resolve o atrito de largura que o TXT cadastral tinha.
+
+As tabelas de código da RAIS são próprias: nacionalidade, grau de instrução,
+raça/cor, tipo de admissão e vínculo não coincidem com as do eSocial, e sexo é
+1/2 na RAIS contra M/F no eSocial. Vale o mesmo cuidado dos de/para em
+`services/folha/layoutCadastroIob.ts`.
+
+**A RAIS não tem** endereço do trabalhador, filiação, estado civil, e-mail,
+telefone, identidade, naturalidade nem registro de dependentes. Mesmo com a
+rota funcionando, esses campos continuam na digitação — a carga resolve a
+identificação e o contrato, não a ficha inteira.
+
 **Pendente para implementar:** o layout do arquivo do GDRAIS 2009. Enquanto ele
 não for obtido e conferido contra um arquivo real, nada é gerado — chutar
 posição foi o que produziu o TXT de 781 posições que a IOB leu sem importar
