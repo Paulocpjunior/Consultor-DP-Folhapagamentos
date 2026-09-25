@@ -27,6 +27,7 @@ export function extrairFicha(itens: ItemFicha[]): FichaExtraida {
         nome: 'Empregado', pai: 'Pai', mae: 'Mãe', ctps: 'CTPS', serieCtps: 'Série', rg: 'Cédula de Identidade',
         naturalidade: 'Local do nascimento', ufCtps: 'UF CTPS', orgaoRg: 'Órgão/UF emissor', tituloEleitor: 'Título Eleitoral',
         zonaEleitoral: 'Zona', secaoEleitoral: 'Seção', documentoMilitar: 'Doc. militar', cargo: 'Cargo', cbo: 'C.B.O.',
+        funcao: 'Função', horarioTrabalho: 'Horário de Trabalho', horarioIntervalo: 'Horário de Intervalo',
     };
     for (const [campo, label] of Object.entries(campos)) { const v = abaixo(label); if (v) dados[campo as Campo] = v; }
     for (const [campo, label] of Object.entries({ nascimento: 'Data de nascimento', admissao: 'Data de Admissão', emissaoRg: 'Data de emissão', opcaoFgts: 'Opção em', cadastroPis: 'Cadastrado em' })) {

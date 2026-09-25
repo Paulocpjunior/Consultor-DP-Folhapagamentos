@@ -6,6 +6,7 @@ import { downloadFile } from '../../services/folha/apontamentoExporter';
 
 import ExportacaoIobModal, { type ModoExportacao } from '../folha/ExportacaoIobModal';
 import ConferenciaPdf from './ConferenciaPdf';
+import CadastroIobModal from './CadastroIobModal';
 import { lerFichaPdf } from '../../services/implantacao/lerPdf';
 import type { FichaExtraida } from '../../services/implantacao/fichaPdf';
 
@@ -24,6 +25,7 @@ export default function ImplantacaoPanel({ usuario, onModo }: { usuario: string;
     const [fichaPdf, setFichaPdf] = useState<FichaExtraida | null>(null);
     const [progresso, setProgresso] = useState('');
     const [exportacao, setExportacao] = useState(false);
+    const [cadastroIob, setCadastroIob] = useState(false);
     const [busca, setBusca] = useState('');
     const abrirRef = useRef<HTMLInputElement>(null);
     const bloqueado = useRef(false);
@@ -49,7 +51,7 @@ export default function ImplantacaoPanel({ usuario, onModo }: { usuario: string;
     const atual = resultado.cadastros.find(c => c.chave === selecionado);
     const filtrados = resultado.cadastros.filter(c => `${c.dados.nome || ''} ${c.cpf} ${c.matricula}`.toLocaleLowerCase().includes(busca.toLocaleLowerCase()));
 
-    async function importar(files: FileList | null) {
+    async function importar(files: FileList | File[] | null) {
         if (!files || bloqueado.current) return;
         bloqueado.current = true; setOcupado(true); setErros([]);
         const novas = [...dossie.fontes]; const problemas: string[] = [];
@@ -123,9 +125,10 @@ export default function ImplantacaoPanel({ usuario, onModo }: { usuario: string;
                 <button className={button} disabled={!dossie.fontes.length} onClick={() => { downloadFile('dossie-implantacao.json', JSON.stringify(dossie, null, 2), 'application/json'); setAlterado(false); }}>Baixar dossiê{alterado ? ' *' : ''}</button>
                 <button className={button} disabled={!resultado.cadastros.length} onClick={() => downloadFile('conferencia-implantacao.csv', csvConferencia(resultado.cadastros, avisos), 'text/csv;charset=utf-8')}>Baixar conferência CSV</button>
                 <button className={button} disabled={!resultado.cadastros.length} onClick={() => setExportacao(true)}>Exportar para IOB SAGE</button>
+                <button className={button + ' !bg-emerald-700'} onClick={() => setCadastroIob(true)}>Unificar XML + PDF e gerar cadastro IOB</button>
             </div>
             <div className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-                <strong>Exportação cadastral IOB pendente de homologação.</strong> O CSV é para conferência e não deve ser importado como cadastro na IOB. O layout de apontamentos mensais não cadastra funcionários.
+                <strong>Exportação cadastral IOB pendente de homologação em base de teste.</strong> Use <em>Unificar XML + PDF e gerar cadastro IOB</em> para receber os XMLs e as fichas de uma vez e gerar o TXT da rotina Importação de Funcionários (layout ajustável), o Excel de cadastro e os XMLs S-2200. O CSV é só conferência; o TXT de apontamentos mensais não cadastra funcionários.
             </div>
             {!!erros.length && <div role="alert" className="rounded bg-red-50 p-3 text-sm text-red-800">{erros.map((e, i) => <p key={i}>{e}</p>)}</div>}
             {!!avisos.length && <details open className="rounded border border-amber-300 p-3 text-sm"><summary className="font-semibold">{avisos.length} aviso(s) sobre o conjunto de arquivos</summary><ul className="list-disc pl-5">{avisos.map((a, i) => <li key={i}>{a}</li>)}</ul></details>}
@@ -147,7 +150,12 @@ export default function ImplantacaoPanel({ usuario, onModo }: { usuario: string;
                 {pdf && <><p className="my-2 text-sm">{pdf.nome}</p><object aria-label="Ficha PDF para conferência" data={pdf.url} type="application/pdf" className="h-[650px] w-full"><a href={pdf.url} target="_blank" rel="noreferrer">Abrir PDF para conferir</a></object></>}
             </div>
         </fieldset>
-        {exportacao && <ExportacaoIobModal onModeloExcel={() => baixarModeloCadastro(dossie, resultado.cadastros, avisos)} modo="cadastro" quantidade={resultado.cadastros.length} onFechar={() => setExportacao(false)} onModo={onModo ? modo => { if (modo !== 'cadastro') { setExportacao(false); onModo(modo); } } : undefined} onExportar={() => downloadFile('implantacao-cadastral-conferencia.json', pacoteCadastral(dossie, resultado.cadastros, avisos), 'application/json')} onConferencia={() => downloadFile('conferencia-implantacao.csv', csvConferencia(resultado.cadastros, avisos), 'text/csv;charset=utf-8')} />}
+        {cadastroIob && <CadastroIobModal usuario={usuario} dossie={dossie} cadastros={resultado.cadastros} avisos={avisos}
+            onAdicionarXmls={arquivos => importar(arquivos)}
+            onDocumento={doc => { if (!dossie.documentos.some(p => p.hash === doc.hash)) atualizar({ ...dossie, documentos: [...dossie.documentos, doc] }); }}
+            onRegistrarComplementos={novos => { if (novos.length) atualizar({ ...dossie, complementos: [...dossie.complementos, ...novos] }); }}
+            onFechar={() => setCadastroIob(false)} />}
+        {exportacao && <ExportacaoIobModal onCadastroIob={() => { setExportacao(false); setCadastroIob(true); }} onModeloExcel={() => baixarModeloCadastro(dossie, resultado.cadastros, avisos)} modo="cadastro" quantidade={resultado.cadastros.length} onFechar={() => setExportacao(false)} onModo={onModo ? modo => { if (modo !== 'cadastro') { setExportacao(false); onModo(modo); } } : undefined} onExportar={() => downloadFile('implantacao-cadastral-conferencia.json', pacoteCadastral(dossie, resultado.cadastros, avisos), 'application/json')} onConferencia={() => downloadFile('conferencia-implantacao.csv', csvConferencia(resultado.cadastros, avisos), 'text/csv;charset=utf-8')} />}
     </section>;
 }
 
