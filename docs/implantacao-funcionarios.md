@@ -33,6 +33,47 @@ Limites: 10 MB por XML, 200 XMLs, 5.000 eventos por XML, 20 MB de texto XML no c
 
 Para concluir a integração é necessário validar o TXT cadastral em base de teste da IOB, comparando a tela "Layout" da rotina Importação de Funcionários/Base de Cálculo com a aba "Layout TXT" do Excel gerado. A leitura dos XMLs e complementos já pode ser avaliada sem esse contrato.
 
+## Carga de cadastro no IOB Office: a rota GDRAIS 2009
+
+Levantamento feito na instalação da 2XR (IOB Office Folha de Pagamento, release
+R2026.08.20) em 25/09/2026, com as telas do sistema.
+
+*Utilitários > Importações* oferece cinco rotinas: RAIS, SEFIP, Ponto, Valores e
+Digitação Diária. Quatro delas são movimento. A **Importação de Dados da RAIS2009
+— (Engenharia Reversa)** é a única que carrega cadastro, e o aviso "Informações
+Iniciais" da própria rotina diz o que ela espera:
+
+> "importar para o Sistema, os dados contidos no arquivo gerado pelo sistema
+> **GDRAIS 2009**, utilizando o método de Engenharia reversa (…) selecionando em
+> seguida um **código de Empresa que ainda não exista no Sistema**."
+
+Duas consequências, e elas definem o caso de uso:
+
+1. **O formato é o arquivo de entrega do GDRAIS 2009** — o declarador do governo,
+   não um layout proprietário da IOB. Está congelado desde 2009: é um alvo
+   parado, diferente do TXT cadastral do Gestão Contábil. A RAIS ter sido
+   extinta pelo eSocial não atrapalha, porque nada é declarado — o arquivo é só
+   o veículo.
+2. **A rotina CRIA uma empresa nova.** Ela não injeta vínculo em empresa
+   existente; exige um código ainda não usado, lista as empresas encontradas no
+   arquivo e monta a base. Por isso ela também não tem como sobrescrever
+   cadastro que já está lá.
+
+Logo:
+
+- **Admissão avulsa em empresa já cadastrada** (o caso que motivou esta
+  investigação): a rota RAIS não serve — criaria a empresa em duplicidade, e o
+  IOB Office não tem transferência de funcionários entre empresas. A ficha se
+  digita, usando o Excel deste módulo como roteiro.
+- **Implantação de cliente novo**: é exatamente onde ela encaixa. Um arquivo no
+  formato GDRAIS 2009 cria a empresa e todos os vínculos de uma vez, que é o
+  problema que este módulo existe para resolver.
+
+**Pendente para implementar:** o layout do arquivo do GDRAIS 2009. Enquanto ele
+não for obtido e conferido contra um arquivo real, nada é gerado — chutar
+posição foi o que produziu o TXT de 781 posições que a IOB leu sem importar
+nada.
+
 ## Validação
 
 `npm test` cobre o comportamento existente e o novo parser/consolidador, além de importação, complementação e navegação da interface. A amostra real fornecida foi verificada localmente, sem incluí-la no repositório. Os testes versionados usam dados fictícios.
