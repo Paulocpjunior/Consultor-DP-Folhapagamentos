@@ -78,3 +78,49 @@ describe('layout IOB — Ponto padrão Windows 3 (40 bytes)', () => {
         expect(v.slice(10, 24)).toBe('00000000000000');
     });
 });
+
+/**
+ * Windows - 4 (50 bytes): os mesmos 40 do Windows-3, mais
+ *   041-044  Alfanumérico  004  Código da Empresa
+ *   045-050  Alfanumérico  006  Competência do cartão ponto (MMAAAA)
+ */
+describe('layout IOB — Ponto padrão Windows 4 (50 bytes)', () => {
+    const w4 = (l: Lancamento, comp = '102026', emp = '1405') =>
+        exportarTXT([l], { layout: 'windows4', codigoEmpresa: emp, competencia: comp }).split('\r\n')[0];
+
+    it('o registro tem exatamente 50 caracteres', () => {
+        expect(w4(lanc({ valor: 50.54 }))).toHaveLength(50);
+    });
+
+    it('as 40 primeiras posições são idênticas ao Windows-3', () => {
+        const l = lanc({ rv: 'R', valor: 60.123456 });
+        expect(w4(l).slice(0, 40)).toBe(linha(l));
+    });
+
+    it('posições 041-044 = código da empresa', () => {
+        expect(w4(lanc({}), '102026', '1405').slice(40, 44)).toBe('1405');
+        // código numérico curto entra zero-preenchido, como o 0606 da Betinho
+        expect(w4(lanc({}), '102026', '606').slice(40, 44)).toBe('0606');
+    });
+
+    it('posições 045-050 = competência em MMAAAA', () => {
+        expect(w4(lanc({}), '102026').slice(44, 50)).toBe('102026');
+        expect(w4(lanc({}), '10/2026').slice(44, 50)).toBe('102026');
+    });
+
+    it('recusa exportar sem código de empresa — importaria na empresa errada', () => {
+        expect(() => exportarTXT([lanc({})], { layout: 'windows4', competencia: '102026' }))
+            .toThrow(/código da empresa/i);
+        expect(() => exportarTXT([lanc({})], { layout: 'windows4', codigoEmpresa: '0000', competencia: '102026' }))
+            .toThrow(/código da empresa/i);
+    });
+
+    it('recusa exportar sem competência válida', () => {
+        expect(() => exportarTXT([lanc({})], { layout: 'windows4', codigoEmpresa: '1405', competencia: '' }))
+            .toThrow(/compet/i);
+    });
+
+    it('sem opções, continua gerando o Windows-3 (comportamento histórico)', () => {
+        expect(exportarTXT([lanc({})]).split('\r\n')[0]).toHaveLength(40);
+    });
+});

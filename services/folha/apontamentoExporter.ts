@@ -46,7 +46,80 @@ function evento4(e: string | null | undefined): string {
     return dig.padStart(4, '0').slice(0, 4);
 }
 
-export function exportarTXT(lancamentos: Lancamento[]): string {
+/**
+ * Layouts oficiais de importação de ponto do IOB SAGE FOLHAMATIC
+ * (documento fornecido pela IOB em 25/09/2026):
+ *
+ *   windows3 — 40 bytes. É o histórico do app e segue sendo o padrão.
+ *       001-006 código do funcionário · 007-010 evento
+ *       011-024 referência (6 decimais) · 025-026 brancos
+ *       027-040 valor (2 decimais)
+ *
+ *   windows4 — 50 bytes. Os mesmos 40, MAIS:
+ *       041-044 código da empresa · 045-050 competência (MMAAAA)
+ *     Com esses dois campos a empresa e o mês viajam DENTRO do arquivo, e não
+ *     só no nome dele — some o risco de importar na empresa ou no mês errado.
+ *
+ * O layout "Ponto padrão DOS" (29 bytes) não é suportado de propósito: ele tem
+ * matrícula de 4 dígitos e evento de 3, e as matrículas reais destes clientes
+ * têm 6 dígitos (ex.: 836292). Gerá-lo truncaria a identificação do funcionário.
+ */
+export type LayoutPontoIob = 'windows3' | 'windows4';
+
+export const LAYOUT_PONTO_LABELS: Record<LayoutPontoIob, string> = {
+    windows3: 'Ponto padrão Windows - 3 (40 posições)',
+    windows4: 'Ponto padrão Windows - 4 (50 posições, com empresa e competência)',
+};
+
+/** Código da empresa (041-044): zero-preenchido quando numérico, como o `0606`. */
+function codigoEmpresa4(codigo: string | null | undefined): string {
+    const t = String(codigo ?? '').trim();
+    if (/^\d+$/.test(t)) return t.padStart(4, '0').slice(-4);
+    return t.padEnd(4, ' ').slice(0, 4);
+}
+
+/** Competência (045-050) no formato MMAAAA exigido pelo layout. */
+function competencia6(competencia: string | null | undefined): string {
+    const dig = String(competencia ?? '').replace(/\D/g, '');
+    return dig.padStart(6, '0').slice(-6);
+}
+
+export interface OpcoesExportacaoTXT {
+    /** Padrão: 'windows3' (comportamento histórico). */
+    layout?: LayoutPontoIob;
+    /** Obrigatório no windows4 — código da empresa no IOB (campo 041-044). */
+    codigoEmpresa?: string | null;
+    /** Obrigatório no windows4 — competência MMAAAA (campo 045-050). */
+    competencia?: string | null;
+}
+
+export function exportarTXT(
+    lancamentos: Lancamento[],
+    opcoes: OpcoesExportacaoTXT = {},
+): string {
+    const layout = opcoes.layout ?? 'windows3';
+
+    // No windows4 os dois campos extras são o motivo de existir do layout.
+    // Gerar o arquivo sem eles entregaria 50 posições com lixo no fim, e a
+    // importação cairia na empresa/competência erradas — falha silenciosa.
+    let sufixo = '';
+    if (layout === 'windows4') {
+        const emp = codigoEmpresa4(opcoes.codigoEmpresa);
+        const comp = competencia6(opcoes.competencia);
+        if (!emp.trim() || emp === '0000') {
+            throw new Error(
+                'Layout Windows-4: código da empresa no IOB não informado. ' +
+                'Preencha o código SAGE da empresa (aba Empresas) ou exporte no layout Windows-3.',
+            );
+        }
+        if (comp === '000000') {
+            throw new Error(
+                'Layout Windows-4: competência inválida. Informe a competência no formato MM/AAAA.',
+            );
+        }
+        sufixo = emp + comp;
+    }
+
     return (
         lancamentos
             .map((l) => {
@@ -63,7 +136,7 @@ export function exportarTXT(lancamentos: Lancamento[]): string {
                     ? campoHoras(refOrig as number)
                     : (l.rv === 'R' ? campoHoras(valNum) : campoHoras(0));
                 const valor = l.rv === 'V' ? campoValor(valNum) : campoValor(0);
-                return matr + ev + horas + '  ' + valor;
+                return matr + ev + horas + '  ' + valor + sufixo;
             })
             .join('\r\n') + '\r\n'
     );

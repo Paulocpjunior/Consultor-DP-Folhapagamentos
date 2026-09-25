@@ -104,7 +104,7 @@ import {
     calcularSelecaoInicial,
     type PerfilColunas,
 } from '../../services/folha/folhaPerfilColunasService';
-import { exportarTXT, nomeArquivoTXT, downloadFile, type FolhaFlag, FLAG_LABELS } from '../../services/folha/apontamentoExporter';
+import { exportarTXT, nomeArquivoTXT, downloadFile, type FolhaFlag, FLAG_LABELS, type LayoutPontoIob, LAYOUT_PONTO_LABELS } from '../../services/folha/apontamentoExporter';
 import { listarTodasEmpresas } from '../../services/empresas/empresasService';
 import WizardMapeamentoMapas from './WizardMapeamentoMapas';
 import { acharEmpresaPorNome } from '../../services/empresas/matchEmpresa';
@@ -154,6 +154,11 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
     const [erro, setErro] = useState<string | null>(null);
     const [msg, setMsg] = useState<string>('');
     const [flag, setFlag] = useState<FolhaFlag>(tipoParaFlag(sessao.tipo));
+    // Layout do TXT de apontamento. Windows-3 (40) segue padrão por ser o que
+    // já roda em produção; Windows-4 (50) leva empresa e competência dentro do
+    // arquivo. A escolha tem que bater com a que o usuário marca na tela de
+    // importação da IOB.
+    const [layoutPonto, setLayoutPonto] = useState<LayoutPontoIob>('windows3');
     const [empresasCadastradas, setEmpresasCadastradas] = useState<Empresa[]>([]);
 
     // Seleção de colunas (por aba do parser)
@@ -798,7 +803,11 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                     continue;
                 }
                 const lancsAjustados = lancs.map((l) => ({ ...l, codigoSage: empresaCad!.codigoSage }));
-                const txt = exportarTXT(lancsAjustados);
+                const txt = exportarTXT(lancsAjustados, {
+                    layout: layoutPonto,
+                    codigoEmpresa: empresaCad.codigoSage,
+                    competencia: compMMAAAA,
+                });
                 const nomeArq = nomeArquivoTXT(empresaCad.nomeFantasia, flag, compMMAAAA);
                 downloadFile(nomeArq, txt, 'text/plain;charset=utf-8');
                 arquivosGerados.push(nomeArq);
@@ -1293,6 +1302,19 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                         >
                             ▶ Exportar TXTs por empresa
                         </button>
+                        <label className="text-sm text-slate-700 dark:text-slate-300">
+                            Layout:{' '}
+                            <select
+                                value={layoutPonto}
+                                onChange={(e) => setLayoutPonto(e.target.value as LayoutPontoIob)}
+                                title="Precisa ser o mesmo layout selecionado na tela de importação da IOB."
+                                className="ml-1 px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded"
+                            >
+                                {(Object.keys(LAYOUT_PONTO_LABELS) as LayoutPontoIob[]).map((k) => (
+                                    <option key={k} value={k}>{LAYOUT_PONTO_LABELS[k]}</option>
+                                ))}
+                            </select>
+                        </label>
                         <span className="text-xs text-slate-500 dark:text-slate-400">
                             Apenas as colunas marcadas serão incluídas. Funcionários sem matrícula bloqueiam a exportação.
                         </span>
