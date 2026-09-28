@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import * as XLSX from 'xlsx';
-import { gerarModeloCadastroIobXlsx, HEADERS_FIXOS_CADASTRO, nomeArquivoModeloCadastro } from '../modeloCadastroExcel';
+import { gerarModeloCadastroIobXlsx, HEADERS_COMPLETAR_RAIS, HEADERS_FIXOS_CADASTRO, nomeArquivoModeloCadastro } from '../modeloCadastroExcel';
 import { LAYOUT_PADRAO } from '../layoutCadastroIob';
 import { HEADERS_LANCAMENTOS } from '../../folha/templateApontamentoIobSage';
 import type { FuncionarioUnificado } from '../unificacao';
@@ -17,7 +17,15 @@ const f: FuncionarioUnificado = {
 
 it('gera modelo cadastral com colunas do layout, sem colunas de apontamento e com células de texto', () => {
     const wb = XLSX.read(gerarModeloCadastroIobXlsx('11222333000181', '2026-09-30', [f], LAYOUT_PADRAO, ['Aviso geral'], [{ nome: 'x.pdf', motivo: 'CPF não localizado' }]), { type: 'array' });
-    expect(wb.SheetNames).toEqual(['Funcionários', 'Dependentes', 'Origem dos campos', 'Pendências', 'Layout TXT', 'Instruções']);
+    expect(wb.SheetNames).toEqual(['Funcionários', 'Completar após RAIS', 'Dependentes', 'Origem dos campos', 'Pendências', 'Layout TXT', 'Instruções']);
+    const pos = XLSX.utils.sheet_to_json<string[]>(wb.Sheets['Completar após RAIS'], { header: 1, defval: '' });
+    expect(pos[3]).toEqual(HEADERS_COMPLETAR_RAIS);
+    expect(pos[4][0]).toBe('1');                       // código que a rotina RAIS vai atribuir
+    expect(pos[4][1]).toBe('000123');                  // matrícula eSocial
+    expect(pos[4][pos[3].indexOf('Dados › Mãe')]).toBe('MAE TESTE');
+    expect(pos[4][pos[3].indexOf('Dados › CEP')]).toBe('01234567');
+    expect(pos[4][pos[3].indexOf('Dados › Nº dep.')]).toBe('1');
+    expect(pos[4][pos[3].indexOf('Dados › Cargo / C.B.O.')]).toBe('AUXILIAR');
     const rows = XLSX.utils.sheet_to_json<string[]>(wb.Sheets['Funcionários'], { header: 1, defval: '' });
     expect(rows[3].slice(0, 3)).toEqual(HEADERS_FIXOS_CADASTRO);
     expect(rows[3]).toContain('Nome da mãe');
