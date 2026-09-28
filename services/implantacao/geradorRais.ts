@@ -22,7 +22,10 @@
 //     10, instrução com 2 dígitos igual ao eSocial (07), raça 8 = parda;
 //   - município do local de trabalho sai zerado, ano de chegada zerado;
 //   - o responsável no TIPO-0 é o ESCRITÓRIO (razão social, CPF e nome do
-//     contador), não a empresa declarada.
+//     contador), não a empresa declarada;
+//   - o "Prefixo do estabelecimento" (021-022) sai "00" em TODOS os registros.
+//     O manual diz alfanumérico, a IOB grava zeros — e gerar com espaços fez a
+//     rotina de importação não listar a empresa (teste de 28/09/2026).
 //
 // ESCOPO: carga CADASTRAL. Todos os campos de movimento (remunerações mês a
 // mês, 13º, afastamentos, horas extras, contribuições) saem zerados de
@@ -193,7 +196,7 @@ function tipo0(seq: number, o: OpcoesRais, tam: number): string {
     const mm = String(geracao.getMonth() + 1).padStart(2, '0');
     r.por(1, 6, num(seq, 6));
     r.por(7, 20, num(o.empresa.cnpj, 14));   // 1º estabelecimento do arquivo
-    r.por(21, 22, alfa('', 2));
+    r.por(21, 22, '00');                     // prefixo: a IOB grava 00, não espaços
     r.por(23, 23, '0');
     r.por(24, 24, '1');                       // constante
     r.por(25, 38, num(e.cnpj, 14));           // responsável (escritório ou a empresa)
@@ -227,7 +230,7 @@ function tipo1(seq: number, o: OpcoesRais, tam: number): string {
     const e = o.empresa;
     r.por(1, 6, num(seq, 6));
     r.por(7, 20, num(e.cnpj, 14));
-    r.por(21, 22, alfa('', 2));
+    r.por(21, 22, '00');                     // prefixo: a IOB grava 00, não espaços
     r.por(23, 23, '1');
     r.por(24, 75, alfa(e.razaoSocial, 52));
     r.por(76, 115, alfa(e.logradouro, 40));
@@ -276,7 +279,8 @@ function tipo1(seq: number, o: OpcoesRais, tam: number): string {
     r.por(436, 436, '1');                     // esteve em atividade
     r.por(437, 437, '2');                     // não centraliza contribuição
     r.zeros(438, 451);                        // estabelecimento centralizador
-    r.zeros(452, 454);                        // indicadores + controle de ponto
+    r.por(452, 452, '2');                     // indicador (a IOB grava 2)
+    r.zeros(453, 454);                        // tipo de controle de ponto
     r.por(455, 539, alfa('', 85));
     r.por(540, 584, alfa('', 45));
     return r.toString();
@@ -293,7 +297,7 @@ function tipo2(seq: number, f: FuncionarioUnificado, o: OpcoesRais, p: PadroesRa
 
     r.por(1, 6, num(seq, 6));
     r.por(7, 20, num(d.estabelecimento || o.empresa.cnpj, 14));
-    r.por(21, 22, alfa('', 2));
+    r.por(21, 22, '00');                     // prefixo: a IOB grava 00, não espaços
     r.por(23, 23, '2');
     r.por(24, 34, num(d.pis, 11));
     r.por(35, 86, alfa(d.nome, 52));
@@ -369,7 +373,7 @@ function tipo9(seq: number, o: OpcoesRais, estab: number, vinc: number, tam: num
     const r = new Registro(tam);
     r.por(1, 6, num(seq, 6));
     r.por(7, 20, num(o.empresa.cnpj, 14));
-    r.por(21, 22, alfa('', 2));
+    r.por(21, 22, '00');                     // prefixo: a IOB grava 00, não espaços
     r.por(23, 23, '9');
     r.por(24, 29, num(estab, 6));
     r.por(30, 35, num(vinc, 6));

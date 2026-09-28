@@ -49,6 +49,10 @@ describe.each<[VarianteRais, number]>([['generico', 461], ['anual2022', 584]])(
             expect(tipos).toEqual(['0', '1', '2', '9']);
         });
 
+        it('prefixo do estabelecimento (021-022) sai "00" em todo registro, como a IOB grava', () => {
+            for (const l of gerar(variante).linhas) expect(l.slice(20, 22)).toBe('00');
+        });
+
         it('o sequencial é ascendente e começa em 1', () => {
             const seqs = gerar(variante).linhas.map(l => l.slice(0, 6));
             expect(seqs).toEqual(['000001', '000002', '000003', '000004']);
