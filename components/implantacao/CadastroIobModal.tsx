@@ -25,7 +25,8 @@ const RAIS_INICIAL = (cnpj: string): ConfigRais => ({
     empresa: { cnpj, razaoSocial: '' },
     // Escritório responsável pela declaração: é o que a IOB grava no TIPO-0.
     responsavel: { cnpj: '', razaoSocial: '', nome: '', cpf: '' },
-    anoBase: String(new Date().getFullYear() - 1),
+    // A rotina da IOB chama-se "RAIS2009": o ano-base padrão é 2009, não o ano corrente.
+    anoBase: '2009',
     padroes: { tipoAdmissao: '', vinculoEmpregaticio: '', tipoSalarioContratual: '', categoria: '' },
 });
 function carregarRaisLocal(usuario: string, cnpj: string): ConfigRais {
