@@ -155,10 +155,27 @@ Na interface, o passo 5 do modal *Unificar XML + PDF* pede os dados da empresa
 que o dossiê não guarda (razão social, endereço, município, UF) e o ano-base,
 guardados no navegador como o layout do TXT.
 
-**Pendente:** o teste na própria rotina de importação, com um código de
-empresa novo. Contra o arquivo real da IOB o gerador já foi conferido posição a
-posição; o que falta é a IOB dizer se a engenharia reversa dela lê o mesmo que
-ela escreve.
+### Homologado em 28/09/2026
+
+Com o prefixo `00` (posições 021-022, o que a IOB grava e o manual não diz), a
+rotina *Importação de Dados da RAIS2009* leu o arquivo de **584 posições**,
+listou a 2XR em "Empresas a serem Importadas", criou a empresa no código
+informado e gravou o vínculo. O que chegou na ficha do funcionário: nome,
+nascimento, sexo, grau de instrução, salário, tipo mensalista, horas (44/sem →
+220/mês, convertido pela IOB), nacionalidade e status eSocial S-2200.
+
+Duas ressalvas vistas na primeira importação:
+
+1. **Endereço, filiação, estado civil, e-mail, cargo/CBO ficaram vazios.** Os
+   quatro primeiros a RAIS não transporta — é estrutural, completa-se na ficha.
+   O CBO estava no arquivo (posições 149-154) e não virou Cargo: a IOB
+   provavelmente exige o código de cargo da tabela dela, não o CBO.
+2. **O código do funcionário saiu sequencial (`000001`), não a matrícula do
+   eSocial (`836292`).** A matrícula estava nas posições 544-573, zero-preenchida
+   como a IOB grava, e o campo "Matrícula" da ficha também ficou vazio — a
+   rotina parece não ler essa posição. Em aberto: testar a matrícula
+   alfanumérica à esquerda (como o manual descreve), ou mapear no app o código
+   que a IOB atribui (sequencial na ordem do arquivo) para o apontamento.
 
 ## Validação
 
