@@ -79,9 +79,23 @@ são intercambiáveis:
 | **GDRAIS Genérico 1976-2022** | **461 posições** | declarador mantido para anos-base anteriores, 2009 incluído — o candidato para a rotina da IOB |
 | Anual ano-base 2022 | 584 posições | guardado como contraponto |
 
-**Como decidir sem adivinhar:** o comprimento da linha denuncia o layout. Num
-arquivo RAIS real, linha de 461 = genérico, 584 = anual. Um `wc -L` em qualquer
-arquivo antigo do escritório responde, e é o teste que falta.
+**Decidido em 28/09/2026 com um arquivo real:** a IOB Office da SP Assessoria
+gerou a RAIS ano-base 2021 (152 vínculos) e o arquivo tem **584 posições**,
+CRLF, TIPO-0/1/2/9, decodificando campo a campo no layout anual. É o que a
+IOB escreve — e portanto o candidato natural para o que a rotina de importação
+lê. O genérico de 461 fica como alternativa se a rotina recusar o anual.
+
+O arquivo real também respondeu o que faltava (e o gerador espelha tudo):
+
+| O que | Como a IOB grava |
+|---|---|
+| Matrícula (30 posições) | **numérica, zero-preenchida** (`…0001`) — não alfanumérica à esquerda |
+| CLT mensalista urbano | tipo de admissão `01`, tipo de salário `1`, vínculo `10` |
+| Categoria | a do eSocial, direto (`101`) |
+| Nacionalidade / instrução | `10` (brasileiro) / dois dígitos iguais ao eSocial (`07`) |
+| Raça/cor | tabela da RAIS: parda = `8` (no eSocial é `3`) |
+| Município do local de trabalho | zerado |
+| Responsável (TIPO-0) | o **escritório**: razão social, e-mail, nome e CPF do contador |
 
 ### O que a RAIS carrega, e o que ela não carrega
 
@@ -127,9 +141,11 @@ Decisões que valem registrar:
 
 - **Só cadastro.** Remunerações mês a mês, 13º, afastamentos, horas extras e
   contribuições saem zerados de propósito. Este módulo nunca exporta valor.
-- **Códigos sem tabela confirmada** (tipo de admissão, vínculo empregatício,
-  tipo de salário, categoria) não são chutados: saem zerados e o resultado
-  traz um aviso nomeando cada um. Quando informados nas opções, entram.
+- **Códigos com tabela própria da RAIS** (tipo de admissão, vínculo
+  empregatício, tipo de salário) saem no padrão de CLT mensalista urbano — os
+  valores lidos no arquivo real — com aviso de que o padrão foi usado. Horista,
+  rural, temporário ou aprendiz precisam informar outro código nas opções.
+  Categoria vem do eSocial do próprio vínculo.
 - **Sexo** é convertido: M/F do eSocial → 1/2 da RAIS, conforme o manual.
 - **Matrícula** vai inteira nas 30 posições alfanuméricas.
 - Funcionário desligado não entra; nome vazio ou CPF inválido viram erro com o
@@ -139,10 +155,10 @@ Na interface, o passo 5 do modal *Unificar XML + PDF* pede os dados da empresa
 que o dossiê não guarda (razão social, endereço, município, UF) e o ano-base,
 guardados no navegador como o layout do TXT.
 
-**Pendente:** confirmar contra um arquivo RAIS real e contra a própria rotina
-da IOB. O gerador está fiel à transcrição do manual, o que não é o mesmo que
-estar certo — chutar posição foi o que produziu o TXT de 781 posições que a
-IOB leu sem importar nada.
+**Pendente:** o teste na própria rotina de importação, com um código de
+empresa novo. Contra o arquivo real da IOB o gerador já foi conferido posição a
+posição; o que falta é a IOB dizer se a engenharia reversa dela lê o mesmo que
+ela escreve.
 
 ## Validação
 

@@ -9,7 +9,7 @@ import {
     LAYOUT_PADRAO, ORIGENS, TIPOS_CAMPO, carregarLayoutLocal, codificar, gerarRegistros, lerLayout, nomeArquivoTxtCadastro,
     posicoes, salvarLayoutLocal, serializarLayout, validarLayout, type CampoLayout, type LayoutCadastroIob, type OrigemCampo, type TipoCampo,
 } from '../../services/implantacao/layoutCadastroIob';
-import { gerarArquivoRais, VARIANTES_RAIS, type VarianteRais, type EmpresaRais, type PadroesRais } from '../../services/implantacao/geradorRais';
+import { gerarArquivoRais, VARIANTES_RAIS, type VarianteRais, type EmpresaRais, type PadroesRais, type ResponsavelRais } from '../../services/implantacao/geradorRais';
 import { gerarModeloCadastroIobXlsx, nomeArquivoModeloCadastro } from '../../services/implantacao/modeloCadastroExcel';
 import { baixarBytes, gerarZip } from '../../services/implantacao/zip';
 
@@ -18,11 +18,13 @@ const botao = 'rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white disa
 const botaoSec = 'rounded border border-slate-400 px-3 py-2 text-sm disabled:opacity-40';
 
 /** Dados que a RAIS exige e o dossiê não guarda. Ficam no navegador do usuário. */
-interface ConfigRais { empresa: EmpresaRais; anoBase: string; padroes: PadroesRais }
+interface ConfigRais { empresa: EmpresaRais; anoBase: string; padroes: PadroesRais; responsavel: ResponsavelRais }
 
 const CHAVE_RAIS = 'consultor-dp:rais:';
 const RAIS_INICIAL = (cnpj: string): ConfigRais => ({
     empresa: { cnpj, razaoSocial: '' },
+    // Escritório responsável pela declaração: é o que a IOB grava no TIPO-0.
+    responsavel: { cnpj: '', razaoSocial: '', nome: '', cpf: '' },
     anoBase: String(new Date().getFullYear() - 1),
     padroes: { tipoAdmissao: '', vinculoEmpregaticio: '', tipoSalarioContratual: '', categoria: '' },
 });
@@ -31,7 +33,8 @@ function carregarRaisLocal(usuario: string, cnpj: string): ConfigRais {
         const cru = localStorage.getItem(CHAVE_RAIS + usuario);
         if (!cru) return RAIS_INICIAL(cnpj);
         const d = JSON.parse(cru) as ConfigRais;
-        return { ...RAIS_INICIAL(cnpj), ...d, empresa: { ...RAIS_INICIAL(cnpj).empresa, ...(d.empresa || {}), cnpj } };
+        const base = RAIS_INICIAL(cnpj);
+        return { ...base, ...d, empresa: { ...base.empresa, ...(d.empresa || {}), cnpj }, responsavel: { ...base.responsavel, ...(d.responsavel || {}) } };
     } catch { return RAIS_INICIAL(cnpj); }
 }
 function salvarRaisLocal(usuario: string, cfg: ConfigRais): void {
@@ -123,8 +126,10 @@ export default function CadastroIobModal({ usuario, dossie, cadastros, avisos, o
     }
     function aplicarRais(novo: ConfigRais) { setRais(novo); salvarRaisLocal(usuario, novo); }
     function baixarRais(variante: VarianteRais) {
+        const temResp = rais.responsavel.cnpj.replace(/\D/g, '').length === 14 && rais.responsavel.razaoSocial.trim();
         const r = gerarArquivoRais(unificacao.funcionarios, {
             variante, anoBase: rais.anoBase, empresa: { ...rais.empresa, cnpj: dossie.cnpj }, padroes: rais.padroes,
+            responsavel: temResp ? rais.responsavel : undefined,
         });
         setErros([...r.erros, ...r.avisos]);
         if (r.erros.length) { setMensagem(''); return; }
@@ -242,8 +247,8 @@ export default function CadastroIobModal({ usuario, dossie, cadastros, avisos, o
                     No <strong>IOB Office</strong>, a única rotina que cria cadastro é <em>Utilitários › Importações ›
                     Importação de Dados da RAIS2009 (Engenharia Reversa)</em>. Ela <strong>cria uma empresa nova</strong> —
                     exige um código que ainda não exista — então serve para implantar cliente novo, não para incluir
-                    admissão em empresa já cadastrada. Ainda não se sabe qual dos dois layouts ela aceita: gere os dois
-                    e veja qual entra.
+                    admissão em empresa já cadastrada. O layout de 584 posições é o que a própria IOB Office gera
+                    (conferido contra arquivo real); comece por ele.
                 </p>
                 <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <label className="text-xs">Razão social
@@ -275,20 +280,41 @@ export default function CadastroIobModal({ usuario, dossie, cadastros, avisos, o
                             onChange={e => aplicarRais({ ...rais, empresa: { ...rais.empresa, uf: e.target.value } })} /></label>
                 </div>
                 <p className="mt-3 text-xs font-semibold text-slate-700 dark:text-slate-200">
-                    Códigos com tabela própria da RAIS — sem eles o campo sai zerado
+                    Escritório responsável pela declaração (registro TIPO-0) — vazio usa a própria empresa
+                </p>
+                <div className="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <label className="text-xs">CNPJ do escritório
+                        <input className={input} value={rais.responsavel.cnpj}
+                            onChange={e => aplicarRais({ ...rais, responsavel: { ...rais.responsavel, cnpj: e.target.value } })} /></label>
+                    <label className="text-xs">Razão social
+                        <input className={input} value={rais.responsavel.razaoSocial}
+                            onChange={e => aplicarRais({ ...rais, responsavel: { ...rais.responsavel, razaoSocial: e.target.value } })} /></label>
+                    <label className="text-xs">Nome do contador
+                        <input className={input} value={rais.responsavel.nome ?? ''}
+                            onChange={e => aplicarRais({ ...rais, responsavel: { ...rais.responsavel, nome: e.target.value } })} /></label>
+                    <label className="text-xs">CPF do contador
+                        <input className={input} value={rais.responsavel.cpf ?? ''}
+                            onChange={e => aplicarRais({ ...rais, responsavel: { ...rais.responsavel, cpf: e.target.value } })} /></label>
+                </div>
+                <p className="mt-3 text-xs font-semibold text-slate-700 dark:text-slate-200">
+                    Códigos com tabela própria da RAIS — vazio usa o padrão de CLT mensalista (o que a IOB grava)
                 </p>
                 <div className="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <label className="text-xs">Tipo de admissão
-                        <input className={input} value={rais.padroes.tipoAdmissao}
+                        <input className={input} value={rais.padroes.tipoAdmissao} placeholder="01"
+
                             onChange={e => aplicarRais({ ...rais, padroes: { ...rais.padroes, tipoAdmissao: e.target.value } })} /></label>
                     <label className="text-xs">Vínculo empregatício
-                        <input className={input} value={rais.padroes.vinculoEmpregaticio}
+                        <input className={input} value={rais.padroes.vinculoEmpregaticio} placeholder="10"
+
                             onChange={e => aplicarRais({ ...rais, padroes: { ...rais.padroes, vinculoEmpregaticio: e.target.value } })} /></label>
                     <label className="text-xs">Tipo de salário
-                        <input className={input} value={rais.padroes.tipoSalarioContratual}
+                        <input className={input} value={rais.padroes.tipoSalarioContratual} placeholder="1"
+
                             onChange={e => aplicarRais({ ...rais, padroes: { ...rais.padroes, tipoSalarioContratual: e.target.value } })} /></label>
                     <label className="text-xs">Categoria
-                        <input className={input} value={rais.padroes.categoria}
+                        <input className={input} value={rais.padroes.categoria} placeholder="do eSocial"
+
                             onChange={e => aplicarRais({ ...rais, padroes: { ...rais.padroes, categoria: e.target.value } })} /></label>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-3">

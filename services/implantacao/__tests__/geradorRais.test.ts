@@ -17,6 +17,7 @@ const func = (over: Partial<FuncionarioUnificado> = {}): FuncionarioUnificado =>
         admissao: '2026-09-16', pis: '13054012041', ctps: '0178783', serieCtps: '9516',
         salario: '3243.65', horasSemanais: '44.00', cbo: '715505', categoria: '101',
         municipio: '3550308', estabelecimento: '29463877000109', matriculaIob: '836292',
+        nacionalidade: '105', escolaridade: '07', raca: '3',
     },
     origens: {}, complementosPdf: [], divergencias: [], dependentes: [],
     pendencias: [], desligado: false, cadastro: {} as never,
@@ -70,10 +71,10 @@ describe.each<[VarianteRais, number]>([['generico', 461], ['anual2022', 584]])(
             expect(r.totalVinculos).toBe(1);
         });
 
-        it('avisa o que a RAIS não transporta e que o layout não foi confirmado', () => {
+        it('avisa o que a RAIS não transporta e o status do layout', () => {
             const r = gerar(variante);
             expect(r.avisos.join(' ')).toMatch(/não transporta/);
-            expect(r.avisos.join(' ')).toMatch(/não confirmado/i);
+            expect(r.avisos.join(' ')).toMatch(/posições/);
         });
 
         it('recusa CNPJ, ano-base ou lista inválidos', () => {
@@ -103,8 +104,12 @@ describe('TIPO-2 do genérico — posições do manual (461)', () => {
         ['Salário com centavos', 130, 141, '000000324365'],
         ['Horas semanais (inteiro)', 143, 144, '44'],
         ['CBO', 145, 150, '715505'],
+        ['Tipo de admissão padrão CLT (como a IOB grava)', 128, 129, '01'],
+        ['Tipo de salário padrão mensal', 142, 142, '1'],
+        ['Vínculo padrão 10', 151, 152, '10'],
         ['Sexo 1=M', 428, 428, '1'],
-        ['Matrícula eSocial inteira', 429, 458, '836292'.padEnd(30, ' ')],
+        ['Matrícula NUMÉRICA zero-preenchida, como a IOB grava', 429, 458, '836292'.padStart(30, '0')],
+        ['Categoria = a do eSocial', 459, 461, '101'],
     ])('%s → [%i-%i]', (_rotulo, ini, fim, esperado) => {
         expect(campo(ini as number, fim as number)).toBe(esperado);
     });
@@ -121,13 +126,21 @@ describe('TIPO-2 do anual 2022 — posições do manual (584)', () => {
     it.each([
         ['PIS', 24, 34, '13054012041'],
         ['Nascimento', 87, 94, '16051984'],
+        ['Nacionalidade: eSocial 105 → RAIS 10', 95, 96, '10'],
+        ['Ano de chegada zerado (como a IOB)', 97, 100, '0000'],
+        ['Instrução: mesma numeração do eSocial', 101, 102, '07'],
         ['CPF em outra posição', 103, 113, '01787839516'],
         ['Admissão', 127, 134, '16092026'],
+        ['Tipo de admissão padrão', 135, 136, '01'],
         ['Salário em 9 posições', 137, 145, '000324365'],
+        ['Tipo de salário padrão', 146, 146, '1'],
         ['CBO', 149, 154, '715505'],
+        ['Vínculo padrão', 155, 156, '10'],
+        ['Raça: eSocial 3 (parda) → RAIS 8', 293, 293, '8'],
         ['Sexo', 306, 306, '1'],
-        ['Município do local de trabalho', 496, 502, '3550308'],
-        ['Matrícula', 544, 573, '836292'.padEnd(30, ' ')],
+        ['Município do local de trabalho zerado (como a IOB)', 496, 502, '0000000'],
+        ['Matrícula NUMÉRICA zero-preenchida', 544, 573, '836292'.padStart(30, '0')],
+        ['Categoria = a do eSocial', 574, 576, '101'],
     ])('%s → [%i-%i]', (_rotulo, ini, fim, esperado) => {
         expect(campo(ini as number, fim as number)).toBe(esperado);
     });
@@ -140,25 +153,54 @@ describe('mulher sai com sexo 2', () => {
     });
 });
 
-describe('códigos sem tabela confirmada', () => {
-    it('saem zerados e avisam, em vez de sair chutados', () => {
+describe('códigos com tabela própria da RAIS', () => {
+    it('sem informar, usa o padrão de CLT mensalista e avisa que usou', () => {
         const r = gerar('generico');
-        expect(r.avisos.join(' ')).toMatch(/Tipo de Admissão/);
-        expect(r.avisos.join(' ')).toMatch(/Vínculo empregatício/);
-        expect(r.linhas[2].slice(127, 129)).toBe('00'); // tipo de admissão
+        expect(r.linhas[2].slice(127, 129)).toBe('01');
+        expect(r.avisos.join(' ')).toMatch(/padrão de CLT mensalista/);
     });
 
-    it('quando informados, entram no arquivo', () => {
+    it('a tela manda os campos vazios — vazio NÃO apaga o padrão', () => {
         const r = gerarArquivoRais([func()], {
             variante: 'generico', empresa, anoBase: '2009',
-            padroes: { tipoAdmissao: '1', vinculoEmpregaticio: '10', tipoSalarioContratual: '1', categoria: '101' },
+            padroes: { tipoAdmissao: '', vinculoEmpregaticio: '', tipoSalarioContratual: '', categoria: '' },
+        });
+        expect(r.linhas[2].slice(127, 129)).toBe('01');
+        expect(r.linhas[2].slice(150, 152)).toBe('10');
+    });
+
+    it('quando informados, sobrescrevem o padrão sem aviso', () => {
+        const r = gerarArquivoRais([func()], {
+            variante: 'generico', empresa, anoBase: '2009',
+            padroes: { tipoAdmissao: '02', vinculoEmpregaticio: '60', tipoSalarioContratual: '5', categoria: '103' },
         });
         const l = r.linhas[2];
-        expect(l.slice(127, 129)).toBe('01');
-        expect(l.slice(150, 152)).toBe('10');
-        expect(l.slice(141, 142)).toBe('1');
-        expect(l.slice(458, 461)).toBe('101');
-        expect(r.avisos.join(' ')).not.toMatch(/Tipo de Admissão/);
+        expect(l.slice(127, 129)).toBe('02');
+        expect(l.slice(150, 152)).toBe('60');
+        expect(l.slice(141, 142)).toBe('5');
+        expect(l.slice(458, 461)).toBe('103');
+        expect(r.avisos.join(' ')).not.toMatch(/padrão de CLT/);
+    });
+});
+
+describe('responsável pela declaração (TIPO-0)', () => {
+    it('sem responsável, é a própria empresa e o gerador avisa', () => {
+        const r = gerar('anual2022');
+        expect(r.linhas[0].slice(24, 38)).toBe('29463877000109');
+        expect(r.avisos.join(' ')).toMatch(/Responsável/);
+    });
+
+    it('com responsável, TIPO-0 leva o escritório e o 1º estabelecimento continua sendo a empresa', () => {
+        const r = gerarArquivoRais([func()], {
+            variante: 'anual2022', empresa, anoBase: '2009',
+            responsavel: { cnpj: '04896300000151', razaoSocial: 'SP ASSESSORIA CONTABIL LTDA', nome: 'PAULO CESAR PEREIRA', cpf: '00000000191' },
+        });
+        const t0 = r.linhas[0];
+        expect(t0.slice(6, 20)).toBe('29463877000109');   // 1º estabelecimento do arquivo
+        expect(t0.slice(24, 38)).toBe('04896300000151');  // responsável
+        expect(t0.slice(285, 337).trim()).toBe('PAULO CESAR PEREIRA');
+        expect(t0.slice(361, 372)).toBe('00000000191');
+        expect(r.avisos.join(' ')).not.toMatch(/Responsável/);
     });
 });
 
