@@ -45,24 +45,47 @@ const rotulo = (tabela: Record<string, string>, v: string | undefined) => v ? `$
 export const HEADERS_COMPLETAR_RAIS = [
     'Código IOB previsto', 'Matrícula eSocial', 'Nome do Funcionário', 'CPF',
     'Dados › Logradouro', 'Dados › Nº', 'Dados › Complemento', 'Dados › Bairro', 'Dados › CEP', 'Dados › Município (IBGE)', 'Dados › UF',
-    'Dados › Natural (naturalidade)', 'Dados › Est. Civil', 'Dados › Mãe', 'Dados › Pai', 'Dados › Matrícula (eSocial)',
-    'Dados › Cargo / C.B.O.', 'Dados › Nº dep.',
-    'Contatos › Telefone', 'Contatos › E-mail',
-    'Características › Raça/cor',
-    'Documentos › Identidade', 'Documentos › Órgão/UF', 'Documentos › Emissão', 'Documentos › Título eleitoral', 'Documentos › Zona', 'Documentos › Seção', 'Documentos › Doc. militar',
+    'Dados › País Nasc. (eSocial)', 'Dados › Natural (naturalidade)', 'Dados › Est. Civil',
+    'Dados › Cargo / C.B.O.', 'Dados › Nº dep.', 'Dados › Depto.',
+    'Dados › Mãe', 'Dados › Pai', 'Dados › Matrícula (eSocial)',
+    'Dados › Contatos › Telefone', 'Dados › Contatos › E-mail',
+    'Dados › Características › Raça/cor',
+    'Ident. Adm. › Opção FGTS', 'Ident. Adm. › Contrato (tipo eSocial)', 'Ident. Adm. › Término do contrato', 'Ident. Adm. › Sindicato',
+    'Documentos › CTPS Estado', 'Documentos › R.G.', 'Documentos › Órg.Exp./UF', 'Documentos › Data RG', 'Documentos › Tít. Eleitor', 'Documentos › Zona', 'Documentos › Seção', 'Documentos › Reservista',
     'Complementos › Função', 'Complementos › Horário de trabalho', 'Complementos › Intervalo',
 ];
 
+/** Larguras das colunas da aba "Completar após RAIS", na mesma ordem dos cabeçalhos. */
+const LARGURAS_COMPLETAR_RAIS = [
+    18, 18, 40, 16,
+    34, 8, 20, 24, 12, 16, 6,
+    14, 24, 18,
+    30, 8, 10,
+    36, 36, 18,
+    16, 34,
+    18,
+    14, 22, 16, 22,
+    10, 18, 14, 12, 16, 8, 8, 16,
+    24, 30, 24,
+];
+
+const TIPO_CONTRATO_ESOCIAL: Record<string, string> = {
+    '1': 'Prazo indeterminado', '2': 'Prazo determinado (dias)', '3': 'Prazo determinado (ocorrência de fato)',
+};
+
 function linhaCompletarRais(f: FuncionarioUnificado, ordem: number): string[] {
     const d = f.dados;
+    const matricula = d.matriculaIob || f.matricula;
     return [
-        String(ordem), f.dados.matriculaIob || f.matricula, d.nome || '', f.cpf,
+        String(ordem), matricula, d.nome || '', f.cpf,
         d.logradouro || '', d.numero || '', d.complemento || '', d.bairro || '', d.cep || '', d.municipio || '', d.uf || '',
-        d.naturalidade || '', rotulo(ESTADO_CIVIL_ESOCIAL, d.estadoCivil), d.mae || '', d.pai || '', f.dados.matriculaIob || f.matricula,
-        [d.cargo, d.cbo].filter(Boolean).join(' / CBO '), String(f.dependentes.length || ''),
+        d.paisNascimento || '', d.naturalidade || '', rotulo(ESTADO_CIVIL_ESOCIAL, d.estadoCivil),
+        [d.cargoIob || d.cargo, d.cbo].filter(Boolean).join(' / CBO '), String(f.dependentes.length || ''), d.departamentoIob || '',
+        d.mae || '', d.pai || '', matricula,
         d.telefone || '', d.email || '',
         rotulo(RACA_ESOCIAL, d.raca),
-        d.rg || '', d.orgaoRg || '', d.emissaoRg ? dataBr(d.emissaoRg) : '', d.tituloEleitor || '', d.zonaEleitoral || '', d.secaoEleitoral || '', d.documentoMilitar || '',
+        d.opcaoFgts ? dataBr(d.opcaoFgts) : '', rotulo(TIPO_CONTRATO_ESOCIAL, d.tipoContrato), d.fimContrato ? dataBr(d.fimContrato) : '', d.sindicatoIob || d.sindicato || '',
+        d.ufCtps || '', d.rg || '', d.orgaoRg || '', d.emissaoRg ? dataBr(d.emissaoRg) : '', d.tituloEleitor || '', d.zonaEleitoral || '', d.secaoEleitoral || '', d.documentoMilitar || '',
         d.funcao || '', d.horarioTrabalho || '', d.horarioIntervalo || '',
     ];
 }
@@ -101,7 +124,7 @@ export function gerarModeloCadastroIobXlsx(cnpj: string, corte: string, funciona
         [],
         HEADERS_COMPLETAR_RAIS,
         ...ativos.map((x, i) => linhaCompletarRais(x, i + 1)),
-    ], [18, 18, 40, 16, 34, 8, 20, 24, 12, 16, 6, 24, 18, 36, 36, 18, 30, 8, 16, 34, 18, 18, 12, 12, 16, 8, 8, 16, 24, 30, 24], 3);
+    ], LARGURAS_COMPLETAR_RAIS, 3);
     wb.Sheets['Completar após RAIS']['!merges'] = [0, 1].map(r => ({ s: { r, c: 0 }, e: { r, c: 12 } }));
     adicionar('Dependentes', [
         ['Matrícula eSocial', 'Nome do Funcionário', 'CPF do funcionário', 'Tipo (eSocial)', 'Nome do dependente', 'Nascimento', 'CPF do dependente', 'Dependente IRRF', 'Salário-família'],
@@ -130,7 +153,7 @@ export function gerarModeloCadastroIobXlsx(cnpj: string, corte: string, funciona
         [''],
         ['IOB OFFICE FOLHA DE PAGAMENTO — rota homologada em 28/09/2026:'],
         ['1. No Consultor DP, passo 5, gere o arquivo RAIS de 584 posições e importe em Utilitários › Importações › Importação de Dados da RAIS2009, com um código de empresa que ainda não exista. A rotina cria a empresa e os vínculos.'],
-        ['2. A aba "Completar após RAIS" é o roteiro do que a RAIS não transporta (endereço, filiação, estado civil, contatos, raça, cargo, documentos). Está na ordem da tela da IOB, com a aba/botão onde cada campo fica. Dependentes estão na aba própria.'],
+        ['2. A RAIS já traz nome, nascimento, sexo, instrução, admissão, salário, CPF, PIS, CTPS e série. A aba "Completar após RAIS" é o roteiro do resto (endereço, país, filiação, estado civil, contatos, raça, cargo, FGTS, contrato, sindicato, UF da CTPS, RG, título). Está na ordem das abas da IOB (Dados, Ident. Adm., Documentos, Complementos). Dependentes estão na aba própria.'],
         ['3. A rotina atribui o código do funcionário em sequência, na ordem do arquivo — a coluna "Código IOB previsto" diz qual. A matrícula do eSocial vai no campo Matrícula da ficha.'],
         ['4. Estado civil e raça/cor: escolha pelo nome na tela; os números da planilha são os do eSocial e as tabelas da IOB são outras.'],
         [''],

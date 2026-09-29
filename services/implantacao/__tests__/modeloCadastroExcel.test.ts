@@ -7,7 +7,7 @@ import type { FuncionarioUnificado } from '../unificacao';
 
 const f: FuncionarioUnificado = {
     chave: 'k', empregador: '11222333', cpf: '52998224725', matricula: '000123',
-    dados: { matriculaIob: '000123', nome: '=PESSOA()', mae: 'MAE TESTE', nascimento: '1990-01-31', admissao: '2026-09-16', cargo: 'AUXILIAR', salario: '3243.65', cep: '01234567' },
+    dados: { matriculaIob: '000123', nome: '=PESSOA()', mae: 'MAE TESTE', nascimento: '1990-01-31', admissao: '2026-09-16', cargo: 'AUXILIAR', salario: '3243.65', cep: '01234567', ufCtps: 'SP', tipoContrato: '2', fimContrato: '2026-10-30', paisNascimento: '105' },
     origens: { mae: 'Ficha PDF: ficha.pdf · SHA-256 abc' }, ficha: { nome: 'ficha.pdf', hash: 'abc' },
     complementosPdf: ['mae'], divergencias: [{ campo: 'salario', rotulo: 'Salário', xml: '3243.65', pdf: '3000.00' }],
     dependentes: [{ tipo: '03', nome: 'DEP TESTE', nascimento: '2010-01-02', cpf: '11111111111', irrf: 'S', salarioFamilia: 'N' }],
@@ -26,6 +26,11 @@ it('gera modelo cadastral com colunas do layout, sem colunas de apontamento e co
     expect(pos[4][pos[3].indexOf('Dados › CEP')]).toBe('01234567');
     expect(pos[4][pos[3].indexOf('Dados › Nº dep.')]).toBe('1');
     expect(pos[4][pos[3].indexOf('Dados › Cargo / C.B.O.')]).toBe('AUXILIAR');
+    expect(pos[4]).toHaveLength(HEADERS_COMPLETAR_RAIS.length);
+    expect(pos[4][pos[3].indexOf('Documentos › CTPS Estado')]).toBe('SP');
+    expect(pos[4][pos[3].indexOf('Ident. Adm. › Contrato (tipo eSocial)')]).toBe('Prazo determinado (dias) (2)');
+    expect(pos[4][pos[3].indexOf('Ident. Adm. › Término do contrato')]).toBe('30/10/2026');
+    expect(pos[4][pos[3].indexOf('Dados › País Nasc. (eSocial)')]).toBe('105');
     const rows = XLSX.utils.sheet_to_json<string[]>(wb.Sheets['Funcionários'], { header: 1, defval: '' });
     expect(rows[3].slice(0, 3)).toEqual(HEADERS_FIXOS_CADASTRO);
     expect(rows[3]).toContain('Nome da mãe');
