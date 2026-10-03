@@ -78,8 +78,9 @@ do IOB está num **PostgreSQL 12**, um banco relacional.
   cálculo por contrato. Depois, qualquer erro de INSS, IRRF ou FGTS é do
   escritório, com reflexo no salário do trabalhador, multa do eSocial e
   passivo trabalhista.
-- **Manutenção permanente, todo ano e todo mês.** Exemplos do que muda sem aviso
-  ao sistema:
+- **Manutenção permanente, todo ano e todo mês.** Mitigada pelas travas e
+  agentes de validação governamental que já existem, que obrigam o app a
+  acompanhar cada atualização do SAGE. Continua sendo trabalho a cada mudança de:
   - tabela do INSS e teto, por portaria anual;
   - tabela do IRRF. Para 2026, a Lei 15.270/2025 criou a redução que zera o
     imposto até R$ 5.000 e a reduz gradualmente até R$ 7.350, com uma regra
@@ -198,7 +199,10 @@ polling de status e transmissão em lote por empresa.
 
 ## Atualização de acordo com a legislação
 
-Sem fornecedor, o escritório precisa de uma **rotina formal** de atualização:
+Decisão de 03/10/2026: o risco de atualização é considerado baixo. Os apps do
+escritório já têm **travas e agentes de validação governamental**, e toda
+atualização aplicada no SAGE tem de ser aplicada também no Consultor DP. A
+rotina abaixo mantém essa paridade:
 
 - calendário anual de tabelas (INSS, IRRF, salário mínimo, salário-família,
   teto), com vigência registrada e nunca editando a vigência antiga. É a mesma
