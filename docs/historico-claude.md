@@ -72,11 +72,14 @@ piloto em paralelo provar o cálculo próprio.
   Consulta que falha vira pendência informativa, nunca "entregue" ou "pago";
   FGTS com devido 0 e recolhido 0 é "sem valor", porque o CFI devolve 0 quando
   o campo não vem.
-- **Débitos da DCTFWeb por código de receita: ainda digitados.** O túnel só
-  devolve a situação da declaração. O CFI já baixa o XML da declaração
-  (`CONSXMLDECLARACAO38`, `consultarXmlDeclaracao`), mas não há leitor dos
-  débitos previdenciários nem XML real para montá-lo. Próximo passo: rota
-  `dctfweb/xml` no túnel e o primeiro XML real como gabarito.
+- **Débitos da DCTFWeb por código de receita.** O CFI já lia esses débitos do
+  XML da declaração (`consultarXmlDeclaracao` + `extrairDebitosDctfweb`, usados
+  nas guias separadas). A rota nova do túnel `POST /api/dp-integration/dctfweb/debitos`
+  (branch `claude/dp-dctfweb-debitos` no CFI) devolve esses débitos, com a
+  identificação conferida pelo próprio XML. O DP compara com o S-5011 por
+  código de receita, como atenção, porque a DCTFWeb traz o saldo a pagar já
+  com deduções e compensações. Resposta em modo mock do CFI ou rota não
+  publicada (404) ficam indisponíveis, nunca viram número.
 - **Motor de cálculo: código determinístico, não IA** (resposta ao Paulo,
   03/10/2026). O Gemini fica como assistente: explicar divergência, ler
   convenção coletiva para sugerir parâmetros que um humano valida.

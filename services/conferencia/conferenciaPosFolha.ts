@@ -255,6 +255,23 @@ export function conferirPosFolha(g: GrupoApuracao, op: OpcoesConferencia = {}): 
         if (!sp.dctfweb.ok) pendencias.push({ gravidade: 'info', regra: 'SERPRO', mensagem: `DCTFWeb: consulta indisponível (${sp.dctfweb.erro}). Confira no e-CAC.` });
         else if (!sp.dctfweb.entregue) pendencias.push({ gravidade: 'atencao', regra: 'SERPRO', mensagem: `A DCTFWeb da competência não consta como entregue no SERPRO. Situação: ${sp.dctfweb.situacao}.` });
         else if (sp.esocial.ok && !sp.esocial.entregue) pendencias.push({ gravidade: 'atencao', regra: 'SERPRO', mensagem: `A DCTFWeb consta como entregue${quando(sp.dctfweb.dataEntrega)}, mas o fechamento do eSocial não. Confira se a DCTFWeb reflete a folha atual.` });
+        // Débitos da DCTFWeb × S-5011, por código de receita. A DCTFWeb traz o
+        // saldo a pagar, já com deduções (salário-família, salário-maternidade),
+        // compensações e suspensões; por isso a diferença é "atenção", não erro.
+        const dd = sp.dctfwebDebitos;
+        if (!dd.ok) {
+            pendencias.push({ gravidade: 'info', regra: 'SERPRO', mensagem: `Débitos da DCTFWeb: consulta indisponível (${dd.erro}). Informe o valor à mão.` });
+        } else if (cs) {
+            const daDctf = new Map(dd.debitos.map(x => [x.codReceita, x]));
+            for (const c of creditos) {
+                const d = daDctf.get(c.tpCR);
+                if (!d) {
+                    if (c.aRecolher > 0) pendencias.push({ gravidade: 'atencao', regra: 'SERPRO', diferenca: -c.aRecolher, mensagem: `DCTFWeb sem saldo a pagar no código ${c.tpCR}, que o S-5011 apura em ${reais(c.aRecolher)}. Pode ser dedução ou compensação; confira no e-CAC.` });
+                } else if (d.valor !== c.aRecolher) {
+                    pendencias.push({ gravidade: 'atencao', regra: 'SERPRO', diferenca: d.valor - c.aRecolher, mensagem: `DCTFWeb código ${c.tpCR}${d.descricao ? ` (${d.descricao})` : ''}: saldo a pagar ${reais(d.valor)}, S-5011 ${reais(c.aRecolher)}. Diferença de ${reais(Math.abs(d.valor - c.aRecolher))}; pode ser dedução de salário-família ou maternidade, compensação ou retenção. Confira no e-CAC.` });
+                }
+            }
+        }
         if (!sp.fgts.ok) pendencias.push({ gravidade: 'info', regra: 'SERPRO', mensagem: `FGTS Digital: consulta indisponível (${sp.fgts.erro}). Informe o valor da guia à mão.` });
         else if (sp.fgts.devido === null) pendencias.push({ gravidade: 'info', regra: 'SERPRO', mensagem: 'FGTS Digital: o SERPRO respondeu sem valor devido para a competência. Informe o valor da guia à mão.' });
         else {

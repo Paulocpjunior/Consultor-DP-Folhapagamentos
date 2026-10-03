@@ -220,12 +220,13 @@ describe('valor digitado', () => {
 import { cnpjParaSerpro, consultarSerproConferencia, type ClienteSerpro } from '../serproConferencia';
 
 const ok = (entregue: boolean, situacao: string) => ({ ok: true, entregue, situacao, dataEntrega: '2026-10-15' });
-function cliente(o: Partial<{ fgts: unknown; esocial: unknown; dctf: unknown }> = {}): ClienteSerpro {
+function cliente(o: Partial<{ fgts: unknown; esocial: unknown; dctf: unknown; debitos: unknown }> = {}): ClienteSerpro {
     const r = (v: unknown, padrao: unknown) => (v instanceof Error ? Promise.reject(v) : Promise.resolve(v ?? padrao));
     return {
         consultarFgtsRecolhimento: () => r(o.fgts, { ok: true, depositoDevido: 259.49, depositoRealizado: 259.49 }) as never,
         consultarESocialFechamento: () => r(o.esocial, ok(true, 'FECHADO')) as never,
         consultarDctfWebStatus: () => r(o.dctf, ok(true, 'ENTREGUE')) as never,
+        consultarDctfWebDebitos: () => r(o.debitos, { ok: true, fonte: 'serpro', debitos: [] }) as never,
     };
 }
 
@@ -272,3 +273,29 @@ describe('SERPRO na conferência', () => {
         expect(cnpjParaSerpro(g, [emp('11.111.111/0001-11')])).toBe('29463877000109');
     });
 });
+
+describe('débitos da DCTFWeb pelo SERPRO', () => {
+    const lote = () => grupo(s5001('1'), s5003('1'), s5011('300.00', '300.00', [['108201', '300.00'], ['113801', '1000.00']]), s5013([['11', '3243.65', '259.49']]));
+
+    it('saldo a pagar igual ao S-5011 por código de receita: nenhuma pendência', async () => {
+        const sp = await consultarSerproConferencia(cliente({ debitos: { ok: true, fonte: 'serpro', debitos: [{ codReceita: '1082-01', descricao: 'CP SEGURADOS', valor: 300 }, { codReceita: '113801', descricao: 'CP PATRONAL', valor: 1000 }, { codReceita: '056107', descricao: 'IRRF', valor: 50 }] } }), 'x', '2026-09');
+        expect(sp.dctfwebDebitos.debitos[0]).toEqual({ codReceita: '108201', descricao: 'CP SEGURADOS', valor: 30000 });
+        expect(conferirPosFolha(await lote(), { serpro: sp }).pendencias).toEqual([]);
+    });
+
+    it('diferença ou código ausente vira atenção, com a explicação das deduções', async () => {
+        const sp = await consultarSerproConferencia(cliente({ debitos: { ok: true, fonte: 'serpro', debitos: [{ codReceita: '113801', descricao: 'CP PATRONAL', valor: 950 }] } }), 'x', '2026-09');
+        const p = conferirPosFolha(await lote(), { serpro: sp }).pendencias;
+        expect(p.map(x => [x.gravidade, x.diferenca])).toEqual([['atencao', -30000], ['atencao', -5000]]);
+        expect(p.map(x => x.mensagem).join(' ')).toMatch(/salário-família/);
+    });
+
+    it('rota ainda não publicada (404) e modo mock do CFI ficam indisponíveis, nunca entram como número', async () => {
+        const a = await consultarSerproConferencia(cliente({ debitos: new Error('HTTP 404') }), 'x', '2026-09');
+        expect(a.dctfwebDebitos).toMatchObject({ ok: false, erro: 'consulta de débitos ainda não publicada no Consultor Fiscal' });
+        const b = await consultarSerproConferencia(cliente({ debitos: { ok: true, fonte: 'mock', debitos: [{ codReceita: '108201', descricao: '', valor: 999 }] } }), 'x', '2026-09');
+        expect(b.dctfwebDebitos).toMatchObject({ ok: false, debitos: [] });
+        expect(conferirPosFolha(await lote(), { serpro: b }).pendencias.map(x => x.gravidade)).toEqual(['info']);
+    });
+});
+

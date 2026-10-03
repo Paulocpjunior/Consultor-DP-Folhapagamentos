@@ -54,6 +54,8 @@ export function gerarExcelConferencia(r: ResultadoConferencia, empresaNome: stri
             ['SERPRO (consultado em ' + new Date(r.serpro.consultadoEm).toLocaleString('pt-BR') + ', CNPJ ' + r.serpro.cnpj + ')', 'Situação'],
             ['Fechamento do eSocial', r.serpro.esocial.ok ? `${r.serpro.esocial.entregue ? 'Transmitido' : 'Não transmitido'} · ${r.serpro.esocial.situacao}` : `Indisponível: ${r.serpro.esocial.erro}`],
             ['DCTFWeb', r.serpro.dctfweb.ok ? `${r.serpro.dctfweb.entregue ? 'Entregue' : 'Não entregue'} · ${r.serpro.dctfweb.situacao}` : `Indisponível: ${r.serpro.dctfweb.erro}`],
+            ['DCTFWeb — saldo a pagar (R$)', r.serpro.dctfwebDebitos.ok ? r.serpro.dctfwebDebitos.debitos.reduce((t, x) => t + x.valor, 0) / 100 : `Indisponível: ${r.serpro.dctfwebDebitos.erro}`],
+            ...(r.serpro.dctfwebDebitos.ok ? r.serpro.dctfwebDebitos.debitos.map(x => [`   código ${x.codReceita}${x.descricao ? ' · ' + x.descricao : ''}`, x.valor / 100]) : []),
             ['FGTS Digital — devido (R$)', r.serpro.fgts.ok && r.serpro.fgts.devido !== null ? r.serpro.fgts.devido / 100 : (r.serpro.fgts.ok ? 'sem valor informado' : `Indisponível: ${r.serpro.fgts.erro}`)],
             ['FGTS Digital — recolhido (R$)', r.serpro.fgts.ok && r.serpro.fgts.realizado !== null ? r.serpro.fgts.realizado / 100 : ''],
         ] as (string | number)[][] : []),

@@ -13,7 +13,7 @@ import { baixarBytes } from '../../services/implantacao/zip';
 import { listarTodasEmpresas } from '../../services/empresas/empresasService';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { cnpjParaSerpro, consultarSerproConferencia, type ConsultaSerpro } from '../../services/conferencia/serproConferencia';
-import { consultarDctfWebStatus, consultarESocialFechamento, consultarFgtsRecolhimento } from '../../services/serpro/serproIntegrationService';
+import { consultarDctfWebDebitos, consultarDctfWebStatus, consultarESocialFechamento, consultarFgtsRecolhimento } from '../../services/serpro/serproIntegrationService';
 
 const botao = 'rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-40';
 const botaoSec = 'rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:text-slate-200 disabled:opacity-40';
@@ -64,7 +64,7 @@ const ConferenciaPosFolhaPanel: React.FC = () => {
         if (!grupo || !cnpjSerpro) return;
         setConsultando(true); setSerproErro('');
         try {
-            const r = await consultarSerproConferencia({ consultarFgtsRecolhimento, consultarESocialFechamento, consultarDctfWebStatus }, cnpjSerpro, grupo.perApur);
+            const r = await consultarSerproConferencia({ consultarFgtsRecolhimento, consultarESocialFechamento, consultarDctfWebStatus, consultarDctfWebDebitos }, cnpjSerpro, grupo.perApur);
             setSerpro(prev => ({ ...prev, [grupo.chave]: r }));
         } catch (e) {
             setSerproErro((e as Error).message);
@@ -175,12 +175,15 @@ const ConferenciaPosFolhaPanel: React.FC = () => {
                                 <li className="text-slate-800 dark:text-slate-100"><span className="text-xs text-slate-500 dark:text-slate-400">Fechamento do eSocial</span><br />
                                     {serproGrupo.esocial.ok ? `${serproGrupo.esocial.entregue ? 'Transmitido' : 'Não transmitido'} · ${serproGrupo.esocial.situacao}${serproGrupo.esocial.dataEntrega ? ` · ${serproGrupo.esocial.dataEntrega}` : ''}` : `Indisponível: ${serproGrupo.esocial.erro}`}</li>
                                 <li className="text-slate-800 dark:text-slate-100"><span className="text-xs text-slate-500 dark:text-slate-400">DCTFWeb</span><br />
-                                    {serproGrupo.dctfweb.ok ? `${serproGrupo.dctfweb.entregue ? 'Entregue' : 'Não entregue'} · ${serproGrupo.dctfweb.situacao}${serproGrupo.dctfweb.dataEntrega ? ` · ${serproGrupo.dctfweb.dataEntrega}` : ''}` : `Indisponível: ${serproGrupo.dctfweb.erro}`}</li>
+                                    {serproGrupo.dctfweb.ok ? `${serproGrupo.dctfweb.entregue ? 'Entregue' : 'Não entregue'} · ${serproGrupo.dctfweb.situacao}${serproGrupo.dctfweb.dataEntrega ? ` · ${serproGrupo.dctfweb.dataEntrega}` : ''}` : `Indisponível: ${serproGrupo.dctfweb.erro}`}
+                                    <br /><span className="text-xs text-slate-500 dark:text-slate-400">{serproGrupo.dctfwebDebitos.ok
+                                        ? `Saldo a pagar ${reais(serproGrupo.dctfwebDebitos.debitos.reduce((t, x) => t + x.valor, 0))} em ${serproGrupo.dctfwebDebitos.debitos.length} código(s)`
+                                        : `Débitos: ${serproGrupo.dctfwebDebitos.erro}`}</span></li>
                                 <li className="text-slate-800 dark:text-slate-100"><span className="text-xs text-slate-500 dark:text-slate-400">FGTS Digital</span><br />
                                     {!serproGrupo.fgts.ok ? `Indisponível: ${serproGrupo.fgts.erro}` : serproGrupo.fgts.devido === null ? 'Sem valor devido informado' : `Devido ${reais(serproGrupo.fgts.devido)} · recolhido ${reais(serproGrupo.fgts.realizado ?? 0)}`}</li>
                             </ul>
                         )}
-                        {serproGrupo && <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Consultado em {new Date(serproGrupo.consultadoEm).toLocaleString('pt-BR')}. O valor dos débitos da DCTFWeb ainda é digitado: o SERPRO devolve aqui só a situação da declaração.</p>}
+                        {serproGrupo && <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Consultado em {new Date(serproGrupo.consultadoEm).toLocaleString('pt-BR')}. Os débitos da DCTFWeb vêm do XML da declaração e são comparados com o S-5011 por código de receita.</p>}
                     </div>
 
                     <div className="grid gap-3 md:grid-cols-4">

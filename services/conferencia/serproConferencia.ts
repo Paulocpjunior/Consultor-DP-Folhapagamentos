@@ -7,7 +7,8 @@
 // Três consultas, por CNPJ e competência:
 //   - FGTS Digital: valor devido e valor recolhido;
 //   - eSocial: situação do fechamento (S-1299);
-//   - DCTFWeb: situação da declaração.
+//   - DCTFWeb: situação da declaração e débitos com saldo a pagar, por
+//     código de receita (lidos do XML da declaração pelo CFI).
 //
 // Regra da casa: falha de consulta nunca vira "entregue", "pago" ou "zero".
 // Cada consulta que falha volta com ok=false e o erro, e a conferência mostra
@@ -24,6 +25,14 @@ export interface FgtsSerpro {
     realizado: number | null;
     erro?: string;
 }
+export interface DebitoDctf { codReceita: string; descricao: string; valor: number }
+export interface DebitosDctfSerpro {
+    ok: boolean;
+    /** Centavos, por código de receita de 6 dígitos. */
+    debitos: DebitoDctf[];
+    fonte: string | null;
+    erro?: string;
+}
 export interface ConsultaSerpro {
     cnpj: string;
     competencia: string;
@@ -31,6 +40,7 @@ export interface ConsultaSerpro {
     fgts: FgtsSerpro;
     esocial: SituacaoSerpro;
     dctfweb: SituacaoSerpro;
+    dctfwebDebitos: DebitosDctfSerpro;
 }
 
 /** As funções do cliente do túnel (services/serpro/serproIntegrationService.ts), injetáveis para teste. */
@@ -38,6 +48,7 @@ export interface ClienteSerpro {
     consultarFgtsRecolhimento(cnpj: string, competencia: string): Promise<{ ok: boolean; depositoDevido: number; depositoRealizado: number; erro?: string }>;
     consultarESocialFechamento(cnpj: string, competencia: string): Promise<{ ok: boolean; entregue: boolean; situacao: string; dataEntrega?: string | null; erro?: string }>;
     consultarDctfWebStatus(cnpj: string, competencia: string): Promise<{ ok: boolean; entregue: boolean; situacao: string; dataEntrega?: string | null; erro?: string }>;
+    consultarDctfWebDebitos(cnpj: string, competencia: string): Promise<{ ok: boolean; fonte?: string | null; debitos: { codReceita: string; descricao: string; valor: number }[]; erro?: string }>;
 }
 
 const semPonto = (t: string) => t.trim().replace(/\.+$/, '');
@@ -51,10 +62,11 @@ function situacao(r: PromiseSettledResult<{ ok: boolean; entregue: boolean; situ
 }
 
 export async function consultarSerproConferencia(cliente: ClienteSerpro, cnpj: string, competencia: string, agora = new Date()): Promise<ConsultaSerpro> {
-    const [f, e, d] = await Promise.allSettled([
+    const [f, e, d, deb] = await Promise.allSettled([
         cliente.consultarFgtsRecolhimento(cnpj, competencia),
         cliente.consultarESocialFechamento(cnpj, competencia),
         cliente.consultarDctfWebStatus(cnpj, competencia),
+        cliente.consultarDctfWebDebitos(cnpj, competencia),
     ]);
     let fgts: FgtsSerpro;
     if (f.status === 'rejected') fgts = { ok: false, devido: null, realizado: null, erro: msg(f.reason) };
@@ -64,7 +76,23 @@ export async function consultarSerproConferencia(cliente: ClienteSerpro, cnpj: s
         // O CFI devolve 0 quando o campo não vem: 0 e 0 é "sem valor", não "nada devido".
         fgts = devido === 0 && realizado === 0 ? { ok: true, devido: null, realizado: null } : { ok: true, devido, realizado };
     }
-    return { cnpj, competencia, consultadoEm: agora.toISOString(), fgts, esocial: situacao(e), dctfweb: situacao(d) };
+    let dctfwebDebitos: DebitosDctfSerpro;
+    if (deb.status === 'rejected') {
+        const m = msg(deb.reason);
+        // Rota nova do túnel: até o CFI publicar, o servidor responde 404.
+        dctfwebDebitos = { ok: false, debitos: [], fonte: null, erro: /HTTP 404/.test(m) ? 'consulta de débitos ainda não publicada no Consultor Fiscal' : m };
+    } else if (!deb.value.ok) {
+        dctfwebDebitos = { ok: false, debitos: [], fonte: deb.value.fonte ?? null, erro: semPonto(deb.value.erro || 'consulta sem sucesso') };
+    } else if (deb.value.fonte && deb.value.fonte !== 'serpro') {
+        // Mock do CFI (DCTFWEB_MODE): número de teste não pode entrar na conferência.
+        dctfwebDebitos = { ok: false, debitos: [], fonte: deb.value.fonte, erro: `o Consultor Fiscal respondeu em modo ${deb.value.fonte}, não com dados do SERPRO` };
+    } else {
+        dctfwebDebitos = {
+            ok: true, fonte: deb.value.fonte ?? null,
+            debitos: (deb.value.debitos ?? []).map(x => ({ codReceita: String(x.codReceita).replace(/\D/g, ''), descricao: x.descricao || '', valor: paraCentavos(x.valor) })),
+        };
+    }
+    return { cnpj, competencia, consultadoEm: agora.toISOString(), fgts, esocial: situacao(e), dctfweb: situacao(d), dctfwebDebitos };
 }
 
 const digitos = (s: string) => s.replace(/\D/g, '');
