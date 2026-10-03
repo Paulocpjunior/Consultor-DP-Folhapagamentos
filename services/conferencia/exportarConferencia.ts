@@ -49,6 +49,14 @@ export function gerarExcelConferencia(r: ResultadoConferencia, empresaNome: stri
         ['DCTFWeb — débitos previdenciários a recolher', '', r$(r.dctfweb.totalARecolher), r$(r.dctfweb.informado)],
         ['FGTS Digital — guia mensal', '', r$(r.fgtsDigital.mensal), r$(r.fgtsDigital.informado)],
         ['FGTS Digital — rescisório', '', r$(r.fgtsDigital.rescisorio), ''],
+        ...(r.serpro ? [
+            [],
+            ['SERPRO (consultado em ' + new Date(r.serpro.consultadoEm).toLocaleString('pt-BR') + ', CNPJ ' + r.serpro.cnpj + ')', 'Situação'],
+            ['Fechamento do eSocial', r.serpro.esocial.ok ? `${r.serpro.esocial.entregue ? 'Transmitido' : 'Não transmitido'} · ${r.serpro.esocial.situacao}` : `Indisponível: ${r.serpro.esocial.erro}`],
+            ['DCTFWeb', r.serpro.dctfweb.ok ? `${r.serpro.dctfweb.entregue ? 'Entregue' : 'Não entregue'} · ${r.serpro.dctfweb.situacao}` : `Indisponível: ${r.serpro.dctfweb.erro}`],
+            ['FGTS Digital — devido (R$)', r.serpro.fgts.ok && r.serpro.fgts.devido !== null ? r.serpro.fgts.devido / 100 : (r.serpro.fgts.ok ? 'sem valor informado' : `Indisponível: ${r.serpro.fgts.erro}`)],
+            ['FGTS Digital — recolhido (R$)', r.serpro.fgts.ok && r.serpro.fgts.realizado !== null ? r.serpro.fgts.realizado / 100 : ''],
+        ] as (string | number)[][] : []),
         [],
         ['O IOB continua sendo o sistema de registro. Esta conferência aponta divergências; ela não corrige valores.'],
     ], [46, 30, 26, 24]);

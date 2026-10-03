@@ -64,4 +64,20 @@ piloto em paralelo provar o cálculo próprio.
 - Pendente na fase 1: DCTFWeb e FGTS Digital pelo SERPRO (via túnel do CFI),
   download de eventos do eSocial, comparação com o resumo da folha do IOB
   (precisa de um exemplo do relatório exportado), IRRF e painel de prazos.
+- **03/10/2026, Paulo: *"pode seguir com a integracao serpro"*.** A conferência
+  ganhou o botão Consultar SERPRO, pelo túnel do CFI (`/api/dp-integration`):
+  fechamento do eSocial, situação da DCTFWeb e FGTS Digital devido × recolhido
+  (`services/conferencia/serproConferencia.ts`). O valor do SERPRO não
+  sobrescreve o digitado: são duas fontes, cada uma comparada com o S-5013.
+  Consulta que falha vira pendência informativa, nunca "entregue" ou "pago";
+  FGTS com devido 0 e recolhido 0 é "sem valor", porque o CFI devolve 0 quando
+  o campo não vem.
+- **Débitos da DCTFWeb por código de receita: ainda digitados.** O túnel só
+  devolve a situação da declaração. O CFI já baixa o XML da declaração
+  (`CONSXMLDECLARACAO38`, `consultarXmlDeclaracao`), mas não há leitor dos
+  débitos previdenciários nem XML real para montá-lo. Próximo passo: rota
+  `dctfweb/xml` no túnel e o primeiro XML real como gabarito.
+- **Motor de cálculo: código determinístico, não IA** (resposta ao Paulo,
+  03/10/2026). O Gemini fica como assistente: explicar divergência, ler
+  convenção coletiva para sugerir parâmetros que um humano valida.
 
