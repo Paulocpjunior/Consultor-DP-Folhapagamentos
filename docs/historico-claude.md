@@ -110,4 +110,22 @@ piloto em paralelo provar o cálculo próprio.
 - **Catálogo comparativo** (`services/iobSage/catalogoMenus.ts`) com situação
   REAL por item: disponível, parcial, planejado (com fase) ou fora do escopo.
   Teste trava: item disponível aponta para a tela; planejado diz a fase.
+- **Backup do IOB Office em duas partes** (pesquisa de 03/10/2026, a pedido do
+  Paulo, que lembrou que a linha Office nasceu em DBF). Confirmado em fontes
+  da IOB/Folhamatic: a linha Office nasceu em DBF e migra para PostgreSQL
+  (driver ODBC); o cliente roda em DBF ou SQL conforme a "base ativada";
+  Backup DBF = .zip, Backup SQL = .backup; e o Backup SQL tem DUAS partes:
+  .zip com o cadastro das empresas e .backup com a folha (Ajuda Aprendo³,
+  artigo 4898). NÃO confirmado ainda: que o .zip contém DBF (muito provável)
+  e a versão do PostgreSQL (o modal mostra a de origem). Paulo: *"Pode seguir"*.
+- **Leitor DBF** (`services/iobSage/dbf.ts`): dBASE III/IV, FoxPro e Visual
+  FoxPro; tipos C, N, F, D, L, M, I, Y, B, T, V; memo .FPT e .DBT; code pages
+  850, 437 e 1252, com dedução pelo conteúdo quando o cabeçalho não diz;
+  registros apagados ficam fora. Fixtures reais geradas com a biblioteca
+  Python `dbf` 0.99.11 (nome com extensão `.DBF`, senão ela quebra; memo nulo
+  em dBASE III também quebra a biblioteca).
+- **Restauração em duas partes** (`services/iobSage/restauracao.ts`): vários
+  arquivos de uma vez, cada um reconhecido pela ASSINATURA (zip com extensão
+  .SBAK/.SBKP também abre); o conteúdo do .zip é listado inteiro; DBF casa com
+  o memo da mesma pasta; tabelas DBF e PostgreSQL na mesma lista.
 

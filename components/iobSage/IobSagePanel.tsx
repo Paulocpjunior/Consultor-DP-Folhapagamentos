@@ -53,7 +53,7 @@ const IobSagePanel: React.FC<Props> = ({ onNavegar }) => {
                         Cada item dos menus da folha IOB/SAGE, com a situação real no Consultor DP. Fonte: ajuda online da IOB (títulos e resumos de busca) e prints do IOB Office.
                     </p>
                 </div>
-                <button className="rounded bg-blue-700 px-4 py-2 text-sm font-medium text-white" onClick={() => setRestaurar(true)}>Restaurar backup PostgreSQL 12</button>
+                <button className="rounded bg-blue-700 px-4 py-2 text-sm font-medium text-white" onClick={() => setRestaurar(true)}>Restaurar backup do IOB SAGE</button>
             </header>
 
             <div className="flex flex-wrap gap-2 text-sm">
