@@ -36,3 +36,11 @@ piloto em paralelo provar o cálculo próprio.
   homologada em 28/09/2026. Só funciona com código de empresa que ainda não
   existe. O que a RAIS não traz é completado à mão pela aba "Completar após
   RAIS" do Excel de cadastro. Detalhes em `docs/implantacao-funcionarios.md`.
+- **SST fica com a medicina do trabalho dos clientes** (Paulo, 03/10/2026).
+  Os eventos S-2210, S-2220 e S-2240 estão fora do escopo do Consultor DP.
+- **Atualização legal: toda atualização aplicada no SAGE tem de ser aplicada
+  também no Consultor DP** (Paulo, 03/10/2026). Os apps já têm travas e agentes
+  de validação governamental para isso.
+- **Banco de dados: Firebase, como nos outros apps** (03/10/2026). A folha usa o
+  Firestore com um documento por funcionário e competência, relatórios no
+  BigQuery, backup com recuperação pontual e região confirmada.

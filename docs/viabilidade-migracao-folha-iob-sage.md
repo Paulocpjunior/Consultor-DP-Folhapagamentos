@@ -96,13 +96,21 @@ do IOB está num **PostgreSQL 12**, um banco relacional.
     `codIncIRRF`, `codIncFGTS`);
   - folha mensal, adiantamento, férias, 13º, rescisão e afastamentos;
   - pensão alimentícia, consignado, vale-transporte e PLR;
-  - eventos do eSocial completos, de tabelas, não periódicos, periódicos e SST;
+  - eventos do eSocial completos, de tabelas, não periódicos e periódicos;
   - leitura dos totalizadores S-5001, S-5002, S-5003, S-5011 e S-5013;
   - holerite, TRCT, recibos e informe de rendimentos.
-- **Firestore não é a base natural para a folha.** Histórico de rubricas,
-  bases, médias de férias e 13º e recálculos retroativos pedem consultas
-  relacionais. Um motor de cálculo próprio deveria ter um PostgreSQL próprio,
-  como o Cloud SQL, com o Firestore ficando para telas e cadastros.
+- **Banco de dados: o Firestore atende, com cuidados.** É a base de todos os
+  apps do escritório, e o CCI já roda nele. Para a folha:
+  - um documento por funcionário e competência, com as rubricas, as bases e a
+    versão do cálculo. Assim o cálculo lê um conjunto pequeno e conhecido;
+  - relatórios entre empresas e competências no BigQuery, alimentado pelo
+    Firestore, em vez de consultas grandes no app;
+  - backup agendado e recuperação pontual ligados, porque a folha é registro
+    legal e precisa ser guardada por anos;
+  - região do projeto confirmada, porque a folha é dado pessoal protegido pela
+    LGPD;
+  - toda consulta de lista com limite, e falha de leitura nunca tratada como
+    lista vazia. É a regra já travada no CFI.
 - **Dependência de poucas pessoas.** O conhecimento do cálculo passaria a morar
   no código e no time, e não mais no fornecedor.
 
@@ -189,7 +197,8 @@ polling de status e transmissão em lote por empresa.
   do envio;
 - eventos de tabela S-1000, S-1005, S-1010 e S-1020;
 - eventos não periódicos S-2205, S-2206, S-2230, S-2298, S-2299, S-2300 e
-  S-2399, e os de SST S-2210, S-2220 e S-2240, se o escritório assumir SST;
+  S-2399. Os de SST (S-2210, S-2220 e S-2240) ficam fora do escopo, com a
+  medicina do trabalho de cada cliente;
 - periódicos S-1200, S-1202, S-1207, S-1210, S-1260, S-1270, S-1280, S-1298 e
   S-1299, e os de processo trabalhista S-2500 e S-2501;
 - leitura e conciliação dos totalizadores S-5001, S-5002, S-5003, S-5011 e
@@ -262,7 +271,7 @@ Todas aproveitam o que já existe e não mexem no cálculo do IOB:
 | 2. Base de dados | Importação de cadastro e histórico (eSocial + IOB) para área de preparação, com de/para | Cadastro e 12 meses de histórico conciliados com o IOB |
 | 3. Motor de cálculo | Folha mensal de uma empresa simples (CLT mensalista, sem convenção complexa) | Diferença zero por rubrica contra o IOB por 3 competências |
 | 4. Piloto transmitindo | A empresa piloto transmite pelo app, e o IOB fica só como gabarito | Totalizadores do eSocial e guias iguais ao cálculo |
-| 5. Ondas | Grupos de empresas por complexidade: simples, com convenção, com horistas e professores, com SST | Aceite formal por empresa |
+| 5. Ondas | Grupos de empresas por complexidade: simples, com convenção, com horistas e professores | Aceite formal por empresa |
 | 6. Corte | IOB somente leitura para consulta histórica | Última empresa aceita |
 
 ## Critérios mínimos de aceite por empresa
@@ -283,7 +292,7 @@ Todas aproveitam o que já existe e não mexem no cálculo do IOB:
   exportação dos dados ao fim do contrato.
 - Quantas empresas, funcionários e convenções coletivas a carteira tem, para
   dimensionar as ondas.
-- Se o escritório assume SST (S-2210, S-2220 e S-2240) ou se isso fica com a
+- ~~Se o escritório assume SST.~~ Resolvido em 03/10/2026: SST fica com a
   medicina do trabalho dos clientes.
 - A versão vigente do leiaute do eSocial e a disponibilidade de API do FGTS
   Digital para emissão de guia pelo escritório.
