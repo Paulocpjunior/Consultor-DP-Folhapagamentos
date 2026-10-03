@@ -84,3 +84,30 @@ piloto em paralelo provar o cálculo próprio.
   03/10/2026). O Gemini fica como assistente: explicar divergência, ler
   convenção coletiva para sugerir parâmetros que um humano valida.
 
+## Módulo IOB SAGE e restauração do backup PostgreSQL 12
+
+- **03/10/2026, Paulo: *"vamos trabalhar em um modal que seja capaz de efetuar o
+  restore dos backups feitos em PostgreSQL 12 usado na iob sage ... análises
+  comparativas no módulo iob sage, criando os menus, submenus, os devidos
+  modais"*.** Paulo também pediu para cortar os passos que fizeram perder
+  tempo: o inventário "só estrutura primeiro" da fase 0 virou a própria
+  restauração, que já entrega o inventário.
+- **Restauração = leitura no navegador** (`services/iobSage/backupPostgres.ts`):
+  formatos custom, tar, plain e plain.gz do pg_dump; nada sai do computador
+  nem é gravado no Firestore. Gravar no Consultor DP depende do de/para da
+  fase 2. Testado com dumps REAIS de pg_dump 12.3 e 16 sobre PostgreSQL 12.22
+  (`services/iobSage/__tests__/fixtures/`), e em escala: 500 esquemas e 10 mil
+  tabelas abrem em ~0,8 s, 1 milhão de linhas são lidas em ~0,8 s.
+  Como os fixtures foram gerados: PostgreSQL 12.22 do pacote npm
+  `@embedded-postgres/linux-x64@12.22.0-beta.15` e pg_dump 12.3 do conda-forge
+  (`postgresql-12.3-hc2f5b80_3`), porque a rede deste ambiente só libera
+  registros de pacotes.
+- **Mapa de menus** em `docs/mapa-menus-iob-folha.md`. A ajuda da IOB é
+  bloqueada para leitura direta aqui; o mapa saiu de títulos e resumos de
+  busca. O SGC (Gestão Contábil) tem árvore completa; o Office (o do
+  escritório) só tem os menus de primeiro nível confirmados. Fechar as
+  lacunas pede prints dos menus do Office ou o manual em PDF.
+- **Catálogo comparativo** (`services/iobSage/catalogoMenus.ts`) com situação
+  REAL por item: disponível, parcial, planejado (com fase) ou fora do escopo.
+  Teste trava: item disponível aponta para a tela; planejado diz a fase.
+

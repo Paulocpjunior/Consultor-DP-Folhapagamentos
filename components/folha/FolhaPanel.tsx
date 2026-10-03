@@ -13,10 +13,13 @@ const ValidadorACJEFPanel = lazy(() => import('../ponto/ValidadorACJEFPanel'));
 const ImplantacaoPanel = lazy(() => import('../implantacao/ImplantacaoPanel'));
 const ConferenciaPosFolhaPanel = lazy(() => import('./ConferenciaPosFolhaPanel'));
 
-type SubTab = 'eventos' | 'apontamento' | 'validador-ponto' | 'implantacao' | 'conferencia';
+export type SubTabFolha = 'eventos' | 'apontamento' | 'validador-ponto' | 'implantacao' | 'conferencia';
+type SubTab = SubTabFolha;
 
 interface FolhaPanelProps {
     currentUser: User;
+    /** Sub-aba inicial, quando outro módulo abre a Folha num ponto específico. */
+    subInicial?: SubTab;
     onIrParaEmpresas?: () => void;
 }
 
@@ -27,9 +30,9 @@ export interface SessaoFolha {
     iniciadaEm: Date;
 }
 
-const FolhaPanel: React.FC<FolhaPanelProps> = ({ currentUser, onIrParaEmpresas }) => {
-    const [sub, setSub] = useState<SubTab>('apontamento');
-    const [implantacaoAberta, setImplantacaoAberta] = useState(false);
+const FolhaPanel: React.FC<FolhaPanelProps> = ({ currentUser, onIrParaEmpresas, subInicial }) => {
+    const [sub, setSub] = useState<SubTab>(subInicial ?? 'apontamento');
+    const [implantacaoAberta, setImplantacaoAberta] = useState(subInicial === 'implantacao');
     const [sessao, setSessao] = useState<SessaoFolha | null>(null);
 
     const selecionarModo = (modo: ModoExportacao) => { if (modo === 'cadastro') { setImplantacaoAberta(true); setSub('implantacao'); } else setSub('apontamento'); };
