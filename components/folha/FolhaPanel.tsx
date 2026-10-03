@@ -11,8 +11,9 @@ const ApontamentoFolhaPanel = lazy(() => import('./ApontamentoFolhaPanel'));
 const ValidadorACJEFPanel = lazy(() => import('../ponto/ValidadorACJEFPanel'));
 
 const ImplantacaoPanel = lazy(() => import('../implantacao/ImplantacaoPanel'));
+const ConferenciaPosFolhaPanel = lazy(() => import('./ConferenciaPosFolhaPanel'));
 
-type SubTab = 'eventos' | 'apontamento' | 'validador-ponto' | 'implantacao';
+type SubTab = 'eventos' | 'apontamento' | 'validador-ponto' | 'implantacao' | 'conferencia';
 
 interface FolhaPanelProps {
     currentUser: User;
@@ -40,7 +41,7 @@ const FolhaPanel: React.FC<FolhaPanelProps> = ({ currentUser, onIrParaEmpresas }
                     📋 Folha de Pagamento — IOB SAGE FOLHAMATIC
                 </h2>
                 <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                    Implantação cadastral e apontamentos mensais para a folha.
+                    Implantação cadastral, apontamentos mensais e conferência pós-folha.
                 </p>
             </header>
 
@@ -85,6 +86,9 @@ const FolhaPanel: React.FC<FolhaPanelProps> = ({ currentUser, onIrParaEmpresas }
                 <button onClick={() => { setImplantacaoAberta(true); setSub('implantacao'); }} className={`px-3 py-2 -mb-px text-sm font-medium border-b-2 ${sub === 'implantacao' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500'}`}>
                     Implantação de funcionários
                 </button>
+                <button onClick={() => setSub('conferencia')} className={`px-3 py-2 -mb-px text-sm font-medium border-b-2 ${sub === 'conferencia' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500'}`}>
+                    Conferência pós-folha
+                </button>
             </div>
 
             <Suspense
@@ -96,6 +100,7 @@ const FolhaPanel: React.FC<FolhaPanelProps> = ({ currentUser, onIrParaEmpresas }
             >
                 {implantacaoAberta && <div hidden={sub !== 'implantacao'}><ImplantacaoPanel usuario={currentUser.id} onModo={selecionarModo} /></div>}
                 {sub === 'eventos' && <EventosIobSagePanel currentUser={currentUser} />}
+                {sub === 'conferencia' && <ConferenciaPosFolhaPanel />}
 
                 {sub === 'apontamento' && !sessao && (
                     <SeletorEmpresa

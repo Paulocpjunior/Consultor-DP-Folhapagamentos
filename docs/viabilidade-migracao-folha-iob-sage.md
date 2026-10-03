@@ -105,8 +105,8 @@ do IOB está num **PostgreSQL 12**, um banco relacional.
     versão do cálculo. Assim o cálculo lê um conjunto pequeno e conhecido;
   - relatórios entre empresas e competências no BigQuery, alimentado pelo
     Firestore, em vez de consultas grandes no app;
-  - backup agendado e recuperação pontual ligados, porque a folha é registro
-    legal e precisa ser guardada por anos;
+  - backup no UNAS Pro 4 do escritório, que já cobre todo o SaaS desde o
+    início. A folha é registro legal e precisa ser guardada por anos;
   - região do projeto confirmada, porque a folha é dado pessoal protegido pela
     LGPD;
   - toda consulta de lista com limite, e falha de leitura nunca tratada como
@@ -273,6 +273,14 @@ Todas aproveitam o que já existe e não mexem no cálculo do IOB:
 | 4. Piloto transmitindo | A empresa piloto transmite pelo app, e o IOB fica só como gabarito | Totalizadores do eSocial e guias iguais ao cálculo |
 | 5. Ondas | Grupos de empresas por complexidade: simples, com convenção, com horistas e professores | Aceite formal por empresa |
 | 6. Corte | IOB somente leitura para consulta histórica | Última empresa aceita |
+
+**Fase 1 iniciada em 03/10/2026.** A primeira entrega é a aba Folha › Conferência
+pós-folha. Ela lê os totalizadores S-5001, S-5003, S-5011 e S-5013, aponta INSS
+descontado diferente do calculado, lote incompleto e divergência com os valores
+informados da DCTFWeb e do FGTS Digital, e exporta o Excel da conferência.
+Próximas entregas da fase: valores da DCTFWeb e do FGTS Digital pelo SERPRO,
+download de eventos do eSocial, comparação com o resumo da folha do IOB e
+painel de prazos. Manual em `public/manuais/conferencia-pos-folha.html`.
 
 ## Critérios mínimos de aceite por empresa
 

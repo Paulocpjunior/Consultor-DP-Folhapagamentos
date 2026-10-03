@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Manual de conferência pós-folha | Consultor DP</title>
+<style>
+:root{font-family:system-ui,-apple-system,sans-serif;color:#183047;background:#eef3f8;line-height:1.65}*{box-sizing:border-box}body{margin:0}main{max-width:920px;margin:32px auto;padding:40px;background:white;border-radius:16px;box-shadow:0 8px 32px #1830470c}header{border-bottom:1px solid #dbe4ed;padding-bottom:24px}small{color:#52677c}h1{font-size:2rem;line-height:1.2;margin:12px 0}h2{font-size:1.3rem;margin-top:32px}h3{font-size:1.05rem}a{color:#175cba}nav{padding:16px;background:#f3f7fb;border-radius:10px;margin:24px 0}nav a{display:inline-block;margin:4px 14px 4px 0}.notice{padding:16px 20px;border-left:4px solid #d79114;background:#fff8e7;border-radius:4px}.step{border-top:1px solid #e1e8ef;padding:12px 0}.step h3{color:#164d83}li{margin:8px 0}table{border-collapse:collapse;width:100%;font-size:.94rem}th,td{text-align:left;border:1px solid #dbe4ed;padding:12px;vertical-align:top}th{background:#eef4fa}.table{overflow:auto}code{background:#eef3f8;padding:2px 5px;border-radius:4px}footer{border-top:1px solid #dbe4ed;margin-top:32px;padding-top:20px;color:#52677c;font-size:.9rem}.actions{display:flex;gap:12px;flex-wrap:wrap}.actions a{border:1px solid #175cba;border-radius:7px;padding:8px 14px;text-decoration:none}@media(max-width:640px){main{margin:0;padding:22px;border-radius:0}h1{font-size:1.6rem}th,td{padding:8px}}@media print{:root{background:white}main{max-width:none;margin:0;padding:0;box-shadow:none}.actions,nav{display:none}h2,h3{break-after:avoid}.step,tr,.notice{break-inside:avoid}a{color:inherit}}
+</style>
+</head>
+<body><main>
+<header><small>CONSULTOR DP · GUIA DO COLABORADOR · FASE 1 DA MIGRAÇÃO</small>
+<h1>Conferência pós-folha</h1><p>Depois de fechar a folha no IOB, confira o que o eSocial devolveu antes de pagar o DARF da DCTFWeb e a guia do FGTS Digital.</p>
+<div class="actions"><a href="../">Abrir aplicativo</a><a href="#roteiro">Começar o passo a passo</a></div></header>
+<nav aria-label="Índice"><a href="#preparar">Preparação</a><a href="#roteiro">Passo a passo</a><a href="#pendencias">Como ler as pendências</a><a href="#limites">Limites da versão</a></nav>
+<aside class="notice"><strong>O IOB continua sendo o sistema oficial da folha.</strong> A conferência só aponta divergências. Ela não corrige valores, não transmite nada ao eSocial e não grava no IOB. Toda correção continua sendo feita no IOB, seguida de novo fechamento.</aside>
+<section id="preparar"><h2>Antes de começar</h2><ul>
+<li>A folha da competência precisa estar <strong>fechada no eSocial</strong> (S-1299 aceito). Só depois disso o eSocial devolve os totalizadores da empresa.</li>
+<li>Reúna os XMLs dos totalizadores da competência. Eles podem vir do IOB ou do download de eventos do portal do eSocial, soltos ou em <code>.zip</code>.</li>
+<li>Separe o valor dos débitos previdenciários da DCTFWeb e o valor da guia do FGTS Digital, sem multa e juros.</li>
+</ul>
+<div class="table"><table><thead><tr><th>Arquivo</th><th>O que traz</th></tr></thead><tbody>
+<tr><td><strong>S-5001</strong></td><td>Um por trabalhador: INSS descontado pela folha e INSS calculado pelo eSocial.</td></tr>
+<tr><td><strong>S-5003</strong></td><td>Um por trabalhador: base e depósito do FGTS.</td></tr>
+<tr><td><strong>S-5011</strong></td><td>Um por empresa: contribuições que vão para a DCTFWeb.</td></tr>
+<tr><td><strong>S-5013</strong></td><td>Um por empresa: FGTS que vai para a guia do FGTS Digital.</td></tr>
+</tbody></table></div></section>
+<section id="roteiro"><h2>Passo a passo</h2>
+<div class="step"><h3>1. Abra a conferência</h3><p>No aplicativo, abra <strong>Folha → Conferência pós-folha</strong>.</p></div>
+<div class="step"><h3>2. Carregue os totalizadores</h3><p>Clique em <strong>Carregar totalizadores</strong> e selecione os XMLs ou o <code>.zip</code>. É possível adicionar mais arquivos depois. Arquivos repetidos são contados uma vez.</p><p>Abra <strong>Avisos de leitura</strong> se aparecer. Ele lista arquivos que não eram totalizadores ou que não puderam ser lidos.</p></div>
+<div class="step"><h3>3. Confira empresa e competência</h3><p>Em <strong>Empresa e competência</strong>, confirme a empresa, o mês e se é folha mensal ou 13º salário. Se o lote tiver mais de uma competência, escolha uma de cada vez.</p></div>
+<div class="step"><h3>4. Informe a DCTFWeb e a guia do FGTS</h3><p>Digite o total dos débitos previdenciários da DCTFWeb, <strong>sem IRRF, multa e juros</strong>, e o valor da guia do FGTS Digital, <strong>sem multa e juros</strong>. Os cartões mostram na hora se confere com o esperado.</p></div>
+<div class="step"><h3>5. Resolva as pendências</h3><p>Leia a tabela <strong>Pendências</strong>, começando pelas críticas. Corrija no IOB, feche a folha de novo e repita a conferência com os totalizadores novos.</p></div>
+<div class="step"><h3>6. Guarde o registro</h3><p>Clique em <strong>Baixar Excel da conferência</strong> e guarde o arquivo na pasta do cliente, junto com a competência.</p></div></section>
+<section id="pendencias"><h2>Como ler as pendências</h2><div class="table"><table><thead><tr><th>Regra</th><th>O que significa</th><th>O que fazer</th></tr></thead><tbody>
+<tr><td>INSS do trabalhador</td><td>A folha descontou um INSS diferente do que o eSocial calculou. Diferença de até R$ 1,00 aparece como informativa, por provável arredondamento.</td><td>Conferir no IOB as rubricas com incidência de INSS e outros vínculos do trabalhador.</td></tr>
+<tr><td>FGTS sem totalizador / INSS sem totalizador</td><td>Um trabalhador tem um dos totalizadores e não tem o outro no lote.</td><td>Ver se o arquivo faltou no lote. Se não faltou, conferir por que o FGTS ou o INSS não foi apurado.</td></tr>
+<tr><td>Consolidado</td><td>A soma dos trabalhadores não fecha com o total da empresa.</td><td>Quase sempre faltam arquivos de trabalhadores no lote. Carregue o lote completo.</td></tr>
+<tr><td>DCTFWeb</td><td>O valor informado não bate com o S-5011.</td><td>Ver se a DCTFWeb foi gerada depois do último fechamento e se o valor digitado exclui IRRF, multa e juros.</td></tr>
+<tr><td>FGTS Digital</td><td>O valor informado não bate com o S-5013.</td><td>Ver se a guia foi emitida depois do último fechamento. Se a guia juntou mensal e rescisório, o total também é aceito.</td></tr>
+<tr><td>Lote</td><td>Há dois totalizadores do mesmo trabalhador ou da empresa, geralmente por retificação.</td><td>Deixar no lote só o mais recente. Até lá, aquele trabalhador fica fora da conta.</td></tr>
+</tbody></table></div></section>
+<section id="limites"><h2>Limites desta versão</h2><ul>
+<li>A leitura segue o leiaute S-1.3 do eSocial. O <strong>primeiro lote real</strong> de cada empresa serve de homologação: se algo parecer estranho, guarde os arquivos e avise.</li>
+<li>Os valores da DCTFWeb e do FGTS Digital ainda são digitados. A busca automática pelo SERPRO fica para a próxima etapa.</li>
+<li>A comparação com o resumo da folha do próprio IOB entra depois, a partir de um exemplo do relatório exportado.</li>
+<li>O IRRF ainda não entra na conferência.</li>
+</ul></section>
+<footer>Consultor DP · Conferência pós-folha · fase 1 da migração da folha IOB/SAGE. Este manual não contém dados de clientes.</footer>
+</main></body></html>

@@ -69,3 +69,45 @@ export function baixarBytes(nome: string, bytes: Uint8Array | ArrayBuffer, mime 
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+export interface ArquivoLido { nome: string; bytes: Uint8Array }
+
+async function inflarRaw(dados: Uint8Array): Promise<Uint8Array> {
+    // Response em vez de Blob.stream(): funciona no navegador e no ambiente de teste.
+    const fluxo = new Response(dados as BodyInit).body!.pipeThrough(new DecompressionStream('deflate-raw'));
+    return new Uint8Array(await new Response(fluxo).arrayBuffer());
+}
+
+/**
+ * Lê um ZIP comum (métodos "stored" e "deflate"), como os que o portal do
+ * eSocial e o Windows geram. Usa o diretório central, então funciona também
+ * quando o tamanho vem só no descritor de dados. Entradas de pasta são ignoradas.
+ */
+export async function lerZip(zip: Uint8Array): Promise<ArquivoLido[]> {
+    const v = new DataView(zip.buffer, zip.byteOffset, zip.byteLength);
+    let fim = -1;
+    for (let i = zip.length - 22; i >= Math.max(0, zip.length - 22 - 0xffff); i--) {
+        if (v.getUint32(i, true) === 0x06054b50) { fim = i; break; }
+    }
+    if (fim < 0) throw new Error('Arquivo ZIP inválido: diretório central não encontrado.');
+    const total = v.getUint16(fim + 10, true);
+    let p = v.getUint32(fim + 16, true);
+    const dec = new TextDecoder('utf-8');
+    const saida: ArquivoLido[] = [];
+    for (let n = 0; n < total; n++) {
+        if (v.getUint32(p, true) !== 0x02014b50) throw new Error('Arquivo ZIP inválido: entrada do diretório central corrompida.');
+        const metodo = v.getUint16(p + 10, true);
+        const comprimido = v.getUint32(p + 20, true);
+        const lenNome = v.getUint16(p + 28, true), lenExtra = v.getUint16(p + 30, true), lenComent = v.getUint16(p + 32, true);
+        const offLocal = v.getUint32(p + 42, true);
+        const nome = dec.decode(zip.subarray(p + 46, p + 46 + lenNome));
+        p += 46 + lenNome + lenExtra + lenComent;
+        if (nome.endsWith('/')) continue;
+        const inicio = offLocal + 30 + v.getUint16(offLocal + 26, true) + v.getUint16(offLocal + 28, true);
+        const dados = zip.subarray(inicio, inicio + comprimido);
+        if (metodo === 0) saida.push({ nome, bytes: dados.slice() });
+        else if (metodo === 8) saida.push({ nome, bytes: await inflarRaw(dados) });
+        else throw new Error(`${nome}: método de compressão ${metodo} não suportado.`);
+    }
+    return saida;
+}

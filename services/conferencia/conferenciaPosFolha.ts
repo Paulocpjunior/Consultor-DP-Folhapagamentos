@@ -1,0 +1,264 @@
+// services/conferencia/conferenciaPosFolha.ts
+//
+// Fase 1 da migração (docs/viabilidade-migracao-folha-iob-sage.md):
+// conferir a folha que o IOB calculou e transmitiu, usando o que o eSocial
+// devolveu. O IOB continua sendo o sistema de registro; aqui só se aponta
+// divergência, nunca se corrige valor.
+//
+// Regras, todas com base nos totalizadores do leiaute S-1.3:
+//
+//  1. INSS por trabalhador (S-5001 infoCpCalc): o que a folha DESCONTOU
+//     (vrDescSeg) contra o que o eSocial CALCULOU (vrCpSeg), por código de
+//     receita. Diferença aqui é erro de desconto na folha.
+//  2. Empregado com S-5001 e sem S-5003 (ou o contrário): falta arquivo no
+//     lote ou o FGTS não foi apurado.
+//  3. Soma dos trabalhadores contra o consolidado da empresa: S-5001 × S-5011
+//     (INSS dos segurados) e S-5003 × S-5013 (FGTS por tipo de valor). Se não
+//     fecha, o lote enviado está incompleto ou o eSocial reprocessou algo.
+//  4. DCTFWeb: os créditos do S-5011 (infoCRContrib) são o que a DCTFWeb
+//     recebe do eSocial. Comparados com o valor que a equipe informar.
+//  5. FGTS Digital: o S-5013 é a base da guia. Comparado com o valor informado.
+
+import type { GrupoApuracao, S5001, S5003 } from './totalizadores';
+
+export type Gravidade = 'critica' | 'atencao' | 'info';
+
+export interface Pendencia {
+    gravidade: Gravidade;
+    regra: string;
+    cpf?: string;
+    matricula?: string;
+    mensagem: string;
+    /** Em centavos, quando a regra compara valores. */
+    diferenca?: number;
+}
+
+export interface LinhaInss {
+    cpf: string; matriculas: string; categorias: string;
+    tpCR: string; descontado: number; calculado: number; diferenca: number;
+}
+export interface LinhaFgts {
+    cpf: string; matriculas: string; categorias: string;
+    remuneracao: number; deposito: number;
+}
+export interface ConsolidacaoFgts {
+    tpValor: string; descricao: string;
+    somaTrabalhadores: number; empresa: number | null; diferenca: number | null;
+}
+export interface CreditoDarf { tpCR: string; valor: number; suspenso: number; aRecolher: number }
+
+export interface ResultadoConferencia {
+    empregador: string;
+    perApur: string;
+    indApuracao: string;
+    contagem: { s5001: number; s5003: number; s5011: number; s5013: number };
+    inss: LinhaInss[];
+    fgts: LinhaFgts[];
+    consolidacaoInss: {
+        descontadoTrabalhadores: number; calculadoTrabalhadores: number;
+        descontadoEmpresa: number | null; calculadoEmpresa: number | null;
+    };
+    consolidacaoFgts: ConsolidacaoFgts[];
+    dctfweb: { creditos: CreditoDarf[]; totalARecolher: number; informado: number | null; diferenca: number | null };
+    fgtsDigital: { mensal: number; rescisorio: number; total: number; informado: number | null; diferenca: number | null };
+    pendencias: Pendencia[];
+}
+
+export interface OpcoesConferencia {
+    /** Débitos previdenciários e de terceiros na DCTFWeb, em centavos (sem IRRF, multa e juros). */
+    dctfwebInformado?: number | null;
+    /** Valor da guia do FGTS Digital, em centavos (sem multa e juros). */
+    fgtsDigitalInformado?: number | null;
+    /** Diferença de INSS até este valor, em centavos, é tratada como arredondamento. Padrão: R$ 1,00. */
+    toleranciaArredondamento?: number;
+}
+
+/** CR de empréstimo consignado: vem em infoCpCalc, mas não é INSS. */
+const CR_NAO_INSS = new Set(['160601']);
+
+/** tpValor de FGTS que são rescisórios (guia própria no FGTS Digital). XSD S-1.3, evtBasesFGTS. */
+const FGTS_RESCISORIO = new Set(['21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '45', '46', '47', '48', '49', '50']);
+
+export const DESCRICAO_TPVALOR_FGTS: Record<string, string> = {
+    '11': 'FGTS mensal', '12': 'FGTS 13º salário', '13': 'FGTS (período anterior) mensal', '14': 'FGTS (período anterior) 13º salário',
+    '15': 'FGTS mensal - Aprendiz', '16': 'FGTS 13º salário - Aprendiz', '17': 'FGTS (período anterior) mensal - Aprendiz', '18': 'FGTS (período anterior) 13º salário - Aprendiz',
+    '19': 'FGTS - Avulsos não portuários',
+    '21': 'FGTS mês da rescisão', '22': 'FGTS 13º salário rescisório', '23': 'FGTS aviso prévio indenizado',
+    '24': 'FGTS (período anterior) mês da rescisão', '25': 'FGTS (período anterior) 13º rescisório', '26': 'FGTS (período anterior) aviso prévio indenizado',
+    '27': 'FGTS mês da rescisão - Aprendiz', '28': 'FGTS 13º rescisório - Aprendiz', '29': 'FGTS aviso prévio indenizado - Aprendiz',
+    '30': 'FGTS (período anterior) mês da rescisão - Aprendiz', '31': 'FGTS (período anterior) 13º rescisório - Aprendiz', '32': 'FGTS (período anterior) aviso prévio indenizado - Aprendiz',
+    '41': 'Indenização compensatória doméstico - mensal', '42': 'Indenização compensatória doméstico - 13º',
+    '43': 'Indenização compensatória doméstico - período anterior mensal', '44': 'Indenização compensatória doméstico - período anterior 13º',
+    '45': 'Indenização compensatória doméstico - mês da rescisão', '46': 'Indenização compensatória doméstico - 13º rescisório',
+    '47': 'Indenização compensatória doméstico - aviso prévio', '48': 'Indenização compensatória doméstico - período anterior mês da rescisão',
+    '49': 'Indenização compensatória doméstico - período anterior 13º rescisório', '50': 'Indenização compensatória doméstico - período anterior aviso prévio',
+};
+
+export const DESCRICAO_CR_SEGURADO: Record<string, string> = {
+    '108201': 'INSS empregado/avulso', '108202': 'INSS empregado rural curto prazo', '108203': 'INSS empregado doméstico',
+    '108204': 'INSS segurado especial curto prazo', '108205': 'INSS empregado do segurado especial', '108207': 'INSS empregado do MEI',
+    '108221': 'INSS empregado/avulso 13º', '108222': 'INSS rural curto prazo 13º', '108223': 'INSS doméstico 13º',
+    '108224': 'INSS segurado especial curto prazo 13º', '108225': 'INSS empregado do segurado especial 13º',
+    '109901': 'INSS contribuinte individual 11%', '109902': 'INSS contribuinte individual 20%',
+    '109921': 'INSS contribuinte individual 11% 13º', '109922': 'INSS contribuinte individual 20% 13º',
+};
+
+/** Categorias de empregado (grupo 1xx da Tabela 01 do eSocial): têm FGTS. */
+const ehEmpregado = (codCateg: string) => /^1\d\d$/.test(codCateg);
+
+export const reais = (c: number) => (c / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+const unicos = (xs: string[]) => [...new Set(xs.filter(Boolean))].join(', ');
+
+function cpfDuplicados<T extends { cpf: string }>(xs: T[]): Set<string> {
+    const vistos = new Set<string>(), dup = new Set<string>();
+    for (const x of xs) (vistos.has(x.cpf) ? dup : vistos).add(x.cpf);
+    return dup;
+}
+
+export function conferirPosFolha(g: GrupoApuracao, op: OpcoesConferencia = {}): ResultadoConferencia {
+    const tolerancia = op.toleranciaArredondamento ?? 100;
+    const pendencias: Pendencia[] = [];
+
+    if (g.s5011.length > 1) pendencias.push({ gravidade: 'atencao', regra: 'Lote', mensagem: `Há ${g.s5011.length} S-5011 para a mesma competência. Use só o mais recente; a conferência abaixo soma o primeiro.` });
+    if (g.s5013.length > 1) pendencias.push({ gravidade: 'atencao', regra: 'Lote', mensagem: `Há ${g.s5013.length} S-5013 para a mesma competência. Use só o mais recente; a conferência abaixo soma o primeiro.` });
+
+    // Dois totalizadores do mesmo trabalhador = retificação. Sem data no
+    // retorno não dá para saber qual vale, então ele sai da conferência e
+    // vira pendência — somar os dois dobraria o valor.
+    const dup5001 = cpfDuplicados(g.s5001);
+    const dup5003 = cpfDuplicados(g.s5003);
+    for (const cpf of dup5001) pendencias.push({ gravidade: 'atencao', regra: 'Lote', cpf, mensagem: 'Mais de um S-5001 para este trabalhador (retificação). Deixe só o mais recente no lote; ele ficou fora da conferência de INSS.' });
+    for (const cpf of dup5003) pendencias.push({ gravidade: 'atencao', regra: 'Lote', cpf, mensagem: 'Mais de um S-5003 para este trabalhador (retificação). Deixe só o mais recente no lote; ele ficou fora da conferência de FGTS.' });
+    const s5001 = g.s5001.filter(t => !dup5001.has(t.cpf));
+    const s5003 = g.s5003.filter(t => !dup5003.has(t.cpf));
+
+    // ── 1. INSS descontado × calculado ────────────────────────────────────
+    const inss: LinhaInss[] = [];
+    for (const t of s5001) {
+        const matriculas = unicos(t.vinculos.map(v => v.matricula));
+        const categorias = unicos(t.vinculos.map(v => v.codCateg));
+        for (const c of t.calculos) {
+            if (CR_NAO_INSS.has(c.tpCR)) continue;
+            const diferenca = c.descontado - c.calculado;
+            inss.push({ cpf: t.cpf, matriculas, categorias, tpCR: c.tpCR, descontado: c.descontado, calculado: c.calculado, diferenca });
+            if (diferenca === 0) continue;
+            const rotulo = DESCRICAO_CR_SEGURADO[c.tpCR] ?? `CR ${c.tpCR}`;
+            const sentido = diferenca > 0 ? 'a mais' : 'a menos';
+            pendencias.push({
+                gravidade: Math.abs(diferenca) <= tolerancia ? 'info' : 'critica',
+                regra: 'INSS do trabalhador', cpf: t.cpf, matricula: matriculas, diferenca,
+                mensagem: `${rotulo}: a folha descontou ${reais(c.descontado)} e o eSocial calculou ${reais(c.calculado)} — ${reais(Math.abs(diferenca))} ${sentido}` +
+                    (Math.abs(diferenca) <= tolerancia ? ' (provável arredondamento).' : '.'),
+            });
+        }
+    }
+
+    // ── 2. Completude S-5001 × S-5003 para empregados ─────────────────────
+    const cpfs5003 = new Set(g.s5003.map(t => t.cpf));
+    const cpfs5001 = new Set(g.s5001.map(t => t.cpf));
+    for (const t of g.s5001) {
+        const empregado = t.vinculos.some(v => ehEmpregado(v.codCateg) && v.bases.some(b => b.valor > 0));
+        if (empregado && !cpfs5003.has(t.cpf) && !dup5001.has(t.cpf)) {
+            pendencias.push({ gravidade: 'atencao', regra: 'FGTS sem totalizador', cpf: t.cpf, matricula: unicos(t.vinculos.map(v => v.matricula)), mensagem: 'Empregado com remuneração no S-5001 e sem S-5003 no lote. Confira se o arquivo veio ou se o FGTS não foi apurado.' });
+        }
+    }
+    for (const t of g.s5003) {
+        if (!cpfs5001.has(t.cpf) && !dup5003.has(t.cpf)) {
+            pendencias.push({ gravidade: 'atencao', regra: 'INSS sem totalizador', cpf: t.cpf, matricula: unicos(t.itens.map(i => i.matricula)), mensagem: 'Trabalhador com S-5003 e sem S-5001 no lote. Confira se o arquivo veio.' });
+        }
+    }
+
+    // ── 3a. Soma dos trabalhadores × S-5011 ───────────────────────────────
+    const segurado = (t: S5001) => t.calculos.filter(c => !CR_NAO_INSS.has(c.tpCR));
+    const descontadoTrabalhadores = s5001.reduce((s, t) => s + segurado(t).reduce((a, c) => a + c.descontado, 0), 0);
+    const calculadoTrabalhadores = s5001.reduce((s, t) => s + segurado(t).reduce((a, c) => a + c.calculado, 0), 0);
+    const cs = g.s5011[0];
+    const descontadoEmpresa = cs?.descontadoSegurados ?? null;
+    const calculadoEmpresa = cs?.calculadoSegurados ?? null;
+    if (!cs) {
+        pendencias.push({ gravidade: 'atencao', regra: 'Consolidado', mensagem: 'O lote não tem o S-5011 da empresa. Sem ele não dá para conferir a DCTFWeb nem se faltam trabalhadores.' });
+    } else if (!dup5001.size && descontadoEmpresa !== null && calculadoEmpresa !== null) {
+        const dDesc = descontadoTrabalhadores - descontadoEmpresa;
+        const dCalc = calculadoTrabalhadores - calculadoEmpresa;
+        if (dDesc !== 0 || dCalc !== 0) {
+            pendencias.push({
+                gravidade: 'atencao', regra: 'Consolidado', diferenca: dDesc || dCalc,
+                mensagem: `A soma dos S-5001 do lote (descontado ${reais(descontadoTrabalhadores)}, calculado ${reais(calculadoTrabalhadores)}) não fecha com o S-5011 (descontado ${reais(descontadoEmpresa)}, calculado ${reais(calculadoEmpresa)}). Provavelmente faltam totalizadores de trabalhadores no lote.`,
+            });
+        }
+    }
+
+    // ── 3b. Soma dos trabalhadores × S-5013, por tipo de valor ────────────
+    const fgts: LinhaFgts[] = s5003.map((t: S5003) => {
+        const correntes = t.itens.filter(i => !i.periodoAnterior);
+        return {
+            cpf: t.cpf, matriculas: unicos(t.itens.map(i => i.matricula)), categorias: unicos(t.itens.map(i => i.codCateg)),
+            remuneracao: correntes.reduce((s, i) => s + i.remuneracao, 0), deposito: correntes.reduce((s, i) => s + i.deposito, 0),
+        };
+    });
+    const porTipo = new Map<string, number>();
+    for (const t of s5003) for (const i of t.itens) if (!i.periodoAnterior) porTipo.set(i.tpValor, (porTipo.get(i.tpValor) ?? 0) + i.deposito);
+    const fg = g.s5013[0];
+    const empresaPorTipo = new Map<string, number>();
+    for (const b of fg?.bases ?? []) if (!b.periodoAnterior) empresaPorTipo.set(b.tpValor, (empresaPorTipo.get(b.tpValor) ?? 0) + b.valorFgts);
+    const tipos = [...new Set([...porTipo.keys(), ...empresaPorTipo.keys()])].sort();
+    const consolidacaoFgts: ConsolidacaoFgts[] = tipos.map(tp => {
+        const soma = porTipo.get(tp) ?? 0;
+        const empresa = fg ? (empresaPorTipo.get(tp) ?? 0) : null;
+        return { tpValor: tp, descricao: DESCRICAO_TPVALOR_FGTS[tp] ?? `Tipo ${tp}`, somaTrabalhadores: soma, empresa, diferenca: empresa === null ? null : soma - empresa };
+    });
+    if (!fg) {
+        pendencias.push({ gravidade: 'atencao', regra: 'Consolidado', mensagem: 'O lote não tem o S-5013 da empresa. Sem ele não dá para conferir a guia do FGTS Digital.' });
+    } else if (!dup5003.size) {
+        for (const c of consolidacaoFgts) {
+            // tpValor 19 (avulsos não portuários) vem do S-1270, não do S-5003.
+            if (c.diferenca && c.tpValor !== '19') {
+                pendencias.push({ gravidade: 'atencao', regra: 'Consolidado', diferenca: c.diferenca, mensagem: `${c.descricao}: a soma dos S-5003 do lote dá ${reais(c.somaTrabalhadores)} e o S-5013 traz ${reais(c.empresa ?? 0)}. Provavelmente faltam totalizadores de trabalhadores no lote.` });
+            }
+        }
+    }
+
+    // ── 4. DCTFWeb ─────────────────────────────────────────────────────────
+    const creditos: CreditoDarf[] = (cs?.creditos ?? []).map(c => ({ ...c, aRecolher: c.valor - c.suspenso }));
+    const totalARecolher = creditos.reduce((s, c) => s + c.aRecolher, 0);
+    const dctfInformado = op.dctfwebInformado ?? null;
+    const dctfDif = dctfInformado === null || !cs ? null : dctfInformado - totalARecolher;
+    if (dctfDif) {
+        pendencias.push({ gravidade: 'critica', regra: 'DCTFWeb', diferenca: dctfDif, mensagem: `Débitos previdenciários informados da DCTFWeb (${reais(dctfInformado!)}) diferentes do S-5011 (${reais(totalARecolher)}). Confira se a DCTFWeb foi gerada depois do último fechamento (S-1299) e se o valor informado exclui IRRF, multa e juros.` });
+    }
+
+    // ── 5. FGTS Digital ────────────────────────────────────────────────────
+    let mensal = 0, rescisorio = 0;
+    for (const b of fg?.bases ?? []) (FGTS_RESCISORIO.has(b.tpValor) ? (rescisorio += b.valorFgts) : (mensal += b.valorFgts));
+    const fgtsInformado = op.fgtsDigitalInformado ?? null;
+    // A guia mensal é a comparação padrão; se o valor informado bater com o
+    // total (mensal + rescisório), a guia juntou as duas e está certa.
+    const fgtsDif = fgtsInformado === null || !fg ? null : (fgtsInformado === mensal + rescisorio ? 0 : fgtsInformado - mensal);
+    if (fgtsDif) {
+        pendencias.push({ gravidade: 'critica', regra: 'FGTS Digital', diferenca: fgtsDif, mensagem: `Guia do FGTS Digital informada (${reais(fgtsInformado!)}) diferente do S-5013: mensal ${reais(mensal)}${rescisorio ? `, rescisório ${reais(rescisorio)}, total ${reais(mensal + rescisorio)}` : ''}. Confira se a guia foi emitida depois do último fechamento e se o valor informado exclui multa e juros.` });
+    }
+
+    const ordem: Record<Gravidade, number> = { critica: 0, atencao: 1, info: 2 };
+    pendencias.sort((a, b) => ordem[a.gravidade] - ordem[b.gravidade] || a.regra.localeCompare(b.regra) || (a.cpf ?? '').localeCompare(b.cpf ?? ''));
+
+    return {
+        empregador: g.empregador, perApur: g.perApur, indApuracao: g.indApuracao,
+        contagem: { s5001: g.s5001.length, s5003: g.s5003.length, s5011: g.s5011.length, s5013: g.s5013.length },
+        inss, fgts,
+        consolidacaoInss: { descontadoTrabalhadores, calculadoTrabalhadores, descontadoEmpresa, calculadoEmpresa },
+        consolidacaoFgts,
+        dctfweb: { creditos, totalARecolher, informado: dctfInformado, diferenca: dctfDif },
+        fgtsDigital: { mensal, rescisorio, total: mensal + rescisorio, informado: fgtsInformado, diferenca: fgtsDif },
+        pendencias,
+    };
+}
+
+/** "1.234,56" ou "1234.56" → centavos; vazio → null. */
+export function lerValorDigitado(v: string): number | null {
+    const t = v.replace(/[R$\s]/g, '');
+    if (!t) return null;
+    const normal = t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : t;
+    if (!/^\d+(\.\d{1,2})?$/.test(normal)) return null;
+    return Math.round(Number(normal) * 100);
+}

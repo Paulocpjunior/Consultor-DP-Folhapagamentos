@@ -43,4 +43,25 @@ piloto em paralelo provar o cálculo próprio.
   de validação governamental para isso.
 - **Banco de dados: Firebase, como nos outros apps** (03/10/2026). A folha usa o
   Firestore com um documento por funcionário e competência, relatórios no
-  BigQuery, backup com recuperação pontual e região confirmada.
+  BigQuery e região confirmada.
+- **Backup: todo o SaaS já nasceu com backup no UNAS Pro 4 do escritório**
+  (Paulo, 03/10/2026). Não propor outra rotina de backup.
+
+## Fase 1 — conferência pós-folha
+
+- **03/10/2026, Paulo: *"pode comecar a fase 1, conferencia pos folha"*.**
+  Primeira entrega: `services/conferencia/` (leitor dos totalizadores e regras)
+  e a aba Folha › Conferência pós-folha. O leitor segue os XSDs do leiaute
+  S-1.3, tirados da biblioteca pública nfephp-org/sped-esocial
+  (`schemes/v_S_01_03_00`). Os testes usam XML montado nessa estrutura: o
+  primeiro lote real de totalizadores deve virar teste de regressão.
+- Regras: INSS descontado (`vrDescSeg`) × calculado (`vrCpSeg`) por trabalhador,
+  com até R$ 1,00 como arredondamento; CR 160601 (consignado) fica fora; empregado
+  (categoria 1xx) com S-5001 e sem S-5003; soma dos trabalhadores × S-5011 e
+  S-5013; DCTFWeb = `infoCRContrib` do S-5011 menos a parte suspensa; FGTS
+  Digital = S-5013, mensal ou mensal + rescisório. Totalizador duplicado do
+  mesmo trabalhador sai da conta e vira pendência, nunca é somado duas vezes.
+- Pendente na fase 1: DCTFWeb e FGTS Digital pelo SERPRO (via túnel do CFI),
+  download de eventos do eSocial, comparação com o resumo da folha do IOB
+  (precisa de um exemplo do relatório exportado), IRRF e painel de prazos.
+
