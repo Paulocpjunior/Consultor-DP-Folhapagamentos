@@ -18,8 +18,12 @@
 //  4. DCTFWeb: os créditos do S-5011 (infoCRContrib) são o que a DCTFWeb
 //     recebe do eSocial. Comparados com o valor que a equipe informar.
 //  5. FGTS Digital: o S-5013 é a base da guia. Comparado com o valor informado.
+//  6. SERPRO (quando consultado): fechamento do eSocial e DCTFWeb entregues,
+//     e FGTS devido × recolhido no FGTS Digital. Falha de consulta vira
+//     pendência informativa, nunca "entregue" ou "pago".
 
 import type { GrupoApuracao, S5001, S5003 } from './totalizadores';
+import type { ConsultaSerpro } from './serproConferencia';
 
 export type Gravidade = 'critica' | 'atencao' | 'info';
 
@@ -61,6 +65,7 @@ export interface ResultadoConferencia {
     consolidacaoFgts: ConsolidacaoFgts[];
     dctfweb: { creditos: CreditoDarf[]; totalARecolher: number; informado: number | null; diferenca: number | null };
     fgtsDigital: { mensal: number; rescisorio: number; total: number; informado: number | null; diferenca: number | null };
+    serpro: ConsultaSerpro | null;
     pendencias: Pendencia[];
 }
 
@@ -71,6 +76,8 @@ export interface OpcoesConferencia {
     fgtsDigitalInformado?: number | null;
     /** Diferença de INSS até este valor, em centavos, é tratada como arredondamento. Padrão: R$ 1,00. */
     toleranciaArredondamento?: number;
+    /** Resultado da consulta ao SERPRO para esta empresa e competência. */
+    serpro?: ConsultaSerpro | null;
 }
 
 /** CR de empréstimo consignado: vem em infoCpCalc, mas não é INSS. */
@@ -239,6 +246,45 @@ export function conferirPosFolha(g: GrupoApuracao, op: OpcoesConferencia = {}): 
         pendencias.push({ gravidade: 'critica', regra: 'FGTS Digital', diferenca: fgtsDif, mensagem: `Guia do FGTS Digital informada (${reais(fgtsInformado!)}) diferente do S-5013: mensal ${reais(mensal)}${rescisorio ? `, rescisório ${reais(rescisorio)}, total ${reais(mensal + rescisorio)}` : ''}. Confira se a guia foi emitida depois do último fechamento e se o valor informado exclui multa e juros.` });
     }
 
+    // ── 6. SERPRO ──────────────────────────────────────────────────────────
+    const sp = op.serpro ?? null;
+    if (sp) {
+        const quando = (d: string | null) => (d ? ` em ${d}` : '');
+        if (!sp.esocial.ok) pendencias.push({ gravidade: 'info', regra: 'SERPRO', mensagem: `Fechamento do eSocial: consulta indisponível (${sp.esocial.erro}). Confira no portal.` });
+        else if (!sp.esocial.entregue) pendencias.push({ gravidade: 'atencao', regra: 'SERPRO', mensagem: `O fechamento do eSocial (S-1299) não consta como transmitido no SERPRO. Situação: ${sp.esocial.situacao}.` });
+        if (!sp.dctfweb.ok) pendencias.push({ gravidade: 'info', regra: 'SERPRO', mensagem: `DCTFWeb: consulta indisponível (${sp.dctfweb.erro}). Confira no e-CAC.` });
+        else if (!sp.dctfweb.entregue) pendencias.push({ gravidade: 'atencao', regra: 'SERPRO', mensagem: `A DCTFWeb da competência não consta como entregue no SERPRO. Situação: ${sp.dctfweb.situacao}.` });
+        else if (sp.esocial.ok && !sp.esocial.entregue) pendencias.push({ gravidade: 'atencao', regra: 'SERPRO', mensagem: `A DCTFWeb consta como entregue${quando(sp.dctfweb.dataEntrega)}, mas o fechamento do eSocial não. Confira se a DCTFWeb reflete a folha atual.` });
+        // Débitos da DCTFWeb × S-5011, por código de receita. A DCTFWeb traz o
+        // saldo a pagar, já com deduções (salário-família, salário-maternidade),
+        // compensações e suspensões; por isso a diferença é "atenção", não erro.
+        const dd = sp.dctfwebDebitos;
+        if (!dd.ok) {
+            pendencias.push({ gravidade: 'info', regra: 'SERPRO', mensagem: `Débitos da DCTFWeb: consulta indisponível (${dd.erro}). Informe o valor à mão.` });
+        } else if (cs) {
+            const daDctf = new Map(dd.debitos.map(x => [x.codReceita, x]));
+            for (const c of creditos) {
+                const d = daDctf.get(c.tpCR);
+                if (!d) {
+                    if (c.aRecolher > 0) pendencias.push({ gravidade: 'atencao', regra: 'SERPRO', diferenca: -c.aRecolher, mensagem: `DCTFWeb sem saldo a pagar no código ${c.tpCR}, que o S-5011 apura em ${reais(c.aRecolher)}. Pode ser dedução ou compensação; confira no e-CAC.` });
+                } else if (d.valor !== c.aRecolher) {
+                    pendencias.push({ gravidade: 'atencao', regra: 'SERPRO', diferenca: d.valor - c.aRecolher, mensagem: `DCTFWeb código ${c.tpCR}${d.descricao ? ` (${d.descricao})` : ''}: saldo a pagar ${reais(d.valor)}, S-5011 ${reais(c.aRecolher)}. Diferença de ${reais(Math.abs(d.valor - c.aRecolher))}; pode ser dedução de salário-família ou maternidade, compensação ou retenção. Confira no e-CAC.` });
+                }
+            }
+        }
+        if (!sp.fgts.ok) pendencias.push({ gravidade: 'info', regra: 'SERPRO', mensagem: `FGTS Digital: consulta indisponível (${sp.fgts.erro}). Informe o valor da guia à mão.` });
+        else if (sp.fgts.devido === null) pendencias.push({ gravidade: 'info', regra: 'SERPRO', mensagem: 'FGTS Digital: o SERPRO respondeu sem valor devido para a competência. Informe o valor da guia à mão.' });
+        else {
+            if (fg && sp.fgts.devido !== mensal && sp.fgts.devido !== mensal + rescisorio) {
+                pendencias.push({ gravidade: 'critica', regra: 'SERPRO', diferenca: sp.fgts.devido - mensal, mensagem: `FGTS Digital: o valor devido no SERPRO (${reais(sp.fgts.devido)}) é diferente do S-5013 (mensal ${reais(mensal)}${rescisorio ? `, total ${reais(mensal + rescisorio)}` : ''}). Confira se houve novo fechamento depois da emissão da guia.` });
+            }
+            if ((sp.fgts.realizado ?? 0) < sp.fgts.devido) {
+                const falta = sp.fgts.devido - (sp.fgts.realizado ?? 0);
+                pendencias.push({ gravidade: 'atencao', regra: 'SERPRO', diferenca: -falta, mensagem: sp.fgts.realizado ? `FGTS Digital: recolhido ${reais(sp.fgts.realizado)} de ${reais(sp.fgts.devido)} devidos; faltam ${reais(falta)}.` : `FGTS Digital: ainda não consta recolhimento dos ${reais(sp.fgts.devido)} devidos.` });
+            }
+        }
+    }
+
     const ordem: Record<Gravidade, number> = { critica: 0, atencao: 1, info: 2 };
     pendencias.sort((a, b) => ordem[a.gravidade] - ordem[b.gravidade] || a.regra.localeCompare(b.regra) || (a.cpf ?? '').localeCompare(b.cpf ?? ''));
 
@@ -250,6 +296,7 @@ export function conferirPosFolha(g: GrupoApuracao, op: OpcoesConferencia = {}): 
         consolidacaoFgts,
         dctfweb: { creditos, totalARecolher, informado: dctfInformado, diferenca: dctfDif },
         fgtsDigital: { mensal, rescisorio, total: mensal + rescisorio, informado: fgtsInformado, diferenca: fgtsDif },
+        serpro: sp,
         pendencias,
     };
 }

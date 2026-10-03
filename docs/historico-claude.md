@@ -64,4 +64,68 @@ piloto em paralelo provar o cálculo próprio.
 - Pendente na fase 1: DCTFWeb e FGTS Digital pelo SERPRO (via túnel do CFI),
   download de eventos do eSocial, comparação com o resumo da folha do IOB
   (precisa de um exemplo do relatório exportado), IRRF e painel de prazos.
+- **03/10/2026, Paulo: *"pode seguir com a integracao serpro"*.** A conferência
+  ganhou o botão Consultar SERPRO, pelo túnel do CFI (`/api/dp-integration`):
+  fechamento do eSocial, situação da DCTFWeb e FGTS Digital devido × recolhido
+  (`services/conferencia/serproConferencia.ts`). O valor do SERPRO não
+  sobrescreve o digitado: são duas fontes, cada uma comparada com o S-5013.
+  Consulta que falha vira pendência informativa, nunca "entregue" ou "pago";
+  FGTS com devido 0 e recolhido 0 é "sem valor", porque o CFI devolve 0 quando
+  o campo não vem.
+- **Débitos da DCTFWeb por código de receita.** O CFI já lia esses débitos do
+  XML da declaração (`consultarXmlDeclaracao` + `extrairDebitosDctfweb`, usados
+  nas guias separadas). A rota nova do túnel `POST /api/dp-integration/dctfweb/debitos`
+  (branch `claude/dp-dctfweb-debitos` no CFI) devolve esses débitos, com a
+  identificação conferida pelo próprio XML. O DP compara com o S-5011 por
+  código de receita, como atenção, porque a DCTFWeb traz o saldo a pagar já
+  com deduções e compensações. Resposta em modo mock do CFI ou rota não
+  publicada (404) ficam indisponíveis, nunca viram número.
+- **Motor de cálculo: código determinístico, não IA** (resposta ao Paulo,
+  03/10/2026). O Gemini fica como assistente: explicar divergência, ler
+  convenção coletiva para sugerir parâmetros que um humano valida.
+
+## Módulo IOB SAGE e restauração do backup PostgreSQL 12
+
+- **03/10/2026, Paulo: *"vamos trabalhar em um modal que seja capaz de efetuar o
+  restore dos backups feitos em PostgreSQL 12 usado na iob sage ... análises
+  comparativas no módulo iob sage, criando os menus, submenus, os devidos
+  modais"*.** Paulo também pediu para cortar os passos que fizeram perder
+  tempo: o inventário "só estrutura primeiro" da fase 0 virou a própria
+  restauração, que já entrega o inventário.
+- **Restauração = leitura no navegador** (`services/iobSage/backupPostgres.ts`):
+  formatos custom, tar, plain e plain.gz do pg_dump; nada sai do computador
+  nem é gravado no Firestore. Gravar no Consultor DP depende do de/para da
+  fase 2. Testado com dumps REAIS de pg_dump 12.3 e 16 sobre PostgreSQL 12.22
+  (`services/iobSage/__tests__/fixtures/`), e em escala: 500 esquemas e 10 mil
+  tabelas abrem em ~0,8 s, 1 milhão de linhas são lidas em ~0,8 s.
+  Como os fixtures foram gerados: PostgreSQL 12.22 do pacote npm
+  `@embedded-postgres/linux-x64@12.22.0-beta.15` e pg_dump 12.3 do conda-forge
+  (`postgresql-12.3-hc2f5b80_3`), porque a rede deste ambiente só libera
+  registros de pacotes.
+- **Mapa de menus** em `docs/mapa-menus-iob-folha.md`. A ajuda da IOB é
+  bloqueada para leitura direta aqui; o mapa saiu de títulos e resumos de
+  busca. O SGC (Gestão Contábil) tem árvore completa; o Office (o do
+  escritório) só tem os menus de primeiro nível confirmados. Fechar as
+  lacunas pede prints dos menus do Office ou o manual em PDF.
+- **Catálogo comparativo** (`services/iobSage/catalogoMenus.ts`) com situação
+  REAL por item: disponível, parcial, planejado (com fase) ou fora do escopo.
+  Teste trava: item disponível aponta para a tela; planejado diz a fase.
+- **Backup do IOB Office em duas partes** (pesquisa de 03/10/2026, a pedido do
+  Paulo, que lembrou que a linha Office nasceu em DBF). Confirmado em fontes
+  da IOB/Folhamatic: a linha Office nasceu em DBF e migra para PostgreSQL
+  (driver ODBC); o cliente roda em DBF ou SQL conforme a "base ativada";
+  Backup DBF = .zip, Backup SQL = .backup; e o Backup SQL tem DUAS partes:
+  .zip com o cadastro das empresas e .backup com a folha (Ajuda Aprendo³,
+  artigo 4898). NÃO confirmado ainda: que o .zip contém DBF (muito provável)
+  e a versão do PostgreSQL (o modal mostra a de origem). Paulo: *"Pode seguir"*.
+- **Leitor DBF** (`services/iobSage/dbf.ts`): dBASE III/IV, FoxPro e Visual
+  FoxPro; tipos C, N, F, D, L, M, I, Y, B, T, V; memo .FPT e .DBT; code pages
+  850, 437 e 1252, com dedução pelo conteúdo quando o cabeçalho não diz;
+  registros apagados ficam fora. Fixtures reais geradas com a biblioteca
+  Python `dbf` 0.99.11 (nome com extensão `.DBF`, senão ela quebra; memo nulo
+  em dBASE III também quebra a biblioteca).
+- **Restauração em duas partes** (`services/iobSage/restauracao.ts`): vários
+  arquivos de uma vez, cada um reconhecido pela ASSINATURA (zip com extensão
+  .SBAK/.SBKP também abre); o conteúdo do .zip é listado inteiro; DBF casa com
+  o memo da mesma pasta; tabelas DBF e PostgreSQL na mesma lista.
 

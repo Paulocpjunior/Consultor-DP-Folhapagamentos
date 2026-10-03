@@ -12,6 +12,8 @@ import { gerarExcelConferencia, nomeArquivoConferencia, rotuloApuracao } from '.
 import { baixarBytes } from '../../services/implantacao/zip';
 import { listarTodasEmpresas } from '../../services/empresas/empresasService';
 import type { Empresa } from '../../services/empresas/empresasTypes';
+import { cnpjParaSerpro, consultarSerproConferencia, type ConsultaSerpro } from '../../services/conferencia/serproConferencia';
+import { consultarDctfWebDebitos, consultarDctfWebStatus, consultarESocialFechamento, consultarFgtsRecolhimento } from '../../services/serpro/serproIntegrationService';
 
 const botao = 'rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-40';
 const botaoSec = 'rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:text-slate-200 disabled:opacity-40';
@@ -38,6 +40,10 @@ const ConferenciaPosFolhaPanel: React.FC = () => {
     const [fgts, setFgts] = useState('');
     const [empresas, setEmpresas] = useState<Empresa[] | null>(null);
     const [empresasErro, setEmpresasErro] = useState(false);
+    // Uma consulta por empresa/competência (chave do grupo).
+    const [serpro, setSerpro] = useState<Record<string, ConsultaSerpro>>({});
+    const [consultando, setConsultando] = useState(false);
+    const [serproErro, setSerproErro] = useState('');
 
     useEffect(() => {
         listarTodasEmpresas().then(setEmpresas).catch(() => setEmpresasErro(true));
@@ -47,10 +53,25 @@ const ConferenciaPosFolhaPanel: React.FC = () => {
     const grupo = grupos.find(g => g.chave === grupoChave) ?? grupos[0];
     const dctfValor = lerValorDigitado(dctf);
     const fgtsValor = lerValorDigitado(fgts);
+    const serproGrupo = grupo ? serpro[grupo.chave] ?? null : null;
+    const cnpjSerpro = grupo ? cnpjParaSerpro(grupo, empresas) : null;
     const resultado = useMemo(
-        () => (grupo ? conferirPosFolha(grupo, { dctfwebInformado: dctfValor, fgtsDigitalInformado: fgtsValor }) : null),
-        [grupo, dctfValor, fgtsValor],
+        () => (grupo ? conferirPosFolha(grupo, { dctfwebInformado: dctfValor, fgtsDigitalInformado: fgtsValor, serpro: serproGrupo }) : null),
+        [grupo, dctfValor, fgtsValor, serproGrupo],
     );
+
+    async function consultarSerpro() {
+        if (!grupo || !cnpjSerpro) return;
+        setConsultando(true); setSerproErro('');
+        try {
+            const r = await consultarSerproConferencia({ consultarFgtsRecolhimento, consultarESocialFechamento, consultarDctfWebStatus, consultarDctfWebDebitos }, cnpjSerpro, grupo.perApur);
+            setSerpro(prev => ({ ...prev, [grupo.chave]: r }));
+        } catch (e) {
+            setSerproErro((e as Error).message);
+        } finally {
+            setConsultando(false);
+        }
+    }
 
     const nomeEmpresa = (inscricao: string) => {
         const raiz = inscricao.replace(/\D/g, '').slice(0, 8);
@@ -72,7 +93,7 @@ const ConferenciaPosFolhaPanel: React.FC = () => {
         }
     }
 
-    function limpar() { setLeitura(null); setGrupoChave(''); setDctf(''); setFgts(''); setErro(''); }
+    function limpar() { setLeitura(null); setGrupoChave(''); setDctf(''); setFgts(''); setErro(''); setSerpro({}); setSerproErro(''); }
 
     function baixarExcel() {
         if (!resultado) return;
@@ -132,6 +153,37 @@ const ConferenciaPosFolhaPanel: React.FC = () => {
                             <input aria-label="Valor da guia do FGTS Digital" inputMode="decimal" placeholder="0,00" className="mt-1 block w-full rounded border border-slate-300 bg-white px-2 py-1 dark:border-slate-600 dark:bg-slate-900"
                                 value={fgts} onChange={e => setFgts(e.target.value)} />
                         </label>
+                    </div>
+
+                    <div className={cartao}>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                                <h4 className="text-sm font-semibold text-slate-800 dark:text-white">SERPRO</h4>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">
+                                    {grupo.indApuracao === '2' ? 'A consulta ao SERPRO vale só para a folha mensal.'
+                                        : cnpjSerpro ? `Fechamento do eSocial, DCTFWeb e FGTS Digital do CNPJ ${cnpjSerpro.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')}, pelo Consultor Fiscal.`
+                                        : 'CNPJ completo não encontrado no cadastro de empresas nem nos totalizadores.'}
+                                </p>
+                            </div>
+                            <button className={botaoSec} disabled={consultando || !cnpjSerpro || grupo.indApuracao === '2'} onClick={() => void consultarSerpro()}>
+                                {consultando ? 'Consultando…' : serproGrupo ? 'Consultar de novo' : 'Consultar SERPRO'}
+                            </button>
+                        </div>
+                        {serproErro && <p className="mt-2 text-sm text-red-700 dark:text-red-300">{serproErro}</p>}
+                        {serproGrupo && (
+                            <ul className="mt-3 grid gap-2 text-sm md:grid-cols-3">
+                                <li className="text-slate-800 dark:text-slate-100"><span className="text-xs text-slate-500 dark:text-slate-400">Fechamento do eSocial</span><br />
+                                    {serproGrupo.esocial.ok ? `${serproGrupo.esocial.entregue ? 'Transmitido' : 'Não transmitido'} · ${serproGrupo.esocial.situacao}${serproGrupo.esocial.dataEntrega ? ` · ${serproGrupo.esocial.dataEntrega}` : ''}` : `Indisponível: ${serproGrupo.esocial.erro}`}</li>
+                                <li className="text-slate-800 dark:text-slate-100"><span className="text-xs text-slate-500 dark:text-slate-400">DCTFWeb</span><br />
+                                    {serproGrupo.dctfweb.ok ? `${serproGrupo.dctfweb.entregue ? 'Entregue' : 'Não entregue'} · ${serproGrupo.dctfweb.situacao}${serproGrupo.dctfweb.dataEntrega ? ` · ${serproGrupo.dctfweb.dataEntrega}` : ''}` : `Indisponível: ${serproGrupo.dctfweb.erro}`}
+                                    <br /><span className="text-xs text-slate-500 dark:text-slate-400">{serproGrupo.dctfwebDebitos.ok
+                                        ? `Saldo a pagar ${reais(serproGrupo.dctfwebDebitos.debitos.reduce((t, x) => t + x.valor, 0))} em ${serproGrupo.dctfwebDebitos.debitos.length} código(s)`
+                                        : `Débitos: ${serproGrupo.dctfwebDebitos.erro}`}</span></li>
+                                <li className="text-slate-800 dark:text-slate-100"><span className="text-xs text-slate-500 dark:text-slate-400">FGTS Digital</span><br />
+                                    {!serproGrupo.fgts.ok ? `Indisponível: ${serproGrupo.fgts.erro}` : serproGrupo.fgts.devido === null ? 'Sem valor devido informado' : `Devido ${reais(serproGrupo.fgts.devido)} · recolhido ${reais(serproGrupo.fgts.realizado ?? 0)}`}</li>
+                            </ul>
+                        )}
+                        {serproGrupo && <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Consultado em {new Date(serproGrupo.consultadoEm).toLocaleString('pt-BR')}. Os débitos da DCTFWeb vêm do XML da declaração e são comparados com o S-5011 por código de receita.</p>}
                     </div>
 
                     <div className="grid gap-3 md:grid-cols-4">
