@@ -1,0 +1,218 @@
+// @vitest-environment jsdom
+//
+// Os XMLs abaixo seguem a estrutura dos XSDs do leiaute S-1.3 (evtBasesTrab,
+// evtBasesFGTS, evtCS e evtFGTS). Não são arquivos reais: quando chegar o
+// primeiro lote real de totalizadores, ele deve entrar aqui como regressão.
+
+import { describe, expect, it } from 'vitest';
+import { deflateRawSync } from 'node:zlib';
+import { agruparPorApuracao, centavos, lerTotalizadores, lerTotalizadoresXml } from '../totalizadores';
+import { conferirPosFolha, lerValorDigitado } from '../conferenciaPosFolha';
+import { crc32, gerarZip } from '../../implantacao/zip';
+
+const NS = 'http://www.esocial.gov.br/schema/evt';
+const enc = (s: string) => new TextEncoder().encode(s);
+
+function s5001(cpf: string, o: { per?: string; id?: string; matricula?: string; categ?: string; base?: string; calc?: [string, string, string][]; nrRec?: string } = {}) {
+    const calc = (o.calc ?? [['108201', '300.00', '300.00']]).map(([cr, c, d]) => `<infoCpCalc><tpCR>${cr}</tpCR><vrCpSeg>${c}</vrCpSeg><vrDescSeg>${d}</vrDescSeg></infoCpCalc>`).join('');
+    return `<eSocial xmlns="${NS}/evtBasesTrab/v_S_01_03_00"><evtBasesTrab Id="${o.id ?? 'ID5001' + cpf}">
+<ideEvento><nrRecArqBase>${o.nrRec ?? '1.1.000' + cpf}</nrRecArqBase><indApuracao>1</indApuracao><perApur>${o.per ?? '2026-09'}</perApur></ideEvento>
+<ideEmpregador><tpInsc>1</tpInsc><nrInsc>29463877</nrInsc></ideEmpregador>
+<ideTrabalhador><cpfTrab>${cpf}</cpfTrab></ideTrabalhador>${calc}
+<infoCp><classTrib>99</classTrib><ideEstabLot><tpInsc>1</tpInsc><nrInsc>29463877000109</nrInsc><codLotacao>001</codLotacao>
+<infoCategIncid><matricula>${o.matricula ?? '836292'}</matricula><codCateg>${o.categ ?? '101'}</codCateg>
+<infoBaseCS><ind13>0</ind13><tpValor>11</tpValor><valor>${o.base ?? '3243.65'}</valor></infoBaseCS>
+<infoBaseCS><ind13>0</ind13><tpValor>21</tpValor><valor>${(o.calc ?? [['', '', '300.00']])[0][2]}</valor></infoBaseCS>
+</infoCategIncid></ideEstabLot></infoCp></evtBasesTrab></eSocial>`;
+}
+
+function s5003(cpf: string, o: { rem?: string; dps?: string; tp?: string; id?: string } = {}) {
+    return `<eSocial xmlns="${NS}/evtBasesFGTS/v_S_01_03_00"><evtBasesFGTS Id="${o.id ?? 'ID5003' + cpf}">
+<ideEvento><nrRecArqBase>1.1.000${cpf}</nrRecArqBase><indApuracao>1</indApuracao><perApur>2026-09</perApur></ideEvento>
+<ideEmpregador><tpInsc>1</tpInsc><nrInsc>29463877</nrInsc></ideEmpregador>
+<ideTrabalhador><cpfTrab>${cpf}</cpfTrab></ideTrabalhador>
+<infoFGTS><ideEstab><tpInsc>1</tpInsc><nrInsc>29463877000109</nrInsc><ideLotacao><codLotacao>001</codLotacao>
+<infoTrabFGTS><matricula>836292</matricula><codCateg>101</codCateg><infoBaseFGTS>
+<basePerApur><tpValor>${o.tp ?? '11'}</tpValor><indIncid>1</indIncid><remFGTS>${o.rem ?? '3243.65'}</remFGTS><dpsFGTS>${o.dps ?? '259.49'}</dpsFGTS></basePerApur>
+</infoBaseFGTS></infoTrabFGTS></ideLotacao></ideEstab></infoFGTS></evtBasesFGTS></eSocial>`;
+}
+
+function s5011(desc: string, calc: string, creditos: [string, string, string?][] = [['108201', '600.00'], ['109901', '1500.00']]) {
+    const cr = creditos.map(([t, v, s]) => `<infoCRContrib><tpCR>${t}</tpCR><vrCR>${v}</vrCR>${s ? `<vrCRSusp>${s}</vrCRSusp>` : ''}</infoCRContrib>`).join('');
+    return `<eSocial xmlns="${NS}/evtCS/v_S_01_03_00"><evtCS Id="ID5011">
+<ideEvento><indApuracao>1</indApuracao><perApur>2026-09</perApur></ideEvento>
+<ideEmpregador><tpInsc>1</tpInsc><nrInsc>29463877</nrInsc></ideEmpregador>
+<infoCS><nrRecArqBase>1.9.0001</nrRecArqBase><indExistInfo>1</indExistInfo>
+<infoCPSeg><vrDescCP>${desc}</vrDescCP><vrCpSeg>${calc}</vrCpSeg></infoCPSeg>
+<infoContrib><classTrib>99</classTrib></infoContrib>${cr}</infoCS></evtCS></eSocial>`;
+}
+
+function s5013(bases: [string, string, string][]) {
+    const b = bases.map(([tp, base, vr]) => `<basePerApur><tpValor>${tp}</tpValor><indIncid>1</indIncid><baseFGTS>${base}</baseFGTS><vrFGTS>${vr}</vrFGTS></basePerApur>`).join('');
+    return `<eSocial xmlns="${NS}/evtFGTS/v_S_01_03_00"><evtFGTS Id="ID5013">
+<ideEvento><indApuracao>1</indApuracao><perApur>2026-09</perApur></ideEvento>
+<ideEmpregador><tpInsc>1</tpInsc><nrInsc>29463877</nrInsc></ideEmpregador>
+<infoFGTS><nrRecArqBase>1.9.0001</nrRecArqBase><indExistInfo>1</indExistInfo>
+<ideEstab><tpInsc>1</tpInsc><nrInsc>29463877000109</nrInsc><ideLotacao><codLotacao>001</codLotacao><tpLotacao>01</tpLotacao>
+<infoBaseFGTS>${b}</infoBaseFGTS></ideLotacao></ideEstab></infoFGTS></evtFGTS></eSocial>`;
+}
+
+/** ZIP com uma entrada comprimida (método 8), como os do portal e do Windows. */
+function zipDeflate(nome: string, conteudo: string): Uint8Array {
+    const dados = enc(conteudo), comp = new Uint8Array(deflateRawSync(dados)), n = enc(nome), crc = crc32(dados);
+    const u16 = (v: number) => [v & 0xff, (v >>> 8) & 0xff];
+    const u32 = (v: number) => [v & 0xff, (v >>> 8) & 0xff, (v >>> 16) & 0xff, (v >>> 24) & 0xff];
+    const local = [...u32(0x04034b50), ...u16(20), ...u16(0x0800), ...u16(8), ...u16(0), ...u16(0), ...u32(crc), ...u32(comp.length), ...u32(dados.length), ...u16(n.length), ...u16(0), ...n];
+    const central = [...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0x0800), ...u16(8), ...u16(0), ...u16(0), ...u32(crc), ...u32(comp.length), ...u32(dados.length), ...u16(n.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(0), ...n];
+    const offCentral = local.length + comp.length;
+    const fim = [...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(1), ...u16(1), ...u32(central.length), ...u32(offCentral), ...u16(0)];
+    return new Uint8Array([...local, ...comp, ...central, ...fim]);
+}
+
+const arq = (nome: string, xml: string) => ({ nome, bytes: enc(xml) });
+
+describe('leitura dos totalizadores', () => {
+    it('lê S-5001 em centavos, com cálculo, desconto e vínculo', () => {
+        const [t] = lerTotalizadoresXml(s5001('01787839516', { calc: [['108201', '296.41', '296.40']] }), 'a.xml');
+        expect(t).toMatchObject({ tipo: 'S-5001', cpf: '01787839516', empregador: '29463877', perApur: '2026-09', indApuracao: '1' });
+        if (t.tipo !== 'S-5001') throw new Error();
+        expect(t.calculos).toEqual([{ tpCR: '108201', calculado: 29641, descontado: 29640 }]);
+        expect(t.vinculos[0]).toMatchObject({ matricula: '836292', codCateg: '101', estab: '29463877000109' });
+        expect(t.vinculos[0].bases[0]).toEqual({ ind13: '0', tpValor: '11', valor: 324365 });
+    });
+
+    it('lê S-5003, S-5011 e S-5013', () => {
+        const [f] = lerTotalizadoresXml(s5003('1'), 'f.xml');
+        const [c] = lerTotalizadoresXml(s5011('300.00', '300.00', [['108201', '600.00', '50.00']]), 'c.xml');
+        const [e] = lerTotalizadoresXml(s5013([['11', '3243.65', '259.49']]), 'e.xml');
+        if (f.tipo !== 'S-5003' || c.tipo !== 'S-5011' || e.tipo !== 'S-5013') throw new Error();
+        expect(f.itens[0]).toMatchObject({ tpValor: '11', remuneracao: 324365, deposito: 25949, periodoAnterior: false });
+        expect(c).toMatchObject({ nrRecArqBase: '1.9.0001', indExistInfo: '1', descontadoSegurados: 30000, calculadoSegurados: 30000 });
+        expect(c.creditos).toEqual([{ tpCR: '108201', valor: 60000, suspenso: 5000 }]);
+        expect(e.bases).toEqual([{ tpValor: '11', indIncid: '1', base: 324365, valorFgts: 25949, periodoAnterior: false }]);
+    });
+
+    it('lê o evento quando ele vem como texto escapado dentro de outro XML', () => {
+        const escapado = s5001('2').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const env = `<retorno><arquivo><conteudo>${escapado}</conteudo></arquivo></retorno>`;
+        expect(lerTotalizadoresXml(env, 'env.xml').map(t => t.tipo)).toEqual(['S-5001']);
+    });
+
+    it('abre .zip simples e comprimido, conta repetidos uma vez e avisa arquivo sem totalizador', async () => {
+        const simples = gerarZip([{ nome: 'S5001.xml', conteudo: s5001('3') }, { nome: 'outro.xml', conteudo: '<eSocial><evtAdmissao Id="x"/></eSocial>' }]);
+        const r = await lerTotalizadores([
+            { nome: 'lote.zip', bytes: simples },
+            { nome: 'portal.zip', bytes: zipDeflate('S5011.xml', s5011('300.00', '300.00')) },
+            arq('repetido.xml', s5001('3')),
+            arq('nota.txt', 'x'),
+            arq('quebrado.xml', '<a>'),
+        ]);
+        expect(r.totalizadores.map(t => t.tipo).sort()).toEqual(['S-5001', 'S-5011']);
+        expect(r.avisos.join('\n')).toMatch(/outro\.xml: nenhum totalizador/);
+        expect(r.avisos.join('\n')).toMatch(/1 evento\(s\) repetido/);
+        expect(r.avisos.join('\n')).toMatch(/nota\.txt: ignorado/);
+        expect(r.avisos.join('\n')).toMatch(/quebrado\.xml: XML malformado/);
+    });
+
+    it('recusa valor monetário em formato inválido em vez de inventar', () => {
+        expect(centavos('1234.5')).toBe(123450);
+        expect(() => centavos('1.234,56')).toThrow(/inválido/);
+    });
+
+    it('separa competências e empresas diferentes', () => {
+        const ts = [...lerTotalizadoresXml(s5001('4'), 'a'), ...lerTotalizadoresXml(s5001('5', { per: '2026-08' }), 'b')];
+        expect(agruparPorApuracao(ts).map(g => g.perApur)).toEqual(['2026-09', '2026-08']);
+    });
+});
+
+async function grupo(...xmls: string[]) {
+    const r = await lerTotalizadores(xmls.map((x, i) => arq(`${i}.xml`, x)));
+    const gs = agruparPorApuracao(r.totalizadores);
+    expect(gs).toHaveLength(1);
+    return gs[0];
+}
+
+describe('conferência pós-folha', () => {
+    it('lote que fecha: nenhuma pendência', async () => {
+        const g = await grupo(
+            s5001('1', { calc: [['108201', '300.00', '300.00']] }), s5001('2', { calc: [['108201', '300.00', '300.00']] }),
+            s5003('1', { dps: '259.49' }), s5003('2', { dps: '259.49' }),
+            s5011('600.00', '600.00'), s5013([['11', '6487.30', '518.98']]),
+        );
+        const r = conferirPosFolha(g, { dctfwebInformado: 210000, fgtsDigitalInformado: 51898 });
+        expect(r.pendencias).toEqual([]);
+        expect(r.dctfweb.totalARecolher).toBe(210000);
+        expect(r.fgtsDigital).toMatchObject({ mensal: 51898, rescisorio: 0, diferenca: 0 });
+    });
+
+    it('INSS descontado diferente do calculado vira pendência crítica; centavos viram aviso de arredondamento', async () => {
+        const g = await grupo(
+            s5001('1', { calc: [['108201', '300.00', '280.00']] }),
+            s5001('2', { calc: [['108201', '300.00', '300.01']] }),
+            s5003('1'), s5003('2'),
+        );
+        const r = conferirPosFolha(g);
+        const inss = r.pendencias.filter(p => p.regra === 'INSS do trabalhador');
+        expect(inss.map(p => [p.cpf, p.gravidade, p.diferenca])).toEqual([['1', 'critica', -2000], ['2', 'info', 1]]);
+        expect(inss[0].mensagem).toMatch(/descontou R\$\s?280,00.*calculou R\$\s?300,00.*a menos/);
+    });
+
+    it('consignado (CR 160601) não entra na conferência de INSS', async () => {
+        const g = await grupo(s5001('1', { calc: [['108201', '300.00', '300.00'], ['160601', '0.00', '500.00']] }), s5003('1'));
+        const r = conferirPosFolha(g);
+        expect(r.inss.map(l => l.tpCR)).toEqual(['108201']);
+        expect(r.pendencias.filter(p => p.regra === 'INSS do trabalhador')).toEqual([]);
+    });
+
+    it('aponta empregado sem S-5003 e trabalhador sem S-5001, mas não cobra FGTS de contribuinte individual', async () => {
+        const g = await grupo(s5001('1'), s5001('9', { categ: '701', calc: [['109901', '100.00', '100.00']] }), s5003('2'));
+        const r = conferirPosFolha(g);
+        expect(r.pendencias.filter(p => p.regra === 'FGTS sem totalizador').map(p => p.cpf)).toEqual(['1']);
+        expect(r.pendencias.filter(p => p.regra === 'INSS sem totalizador').map(p => p.cpf)).toEqual(['2']);
+    });
+
+    it('soma dos trabalhadores que não fecha com o S-5011 e o S-5013 indica lote incompleto', async () => {
+        const g = await grupo(s5001('1'), s5003('1'), s5011('600.00', '600.00'), s5013([['11', '6487.30', '518.98']]));
+        const r = conferirPosFolha(g);
+        const cons = r.pendencias.filter(p => p.regra === 'Consolidado');
+        expect(cons).toHaveLength(2);
+        expect(cons[0].mensagem).toMatch(/faltam totalizadores/);
+        expect(r.consolidacaoFgts[0]).toMatchObject({ tpValor: '11', somaTrabalhadores: 25949, empresa: 51898, diferenca: -25949 });
+    });
+
+    it('DCTFWeb: compara o informado com os créditos do S-5011 descontando a parte suspensa', async () => {
+        const g = await grupo(s5001('1'), s5003('1'), s5011('300.00', '300.00', [['108201', '300.00'], ['109901', '1000.00', '100.00']]), s5013([['11', '3243.65', '259.49']]));
+        expect(conferirPosFolha(g, { dctfwebInformado: 120000 }).dctfweb).toMatchObject({ totalARecolher: 120000, diferenca: 0 });
+        const r = conferirPosFolha(g, { dctfwebInformado: 130000 });
+        expect(r.pendencias[0]).toMatchObject({ gravidade: 'critica', regra: 'DCTFWeb', diferenca: 10000 });
+    });
+
+    it('FGTS Digital: aceita guia só mensal ou mensal + rescisório, e aponta o resto', async () => {
+        const g = await grupo(s5001('1'), s5003('1'), s5003('2', { tp: '21', dps: '100.00', rem: '1250.00' }), s5001('2'), s5011('600.00', '600.00', []), s5013([['11', '3243.65', '259.49'], ['21', '1250.00', '100.00']]));
+        expect(conferirPosFolha(g, { fgtsDigitalInformado: 25949 }).fgtsDigital).toMatchObject({ mensal: 25949, rescisorio: 10000, diferenca: 0 });
+        expect(conferirPosFolha(g, { fgtsDigitalInformado: 35949 }).fgtsDigital.diferenca).toBe(0);
+        const r = conferirPosFolha(g, { fgtsDigitalInformado: 30000 });
+        expect(r.pendencias.find(p => p.regra === 'FGTS Digital')?.mensagem).toMatch(/rescisório/);
+    });
+
+    it('dois S-5001 do mesmo trabalhador (retificação): sai da conta e vira pendência, sem dobrar valor', async () => {
+        const g = await grupo(s5001('1', { id: 'A', nrRec: 'r1' }), s5001('1', { id: 'B', nrRec: 'r2' }), s5003('1'), s5011('300.00', '300.00', []));
+        const r = conferirPosFolha(g);
+        expect(r.inss).toEqual([]);
+        expect(r.pendencias.some(p => p.regra === 'Lote' && p.cpf === '1')).toBe(true);
+        expect(r.pendencias.some(p => /faltam totalizadores/.test(p.mensagem))).toBe(false);
+    });
+
+    it('sem S-5011 e S-5013 avisa que DCTFWeb e FGTS Digital não podem ser conferidos', async () => {
+        const r = conferirPosFolha(await grupo(s5001('1'), s5003('1')), { dctfwebInformado: 100, fgtsDigitalInformado: 100 });
+        expect(r.dctfweb.diferenca).toBeNull();
+        expect(r.fgtsDigital.diferenca).toBeNull();
+        expect(r.pendencias.filter(p => p.regra === 'Consolidado')).toHaveLength(2);
+    });
+});
+
+describe('valor digitado', () => {
+    it.each([['1.234,56', 123456], ['1234.56', 123456], ['R$ 2.100,00', 210000], ['', null], ['abc', null]])('%s → %s', (v, c) => {
+        expect(lerValorDigitado(v as string)).toBe(c);
+    });
+});
