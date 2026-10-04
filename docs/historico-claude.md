@@ -733,3 +733,18 @@ piloto em paralelo provar o cálculo próprio.
 - **Fora desta versão:** TRCT impresso, rescisão complementar,
   indenização adicional (Lei 7.238), estabilidades e categorias que não são
   de empregado.
+- **Revisão do PR #55 (Codex), corrigida antes do merge:**
+  - **P1:** os desligados do mês não recebem mais "sem justa causa" por
+    padrão. O motivo do S-2299 ainda não é importado para a ficha, então o
+    tipo é OBRIGATÓRIO: sem ele, a rescisão dá erro pedindo a escolha.
+    Importar o `mtvDeslig` e a `dtProjFimAPI` do S-2299 fica como melhoria.
+  - **P1:** quando a projeção do aviso entra no ano seguinte, os avos desse
+    ano (fração de 15 dias) entram no 13º sobre o aviso.
+  - **P2:** o adiantamento do 13º sai da base do FGTS rescisório, porque já
+    teve FGTS quando foi pago. Corrige também a multa.
+  - **P2:** o mês do pagamento da rescisão pode ser informado (tabela do
+    IRRF pelo mês efetivo do pagamento). O padrão é o mês do prazo de 10
+    dias, com aviso quando esse mês é diferente do mês do desligamento.
+  - **P2:** as opções do IRRF da tela valem só para o 13º da rescisão, e o
+    texto agora diz isso. O saldo de salário segue a regra mensal
+    (simplificado e redutor, que são regra certa no mensal).

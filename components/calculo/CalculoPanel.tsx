@@ -37,7 +37,7 @@ const v = (r: ResultadoCalculo, c: string) => r.verbas.find(x => x.codigo === c)
 const inssDe = (r: ResultadoCalculo) => v(r, 'INSS') + v(r, 'INSS13') + v(r, 'INSSFER');
 const irrfDe = (r: ResultadoCalculo) => v(r, 'IRRF') + v(r, 'IRRF13') + v(r, 'IRRFFER');
 type Folha = 'mensal' | '13-1a' | '13-2a' | 'ferias' | 'rescisao';
-interface ParamRescisao { data: string; tipo: TipoRescisao; aviso: AvisoPrevio; saldoFgts?: number; adiantamento13?: number; simulada: boolean }
+interface ParamRescisao { data: string; tipo: TipoRescisao | ''; aviso: AvisoPrevio; pagamento?: string; saldoFgts?: number; adiantamento13?: number; simulada: boolean }
 /** Chave da linha: o gozo nas férias (pode haver dois no mês), a ficha nas demais. */
 const chave = (r: ResultadoCalculo) => (r as Partial<ResultadoFerias>).gozoId || r.fichaId;
 const br = (d: string) => d.split('-').reverse().join('/');
@@ -138,11 +138,11 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             if (!movsAno || !/^\d{4}-\d{2}$/.test(competencia)) return [];
             // Desligados do mês (data da ficha) e simulações do mês.
             const itens = new Map<string, ParamRescisao>();
-            for (const f of dados.fichas) if (f.dados.dataDesligamento?.startsWith(competencia)) itens.set(f.id, { data: f.dados.dataDesligamento, tipo: '02', aviso: 'indenizado', simulada: false });
+            for (const f of dados.fichas) if (f.dados.dataDesligamento?.startsWith(competencia)) itens.set(f.id, { data: f.dados.dataDesligamento, tipo: '', aviso: 'indenizado', simulada: false }); // motivo do S-2299 ainda não importado: escolher
             for (const [id, p] of Object.entries(paramsResc)) if (p.data.startsWith(competencia) || itens.has(id)) itens.set(id, { ...itens.get(id), ...p });
             return [...itens.entries()].flatMap(([id, p]) => {
                 const f = dados.fichas.find(x => x.id === id);
-                return f ? [calcularRescisao({ ficha: f, data: p.data, tipo: p.tipo, aviso: p.aviso, saldoFgts: p.saldoFgts, adiantamento13: p.adiantamento13, opcoes: opcoesFerias,
+                return f ? [calcularRescisao({ ficha: f, data: p.data, tipo: p.tipo, aviso: p.aviso, pagamento: p.pagamento, saldoFgts: p.saldoFgts, adiantamento13: p.adiantamento13, opcoes: opcoesFerias,
                     afastamentos: dados.afastamentos.filter(a => a.fichaId === id), tabelas: dados.tabelas, movimentos: movsAno[id] ?? {} })] : [];
             });
         }
@@ -265,7 +265,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                             onClick={() => { setParamsResc(x => ({ ...x, [simular.fichaId]: { data: simular.data, tipo: simular.tipo, aviso: simular.aviso, simulada: true } })); setCompetencia(simular.data.slice(0, 7)); setAberto(simular.fichaId); }}>Simular</button>
                     </div>
                     <div className="flex flex-wrap items-center gap-4">
-                        <span className="font-medium">IRRF do 13º e do saldo (confirme com o IOB):</span>
+                        <span className="font-medium">IRRF do 13º na rescisão (confirme com o IOB; o saldo de salário segue a regra mensal):</span>
                         <label className="flex items-center gap-1"><input type="checkbox" checked={opcoesFerias.simplificado} onChange={e => setOpcoesFerias(o => ({ ...o, simplificado: e.target.checked }))} />desconto simplificado no 13º</label>
                         <label className="flex items-center gap-1"><input type="checkbox" checked={opcoesFerias.redutor} onChange={e => setOpcoesFerias(o => ({ ...o, redutor: e.target.checked }))} />redutor de 2026 no 13º</label>
                     </div>
@@ -331,6 +331,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             {sel && rescisao && (() => {
                 const t = sel as ResultadoRescisao;
                 const p: ParamRescisao = paramsResc[t.fichaId] ?? { data: t.data, tipo: t.tipo, aviso: 'indenizado', simulada: false };
+                const mesPagamento = p.pagamento || t.pagamento;
                 const mudar = (m: Partial<ParamRescisao>) => setParamsResc(x => ({ ...x, [t.fichaId]: { ...p, ...m } }));
                 const reaisCampo = (rotulo: string, k: 'saldoFgts' | 'adiantamento13') => (
                     <label className="block">{rotulo}
@@ -343,7 +344,8 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                         <div className="space-y-2 text-xs text-slate-700 dark:text-slate-200">
                             <h4 className="text-sm font-semibold text-slate-800 dark:text-white">Rescisão {p.simulada ? '(simulação)' : ''}</h4>
                             <label className="block">Tipo do desligamento
-                                <select aria-label="Tipo do desligamento" className={`mt-0.5 block ${inp}`} value={p.tipo} onChange={e => mudar({ tipo: e.target.value as TipoRescisao })}>
+                                <select aria-label="Tipo do desligamento" className={`mt-0.5 block ${inp}`} value={p.tipo} onChange={e => mudar({ tipo: e.target.value as TipoRescisao | '' })}>
+                                    <option value="">— escolha (o motivo do S-2299 não é importado) —</option>
                                     {Object.entries(TIPOS_RESCISAO).map(([c, x]) => <option key={c} value={c}>{c} — {x}</option>)}
                                 </select>
                             </label>
@@ -353,6 +355,9 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                                 </select>
                             </label>
                             {p.simulada && <label className="block">Data do desligamento<input aria-label="Data do desligamento simulado" type="date" className={`mt-0.5 block ${inp}`} value={p.data} onChange={e => mudar({ data: e.target.value })} /></label>}
+                            <label className="block">Mês do pagamento (tabela do IRRF)
+                                <input aria-label="Mês do pagamento da rescisão" type="month" className={`mt-0.5 block ${inp}`} value={mesPagamento} onChange={e => mudar({ pagamento: e.target.value || undefined })} />
+                            </label>
                             {reaisCampo('Saldo do FGTS para fins rescisórios (R$)', 'saldoFgts')}
                             {reaisCampo('13º já adiantado no ano (R$)', 'adiantamento13')}
                             <p>{t.diasAviso ? `Aviso de ${t.diasAviso} dias · ` : ''}fim projetado {br(t.dataProjetada)} · pagar até <strong>{t.pagarAte ? br(t.pagarAte) : '—'}</strong></p>

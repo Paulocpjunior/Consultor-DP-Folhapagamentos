@@ -50,8 +50,11 @@ export interface EntradaRescisao {
     ficha: FichaFuncionario;
     /** Último dia do contrato (data do desligamento). */
     data: string;
-    tipo: TipoRescisao;
+    /** Motivo do desligamento; vazio = ainda não escolhido (o motivo do S-2299 não é importado para a ficha). */
+    tipo: TipoRescisao | '';
     aviso: AvisoPrevio;
+    /** Mês em que a rescisão é paga (AAAA-MM): define a tabela do IRRF. Padrão: o mês do prazo de 10 dias. */
+    pagamento?: string;
     afastamentos: Afastamento[];
     tabelas: TabelaLegal[];
     /** Movimentos gravados da ficha, por competência. */
@@ -64,7 +67,7 @@ export interface EntradaRescisao {
 }
 
 export interface ResultadoRescisao extends ResultadoCalculo {
-    tipo: TipoRescisao;
+    tipo: TipoRescisao | '';
     data: string;
     dataProjetada: string;
     diasAviso: number;
@@ -89,7 +92,7 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
     const d = ficha.dados;
     const opcoes = e.opcoes ?? { simplificado: true, redutor: true };
     const pagarAte = dataValida(data) ? somarDias(data, 10) : '';
-    const pagamento = pagarAte.slice(0, 7);
+    const pagamento = e.pagamento && /^\d{4}-(0[1-9]|1[0-2])$/.test(e.pagamento) ? e.pagamento : pagarAte.slice(0, 7);
     const r: ResultadoRescisao = {
         fichaId: ficha.id, nome: d.nome || ficha.cpf, competencia: data.slice(0, 7), pagamento, situacao: 'calculado',
         verbas: [], bases: { inss: 0, fgts: 0, irrf: 0 }, totais: { proventos: 0, descontos: 0, liquido: 0 }, fgts: 0,
@@ -98,6 +101,7 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
     };
     const erro = (m: string) => { r.erros.push(m); r.situacao = 'erro'; return r; };
     const verba = (v: Verba) => { if (v.valor > 0) r.verbas.push(v); };
+    if (!tipo) return erro('Escolha o tipo do desligamento: o motivo do S-2299 ainda não é importado para a ficha.');
     if (!TIPOS_RESCISAO[tipo]) return erro('Tipo de desligamento não coberto nesta versão.');
     if (!dataValida(data)) return erro('Informe a data do desligamento.');
     if (!d.admissao || !dataValida(d.admissao)) return erro('Ficha sem data de admissão válida.');
@@ -106,6 +110,7 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
     if (categoria && !/^1\d\d$/.test(categoria)) return erro(`Categoria ${categoria}: esta versão só calcula empregados (categorias 1xx).`);
     const aliqFgts = categoria === '103' ? ALIQUOTA_FGTS_APRENDIZ : ALIQUOTA_FGTS;
     const justa = tipo === '01';
+    if (!e.pagamento && pagamento !== data.slice(0, 7)) r.avisos.push(`O prazo de pagamento cai em ${rotuloCompetencia(pagamento)}: o IRRF usa a tabela desse mês. Se a rescisão for paga antes, informe o mês do pagamento.`);
     r.memoria.push(`${TIPOS_RESCISAO[tipo]}; admissão ${br(d.admissao)}, desligamento ${br(data)}; pagamento até ${br(pagarAte)} (art. 477, § 6º).`);
 
     // Remuneração para aviso, 13º e férias: salário atual + média de horas extras dos 12 meses anteriores.
@@ -175,18 +180,22 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
     if (!justa) {
         const ano = Number(data.slice(0, 4));
         const avosReal = avosDoAno(ano, fichaDeslig, e.afastamentos, e.movimentos).filter(m => m.conta).length;
-        const fimProj = r.dataProjetada.slice(0, 4) === String(ano) ? r.dataProjetada : `${ano}-12-31`;
-        const avosProj = avosDoAno(ano, { ...ficha, dados: { ...d, dataDesligamento: fimProj } }, e.afastamentos, e.movimentos).filter(m => m.conta).length;
-        if (r.dataProjetada > `${ano}-12-31`) r.avisos.push('A projeção do aviso passa de dezembro: os avos do ano seguinte ainda não entram.');
+        const fichaProj = { ...ficha, dados: { ...d, dataDesligamento: r.dataProjetada } };
+        const avosProj = avosDoAno(ano, fichaProj, e.afastamentos, e.movimentos).filter(m => m.conta).length;
+        // Projeção que entra no ano seguinte: os avos de lá (15 dias ou mais) também são do aviso.
+        const avosSeguinte = r.dataProjetada > `${ano}-12-31` ? avosDoAno(ano + 1, fichaProj, e.afastamentos, e.movimentos).filter(m => m.conta).length : 0;
+        const avosAviso = Math.max(0, avosProj - avosReal) + avosSeguinte;
         const prop = Math.round(remuneracao * avosReal / 12);
-        const ind = Math.round(remuneracao * Math.max(0, avosProj - avosReal) / 12);
+        const ind = Math.round(remuneracao * avosAviso / 12);
         verba({ codigo: '13PROP', descricao: '13º salário proporcional', referencia: `${avosReal}/12`, tipo: 'provento', valor: prop, inss: true, fgts: true, irrf: true });
-        verba({ codigo: '13IND', descricao: '13º sobre o aviso indenizado', referencia: `${avosProj - avosReal}/12`, tipo: 'provento', valor: ind, inss: false, fgts: true, irrf: true });
-        r.memoria.push(`13º: ${reais(remuneracao)} × ${avosReal}/12 = ${reais(prop)}${ind ? `; projeção do aviso + ${avosProj - avosReal}/12 = ${reais(ind)}` : ''}.`);
+        verba({ codigo: '13IND', descricao: '13º sobre o aviso indenizado', referencia: `${avosAviso}/12`, tipo: 'provento', valor: ind, inss: false, fgts: true, irrf: true });
+        r.memoria.push(`13º: ${reais(remuneracao)} × ${avosReal}/12 = ${reais(prop)}${ind ? `; projeção do aviso + ${avosAviso}/12${avosSeguinte ? ` (${avosSeguinte} de ${ano + 1})` : ''} = ${reais(ind)}` : ''}.`);
         const adiantado = e.adiantamento13 ?? 0;
         if (adiantado) verba({ codigo: '13ADT', descricao: 'Adiantamento do 13º', referencia: '', tipo: 'desconto', valor: adiantado, inss: false, fgts: false, irrf: false });
         else if (data.slice(5, 7) === '12') r.avisos.push('Desligamento em dezembro: se a 1ª parcela do 13º já foi paga, informe o adiantamento.');
-        fgtsBase += prop + ind;
+        // O adiantamento já teve FGTS quando foi pago: só o restante entra na base rescisória.
+        fgtsBase += Math.max(0, prop - adiantado) + ind;
+        if (adiantado) r.memoria.push(`FGTS do 13º: ${reais(Math.max(0, prop - adiantado))} (proporcional − adiantamento, que já teve FGTS) + ${reais(ind)}.`);
         const tInss = tabelaVigente(e.tabelas, 'inss', data.slice(0, 7));
         let inss13 = 0;
         if ('erro' in tInss) erro(tInss.erro);

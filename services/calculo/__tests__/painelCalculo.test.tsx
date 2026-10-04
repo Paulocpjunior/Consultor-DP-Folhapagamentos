@@ -221,6 +221,7 @@ describe('aba Cálculo', () => {
         const det = await screen.findByRole('region', { name: 'Holerite de ANA' });
         expect(within(det).getByText('Aviso prévio indenizado').closest('tr')!.textContent).toContain('2.640,00'); // 2.200 ÷ 30 × 36
         expect(within(det).getByText(/pagar até/).textContent).toContain('20/03/2026');
+        expect((within(det).getByLabelText('Mês do pagamento da rescisão') as HTMLInputElement).value).toBe('2026-03');
         expect(within(det).getByText(/paga por guia, fora do líquido/).textContent).toContain('informe o saldo');
         fireEvent.change(within(det).getByLabelText('Saldo do FGTS para fins rescisórios (R$)'), { target: { value: '5.000,00' } });
         await waitFor(() => expect(within(det).getByText(/paga por guia, fora do líquido/).textContent).toMatch(/R\$\s[\d.]+,\d{2}/));

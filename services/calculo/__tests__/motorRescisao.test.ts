@@ -105,4 +105,23 @@ describe('rescisão', () => {
         expect(calc({ ficha: ficha({ salario: '' }) }).situacao).toBe('erro');
         expect(calc({ tabelas: [IR] }).situacao).toBe('erro');
     });
+
+    it('revisão do PR #55: tipo obrigatório, avos do ano seguinte, FGTS do adiantamento e mês do pagamento', () => {
+        expect(calc({ tipo: '' }).erros).toEqual(['Escolha o tipo do desligamento: o motivo do S-2299 ainda não é importado para a ficha.']);
+        // Dezembro com projeção em janeiro (25 dias): o avo de janeiro do ano seguinte entra
+        const dez = calc({ data: '2026-12-20' });
+        expect(dez.dataProjetada).toBe('2027-01-25');
+        expect(v(dez, '13PROP')).toBe(300000);
+        expect(v(dez, '13IND')).toBe(25000);
+        // Adiantamento do 13º já teve FGTS: sai da base rescisória
+        const adt = calc({ adiantamento13: 30000 });
+        expect(adt.fgts).toBe(Math.round((100000 + 360000 + (50000 - 30000) + 50000) * 0.08));
+        // Mês do pagamento: o padrão é o do prazo; informado, vale ele
+        const fimMes = calc({ data: '2026-03-25' });
+        expect(fimMes.pagamento).toBe('2026-04');
+        expect(fimMes.avisos.join(' ')).toContain('O prazo de pagamento cai em 04/2026');
+        const pagoAntes = calc({ data: '2026-03-25', pagamento: '2026-03' });
+        expect(pagoAntes.pagamento).toBe('2026-03');
+        expect(pagoAntes.avisos.join(' ')).not.toContain('O prazo de pagamento cai');
+    });
 });
