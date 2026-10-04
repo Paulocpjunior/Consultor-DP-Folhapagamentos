@@ -617,3 +617,64 @@ piloto em paralelo provar o cálculo próprio.
     dezembro), o adiantamento é zero.
   - **P2:** a resposta antiga dos movimentos do ano (troca rápida de empresa
     ou ano) é descartada e não sobrescreve a atual.
+
+## Cálculo: férias em prévia (04/10/2026)
+
+- **Paulo: *"pode seguir com férias"*.**
+- **Motor** (`services/calculo/motorFerias.ts`): calcula o recibo de cada gozo
+  lançado em Cadastros › Afastamentos com o **motivo 15** (gozo de férias,
+  como no S-2230). Assim, a programação de férias é o próprio afastamento.
+  - **Período aquisitivo:** o informado no afastamento; senão, o mais antigo
+    em aberto, pela mesma `periodosFerias` do painel de Prazos (que também
+    desconta os gozos anteriores). Concessivo de 12 meses.
+  - **Direito pelas faltas do período**, conforme os movimentos gravados
+    (art. 130): até 5 → 30 dias; 6 a 14 → 24; 15 a 23 → 18; 24 a 32 → 12;
+    mais de 32 → nenhum. O saldo desconta os gozos anteriores do mesmo
+    período.
+  - **Perda do direito (art. 133):** mais de 180 dias de INSS ou mais de 30
+    dias de licença remunerada no período.
+  - **Remuneração:** salário atual mais a média das horas extras do período
+    aquisitivo (÷ 12, com o DSR de cada mês); diária = remuneração ÷ 30.
+  - **Verbas:**
+    - férias e 1/3 constitucional;
+    - **dobra** dos dias gozados depois do concessivo (art. 137), com o seu
+      1/3, sem INSS e FGTS (Lei 8.212, art. 28, § 9º, "d");
+    - **abono pecuniário** de até 1/3 dos dias de direito (art. 143), com o
+      seu 1/3, sem INSS, FGTS e IRRF.
+  - **INSS por competência do gozo**, pela tabela de cada mês. Quando o gozo
+    pega dois meses, o motor avisa que a folha ajusta com o salário.
+  - **IRRF em separado**, pela tabela do mês do pagamento. Desconto
+    simplificado e redutor de 2026 são opções (padrão: os dois ligados), a
+    confirmar com o IOB.
+  - **FGTS** por competência. **Pagamento até 2 dias antes do início**
+    (art. 145).
+  - **Fora desta versão:** férias coletivas e antecipadas (antes de 12
+    meses), a integração do INSS das férias com a folha do mês (o mensal
+    segue "incompleto" com aviso) e o aviso de férias.
+- **Movimentos:** `listarMovimentosDaEmpresa` busca todos os movimentos da
+  empresa (consulta só pela empresa, sem índice composto);
+  `listarMovimentosDoAno` passou a usá-la.
+- **Tela (aba Cálculo):** opção "Férias" no seletor de folha.
+  - Mostra o mês de início, os gozos daquele mês, as opções do IRRF e o
+    recibo com período, direito, saldo, dobra, data-limite e a tabela por
+    competência.
+  - Os dias de abono são digitados na tela e não são gravados.
+  - Excel `calculo-<código>-ferias-AAAA-MM.xlsx`.
+- **Revisão do PR #54 (Codex), corrigida antes do merge:**
+  - **P1:** depois de uma perda do direito (art. 133), o próximo período
+    começa na volta ao trabalho (§ 2º). Novo `periodosAquisitivos` no motor:
+    - recalcula os períodos marcando os perdidos;
+    - se o funcionário ainda está afastado, não há período seguinte;
+    - o período informado no afastamento casa com os novos inícios.
+  - **P1:** as faltas e as médias usam todas as competências que o período
+    toca. São 13 quando o período começa depois do dia 1º, e o motor avisa
+    que o movimento é mensal.
+  - **P1:** o abono pecuniário é gravado no afastamento (campo `abonoDias`,
+    só no Consultor e fora do S-2230):
+    - preenchido em Cadastros › Afastamentos ou pelo botão "Gravar abono no
+      afastamento" no recibo;
+    - o saldo do período desconta gozos E abonos anteriores;
+    - a reimportação do eSocial não apaga o abono;
+    - validação de 1 a 10 dias, só no motivo 15.
+  - **P2:** um período com direito reduzido pelas faltas e já usado fica
+    fechado, e o próximo gozo vai para o período seguinte.

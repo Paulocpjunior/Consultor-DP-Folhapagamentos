@@ -36,14 +36,17 @@ export async function salvarMovimentos(empresaId: string, competencia: string, i
     }
 }
 
-/** Movimentos do ano de uma empresa, por ficha e competência (para as médias do 13º). Filtra o ano no app: sem índice composto. */
-export async function listarMovimentosDoAno(empresaId: string, ano: number): Promise<Record<string, Record<string, Movimento>>> {
+/** Movimentos gravados de uma empresa, por ficha e competência (médias e faltas). Consulta só pela empresa: sem índice composto. */
+export async function listarMovimentosDaEmpresa(empresaId: string, filtro: (competencia: string) => boolean = () => true): Promise<Record<string, Record<string, Movimento>>> {
     const snap = await getDocs(query(collection(db, MOV), where('empresaId', '==', empresaId)));
     const out: Record<string, Record<string, Movimento>> = {};
     for (const d of snap.docs) {
         const x = d.data();
-        if (typeof x.competencia !== 'string' || !x.competencia.startsWith(`${ano}-`)) continue;
+        if (typeof x.competencia !== 'string' || !filtro(x.competencia)) continue;
         (out[x.fichaId] ??= {})[x.competencia] = x.movimento ?? {};
     }
     return out;
 }
+
+/** Movimentos do ano (para as médias do 13º). */
+export const listarMovimentosDoAno = (empresaId: string, ano: number) => listarMovimentosDaEmpresa(empresaId, c => c.startsWith(`${ano}-`));

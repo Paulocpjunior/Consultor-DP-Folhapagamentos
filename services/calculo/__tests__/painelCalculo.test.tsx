@@ -17,14 +17,16 @@ const INSS: TabelaLegal = { id: 'i', tipo: 'inss', vigencia: '2025-01', norma: '
     faixas: [{ ate: 151800, aliquota: 7.5, deducao: 0 }, { ate: 279388, aliquota: 9, deducao: 0 }, { ate: 419083, aliquota: 12, deducao: 0 }, { ate: 815741, aliquota: 14, deducao: 0 }] };
 const IR: TabelaLegal = { id: 'r', tipo: 'irrf', vigencia: '2025-05', norma: 'Lei de teste', observacao: '', valores: { deducaoDependente: 18959, descontoSimplificado: 60720 },
     faixas: [{ ate: 242880, aliquota: 0, deducao: 0 }, { ate: 282665, aliquota: 7.5, deducao: 18216 }, { ate: 375105, aliquota: 15, deducao: 39416 }, { ate: 466468, aliquota: 22.5, deducao: 67549 }, { ate: null, aliquota: 27.5, deducao: 90873 }] };
+const cad = vi.hoisted(() => ({ afastamentos: [] as unknown[] }));
 vi.mock('../../cadastros/cadastrosService', () => ({
     mensagemErro: (e: unknown) => String(e),
     listarFuncionarios: async () => [ficha('f1', 'ANA', { salario: '2200.00' }), ficha('f2', 'BRUNO', { salario: '' }), ficha('f3', 'CAIO', { salario: '3000.00', admissao: '2030-01-01' })],
-    listarAfastamentos: async () => [],
+    listarAfastamentos: async () => cad.afastamentos,
+    salvarAfastamento: async () => undefined,
     listarTabelas: async () => [INSS, IR],
 }));
 
-const movs = vi.hoisted(() => ({ listarMovimentos: vi.fn(), salvarMovimentos: vi.fn(), listarMovimentosDoAno: vi.fn() }));
+const movs = vi.hoisted(() => ({ listarMovimentos: vi.fn(), salvarMovimentos: vi.fn(), listarMovimentosDoAno: vi.fn(), listarMovimentosDaEmpresa: vi.fn() }));
 vi.mock('../movimentosService', () => movs);
 const hol = vi.hoisted(() => ({ lerHolerites: vi.fn(), registrarLeitura: vi.fn(), MAX_PDF_MB: 14 }));
 vi.mock('../holeritesService', () => hol);
@@ -34,6 +36,8 @@ beforeEach(() => {
     movs.listarMovimentos.mockReset().mockResolvedValue([]);
     movs.salvarMovimentos.mockReset().mockResolvedValue(undefined);
     movs.listarMovimentosDoAno.mockReset().mockResolvedValue({});
+    movs.listarMovimentosDaEmpresa.mockReset().mockResolvedValue({});
+    cad.afastamentos = [];
 });
 afterEach(cleanup);
 
@@ -178,5 +182,29 @@ describe('aba Cálculo', () => {
         await waitFor(() => expect(within(hol).getByText('Adiantamento do 13º (1ª parcela)').closest('tr')!.textContent).toContain('1.000,00'));
         fireEvent.click(screen.getByText('Exportar Excel'));
         expect(xlsx.writeFile).toHaveBeenLastCalledWith(expect.anything(), 'calculo-0229-2026-13-2a-parcela.xlsx');
+    });
+
+    it('férias: recibo de cada gozo do mês, com abono e pagamento até 2 dias antes', async () => {
+        const gozo = { id: 'g1', empresaId: 'emp1', fichaId: 'f1', cpf: '', matriculaEsocial: 'f1', dtInicio: '2025-07-01', dtFim: '2025-07-20', motivo: '15', infoMesmoMtv: '', tpAcidTransito: '', observacao: '', perAquisInicio: '2024-01-02', perAquisFim: '2025-01-01', origem: '', recibos: [] };
+        cad.afastamentos = [gozo];
+        render(<CalculoPanel currentUser={USER} />);
+        await waitFor(() => expect(screen.getByRole('option', { name: /0229/ })).toBeTruthy());
+        fireEvent.change(screen.getByLabelText('Empresa'), { target: { value: 'emp1' } });
+        fireEvent.change(screen.getByLabelText('Folha'), { target: { value: 'ferias' } });
+        expect(screen.queryByLabelText('Mês do pagamento')).toBeNull();
+        fireEvent.change(screen.getByLabelText('Competência'), { target: { value: '2025-06' } });
+        await waitFor(() => expect(screen.getByText(/Nenhum gozo de férias começando em 06\/2025/)).toBeTruthy());
+        fireEvent.change(screen.getByLabelText('Competência'), { target: { value: '2025-07' } });
+        await waitFor(() => expect(screen.getByText('ANA')).toBeTruthy());
+        expect(movs.listarMovimentosDaEmpresa).toHaveBeenCalledWith('emp1');
+        // 2.200 ÷ 30 × 20 = 1.466,67 + 1/3 488,89 = 1.955,56
+        expect(screen.getByText('ANA').closest('tr')!.textContent).toContain('1.955,56');
+        fireEvent.click(screen.getByText('ANA'));
+        const rec = screen.getByRole('region', { name: 'Holerite de ANA' });
+        expect(within(rec).getByText(/pagar até/).textContent).toContain('29/06/2025');
+        fireEvent.change(within(rec).getByLabelText('Dias de abono'), { target: { value: '10' } });
+        await waitFor(() => expect(within(rec).getByText('Abono pecuniário')).toBeTruthy());
+        fireEvent.click(screen.getByText('Exportar Excel'));
+        expect(xlsx.writeFile).toHaveBeenLastCalledWith(expect.anything(), 'calculo-0229-ferias-2025-07.xlsx');
     });
 });

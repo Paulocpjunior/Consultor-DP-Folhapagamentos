@@ -10,7 +10,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { listarTodasEmpresas } from '../../services/empresas/empresasService';
-import { listarAfastamentos, listarFuncionarios, listarTabelas, mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
+import { listarAfastamentos, listarFuncionarios, listarTabelas, mensagemErro, salvarAfastamento, type Usuario } from '../../services/cadastros/cadastrosService';
 import type { User } from '../../types';
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
 import type { Afastamento } from '../../services/cadastros/afastamentos';
@@ -19,7 +19,8 @@ import { centavosDeTexto, reais } from '../../services/cadastros/documentos';
 import { calcularMensal, competenciaSeguinte, noMes, type Lancamento, type Movimento, type ResultadoCalculo } from '../../services/calculo/motorMensal';
 import { somarMeses } from '../../services/prazos/calendario';
 import { limparMovimento, mesmoMovimento, movimentoVazio, validarMovimento, type MovimentoGravado } from '../../services/calculo/movimento';
-import { listarMovimentos, listarMovimentosDoAno, salvarMovimentos } from '../../services/calculo/movimentosService';
+import { listarMovimentos, listarMovimentosDaEmpresa, listarMovimentosDoAno, salvarMovimentos } from '../../services/calculo/movimentosService';
+import { calcularFerias, gozosNoMes, OPCOES_FERIAS_PADRAO, type OpcoesFerias, type ResultadoFerias } from '../../services/calculo/motorFerias';
 import { calcular13, com13, OPCOES_13_PADRAO, ultimoDiaDoMes, type Opcoes13 } from '../../services/calculo/motor13';
 import ConferenciaHolerites, { conferirTodos, type LeituraHolerites } from './ConferenciaHolerites';
 
@@ -32,9 +33,12 @@ const SITUACAO: Record<ResultadoCalculo['situacao'], [string, string]> = {
 };
 const decimal = (t: string) => { const n = Number(t.trim().replace(',', '.')); return t.trim() && Number.isFinite(n) && n >= 0 ? n : undefined; };
 const v = (r: ResultadoCalculo, c: string) => r.verbas.find(x => x.codigo === c)?.valor ?? 0;
-const inssDe = (r: ResultadoCalculo) => v(r, 'INSS') + v(r, 'INSS13');
-const irrfDe = (r: ResultadoCalculo) => v(r, 'IRRF') + v(r, 'IRRF13');
-type Folha = 'mensal' | '13-1a' | '13-2a';
+const inssDe = (r: ResultadoCalculo) => v(r, 'INSS') + v(r, 'INSS13') + v(r, 'INSSFER');
+const irrfDe = (r: ResultadoCalculo) => v(r, 'IRRF') + v(r, 'IRRF13') + v(r, 'IRRFFER');
+type Folha = 'mensal' | '13-1a' | '13-2a' | 'ferias';
+/** Chave da linha: o gozo nas férias (pode haver dois no mês), a ficha nas demais. */
+const chave = (r: ResultadoCalculo) => (r as Partial<ResultadoFerias>).gozoId || r.fichaId;
+const br = (d: string) => d.split('-').reverse().join('/');
 const real = (c: number) => (c ? reais(c) : '—');
 
 interface Dados { fichas: FichaFuncionario[]; afastamentos: Afastamento[]; tabelas: TabelaLegal[] }
@@ -66,6 +70,11 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const [opcoes13, setOpcoes13] = useState<Opcoes13>(OPCOES_13_PADRAO);
     const [primeiras, setPrimeiras] = useState<Record<string, number>>({});
     const mensal = folha === 'mensal';
+    const ferias = folha === 'ferias';
+    const [abonos, setAbonos] = useState<Record<string, number>>({});
+    const [opcoesFerias, setOpcoesFerias] = useState<OpcoesFerias>(OPCOES_FERIAS_PADRAO);
+    const [recarga, setRecarga] = useState(0);
+    const [gravandoAbono, setGravandoAbono] = useState(false);
 
     useEffect(() => { listarTodasEmpresas().then(setEmpresas).catch(e => { setErro(mensagemErro(e)); setEmpresas([]); }); }, []);
     useEffect(() => {
@@ -75,7 +84,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         Promise.all([listarFuncionarios(empresaId), listarAfastamentos(empresaId), listarTabelas()])
             .then(([fichas, afastamentos, tabelas]) => setDados({ fichas, afastamentos, tabelas }))
             .catch(e => { setErro(mensagemErro(e)); setDados({ fichas: [], afastamentos: [], tabelas: [] }); });
-    }, [empresaId]);
+    }, [empresaId, recarga]);
 
     const compOk = /^\d{4}-(0[1-9]|1[0-2])$/.test(competencia);
     const carregarMovimentos = () => {
@@ -95,14 +104,15 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         if (mensal || !empresaId) return;
         // Resposta antiga (troca rápida de empresa ou ano) não sobrescreve a atual.
         let valida = true;
-        listarMovimentosDoAno(empresaId, ano)
+        (ferias ? listarMovimentosDaEmpresa(empresaId) : listarMovimentosDoAno(empresaId, ano))
             .then(m => { if (valida) setMovsAno(m); })
             .catch(e => { if (valida) { setErro(mensagemErro(e)); setMovsAno({}); } });
         return () => { valida = false; };
-    }, [empresaId, ano, mensal]);
+    }, [empresaId, ano, mensal, ferias]);
     function trocarFolha(f: Folha, a = ano) {
         setFolha(f); setAno(a); setAberto(''); setConferir(false);
-        setPagamento(f === 'mensal' ? competenciaSeguinte(competencia) : `${a}-${f === '13-1a' ? '11' : '12'}`);
+        if (f === 'ferias') setAbonos({});
+        setPagamento(f === 'mensal' ? competenciaSeguinte(competencia) : f === 'ferias' ? '' : `${a}-${f === '13-1a' ? '11' : '12'}`);
     }
 
     const pendentes = useMemo(() => [...new Set([...Object.keys(movs), ...Object.keys(gravados ?? {})])]
@@ -119,6 +129,14 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const empresa = empresas?.find(e => e.id === empresaId);
     const resultados = useMemo(() => {
         if (!dados) return [];
+        if (ferias) {
+            if (!movsAno || !/^\d{4}-\d{2}$/.test(competencia)) return [];
+            const fichas = new Map(dados.fichas.map(f => [f.id, f]));
+            return gozosNoMes(dados.afastamentos, new Set(fichas.keys()), competencia).map(g => calcularFerias({
+                ficha: fichas.get(g.fichaId)!, gozo: g, afastamentos: dados.afastamentos.filter(a => a.fichaId === g.fichaId), tabelas: dados.tabelas,
+                movimentos: movsAno[g.fichaId] ?? {}, abonoDias: abonos[g.id], opcoes: opcoesFerias,
+            }));
+        }
         if (!mensal) {
             if (!movsAno) return [];
             const admitidosAte = folha === '13-1a' && /^\d{4}-\d{2}$/.test(pagamento) ? ultimoDiaDoMes(pagamento) : `${ano}-12-31`;
@@ -132,9 +150,9 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             competencia, pagamento, ficha: f, tabelas: dados.tabelas, movimento: movs[f.id],
             afastamentos: dados.afastamentos.filter(a => a.fichaId === f.id),
         }));
-    }, [dados, competencia, pagamento, movs, mensal, movsAno, ano, folha, opcoes13, primeiras]);
+    }, [dados, competencia, pagamento, movs, mensal, ferias, movsAno, ano, folha, opcoes13, primeiras, abonos, opcoesFerias]);
     const total = (f: (r: ResultadoCalculo) => number) => resultados.reduce((s, r) => s + f(r), 0);
-    const sel = resultados.find(r => r.fichaId === aberto);
+    const sel = resultados.find(r => chave(r) === aberto);
     const nomeDe = (id: string) => dados?.fichas.find(f => f.id === id)?.dados.nome || id;
 
     async function salvar() {
@@ -175,13 +193,13 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             ];
             XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(conf), 'Conferência IOB');
         }
-        XLSX.writeFile(wb, `calculo-${empresa?.codigoSage ?? 'empresa'}-${mensal ? competencia : `${ano}-13-${folha === '13-1a' ? '1a' : '2a'}-parcela`}.xlsx`);
+        XLSX.writeFile(wb, `calculo-${empresa?.codigoSage ?? 'empresa'}-${mensal ? competencia : ferias ? `ferias-${competencia}` : `${ano}-13-${folha === '13-1a' ? '1a' : '2a'}-parcela`}.xlsx`);
     }
 
     return (
         <div className="space-y-4">
             <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-100">
-                <strong>Prévia do motor de cálculo (Fase 3).</strong> Não substitui o cálculo do IOB enquanto não for conferido contra ele. O movimento do mês é gravado quando você clica em "Salvar movimento"; o resultado do cálculo não é gravado. O 13º usa as médias de horas extras dos movimentos gravados. Férias, rescisão, adicionais e outras médias ainda não estão no motor.
+                <strong>Prévia do motor de cálculo (Fase 3).</strong> Não substitui o cálculo do IOB enquanto não for conferido contra ele. O movimento do mês é gravado quando você clica em "Salvar movimento"; o resultado do cálculo não é gravado. O 13º e as férias usam as médias de horas extras dos movimentos gravados. Rescisão, adicionais e outras médias ainda não estão no motor.
             </div>
             <div className="flex flex-wrap items-end gap-3">
                 <label className="text-sm dark:text-white">Empresa
@@ -192,24 +210,32 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 </label>
                 <label className="text-sm dark:text-white">Folha
                     <select aria-label="Folha" className={`ml-2 ${inp}`} value={folha} onChange={e => trocarFolha(e.target.value as Folha)}>
-                        <option value="mensal">Mensal</option><option value="13-1a">13º — 1ª parcela</option><option value="13-2a">13º — 2ª parcela</option>
+                        <option value="mensal">Mensal</option><option value="13-1a">13º — 1ª parcela</option><option value="13-2a">13º — 2ª parcela</option><option value="ferias">Férias</option>
                     </select>
                 </label>
-                {!mensal && <label className="text-sm dark:text-white">Ano
+                {!mensal && !ferias && <label className="text-sm dark:text-white">Ano
                     <input aria-label="Ano" type="number" min={2000} max={2100} className={`ml-2 w-24 ${inp}`} value={ano} onChange={e => { const a = Number(e.target.value); if (a >= 2000 && a <= 2100) trocarFolha(folha, a); }} />
                 </label>}
-                {mensal && <label className="text-sm dark:text-white">Competência
-                    <input aria-label="Competência" type="month" className={`ml-2 ${inp}`} value={competencia} onChange={e => { const c = e.target.value; seguro(() => { setCompetencia(c); setAberto(''); if (/^\d{4}-\d{2}$/.test(c)) setPagamento(competenciaSeguinte(c)); }); }} />
+                {(mensal || ferias) && <label className="text-sm dark:text-white" title={ferias ? 'Mês em que as férias começam.' : undefined}>{ferias ? 'Início das férias em' : 'Competência'}
+                    <input aria-label="Competência" type="month" className={`ml-2 ${inp}`} value={competencia} onChange={e => { const c = e.target.value; seguro(() => { setCompetencia(c); setAberto(''); if (/^\d{4}-\d{2}$/.test(c) && !ferias) setPagamento(competenciaSeguinte(c)); }); }} />
                 </label>}
-                <label className="text-sm dark:text-white" title="O IRRF segue o mês do pagamento (regime de caixa).">Pagamento em
+                {!ferias && <label className="text-sm dark:text-white" title="O IRRF segue o mês do pagamento (regime de caixa).">Pagamento em
                     <input aria-label="Mês do pagamento" type="month" className={`ml-2 ${inp}`} value={pagamento} onChange={e => setPagamento(e.target.value)} />
-                </label>
+                </label>}
                 {mensal && <button className="ml-auto rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={!pendentes.length || salvando || !gravados} onClick={salvar}>
                     {salvando ? 'Salvando…' : `Salvar movimento${pendentes.length ? ` (${pendentes.length})` : ''}`}
                 </button>}
                 {mensal && <button className={btn} disabled={!resultados.length} aria-pressed={conferir} onClick={() => setConferir(c => !c)}>Conferir com holerites do IOB</button>}
                 <button className={`${mensal ? '' : 'ml-auto '}${btn}`} disabled={!resultados.length} onClick={exportar}>Exportar Excel</button>
             </div>
+            {ferias && (
+                <div className="flex flex-wrap items-center gap-4 rounded border border-slate-200 p-2 text-xs text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                    <span>Recibo de cada gozo lançado em Cadastros › Afastamentos (motivo 15). Pagamento até 2 dias antes do início; o IRRF usa a tabela desse mês.</span>
+                    <span className="font-medium">IRRF das férias (confirme com o IOB):</span>
+                    <label className="flex items-center gap-1"><input type="checkbox" checked={opcoesFerias.simplificado} onChange={e => setOpcoesFerias(o => ({ ...o, simplificado: e.target.checked }))} />desconto simplificado</label>
+                    <label className="flex items-center gap-1"><input type="checkbox" checked={opcoesFerias.redutor} onChange={e => setOpcoesFerias(o => ({ ...o, redutor: e.target.checked }))} />redutor de 2026</label>
+                </div>
+            )}
             {folha === '13-2a' && (
                 <div className="flex flex-wrap items-center gap-4 rounded border border-slate-200 p-2 text-xs text-slate-700 dark:border-slate-700 dark:text-slate-200">
                     <span className="font-medium">IRRF do 13º (confirme a regra na norma e com o IOB):</span>
@@ -222,8 +248,8 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
 
             {erro && <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
             {empresaId && !dados && <p className="text-sm text-slate-500">Carregando…</p>}
-            {dados && !mensal && !movsAno && <p className="text-sm text-slate-500">Carregando os movimentos do ano…</p>}
-            {dados && !resultados.length && (mensal || movsAno) && <p className="rounded border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-600">{mensal ? 'Nenhum funcionário com vínculo nesta competência.' : `Nenhum funcionário com 13º em ${ano} (desligados recebem na rescisão).`} Confira o cadastro em Cadastros › Funcionários.</p>}
+            {dados && !mensal && !movsAno && <p className="text-sm text-slate-500">Carregando os movimentos gravados…</p>}
+            {dados && !resultados.length && (mensal || movsAno) && <p className="rounded border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-600">{mensal ? 'Nenhum funcionário com vínculo nesta competência. Confira o cadastro em Cadastros › Funcionários.' : ferias ? `Nenhum gozo de férias começando em ${br(competencia).slice(0, 7)}. Lance as férias em Cadastros › Afastamentos (motivo 15 — gozo de férias).` : `Nenhum funcionário com 13º em ${ano} (desligados recebem na rescisão). Confira o cadastro em Cadastros › Funcionários.`}</p>}
 
             {resultados.length > 0 && (
                 <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
@@ -233,7 +259,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                         </thead>
                         <tbody>
                             {resultados.map(r => (
-                                <tr key={r.fichaId} className={`cursor-pointer border-t border-slate-100 hover:bg-blue-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-700 ${aberto === r.fichaId ? 'bg-blue-50 dark:bg-slate-700' : ''}`} onClick={() => setAberto(a => (a === r.fichaId ? '' : r.fichaId))}>
+                                <tr key={chave(r)} className={`cursor-pointer border-t border-slate-100 hover:bg-blue-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-700 ${aberto === chave(r) ? 'bg-blue-50 dark:bg-slate-700' : ''}`} onClick={() => setAberto(a => (a === chave(r) ? '' : chave(r)))}>
                                     <td className="p-2 font-medium">{r.nome}{!mensal ? null : pendentes.includes(r.fichaId) ? <span className="ml-1 text-xs text-amber-700 dark:text-amber-300">(não salvo)</span> : !movimentoVazio(movs[r.fichaId]) && <span className="ml-1 text-xs text-blue-700 dark:text-blue-300">(com movimento)</span>}</td>
                                     <td className="p-2 text-right">{real(r.totais.proventos)}</td>
                                     <td className="p-2 text-right">{real(inssDe(r))}</td>
@@ -259,7 +285,47 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             )}
 
             {sel && mensal && <Holerite key={`${sel.fichaId}-${versao}`} r={sel} mov={movs[sel.fichaId] ?? {}} gravado={gravados?.[sel.fichaId]} pendente={pendentes.includes(sel.fichaId)} onMov={m => setMovs(x => ({ ...x, [sel.fichaId]: m }))} />}
-            {sel && !mensal && (
+            {sel && ferias && (() => {
+                const f = sel as ResultadoFerias;
+                return (
+                    <Holerite key={`${f.gozoId}-ferias`} r={f}>
+                        <div className="space-y-2 text-xs text-slate-700 dark:text-slate-200">
+                            <h4 className="text-sm font-semibold text-slate-800 dark:text-white">Recibo de férias</h4>
+                            {f.periodo && <p>Período aquisitivo {br(f.periodo.inicio)} a {br(f.periodo.fim)} · concessivo até {br(f.periodo.fimConcessivo)}</p>}
+                            <p>{f.diasGozo} dias de gozo · direito {f.direito} · saldo {f.saldo}{f.diasDobra ? ` · ${f.diasDobra} em dobro` : ''} · pagar até <strong>{f.pagarAte ? br(f.pagarAte) : '—'}</strong></p>
+                            {f.porCompetencia.length > 0 && (
+                                <table className="w-full max-w-sm"><thead className="text-left text-slate-500"><tr><th>Competência</th><th className="text-right">Dias</th><th className="text-right">Férias + 1/3</th><th className="text-right">INSS</th><th className="text-right">FGTS</th></tr></thead>
+                                    <tbody>{f.porCompetencia.map(c => <tr key={c.competencia}><td>{br(c.competencia)}</td><td className="text-right">{c.dias}</td><td className="text-right">{reais(c.ferias + c.terco)}</td><td className="text-right">{reais(c.inss)}</td><td className="text-right">{reais(c.fgts)}</td></tr>)}</tbody></table>
+                            )}
+                            {(() => {
+                                const gozo = dados?.afastamentos.find(a => a.id === f.gozoId);
+                                const gravado = Number(gozo?.abonoDias || 0);
+                                const mudou = abonos[f.gozoId] !== undefined && abonos[f.gozoId] !== gravado;
+                                async function gravarAbono() {
+                                    if (!gozo) return;
+                                    setGravandoAbono(true); setErro('');
+                                    try {
+                                        await salvarAfastamento(gozo, { ...gozo, abonoDias: abonos[f.gozoId] ? String(abonos[f.gozoId]) : '' }, usuario);
+                                        setAbonos(x => { const y = { ...x }; delete y[f.gozoId]; return y; });
+                                        setRecarga(n => n + 1);
+                                    } catch (e) { setErro(mensagemErro(e)); }
+                                    finally { setGravandoAbono(false); }
+                                }
+                                return (
+                                    <label className="block">Abono pecuniário (dias vendidos)
+                                        <input aria-label="Dias de abono" className={`mt-0.5 block w-20 ${inp}`} defaultValue={String(abonos[f.gozoId] ?? (gravado || ''))}
+                                            onChange={e => { const t = e.target.value.trim(); const n = Number(t || 0); setAbonos(x => { const y = { ...x }; if (t && Number.isInteger(n) && n >= 0) y[f.gozoId] = n; else if (!t) y[f.gozoId] = 0; else delete y[f.gozoId]; return y; }); }} />
+                                        <span className="text-slate-500">Até 1/3 dos dias de direito. {gravado ? `Gravado no afastamento: ${gravado} dia(s).` : 'Nada gravado no afastamento.'} O abono gravado desconta do saldo do período nas próximas férias.</span>
+                                        {mudou && <button type="button" className="mt-1 block rounded border border-slate-300 px-2 py-1 dark:border-slate-600" disabled={gravandoAbono} onClick={gravarAbono}>{gravandoAbono ? 'Gravando…' : 'Gravar abono no afastamento'}</button>}
+                                    </label>
+                                );
+                            })()}
+                            <p>Médias e faltas vêm dos movimentos gravados na folha mensal do período aquisitivo.</p>
+                        </div>
+                    </Holerite>
+                );
+            })()}
+            {sel && !mensal && !ferias && (
                 <Holerite key={`${sel.fichaId}-${folha}`} r={sel}>
                     <div className="space-y-2 text-xs text-slate-700 dark:text-slate-200">
                         <h4 className="text-sm font-semibold text-slate-800 dark:text-white">{folha === '13-1a' ? '1ª parcela do 13º' : '2ª parcela do 13º'}</h4>
