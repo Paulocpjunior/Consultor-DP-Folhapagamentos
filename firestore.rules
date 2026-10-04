@@ -160,6 +160,27 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // Horários e afastamentos: id começa pelo id da empresa (empresa_código, empresa_cpf_matrícula_data).
+    match /cadastro_horarios/{horarioId} {
+      allow read, list: if isApproved();
+      allow create, update: if isApproved()
+                    && request.resource.data.atualizadoPor == request.auth.uid
+                    && request.resource.data.empresaId is string
+                    && request.resource.data.codigo is string
+                    && horarioId.matches('^' + request.resource.data.empresaId + '_.+$');
+      allow delete: if isAdmin();
+    }
+
+    match /cadastro_afastamentos/{afastamentoId} {
+      allow read, list: if isApproved();
+      allow create, update: if isApproved()
+                    && request.resource.data.atualizadoPor == request.auth.uid
+                    && request.resource.data.empresaId is string
+                    && request.resource.data.dtInicio is string
+                    && afastamentoId.matches('^' + request.resource.data.empresaId + '_' + request.resource.data.cpf + '_.+_' + request.resource.data.dtInicio + '$');
+      allow delete: if isAdmin();
+    }
+
     match /cadastro_audit/{logId} {
       allow read, list: if isApproved();
       allow create: if isApproved() && request.resource.data.autor == request.auth.uid;

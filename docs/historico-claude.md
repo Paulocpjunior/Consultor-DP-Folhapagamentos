@@ -187,3 +187,42 @@ piloto em paralelo provar o cálculo próprio.
   retificação (indRetif 2) sem recibo nem original, e a importação a recusa,
   como a implantação. Para importar, é preciso o XML com o recibo
   (retornoEventoCompleto) ou o S-2200 original.
+- **04/10/2026, Paulo: *"regras publicadas, pode seguir com horarios e afastamentos"*.**
+  As regras dos cadastros foram publicadas pelo Paulo.
+  - **Horários** (`services/cadastros/horarios.ts`): cada empresa tem seus
+    horários, com id = empresa_código.
+    - Para cada dia da semana: tipo (trabalho, folga/compensado ou DSR),
+      entrada, intervalo e saída. Uma saída antes da entrada conta como o dia
+      seguinte.
+    - Calcula o total semanal e as horas noturnas (22h–5h, também na hora
+      reduzida de 52min30s), e gera a descrição da jornada no formato do
+      `dscJorn` do S-2200.
+    - Limites da CLT (arts. 58/59, 66, 67, 71 e CF 7º XIII) aparecem como
+      AVISO, não bloqueiam, porque há exceções legais como 12x36,
+      compensação e norma coletiva.
+    - A ficha (Ident. Adm.) tem o campo Horário e confere as horas semanais
+      do S-2200 com o total do horário.
+  - **Afastamentos** (`services/cadastros/afastamentos.ts`): o S-2230, com
+    id = empresa_cpf_matrícula_início.
+    - A importação lê o XML com o recibo (201).
+    - Junta início e término que vêm em eventos separados.
+    - Retificação substitui o original pelo recibo, e um S-3000 com tpEvento
+      S-2230 exclui o evento.
+    - Vínculo sem ficha vira aviso.
+    - Lançamento manual valida datas, admissão e desligamento, sobreposição, e
+      os campos que só valem para os motivos 01/03 (mesmo motivo,
+      acidente de trânsito) ou 15 (período aquisitivo).
+    - Afastamento manual não é trocado por uma reimportação.
+    - Mostra os dias por competência e o 16º dia para o INSS em
+      doença/acidente sem "mesmo motivo" (Lei 8.213, art. 60). A lista de
+      funcionários mostra "Afastado desde".
+  - **Tabela 18:** só tem rótulo o que foi conferido em busca pública
+    (01, 03, 06, 07, 11, 14–21, 24, 25, 29, 30, 33, 35 e os 43–45 da
+    NT 04/2025, com a nova descrição do 21). Qualquer outro código de 2
+    dígitos é aceito como "conferir na Tabela 18".
+    - O portal gov.br e os PDFs da tabela estão bloqueados neste ambiente;
+      falta conferir a tabela inteira na fonte oficial.
+  - **Regras novas:** `cadastro_horarios` e `cadastro_afastamentos`, testadas
+    no emulador. **Precisam de novo deploy das regras.**
+  - **Faltam:** escalas e revezamento (12x36 como escala, não só como aviso),
+    transmissão do S-2230 e férias com cálculo (Fase 3).

@@ -8,19 +8,25 @@ import React, { useCallback, useEffect, useState } from 'react';
 import type { User } from '../../types';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { listarTodasEmpresas } from '../../services/empresas/empresasService';
-import { listarSindicatos, listarTabelas, mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
+import { listarAfastamentos, listarHorarios, listarSindicatos, listarTabelas, mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
+import type { Horario } from '../../services/cadastros/horarios';
+import type { Afastamento } from '../../services/cadastros/afastamentos';
 import type { Sindicato } from '../../services/cadastros/sindicatos';
 import type { TabelaLegal } from '../../services/cadastros/tabelasLegais';
 import FuncionariosCadastro from './FuncionariosCadastro';
 import SindicatosCadastro from './SindicatosCadastro';
 import TabelasLegaisCadastro from './TabelasLegaisCadastro';
+import HorariosCadastro from './HorariosCadastro';
+import AfastamentosCadastro from './AfastamentosCadastro';
 
-export type SubCadastro = 'funcionarios' | 'sindicatos' | 'tabelas';
+export type SubCadastro = 'funcionarios' | 'horarios' | 'afastamentos' | 'sindicatos' | 'tabelas';
 
 interface Props { currentUser: User; subInicial?: SubCadastro; onAbrirEventos?: () => void }
 
 const SUBS: { id: SubCadastro; titulo: string; caminho: string }[] = [
     { id: 'funcionarios', titulo: 'Funcionários', caminho: 'Arquivos › Funcionários › Cadastro Básico' },
+    { id: 'horarios', titulo: 'Horários', caminho: 'Arquivos › Horários › Tabela de Horários' },
+    { id: 'afastamentos', titulo: 'Afastamentos', caminho: 'Arquivos › Afastamentos/Retorno (S-2230)' },
     { id: 'sindicatos', titulo: 'Sindicatos', caminho: 'Arquivos › Sindicatos' },
     { id: 'tabelas', titulo: 'Tabelas legais', caminho: 'Cadastros › Genéricos › Tabelas Legais (SGC)' },
 ];
@@ -34,6 +40,10 @@ const CadastrosPanel: React.FC<Props> = ({ currentUser, subInicial, onAbrirEvent
     const [erroSind, setErroSind] = useState('');
     const [tabelas, setTabelas] = useState<TabelaLegal[] | null>(null);
     const [erroTab, setErroTab] = useState('');
+    const [horarios, setHorarios] = useState<Horario[] | null>(null);
+    const [erroHor, setErroHor] = useState('');
+    const [afastamentos, setAfastamentos] = useState<Afastamento[] | null>(null);
+    const [erroAfa, setErroAfa] = useState('');
     const usuario: Usuario = { id: currentUser.uid ?? currentUser.id, email: currentUser.email };
     const isAdmin = currentUser.role === 'admin';
 
@@ -42,6 +52,17 @@ const CadastrosPanel: React.FC<Props> = ({ currentUser, subInicial, onAbrirEvent
     const carregarTabelas = useCallback(() => { setErroTab(''); listarTabelas().then(setTabelas).catch(e => { setErroTab(mensagemErro(e)); setTabelas([]); }); }, []);
     useEffect(carregarSindicatos, [carregarSindicatos]);
     useEffect(carregarTabelas, [carregarTabelas]);
+    const carregarHorarios = useCallback(() => {
+        setErroHor(''); setHorarios(null);
+        if (empresaId) listarHorarios(empresaId).then(setHorarios).catch(e => { setErroHor(mensagemErro(e)); setHorarios([]); });
+    }, [empresaId]);
+    const carregarAfastamentos = useCallback(() => {
+        setErroAfa(''); setAfastamentos(null);
+        if (empresaId) listarAfastamentos(empresaId).then(setAfastamentos).catch(e => { setErroAfa(mensagemErro(e)); setAfastamentos([]); });
+    }, [empresaId]);
+    useEffect(carregarHorarios, [carregarHorarios]);
+    useEffect(carregarAfastamentos, [carregarAfastamentos]);
+    const porEmpresa = sub === 'funcionarios' || sub === 'horarios' || sub === 'afastamentos';
 
     const empresa = empresas?.find(e => e.id === empresaId);
     const atual = SUBS.find(s => s.id === sub)!;
@@ -64,7 +85,7 @@ const CadastrosPanel: React.FC<Props> = ({ currentUser, subInicial, onAbrirEvent
             </nav>
             <p className="text-xs text-slate-500 dark:text-slate-400">No IOB: {atual.caminho}</p>
 
-            {sub === 'funcionarios' && (
+            {porEmpresa && (
                 <div className="space-y-3">
                     <label className="block max-w-md text-sm font-medium text-slate-700 dark:text-slate-200">Empresa
                         <select className="mt-1 block w-full rounded border border-slate-300 px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-white" value={empresaId} onChange={e => setEmpresaId(e.target.value)} aria-label="Empresa">
@@ -73,8 +94,10 @@ const CadastrosPanel: React.FC<Props> = ({ currentUser, subInicial, onAbrirEvent
                         </select>
                     </label>
                     {erroEmpresas && <p role="alert" className="text-sm text-red-700">{erroEmpresas}</p>}
-                    {empresa ? <FuncionariosCadastro key={empresa.id} empresa={empresa} usuario={usuario} isAdmin={isAdmin} sindicatos={sindicatos ?? []} />
-                        : <p className="text-sm text-slate-500">Selecione a empresa para ver os funcionários.</p>}
+                    {!empresa && <p className="text-sm text-slate-500">Selecione a empresa.</p>}
+                    {empresa && sub === 'funcionarios' && <FuncionariosCadastro key={empresa.id} empresa={empresa} usuario={usuario} isAdmin={isAdmin} sindicatos={sindicatos ?? []} horarios={horarios ?? []} afastamentos={afastamentos ?? []} />}
+                    {empresa && sub === 'horarios' && <HorariosCadastro key={empresa.id} empresa={empresa} horarios={horarios} erroLista={erroHor} usuario={usuario} isAdmin={isAdmin} onRecarregar={carregarHorarios} />}
+                    {empresa && sub === 'afastamentos' && <AfastamentosCadastro key={empresa.id} empresa={empresa} afastamentos={afastamentos} erroLista={erroAfa} usuario={usuario} isAdmin={isAdmin} onRecarregar={carregarAfastamentos} />}
                 </div>
             )}
             {sub === 'sindicatos' && <SindicatosCadastro sindicatos={sindicatos} erroLista={erroSind} usuario={usuario} isAdmin={isAdmin} onRecarregar={carregarSindicatos} />}

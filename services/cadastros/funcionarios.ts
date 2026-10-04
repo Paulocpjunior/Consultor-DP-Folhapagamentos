@@ -14,7 +14,7 @@ import { lerDependentes, type Dependente } from '../implantacao/unificacao';
 import { UFS, cnpjValido, cpfValido, dataValida, centavosDeTexto, pisValido } from './documentos';
 
 export type { Dependente };
-export type CampoExtra = 'codigoIob' | 'banco' | 'agencia' | 'conta' | 'tipoConta' | 'pix' | 'observacoes' | 'dataDesligamento';
+export type CampoExtra = 'codigoIob' | 'horario' | 'banco' | 'agencia' | 'conta' | 'tipoConta' | 'pix' | 'observacoes' | 'dataDesligamento';
 export type CampoFicha = Exclude<Campo, 'dependentes' | 'matriculaIob'> | CampoExtra;
 export type Situacao = 'ativo' | 'desligado';
 export type ChaveOrigem = CampoFicha | 'dependentes' | 'situacao';
@@ -36,6 +36,7 @@ export const ROTULO: Record<CampoFicha, string> = {
     ...(Object.fromEntries(Object.entries(CAMPOS).filter(([k]) => k !== 'dependentes' && k !== 'matriculaIob')) as Record<Exclude<Campo, 'dependentes' | 'matriculaIob'>, string>),
     salario: 'Salário fixo',
     codigoIob: 'Código no IOB (sequencial)',
+    horario: 'Horário (tabela de horários)',
     banco: 'Banco (código)', agencia: 'Agência', conta: 'Conta', tipoConta: 'Tipo de conta', pix: 'Chave PIX',
     observacoes: 'Observações', dataDesligamento: 'Data de desligamento',
 };
@@ -73,7 +74,7 @@ export function defCampo(campo: CampoFicha): DefCampo {
 /** Abas na ordem do IOB Office. Complementos, Lanç. Automático e Holerite dependem dos prints do Office. */
 export const ABAS: { id: string; titulo: string; campos: CampoFicha[] }[] = [
     { id: 'dados', titulo: 'Dados', campos: ['nome', 'nascimento', 'sexo', 'estadoCivil', 'raca', 'escolaridade', 'nacionalidade', 'paisNascimento', 'naturalidade', 'mae', 'pai', 'cep', 'logradouro', 'numero', 'complemento', 'bairro', 'municipio', 'uf', 'telefone', 'email'] },
-    { id: 'identAdm', titulo: 'Ident. Adm.', campos: ['codigoIob', 'admissao', 'categoria', 'tipoContrato', 'fimContrato', 'cargo', 'cbo', 'funcao', 'cargoIob', 'departamentoIob', 'salario', 'unidadeSalario', 'horasSemanais', 'jornada', 'horarioTrabalho', 'horarioIntervalo', 'sindicato', 'sindicatoIob', 'estabelecimento', 'regimeTrabalhista', 'regimePrevidenciario', 'opcaoFgts', 'dataDesligamento'] },
+    { id: 'identAdm', titulo: 'Ident. Adm.', campos: ['codigoIob', 'admissao', 'categoria', 'tipoContrato', 'fimContrato', 'cargo', 'cbo', 'funcao', 'cargoIob', 'departamentoIob', 'salario', 'unidadeSalario', 'horasSemanais', 'horario', 'jornada', 'horarioTrabalho', 'horarioIntervalo', 'sindicato', 'sindicatoIob', 'estabelecimento', 'regimeTrabalhista', 'regimePrevidenciario', 'opcaoFgts', 'dataDesligamento'] },
     { id: 'documentos', titulo: 'Documentos', campos: ['pis', 'cadastroPis', 'ctps', 'serieCtps', 'ufCtps', 'rg', 'orgaoRg', 'emissaoRg', 'tituloEleitor', 'zonaEleitoral', 'secaoEleitoral', 'documentoMilitar'] },
     { id: 'outros', titulo: 'Outros', campos: ['banco', 'agencia', 'conta', 'tipoConta', 'pix', 'deficiencia', 'enderecoExterior', 'observacoes'] },
 ];

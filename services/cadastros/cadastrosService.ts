@@ -15,12 +15,16 @@ import { db } from '../firebaseConfig';
 import { diffFicha, type Alteracao, type FichaFuncionario, type ResultadoMescla } from './funcionarios';
 import { sindicatoVazio, type Sindicato } from './sindicatos';
 import { tabelaVazia, type TabelaLegal } from './tabelasLegais';
+import { horarioVazio, type Horario } from './horarios';
+import { afastamentoVazio, type Afastamento, type MesclaAfastamento } from './afastamentos';
 
 export interface Usuario { id: string; email: string }
 
 const FUNC = 'cadastro_funcionarios';
 const SIND = 'cadastro_sindicatos';
 const TAB = 'cadastro_tabelas_legais';
+const HOR = 'cadastro_horarios';
+const AFA = 'cadastro_afastamentos';
 const AUDIT = 'cadastro_audit';
 
 export const COMANDO_REGRAS = 'firebase deploy --only firestore:rules --project consultor-dp-folha';
@@ -97,8 +101,8 @@ export async function excluirFuncionario(f: FichaFuncionario, u: Usuario): Promi
 
 export interface RegistroAuditoria { id: string; acao: string; alteracoes: Alteracao[]; totalAlteracoes: number; autorEmail: string; origem?: string; quando?: Date }
 
-export async function historico(colecao: 'funcionarios' | 'sindicatos' | 'tabelas', docId: string): Promise<RegistroAuditoria[]> {
-    const nome = { funcionarios: FUNC, sindicatos: SIND, tabelas: TAB }[colecao];
+export async function historico(colecao: 'funcionarios' | 'sindicatos' | 'tabelas' | 'horarios' | 'afastamentos', docId: string): Promise<RegistroAuditoria[]> {
+    const nome = { funcionarios: FUNC, sindicatos: SIND, tabelas: TAB, horarios: HOR, afastamentos: AFA }[colecao];
     const snap = await getDocs(query(collection(db, AUDIT), where('docId', '==', docId)));
     return snap.docs.map(d => {
         const x = d.data();
@@ -156,5 +160,66 @@ export async function excluirTabela(t: TabelaLegal, u: Usuario): Promise<void> {
     const lote = writeBatch(db);
     lote.delete(doc(db, TAB, t.id));
     auditar(lote, u, TAB, t.id, 'excluir', diffObjeto(soCampos(t, tabelaVazia(t.tipo)), {}));
+    await lote.commit();
+}
+
+// ---------- Horários ----------
+
+export async function listarHorarios(empresaId: string): Promise<Horario[]> {
+    const snap = await getDocs(query(collection(db, HOR), where('empresaId', '==', empresaId)));
+    return snap.docs.map(d => ({ ...soCampos(d.data() as Horario, horarioVazio(empresaId)), id: d.id }))
+        .sort((a, b) => a.codigo.localeCompare(b.codigo, 'pt-BR', { numeric: true }));
+}
+
+export async function salvarHorario(antes: Horario | null, h: Horario, u: Usuario): Promise<void> {
+    if (!antes && (await getDoc(doc(db, HOR, h.id))).exists()) throw new Error('Já existe um horário com este código nesta empresa.');
+    const lote = writeBatch(db);
+    lote.set(doc(db, HOR, h.id), { ...limpo(semId(soCampos(h, horarioVazio(h.empresaId)))), atualizadoPor: u.id, atualizadoPorEmail: u.email, atualizadoEm: serverTimestamp() });
+    auditar(lote, u, HOR, h.id, antes ? 'editar' : 'criar', diffObjeto(antes && soCampos(antes, horarioVazio(h.empresaId)), soCampos(h, horarioVazio(h.empresaId))), { empresaId: h.empresaId });
+    await lote.commit();
+}
+
+export async function excluirHorario(h: Horario, u: Usuario): Promise<void> {
+    const lote = writeBatch(db);
+    lote.delete(doc(db, HOR, h.id));
+    auditar(lote, u, HOR, h.id, 'excluir', diffObjeto(soCampos(h, horarioVazio(h.empresaId)), {}), { empresaId: h.empresaId });
+    await lote.commit();
+}
+
+// ---------- Afastamentos ----------
+
+export async function listarAfastamentos(empresaId: string): Promise<Afastamento[]> {
+    const snap = await getDocs(query(collection(db, AFA), where('empresaId', '==', empresaId)));
+    return snap.docs.map(d => ({ ...soCampos(d.data() as Afastamento, afastamentoVazio()), id: d.id }))
+        .sort((a, b) => b.dtInicio.localeCompare(a.dtInicio));
+}
+
+export async function salvarAfastamento(antes: Afastamento | null, a: Afastamento, u: Usuario): Promise<void> {
+    if (!antes && (await getDoc(doc(db, AFA, a.id))).exists()) throw new Error('Já existe afastamento deste funcionário com esta data de início.');
+    const lote = writeBatch(db);
+    lote.set(doc(db, AFA, a.id), { ...limpo(semId(soCampos(a, afastamentoVazio()))), atualizadoPor: u.id, atualizadoPorEmail: u.email, atualizadoEm: serverTimestamp() });
+    auditar(lote, u, AFA, a.id, antes ? 'editar' : 'criar', diffObjeto(antes && soCampos(antes, afastamentoVazio()), soCampos(a, afastamentoVazio())), { empresaId: a.empresaId });
+    await lote.commit();
+}
+
+/** Grava a prévia confirmada da importação do S-2230 (afastamento + auditoria = 2 escritas). */
+export async function gravarAfastamentosImportados(itens: MesclaAfastamento[], antes: Afastamento[], u: Usuario, arquivos: string[]): Promise<void> {
+    const porId = new Map(antes.map(a => [a.id, a]));
+    const origem = arquivos.slice(0, 20).join(', ') + (arquivos.length > 20 ? ` e mais ${arquivos.length - 20}` : '');
+    for (let i = 0; i < itens.length; i += 200) {
+        const lote = writeBatch(db);
+        for (const { afastamento: a, novo } of itens.slice(i, i + 200)) {
+            lote.set(doc(db, AFA, a.id), { ...limpo(semId(soCampos(a, afastamentoVazio()))), atualizadoPor: u.id, atualizadoPorEmail: u.email, atualizadoEm: serverTimestamp() });
+            const ant = porId.get(a.id);
+            auditar(lote, u, AFA, a.id, novo ? 'importar (novo)' : 'importar (atualizar)', diffObjeto(ant ? soCampos(ant, afastamentoVazio()) : null, soCampos(a, afastamentoVazio())), { empresaId: a.empresaId, origem: `XML eSocial: ${origem}` });
+        }
+        await lote.commit();
+    }
+}
+
+export async function excluirAfastamento(a: Afastamento, u: Usuario): Promise<void> {
+    const lote = writeBatch(db);
+    lote.delete(doc(db, AFA, a.id));
+    auditar(lote, u, AFA, a.id, 'excluir', diffObjeto(soCampos(a, afastamentoVazio()), {}), { empresaId: a.empresaId });
     await lote.commit();
 }
