@@ -13,6 +13,7 @@ const IobSagePanel = lazy(() => import('./iobSage/IobSagePanel'));
 const CadastrosPanel = lazy(() => import('./cadastros/CadastrosPanel'));
 const PrazosPanel = lazy(() => import('./prazos/PrazosPanel'));
 const CalculoPanel = lazy(() => import('./calculo/CalculoPanel'));
+const CofreCertificadosPanel = lazy(() => import('./certificados/CofreCertificadosPanel'));
 import type { SubCadastro } from './cadastros/CadastrosPanel';
 import EmpresasPanel from './empresas/EmpresasPanel';
 import ESocialMonitorPanel from './esocial/ESocialMonitorPanel';
@@ -29,7 +30,7 @@ import {
     gravarEmpresaAtiva, lerEmpresaAtiva, limparEmpresaAtiva, type EmpresaAtiva,
 } from '../services/empresaAtiva/empresaAtiva';
 
-type Tab = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'empresas' | 'esocial' | 'iobsage' | 'admin';
+type Tab = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin';
 
 const SUB_FOLHA: Partial<Record<Destino, SubTabFolha>> = {
     'folha:apontamento': 'apontamento', 'folha:implantacao': 'implantacao', 'folha:conferencia': 'conferencia',
@@ -214,6 +215,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
         { id: 'cadastros', label: 'Cadastros', icon: '🗃️', adminOnly: false },
         { id: 'calculo',  label: 'Cálculo',   icon: '🧮', adminOnly: false },
         { id: 'prazos',   label: 'Prazos',    icon: '⏰', adminOnly: false },
+        { id: 'certificados', label: 'Certificados', icon: '🔐', adminOnly: false },
         { id: 'empresas', label: 'Empresas',  icon: '🏢', adminOnly: false },
         { id: 'esocial',  label: 'eSocial',   icon: '📡', adminOnly: false },
         { id: 'iobsage',  label: 'IOB SAGE',  icon: '🗂️', adminOnly: false },
@@ -404,6 +406,11 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                     <Suspense fallback={<div className="py-12 text-center text-sm text-slate-500">Carregando…</div>}>
                         <CadastrosPanel key={cadastroSub?.n ?? 0} currentUser={currentUser} subInicial={cadastroSub?.sub}
                             onAbrirEventos={() => { setFolhaSub(f => ({ sub: 'eventos', n: (f?.n ?? 0) + 1 })); setActiveTab('folha'); }} />
+                    </Suspense>
+                )}
+                {activeTab === 'certificados' && (
+                    <Suspense fallback={<div className="py-12 text-center text-sm text-slate-500">Carregando…</div>}>
+                        <CofreCertificadosPanel />
                     </Suspense>
                 )}
                 {activeTab === 'admin' && isAdmin && <AdminUsersPanel currentUser={currentUser as any} />}

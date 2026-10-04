@@ -1,7 +1,9 @@
 rules_version = '2';
-// O Storage deste projeto só guarda certificados digitais (.pfx). Antes, qualquer
-// usuário logado lia e gravava tudo. Agora só admin ou gestor, e o resto fica
-// fechado. O cofre único de certificados é o do CFI (etapa do cofre).
+// O Storage deste projeto só guardava certificados digitais (.pfx). O cofre
+// único agora é o do CFI (arquivo e senha cifrados), e o renovado sobe pelo
+// app Legal: este app não grava mais certificado. Ficam só para o gestor
+// LER os arquivos antigos (conferir que estão no cofre antes de apagá-los
+// pelo console); ninguém grava.
 service firebase.storage {
   match /b/{bucket}/o {
     function papel() {
@@ -10,12 +12,13 @@ service firebase.storage {
     function isMaster() {
       return request.auth.token.get('email', '') == 'junior@spassessoriacontabil.com.br' && request.auth.token.get('email_verified', false) == true;
     }
-    function isAdmin() {
-      return request.auth != null && (isMaster() || papel() in ['gestor', 'admin']);
+    function isGestor() {
+      return request.auth != null && (isMaster() || papel() == 'gestor');
     }
 
     match /certificados/{allPaths=**} {
-      allow read, list, write: if isAdmin();
+      allow read, list: if isGestor();
+      allow write: if false;
     }
     match /{allPaths=**} {
       allow read, write: if false;

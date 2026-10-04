@@ -32,7 +32,7 @@ import type {
 import { EVENTO_PRAZOS } from './esocialTypes';
 import { listarEmpresasVisiveis } from '../empresas/empresasService';
 import { LOTE_IN, consultarPorEmpresas, escopoAtual } from '../carteira/carteiraService';
-import { calcularStatusCertificado } from '../empresas/certificadoService';
+import { contagemCofre } from '../certificados/cofreCertificados';
 
 const COLECAO_EVENTOS = 'esocial_eventos';
 const COLECAO_FGTS = 'esocial_fgts';
@@ -337,8 +337,11 @@ export async function calcularResumoPendencias(): Promise<ResumoPendencias> {
     const alertas = calcularAlertasVencimento(eventos);
     const alertasVencimento = alertas.length;
 
-    const certsVencendo = empresas.filter(e => calcularStatusCertificado(e.certificado?.validade) === 'vencendo').length;
-    const certsVencidos = empresas.filter(e => calcularStatusCertificado(e.certificado?.validade) === 'vencido').length;
+    // Certificados pelo cofre único (CFI + Legal), só da carteira; falha do cofre não zera o resto.
+    const { cofreDaMinhaCarteira } = await import('../certificados/cofreCertificados');
+    const cofre = await cofreDaMinhaCarteira().then(c => contagemCofre(c.linhas)).catch(() => null);
+    const certsVencendo = cofre?.vencendo ?? 0;
+    const certsVencidos = cofre?.vencidos ?? 0;
 
     const temPendencias =
         fgtsAtrasados > 0 ||

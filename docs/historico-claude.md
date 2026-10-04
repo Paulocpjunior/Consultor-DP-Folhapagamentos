@@ -1064,3 +1064,32 @@ da SESSÃO, não um filtro de tela.
     empresa que não a ativa.
 - Fica para depois: travar por carteira nas regras as coleções `folha_*`,
   `folha_perfis_colunas` e `ponto_layouts` (chave por código/CNPJ).
+
+## Etapa 4 (DP): certificados pelo cofre único do SaaS (04/10/2026)
+
+Decisão do Paulo: o .pfx renovado sobe pelo app Legal, gravando no cofre do
+CFI. Achado: o app Legal não guardava certificado (só vencimentos do Jotform
+e cópia no SharePoint na renovação); o cofre de verdade é o do CFI.
+
+- **CFI (PR #1372):** o túnel `/api/admin/cadastro/certificados` cruza o
+  cofre com o acompanhamento do Legal por CNPJ (`legal`, `divergenciaLegal`:
+  `renovado-sem-upload` / `legal-desatualizado`). Só metadado.
+- **`services/certificados/cofreCertificados.ts`** (puro + túnel, com
+  testes): lê o panorama, filtra pela carteira (gestor vê todas), separa as
+  empresas da carteira que o CFI não conhece, ordena quem pede atenção
+  (vencido, ≤ 30 dias — inclusive pelo A1 da matriz —, sem certificado,
+  renovado sem upload) e conta.
+- **Aba "🔐 Certificados"** (e eSocial › Certificados): filtros, situação,
+  titular, validade, o que o Legal acompanha, última renovação, divergência,
+  "o que fazer" e exportação Excel. Não exige empresa ativa (é a carteira).
+- **Empresas:** a coluna Certificado lê do cofre; o detalhe explica a
+  situação e que a renovação sobe pelo app Legal.
+- **Pendências e painel do eSocial** contam vencidos/vencendo pelo cofre.
+- **Saiu o envio de .pfx pelo DP:** `CertificadoManager`,
+  `ESocialCertificados` e `certificadoService` (que trazia a configuração
+  do Firebase do CFI embutida e listava o Storage dele direto do navegador).
+- **Storage do DP:** ninguém grava; só o gestor lê os .pfx antigos, para
+  conferir que estão no cofre e apagá-los pelo console. Emulador: 26 testes.
+- Pendente: as Cloud Functions do eSocial deste projeto ainda procuram a
+  senha do certificado em coleções do Firestore em texto (fallback); revisar
+  quando a transmissão passar pelo CFI.
