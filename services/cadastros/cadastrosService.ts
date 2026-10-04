@@ -81,13 +81,13 @@ export async function salvarFuncionario(antes: FichaFuncionario | null, f: Ficha
 }
 
 /** Grava a prévia confirmada, em lotes (ficha + auditoria = 2 escritas por funcionário). */
-export async function gravarImportacao(resultados: ResultadoMescla[], u: Usuario, arquivos: string[], aoProgresso?: (feitos: number) => void): Promise<void> {
+export async function gravarImportacao(resultados: ResultadoMescla[], u: Usuario, arquivos: string[], aoProgresso?: (feitos: number) => void, fonte = 'XML eSocial'): Promise<void> {
     const origem = arquivos.slice(0, 20).join(', ') + (arquivos.length > 20 ? ` e mais ${arquivos.length - 20}` : '');
     for (let i = 0; i < resultados.length; i += 200) {
         const lote = writeBatch(db);
         for (const r of resultados.slice(i, i + 200)) {
             setFicha(lote, r.ficha, u, r.novo);
-            auditar(lote, u, FUNC, r.ficha.id, r.novo ? 'importar (novo)' : 'importar (atualizar)', r.alteracoes, { empresaId: r.ficha.empresaId, origem: `XML eSocial: ${origem}` });
+            auditar(lote, u, FUNC, r.ficha.id, r.novo ? 'importar (novo)' : 'importar (atualizar)', r.alteracoes, { empresaId: r.ficha.empresaId, origem: `${fonte}: ${origem}` });
         }
         await lote.commit();
         aoProgresso?.(Math.min(i + 200, resultados.length));
