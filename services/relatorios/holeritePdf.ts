@@ -81,7 +81,9 @@ export function holeritesPdf(resultados: ResultadoCalculo[], fichas: FichaFuncio
             columnStyles: { 0: { cellWidth: 18 }, 2: { cellWidth: 26 }, 3: { halign: 'right', cellWidth: 30 }, 4: { halign: 'right', cellWidth: 30 } },
             margin: { left: 14, right: 14 },
         });
-        const y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+        let y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+        // Bases + declaração + assinatura ocupam ~40 mm: se não couber, vão para a página seguinte.
+        if (y + 40 > doc.internal.pageSize.height - 10) { doc.addPage(); y = 20; }
         doc.setFontSize(8.5);
         doc.text(textoPdf(`Salário-base ${brl(centavosDeTexto(d.salario ?? '') ?? 0)} · Base INSS ${brl(r.bases.inss)} · Base FGTS ${brl(r.bases.fgts)} · FGTS do mês ${brl(r.fgts)} · Base IRRF ${brl(r.bases.irrf)}`), 14, y);
         doc.text(textoPdf('Declaro ter recebido a importância líquida discriminada neste recibo.'), 14, y + 14);
@@ -97,7 +99,7 @@ export function holeritesPdf(resultados: ResultadoCalculo[], fichas: FichaFuncio
 /** Resumo da folha em uma ou mais páginas. */
 export function resumoPdf(resumo: ResumoFolha, o: OpcoesPdf, observacao: string): jsPDF {
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-    cabecalho(doc, o, `Resumo da folha · ${resumo.funcionarios} funcionário(s)`);
+    cabecalho(doc, o, `Resumo da folha · ${resumo.funcionarios} funcionário(s)${resumo.registros !== resumo.funcionarios ? ` em ${resumo.registros} cálculos` : ''}`);
     autoTable(doc, {
         startY: 34,
         head: [['Cód.', 'Verba', 'Tipo', 'Func.', 'Valor']],
@@ -117,6 +119,7 @@ export function resumoPdf(resumo: ResumoFolha, o: OpcoesPdf, observacao: string)
             ['Salário-maternidade pago (compensado na DCTFWeb)', brl(e.salarioMaternidade)],
             ['IRRF retido (DCTFWeb do mês do pagamento)', brl(e.irrf)],
             ['FGTS (FGTS Digital)', brl(e.fgts)],
+            ...(e.multaFgts ? [['Multa rescisória do FGTS (FGTS Digital)', brl(e.multaFgts)]] : []),
             ['Base do INSS / do FGTS / rendimentos do IRRF', `${brl(resumo.bases.inss)} / ${brl(resumo.bases.fgts)} / ${brl(resumo.bases.irrf)}`],
         ].map(([a, b]) => [textoPdf(a), b]),
         styles: { fontSize: 8.5, cellPadding: 1.5 }, headStyles: { fillColor: [30, 64, 175] },

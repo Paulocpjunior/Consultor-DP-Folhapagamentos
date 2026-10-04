@@ -241,6 +241,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             { Item: 'Salário-maternidade (compensação na DCTFWeb)', Tipo: 'guia', Funcionários: '', Valor: e.salarioMaternidade / 100 },
             { Item: 'IRRF retido', Tipo: 'guia', Funcionários: '', Valor: e.irrf / 100 },
             { Item: 'FGTS', Tipo: 'guia', Funcionários: '', Valor: e.fgts / 100 },
+            { Item: 'Multa rescisória do FGTS', Tipo: 'guia', Funcionários: '', Valor: e.multaFgts / 100 },
         ]), 'Resumo da folha');
         if (leitura && dados) {
             const { linhas, semHolerite } = conferirTodos(leitura, dados.fichas, resultados, competencia);
@@ -371,7 +372,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                     <div className="flex flex-wrap items-start justify-between gap-2">
                         <div>
                             <h3 className="font-semibold text-slate-800 dark:text-white">Resumo da folha — {tituloFolha}</h3>
-                            <p className="text-xs text-slate-600 dark:text-slate-300">{resumo.funcionarios} funcionário(s): {resumo.situacoes.calculado} calculado(s), {resumo.situacoes.incompleto} incompleto(s), {resumo.situacoes.erro} com erro (fora dos totais).</p>
+                            <p className="text-xs text-slate-600 dark:text-slate-300">{resumo.funcionarios} funcionário(s){resumo.registros !== resumo.funcionarios ? ` em ${resumo.registros} cálculos` : ''}: {resumo.situacoes.calculado} calculado(s), {resumo.situacoes.incompleto} incompleto(s), {resumo.situacoes.erro} com erro (fora dos totais).</p>
                         </div>
                         <button className={btn} onClick={() => resumoPdf(resumo, opcoesPdf(), observacaoResumo).save(`resumo-${empresa?.codigoSage ?? 'empresa'}-${sufixoArquivo}.pdf`)}>Resumo (PDF)</button>
                     </div>
@@ -379,7 +380,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                         <table className="w-full text-sm dark:text-slate-100">
                             <thead className="text-left text-xs text-slate-500"><tr><th className="py-1">Verba</th><th className="py-1 text-right">Func.</th><th className="py-1 text-right">Proventos</th><th className="py-1 text-right">Descontos</th></tr></thead>
                             <tbody>{resumo.porVerba.map(l => (
-                                <tr key={`${l.tipo}${l.codigo}`} className="border-t border-slate-100 dark:border-slate-700"><td className="py-1">{l.descricao}</td><td className="py-1 text-right">{l.funcionarios}</td><td className="py-1 text-right">{l.tipo === 'provento' ? reais(l.valor) : ''}</td><td className="py-1 text-right">{l.tipo === 'desconto' ? reais(l.valor) : ''}</td></tr>
+                                <tr key={`${l.tipo}|${l.codigo}|${l.descricao}`} className="border-t border-slate-100 dark:border-slate-700"><td className="py-1">{l.descricao}</td><td className="py-1 text-right">{l.funcionarios}</td><td className="py-1 text-right">{l.tipo === 'provento' ? reais(l.valor) : ''}</td><td className="py-1 text-right">{l.tipo === 'desconto' ? reais(l.valor) : ''}</td></tr>
                             ))}</tbody>
                             <tfoot className="border-t-2 border-slate-200 font-medium dark:border-slate-600">
                                 <tr><td className="py-1" colSpan={2}>Totais</td><td className="py-1 text-right">{reais(resumo.totais.proventos)}</td><td className="py-1 text-right">{reais(resumo.totais.descontos)}</td></tr>
@@ -394,6 +395,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                                 <dt>Salário-maternidade (compensação na DCTFWeb)</dt><dd className="text-right">{reais(resumo.encargos.salarioMaternidade)}</dd>
                                 <dt>IRRF retido</dt><dd className="text-right">{reais(resumo.encargos.irrf)}</dd>
                                 <dt>FGTS</dt><dd className="text-right">{reais(resumo.encargos.fgts)}</dd>
+                                {resumo.encargos.multaFgts > 0 && <><dt>Multa rescisória do FGTS</dt><dd className="text-right">{reais(resumo.encargos.multaFgts)}</dd></>}
                                 <dt className="text-slate-500">Bases INSS / FGTS / IRRF</dt><dd className="text-right text-slate-500">{reais(resumo.bases.inss)} / {reais(resumo.bases.fgts)} / {reais(resumo.bases.irrf)}</dd>
                             </dl>
                             <p className="text-xs text-slate-600 dark:text-slate-300">{observacaoResumo} A parte patronal (20%, RAT, terceiros) depende do enquadramento da empresa e ainda não está no Consultor; confira o total com a Conferência pós-folha (S-5011).</p>

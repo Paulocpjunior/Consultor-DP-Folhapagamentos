@@ -12,7 +12,10 @@ import type { ResultadoCalculo } from '../calculo/motorMensal';
 
 export interface LinhaVerba { codigo: string; descricao: string; tipo: 'provento' | 'desconto'; funcionarios: number; valor: number }
 export interface ResumoFolha {
+    /** Pessoas distintas (um funcionário pode ter dois recibos de férias no mês). */
     funcionarios: number;
+    /** Cálculos (holerites, recibos, TRCTs). */
+    registros: number;
     situacoes: { calculado: number; incompleto: number; erro: number };
     porVerba: LinhaVerba[];
     totais: { proventos: number; descontos: number; liquido: number };
@@ -23,6 +26,8 @@ export interface ResumoFolha {
         /** IRRF retido (todos os IRRF da folha). Regime de caixa: vai à DCTFWeb do mês do pagamento. */
         irrf: number;
         fgts: number;
+        /** Multa rescisória do FGTS (40% ou 20%), também recolhida pelo FGTS Digital. */
+        multaFgts: number;
         /** Salário-família pago: deduzido da contribuição na DCTFWeb. */
         salarioFamilia: number;
         /** Salário-maternidade pago pela empresa: compensado na DCTFWeb. */
@@ -54,7 +59,8 @@ export function resumirFolha(resultados: ResultadoCalculo[]): ResumoFolha {
     const soma = (f: (r: ResultadoCalculo) => number) => validos.reduce((s, r) => s + f(r), 0);
     const somaCodigos = (codigos: string[]) => soma(r => r.verbas.filter(v => codigos.includes(v.codigo)).reduce((s, v) => s + v.valor, 0));
     return {
-        funcionarios: resultados.length,
+        funcionarios: new Set(resultados.map(r => r.fichaId)).size,
+        registros: resultados.length,
         situacoes: {
             calculado: resultados.filter(r => r.situacao === 'calculado').length,
             incompleto: resultados.filter(r => r.situacao === 'incompleto').length,
@@ -67,6 +73,7 @@ export function resumirFolha(resultados: ResultadoCalculo[]): ResumoFolha {
             inssSegurados: somaCodigos(INSS),
             irrf: somaCodigos(IRRF),
             fgts: soma(r => r.fgts),
+            multaFgts: soma(r => (r as ResultadoCalculo & { multaFgts?: number }).multaFgts ?? 0),
             salarioFamilia: somaCodigos(['SF']),
             salarioMaternidade: somaCodigos(['MAT']),
         },

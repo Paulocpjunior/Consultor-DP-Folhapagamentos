@@ -833,3 +833,14 @@ piloto em paralelo provar o cálculo próprio.
     pós-folha.
 - **Catálogo IOB:** "Folha Mensal / Resumo da Folha" e "Holerite" passam a
   "parcial", com link para a aba Cálculo.
+- **Revisão do PR #57 (Codex), corrigida:**
+  - **P1:** a multa rescisória do FGTS entra no quadro das guias como linha
+    própria (também é recolhida pelo FGTS Digital), na tela, no PDF e no
+    Excel.
+  - **P2:** "funcionários" conta pessoas distintas. Quando há mais de um
+    cálculo por pessoa (dois recibos de férias no mês), mostra também o
+    número de cálculos.
+  - **P2:** as linhas do resumo na tela usam código + descrição como chave
+    (os lançamentos avulsos têm o mesmo código "LAN").
+  - **P2:** no holerite em PDF, se bases, declaração e assinatura não
+    couberem no fim da página, vão para a página seguinte.

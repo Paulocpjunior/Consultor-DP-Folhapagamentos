@@ -29,8 +29,17 @@ describe('relatórios da folha', () => {
         expect(r.porVerba[0].tipo).toBe('provento');
         expect(r.porVerba.at(-1)!.tipo).toBe('desconto');
         const soma = (c: string) => resultados.filter(x => x.situacao !== 'erro').reduce((s, x) => s + (x.verbas.find(v => v.codigo === c)?.valor ?? 0), 0);
-        expect(r.encargos).toEqual({ inssSegurados: soma('INSS'), irrf: soma('IRRF'), fgts: resultados[0].fgts + resultados[1].fgts, salarioFamilia: 6500, salarioMaternidade: 0 });
+        expect(r.encargos).toEqual({ inssSegurados: soma('INSS'), irrf: soma('IRRF'), fgts: resultados[0].fgts + resultados[1].fgts, multaFgts: 0, salarioFamilia: 6500, salarioMaternidade: 0 });
         expect(r.totais.liquido).toBe(resultados[0].totais.liquido + resultados[1].totais.liquido);
+    });
+
+    it('revisão do PR #57: pessoas distintas, multa do FGTS e assinatura que não cabe', () => {
+        const dois = [{ ...resultados[0], multaFgts: 40000 }, { ...resultados[0] }, resultados[1]];
+        const r = resumirFolha(dois as typeof resultados);
+        expect([r.funcionarios, r.registros]).toEqual([2, 3]);
+        expect(r.encargos.multaFgts).toBe(40000);
+        const muitos = { ...resultados[0], verbas: Array.from({ length: 45 }, (_, i) => ({ codigo: `LAN${i + 1}`, descricao: `Lançamento ${i + 1}`, referencia: '', tipo: 'desconto' as const, valor: 100, inss: false, fgts: false, irrf: false })) };
+        expect(holeritesPdf([muitos], fichas, o).getNumberOfPages()).toBe(2);
     });
 
     it('lançamentos avulsos agrupam pela descrição, não pelo código posicional', () => {
