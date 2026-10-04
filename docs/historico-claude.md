@@ -80,6 +80,15 @@ piloto em paralelo provar o cálculo próprio.
   código de receita, como atenção, porque a DCTFWeb traz o saldo a pagar já
   com deduções e compensações. Resposta em modo mock do CFI ou rota não
   publicada (404) ficam indisponíveis, nunca viram número.
+- **04/10/2026, Paulo: *"pode seguir com o resumo da folha do IOB"*.** A
+  conferência compara o relatório da folha exportado do IOB (Excel/CSV) com os
+  totalizadores (`services/conferencia/resumoFolhaIob.ts`), por funcionário e
+  no total. Sem exemplo real do relatório, o leitor NÃO assume layout: acha o
+  cabeçalho pelos nomes (até a 30ª linha, mínimo 3 colunas reconhecidas),
+  propõe o mapeamento por sinônimos e a equipe corrige na tela. Liga por CPF;
+  sem CPF, pela matrícula do eSocial (o código sequencial do IOB não casa).
+  Calculado no IOB e sem totalizador = crítica ("calculada e não transmitida").
+  O primeiro relatório real deve virar teste de regressão. PDF ainda não.
 - **Motor de cálculo: código determinístico, não IA** (resposta ao Paulo,
   03/10/2026). O Gemini fica como assistente: explicar divergência, ler
   convenção coletiva para sugerir parâmetros que um humano valida.
