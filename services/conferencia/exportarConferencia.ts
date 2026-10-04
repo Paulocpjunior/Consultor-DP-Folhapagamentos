@@ -91,6 +91,18 @@ export function gerarExcelConferencia(r: ResultadoConferencia, empresaNome: stri
         ...r.consolidacaoFgts.map(c => [c.tpValor, c.descricao, c.somaTrabalhadores / 100, r$(c.empresa), r$(c.diferenca)]),
     ], [12, 46, 20, 14, 14]);
 
+    if (r.resumoIob) {
+        const v = (c: number | null) => (c === null ? '' : c / 100);
+        aba('Folha IOB × eSocial', [
+            [`Relatório do IOB: ${r.resumoIob.arquivo} · ${r.resumoIob.funcionarios} funcionário(s) · ligação por ${r.resumoIob.chave === 'cpf' ? 'CPF' : r.resumoIob.chave === 'matricula' ? 'matrícula' : 'nenhuma (só totais)'}`],
+            [],
+            ['Nome', 'CPF', 'Matrícula', 'No eSocial?', 'INSS IOB', 'INSS eSocial', 'Base INSS IOB', 'Base INSS eSocial', 'Base FGTS IOB', 'Base FGTS eSocial', 'FGTS IOB', 'FGTS eSocial'],
+            ...r.resumoIob.linhas.map(l => [l.nome, l.cpf, l.matricula, l.encontradoNoESocial ? 'sim' : 'NÃO', v(l.inssIob), v(l.inssESocial), v(l.baseInssIob), v(l.baseInssESocial), v(l.baseFgtsIob), v(l.baseFgtsESocial), v(l.fgtsIob), v(l.fgtsESocial)]),
+            [],
+            ['Totais', 'IOB (R$)', 'eSocial (R$)'],
+            ...r.resumoIob.totais.map(t => [t.campo, t.iob / 100, v(t.eSocial)]),
+        ], [36, 14, 12, 11, 12, 12, 14, 16, 14, 16, 12, 12]);
+    }
     if (avisosLeitura.length) aba('Avisos de leitura', [['Aviso'], ...avisosLeitura.map(a => [a])], [120]);
 
     return XLSX.write(wb, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer;

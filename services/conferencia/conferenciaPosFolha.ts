@@ -21,9 +21,13 @@
 //  6. SERPRO (quando consultado): fechamento do eSocial e DCTFWeb entregues,
 //     e FGTS devido × recolhido no FGTS Digital. Falha de consulta vira
 //     pendência informativa, nunca "entregue" ou "pago".
+//  7. Folha do IOB: o relatório exportado do IOB (o que foi CALCULADO) ×
+//     totalizadores (o que foi TRANSMITIDO), por funcionário e no total.
+
 
 import type { GrupoApuracao, S5001, S5003 } from './totalizadores';
 import type { ConsultaSerpro } from './serproConferencia';
+import { compararResumoIob, type ComparacaoResumo, type FuncionarioResumo } from './resumoFolhaIob';
 
 export type Gravidade = 'critica' | 'atencao' | 'info';
 
@@ -66,6 +70,8 @@ export interface ResultadoConferencia {
     dctfweb: { creditos: CreditoDarf[]; totalARecolher: number; informado: number | null; diferenca: number | null };
     fgtsDigital: { mensal: number; rescisorio: number; total: number; informado: number | null; diferenca: number | null };
     serpro: ConsultaSerpro | null;
+    /** Folha calculada no IOB (relatório exportado) × totalizadores. */
+    resumoIob: ComparacaoResumo | null;
     pendencias: Pendencia[];
 }
 
@@ -78,6 +84,8 @@ export interface OpcoesConferencia {
     toleranciaArredondamento?: number;
     /** Resultado da consulta ao SERPRO para esta empresa e competência. */
     serpro?: ConsultaSerpro | null;
+    /** Funcionários lidos do relatório da folha exportado do IOB. */
+    resumoIob?: { arquivo: string; funcionarios: FuncionarioResumo[] } | null;
 }
 
 /** CR de empréstimo consignado: vem em infoCpCalc, mas não é INSS. */
@@ -285,6 +293,10 @@ export function conferirPosFolha(g: GrupoApuracao, op: OpcoesConferencia = {}): 
         }
     }
 
+    // ── 7. Folha do IOB (relatório) × eSocial ──────────────────────────────
+    const resumoIob = op.resumoIob ? compararResumoIob(op.resumoIob.funcionarios, g, op.resumoIob.arquivo, tolerancia) : null;
+    for (const p of resumoIob?.pendencias ?? []) pendencias.push({ ...p, regra: 'Folha do IOB' });
+
     const ordem: Record<Gravidade, number> = { critica: 0, atencao: 1, info: 2 };
     pendencias.sort((a, b) => ordem[a.gravidade] - ordem[b.gravidade] || a.regra.localeCompare(b.regra) || (a.cpf ?? '').localeCompare(b.cpf ?? ''));
 
@@ -297,6 +309,7 @@ export function conferirPosFolha(g: GrupoApuracao, op: OpcoesConferencia = {}): 
         dctfweb: { creditos, totalARecolher, informado: dctfInformado, diferenca: dctfDif },
         fgtsDigital: { mensal, rescisorio, total: mensal + rescisorio, informado: fgtsInformado, diferenca: fgtsDif },
         serpro: sp,
+        resumoIob,
         pendencias,
     };
 }

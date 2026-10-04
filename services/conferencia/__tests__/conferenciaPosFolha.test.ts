@@ -299,3 +299,62 @@ describe('débitos da DCTFWeb pelo SERPRO', () => {
     });
 });
 
+
+import * as XLSX from 'xlsx';
+import { centavosDeCelula, extrairFuncionarios, lerPlanilhaResumo, proporMapeamento } from '../resumoFolhaIob';
+
+/** Relatório no jeito dos do IOB: título, cabeçalho no meio, valores em texto BR e linha de total. */
+function planilhaIob(linhas: (string | number)[][], cabecalho = ['Código', 'Nome do Funcionário', 'CPF', 'Sal. Contribuição INSS', 'INSS', 'Base FGTS', 'FGTS', 'Líquido']): Uint8Array {
+    const ws = XLSX.utils.aoa_to_sheet([['2XR ENGENHARIA LTDA'], ['Resumo da Folha Mensal - Competência 09/2026'], [], cabecalho, ...linhas, ['', 'TOTAL GERAL', '', '', '999,99', '', '', '']]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['capa']]), 'Capa');
+    XLSX.utils.book_append_sheet(wb, ws, 'Folha');
+    return new Uint8Array(XLSX.write(wb, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer);
+}
+
+describe('folha do IOB (relatório exportado) × eSocial', () => {
+    it('acha a aba e o cabeçalho, mapeia as colunas por sinônimo e ignora a linha de total', () => {
+        const p = lerPlanilhaResumo(planilhaIob([['000001', 'ANDRE', '017.878.395-16', '3.243,65', '300,00', '3.243,65', '259,49', '2.700,00']]), 'resumo.xlsx');
+        expect(p).toMatchObject({ aba: 'Folha', linhaCabecalho: 3 });
+        expect(p.mapeamento).toMatchObject({ matricula: 0, nome: 1, cpf: 2, baseInss: 3, inss: 4, baseFgts: 5, fgts: 6, liquido: 7 });
+        const f = extrairFuncionarios(p);
+        expect(f).toHaveLength(1);
+        expect(f[0]).toMatchObject({ cpf: '01787839516', matricula: '000001', nome: 'ANDRE', valores: { baseInss: 324365, inss: 30000, fgts: 25949, liquido: 270000 } });
+    });
+
+    it('números em formatos de relatório', () => {
+        expect([centavosDeCelula('1.234,56'), centavosDeCelula(1234.56), centavosDeCelula('(12,00)'), centavosDeCelula('12,00-'), centavosDeCelula('R$ 5,5'), centavosDeCelula('abc'), centavosDeCelula('')]).toEqual([123456, 123456, -1200, -1200, 550, null, null]);
+        expect(proporMapeamento(['Matrícula', 'Funcionário', 'Base IRRF', 'IRRF'])).toEqual({ matricula: 0, nome: 1, baseIrrf: 2, irrf: 3 });
+    });
+
+    it('calculado no IOB e não transmitido vira crítica; valor diferente do transmitido também', async () => {
+        const g = await grupo(s5001('01787839516', { calc: [['108201', '300.00', '300.00']] }), s5003('01787839516'), s5011('300.00', '300.00', []), s5013([['11', '3243.65', '259.49']]));
+        const p = lerPlanilhaResumo(planilhaIob([
+            ['000001', 'ANDRE', '01787839516', '3.243,65', '310,00', '3.243,65', '259,49', '2.700,00'],
+            ['000002', 'OBEDI', '11122233396', '3.025,44', '280,00', '3.025,44', '242,04', '2.600,00'],
+        ]), 'resumo.xlsx');
+        const r = conferirPosFolha(g, { resumoIob: { arquivo: 'resumo.xlsx', funcionarios: extrairFuncionarios(p) } });
+        const iob = r.pendencias.filter(x => x.regra === 'Folha do IOB');
+        expect(iob.find(x => x.cpf === '11122233396')).toMatchObject({ gravidade: 'critica' });
+        expect(iob.find(x => x.cpf === '11122233396')?.mensagem).toMatch(/não transmitida/);
+        expect(iob.find(x => x.cpf === '01787839516' && /INSS descontado/.test(x.mensagem))).toMatchObject({ gravidade: 'critica', diferenca: 1000 });
+        expect(r.resumoIob?.totais.find(t => t.campo.startsWith('INSS'))).toEqual({ campo: 'INSS descontado dos segurados', iob: 59000, eSocial: 30000 });
+        expect(r.resumoIob?.chave).toBe('cpf');
+    });
+
+    it('sem CPF, liga pela matrícula do eSocial e avisa que o código sequencial do IOB não casa', async () => {
+        const g = await grupo(s5001('01787839516', { matricula: '836292' }), s5003('01787839516'));
+        const p = lerPlanilhaResumo(planilhaIob([['836292', 'ANDRE', '3.243,65', '300,00']], ['Matrícula', 'Nome', 'Base INSS', 'INSS']), 'r.xlsx');
+        const r = conferirPosFolha(g, { resumoIob: { arquivo: 'r.xlsx', funcionarios: extrairFuncionarios(p) } });
+        expect(r.resumoIob?.chave).toBe('matricula');
+        expect(r.resumoIob?.linhas[0]).toMatchObject({ cpf: '01787839516', encontradoNoESocial: true, inssIob: 30000, inssESocial: 30000 });
+        expect(r.pendencias.some(x => x.regra === 'Folha do IOB' && /código sequencial/.test(x.mensagem))).toBe(true);
+    });
+
+    it('trabalhador no eSocial que não está no relatório vira atenção', async () => {
+        const g = await grupo(s5001('01787839516'), s5003('01787839516'), s5001('22233344405'), s5003('22233344405'));
+        const p = lerPlanilhaResumo(planilhaIob([['000001', 'ANDRE', '01787839516', '3.243,65', '300,00', '3.243,65', '259,49', '2.700,00']]), 'r.xlsx');
+        const r = conferirPosFolha(g, { resumoIob: { arquivo: 'r.xlsx', funcionarios: extrairFuncionarios(p) } });
+        expect(r.pendencias.find(x => x.regra === 'Folha do IOB' && x.cpf === '22233344405')).toMatchObject({ gravidade: 'atencao' });
+    });
+});

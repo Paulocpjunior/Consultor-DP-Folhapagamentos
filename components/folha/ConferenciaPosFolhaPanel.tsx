@@ -13,6 +13,7 @@ import { baixarBytes } from '../../services/implantacao/zip';
 import { listarTodasEmpresas } from '../../services/empresas/empresasService';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { cnpjParaSerpro, consultarSerproConferencia, type ConsultaSerpro } from '../../services/conferencia/serproConferencia';
+import { extrairFuncionarios, lerPlanilhaResumo, ROTULO_CAMPO, type CampoResumo, type Mapeamento, type PlanilhaResumo } from '../../services/conferencia/resumoFolhaIob';
 import { consultarDctfWebDebitos, consultarDctfWebStatus, consultarESocialFechamento, consultarFgtsRecolhimento } from '../../services/serpro/serproIntegrationService';
 
 const botao = 'rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-40';
@@ -44,6 +45,9 @@ const ConferenciaPosFolhaPanel: React.FC = () => {
     const [serpro, setSerpro] = useState<Record<string, ConsultaSerpro>>({});
     const [consultando, setConsultando] = useState(false);
     const [serproErro, setSerproErro] = useState('');
+    // Relatório da folha exportado do IOB (o que foi calculado).
+    const [resumo, setResumo] = useState<{ bytes: Uint8Array; planilha: PlanilhaResumo; mapa: Mapeamento } | null>(null);
+    const [resumoErro, setResumoErro] = useState('');
 
     useEffect(() => {
         listarTodasEmpresas().then(setEmpresas).catch(() => setEmpresasErro(true));
@@ -55,9 +59,10 @@ const ConferenciaPosFolhaPanel: React.FC = () => {
     const fgtsValor = lerValorDigitado(fgts);
     const serproGrupo = grupo ? serpro[grupo.chave] ?? null : null;
     const cnpjSerpro = grupo ? cnpjParaSerpro(grupo, empresas) : null;
+    const funcionariosIob = useMemo(() => (resumo ? extrairFuncionarios(resumo.planilha, resumo.mapa) : null), [resumo]);
     const resultado = useMemo(
-        () => (grupo ? conferirPosFolha(grupo, { dctfwebInformado: dctfValor, fgtsDigitalInformado: fgtsValor, serpro: serproGrupo }) : null),
-        [grupo, dctfValor, fgtsValor, serproGrupo],
+        () => (grupo ? conferirPosFolha(grupo, { dctfwebInformado: dctfValor, fgtsDigitalInformado: fgtsValor, serpro: serproGrupo, resumoIob: resumo && funcionariosIob ? { arquivo: resumo.planilha.arquivo, funcionarios: funcionariosIob } : null }) : null),
+        [grupo, dctfValor, fgtsValor, serproGrupo, resumo, funcionariosIob],
     );
 
     async function consultarSerpro() {
@@ -93,7 +98,30 @@ const ConferenciaPosFolhaPanel: React.FC = () => {
         }
     }
 
-    function limpar() { setLeitura(null); setGrupoChave(''); setDctf(''); setFgts(''); setErro(''); setSerpro({}); setSerproErro(''); }
+    function limpar() { setLeitura(null); setGrupoChave(''); setDctf(''); setFgts(''); setErro(''); setSerpro({}); setSerproErro(''); setResumo(null); setResumoErro(''); }
+
+    async function carregarResumo(f: File | undefined, aba?: string) {
+        if (!f) return;
+        setResumoErro('');
+        try {
+            const bytes = new Uint8Array(await f.arrayBuffer());
+            const planilha = lerPlanilhaResumo(bytes, f.name, aba);
+            setResumo({ bytes, planilha, mapa: planilha.mapeamento });
+        } catch (e) { setResumoErro((e as Error).message); }
+    }
+
+    function trocarAba(aba: string) {
+        if (!resumo) return;
+        const planilha = lerPlanilhaResumo(resumo.bytes, resumo.planilha.arquivo, aba);
+        setResumo({ bytes: resumo.bytes, planilha, mapa: planilha.mapeamento });
+    }
+
+    function mapear(campo: CampoResumo, col: string) {
+        if (!resumo) return;
+        const mapa = { ...resumo.mapa };
+        if (col === '') delete mapa[campo]; else mapa[campo] = Number(col);
+        setResumo({ ...resumo, mapa });
+    }
 
     function baixarExcel() {
         if (!resultado) return;
@@ -184,6 +212,50 @@ const ConferenciaPosFolhaPanel: React.FC = () => {
                             </ul>
                         )}
                         {serproGrupo && <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Consultado em {new Date(serproGrupo.consultadoEm).toLocaleString('pt-BR')}. Os débitos da DCTFWeb vêm do XML da declaração e são comparados com o S-5011 por código de receita.</p>}
+                    </div>
+
+                    <div className={cartao}>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                                <h4 className="text-sm font-semibold text-slate-800 dark:text-white">Folha calculada no IOB</h4>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">Exporte do IOB a folha mensal ou o resumo da folha em Excel ou CSV, de preferência com o CPF. O app compara o que o IOB calculou com o que o eSocial recebeu, funcionário a funcionário.</p>
+                            </div>
+                            <label className={`${botaoSec} cursor-pointer`}>
+                                {resumo ? 'Trocar relatório' : 'Carregar relatório do IOB'}
+                                <input aria-label="Relatório da folha do IOB" type="file" accept=".xlsx,.xls,.csv,.ods" className="sr-only" onChange={e => { void carregarResumo(e.target.files?.[0]); e.target.value = ''; }} />
+                            </label>
+                        </div>
+                        {resumoErro && <p className="mt-2 text-sm text-red-700 dark:text-red-300">{resumoErro}</p>}
+                        {resumo && (
+                            <div className="mt-3 space-y-2 text-sm">
+                                <p className="text-slate-700 dark:text-slate-200">{resumo.planilha.arquivo} · cabeçalho na linha {resumo.planilha.linhaCabecalho + 1} · <b>{funcionariosIob?.length ?? 0}</b> funcionário(s) lido(s){resultado?.resumoIob ? ` · ligação por ${resultado.resumoIob.chave === 'cpf' ? 'CPF' : resultado.resumoIob.chave === 'matricula' ? 'matrícula' : 'nenhuma (só totais)'}` : ''}</p>
+                                {resumo.planilha.abas.length > 1 && (
+                                    <label className="block text-xs text-slate-600 dark:text-slate-300">Aba
+                                        <select aria-label="Aba do relatório" className="ml-2 rounded border border-slate-300 bg-white px-2 py-1 dark:border-slate-600 dark:bg-slate-900" value={resumo.planilha.aba} onChange={e => trocarAba(e.target.value)}>
+                                            {resumo.planilha.abas.map(a => <option key={a} value={a}>{a}</option>)}
+                                        </select>
+                                    </label>
+                                )}
+                                <div className="grid gap-2 md:grid-cols-5">
+                                    {(Object.keys(ROTULO_CAMPO) as CampoResumo[]).map(c => (
+                                        <label key={c} className="text-xs text-slate-600 dark:text-slate-300">{ROTULO_CAMPO[c]}
+                                            <select aria-label={`Coluna de ${ROTULO_CAMPO[c]}`} className="mt-0.5 block w-full rounded border border-slate-300 bg-white px-1 py-1 dark:border-slate-600 dark:bg-slate-900" value={resumo.mapa[c] ?? ''} onChange={e => mapear(c, e.target.value)}>
+                                                <option value="">— não usar —</option>
+                                                {resumo.planilha.cabecalho.map((h, i) => <option key={i} value={i}>{h || `Coluna ${i + 1}`}</option>)}
+                                            </select>
+                                        </label>
+                                    ))}
+                                </div>
+                                {resultado?.resumoIob && resultado.resumoIob.totais.length > 0 && (
+                                    <table className="mt-2 text-sm">
+                                        <thead><tr><th className={th}>Total</th><th className={th}>IOB</th><th className={th}>eSocial</th></tr></thead>
+                                        <tbody>{resultado.resumoIob.totais.map(t => (
+                                            <tr key={t.campo} className="border-t border-slate-100 dark:border-slate-700"><td className={td}>{t.campo}</td><td className={td}>{reais(t.iob)}</td>
+                                                <td className={`${td} ${t.eSocial !== null && t.eSocial !== t.iob ? 'font-semibold text-red-700 dark:text-red-300' : ''}`}>{t.eSocial === null ? 'totalizador não carregado' : reais(t.eSocial)}</td></tr>))}</tbody>
+                                    </table>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     <div className="grid gap-3 md:grid-cols-4">
