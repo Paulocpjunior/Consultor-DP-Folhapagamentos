@@ -20,7 +20,7 @@ const LINHAS_PREVIA = 50;
 
 const tamanho = (b: number | null) => b === null ? '—' : b < 1024 ? `${b} B` : b < 1048576 ? `${(b / 1024).toFixed(1)} KB` : `${(b / 1048576).toFixed(1)} MB`;
 const ROTULO_TIPO: Record<TipoArquivo, string> = { pg_dump: 'PostgreSQL', zip: 'ZIP', dbf: 'Tabela DBF', memo: 'Memo DBF', outro: 'Outro' };
-const CODIFICACOES: { v: Codificacao | ''; r: string }[] = [
+export const CODIFICACOES: { v: Codificacao | ''; r: string }[] = [
     { v: '', r: 'automática (pelo arquivo)' }, { v: 'cp850', r: 'DOS 850 (latino)' }, { v: 'windows-1252', r: 'Windows 1252' }, { v: 'cp437', r: 'DOS 437' },
 ];
 

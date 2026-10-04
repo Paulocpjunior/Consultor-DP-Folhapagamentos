@@ -373,3 +373,34 @@ piloto em paralelo provar o cálculo próprio.
     com o Backup" e empresas com pendências de eventos.
   - Mapa e catálogo atualizados. Faltam os submenus: prints com cada menu
     aberto.
+
+## Fase 2: completar o cadastro pelo backup do IOB (04/10/2026)
+
+- **Paulo: *"pode seguir, me dê o status de como e aonde estamos"*.**
+  - Primeiro passo da Fase 2 que não precisa esperar o backup real: a carga
+    pelo backup restaurado no navegador.
+- **Onde fica:** Cadastros › Funcionários › "Completar pelo backup do IOB".
+  - Aceita o Backup SQL do Office: o .zip com DBF e/ou o .backup do
+    PostgreSQL. Usa a mesma leitura da restauração; nada sai do computador
+    antes de gravar.
+- **De/para assistido:** o dicionário do IOB Office ainda não é conhecido.
+  - O app escolhe a tabela com mais colunas reconhecidas.
+  - Propõe a coluna de cada campo pelo nome (CPF, PIS, DTADMISSAO, CODIGO,
+    MATRICULA, SALARIO, BANCO etc.), e a equipe confere campo a campo.
+  - Se a tabela tiver várias empresas, filtra por coluna e código. O
+    código SAGE vem como sugestão; zeros à esquerda não contam.
+- **Regras da carga** (`services/cadastros/cargaBackupIob.ts`):
+  - **Ligação:** pelo CPF; sem CPF, pela matrícula do eSocial. Matrícula
+    que pertence a outro CPF não liga e fica listada.
+  - **Campo vazio** é preenchido, com origem "IOB: tabela".
+  - **Campo com valor diferente** vira divergência listada; o valor do
+    Consultor fica.
+  - **Ficha nova:** só com a opção marcada, CPF válido e matrícula do
+    eSocial. O resto vai para "sem ficha", com o motivo.
+  - **Normalização:** datas em dd/mm/aaaa, aaaammdd ou ISO; CPF que perdeu
+    o zero à esquerda; salário com vírgula.
+  - **Gravação:** a mesma da importação do eSocial (ficha + auditoria em
+    lote), com origem "Backup IOB: arquivos".
+- **Falta, quando o backup real chegar:**
+  - confirmar a tabela e as colunas do IOB Office e fixar o de/para;
+  - trazer dependentes, sindicatos, horários e eventos pelo mesmo caminho.
