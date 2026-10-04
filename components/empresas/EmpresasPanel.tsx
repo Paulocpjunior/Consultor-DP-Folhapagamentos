@@ -5,7 +5,7 @@ import { formatCnpj } from '../../services/brasilApiService';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import type { User } from '../../types';
 import EmpresaForm from './EmpresaForm';
-import { ROTULO_SITUACAO, buscarCofre, diasDaLinha, precisaAtencao, tokenDoUsuario, type LinhaCofre } from '../../services/certificados/cofreCertificados';
+import { ROTULO_SITUACAO, cofreDaMinhaCarteira, diasDaLinha, precisaAtencao, type LinhaCofre } from '../../services/certificados/cofreCertificados';
 import { buscarCadastroCentral, conferirEmpresas, type ConferenciaCadastroCentral } from '../../services/cadastroCentralConferencia';
 import { getAuth } from 'firebase/auth';
 
@@ -27,11 +27,13 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser }) => {
     // Certificados vêm do cofre único (CFI + Legal); falha aqui não esconde as empresas.
     const [cofre, setCofre] = useState<Map<string, LinhaCofre> | null>(null);
     const [erroCofre, setErroCofre] = useState('');
-    useEffect(() => {
-        buscarCofre(tokenDoUsuario).then(r => setCofre(new Map(r.linhas.map(l => [l.cnpj, l])))).catch(e => setErroCofre((e as Error).message));
-    }, []);
+    const carregarCofre = () => {
+        setErroCofre('');
+        cofreDaMinhaCarteira().then(r => setCofre(new Map(r.linhas.map(l => [l.cnpj, l])))).catch(e => setErroCofre((e as Error).message));
+    };
 
     const reload = async () => {
+        carregarCofre(); // "Atualizar" também traz a situação do cofre (renovação pode ter acontecido no Legal)
         setLoading(true); setErro('');
         try {
             const list = await listarEmpresasVisiveis();

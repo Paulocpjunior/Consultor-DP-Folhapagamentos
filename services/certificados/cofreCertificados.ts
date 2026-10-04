@@ -107,13 +107,20 @@ export function contagemCofre(linhas: LinhaCofre[]) {
     };
 }
 
-/** Panorama do cofre pelo túnel do CFI. Lança erro com mensagem clara (a tela mostra). */
-export async function buscarCofre(getToken: () => Promise<string>, deps: { fetchImpl?: typeof fetch } = {}): Promise<PanoramaCofre> {
+/**
+ * Panorama do cofre pelo túnel do CFI. `cnpjs` = a carteira de quem pergunta:
+ * o CFI devolve só essas empresas (nulo = gestor, todas). Lança erro com
+ * mensagem clara (a tela mostra).
+ */
+export async function buscarCofre(getToken: () => Promise<string>, deps: { fetchImpl?: typeof fetch; cnpjs?: string[] | null } = {}): Promise<PanoramaCofre> {
     const doFetch = deps.fetchImpl ?? fetch;
     const token = await getToken();
+    const lista = deps.cnpjs ? [...new Set(deps.cnpjs.map(soDigitos).filter(c => c.length === 14))] : null;
+    if (lista && !lista.length) return { linhas: [], avisos: [] };
+    const query = lista ? `?cnpjs=${lista.join(',')}` : '';
     let resp: Response;
     try {
-        resp = await doFetch(`${CFI_URL}/api/admin/cadastro/certificados`, { headers: { Authorization: `Bearer ${token}` } });
+        resp = await doFetch(`${CFI_URL}/api/admin/cadastro/certificados${query}`, { headers: { Authorization: `Bearer ${token}` } });
     } catch {
         throw new Error('Não foi possível falar com o cofre de certificados (Consultor Fiscal). Verifique a conexão e tente de novo.');
     }
@@ -134,8 +141,11 @@ export async function tokenDoUsuario(): Promise<string> {
 /** Panorama do cofre só da carteira do usuário logado (o gestor vê todas). */
 export async function cofreDaMinhaCarteira(): Promise<PanoramaCofre & { foraDoCfi: string[]; nomes: Map<string, string> }> {
     const [{ escopoAtual }, { listarEmpresasVisiveis }] = await Promise.all([import('../carteira/carteiraService'), import('../empresas/empresasService')]);
-    const [cofre, escopo, empresas] = await Promise.all([buscarCofre(tokenDoUsuario), escopoAtual(), listarEmpresasVisiveis()]);
-    const r = cofreDaCarteira(cofre.linhas, escopo.todas ? null : empresas.map(e => e.cnpj));
+    const [escopo, empresas] = await Promise.all([escopoAtual(), listarEmpresasVisiveis()]);
+    // Fora do gestor, o CFI devolve só a carteira (o filtro abaixo é só a segunda trava).
+    const cnpjs = escopo.todas ? null : empresas.map(e => e.cnpj);
+    const cofre = await buscarCofre(tokenDoUsuario, { cnpjs });
+    const r = cofreDaCarteira(cofre.linhas, cnpjs);
     const nomes = new Map(empresas.map(e => [soDigitos(e.cnpj), `${e.codigoSage} · ${e.nomeFantasia || e.razaoSocial}`]));
     return { ...r, avisos: cofre.avisos, nomes };
 }

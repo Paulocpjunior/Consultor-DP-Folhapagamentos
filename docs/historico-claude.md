@@ -1093,3 +1093,17 @@ e cópia no SharePoint na renovação); o cofre de verdade é o do CFI.
 - Pendente: as Cloud Functions do eSocial deste projeto ainda procuram a
   senha do certificado em coleções do Firestore em texto (fallback); revisar
   quando a transmissão passar pelo CFI.
+- **Revisão do PR #63 (Codex):**
+  - **P1 (carteira):** o túnel devolvia o cofre inteiro ao navegador e a
+    carteira era filtrada só na tela. Agora o DP pede `?cnpjs=` (a carteira)
+    e o CFI devolve só essas empresas (CFI #1372); o filtro na tela fica
+    como segunda trava. Gestor continua vendo todas.
+  - **P1 (transmissão do eSocial):** é anterior a este PR. As Cloud
+    Functions de transmissão leem o .pfx do bucket do CFI no caminho antigo
+    (`empresa.certificado.storagePath`); o envio antigo do DP gravava no
+    Storage do PRÓPRIO DP (nunca foi lido por elas) e o cofre atual guarda o
+    arquivo cifrado (que elas também não leem). A solução é transmitir pelo
+    CFI com o A1 do cofre, como o download de eventos — próxima etapa,
+    proposta ao Paulo.
+  - **P2:** "Atualizar" em Empresas também recarrega o cofre; o painel do
+    eSocial mostra a data do A1 da matriz quando é ele que vale.

@@ -35,7 +35,8 @@ const ESocialDashboard: React.FC = () => {
     const certsVencidos = filtrarCofre(cofre?.linhas ?? [], 'vencidos');
     const semCert = filtrarCofre(cofre?.linhas ?? [], 'sem');
     const nomeCofre = (l: LinhaCofre) => cofre?.nomes.get(l.cnpj) ?? l.nome ?? l.cnpj;
-    const venceu = (l: LinhaCofre) => (l.certificado?.validoAte ?? '').slice(0, 10).split('-').reverse().join('/');
+    // O certificado que vale: o próprio ou, na filial, o da matriz.
+    const venceu = (l: LinhaCofre) => ((l.certificado ?? l.certificadoDaRaiz)?.validoAte ?? '').slice(0, 10).split('-').reverse().join('/');
 
     if (loading) {
         return (

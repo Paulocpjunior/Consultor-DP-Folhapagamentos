@@ -31,6 +31,17 @@ describe('cofre de certificados no DP', () => {
         expect(cofreDaCarteira(L, null).linhas.map(l => l.cnpj).slice(0, 3)).toEqual(['51227692000146', '33000167000101', '11444777000161']);
     });
 
+    it('túnel: fora do gestor pede só a carteira (?cnpjs=); carteira vazia nem chama', async () => {
+        const ok = vi.fn(async () => new Response(JSON.stringify({ ok: true, linhas: [], avisos: [] }), { status: 200 }));
+        await buscarCofre(async () => 'tok', { fetchImpl: ok as never, cnpjs: ['11.222.333/0001-81', '11222333000181', '33000167000101', 'x'] });
+        expect((ok.mock.calls[0] as unknown as [string])[0]).toMatch(/\/api\/admin\/cadastro\/certificados\?cnpjs=11222333000181,33000167000101$/);
+        await buscarCofre(async () => 'tok', { fetchImpl: ok as never, cnpjs: null });
+        expect((ok.mock.calls[1] as unknown as [string])[0]).toMatch(/\/certificados$/);
+        const nunca = vi.fn();
+        expect(await buscarCofre(async () => 'tok', { fetchImpl: nunca as never, cnpjs: [] })).toEqual({ linhas: [], avisos: [] });
+        expect(nunca).not.toHaveBeenCalled();
+    });
+
     it('túnel: manda o token e devolve linhas e avisos; erros viram mensagem clara', async () => {
         const ok = vi.fn(async () => new Response(JSON.stringify({ ok: true, linhas: [L[0]], avisos: ['só metadado'] }), { status: 200 }));
         const r = await buscarCofre(async () => 'tok', { fetchImpl: ok as never });
