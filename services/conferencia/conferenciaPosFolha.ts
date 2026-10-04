@@ -23,9 +23,14 @@
 //     pendência informativa, nunca "entregue" ou "pago".
 //  7. Folha do IOB: o relatório exportado do IOB (o que foi CALCULADO) ×
 //     totalizadores (o que foi TRANSMITIDO), por funcionário e no total.
+//  8. IRRF: soma dos S-5002 (por trabalhador) × S-5012 (empresa), por código
+//     de receita, e S-5012 × débitos de IRRF da DCTFWeb (SERPRO). O IRRF
+//     segue o mês do PAGAMENTO (S-1210), não a competência da folha: o S-5002
+//     de 10/2026 traz, em geral, o IRRF da folha de 09/2026 paga em outubro.
+//     Por isso ele não é cruzado com o S-5001 nem com o relatório da folha.
 
 
-import type { GrupoApuracao, S5001, S5003 } from './totalizadores';
+import type { GrupoApuracao, S5001, S5002, S5003 } from './totalizadores';
 import type { ConsultaSerpro } from './serproConferencia';
 import { compararResumoIob, type ComparacaoResumo, type FuncionarioResumo } from './resumoFolhaIob';
 
@@ -54,12 +59,14 @@ export interface ConsolidacaoFgts {
     somaTrabalhadores: number; empresa: number | null; diferenca: number | null;
 }
 export interface CreditoDarf { tpCR: string; valor: number; suspenso: number; aRecolher: number }
+export interface LinhaIrrf { cpf: string; crMen: string; rendTrib: number; rendTrib13: number; prevOficial: number; irrf: number; irrf13: number }
+export interface ConsolidacaoIrrf { crMen: string; descricao: string; somaTrabalhadores: number; empresa: number | null; diferenca: number | null }
 
 export interface ResultadoConferencia {
     empregador: string;
     perApur: string;
     indApuracao: string;
-    contagem: { s5001: number; s5003: number; s5011: number; s5013: number };
+    contagem: { s5001: number; s5003: number; s5011: number; s5013: number; s5002: number; s5012: number };
     inss: LinhaInss[];
     fgts: LinhaFgts[];
     consolidacaoInss: {
@@ -69,6 +76,8 @@ export interface ResultadoConferencia {
     consolidacaoFgts: ConsolidacaoFgts[];
     dctfweb: { creditos: CreditoDarf[]; totalARecolher: number; informado: number | null; diferenca: number | null };
     fgtsDigital: { mensal: number; rescisorio: number; total: number; informado: number | null; diferenca: number | null };
+    /** IRRF (regime de caixa): por trabalhador (S-5002) e consolidado da empresa (S-5012). */
+    irrf: { linhas: LinhaIrrf[]; consolidacao: ConsolidacaoIrrf[]; totalEmpresa: number | null };
     serpro: ConsultaSerpro | null;
     /** Folha calculada no IOB (relatório exportado) × totalizadores. */
     resumoIob: ComparacaoResumo | null;
@@ -107,6 +116,15 @@ export const DESCRICAO_TPVALOR_FGTS: Record<string, string> = {
     '45': 'Indenização compensatória doméstico - mês da rescisão', '46': 'Indenização compensatória doméstico - 13º rescisório',
     '47': 'Indenização compensatória doméstico - aviso prévio', '48': 'Indenização compensatória doméstico - período anterior mês da rescisão',
     '49': 'Indenização compensatória doméstico - período anterior 13º rescisório', '50': 'Indenização compensatória doméstico - período anterior aviso prévio',
+};
+
+/** Códigos de receita do IRRF no eSocial (TS_CRMen do XSD S-1.3). */
+export const DESCRICAO_CR_IRRF: Record<string, string> = {
+    '056107': 'IRRF trabalho assalariado (mensal, 13º e férias)', '056108': 'IRRF empregado doméstico (mensal e férias)',
+    '056109': 'IRRF 13º na rescisão - doméstico', '056110': 'IRRF 13º - doméstico', '056111': 'IRRF rural - segurado especial',
+    '056112': 'IRRF rural - segurado especial 13º', '056113': 'IRRF rural - segurado especial 13º rescisório',
+    '058806': 'IRRF trabalho sem vínculo empregatício', '061001': 'IRRF transportador autônomo (transporte internacional de carga)',
+    '353301': 'IRRF proventos de aposentadoria/pensão (previdência pública)', '356201': 'IRRF sobre PLR', '188901': 'IRRF sobre RRA',
 };
 
 export const DESCRICAO_CR_SEGURADO: Record<string, string> = {
@@ -191,7 +209,9 @@ export function conferirPosFolha(g: GrupoApuracao, op: OpcoesConferencia = {}): 
     const cs = g.s5011[0];
     const descontadoEmpresa = cs?.descontadoSegurados ?? null;
     const calculadoEmpresa = cs?.calculadoSegurados ?? null;
-    if (!cs) {
+    // Lote só de IRRF (S-5002/S-5012, mês do pagamento): não cobra os totalizadores de INSS e FGTS.
+    const soIrrf = !g.s5001.length && !g.s5003.length && !g.s5011.length && !g.s5013.length && (g.s5002.length + g.s5012.length > 0);
+    if (!cs && !soIrrf) {
         pendencias.push({ gravidade: 'atencao', regra: 'Consolidado', mensagem: 'O lote não tem o S-5011 da empresa. Sem ele não dá para conferir a DCTFWeb nem se faltam trabalhadores.' });
     } else if (!dup5001.size && descontadoEmpresa !== null && calculadoEmpresa !== null) {
         const dDesc = descontadoTrabalhadores - descontadoEmpresa;
@@ -223,7 +243,7 @@ export function conferirPosFolha(g: GrupoApuracao, op: OpcoesConferencia = {}): 
         const empresa = fg ? (empresaPorTipo.get(tp) ?? 0) : null;
         return { tpValor: tp, descricao: DESCRICAO_TPVALOR_FGTS[tp] ?? `Tipo ${tp}`, somaTrabalhadores: soma, empresa, diferenca: empresa === null ? null : soma - empresa };
     });
-    if (!fg) {
+    if (!fg && !soIrrf) {
         pendencias.push({ gravidade: 'atencao', regra: 'Consolidado', mensagem: 'O lote não tem o S-5013 da empresa. Sem ele não dá para conferir a guia do FGTS Digital.' });
     } else if (!dup5003.size) {
         for (const c of consolidacaoFgts) {
@@ -254,6 +274,32 @@ export function conferirPosFolha(g: GrupoApuracao, op: OpcoesConferencia = {}): 
         pendencias.push({ gravidade: 'critica', regra: 'FGTS Digital', diferenca: fgtsDif, mensagem: `Guia do FGTS Digital informada (${reais(fgtsInformado!)}) diferente do S-5013: mensal ${reais(mensal)}${rescisorio ? `, rescisório ${reais(rescisorio)}, total ${reais(mensal + rescisorio)}` : ''}. Confira se a guia foi emitida depois do último fechamento e se o valor informado exclui multa e juros.` });
     }
 
+    // ── 8. IRRF: S-5002 × S-5012 ────────────────────────────────────────────
+    const dup5002 = cpfDuplicados(g.s5002);
+    for (const cpf of dup5002) pendencias.push({ gravidade: 'atencao', regra: 'Lote', cpf, mensagem: 'Mais de um S-5002 para este trabalhador (retificação). Deixe só o mais recente no lote; ele ficou fora da conferência de IRRF.' });
+    const s5002 = g.s5002.filter((t: S5002) => !dup5002.has(t.cpf));
+    const linhasIrrf: LinhaIrrf[] = s5002.flatMap(t => t.apuracoes.map(a => ({ cpf: t.cpf, crMen: a.crMen, rendTrib: a.rendTrib, rendTrib13: a.rendTrib13, prevOficial: a.prevOficial, irrf: a.irrf, irrf13: a.irrf13 })));
+    const irrfPorCr = new Map<string, number>();
+    for (const l of linhasIrrf) irrfPorCr.set(l.crMen, (irrfPorCr.get(l.crMen) ?? 0) + l.irrf + l.irrf13);
+    if (g.s5012.length > 1) pendencias.push({ gravidade: 'atencao', regra: 'Lote', mensagem: `Há ${g.s5012.length} S-5012 para o mesmo mês. Use só o mais recente; a conferência abaixo usa o primeiro.` });
+    const ir = g.s5012[0];
+    const irEmpresa = new Map((ir?.creditos ?? []).map(c => [c.crMen, c.valor]));
+    const crs = [...new Set([...irrfPorCr.keys(), ...irEmpresa.keys()])].sort();
+    const consolidacaoIrrf: ConsolidacaoIrrf[] = crs.map(cr => {
+        const soma = irrfPorCr.get(cr) ?? 0;
+        const empresa = ir ? (irEmpresa.get(cr) ?? 0) : null;
+        return { crMen: cr, descricao: DESCRICAO_CR_IRRF[cr] ?? `CR ${cr}`, somaTrabalhadores: soma, empresa, diferenca: empresa === null ? null : soma - empresa };
+    });
+    if (g.s5002.length && !ir) {
+        pendencias.push({ gravidade: 'atencao', regra: 'IRRF', mensagem: 'O lote tem S-5002 e não tem o S-5012 da empresa do mesmo mês de pagamento. Sem ele não dá para conferir o IRRF que vai à DCTFWeb.' });
+    } else if (ir && !g.s5002.length) {
+        pendencias.push({ gravidade: 'info', regra: 'IRRF', mensagem: 'O lote tem o S-5012 e nenhum S-5002: o IRRF da empresa aparece, mas não dá para conferir por trabalhador.' });
+    } else if (ir && !dup5002.size) {
+        for (const c of consolidacaoIrrf) if (c.diferenca) {
+            pendencias.push({ gravidade: 'atencao', regra: 'IRRF', diferenca: c.diferenca, mensagem: `${c.descricao}: a soma dos S-5002 do lote dá ${reais(c.somaTrabalhadores)} e o S-5012 traz ${reais(c.empresa ?? 0)}. Provavelmente faltam totalizadores de trabalhadores no lote.` });
+        }
+    }
+
     // ── 6. SERPRO ──────────────────────────────────────────────────────────
     const sp = op.serpro ?? null;
     if (sp) {
@@ -280,6 +326,19 @@ export function conferirPosFolha(g: GrupoApuracao, op: OpcoesConferencia = {}): 
                 }
             }
         }
+        // IRRF: a DCTFWeb do mês recebe o S-5012 do mesmo mês (mês do pagamento).
+        if (dd.ok && ir) {
+            const daDctf = new Map(dd.debitos.map(x => [x.codReceita, x]));
+            for (const c of ir.creditos) {
+                const d = daDctf.get(c.crMen);
+                const rotulo = DESCRICAO_CR_IRRF[c.crMen] ?? `CR ${c.crMen}`;
+                if (!d) {
+                    if (c.valor > 0) pendencias.push({ gravidade: 'atencao', regra: 'SERPRO', diferenca: -c.valor, mensagem: `DCTFWeb sem saldo a pagar de ${rotulo} (código ${c.crMen}), que o S-5012 apura em ${reais(c.valor)}. Pode ser compensação ou a DCTFWeb ainda não recebeu o fechamento; confira no e-CAC.` });
+                } else if (d.valor !== c.valor) {
+                    pendencias.push({ gravidade: 'atencao', regra: 'SERPRO', diferenca: d.valor - c.valor, mensagem: `DCTFWeb ${rotulo} (código ${c.crMen}): saldo a pagar ${reais(d.valor)}, S-5012 ${reais(c.valor)}. Confira no e-CAC.` });
+                }
+            }
+        }
         if (!sp.fgts.ok) pendencias.push({ gravidade: 'info', regra: 'SERPRO', mensagem: `FGTS Digital: consulta indisponível (${sp.fgts.erro}). Informe o valor da guia à mão.` });
         else if (sp.fgts.devido === null) pendencias.push({ gravidade: 'info', regra: 'SERPRO', mensagem: 'FGTS Digital: o SERPRO respondeu sem valor devido para a competência. Informe o valor da guia à mão.' });
         else {
@@ -302,12 +361,13 @@ export function conferirPosFolha(g: GrupoApuracao, op: OpcoesConferencia = {}): 
 
     return {
         empregador: g.empregador, perApur: g.perApur, indApuracao: g.indApuracao,
-        contagem: { s5001: g.s5001.length, s5003: g.s5003.length, s5011: g.s5011.length, s5013: g.s5013.length },
+        contagem: { s5001: g.s5001.length, s5003: g.s5003.length, s5011: g.s5011.length, s5013: g.s5013.length, s5002: g.s5002.length, s5012: g.s5012.length },
         inss, fgts,
         consolidacaoInss: { descontadoTrabalhadores, calculadoTrabalhadores, descontadoEmpresa, calculadoEmpresa },
         consolidacaoFgts,
         dctfweb: { creditos, totalARecolher, informado: dctfInformado, diferenca: dctfDif },
         fgtsDigital: { mensal, rescisorio, total: mensal + rescisorio, informado: fgtsInformado, diferenca: fgtsDif },
+        irrf: { linhas: linhasIrrf, consolidacao: consolidacaoIrrf, totalEmpresa: ir ? ir.creditos.reduce((t, c) => t + c.valor, 0) : null },
         serpro: sp,
         resumoIob,
         pendencias,

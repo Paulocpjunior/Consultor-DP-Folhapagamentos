@@ -3,7 +3,7 @@
 // ficou pendente, por empresa e competência.
 
 import * as XLSX from 'xlsx';
-import { DESCRICAO_CR_SEGURADO, type Gravidade, type ResultadoConferencia } from './conferenciaPosFolha';
+import { DESCRICAO_CR_IRRF, DESCRICAO_CR_SEGURADO, type Gravidade, type ResultadoConferencia } from './conferenciaPosFolha';
 
 const GRAVIDADE: Record<Gravidade, string> = { critica: 'Crítica', atencao: 'Atenção', info: 'Informativa' };
 const r$ = (c: number | null) => (c === null ? '' : c / 100);
@@ -37,6 +37,8 @@ export function gerarExcelConferencia(r: ResultadoConferencia, empresaNome: stri
         ['S-5003 (FGTS por trabalhador)', r.contagem.s5003],
         ['S-5011 (contribuições da empresa)', r.contagem.s5011],
         ['S-5013 (FGTS da empresa)', r.contagem.s5013],
+        ['S-5002 (IRRF por trabalhador, mês do pagamento)', r.contagem.s5002],
+        ['S-5012 (IRRF da empresa, mês do pagamento)', r.contagem.s5012],
         [],
         ['Pendências', 'Quantidade'],
         ['Críticas', criticas],
@@ -49,6 +51,7 @@ export function gerarExcelConferencia(r: ResultadoConferencia, empresaNome: stri
         ['DCTFWeb — débitos previdenciários a recolher', '', r$(r.dctfweb.totalARecolher), r$(r.dctfweb.informado)],
         ['FGTS Digital — guia mensal', '', r$(r.fgtsDigital.mensal), r$(r.fgtsDigital.informado)],
         ['FGTS Digital — rescisório', '', r$(r.fgtsDigital.rescisorio), ''],
+        ['IRRF retido (S-5002 × S-5012)', r.irrf.linhas.length ? r.irrf.linhas.reduce((t, l) => t + l.irrf + l.irrf13, 0) / 100 : '', r$(r.irrf.totalEmpresa), ''],
         ...(r.serpro ? [
             [],
             ['SERPRO (consultado em ' + new Date(r.serpro.consultadoEm).toLocaleString('pt-BR') + ', CNPJ ' + r.serpro.cnpj + ')', 'Situação'],
@@ -90,6 +93,18 @@ export function gerarExcelConferencia(r: ResultadoConferencia, empresaNome: stri
         ['Tipo de valor', 'Descrição', 'Soma dos S-5003 (R$)', 'S-5013 (R$)', 'Diferença (R$)'],
         ...r.consolidacaoFgts.map(c => [c.tpValor, c.descricao, c.somaTrabalhadores / 100, r$(c.empresa), r$(c.diferenca)]),
     ], [12, 46, 20, 14, 14]);
+
+    if (r.irrf.linhas.length || r.irrf.consolidacao.length) {
+        aba('IRRF', [
+            ['IRRF segue o mês do PAGAMENTO (S-1210), não a competência da folha.'],
+            [],
+            ['CPF', 'Código de receita', 'Descrição', 'Rendimento tributável (R$)', 'Rend. trib. 13º (R$)', 'Previdência oficial (R$)', 'IRRF (R$)', 'IRRF 13º (R$)'],
+            ...r.irrf.linhas.map(l => [l.cpf, l.crMen, DESCRICAO_CR_IRRF[l.crMen] ?? '', l.rendTrib / 100, l.rendTrib13 / 100, l.prevOficial / 100, l.irrf / 100, l.irrf13 / 100]),
+            [],
+            ['Código de receita', 'Descrição', 'Soma dos S-5002 (R$)', 'S-5012 (R$)', 'Diferença (R$)'],
+            ...r.irrf.consolidacao.map(c => [c.crMen, c.descricao, c.somaTrabalhadores / 100, r$(c.empresa), r$(c.diferenca)]),
+        ], [14, 16, 44, 22, 18, 22, 12, 12]);
+    }
 
     if (r.resumoIob) {
         const v = (c: number | null) => (c === null ? '' : c / 100);

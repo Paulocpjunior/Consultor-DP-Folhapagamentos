@@ -358,3 +358,68 @@ describe('folha do IOB (relatório exportado) × eSocial', () => {
         expect(r.pendencias.find(x => x.regra === 'Folha do IOB' && x.cpf === '22233344405')).toMatchObject({ gravidade: 'atencao' });
     });
 });
+
+// ─── IRRF (S-5002 e S-5012), estrutura do XSD S-1.3 ─────────────────────────
+function s5002(cpf: string, o: { per?: string; irrf?: string; irrf13?: string; cr?: string; id?: string; semConsolidado?: boolean } = {}) {
+    const cr = o.cr ?? '056107';
+    const tot = (tag: string) => `<${tag}><CRMen>${cr}</CRMen><vlrRendTrib>5000.00</vlrRendTrib><vlrRendTrib13>0</vlrRendTrib13><vlrPrevOficial>550.00</vlrPrevOficial><vlrPrevOficial13>0</vlrPrevOficial13><vlrCRMen>${o.irrf ?? '120.50'}</vlrCRMen><vlrCR13Men>${o.irrf13 ?? '0'}</vlrCR13Men></${tag}>`;
+    return `<eSocial xmlns="${NS}/evtIrrfBenef/v_S_01_03_00"><evtIrrfBenef Id="${o.id ?? 'ID5002' + cpf}">
+<ideEvento><nrRecArqBase>1.2.000${cpf}</nrRecArqBase><perApur>${o.per ?? '2026-10'}</perApur></ideEvento>
+<ideEmpregador><tpInsc>1</tpInsc><nrInsc>29463877</nrInsc></ideEmpregador>
+<ideTrabalhador><cpfBenef>${cpf}</cpfBenef>
+<dmDev><perRef>2026-09</perRef><ideDmDev>FOLHA</ideDmDev><tpPgto>1</tpPgto><dtPgto>2026-10-06</dtPgto><codCateg>101</codCateg>
+<infoIR><tpInfoIR>11</tpInfoIR><valor>5000.00</valor></infoIR>${tot('totApurMen')}</dmDev>
+${o.semConsolidado ? '' : `<totInfoIR>${tot('consolidApurMen')}</totInfoIR>`}
+</ideTrabalhador></evtIrrfBenef></eSocial>`;
+}
+function s5012(creditos: [string, string][], per = '2026-10') {
+    return `<eSocial xmlns="${NS}/evtIrrf/v_S_01_03_00"><evtIrrf Id="ID5012">
+<ideEvento><perApur>${per}</perApur></ideEvento>
+<ideEmpregador><tpInsc>1</tpInsc><nrInsc>29463877</nrInsc></ideEmpregador>
+<infoIRRF><nrRecArqBase>1.9.0002</nrRecArqBase><indExistInfo>1</indExistInfo>${creditos.map(([cr, v]) => `<infoCRMen><CRMen>${cr}</CRMen><vrCRMen>${v}</vrCRMen></infoCRMen>`).join('')}</infoIRRF></evtIrrf></eSocial>`;
+}
+
+describe('IRRF: S-5002 × S-5012', () => {
+    it('lê S-5002 pelo consolidado e, sem ele, somando os demonstrativos; lê S-5012', () => {
+        const [a] = lerTotalizadoresXml(s5002('1', { irrf: '120.50', irrf13: '10.00' }), 'a.xml');
+        if (a.tipo !== 'S-5002') throw new Error();
+        expect(a).toMatchObject({ cpf: '1', perApur: '2026-10', indApuracao: '1', fonte: 'consolidado', nrRecArqBase: '1.2.0001' });
+        expect(a.apuracoes).toEqual([{ crMen: '056107', rendTrib: 500000, rendTrib13: 0, prevOficial: 55000, prevOficial13: 0, irrf: 12050, irrf13: 1000 }]);
+        const [b] = lerTotalizadoresXml(s5002('2', { semConsolidado: true }), 'b.xml');
+        if (b.tipo !== 'S-5002') throw new Error();
+        expect(b.fonte).toBe('demonstrativos');
+        expect(b.apuracoes[0].irrf).toBe(12050);
+        const [c] = lerTotalizadoresXml(s5012([['056107', '241.00']]), 'c.xml');
+        expect(c).toMatchObject({ tipo: 'S-5012', indExistInfo: '1', nrRecArqBase: '1.9.0002', creditos: [{ crMen: '056107', valor: 24100 }] });
+    });
+
+    it('lote de IRRF que fecha: sem pendência e sem cobrar S-5011 e S-5013', async () => {
+        const g = await grupo(s5002('1'), s5002('2'), s5012([['056107', '241.00']]));
+        const r = conferirPosFolha(g);
+        expect(r.pendencias).toEqual([]);
+        expect(r.contagem).toMatchObject({ s5002: 2, s5012: 1, s5001: 0 });
+        expect(r.irrf.consolidacao).toEqual([{ crMen: '056107', descricao: 'IRRF trabalho assalariado (mensal, 13º e férias)', somaTrabalhadores: 24100, empresa: 24100, diferenca: 0 }]);
+        expect(r.irrf.totalEmpresa).toBe(24100);
+    });
+
+    it('faltou trabalhador, S-5012 ausente, duplicado e só o S-5012', async () => {
+        const falta = conferirPosFolha(await grupo(s5002('1'), s5012([['056107', '241.00']])));
+        expect(falta.pendencias).toEqual([expect.objectContaining({ gravidade: 'atencao', regra: 'IRRF', diferenca: -12050 })]);
+        const semEmpresa = conferirPosFolha(await grupo(s5002('1')));
+        expect(semEmpresa.pendencias.map(p => p.mensagem)).toEqual([expect.stringContaining('não tem o S-5012')]);
+        const dup = conferirPosFolha(await grupo(s5002('1'), s5002('1', { id: 'OUTRO' }), s5012([['056107', '120.50']])));
+        expect(dup.pendencias.map(p => [p.regra, p.cpf])).toEqual([['Lote', '1']]);
+        const so = conferirPosFolha(await grupo(s5012([['056107', '120.50']])));
+        expect(so.pendencias.map(p => [p.gravidade, p.regra])).toEqual([['info', 'IRRF']]);
+    });
+
+    it('SERPRO: IRRF da DCTFWeb do mês × S-5012', async () => {
+        const g = await grupo(s5002('1'), s5012([['056107', '120.50']]));
+        const igual = await consultarSerproConferencia(cliente({ debitos: { ok: true, fonte: 'serpro', debitos: [{ codReceita: '0561-07', descricao: 'IRRF', valor: 120.5 }] } }), 'x', '2026-10');
+        expect(conferirPosFolha(g, { serpro: igual }).pendencias.filter(p => /IRRF/.test(p.mensagem))).toEqual([]);
+        const dif = await consultarSerproConferencia(cliente({ debitos: { ok: true, fonte: 'serpro', debitos: [{ codReceita: '0561-07', descricao: 'IRRF', valor: 100 }] } }), 'x', '2026-10');
+        expect(conferirPosFolha(g, { serpro: dif }).pendencias.filter(p => p.regra === 'SERPRO')).toEqual([expect.objectContaining({ gravidade: 'atencao', diferenca: -2050, mensagem: expect.stringContaining('código 056107') })]);
+        const sem = await consultarSerproConferencia(cliente(), 'x', '2026-10');
+        expect(conferirPosFolha(g, { serpro: sem }).pendencias.filter(p => p.regra === 'SERPRO')).toEqual([expect.objectContaining({ mensagem: expect.stringContaining('sem saldo a pagar de IRRF trabalho assalariado') })]);
+    });
+});

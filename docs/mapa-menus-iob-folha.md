@@ -20,14 +20,34 @@
 
 ## Menus de primeiro nível
 
-| [Office] (confirmado em print ou resumo) | [SGC] |
+| [Office] (confirmado em print de 04/10/2026) | [SGC] |
 | --- | --- |
 | Arquivos | Cadastros |
 | Processos | Módulos |
 | Relatórios | Relatórios |
+| Listagens | (em Relatórios) |
+| Impressos | (em Relatórios) |
+| Diversos (Integração Contábil) | Tributos, Integrações, Consultas |
+| Contratos | — |
 | Utilitários | Utilitários |
 | eSocial | eSocial |
-| Diversos (Integração Contábil) | Tributos, Integrações, Consultas |
+| Saúde e Segurança do Trabalho | SST (fora do escopo: decisão de 03/10/2026) |
+| Ajuda | — |
+
+**Tela principal do Office** (print do Paulo, 04/10/2026, empresa 1405 2XR
+ENGENHARIA LTDA, mês 10/2026):
+- **Instalação:** Release R2026.08.20, Essenciais 2.04.0259, servidor do banco
+  10.0.0.10 e **versão do banco 12.22**, a mesma do PostgreSQL usado nos testes
+  da restauração. eSocial Simplificado S-1.3, com o serviço de comunicação
+  com o eSocial ATIVO (PRODUÇÃO).
+- **Barra de atalhos:** Alertas, IOB Diagnóstico, Ativar Empresa, Funcionários,
+  Eventos, Holerite, Processamento, Backup, Backup Online, Posso ajudar?,
+  Suporte Remoto e Sair. Na segunda linha ficam os atalhos de IOB Plataforma
+  Contábil e IOB Abordo.
+- **Alertas na abertura:**
+  - "empresas com pendências de envios dos eventos periódicos e não
+    periódicos";
+  - **"Auto Backup/Backup Online: Ocorreram problemas com o Backup"**.
 
 Confirmado em print do Office: Utilitários › Importações tem só RAIS, SEFIP,
 Ponto, Valores e Digitação Diária. Cadastro de Funcionários com as abas Dados,
@@ -146,7 +166,7 @@ IOB Diagnóstico eSocial; IOB eSocial Online; IOB Abordo (holerite eletrônico).
 
 ## Lacunas
 
-1. Não há árvore oficial do IOB Office: só os menus Arquivos, Processos, Relatórios, Utilitários, eSocial e Diversos foram inferidos.
+1. Primeiro nível do Office confirmado em print (04/10/2026). Faltam os submenus de cada um: prints com cada menu aberto.
 2. Nenhum item de Utilitários › Importações do Office apareceu na busca.
 3. Abas Documentos, Holerite, Pesquisa e Lanç. Automático e os botões Contatos, Características e Tipo de deficiência: sem artigo.
 4. IOB eSocial Online e IOB Abordo no Office: sem artigo específico.

@@ -138,7 +138,7 @@ const ConferenciaPosFolhaPanel: React.FC = () => {
                 <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="text-lg font-semibold text-slate-800 dark:text-white">Conferência pós-folha</h3><a className="text-sm font-semibold text-blue-700 underline dark:text-blue-300" href={`${import.meta.env.BASE_URL}manuais/conferencia-pos-folha.html`} target="_blank" rel="noopener noreferrer">Manual passo a passo ↗</a></div>
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
                     Confere a folha que o IOB calculou e transmitiu com o que o eSocial devolveu. Carregue os XMLs dos totalizadores
-                    S-5001, S-5003, S-5011 e S-5013 da competência, soltos ou em .zip. O IOB continua sendo o sistema oficial: aqui só se apontam divergências.
+                    S-5001, S-5003, S-5011 e S-5013 da competência (e S-5002 e S-5012 para o IRRF, que seguem o mês do pagamento), soltos ou em .zip. O IOB continua sendo o sistema oficial: aqui só se apontam divergências.
                 </p>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                     <label className={`${botao} cursor-pointer`}>
@@ -319,6 +319,19 @@ const ConferenciaPosFolhaPanel: React.FC = () => {
                                 <thead><tr><th className={th}>Tipo</th><th className={th}>Soma dos S-5003</th><th className={th}>S-5013</th><th className={th}>Diferença</th></tr></thead>
                                 <tbody>{resultado.consolidacaoFgts.map(c => (
                                     <tr key={c.tpValor} className="border-t border-slate-100 dark:border-slate-700"><td className={td}>{c.descricao}</td><td className={td}>{reais(c.somaTrabalhadores)}</td>
+                                        <td className={td}>{c.empresa === null ? '—' : reais(c.empresa)}</td><td className={td}>{c.diferenca === null ? '—' : reais(c.diferenca)}</td></tr>))}</tbody>
+                            </table>
+                        </div>
+                    )}
+
+                    {resultado.irrf.consolidacao.length > 0 && (
+                        <div className={cartao}>
+                            <h4 className="text-sm font-semibold text-slate-800 dark:text-white">IRRF: trabalhadores (S-5002) × empresa (S-5012)</h4>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">O IRRF segue o mês do pagamento: o S-5002 de {resultado.perApur.split('-').reverse().join('/')} traz, em geral, o IRRF da folha do mês anterior paga neste mês. {resultado.contagem.s5002} trabalhador(es) no S-5002.</p>
+                            <table className="mt-2 min-w-full text-sm">
+                                <thead><tr><th className={th}>Código de receita</th><th className={th}>Soma dos S-5002</th><th className={th}>S-5012</th><th className={th}>Diferença</th></tr></thead>
+                                <tbody>{resultado.irrf.consolidacao.map(c => (
+                                    <tr key={c.crMen} className="border-t border-slate-100 dark:border-slate-700"><td className={td}>{c.crMen} · {c.descricao}</td><td className={td}>{reais(c.somaTrabalhadores)}</td>
                                         <td className={td}>{c.empresa === null ? '—' : reais(c.empresa)}</td><td className={td}>{c.diferenca === null ? '—' : reais(c.diferenca)}</td></tr>))}</tbody>
                             </table>
                         </div>

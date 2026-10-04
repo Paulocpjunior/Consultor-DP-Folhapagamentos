@@ -341,3 +341,35 @@ piloto em paralelo provar o cálculo próprio.
 - **Ajuste de teste:** o teste do editor de layout do Cadastro IOB levava
   ~4,3 s, contra o limite padrão de 5 s, e estourava com a suíte cheia. O
   limite dele subiu para 15 s.
+
+## IRRF na conferência pós-folha e telas do IOB Office (04/10/2026)
+
+- **Paulo: *"pode seguir para proxima etapa"*.**
+  - A Fase 2 ainda depende do backup real. O próximo item possível era fechar
+    a conferência com o IRRF.
+  - **Leitor:** S-5002 (evtIrrfBenef) e S-5012 (evtIrrf), conforme o XSD S-1.3.
+    - No S-5002, `dmDev` e `totInfoIR` ficam dentro de `ideTrabalhador`. A
+      leitura usa `totInfoIR/consolidApurMen` e, sem ele, soma
+      `dmDev/totApurMen` por CRMen.
+    - No S-5012, a leitura usa `infoIRRF/infoCRMen`.
+  - **Regra 8 da conferência:**
+    - soma dos S-5002 × S-5012 por código de receita;
+    - S-5012 × débitos de IRRF da DCTFWeb (SERPRO) do mesmo mês;
+    - duplicado fica fora;
+    - lote só de IRRF não cobra S-5011 nem S-5013.
+  - **Regime de caixa:** o IRRF segue o mês do PAGAMENTO (S-1210), por isso
+    não é cruzado com o S-5001 nem com o relatório da folha.
+  - Os códigos CRMen (056107 etc.) vêm do XSD.
+  - O cálculo do imposto em si (tabela, dependentes, redutor) fica para o
+    motor (Fase 3).
+- **Prints do IOB Office enviados pelo Paulo:**
+  - **Primeiro nível confirmado:** Arquivos, Processos, Relatórios,
+    Listagens, Impressos, Diversos, Contratos, Utilitários, eSocial, Saúde e
+    Segurança do Trabalho e Ajuda.
+  - **Versão do banco: 12.22**, a mesma dos testes da restauração; servidor
+    10.0.0.10.
+  - Release R2026.08.20.
+  - **Alertas na abertura:** "Auto Backup/Backup Online: Ocorreram problemas
+    com o Backup" e empresas com pendências de eventos.
+  - Mapa e catálogo atualizados. Faltam os submenus: prints com cada menu
+    aberto.
