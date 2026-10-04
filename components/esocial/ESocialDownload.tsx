@@ -10,7 +10,7 @@ import { listarTodasEmpresas } from '../../services/empresas/empresasService';
 import { listarFuncionarios } from '../../services/cadastros/cadastrosService';
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
 import {
-    EVENTOS_EMPREGADOR, EVENTOS_TABELA, baixarEventos, consultarIdentificadores, continuarDe, cpfDoEvento, tipoDoElemento, zipDosEventos,
+    EVENTOS_EMPREGADOR, EVENTOS_TABELA, MAX_DIAS_PERIODO, baixarEventos, consultarIdentificadores, continuarDe, cpfDoEvento, erroPeriodo, janela, tipoDoElemento, zipDosEventos,
     type ArquivoBaixado, type Identificador, type RetornoIdentificadores, type TipoConsulta,
 } from '../../services/esocial/downloadEventos';
 import { baixarBytes } from '../../services/implantacao/zip';
@@ -19,6 +19,7 @@ const inp = 'rounded border border-slate-300 bg-white px-2 py-2 text-sm text-sla
 const btn = 'rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
 const hoje = () => new Date().toLocaleDateString('sv-SE');
 const menos = (dias: number) => new Date(Date.now() - dias * 86400000).toLocaleDateString('sv-SE');
+const somarUmDia = (d: string) => new Date(Date.parse(`${d}T00:00:00Z`) + 86400000).toISOString().slice(0, 10);
 const fmtCpf = (c: string) => (c.length === 11 ? `${c.slice(0, 3)}.${c.slice(3, 6)}.${c.slice(6, 9)}-${c.slice(9)}` : c);
 
 const ESocialDownload: React.FC = () => {
@@ -29,7 +30,7 @@ const ESocialDownload: React.FC = () => {
     const [tpEvt, setTpEvt] = useState('S-1299');
     const [perApur, setPerApur] = useState(new Date(Date.now() - 31 * 86400000).toISOString().slice(0, 7));
     const [cpf, setCpf] = useState('');
-    const [dtIni, setDtIni] = useState(menos(365));
+    const [dtIni, setDtIni] = useState(menos(MAX_DIAS_PERIODO - 1));
     const [dtFim, setDtFim] = useState(hoje());
     const [certificado, setCertificado] = useState<'escritorio' | 'empresa'>('escritorio');
     const [retorno, setRetorno] = useState<RetornoIdentificadores | null>(null);
@@ -58,7 +59,7 @@ const ESocialDownload: React.FC = () => {
             });
             setRetorno(r); setPedidosHoje(r.pedidosHoje);
             setMarcados(new Set(r.identificadores.filter(i => !baixados.has(i.id)).map(i => i.id)));
-            if (desde) setDtIni(desde);
+            if (desde) setDtIni(desde.slice(0, 10));
         } catch (e) { setErro((e as Error).message); }
         finally { setOcupado(''); }
     }
@@ -83,7 +84,8 @@ const ESocialDownload: React.FC = () => {
         baixarBytes(`esocial-${empresa.codigoSage}-${hoje()}.zip`, zipDosEventos([...baixados.values()]), 'application/zip');
     }
 
-    const podeConsultar = !!empresa && !ocupado && (tipo === 'empregador' ? /^S-\d{4}$/.test(tpEvt) && !!perApur : tipo === 'tabela' ? /^S-\d{4}$/.test(tpEvt) : cpf.replace(/\D/g, '').length === 11 && !!dtIni && !!dtFim);
+    const problemaPeriodo = tipo === 'empregador' ? null : erroPeriodo(dtIni, dtFim, hoje());
+    const podeConsultar = !!empresa && !ocupado && !problemaPeriodo && (tipo === 'empregador' ? /^S-\d{4}$/.test(tpEvt) && !!perApur : tipo === 'tabela' ? /^S-\d{4}$/.test(tpEvt) : cpf.replace(/\D/g, '').length === 11);
     const restam = retorno ? retorno.qtdeTotal - retorno.identificadores.length : 0;
 
     return (
@@ -123,7 +125,7 @@ const ESocialDownload: React.FC = () => {
                             <input className={`${inp} mt-1 w-full`} list="cpfs-empresa" value={cpf} onChange={e => setCpf(e.target.value)} placeholder="000.000.000-00" aria-label="CPF do trabalhador" />
                             <datalist id="cpfs-empresa">{fichas.map(f => <option key={f.id} value={f.cpf}>{f.dados.nome}</option>)}</datalist>
                             {ficha && <span className="block text-xs text-green-700 dark:text-green-400">{ficha.dados.nome} · admissão {ficha.dados.admissao?.split('-').reverse().join('/')}
-                                {ficha.dados.admissao && <button className="ml-2 underline" onClick={() => setDtIni(ficha.dados.admissao!)}>usar a admissão como início</button>}</span>}
+                                {ficha.dados.admissao && <button className="ml-2 underline" onClick={() => { const j = janela(ficha.dados.admissao!, hoje()); setDtIni(j.dtIni); setDtFim(j.dtFim); }}>usar a admissão como início</button>}</span>}
                         </label>
                     </>
                 )}
@@ -147,6 +149,8 @@ const ESocialDownload: React.FC = () => {
                 <div className="flex items-end sm:col-span-2 lg:col-span-4">
                     <button className="rounded bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={!podeConsultar} onClick={() => consultar()}>Consultar no eSocial</button>
                     {tipo === 'empregador' && <span className="ml-3 text-xs text-slate-500 dark:text-slate-400">A consulta por competência não tem continuação: se houver mais de 50 eventos, use a consulta por trabalhador.</span>}
+                    {problemaPeriodo && <span role="status" className="ml-3 text-xs text-amber-700 dark:text-amber-300">{problemaPeriodo}</span>}
+                    {tipo !== 'empregador' && !problemaPeriodo && <span className="ml-3 text-xs text-slate-500 dark:text-slate-400">Até {MAX_DIAS_PERIODO} dias por consulta; a data de hoje vai até uma hora atrás.</span>}
                 </div>
             </div>
 
@@ -159,7 +163,10 @@ const ESocialDownload: React.FC = () => {
                         eSocial: <strong>{retorno.cdResposta ?? '—'}</strong> {retorno.descResposta} · {retorno.identificadores.length} de {retorno.qtdeTotal} evento(s).
                     </p>
                     {restam > 0 && tipo !== 'empregador' && continuarDe(retorno.dhUltimoEvtRetornado) && (
-                        <button className={btn} onClick={() => consultar(continuarDe(retorno.dhUltimoEvtRetornado))}>Consultar os próximos (a partir de {continuarDe(retorno.dhUltimoEvtRetornado).split('-').reverse().join('/')})</button>
+                        <button className={btn} onClick={() => consultar(continuarDe(retorno.dhUltimoEvtRetornado))}>Consultar os próximos (a partir de {continuarDe(retorno.dhUltimoEvtRetornado).slice(0, 10).split('-').reverse().join('/')} {continuarDe(retorno.dhUltimoEvtRetornado).slice(11, 16)})</button>
+                    )}
+                    {tipo !== 'empregador' && dtFim < hoje() && (
+                        <button className={btn} onClick={() => { const j = janela(somarUmDia(dtFim), hoje()); setDtIni(j.dtIni); setDtFim(j.dtFim); setRetorno(null); }}>Próximo período ({MAX_DIAS_PERIODO} dias depois de {dtFim.split('-').reverse().join('/')})</button>
                     )}
                     {retorno.identificadores.length > 0 && (
                         <>

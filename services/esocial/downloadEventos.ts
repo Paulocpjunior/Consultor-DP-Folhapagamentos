@@ -70,5 +70,30 @@ export function zipDosEventos(arquivos: ArquivoBaixado[]): Uint8Array {
     return gerarZip(arquivos.filter(a => a.evt).map(a => ({ nome: nomeArquivo(a), conteudo: montarRetornoCompleto(a) })));
 }
 
-/** Data em AAAA-MM-DD a partir do dhUltimoEvtRetornado, para continuar a consulta de onde parou. */
-export const continuarDe = (dh: string) => (/^\d{4}-\d{2}-\d{2}/.test(dh) ? dh.slice(0, 10) : '');
+/** Data e hora do dhUltimoEvtRetornado, para continuar a consulta de onde parou (sem fuso nem milésimos). */
+export const continuarDe = (dh: string) => (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(dh) ? dh.slice(0, 19) : '');
+
+/**
+ * Regras do eSocial para as consultas com período (Manual do Desenvolvedor,
+ * apontadas na revisão do PR #1370 do CFI): até 31 dias e fim até uma hora
+ * atrás. Conferir aqui evita gastar a cota diária com um pedido que volta 410.
+ */
+export const MAX_DIAS_PERIODO = 31;
+const diaMs = 86400000;
+const somar = (d: string, n: number) => new Date(Date.parse(`${d.slice(0, 10)}T00:00:00Z`) + n * diaMs).toISOString().slice(0, 10);
+
+export function erroPeriodo(dtIni: string, dtFim: string, hoje: string): string | null {
+    if (!dtIni || !dtFim) return 'Informe as duas datas.';
+    if (dtFim > hoje) return 'A data final não pode ser futura.';
+    const ini = dtIni.slice(0, 10);
+    if (dtFim < ini) return 'A data final é anterior à inicial.';
+    if ((Date.parse(`${dtFim}T23:59:59Z`) - Date.parse(dtIni.length > 10 ? `${dtIni}Z` : `${dtIni}T00:00:00Z`)) > MAX_DIAS_PERIODO * diaMs)
+        return `O eSocial aceita no máximo ${MAX_DIAS_PERIODO} dias por consulta.`;
+    return null;
+}
+
+/** Janela de até 31 dias a partir de uma data, sem passar de hoje. */
+export function janela(dtIni: string, hoje: string): { dtIni: string; dtFim: string } {
+    const fim = somar(dtIni, MAX_DIAS_PERIODO - 1);
+    return { dtIni, dtFim: fim > hoje ? hoje : fim };
+}

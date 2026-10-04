@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { continuarDe, cpfDoEvento, montarRetornoCompleto, nomeArquivo, tipoDoElemento, zipDosEventos, type ArquivoBaixado } from '../downloadEventos';
+import { continuarDe, erroPeriodo, janela, cpfDoEvento, montarRetornoCompleto, nomeArquivo, tipoDoElemento, zipDosEventos, type ArquivoBaixado } from '../downloadEventos';
 import { lerXml } from '../../implantacao/implantacao';
 import { lerZip } from '../../implantacao/zip';
 import { lerXmlAfastamentos } from '../../cadastros/afastamentos';
@@ -55,7 +55,17 @@ describe('eventos baixados no formato do portal', () => {
         const itens = await lerZip(zip);
         expect(itens.map(i => i.nome)).toEqual([`S-2200_${CPF}_${ID_ADM}.xml`]);
         expect(new TextDecoder().decode(itens[0].bytes)).toBe(montarRetornoCompleto(admissao));
-        expect(continuarDe('2026-09-16T12:00:00')).toBe('2026-09-16');
+        expect(continuarDe('2026-09-16T12:00:00.123-03:00')).toBe('2026-09-16T12:00:00');
         expect(continuarDe('')).toBe('');
+    });
+
+    it('período: até 31 dias, sem data futura, continuação com hora, janela a partir da admissão', () => {
+        expect(erroPeriodo('2026-09-04', '2026-10-04', '2026-10-04')).toBeNull();
+        expect(erroPeriodo('2026-09-01', '2026-10-04', '2026-10-04')).toBe('O eSocial aceita no máximo 31 dias por consulta.');
+        expect(erroPeriodo('2026-09-10', '2026-10-05', '2026-10-04')).toBe('A data final não pode ser futura.');
+        expect(erroPeriodo('2026-09-16T12:00:00', '2026-10-04', '2026-10-04')).toBeNull();
+        expect(erroPeriodo('2026-09-10', '2026-09-01', '2026-10-04')).toBe('A data final é anterior à inicial.');
+        expect(janela('2025-03-01', '2026-10-04')).toEqual({ dtIni: '2025-03-01', dtFim: '2025-03-31' });
+        expect(janela('2026-09-20', '2026-10-04')).toEqual({ dtIni: '2026-09-20', dtFim: '2026-10-04' });
     });
 });

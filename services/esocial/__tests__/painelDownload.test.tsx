@@ -40,7 +40,7 @@ describe('download de eventos do eSocial na interface', () => {
         fireEvent.click(screen.getByText('usar a admissão como início'));
         fireEvent.click(screen.getByText('Consultar no eSocial'));
         await waitFor(() => expect(screen.getByText(ID1)).toBeTruthy());
-        expect(tunel.callFiscal.mock.calls[0]).toEqual(['/esocial/download/identificadores', expect.objectContaining({ cnpj: '11222333000181', tipo: 'trabalhador', cpfTrab: '52998224725', dtIni: '2025-03-01', certificado: 'escritorio' })]);
+        expect(tunel.callFiscal.mock.calls[0]).toEqual(['/esocial/download/identificadores', expect.objectContaining({ cnpj: '11222333000181', tipo: 'trabalhador', cpfTrab: '52998224725', dtIni: '2025-03-01', dtFim: '2025-03-31', certificado: 'escritorio' })]);
         expect(screen.getByText(/Pedidos hoje para esta empresa: 1/)).toBeTruthy();
         fireEvent.click(screen.getByText('Baixar 2 evento(s)'));
         await waitFor(() => expect(screen.getByText('Eventos baixados nesta sessão (1)')).toBeTruthy());
@@ -61,6 +61,13 @@ describe('download de eventos do eSocial na interface', () => {
         fireEvent.change(screen.getByLabelText('Competência'), { target: { value: '2026-09' } });
         fireEvent.click(screen.getByText('Consultar no eSocial'));
         expect((await screen.findByRole('alert')).textContent).toContain('não está no cofre');
+        // período acima de 31 dias não chega ao eSocial
+        fireEvent.change(screen.getByLabelText('Tipo de consulta'), { target: { value: 'trabalhador' } });
+        fireEvent.change(screen.getByLabelText('CPF do trabalhador'), { target: { value: '52998224725' } });
+        fireEvent.change(screen.getByLabelText('Data inicial'), { target: { value: '2025-01-01' } });
+        fireEvent.change(screen.getByLabelText('Data final'), { target: { value: '2025-06-30' } });
+        expect(screen.getByRole('status').textContent).toBe('O eSocial aceita no máximo 31 dias por consulta.');
+        expect(screen.getByText('Consultar no eSocial').hasAttribute('disabled')).toBe(true);
         expect(tunel.callFiscal.mock.calls[0][1]).toMatchObject({ tipo: 'empregador', tpEvt: 'S-5011', perApur: '2026-09' });
     });
 });
