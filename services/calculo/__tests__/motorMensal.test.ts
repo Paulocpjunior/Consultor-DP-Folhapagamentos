@@ -165,12 +165,14 @@ describe('motor do cálculo mensal', () => {
         const f = ficha({ admissao: '2024-01-02' });
         const gozo = afast({ dtInicio: '2025-07-01', dtFim: '2025-07-20', motivo: '15', perAquisInicio: '2024-01-02' });
         const fm = feriasDaCompetencia(f, [gozo], TABELAS, {}, '2025-07')!;
-        expect(fm).toEqual({ dias: 20, ferias: 200000, terco: 66667, inss: 21723 }); // 2.666,67: 113,85 + 103,38
+        expect(fm).toMatchObject({ dias: 20, ferias: 200000, terco: 66667, inss: 21723 }); // 2.666,67: 113,85 + 103,38
         const r = calc({ ficha: f, competencia: '2025-07', pagamento: '2025-08', afastamentos: [gozo], feriasDoMes: fm });
         expect(r.situacao).toBe('calculado');
         expect(valor(r, 'SAL')).toBe(100000); // 30 − 20 dias
         expect(valor(r, 'FERMES')).toBe(266667);
-        expect(valor(r, 'FERPAGO')).toBe(266667);
+        expect(valor(r, 'FERPAGO')).toBe(266667 - 21723 - fm.irrf); // líquido do recibo
+        expect(valor(r, 'INSSFERRET')).toBe(21723);
+        expect(valor(r, 'IRRFFERRET')).toBe(fm.irrf);
         expect(r.bases.inss).toBe(366667);
         // INSS sobre 3.666,67 = 113,85 + 114,83 + 104,73 = 333,41; menos 217,23 retidos
         expect(valor(r, 'INSS')).toBe(33341 - 21723);

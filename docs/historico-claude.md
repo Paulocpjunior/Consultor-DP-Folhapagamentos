@@ -783,3 +783,16 @@ piloto em paralelo provar o cálculo próprio.
   - **Conferência dos holerites:** as linhas de férias do holerite mensal
     do IOB são reconhecidas ("Férias + 1/3 do mês" e "Férias pagas no
     recibo"). "INSS s/ férias" continua como INSS e o abono como "outros".
+- **Revisão do PR #56 (Codex), corrigida:**
+  - **P1:** se a leitura dos movimentos da empresa falhar, a tela mostra o
+    erro e fica sem histórico (o mês com férias fica "incompleto"). Antes,
+    usava um histórico vazio, com médias e faltas zeradas, e marcava
+    "calculado". O mesmo vale para o 13º e as férias.
+  - **P2:** depois de salvar um movimento, os movimentos usados pelas
+    férias são relidos.
+  - **P2:** na folha do mês, o desconto do que o recibo já pagou é o
+    **líquido das férias** (férias + 1/3 − INSS − IRRF da competência),
+    mais as linhas "INSS das férias (retido no recibo)" e "IRRF das férias
+    (retido no recibo)". O IRRF do recibo é rateado pela competência. Na
+    conferência dos holerites, INSS e IRRF do motor somam o retido no
+    recibo, para bater com "INSS s/ férias" e "IRRF férias" do IOB.

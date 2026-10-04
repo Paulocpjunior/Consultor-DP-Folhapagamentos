@@ -96,4 +96,20 @@ describe('conferência com os holerites do IOB', () => {
         expect(avisos[0]).toBe('DSR S/ FALTAS: referência "" ilegível; informe a quantidade.');
         expect(avisos[1]).toContain('confira as incidências');
     });
+
+    it('mês com férias: INSS do IOB (inclusive "INSS s/ férias") confere com o INSS do mês + o retido no recibo', () => {
+        const r = { fichaId: 'f1', nome: 'ANA', competencia: '2025-07', pagamento: '2025-08', situacao: 'calculado' as const, bases: { inss: 0, fgts: 0, irrf: 0 }, totais: { proventos: 366667, descontos: 0, liquido: 0 }, fgts: 0, memoria: [], avisos: [], erros: [],
+            verbas: [
+                { codigo: 'SAL', descricao: 'Salário', referencia: '', tipo: 'provento' as const, valor: 100000, inss: true, fgts: true, irrf: true },
+                { codigo: 'FERMES', descricao: '', referencia: '', tipo: 'provento' as const, valor: 266667, inss: true, fgts: true, irrf: false },
+                { codigo: 'FERPAGO', descricao: '', referencia: '', tipo: 'desconto' as const, valor: 236000, inss: false, fgts: false, irrf: false },
+                { codigo: 'INSSFERRET', descricao: '', referencia: '', tipo: 'desconto' as const, valor: 21723, inss: false, fgts: false, irrf: false },
+                { codigo: 'IRRFFERRET', descricao: '', referencia: '', tipo: 'desconto' as const, valor: 8944, inss: false, fgts: false, irrf: false },
+                { codigo: 'INSS', descricao: '', referencia: '', tipo: 'desconto' as const, valor: 11618, inss: false, fgts: false, irrf: false },
+            ] };
+        const h = holerite([P('SALARIO', 100000), P('FÉRIAS', 200000), P('1/3 FÉRIAS', 66667), D('LÍQUIDO DE FÉRIAS', 236000), D('INSS', 11618), D('INSS S/ FÉRIAS', 21723), D('IRRF FÉRIAS', 8944)], { totalProventos: null, totalDescontos: null, liquido: null, competencia: '2025-07' });
+        const c = conferirHolerite(r, h, 'cpf', { fichaId: 'f1', nome: 'ANA', competencia: '2025-07' });
+        expect(c.linhas.filter(l => !l.ok)).toEqual([]);
+        expect(c.situacao).toBe('confere');
+    });
 });

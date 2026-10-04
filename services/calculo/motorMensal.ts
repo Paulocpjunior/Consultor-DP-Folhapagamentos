@@ -51,7 +51,7 @@ export interface EntradaCalculo {
      * base do INSS e do FGTS do mês, e o INSS já retido no recibo é abatido.
      * Sem isto, o mês com férias fica "incompleto".
      */
-    feriasDoMes?: { dias: number; ferias: number; terco: number; inss: number };
+    feriasDoMes?: { dias: number; ferias: number; terco: number; inss: number; irrf?: number };
 }
 
 export type Situacao = 'calculado' | 'incompleto' | 'erro';
@@ -254,8 +254,12 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     const fm = e.feriasDoMes;
     if (fm && fm.ferias + fm.terco > 0) {
         verba({ codigo: 'FERMES', descricao: 'Férias + 1/3 do mês (pagas no recibo)', referencia: `${fm.dias} dias`, tipo: 'provento', valor: fm.ferias + fm.terco, inss: true, fgts: true, irrf: false });
-        verba({ codigo: 'FERPAGO', descricao: 'Férias pagas no recibo', referencia: '', tipo: 'desconto', valor: fm.ferias + fm.terco, inss: false, fgts: false, irrf: false });
-        r.memoria.push(`Férias do mês: ${reais(fm.ferias + fm.terco)} (${fm.dias} dias, pagos no recibo) somados às bases do INSS e do FGTS; o IRRF das férias foi em separado.`);
+        // O que o recibo já pagou e reteve (parte desta competência): líquido, INSS e IRRF, como no holerite do IOB.
+        const irrfFer = fm.irrf ?? 0;
+        verba({ codigo: 'FERPAGO', descricao: 'Líquido das férias pago no recibo', referencia: '', tipo: 'desconto', valor: Math.max(0, fm.ferias + fm.terco - fm.inss - irrfFer), inss: false, fgts: false, irrf: false });
+        verba({ codigo: 'INSSFERRET', descricao: 'INSS das férias (retido no recibo)', referencia: '', tipo: 'desconto', valor: fm.inss, inss: false, fgts: false, irrf: false });
+        verba({ codigo: 'IRRFFERRET', descricao: 'IRRF das férias (retido no recibo)', referencia: '', tipo: 'desconto', valor: irrfFer, inss: false, fgts: false, irrf: false });
+        r.memoria.push(`Férias do mês: ${reais(fm.ferias + fm.terco)} (${fm.dias} dias, pagos no recibo) somados às bases do INSS e do FGTS; o IRRF das férias foi em separado. Saem o líquido pago no recibo e o INSS e o IRRF já retidos nele.`);
     }
 
     // 5. Bases.

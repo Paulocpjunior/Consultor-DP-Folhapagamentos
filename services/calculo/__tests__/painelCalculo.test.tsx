@@ -245,6 +245,18 @@ describe('aba Cálculo', () => {
         fireEvent.click(screen.getByText('ANA'));
         const hol = screen.getByRole('region', { name: 'Holerite de ANA' });
         expect(within(hol).getByText('Férias + 1/3 do mês (pagas no recibo)')).toBeTruthy();
-        expect(within(hol).getByText('Férias pagas no recibo')).toBeTruthy();
+        expect(within(hol).getByText('Líquido das férias pago no recibo')).toBeTruthy();
+        expect(within(hol).getByText('INSS das férias (retido no recibo)')).toBeTruthy();
+    });
+
+    it('falha ao carregar os movimentos: mostra o erro e o mês com férias fica incompleto', async () => {
+        cad.afastamentos = [{ id: 'g1', empresaId: 'emp1', fichaId: 'f1', cpf: '', matriculaEsocial: 'f1', dtInicio: '2025-07-01', dtFim: '2025-07-20', motivo: '15', infoMesmoMtv: '', tpAcidTransito: '', observacao: '', perAquisInicio: '2024-01-02', perAquisFim: '', origem: '', recibos: [] }];
+        movs.listarMovimentosDaEmpresa.mockRejectedValue(new Error('rede'));
+        render(<CalculoPanel currentUser={USER} />);
+        await waitFor(() => expect(screen.getByRole('option', { name: /0229/ })).toBeTruthy());
+        fireEvent.change(screen.getByLabelText('Competência'), { target: { value: '2025-07' } });
+        fireEvent.change(screen.getByLabelText('Empresa'), { target: { value: 'emp1' } });
+        await waitFor(() => expect(screen.getByText(/Movimentos gravados não carregados/)).toBeTruthy());
+        expect(screen.getByText('ANA').closest('tr')!.textContent).toContain('incompleto');
     });
 });

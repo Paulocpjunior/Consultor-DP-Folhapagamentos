@@ -315,16 +315,21 @@ export function gozosNoMes(afastamentos: Afastamento[], fichaIds: Set<string>, c
  * cada recibo cujo gozo toca o mês. Se algum recibo der erro, devolve
  * undefined (a folha fica "incompleto" e aponta o recibo).
  */
-export function feriasDaCompetencia(ficha: FichaFuncionario, afastamentos: Afastamento[], tabelas: TabelaLegal[], movimentos: Record<string, Movimento>, competencia: string): { dias: number; ferias: number; terco: number; inss: number } | undefined {
+export function feriasDaCompetencia(ficha: FichaFuncionario, afastamentos: Afastamento[], tabelas: TabelaLegal[], movimentos: Record<string, Movimento>, competencia: string): { dias: number; ferias: number; terco: number; inss: number; irrf: number } | undefined {
     const ini = `${competencia}-01`;
     const gozos = afastamentos.filter(a => a.fichaId === ficha.id && a.motivo === '15' && a.dtInicio.slice(0, 7) <= competencia && (!a.dtFim || a.dtFim >= ini));
     if (!gozos.length) return undefined;
-    const soma = { dias: 0, ferias: 0, terco: 0, inss: 0 };
+    const soma = { dias: 0, ferias: 0, terco: 0, inss: 0, irrf: 0 };
     for (const gozo of gozos) {
         const r = calcularFerias({ ficha, gozo, afastamentos, tabelas, movimentos });
         if (r.situacao === 'erro') return undefined;
         const c = r.porCompetencia.find(x => x.competencia === competencia);
-        if (c) { soma.dias += c.dias; soma.ferias += c.ferias; soma.terco += c.terco; soma.inss += c.inss; }
+        if (!c) continue;
+        soma.dias += c.dias; soma.ferias += c.ferias; soma.terco += c.terco; soma.inss += c.inss;
+        // IRRF do recibo (em separado) na proporção desta competência em férias + 1/3.
+        const irrf = r.verbas.find(v => v.codigo === 'IRRFFER')?.valor ?? 0;
+        const total = r.porCompetencia.reduce((s, x) => s + x.ferias + x.terco, 0);
+        if (irrf && total) soma.irrf += Math.round(irrf * (c.ferias + c.terco) / total);
     }
     return soma;
 }
