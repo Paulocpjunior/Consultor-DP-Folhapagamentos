@@ -188,7 +188,7 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
                 ? `Afastamento ${rotulo} desde ${brData(a.dtInicio)}, mesmo motivo de afastamento anterior (60 dias): benefício do INSS desde o início; ${n} dia(s) sem salário no mês.`
                 : `Afastamento ${rotulo} desde ${brData(a.dtInicio)}: empresa paga os 15 primeiros dias; INSS a partir de ${brData(beneficio!)}; ${n} dia(s) sem salário no mês.`);
         } else if (MATERNIDADE.includes(a.motivo)) r.memoria.push(`Afastamento ${rotulo}: ${n} dia(s) de salário-maternidade no mês.`);
-        else if (FERIAS.includes(a.motivo)) incompleto(`Férias de ${brData(aIni)} a ${brData(aFim)} (${n} dia(s)): o cálculo de férias ainda não está no motor; esses dias saíram do salário.`);
+        else if (FERIAS.includes(a.motivo)) incompleto(`Férias de ${brData(aIni)} a ${brData(aFim)} (${n} dia(s)): o recibo de férias sai em Cálculo › Folha › Férias; esses dias saíram do salário e a integração do INSS do mês com as férias ainda não está no motor.`);
         else {
             r.memoria.push(`Afastamento ${rotulo} de ${brData(aIni)} a ${brData(aFim)}: ${n} dia(s) sem salário.`);
             if (CONFERIR.includes(a.motivo)) r.avisos.push(`Afastamento ${rotulo}: a remuneração depende do caso; o motor não pagou esses dias. Confira.`);
