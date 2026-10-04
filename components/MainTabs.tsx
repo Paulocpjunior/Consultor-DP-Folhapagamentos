@@ -1,6 +1,6 @@
 import { limparSessaoImplantacao } from '../services/implantacao/sessao';
 import { ehAdmin } from '../services/auth/papeis';
-import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Suspense, lazy } from 'react';
 import * as authService from '../services/auth/authService';
 import { consultarGateDepartamento, type GateDepartamento } from '../services/departamentoGate';
 import { getAuth } from 'firebase/auth';
@@ -20,7 +20,14 @@ import AlertaPendenciasPopup from './AlertaPendenciasPopup';
 import Logo from './Logo';
 import UpdateBanner from './UpdateBanner';
 import { listarEmpresasVisiveis } from '../services/empresas/empresasService';
+import type { Empresa } from '../services/empresas/empresasTypes';
 import type { User } from '../types';
+import AtivarEmpresaScreen from './empresaAtiva/AtivarEmpresaScreen';
+import { EmpresaAtivaProvider } from '../services/empresaAtiva/empresaAtivaContext';
+import {
+    ativacaoAindaValida, competenciaBr, competenciaPadrao, exigeEmpresaAtiva,
+    gravarEmpresaAtiva, lerEmpresaAtiva, limparEmpresaAtiva, type EmpresaAtiva,
+} from '../services/empresaAtiva/empresaAtiva';
 
 type Tab = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'empresas' | 'esocial' | 'iobsage' | 'admin';
 
@@ -65,9 +72,18 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
     const [folhaSub, setFolhaSub] = useState<{ sub: SubTabFolha; n: number } | null>(null);
     const [cadastroSub, setCadastroSub] = useState<{ sub: SubCadastro; n: number } | null>(null);
     const [empresasCount, setEmpresasCount] = useState<number | null>(null);
+    // Empresa e período ativos da sessão (services/empresaAtiva): portão antes de qualquer ação.
+    const [visiveis, setVisiveis] = useState<Empresa[] | null>(null);
+    const [erroVisiveis, setErroVisiveis] = useState('');
+    const [ativa, setAtiva] = useState<EmpresaAtiva | null>(null);
+    const [trocando, setTrocando] = useState(false);
+    const uidAtual = currentUser ? ((currentUser as any).uid || currentUser.id) : '';
     const [showWelcome, setShowWelcome] = useState(false);
     const [showPendencias, setShowPendencias] = useState(false);
     const prevUserUidRef = useRef<string | null>(null);
+
+    // Outro usuário na mesma aba: começa sem ativação (a dele é lida do navegador).
+    useEffect(() => { setAtiva(null); setVisiveis(null); setTrocando(false); }, [uidAtual]);
 
     useEffect(() => {
         if (!currentUser) return;
@@ -75,9 +91,13 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
             try {
                 const list = await listarEmpresasVisiveis();
                 setEmpresasCount(list.length);
+                setVisiveis(list); setErroVisiveis('');
+                // A ativação guardada (F5) só vale se a empresa continua na carteira.
+                setAtiva(a => ativacaoAindaValida(a ?? lerEmpresaAtiva(uidAtual), list));
             } catch (e) {
                 console.warn('Falha ao carregar contagem de empresas:', e);
                 setEmpresasCount(0);
+                setVisiveis([]); setErroVisiveis(`Não foi possível carregar as empresas da sua carteira: ${(e as Error)?.message ?? e}`);
             }
         })();
     }, [currentUser, activeTab]);
@@ -129,9 +149,19 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
     }, [currentUser]);
 
     const handleLogout = async () => {
+        // Sair limpa a ativação: quem entra de novo ativa de propósito.
+        if (uidAtual) limparEmpresaAtiva(uidAtual);
+        setAtiva(null); setVisiveis(null); setTrocando(false);
         try { await authService.logout(); } catch {}
         setCurrentUser(null);
     };
+
+    const ativarEmpresa = (e: EmpresaAtiva) => {
+        gravarEmpresaAtiva(uidAtual, e);
+        setAtiva(e);
+        setTrocando(false);
+    };
+    const abrirTroca = useCallback(() => setTrocando(true), []);
 
     if (!authReady) {
         return (
@@ -161,6 +191,22 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
 
     if (!isAdmin && activeTab === 'admin') {
         setActiveTab('folha');
+    }
+
+    // Portão: tela que trabalha sobre um cliente exige empresa e período ativos.
+    if (trocando || (!ativa && exigeEmpresaAtiva(activeTab))) {
+        return (
+            <><UpdateBanner />
+            <AtivarEmpresaScreen
+                empresas={visiveis} erro={erroVisiveis} competenciaInicial={competenciaPadrao()} atual={ativa}
+                usuarioEmail={currentUser.email}
+                onAtivar={ativarEmpresa}
+                onCancelar={ativa ? () => setTrocando(false) : undefined}
+                onIrParaEmpresas={() => { setTrocando(false); setActiveTab('empresas'); }}
+                onIrParaUsuarios={isAdmin ? () => { setTrocando(false); setActiveTab('admin'); } : undefined}
+                onSair={handleLogout}
+            /></>
+        );
     }
 
     const tabs: { id: Tab; label: string; icon: string; adminOnly: boolean }[] = [
@@ -289,7 +335,26 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                 </div>
             </nav>
 
-            <main className="max-w-7xl mx-auto p-4 sm:p-6">
+            <div className="border-b border-blue-100 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/40">
+                <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-1.5 text-sm text-blue-900 dark:text-blue-100">
+                    {ativa ? (
+                        <>
+                            <span>🏢 <strong>{ativa.nome}</strong> <span className="text-xs text-blue-700 dark:text-blue-300">CNPJ {ativa.cnpj} · SAGE {ativa.codigoSage}</span></span>
+                            <span>📅 Competência <strong>{competenciaBr(ativa.competencia)}</strong></span>
+                            <button onClick={abrirTroca} className="rounded border border-blue-300 px-2 py-0.5 text-xs font-medium dark:border-blue-700">⇄ Trocar empresa ou período</button>
+                        </>
+                    ) : (
+                        <>
+                            <span>Nenhuma empresa ativa.</span>
+                            <button onClick={abrirTroca} className="rounded border border-blue-300 px-2 py-0.5 text-xs font-medium dark:border-blue-700">⚡ Ativar empresa</button>
+                        </>
+                    )}
+                </div>
+            </div>
+
+            <EmpresaAtivaProvider ativa={ativa} trocar={abrirTroca}>
+            {/* Trocar de empresa ou de período remonta as telas: dado de um cliente (ou de um mês) nunca fica na tela de outro. */}
+            <main key={ativa ? `${ativa.id}_${ativa.competencia}` : 'sem-empresa'} className="max-w-7xl mx-auto p-4 sm:p-6">
                 {activeTab === 'folha' && (empresasCount && empresasCount > 0
                     ? <FolhaPanel
                         key={folhaSub ? `sub-${folhaSub.n}` : 'folha'}
@@ -343,6 +408,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                 )}
                 {activeTab === 'admin' && isAdmin && <AdminUsersPanel currentUser={currentUser as any} />}
             </main>
+            </EmpresaAtivaProvider>
         </div>
     );
 };

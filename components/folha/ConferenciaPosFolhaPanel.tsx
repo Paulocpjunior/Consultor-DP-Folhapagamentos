@@ -11,6 +11,7 @@ import { conferirPosFolha, lerValorDigitado, reais, DESCRICAO_CR_SEGURADO, type 
 import { gerarExcelConferencia, nomeArquivoConferencia, rotuloApuracao } from '../../services/conferencia/exportarConferencia';
 import { baixarBytes } from '../../services/implantacao/zip';
 import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
+import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { cnpjParaSerpro, consultarSerproConferencia, type ConsultaSerpro } from '../../services/conferencia/serproConferencia';
 import { extrairFuncionarios, lerPlanilhaResumo, ROTULO_CAMPO, type CampoResumo, type Mapeamento, type PlanilhaResumo } from '../../services/conferencia/resumoFolhaIob';
@@ -41,6 +42,7 @@ const ConferenciaPosFolhaPanel: React.FC = () => {
     const [fgts, setFgts] = useState('');
     const [empresas, setEmpresas] = useState<Empresa[] | null>(null);
     const [empresasErro, setEmpresasErro] = useState(false);
+    const { ativa } = useEmpresaAtiva();
     // Uma consulta por empresa/competência (chave do grupo).
     const [serpro, setSerpro] = useState<Record<string, ConsultaSerpro>>({});
     const [consultando, setConsultando] = useState(false);
@@ -164,6 +166,11 @@ const ConferenciaPosFolhaPanel: React.FC = () => {
                 <div className={cartao}><p className="text-sm text-slate-700 dark:text-slate-200">Nenhum totalizador encontrado nos arquivos carregados. Veja os avisos de leitura.</p></div>
             )}
 
+            {resultado && grupo && ativa && grupo.empregador.replace(/\D/g, '').slice(0, 8) !== ativa.cnpj.replace(/\D/g, '').slice(0, 8) && (
+                <p role="alert" className="rounded bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">
+                    Estes totalizadores são de outra empresa (inscrição {grupo.empregador}), não da empresa ativa ({ativa.nome}, CNPJ {ativa.cnpj}). Confira os arquivos ou troque a empresa ativa.
+                </p>
+            )}
             {resultado && grupo && (
                 <>
                     <div className={`${cartao} grid gap-3 md:grid-cols-3`}>

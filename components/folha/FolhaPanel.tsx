@@ -4,6 +4,7 @@ import type { ModoExportacao } from './ExportacaoIobModal';
 import type { User } from '../../types';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
+import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
 import { baixarTemplateApontamento } from '../../services/folha/templateApontamentoIobSage';
 
 const EventosIobSagePanel = lazy(() => import('./EventosIobSagePanel'));
@@ -34,6 +35,7 @@ const FolhaPanel: React.FC<FolhaPanelProps> = ({ currentUser, onIrParaEmpresas, 
     const [sub, setSub] = useState<SubTab>(subInicial ?? 'apontamento');
     const [implantacaoAberta, setImplantacaoAberta] = useState(subInicial === 'implantacao');
     const [sessao, setSessao] = useState<SessaoFolha | null>(null);
+    const { ativa, trocar } = useEmpresaAtiva();
 
     const selecionarModo = (modo: ModoExportacao) => { if (modo === 'cadastro') { setImplantacaoAberta(true); setSub('implantacao'); } else setSub('apontamento'); };
 
@@ -117,7 +119,7 @@ const FolhaPanel: React.FC<FolhaPanelProps> = ({ currentUser, onIrParaEmpresas, 
                     <div hidden={sub !== 'apontamento'}><ApontamentoFolhaPanel
                         currentUser={currentUser}
                         sessao={sessao}
-                        onTrocarEmpresa={() => setSessao(null)}
+                        onTrocarEmpresa={() => (ativa ? trocar() : setSessao(null))}
                         onImplantacao={() => selecionarModo('cadastro')}
                     /></div>
                 )}
@@ -158,7 +160,10 @@ const SeletorEmpresa: React.FC<SeletorProps> = ({ currentUser, onSelecionar, onN
     const [modal, setModal] = useState<null | 'select' | 'recent'>(null);
     const [filtro, setFiltro] = useState('');
     const [empresaEscolhida, setEmpresaEscolhida] = useState<Empresa | null>(null);
-    const [competencia, setCompetencia] = useState(competenciaAtual());
+    // Com empresa ativa na sessão, só ela aparece e a competência já vem dela.
+    const { ativa } = useEmpresaAtiva();
+    const compInicial = ativa ? `${ativa.competencia.slice(5)}/${ativa.competencia.slice(0, 4)}` : competenciaAtual();
+    const [competencia, setCompetencia] = useState(compInicial);
     const [tipo, setTipo] = useState(TIPOS_FOLHA[0]);
 
     useEffect(() => {
@@ -166,7 +171,7 @@ const SeletorEmpresa: React.FC<SeletorProps> = ({ currentUser, onSelecionar, onN
             try {
                 // v2.2.0 — Firestore rules controlam visibilidade; listar sempre tudo.
                 const list = await listarEmpresasVisiveis();
-                setEmpresas(list);
+                setEmpresas(ativa ? list.filter(e => e.id === ativa.id) : list);
             } catch (e) {
                 setErro(e instanceof Error ? e.message : String(e));
             } finally {
@@ -211,7 +216,7 @@ const SeletorEmpresa: React.FC<SeletorProps> = ({ currentUser, onSelecionar, onN
     const abrirRapido = (emp: Empresa) => {
         onSelecionar({
             empresa: emp,
-            competencia: competenciaAtual(),
+            competencia: compInicial,
             tipo: TIPOS_FOLHA[0],
             iniciadaEm: new Date(),
         });

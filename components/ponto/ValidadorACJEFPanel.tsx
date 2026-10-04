@@ -6,6 +6,7 @@
 // alinhado com o arquivo real do cliente.
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
 import { ehAdmin } from '../../services/auth/papeis';
 import type { User } from '../../types';
 import type { Empresa } from '../../services/empresas/empresasTypes';
@@ -31,6 +32,9 @@ interface Props {
 }
 
 const ValidadorACJEFPanel: React.FC<Props> = ({ currentUser }) => {
+    // Com empresa ativa na sessão, só ela entra na lista.
+    const { ativa: empresaAtiva } = useEmpresaAtiva();
+    const daSessao = <T extends { id: string }>(l: T[]) => (empresaAtiva ? l.filter(e => e.id === empresaAtiva.id) : l);
   const [carregandoCtx, setCarregandoCtx] = useState(true);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [empresaCnpj, setEmpresaCnpj] = useState<string>('');
@@ -51,7 +55,7 @@ const ValidadorACJEFPanel: React.FC<Props> = ({ currentUser }) => {
         const fnEmpresas = listarEmpresasVisiveis();
         const [emps, mod] = await Promise.all([fnEmpresas, buscarModelo(MODELO_ID_PADRAO)]);
         if (!ativo) return;
-        setEmpresas(emps || []);
+        setEmpresas(daSessao(emps || []));
         if (!mod) {
           setErroSetup(
             `Modelo "${MODELO_ID_PADRAO}" nao encontrado no Firestore. Cadastre o modelo (rodar seed-ponto.mjs) antes de usar este validador.`

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { listarFgts, criarFgts, atualizarFgts } from '../../services/esocial/esocialService';
 import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
+import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
 import type { FgtsDigitalRegistro, FgtsStatus } from '../../services/esocial/esocialTypes';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { consultarFgtsRecolhimento, consultarCrfFgts } from '../../services/serpro/serproIntegrationService';
@@ -16,12 +17,15 @@ const ESocialFgts: React.FC = () => {
     const [empresas, setEmpresas] = useState<Empresa[]>([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
-    const [filtroEmpresa, setFiltroEmpresa] = useState('');
+    // Empresa e período ativos são o ponto de partida dos filtros.
+    const { ativa } = useEmpresaAtiva();
+    const [filtroEmpresa, setFiltroEmpresa] = useState(ativa?.id ?? '');
     const [showSubmissao, setShowSubmissao] = useState(false);
 
     // SERPRO query state
-    const [serproEmpresaId, setSerproEmpresaId] = useState('');
+    const [serproEmpresaId, setSerproEmpresaId] = useState(ativa?.id ?? '');
     const [serproCompetencia, setSerproCompetencia] = useState(() => {
+        if (ativa) return ativa.competencia;
         const d = new Date();
         d.setMonth(d.getMonth() - 1);
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -31,8 +35,8 @@ const ESocialFgts: React.FC = () => {
     const [serproError, setSerproError] = useState<string | null>(null);
 
     // Form
-    const [fEmpresaId, setFEmpresaId] = useState('');
-    const [fCompetencia, setFCompetencia] = useState('');
+    const [fEmpresaId, setFEmpresaId] = useState(ativa?.id ?? '');
+    const [fCompetencia, setFCompetencia] = useState(ativa?.competencia ?? '');
     const [fNome, setFNome] = useState('');
     const [fCpf, setFCpf] = useState('');
     const [fDevido, setFDevido] = useState('');

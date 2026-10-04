@@ -7,6 +7,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
+import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
 import { listarFuncionarios } from '../../services/cadastros/cadastrosService';
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
 import {
@@ -24,11 +25,12 @@ const fmtCpf = (c: string) => (c.length === 11 ? `${c.slice(0, 3)}.${c.slice(3, 
 
 const ESocialDownload: React.FC = () => {
     const [empresas, setEmpresas] = useState<Empresa[]>([]);
-    const [empresaId, setEmpresaId] = useState('');
+    const { ativa } = useEmpresaAtiva();
+    const [empresaId, setEmpresaId] = useState(ativa?.id ?? '');
     const [fichas, setFichas] = useState<FichaFuncionario[]>([]);
     const [tipo, setTipo] = useState<TipoConsulta>('trabalhador');
     const [tpEvt, setTpEvt] = useState('S-1299');
-    const [perApur, setPerApur] = useState(new Date(Date.now() - 31 * 86400000).toISOString().slice(0, 7));
+    const [perApur, setPerApur] = useState(ativa?.competencia ?? new Date(Date.now() - 31 * 86400000).toISOString().slice(0, 7));
     const [cpf, setCpf] = useState('');
     const [dtIni, setDtIni] = useState(menos(MAX_DIAS_PERIODO - 1));
     const [dtFim, setDtFim] = useState(hoje());

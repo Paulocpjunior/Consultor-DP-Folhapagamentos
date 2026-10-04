@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
 import { ehAdmin } from '../../services/auth/papeis';
 import {
     collection,
@@ -129,6 +130,9 @@ const PontoPanel: React.FC<Props> = ({ currentUser }) => {
 // ===== Tab 1: Importar Arquivo =====
 
 const TabImportar: React.FC<{ currentUser: User }> = ({ currentUser }) => {
+    // Com empresa ativa na sessão, só ela entra na lista.
+    const { ativa: empresaAtiva } = useEmpresaAtiva();
+    const daSessao = <T extends { id: string }>(l: T[]) => (empresaAtiva ? l.filter(e => e.id === empresaAtiva.id) : l);
     const [empresas, setEmpresas] = useState<Empresa[]>([]);
     const [empresaId, setEmpresaId] = useState('');
     const [modelo, setModelo] = useState<ModeloPonto | null>(null);
@@ -154,7 +158,7 @@ const TabImportar: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                     listarEmpresasVisiveis(),
                     buscarModelo(MODELO_ID),
                 ]);
-                setEmpresas(emps || []);
+                setEmpresas(daSessao(emps || []));
                 setModelo(mod);
             } catch (e: any) {
                 setErro(e?.message || 'Erro ao carregar contexto');
@@ -429,6 +433,9 @@ const TabImportar: React.FC<{ currentUser: User }> = ({ currentUser }) => {
 // ===== Tab 2: Layouts =====
 
 const TabLayouts: React.FC<{ currentUser: User }> = ({ currentUser }) => {
+    // Com empresa ativa na sessão, só ela entra na lista.
+    const { ativa: empresaAtiva } = useEmpresaAtiva();
+    const daSessao = <T extends { id: string }>(l: T[]) => (empresaAtiva ? l.filter(e => e.id === empresaAtiva.id) : l);
     const [empresas, setEmpresas] = useState<Empresa[]>([]);
     const [layouts, setLayouts] = useState<LayoutResumo[]>([]);
     const [loading, setLoading] = useState(true);
@@ -439,11 +446,11 @@ const TabLayouts: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             try {
                 const isAdmin = ehAdmin((currentUser as any)?.role);
                 const emps = await listarEmpresasVisiveis();
-                setEmpresas(emps || []);
+                setEmpresas(daSessao(emps || []));
 
                 // Load layouts for all companies
                 const allLayouts: LayoutResumo[] = [];
-                for (const emp of (emps || [])) {
+                for (const emp of daSessao(emps || [])) {
                     const cnpj = (emp as any).cnpj;
                     if (!cnpj) continue;
                     try {
@@ -538,6 +545,9 @@ const TabLayouts: React.FC<{ currentUser: User }> = ({ currentUser }) => {
 // ===== Tab 3: Registros =====
 
 const TabRegistros: React.FC<{ currentUser: User }> = ({ currentUser }) => {
+    // Com empresa ativa na sessão, só ela entra na lista.
+    const { ativa: empresaAtiva } = useEmpresaAtiva();
+    const daSessao = <T extends { id: string }>(l: T[]) => (empresaAtiva ? l.filter(e => e.id === empresaAtiva.id) : l);
     const [empresas, setEmpresas] = useState<Empresa[]>([]);
     const [registros, setRegistros] = useState<RegistroPonto[]>([]);
     const [loading, setLoading] = useState(true);
@@ -546,8 +556,8 @@ const TabRegistros: React.FC<{ currentUser: User }> = ({ currentUser }) => {
 
     const loadEmpresas = useCallback(async () => {
         const isAdmin = ehAdmin((currentUser as any)?.role);
-        return listarEmpresasVisiveis();
-    }, [currentUser]);
+        return daSessao(await listarEmpresasVisiveis());
+    }, [currentUser, empresaAtiva]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const loadRegistros = useCallback(async () => {
         if (!db) return;
@@ -569,7 +579,7 @@ const TabRegistros: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     }, [filtroEmpresa, filtroPeriodo]);
 
     useEffect(() => {
-        loadEmpresas().then(emps => setEmpresas(emps || [])).catch(() => {});
+        loadEmpresas().then(emps => setEmpresas(daSessao(emps || []))).catch(() => {});
     }, [loadEmpresas]);
 
     useEffect(() => {

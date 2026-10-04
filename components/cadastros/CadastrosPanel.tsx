@@ -9,6 +9,8 @@ import { ehAdmin } from '../../services/auth/papeis';
 import type { User } from '../../types';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
+import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
+import EmpresaAtivaFixa from '../empresaAtiva/EmpresaAtivaFixa';
 import { listarAfastamentos, listarHorarios, listarSindicatos, listarTabelas, mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
 import type { Horario } from '../../services/cadastros/horarios';
 import type { Afastamento } from '../../services/cadastros/afastamentos';
@@ -39,7 +41,8 @@ const SUBS: { id: SubCadastro; titulo: string; caminho: string }[] = [
 const CadastrosPanel: React.FC<Props> = ({ currentUser, subInicial, onAbrirEventos }) => {
     const [sub, setSub] = useState<SubCadastro>(subInicial ?? 'funcionarios');
     const [empresas, setEmpresas] = useState<Empresa[] | null>(null);
-    const [empresaId, setEmpresaId] = useState('');
+    const { ativa } = useEmpresaAtiva();
+    const [empresaId, setEmpresaId] = useState(ativa?.id ?? '');
     const [erroEmpresas, setErroEmpresas] = useState('');
     const [sindicatos, setSindicatos] = useState<Sindicato[] | null>(null);
     const [erroSind, setErroSind] = useState('');
@@ -92,12 +95,12 @@ const CadastrosPanel: React.FC<Props> = ({ currentUser, subInicial, onAbrirEvent
 
             {porEmpresa && (
                 <div className="space-y-3">
-                    <label className="block max-w-md text-sm font-medium text-slate-700 dark:text-slate-200">Empresa
+                    {ativa ? <EmpresaAtivaFixa /> : <label className="block max-w-md text-sm font-medium text-slate-700 dark:text-slate-200">Empresa
                         <select className="mt-1 block w-full rounded border border-slate-300 px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-white" value={empresaId} onChange={e => setEmpresaId(e.target.value)} aria-label="Empresa">
                             <option value="">{empresas ? 'Selecione a empresa' : 'Carregando…'}</option>
                             {empresas?.map(e => <option key={e.id} value={e.id}>{e.codigoSage} · {e.nomeFantasia || e.razaoSocial}</option>)}
                         </select>
-                    </label>
+                    </label>}
                     {erroEmpresas && <p role="alert" className="text-sm text-red-700">{erroEmpresas}</p>}
                     {!empresa && <p className="text-sm text-slate-500">Selecione a empresa.</p>}
                     {empresa && sub === 'funcionarios' && <FuncionariosCadastro key={empresa.id} empresa={empresa} usuario={usuario} isAdmin={isAdmin} sindicatos={sindicatos ?? []} horarios={horarios ?? []} afastamentos={afastamentos ?? []} />}
