@@ -27,7 +27,7 @@ import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros
 import { diasEntre, somarDias, somarMeses } from '../prazos/calendario';
 import { calcularMensal, diasDsr, salarioContratual, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
 import { avosDoAno } from './motor13';
-import { diasDeDireito, mesesDoPeriodo, periodosAquisitivos } from './motorFerias';
+import { diasDeDireito, feriasDaCompetencia, mesesDoPeriodo, periodosAquisitivos } from './motorFerias';
 import { inssDetalhado, irrfDetalhado, type OpcoesIrrf } from './tributos';
 
 /** Motivos do desligamento (Tabela 19 do eSocial) cobertos nesta versão. */
@@ -101,7 +101,10 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
     };
     const erro = (m: string) => { r.erros.push(m); r.situacao = 'erro'; return r; };
     const verba = (v: Verba) => { if (v.valor > 0) r.verbas.push(v); };
-    if (!tipo) return erro('Escolha o tipo do desligamento: o motivo do S-2299 ainda não é importado para a ficha.');
+    const motivoFicha = d.motivoDesligamento || '';
+    if (!tipo) return erro(motivoFicha && !(motivoFicha in TIPOS_RESCISAO)
+        ? `Motivo ${motivoFicha} do S-2299 ainda não é coberto pelo motor. Escolha um dos tipos cobertos para simular.`
+        : 'Escolha o tipo do desligamento (a ficha não tem o motivo do S-2299).');
     if (!TIPOS_RESCISAO[tipo]) return erro('Tipo de desligamento não coberto nesta versão.');
     if (!dataValida(data)) return erro('Informe a data do desligamento.');
     if (!d.admissao || !dataValida(d.admissao)) return erro('Ficha sem data de admissão válida.');
@@ -110,6 +113,7 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
     if (categoria && !/^1\d\d$/.test(categoria)) return erro(`Categoria ${categoria}: esta versão só calcula empregados (categorias 1xx).`);
     const aliqFgts = categoria === '103' ? ALIQUOTA_FGTS_APRENDIZ : ALIQUOTA_FGTS;
     const justa = tipo === '01';
+    if (motivoFicha && motivoFicha !== tipo && d.dataDesligamento === data) r.avisos.push(`O S-2299 informou o motivo ${motivoFicha}; o cálculo usa ${tipo}.`);
     if (!e.pagamento && pagamento !== data.slice(0, 7)) r.avisos.push(`O prazo de pagamento cai em ${rotuloCompetencia(pagamento)}: o IRRF usa a tabela desse mês. Se a rescisão for paga antes, informe o mês do pagamento.`);
     r.memoria.push(`${TIPOS_RESCISAO[tipo]}; admissão ${br(d.admissao)}, desligamento ${br(data)}; pagamento até ${br(pagarAte)} (art. 477, § 6º).`);
 
@@ -135,7 +139,8 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
 
     // 1. Saldo de salário e movimento do mês, pelo motor mensal.
     const fichaDeslig: FichaFuncionario = { ...ficha, dados: { ...d, dataDesligamento: data } };
-    const mes = calcularMensal({ competencia: data.slice(0, 7), pagamento, ficha: fichaDeslig, afastamentos: e.afastamentos, tabelas: e.tabelas, movimento: e.movimentos[data.slice(0, 7)] });
+    const mes = calcularMensal({ competencia: data.slice(0, 7), pagamento, ficha: fichaDeslig, afastamentos: e.afastamentos, tabelas: e.tabelas, movimento: e.movimentos[data.slice(0, 7)],
+        feriasDoMes: feriasDaCompetencia(fichaDeslig, e.afastamentos, e.tabelas, e.movimentos, data.slice(0, 7)) });
     if (mes.situacao === 'erro') { r.erros.push(...mes.erros); r.situacao = 'erro'; }
     for (const v of mes.verbas) r.verbas.push(v.codigo === 'SAL' ? { ...v, descricao: 'Saldo de salário' } : v.codigo === 'INSS' ? { ...v, descricao: 'INSS sobre saldo de salário' } : v.codigo === 'IRRF' ? { ...v, descricao: 'IRRF sobre saldo de salário' } : v);
     r.memoria.push(...mes.memoria.map(m => `Mês: ${m}`));
@@ -164,6 +169,7 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
         }
         r.dataProjetada = somarDias(data, indenizados);
         if (indenizados) r.memoria.push(`Projeção do aviso: fim do contrato em ${br(r.dataProjetada)} para 13º e férias (é a data projetada do S-2299).`);
+        if (d.dataProjetadaAviso && d.dataDesligamento === data && d.dataProjetadaAviso !== r.dataProjetada) r.avisos.push(`O S-2299 informou o fim projetado em ${br(d.dataProjetadaAviso)}; o cálculo projetou ${br(r.dataProjetada)}. Confira os dias de aviso.`);
     } else if (tipo === '07' && e.aviso === 'nao-cumprido') {
         verba({ codigo: 'AVISODESC', descricao: 'Aviso prévio não cumprido (desconto)', referencia: '30 dias', tipo: 'desconto', valor: Math.round(diaria * 30), inss: false, fgts: false, irrf: false });
         r.memoria.push('Pedido de demissão sem cumprir o aviso: desconto de 30 dias (art. 487, § 2º).');

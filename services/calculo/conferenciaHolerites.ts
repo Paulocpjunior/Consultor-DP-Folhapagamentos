@@ -21,10 +21,11 @@ export interface HoleriteIob {
     avisos: string[];
 }
 
-export type Classe = 'SAL' | 'MAT' | 'HE50' | 'HE100' | 'DSRHE' | 'FALTA' | 'DSRF' | 'SF' | 'PENSAO' | 'INSS' | 'IRRF' | 'OUTRO';
+export type Classe = 'SAL' | 'MAT' | 'HE50' | 'HE100' | 'DSRHE' | 'FALTA' | 'DSRF' | 'SF' | 'PENSAO' | 'INSS' | 'IRRF' | 'FERMES' | 'FERPAGO' | 'OUTRO';
 export const ROTULO_CLASSE: Record<Classe, string> = {
     SAL: 'Salário', MAT: 'Salário-maternidade', HE50: 'Horas extras 50%', HE100: 'Horas extras 100%', DSRHE: 'DSR sobre horas extras',
-    FALTA: 'Faltas', DSRF: 'DSR descontado', SF: 'Salário-família', PENSAO: 'Pensão alimentícia', INSS: 'INSS', IRRF: 'IRRF', OUTRO: 'Outros',
+    FALTA: 'Faltas', DSRF: 'DSR descontado', SF: 'Salário-família', PENSAO: 'Pensão alimentícia', INSS: 'INSS', IRRF: 'IRRF',
+    FERMES: 'Férias + 1/3 do mês', FERPAGO: 'Férias pagas no recibo', OUTRO: 'Outros',
 };
 
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/\s+/g, ' ').trim();
@@ -38,6 +39,8 @@ export function classificarVerba(v: VerbaHolerite): Classe {
     if (/PENS(AO|\.) ?ALIM|^PENSAO/.test(d)) return 'PENSAO';
     if (desconto && /\bI\.?R\.?R\.?F\b|IMPOSTO DE RENDA|^IR\b|I\.R\.? ?FONTE/.test(d)) return 'IRRF';
     if (desconto && /\bINSS\b|PREVIDENCIA|I\.N\.S\.S/.test(d)) return 'INSS';
+    // Férias no holerite do mês (pagas antes no recibo): provento = férias e 1/3; desconto = o líquido/valor já pago.
+    if (/FERIAS/.test(d) && !/ABONO/.test(d)) return desconto ? 'FERPAGO' : 'FERMES';
     const extra = /EXTRA|\bH\.? ?E\b|\bHE\b/.test(d);
     // DSR pago só é o reflexo das horas extras quando diz isso, ou quando vem sem
     // qualificação ("D.S.R.", "REFLEXO DSR"); DSR sobre comissões, adicional
@@ -71,7 +74,7 @@ export interface ConferenciaFuncionario {
 }
 
 const TOLERANCIA = 1; // centavo
-const ITENS: Classe[] = ['SAL', 'MAT', 'HE50', 'HE100', 'DSRHE', 'FALTA', 'DSRF', 'SF', 'PENSAO', 'INSS', 'IRRF'];
+const ITENS: Classe[] = ['SAL', 'MAT', 'HE50', 'HE100', 'DSRHE', 'FALTA', 'DSRF', 'SF', 'PENSAO', 'FERMES', 'FERPAGO', 'INSS', 'IRRF'];
 
 export function somaPorClasse(h: HoleriteIob): Record<Classe, number> {
     const s = Object.fromEntries([...ITENS, 'OUTRO'].map(c => [c, 0])) as Record<Classe, number>;
@@ -102,7 +105,9 @@ export function conferirHolerite(r: ResultadoCalculo | undefined, h: HoleriteIob
         return { ...base, situacao: 'sem cálculo', linhas: [], avisos: [...avisos, ...(r?.erros ?? ['Sem cálculo do motor para esta ficha na competência.'])] };
     }
     const iob = somaPorClasse(h);
-    const motor = (c: Classe) => r.verbas.filter(v => v.codigo === c).reduce((s, v) => s + v.valor, 0);
+    // INSS e IRRF do motor incluem o que foi retido no recibo de férias (o IOB pode imprimir em linhas separadas).
+    const codigos: Partial<Record<Classe, string[]>> = { INSS: ['INSS', 'INSSFERRET'], IRRF: ['IRRF', 'IRRFFERRET'] };
+    const motor = (c: Classe) => r.verbas.filter(v => (codigos[c] ?? [c]).includes(v.codigo)).reduce((s, v) => s + v.valor, 0);
     const linha = (item: string, m: number, i: number): LinhaConferencia => ({ item, motor: m, iob: i, diferenca: m - i, ok: Math.abs(m - i) <= TOLERANCIA });
     const doIob = ITENS.filter(c => iob[c]);
     const totaisLidos = [h.totalProventos, h.totalDescontos, h.liquido, h.baseInss, h.baseFgts, h.fgtsMes].some(v => v !== null);

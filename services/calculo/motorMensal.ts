@@ -46,6 +46,12 @@ export interface EntradaCalculo {
     afastamentos: Afastamento[];
     tabelas: TabelaLegal[];
     movimento?: Movimento;
+    /**
+     * Férias desta competência já pagas no recibo (soma dos gozos): entram na
+     * base do INSS e do FGTS do mês, e o INSS já retido no recibo é abatido.
+     * Sem isto, o mês com férias fica "incompleto".
+     */
+    feriasDoMes?: { dias: number; ferias: number; terco: number; inss: number; irrf?: number };
 }
 
 export type Situacao = 'calculado' | 'incompleto' | 'erro';
@@ -188,7 +194,10 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
                 ? `Afastamento ${rotulo} desde ${brData(a.dtInicio)}, mesmo motivo de afastamento anterior (60 dias): benefício do INSS desde o início; ${n} dia(s) sem salário no mês.`
                 : `Afastamento ${rotulo} desde ${brData(a.dtInicio)}: empresa paga os 15 primeiros dias; INSS a partir de ${brData(beneficio!)}; ${n} dia(s) sem salário no mês.`);
         } else if (MATERNIDADE.includes(a.motivo)) r.memoria.push(`Afastamento ${rotulo}: ${n} dia(s) de salário-maternidade no mês.`);
-        else if (FERIAS.includes(a.motivo)) incompleto(`Férias de ${brData(aIni)} a ${brData(aFim)} (${n} dia(s)): o recibo de férias sai em Cálculo › Folha › Férias; esses dias saíram do salário e a integração do INSS do mês com as férias ainda não está no motor.`);
+        else if (FERIAS.includes(a.motivo)) {
+            if (e.feriasDoMes) r.memoria.push(`Férias de ${brData(aIni)} a ${brData(aFim)} (${n} dia(s)): pagas no recibo de férias; esses dias saem do salário.`);
+            else incompleto(`Férias de ${brData(aIni)} a ${brData(aFim)} (${n} dia(s)): o recibo de férias sai em Cálculo › Folha › Férias; sem ele, o INSS e o FGTS do mês não somam as férias.`);
+        }
         else {
             r.memoria.push(`Afastamento ${rotulo} de ${brData(aIni)} a ${brData(aFim)}: ${n} dia(s) sem salário.`);
             if (CONFERIR.includes(a.motivo)) r.avisos.push(`Afastamento ${rotulo}: a remuneração depende do caso; o motor não pagou esses dias. Confira.`);
@@ -200,7 +209,9 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     const L = Number(ult.slice(8));
     const base30 = mesInteiro ? 30 : Math.min(30, dias.size);
     const realPago = contar('pago'); const realMat = contar('maternidade');
-    const diasPagos = !mesInteiro ? Math.min(30, realPago) : L >= 30 ? Math.min(30, realPago) : Math.max(0, 30 - (L - realPago));
+    // Com férias no mês, salário + férias fecham 30 dias (o recibo paga os dias de férias): 30 − os dias fora.
+    const comFerias = contar('ferias') > 0;
+    const diasPagos = !mesInteiro ? Math.min(30, realPago) : L >= 30 && !comFerias ? Math.min(30, realPago) : Math.max(0, 30 - (L - realPago));
     const diasMat = Math.min(30 - diasPagos, realMat === dias.size ? base30 : realMat);
     if (!mesInteiro || realPago < dias.size) r.memoria.push(`Dias a pagar: ${diasPagos} (dias trabalhados no mês; mês inteiro vale 30).`);
     if (!mesInteiro) r.avisos.push('Mês parcial: salário proporcional aos dias do vínculo (máximo 30). Confira a regra com o IOB.');
@@ -239,6 +250,18 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     if (faltas > 0 || dsrDesc > 0) r.memoria.push(`Faltas e DSR: ${reais(Math.round(diaria))} por dia (salário ÷ 30).`);
     (mov.lancamentos ?? []).forEach((l, i) => verba({ ...l, codigo: `LAN${i + 1}`, referencia: '', valor: Math.round(l.valor) }));
 
+    // Férias do mês pagas no recibo: entram nas bases do INSS e do FGTS (não no IRRF, que foi em separado).
+    const fm = e.feriasDoMes;
+    if (fm && fm.ferias + fm.terco > 0) {
+        verba({ codigo: 'FERMES', descricao: 'Férias + 1/3 do mês (pagas no recibo)', referencia: `${fm.dias} dias`, tipo: 'provento', valor: fm.ferias + fm.terco, inss: true, fgts: true, irrf: false });
+        // O que o recibo já pagou e reteve (parte desta competência): líquido, INSS e IRRF, como no holerite do IOB.
+        const irrfFer = fm.irrf ?? 0;
+        verba({ codigo: 'FERPAGO', descricao: 'Líquido das férias pago no recibo', referencia: '', tipo: 'desconto', valor: Math.max(0, fm.ferias + fm.terco - fm.inss - irrfFer), inss: false, fgts: false, irrf: false });
+        verba({ codigo: 'INSSFERRET', descricao: 'INSS das férias (retido no recibo)', referencia: '', tipo: 'desconto', valor: fm.inss, inss: false, fgts: false, irrf: false });
+        verba({ codigo: 'IRRFFERRET', descricao: 'IRRF das férias (retido no recibo)', referencia: '', tipo: 'desconto', valor: irrfFer, inss: false, fgts: false, irrf: false });
+        r.memoria.push(`Férias do mês: ${reais(fm.ferias + fm.terco)} (${fm.dias} dias, pagos no recibo) somados às bases do INSS e do FGTS; o IRRF das férias foi em separado. Saem o líquido pago no recibo e o INSS e o IRRF já retidos nele.`);
+    }
+
     // 5. Bases.
     const soma = (f: (v: Verba) => boolean) => r.verbas.filter(f).reduce((s, v) => s + (v.tipo === 'provento' ? v.valor : -v.valor), 0);
     r.bases.inss = Math.max(0, soma(v => v.inss));
@@ -266,9 +289,11 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
             partes.push(`${reais(parte)} × ${pct(f.aliquota)}`);
             piso = f.ate;
         }
-        inss = Math.round(total);
-        verba({ codigo: 'INSS', descricao: 'INSS', referencia: base ? pct(Math.round(inss / base * 10000) / 100) : '', tipo: 'desconto', valor: inss, inss: false, fgts: false, irrf: false });
-        r.memoria.push(`INSS (tabela de ${rotuloCompetencia(t.vigencia)}, ${t.norma}): base ${reais(r.bases.inss)}${base < r.bases.inss ? `, limitada ao teto ${reais(base)}` : ''}; ${partes.join(' + ') || 'sem base'} = ${reais(inss)}.`);
+        const inssTotal = Math.round(total);
+        const retido = fm?.inss ?? 0;
+        inss = Math.max(0, inssTotal - retido);
+        verba({ codigo: 'INSS', descricao: 'INSS', referencia: base ? pct(Math.round(inssTotal / base * 10000) / 100) : '', tipo: 'desconto', valor: inss, inss: false, fgts: false, irrf: false });
+        r.memoria.push(`INSS (tabela de ${rotuloCompetencia(t.vigencia)}, ${t.norma}): base ${reais(r.bases.inss)}${base < r.bases.inss ? `, limitada ao teto ${reais(base)}` : ''}; ${partes.join(' + ') || 'sem base'} = ${reais(inssTotal)}${retido ? ` − ${reais(retido)} já retidos no recibo de férias = ${reais(inss)}` : ''}.`);
     }
 
     // 7. Salário-família (competência).
