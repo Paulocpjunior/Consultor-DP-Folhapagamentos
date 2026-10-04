@@ -207,4 +207,29 @@ describe('aba Cálculo', () => {
         fireEvent.click(screen.getByText('Exportar Excel'));
         expect(xlsx.writeFile).toHaveBeenLastCalledWith(expect.anything(), 'calculo-0229-ferias-2025-07.xlsx');
     });
+
+    it('rescisão: simula a de um ativo, com aviso, multa do FGTS e prazo', async () => {
+        render(<CalculoPanel currentUser={USER} />);
+        await waitFor(() => expect(screen.getByRole('option', { name: /0229/ })).toBeTruthy());
+        fireEvent.change(screen.getByLabelText('Empresa'), { target: { value: 'emp1' } });
+        fireEvent.change(screen.getByLabelText('Folha'), { target: { value: 'rescisao' } });
+        fireEvent.change(screen.getByLabelText('Competência'), { target: { value: '2026-03' } });
+        await waitFor(() => expect(screen.getByText(/Nenhum desligamento em 03\/2026/)).toBeTruthy());
+        fireEvent.change(screen.getByLabelText('Funcionário a simular'), { target: { value: 'f1' } });
+        fireEvent.change(screen.getByLabelText('Data do desligamento'), { target: { value: '2026-03-10' } });
+        fireEvent.click(screen.getByText('Simular'));
+        const det = await screen.findByRole('region', { name: 'Holerite de ANA' });
+        expect(within(det).getByText('Aviso prévio indenizado').closest('tr')!.textContent).toContain('2.640,00'); // 2.200 ÷ 30 × 36
+        expect(within(det).getByText(/pagar até/).textContent).toContain('20/03/2026');
+        expect(within(det).getByText(/paga por guia, fora do líquido/).textContent).toContain('informe o saldo');
+        fireEvent.change(within(det).getByLabelText('Saldo do FGTS para fins rescisórios (R$)'), { target: { value: '5.000,00' } });
+        await waitFor(() => expect(within(det).getByText(/paga por guia, fora do líquido/).textContent).toMatch(/R\$\s[\d.]+,\d{2}/));
+        fireEvent.change(within(det).getByLabelText('Tipo do desligamento'), { target: { value: '07' } });
+        await waitFor(() => expect(within(det).queryByText('Aviso prévio indenizado')).toBeNull());
+        expect(within(det).getByText(/paga por guia, fora do líquido/).textContent).toContain('não há');
+        fireEvent.click(screen.getByText('Exportar Excel'));
+        expect(xlsx.writeFile).toHaveBeenLastCalledWith(expect.anything(), 'calculo-0229-rescisao-2026-03.xlsx');
+        fireEvent.click(within(det).getByText('Remover simulação'));
+        await waitFor(() => expect(screen.getByText(/Nenhum desligamento em 03\/2026/)).toBeTruthy());
+    });
 });
