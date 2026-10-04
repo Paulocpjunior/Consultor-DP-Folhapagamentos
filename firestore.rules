@@ -192,6 +192,19 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Enquadramento previdenciário por empresa e vigência: empresa_AAAA-MM.
+    match /cadastro_enquadramentos/{enqId} {
+      allow read, list: if isApproved();
+      allow create, update: if isApproved()
+                    && request.resource.data.atualizadoPor == request.auth.uid
+                    && request.resource.data.empresaId is string
+                    && request.resource.data.vigencia is string
+                    && request.resource.data.vigencia.matches('^[0-9]{4}-(0[1-9]|1[0-2])$')
+                    && request.resource.data.regime in ['normal', 'simples-iv', 'simples']
+                    && enqId == request.resource.data.empresaId + '_' + request.resource.data.vigencia;
+      allow delete: if isAdmin();
+    }
+
     // ===== Cálculo (Fase 3) =====
     // Movimento do mês por funcionário: id = idDaFicha_AAAA-MM; a ficha começa pelo id da empresa.
     match /calculo_movimentos/{movId} {

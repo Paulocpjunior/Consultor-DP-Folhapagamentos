@@ -844,3 +844,34 @@ piloto em paralelo provar o cálculo próprio.
     (os lançamentos avulsos têm o mesmo código "LAN").
   - **P2:** no holerite em PDF, se bases, declaração e assinatura não
     couberem no fim da página, vão para a página seguinte.
+
+## Parte patronal: enquadramento da empresa e total da DCTFWeb (04/10/2026)
+
+- **Paulo: *"pode seguir com próxima etapa e me atualize sobre nosso status"*.**
+- **`services/cadastros/enquadramento.ts`** (puro):
+  - por empresa e vigência: regime, FPAS, código de terceiros, patronal
+    (%), RAT (1, 2 ou 3), FAP (0,5000 a 2,0000) e terceiros (%);
+  - **regimes:**
+    - normal: 20% + RAT × FAP + terceiros;
+    - Simples Nacional, Anexo IV: 20% + RAT × FAP, sem terceiros (LC 123,
+      art. 13, § 3º);
+    - Simples Nacional, demais anexos: patronal no DAS, nada na folha;
+  - **base patronal** = remuneração (base do INSS sem teto) − salário-
+    maternidade (STF, Tema 72);
+  - a vigente na competência é a de maior vigência até ela;
+  - CPRB (desoneração) ainda não é calculada.
+- **Coleção `cadastro_enquadramentos/{empresa_AAAA-MM}`**, com auditoria:
+  - regra com autor, vigência AAAA-MM, regime entre os três e id = empresa
+    + vigência; exclusão só pelo admin;
+  - testada no emulador (10 testes). **Precisa publicar as regras.**
+- **Cadastros › Enquadramento:** lista por vigência, com o total em % sobre a
+  folha; formulário que mostra só os campos do regime.
+- **Resumo da folha:**
+  - com enquadramento vigente, mostra contribuição patronal, RAT ajustado,
+    terceiros e o **total previdenciário da DCTFWeb** (segurados + patronal
+    + RAT + terceiros − salário-família − salário-maternidade), na tela, no
+    PDF e no Excel;
+  - competência da parte patronal: a do mês na folha mensal e na rescisão,
+    dezembro no 13º; nos recibos de férias não há (entra na folha do mês).
+- **Catálogo IOB:** "Empresas › Parâmetros" aponta para Cadastros ›
+  Enquadramento.

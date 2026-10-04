@@ -29,7 +29,7 @@ const SUB_FOLHA: Partial<Record<Destino, SubTabFolha>> = {
 };
 const SUB_CADASTRO: Partial<Record<Destino, SubCadastro>> = {
     'cadastros:funcionarios': 'funcionarios', 'cadastros:horarios': 'horarios', 'cadastros:afastamentos': 'afastamentos', 'cadastros:incidencias': 'incidencias',
-    'cadastros:sindicatos': 'sindicatos', 'cadastros:tabelas': 'tabelas',
+    'cadastros:sindicatos': 'sindicatos', 'cadastros:tabelas': 'tabelas', 'cadastros:enquadramento': 'enquadramento',
 };
 
 function extrairNomeAmigavel(user: any): string {

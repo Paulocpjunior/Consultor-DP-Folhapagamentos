@@ -18,6 +18,7 @@ import { tabelaVazia, type TabelaLegal } from './tabelasLegais';
 import { horarioVazio, type Horario } from './horarios';
 import { afastamentoVazio, type Afastamento, type MesclaAfastamento } from './afastamentos';
 import { rubricaVazia, type MesclaRubrica, type Rubrica } from './rubricas';
+import { enquadramentoVazio, idEnquadramento, type Enquadramento } from './enquadramento';
 
 export interface Usuario { id: string; email: string }
 
@@ -27,6 +28,7 @@ const TAB = 'cadastro_tabelas_legais';
 const HOR = 'cadastro_horarios';
 const AFA = 'cadastro_afastamentos';
 const RUB = 'cadastro_rubricas';
+const ENQ = 'cadastro_enquadramentos';
 const AUDIT = 'cadastro_audit';
 
 export const COMANDO_REGRAS = 'firebase deploy --only firestore:rules --project consultor-dp-folha';
@@ -103,8 +105,8 @@ export async function excluirFuncionario(f: FichaFuncionario, u: Usuario): Promi
 
 export interface RegistroAuditoria { id: string; acao: string; alteracoes: Alteracao[]; totalAlteracoes: number; autorEmail: string; origem?: string; quando?: Date }
 
-export async function historico(colecao: 'funcionarios' | 'sindicatos' | 'tabelas' | 'horarios' | 'afastamentos' | 'rubricas', docId: string): Promise<RegistroAuditoria[]> {
-    const nome = { funcionarios: FUNC, sindicatos: SIND, tabelas: TAB, horarios: HOR, afastamentos: AFA, rubricas: RUB }[colecao];
+export async function historico(colecao: 'funcionarios' | 'sindicatos' | 'tabelas' | 'horarios' | 'afastamentos' | 'rubricas' | 'enquadramentos', docId: string): Promise<RegistroAuditoria[]> {
+    const nome = { funcionarios: FUNC, sindicatos: SIND, tabelas: TAB, horarios: HOR, afastamentos: AFA, rubricas: RUB, enquadramentos: ENQ }[colecao];
     const snap = await getDocs(query(collection(db, AUDIT), where('docId', '==', docId)));
     return snap.docs.map(d => {
         const x = d.data();
@@ -274,4 +276,29 @@ export async function listarTodosFuncionariosAtivos(): Promise<FichaFuncionario[
 export async function listarTodosAfastamentos(): Promise<Afastamento[]> {
     const snap = await getDocs(collection(db, AFA));
     return snap.docs.map(d => ({ ...soCampos(d.data() as Afastamento, afastamentoVazio()), id: d.id }));
+}
+
+// ---------- Enquadramento previdenciário (parte patronal) ----------
+
+export async function listarEnquadramentos(empresaId: string): Promise<Enquadramento[]> {
+    const snap = await getDocs(query(collection(db, ENQ), where('empresaId', '==', empresaId)));
+    return snap.docs.map(d => ({ ...enquadramentoVazio(empresaId), ...(d.data() as Enquadramento), id: d.id }))
+        .sort((a, b) => b.vigencia.localeCompare(a.vigencia));
+}
+
+/** id = empresa_vigência; mudar a vigência é criar outro registro (o antigo fica no histórico). */
+export async function salvarEnquadramento(antes: Enquadramento | null, e: Enquadramento, u: Usuario): Promise<void> {
+    const id = idEnquadramento(e.empresaId, e.vigencia);
+    if ((!antes || antes.id !== id) && (await getDoc(doc(db, ENQ, id))).exists()) throw new Error('Já existe enquadramento desta empresa com esta vigência.');
+    const lote = writeBatch(db);
+    lote.set(doc(db, ENQ, id), { ...limpo(semId(soCampos(e, enquadramentoVazio()))), atualizadoPor: u.id, atualizadoPorEmail: u.email, atualizadoEm: serverTimestamp() });
+    auditar(lote, u, ENQ, id, antes && antes.id === id ? 'editar' : 'criar', diffObjeto(antes && antes.id === id ? soCampos(antes, enquadramentoVazio()) : null, soCampos(e, enquadramentoVazio())), { empresaId: e.empresaId });
+    await lote.commit();
+}
+
+export async function excluirEnquadramento(e: Enquadramento, u: Usuario): Promise<void> {
+    const lote = writeBatch(db);
+    lote.delete(doc(db, ENQ, e.id));
+    auditar(lote, u, ENQ, e.id, 'excluir', diffObjeto(soCampos(e, enquadramentoVazio()), {}), { empresaId: e.empresaId });
+    await lote.commit();
 }

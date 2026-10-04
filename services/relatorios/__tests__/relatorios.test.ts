@@ -74,4 +74,17 @@ describe('relatórios da folha', () => {
         expect(textoPdf('INSS − retido “x” → ok…')).toBe('INSS - retido "x"  ok...');
         expect(textoPdf('Férias 1/3 · nº 5 — ok')).toBe('Férias 1/3 · nº 5 — ok');
     });
+
+    it('com enquadramento: patronal, RAT × FAP, terceiros e o total previdenciário', () => {
+        const enq = { id: 'emp1_2026-01', empresaId: 'emp1', vigencia: '2026-01', regime: 'normal' as const, fpas: '515', codigoTerceiros: '0115', patronal: 20, rat: 3, fap: 0.5, terceiros: 5.8, observacao: '' };
+        const r = resumirFolha(resultados, enq);
+        const base = r.bases.inss;
+        expect(r.encargos.patronal).toMatchObject({ base, patronal: Math.round(base * 0.2), rat: Math.round(base * 0.015), terceiros: Math.round(base * 0.058) });
+        const p = r.encargos.patronal!;
+        expect(r.encargos.totalPrevidenciario).toBe(r.encargos.inssSegurados + p.patronal + p.rat + p.terceiros - r.encargos.salarioFamilia);
+        const simples = resumirFolha(resultados, { ...enq, regime: 'simples' });
+        expect(simples.encargos.totalPrevidenciario).toBe(simples.encargos.inssSegurados - simples.encargos.salarioFamilia);
+        expect(resumirFolha(resultados).encargos.patronal).toBeUndefined();
+        expect(resumoPdf(r, o, '').output()).toContain('Contribui');
+    });
 });
