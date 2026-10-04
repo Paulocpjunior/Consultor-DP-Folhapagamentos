@@ -276,3 +276,35 @@ piloto em paralelo provar o cálculo próprio.
   gerenciado) só para a parte de cálculo, se um teste de carga na Fase 3
   mostrar que o Firestore não dá conta. O PostgreSQL 12 está sem suporte da
   comunidade desde nov/2024, então não faz sentido adotá-lo como base própria.
+
+## Painel de prazos do DP (Fase 1, item 3)
+
+- **04/10/2026, Paulo: *"pode seguir com a proxima etapa"*.**
+  - O download de eventos do eSocial depende do webservice com certificado,
+    ou seja, do servidor ou do túnel do CFI.
+  - O inventário e o de/para da Fase 2 dependem do backup real.
+  - Por isso a próxima entrega possível agora foi o painel de prazos.
+- **Nova aba Prazos** (`services/prazos/`, `components/prazos/PrazosPanel.tsx`).
+- **Vencimentos mensais com ajuste de dia útil** (regras conferidas em
+  04/10/2026):
+  - S-1299 e DCTFWeb no dia 15, e dia não útil ADIA para o dia útil
+    seguinte (IN RFB 2.162/2023; Manual do eSocial S-1.3);
+  - DARF da DCTFWeb e FGTS Digital no dia 20, e dia não útil ANTECIPA;
+  - salário no 5º dia útil, com o sábado contando como dia útil;
+  - 13º: 30/11 e 20/12; S-1299 anual e DARF do 13º em 20/12.
+- **Feriados considerados:** nacionais (incluindo o 20/11 desde 2024),
+  Carnaval e Sexta-feira Santa. Estaduais e municipais não entram, e a tela
+  avisa.
+- **Prazos que saem dos cadastros, de todas as empresas:**
+  - fim de contrato por prazo determinado (experiência quando tem até 90
+    dias);
+  - férias, com o último dia para começar o gozo (fim do concessivo − 29) e
+    "vencidas = dobra". O gozo vem dos afastamentos com motivo 15, com ou sem
+    período aquisitivo; não considera os arts. 130 e 133;
+  - retorno de afastamento e 16º dia para o INSS em doença/acidente;
+  - convenção coletiva a vencer e data-base.
+  - Exporta Excel. ASO fica fora (SST é da medicina do trabalho).
+- **Correção:** o calendário que já existia na aba eSocial mostrava o dia 15
+  ou 20 no mês da competência e não ajustava dia útil. Agora usa as mesmas
+  regras, e "atrasada" virou "prazo passou (conferir entrega)", porque a
+  entrega não é verificada ali.

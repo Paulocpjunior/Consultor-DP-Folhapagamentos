@@ -5,7 +5,7 @@ import type { ObrigacaoTrabalhista } from '../../services/esocial/esocialTypes';
 const STATUS_STYLE: Record<string, { label: string; cls: string }> = {
     pendente: { label: 'Pendente', cls: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300' },
     cumprida: { label: 'Cumprida', cls: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' },
-    atrasada: { label: 'Atrasada', cls: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' },
+    atrasada: { label: 'Prazo passou (conferir entrega)', cls: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' },
 };
 
 const TIPO_ICON: Record<string, string> = {
@@ -78,8 +78,9 @@ const ESocialCalendario: React.FC = () => {
                             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{o.descricao}</p>
                             <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-600 dark:text-slate-400">
                                 <span>
-                                    <strong>Vencimento:</strong> dia {o.diaVencimento}/{String(mes).padStart(2, '0')}
+                                    <strong>Vencimento:</strong> {o.dataVencimento.split('-').reverse().join('/')}
                                 </span>
+                                {o.observacao && <span className="text-amber-700 dark:text-amber-300">{o.observacao}</span>}
                                 <span className="font-mono px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 rounded">
                                     {o.sigla}
                                 </span>

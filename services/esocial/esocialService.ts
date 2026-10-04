@@ -1,3 +1,4 @@
+import { vencimentosDaCompetencia } from '../prazos/obrigacoes';
 import {
     collection,
     doc,
@@ -237,26 +238,27 @@ export async function calcularResumoEmpresa(empresaId: string, razaoSocial: stri
 // ──── Calendário de Obrigações ───────────────────────────────────────────────
 
 export function gerarCalendarioObrigacoes(competencia: string): ObrigacaoTrabalhista[] {
-    const [ano, mes] = competencia.split('-').map(Number);
-    const hoje = new Date();
-
-    const obrigacoes: Omit<ObrigacaoTrabalhista, 'id' | 'competencia' | 'status'>[] = [
-        { nome: 'eSocial - Eventos Periódicos (S-1299)', sigla: 'S-1299', tipo: 'esocial', diaVencimento: 15, descricao: 'Fechamento dos eventos periódicos do eSocial' },
-        { nome: 'FGTS Digital - Recolhimento', sigla: 'FGTS', tipo: 'fgts', diaVencimento: 20, descricao: 'Recolhimento mensal do FGTS via FGTS Digital' },
-        { nome: 'DCTFWeb Previdenciária', sigla: 'DCTFWeb', tipo: 'dctfweb', diaVencimento: 15, descricao: 'Declaração de Débitos e Créditos Tributários Federais Previdenciários' },
-        { nome: 'INSS - GPS/DARF Previdenciário', sigla: 'INSS', tipo: 'inss', diaVencimento: 20, descricao: 'Recolhimento da contribuição previdenciária patronal e dos segurados' },
+    // Datas reais com ajuste de dia útil (services/prazos/obrigacoes.ts): S-1299 e DCTFWeb
+    // no dia 15 do mês seguinte, adiando se não for dia útil; FGTS e DARF no dia 20, antecipando.
+    // "atrasada" aqui só quer dizer que o prazo passou: a entrega não é conferida.
+    const hoje = new Date().toLocaleDateString('sv-SE');
+    const venc = new Map(vencimentosDaCompetencia(competencia).map(v => [v.id.split('-')[0], v]));
+    const obrigacoes: (Omit<ObrigacaoTrabalhista, 'id' | 'competencia' | 'status' | 'diaVencimento' | 'dataVencimento'> & { chave: string })[] = [
+        { chave: 's1299', nome: 'eSocial - Eventos Periódicos (S-1299)', sigla: 'S-1299', tipo: 'esocial', descricao: 'Fechamento dos eventos periódicos do eSocial' },
+        { chave: 'fgts', nome: 'FGTS Digital - Recolhimento', sigla: 'FGTS', tipo: 'fgts', descricao: 'Recolhimento mensal do FGTS via FGTS Digital' },
+        { chave: 'dctfweb', nome: 'DCTFWeb Previdenciária', sigla: 'DCTFWeb', tipo: 'dctfweb', descricao: 'Declaração de Débitos e Créditos Tributários Federais Previdenciários' },
+        { chave: 'darf', nome: 'INSS e IRRF - DARF da DCTFWeb', sigla: 'DARF', tipo: 'inss', descricao: 'Recolhimento da contribuição previdenciária e do IRRF pelo DARF da DCTFWeb' },
     ];
-
-    return obrigacoes.map((o, idx) => {
-        const dataVenc = new Date(ano, mes, o.diaVencimento);
-        let status: 'pendente' | 'cumprida' | 'atrasada' = 'pendente';
-        if (dataVenc < hoje) status = 'atrasada';
-
+    return obrigacoes.map(({ chave, ...o }, idx) => {
+        const v = venc.get(chave)!;
         return {
             ...o,
             id: `${competencia}-${idx}`,
             competencia,
-            status,
+            diaVencimento: Number(v.data.slice(8)),
+            dataVencimento: v.data,
+            observacao: v.observacao,
+            status: v.data < hoje ? 'atrasada' : 'pendente',
         };
     });
 }

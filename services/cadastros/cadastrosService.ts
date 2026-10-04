@@ -263,3 +263,15 @@ export async function excluirRubrica(r: Rubrica, u: Usuario): Promise<void> {
     auditar(lote, u, RUB, r.id, 'excluir', diffObjeto(soCampos(r, rubricaVazia()), {}), { empresaId: r.empresaId });
     await lote.commit();
 }
+
+// ---------- Todas as empresas (painel de prazos) ----------
+
+export async function listarTodosFuncionariosAtivos(): Promise<FichaFuncionario[]> {
+    const snap = await getDocs(query(collection(db, FUNC), where('situacao', '==', 'ativo')));
+    return snap.docs.map(d => ({ dependentes: [], origens: {}, pendenciasImportacao: [], dados: {}, ...(d.data() as Omit<FichaFuncionario, 'id'>), id: d.id }));
+}
+
+export async function listarTodosAfastamentos(): Promise<Afastamento[]> {
+    const snap = await getDocs(collection(db, AFA));
+    return snap.docs.map(d => ({ ...soCampos(d.data() as Afastamento, afastamentoVazio()), id: d.id }));
+}
