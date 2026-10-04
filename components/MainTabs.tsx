@@ -246,6 +246,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                             <span className="font-bold text-slate-800 dark:text-white mr-4 hidden sm:block">
                                 Consultor DP · SP Assessoria
                             </span>
+                            {isAdmin && <a href="https://consultor-fiscal-inteligente-631239634290.us-west1.run.app/?painel=comunicacao&departamento=dp-folha" target="_blank" rel="noopener noreferrer" className="px-3 py-2 rounded-lg text-sm font-medium text-blue-700 dark:text-blue-300" title="Administração central de comunicação — acesso de admin no CFI">Templates e agendamentos ↗</a>}
                             {tabs.filter(t => !t.adminOnly || isAdmin).map(t => {
                                 const bloqueado = t.id === 'folha' && empresasCount === 0;
                                 const titulo = bloqueado ? 'Cadastre uma empresa antes de acessar a Folha' : t.label;
