@@ -24,6 +24,8 @@ import { calcularFerias, feriasDaCompetencia, gozosNoMes, OPCOES_FERIAS_PADRAO, 
 import { calcularRescisao, ROTULO_AVISO, TIPOS_RESCISAO, type AvisoPrevio, type ResultadoRescisao, type TipoRescisao } from '../../services/calculo/motorRescisao';
 import { calcular13, com13, OPCOES_13_PADRAO, ultimoDiaDoMes, type Opcoes13 } from '../../services/calculo/motor13';
 import ConferenciaHolerites, { conferirTodos, type LeituraHolerites } from './ConferenciaHolerites';
+import { resumirFolha } from '../../services/relatorios/resumoFolha';
+import { holeritesPdf, resumoPdf } from '../../services/relatorios/holeritePdf';
 
 const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const btn = 'rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
@@ -185,6 +187,20 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const total = (f: (r: ResultadoCalculo) => number) => resultados.reduce((s, r) => s + f(r), 0);
     const sel = resultados.find(r => chave(r) === aberto);
     const nomeDe = (id: string) => dados?.fichas.find(f => f.id === id)?.dados.nome || id;
+    const [verResumo, setVerResumo] = useState(false);
+    const resumo = useMemo(() => resumirFolha(resultados), [resultados]);
+    const tituloFolha = mensal ? `Folha mensal ${br(competencia)}` : ferias ? `Recibos de férias ${br(competencia)}` : rescisao ? `Rescisões ${br(competencia)}` : `13º salário ${ano} — ${folha === '13-1a' ? '1ª' : '2ª'} parcela`;
+    const sufixoArquivo = mensal ? competencia : ferias ? `ferias-${competencia}` : rescisao ? `rescisao-${competencia}` : `${ano}-13-${folha === '13-1a' ? '1a' : '2a'}-parcela`;
+    const observacaoResumo = mensal
+        ? 'Folha mensal: o INSS dos segurados já soma o retido nos recibos de férias da competência. O IRRF vai à DCTFWeb do mês do pagamento (regime de caixa). Rescisões do mês têm 13º e aviso no TRCT, fora desta folha.'
+        : rescisao ? 'Rescisões: o INSS do saldo e do 13º e o FGTS rescisório entram na competência do desligamento, junto com a folha mensal.'
+        : ferias ? 'Recibos de férias: o INSS e o FGTS de cada competência entram na folha mensal correspondente; aqui é só o valor dos recibos.'
+        : 'Folha de 13º: a 2ª parcela tem INSS e IRRF próprios (apuração do 13º na DCTFWeb); a 1ª parcela só tem FGTS.';
+    const opcoesPdf = () => ({ empresa: { razaoSocial: empresa?.razaoSocial ?? '', cnpj: empresa?.cnpj ?? '', codigoSage: empresa?.codigoSage }, titulo: tituloFolha, previa: true });
+    function pdfHolerites(lista: ResultadoCalculo[], nome: string) {
+        if (!dados) return;
+        holeritesPdf(lista, dados.fichas, opcoesPdf()).save(nome);
+    }
 
     async function salvar() {
         if (!gravados) return;
@@ -202,7 +218,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     }
 
     function exportar() {
-        const resumo = resultados.map(r => ({
+        const planilha = resultados.map(r => ({
             Nome: r.nome, Situação: r.situacao, Proventos: r.totais.proventos / 100, INSS: inssDe(r) / 100, IRRF: irrfDe(r) / 100,
             'Salário-família': v(r, 'SF') / 100, Descontos: r.totais.descontos / 100, Líquido: r.totais.liquido / 100,
             'Base INSS': r.bases.inss / 100, 'Base FGTS': r.bases.fgts / 100, 'Rendimentos IRRF': r.bases.irrf / 100, FGTS: r.fgts / 100,
@@ -211,9 +227,21 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         const verbas = resultados.flatMap(r => r.verbas.map(x => ({ Nome: r.nome, Código: x.codigo, Descrição: x.descricao, Referência: x.referencia, Tipo: x.tipo, Valor: x.valor / 100 })));
         const memoria = resultados.flatMap(r => r.memoria.map(m => ({ Nome: r.nome, Passo: m })));
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumo), 'Resumo');
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(planilha), 'Resumo');
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(verbas), 'Verbas');
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(memoria), 'Memória');
+        const e = resumo.encargos;
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([
+            ...resumo.porVerba.map(l => ({ Item: `${l.codigo} ${l.descricao}`, Tipo: l.tipo, Funcionários: l.funcionarios, Valor: l.valor / 100 })),
+            { Item: 'Total de proventos', Tipo: '', Funcionários: '', Valor: resumo.totais.proventos / 100 },
+            { Item: 'Total de descontos', Tipo: '', Funcionários: '', Valor: resumo.totais.descontos / 100 },
+            { Item: 'Líquido', Tipo: '', Funcionários: '', Valor: resumo.totais.liquido / 100 },
+            { Item: 'INSS dos segurados', Tipo: 'guia', Funcionários: '', Valor: e.inssSegurados / 100 },
+            { Item: 'Salário-família (dedução na DCTFWeb)', Tipo: 'guia', Funcionários: '', Valor: e.salarioFamilia / 100 },
+            { Item: 'Salário-maternidade (compensação na DCTFWeb)', Tipo: 'guia', Funcionários: '', Valor: e.salarioMaternidade / 100 },
+            { Item: 'IRRF retido', Tipo: 'guia', Funcionários: '', Valor: e.irrf / 100 },
+            { Item: 'FGTS', Tipo: 'guia', Funcionários: '', Valor: e.fgts / 100 },
+        ]), 'Resumo da folha');
         if (leitura && dados) {
             const { linhas, semHolerite } = conferirTodos(leitura, dados.fichas, resultados, competencia);
             const conf: Record<string, string | number>[] = [
@@ -224,10 +252,11 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             ];
             XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(conf), 'Conferência IOB');
         }
-        XLSX.writeFile(wb, `calculo-${empresa?.codigoSage ?? 'empresa'}-${mensal ? competencia : ferias ? `ferias-${competencia}` : rescisao ? `rescisao-${competencia}` : `${ano}-13-${folha === '13-1a' ? '1a' : '2a'}-parcela`}.xlsx`);
+        XLSX.writeFile(wb, `calculo-${empresa?.codigoSage ?? 'empresa'}-${sufixoArquivo}.xlsx`);
     }
 
     return (
+        <PdfContexto.Provider value={r => pdfHolerites([r], `holerite-${empresa?.codigoSage ?? 'empresa'}-${sufixoArquivo}-${(nomeDe(r.fichaId) || r.fichaId).replace(/[^A-Za-z0-9]+/g, '-').toLowerCase()}.pdf`)}>
         <div className="space-y-4">
             <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-100">
                 <strong>Prévia do motor de cálculo (Fase 3).</strong> Não substitui o cálculo do IOB enquanto não for conferido contra ele. O movimento do mês é gravado quando você clica em "Salvar movimento"; o resultado do cálculo não é gravado. 13º, férias e rescisão usam as médias de horas extras dos movimentos gravados. Adicionais, comissões e outras médias ainda não estão no motor.
@@ -257,7 +286,9 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                     {salvando ? 'Salvando…' : `Salvar movimento${pendentes.length ? ` (${pendentes.length})` : ''}`}
                 </button>}
                 {mensal && <button className={btn} disabled={!resultados.length} aria-pressed={conferir} onClick={() => setConferir(c => !c)}>Conferir com holerites do IOB</button>}
-                <button className={`${mensal ? '' : 'ml-auto '}${btn}`} disabled={!resultados.length} onClick={exportar}>Exportar Excel</button>
+                <button className={`${mensal ? '' : 'ml-auto '}${btn}`} disabled={!resultados.length} aria-pressed={verResumo} onClick={() => setVerResumo(x => !x)}>Resumo da folha</button>
+                <button className={btn} disabled={!resultados.some(r => r.situacao !== 'erro')} onClick={() => pdfHolerites(resultados, `holerites-${empresa?.codigoSage ?? 'empresa'}-${sufixoArquivo}.pdf`)}>Holerites (PDF)</button>
+                <button className={btn} disabled={!resultados.length} onClick={exportar}>Exportar Excel</button>
             </div>
             {rescisao && dados && (
                 <div className="space-y-2 rounded border border-slate-200 p-2 text-xs text-slate-700 dark:border-slate-700 dark:text-slate-200">
@@ -333,6 +364,42 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                         </tfoot>
                     </table>
                 </div>
+            )}
+
+            {verResumo && resultados.length > 0 && (
+                <section aria-label="Resumo da folha" className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div>
+                            <h3 className="font-semibold text-slate-800 dark:text-white">Resumo da folha — {tituloFolha}</h3>
+                            <p className="text-xs text-slate-600 dark:text-slate-300">{resumo.funcionarios} funcionário(s): {resumo.situacoes.calculado} calculado(s), {resumo.situacoes.incompleto} incompleto(s), {resumo.situacoes.erro} com erro (fora dos totais).</p>
+                        </div>
+                        <button className={btn} onClick={() => resumoPdf(resumo, opcoesPdf(), observacaoResumo).save(`resumo-${empresa?.codigoSage ?? 'empresa'}-${sufixoArquivo}.pdf`)}>Resumo (PDF)</button>
+                    </div>
+                    <div className="grid gap-4 lg:grid-cols-2">
+                        <table className="w-full text-sm dark:text-slate-100">
+                            <thead className="text-left text-xs text-slate-500"><tr><th className="py-1">Verba</th><th className="py-1 text-right">Func.</th><th className="py-1 text-right">Proventos</th><th className="py-1 text-right">Descontos</th></tr></thead>
+                            <tbody>{resumo.porVerba.map(l => (
+                                <tr key={`${l.tipo}${l.codigo}`} className="border-t border-slate-100 dark:border-slate-700"><td className="py-1">{l.descricao}</td><td className="py-1 text-right">{l.funcionarios}</td><td className="py-1 text-right">{l.tipo === 'provento' ? reais(l.valor) : ''}</td><td className="py-1 text-right">{l.tipo === 'desconto' ? reais(l.valor) : ''}</td></tr>
+                            ))}</tbody>
+                            <tfoot className="border-t-2 border-slate-200 font-medium dark:border-slate-600">
+                                <tr><td className="py-1" colSpan={2}>Totais</td><td className="py-1 text-right">{reais(resumo.totais.proventos)}</td><td className="py-1 text-right">{reais(resumo.totais.descontos)}</td></tr>
+                                <tr><td className="py-1" colSpan={3}>Líquido</td><td className="py-1 text-right">{reais(resumo.totais.liquido)}</td></tr>
+                            </tfoot>
+                        </table>
+                        <div className="space-y-2 text-sm dark:text-slate-100">
+                            <h4 className="text-xs font-semibold uppercase text-slate-500">Para conferir as guias</h4>
+                            <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1">
+                                <dt>INSS dos segurados</dt><dd className="text-right">{reais(resumo.encargos.inssSegurados)}</dd>
+                                <dt>Salário-família (dedução na DCTFWeb)</dt><dd className="text-right">{reais(resumo.encargos.salarioFamilia)}</dd>
+                                <dt>Salário-maternidade (compensação na DCTFWeb)</dt><dd className="text-right">{reais(resumo.encargos.salarioMaternidade)}</dd>
+                                <dt>IRRF retido</dt><dd className="text-right">{reais(resumo.encargos.irrf)}</dd>
+                                <dt>FGTS</dt><dd className="text-right">{reais(resumo.encargos.fgts)}</dd>
+                                <dt className="text-slate-500">Bases INSS / FGTS / IRRF</dt><dd className="text-right text-slate-500">{reais(resumo.bases.inss)} / {reais(resumo.bases.fgts)} / {reais(resumo.bases.irrf)}</dd>
+                            </dl>
+                            <p className="text-xs text-slate-600 dark:text-slate-300">{observacaoResumo} A parte patronal (20%, RAT, terceiros) depende do enquadramento da empresa e ainda não está no Consultor; confira o total com a Conferência pós-folha (S-5011).</p>
+                        </div>
+                    </div>
+                </section>
             )}
 
             {conferir && dados && resultados.length > 0 && (
@@ -438,10 +505,14 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 </Holerite>
             )}
         </div>
+        </PdfContexto.Provider>
     );
 };
 
+const PdfContexto = React.createContext<((r: ResultadoCalculo) => void) | null>(null);
+
 const Holerite: React.FC<{ r: ResultadoCalculo; mov?: Movimento; gravado?: MovimentoGravado; pendente?: boolean; onMov?: (m: Movimento) => void; children?: React.ReactNode }> = ({ r, mov = {}, gravado, pendente = false, onMov = () => {}, children }) => {
+    const pdf = React.useContext(PdfContexto);
     const campo = (k: 'horasExtras50' | 'horasExtras100' | 'faltasDias' | 'dsrDescontadoDias' | 'feriadosLocais', rotulo: string) => (
         <label className="text-xs dark:text-slate-200">{rotulo}
             <input aria-label={rotulo} className={`mt-0.5 block w-24 ${inp}`} defaultValue={mov[k] != null ? String(mov[k]).replace('.', ',') : ''}
@@ -454,6 +525,7 @@ const Holerite: React.FC<{ r: ResultadoCalculo; mov?: Movimento; gravado?: Movim
         <section aria-label={`Holerite de ${r.nome}`} className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 lg:grid-cols-2 dark:border-slate-700 dark:bg-slate-800">
             <div>
                 <h3 className="font-semibold text-slate-800 dark:text-white">{r.nome} · {r.competencia.endsWith('-13') ? `13º salário ${r.competencia.slice(0, 4)}` : r.competencia.split('-').reverse().join('/')} <span className="text-xs font-normal text-slate-500">(IRRF pelo pagamento em {r.pagamento.split('-').reverse().join('/')})</span></h3>
+                {pdf && r.situacao !== 'erro' && <button className="mt-1 rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:text-white" onClick={() => pdf(r)}>PDF deste holerite</button>}
                 {r.erros.length > 0 && <ul role="alert" className="mt-2 list-disc rounded bg-red-50 p-2 pl-6 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{r.erros.map(e => <li key={e}>{e}</li>)}</ul>}
                 <table className="mt-2 w-full text-sm dark:text-slate-100">
                     <thead className="text-left text-xs text-slate-500"><tr><th className="py-1">Verba</th><th className="py-1">Ref.</th><th className="py-1 text-right">Proventos</th><th className="py-1 text-right">Descontos</th></tr></thead>

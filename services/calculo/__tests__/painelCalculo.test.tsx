@@ -30,6 +30,8 @@ const movs = vi.hoisted(() => ({ listarMovimentos: vi.fn(), salvarMovimentos: vi
 vi.mock('../movimentosService', () => movs);
 const hol = vi.hoisted(() => ({ lerHolerites: vi.fn(), registrarLeitura: vi.fn(), MAX_PDF_MB: 14 }));
 vi.mock('../holeritesService', () => hol);
+const pdf = vi.hoisted(() => ({ save: vi.fn(), holeritesPdf: vi.fn(), resumoPdf: vi.fn() }));
+vi.mock('../../relatorios/holeritePdf', () => ({ holeritesPdf: pdf.holeritesPdf, resumoPdf: pdf.resumoPdf }));
 const USER = { uid: 'u1', email: 'dp@escritorio.com.br', role: 'colaborador' } as never;
 
 beforeEach(() => {
@@ -38,6 +40,7 @@ beforeEach(() => {
     movs.listarMovimentosDoAno.mockReset().mockResolvedValue({});
     movs.listarMovimentosDaEmpresa.mockReset().mockResolvedValue({});
     cad.afastamentos = [];
+    pdf.save.mockReset(); pdf.holeritesPdf.mockReset().mockReturnValue({ save: pdf.save }); pdf.resumoPdf.mockReset().mockReturnValue({ save: pdf.save });
 });
 afterEach(cleanup);
 
@@ -153,7 +156,7 @@ describe('aba Cálculo', () => {
 
         fireEvent.click(screen.getByText('Exportar Excel'));
         const wb = xlsx.writeFile.mock.calls.at(-1)![0];
-        expect(wb.SheetNames).toEqual(['Resumo', 'Verbas', 'Memória', 'Conferência IOB']);
+        expect(wb.SheetNames).toEqual(['Resumo', 'Verbas', 'Memória', 'Resumo da folha', 'Conferência IOB']);
     });
 
     it('13º: 1ª e 2ª parcelas com a média dos movimentos do ano', async () => {
@@ -258,5 +261,27 @@ describe('aba Cálculo', () => {
         fireEvent.change(screen.getByLabelText('Empresa'), { target: { value: 'emp1' } });
         await waitFor(() => expect(screen.getByText(/Movimentos gravados não carregados/)).toBeTruthy());
         expect(screen.getByText('ANA').closest('tr')!.textContent).toContain('incompleto');
+    });
+
+    it('relatórios: resumo da folha na tela, holerites e resumo em PDF', async () => {
+        render(<CalculoPanel currentUser={USER} />);
+        await waitFor(() => expect(screen.getByRole('option', { name: /0229/ })).toBeTruthy());
+        fireEvent.change(screen.getByLabelText('Competência'), { target: { value: '2026-03' } });
+        fireEvent.change(screen.getByLabelText('Empresa'), { target: { value: 'emp1' } });
+        await waitFor(() => expect(screen.getByText('ANA')).toBeTruthy());
+        fireEvent.click(screen.getByText('Resumo da folha'));
+        const sec = screen.getByRole('region', { name: 'Resumo da folha' });
+        expect(within(sec).getByText(/2 funcionário\(s\): 1 calculado\(s\), 0 incompleto\(s\), 1 com erro/)).toBeTruthy();
+        expect(within(sec).getByText('INSS dos segurados').nextElementSibling!.textContent).toMatch(/175,23/); // 2.200: 113,85 + 682,00 × 9% = 61,38
+        fireEvent.click(within(sec).getByText('Resumo (PDF)'));
+        expect(pdf.resumoPdf).toHaveBeenCalledWith(expect.objectContaining({ funcionarios: 2 }), expect.objectContaining({ titulo: 'Folha mensal 03/2026', previa: true }), expect.stringContaining('Folha mensal'));
+        expect(pdf.save).toHaveBeenLastCalledWith('resumo-0229-2026-03.pdf');
+        fireEvent.click(screen.getByText('Holerites (PDF)'));
+        expect(pdf.holeritesPdf.mock.calls[0][0]).toHaveLength(2);
+        expect(pdf.save).toHaveBeenLastCalledWith('holerites-0229-2026-03.pdf');
+        fireEvent.click(screen.getByText('ANA'));
+        fireEvent.click(screen.getByText('PDF deste holerite'));
+        expect(pdf.holeritesPdf.mock.calls[1][0].map((r: { nome: string }) => r.nome)).toEqual(['ANA']);
+        expect(pdf.save).toHaveBeenLastCalledWith('holerite-0229-2026-03-ana.pdf');
     });
 });
