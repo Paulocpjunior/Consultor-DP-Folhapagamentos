@@ -562,3 +562,58 @@ piloto em paralelo provar o cálculo próprio.
   - **P2:** DSR pago só conta como reflexo das horas extras quando diz isso
     ou vem sem qualificação. "DSR s/ comissões" e "DSR s/ adicional noturno"
     ficam em "outros" e viram lançamento avulso.
+
+## Cálculo: 13º salário em prévia (04/10/2026)
+
+- **Paulo: *"pode seguir próxima etapa"*.** Veio o 13º, pela urgência: a 1ª
+  parcela vence em 30/11 e a 2ª em 20/12.
+- **Motor** (`services/calculo/motor13.ts`; base legal: Lei 4.090/1962 e Lei
+  4.749/1965):
+  - **Avos, mês a mês** (mês com 15 dias ou mais trabalhados conta):
+    - saem os dias pagos pelo INSS (doença ou acidente do 16º dia em diante;
+      com infoMesmoMtv, desde o início), as suspensões e licenças não
+      remuneradas e as faltas do movimento do mês;
+    - contam férias, licença remunerada e licença-maternidade;
+    - na 1ª parcela, os meses depois do pagamento são projetados como
+      trabalhados.
+  - **Média de horas extras:**
+    - horas dos movimentos gravados nos meses antes do pagamento (1ª:
+      janeiro a outubro; 2ª: janeiro a novembro);
+    - valor da hora atual × adicional, mais o DSR de cada mês;
+    - dividida pelos meses com vínculo no período.
+  - **1ª parcela:** metade; sem INSS e sem IRRF; FGTS no mês do pagamento.
+  - **2ª parcela:**
+    - 13º integral menos o adiantamento. O adiantamento é o valor da 1ª
+      calculada para novembro, ou o valor informado na tela (por exemplo,
+      quando foi pago nas férias);
+    - INSS do 13º em separado, pela tabela de dezembro;
+    - IRRF exclusivo na fonte sobre o 13º integral, com dependentes, pela
+      tabela do mês do pagamento;
+    - FGTS sobre o integral menos a 1ª parcela.
+  - **IRRF do 13º:** o redutor de 2026 (padrão: ligado) e o desconto
+    simplificado (padrão: desligado) são OPÇÕES da tela, com aviso. A regra
+    precisa ser confirmada na norma e na conferência com o IOB.
+  - **Fora desta versão:** o 13º na rescisão (desligados no ano dão erro
+    explicando), a provisão e médias de comissões e adicionais.
+- **Movimentos do ano:** `listarMovimentosDoAno` filtra o ano no app (consulta
+  só por `empresaId`, sem índice composto).
+- **Tela (aba Cálculo):**
+  - seletor "Folha": Mensal, 13º — 1ª parcela, 13º — 2ª parcela;
+  - campo do ano; o pagamento padrão é 11 ou 12;
+  - opções do IRRF do 13º;
+  - "1ª parcela paga" por funcionário (não é gravada);
+  - Excel `calculo-<código>-<ano>-13-<parcela>.xlsx`.
+  - No 13º, não aparecem "Salvar movimento" nem a conferência com os
+    holerites: as verbas de 13º ainda não estão na classificação.
+- **Revisão do PR #53 (Codex), corrigida antes do merge:**
+  - **P1:** o divisor da média de horas extras usa só os meses que dão avo
+    (15 dias ou mais), não qualquer mês com algum dia.
+  - **P1:** na 1ª parcela, quem foi admitido depois do mês do pagamento fica
+    fora (`com13` com `admitidosAte`; o motor dá erro explicando). Quem foi
+    admitido no ano recebe metade dos avos já cumpridos até o mês do
+    pagamento (Decreto 10.854/2021, arts. 76 a 78). Quem tem o ano inteiro
+    continua com os avos projetados (metade da remuneração).
+  - **Na 2ª parcela:** sem 1ª parcela em novembro (por exemplo, admitido em
+    dezembro), o adiantamento é zero.
+  - **P2:** a resposta antiga dos movimentos do ano (troca rápida de empresa
+    ou ano) é descartada e não sobrescreve a atual.

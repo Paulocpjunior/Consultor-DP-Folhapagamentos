@@ -100,6 +100,25 @@ export function diasDsr(competencia: string, feriadosLocais = 0): { uteis: numbe
     return { uteis: uteis - n, descanso: descanso + n };
 }
 
+export type SalarioContratual = { mensal: number; horasMes: number; memoria: string; avisos: string[] } | { erro: string; avisos: string[] };
+
+/** Salário mensal da ficha (mês, hora × horas semanais × 5, dia × 30, quinzena × 2) e as horas do mês. */
+export function salarioContratual(d: FichaFuncionario['dados']): SalarioContratual {
+    const avisos: string[] = [];
+    const contratual = centavosDeTexto(d.salario ?? '');
+    if (!contratual) return { erro: 'Ficha sem salário fixo.', avisos };
+    const horasSemanais = Number((d.horasSemanais ?? '').replace(',', '.'));
+    const horasMes = horasSemanais > 0 ? Math.round(horasSemanais * 5 * 100) / 100 : 220;
+    if (!(horasSemanais > 0)) avisos.push('Ficha sem horas semanais: usado divisor de 220 horas.');
+    const unidade = d.unidadeSalario || '5';
+    if (!d.unidadeSalario) avisos.push('Ficha sem unidade salarial: tratado como salário mensal.');
+    if (unidade === '5') return { mensal: contratual, horasMes, memoria: `Salário mensal: ${reais(contratual)}.`, avisos };
+    if (unidade === '1') { const mensal = Math.round(contratual * horasMes); return { mensal, horasMes, memoria: `Salário por hora ${reais(contratual)} × ${num(horasMes)} h (semanais × 5, DSR incluído) = ${reais(mensal)}.`, avisos }; }
+    if (unidade === '2') return { mensal: contratual * 30, horasMes, memoria: `Salário por dia ${reais(contratual)} × 30 = ${reais(contratual * 30)}.`, avisos };
+    if (unidade === '4') return { mensal: contratual * 2, horasMes, memoria: `Salário por quinzena ${reais(contratual)} × 2 = ${reais(contratual * 2)}.`, avisos };
+    return { erro: `Unidade salarial ${unidade}: não calculada nesta versão (só mês, hora, dia e quinzena).`, avisos };
+}
+
 type Dia = 'pago' | 'maternidade' | 'ferias' | 'naoPago';
 
 export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
@@ -130,19 +149,11 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     const aprendiz = categoria === '103';
 
     // 1. Salário contratual e salário-hora.
-    const contratual = centavosDeTexto(d.salario ?? '');
-    if (!contratual) return erro('Ficha sem salário fixo.');
-    const horasSemanais = Number((d.horasSemanais ?? '').replace(',', '.'));
-    const horasMes = horasSemanais > 0 ? Math.round(horasSemanais * 5 * 100) / 100 : 220;
-    if (!(horasSemanais > 0)) r.avisos.push('Ficha sem horas semanais: usado divisor de 220 horas.');
-    const unidade = d.unidadeSalario || '5';
-    if (!d.unidadeSalario) r.avisos.push('Ficha sem unidade salarial: tratado como salário mensal.');
-    let mensal: number;
-    if (unidade === '5') { mensal = contratual; r.memoria.push(`Salário mensal: ${reais(contratual)}.`); }
-    else if (unidade === '1') { mensal = Math.round(contratual * horasMes); r.memoria.push(`Salário por hora ${reais(contratual)} × ${num(horasMes)} h (semanais × 5, DSR incluído) = ${reais(mensal)}.`); }
-    else if (unidade === '2') { mensal = contratual * 30; r.memoria.push(`Salário por dia ${reais(contratual)} × 30 = ${reais(mensal)}.`); }
-    else if (unidade === '4') { mensal = contratual * 2; r.memoria.push(`Salário por quinzena ${reais(contratual)} × 2 = ${reais(mensal)}.`); }
-    else return erro(`Unidade salarial ${unidade}: não calculada nesta versão (só mês, hora, dia e quinzena).`);
+    const sc = salarioContratual(d);
+    r.avisos.push(...sc.avisos);
+    if ('erro' in sc) return erro(sc.erro);
+    const { mensal, horasMes } = sc;
+    r.memoria.push(sc.memoria);
     const salarioHora = mensal / horasMes;
     const diaria = mensal / 30;
 

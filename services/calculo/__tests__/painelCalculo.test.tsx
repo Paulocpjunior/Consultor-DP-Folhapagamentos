@@ -24,7 +24,7 @@ vi.mock('../../cadastros/cadastrosService', () => ({
     listarTabelas: async () => [INSS, IR],
 }));
 
-const movs = vi.hoisted(() => ({ listarMovimentos: vi.fn(), salvarMovimentos: vi.fn() }));
+const movs = vi.hoisted(() => ({ listarMovimentos: vi.fn(), salvarMovimentos: vi.fn(), listarMovimentosDoAno: vi.fn() }));
 vi.mock('../movimentosService', () => movs);
 const hol = vi.hoisted(() => ({ lerHolerites: vi.fn(), registrarLeitura: vi.fn(), MAX_PDF_MB: 14 }));
 vi.mock('../holeritesService', () => hol);
@@ -33,6 +33,7 @@ const USER = { uid: 'u1', email: 'dp@escritorio.com.br', role: 'colaborador' } a
 beforeEach(() => {
     movs.listarMovimentos.mockReset().mockResolvedValue([]);
     movs.salvarMovimentos.mockReset().mockResolvedValue(undefined);
+    movs.listarMovimentosDoAno.mockReset().mockResolvedValue({});
 });
 afterEach(cleanup);
 
@@ -149,5 +150,33 @@ describe('aba Cálculo', () => {
         fireEvent.click(screen.getByText('Exportar Excel'));
         const wb = xlsx.writeFile.mock.calls.at(-1)![0];
         expect(wb.SheetNames).toEqual(['Resumo', 'Verbas', 'Memória', 'Conferência IOB']);
+    });
+
+    it('13º: 1ª e 2ª parcelas com a média dos movimentos do ano', async () => {
+        movs.listarMovimentosDoAno.mockResolvedValue({ f1: { '2026-03': { horasExtras50: 10 } } });
+        render(<CalculoPanel currentUser={USER} />);
+        await waitFor(() => expect(screen.getByRole('option', { name: /0229/ })).toBeTruthy());
+        fireEvent.change(screen.getByLabelText('Empresa'), { target: { value: 'emp1' } });
+        fireEvent.change(screen.getByLabelText('Folha'), { target: { value: '13-1a' } });
+        fireEvent.change(screen.getByLabelText('Ano'), { target: { value: '2026' } });
+        expect((screen.getByLabelText('Mês do pagamento') as HTMLInputElement).value).toBe('2026-11');
+        await waitFor(() => expect(screen.getByText('ANA')).toBeTruthy());
+        expect(movs.listarMovimentosDoAno).toHaveBeenLastCalledWith('emp1', 2026);
+        expect(screen.queryByRole('button', { name: /Salvar movimento/ })).toBeNull();
+        expect(screen.queryByText('Conferir com holerites do IOB')).toBeNull();
+        expect(screen.queryByText('CAIO')).toBeNull(); // admitido em 2030
+        // (2.200 + média: (150 + DSR 28,85) ÷ 10 meses jan–out) ÷ 2
+        expect(screen.getByText('ANA').closest('tr')!.textContent).toMatch(/1\.108,95/); // (220.000 + 1.789) ÷ 2 = 110.894,5 → 1.108,95
+
+        fireEvent.change(screen.getByLabelText('Folha'), { target: { value: '13-2a' } });
+        expect((screen.getByLabelText('Mês do pagamento') as HTMLInputElement).value).toBe('2026-12');
+        expect(screen.getByLabelText(/aplicar o redutor de 2026/)).toBeTruthy();
+        fireEvent.click(screen.getByText('ANA'));
+        const hol = screen.getByRole('region', { name: 'Holerite de ANA' });
+        expect(within(hol).getByText(/13º salário 2026/)).toBeTruthy();
+        fireEvent.change(within(hol).getByLabelText('1ª parcela paga'), { target: { value: '1.000,00' } });
+        await waitFor(() => expect(within(hol).getByText('Adiantamento do 13º (1ª parcela)').closest('tr')!.textContent).toContain('1.000,00'));
+        fireEvent.click(screen.getByText('Exportar Excel'));
+        expect(xlsx.writeFile).toHaveBeenLastCalledWith(expect.anything(), 'calculo-0229-2026-13-2a-parcela.xlsx');
     });
 });
