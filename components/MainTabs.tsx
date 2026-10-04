@@ -9,6 +9,8 @@ import AdminUsersPanel from './auth/AdminUsersPanel';
 import FolhaPanel, { type SubTabFolha } from './folha/FolhaPanel';
 import type { Destino } from '../services/iobSage/catalogoMenus';
 const IobSagePanel = lazy(() => import('./iobSage/IobSagePanel'));
+const CadastrosPanel = lazy(() => import('./cadastros/CadastrosPanel'));
+import type { SubCadastro } from './cadastros/CadastrosPanel';
 import EmpresasPanel from './empresas/EmpresasPanel';
 import ESocialMonitorPanel from './esocial/ESocialMonitorPanel';
 import AlertaPendenciasPopup from './AlertaPendenciasPopup';
@@ -17,11 +19,14 @@ import UpdateBanner from './UpdateBanner';
 import { listarMinhasEmpresas, listarTodasEmpresas } from '../services/empresas/empresasService';
 import type { User } from '../types';
 
-type Tab = 'folha' | 'empresas' | 'esocial' | 'iobsage' | 'admin';
+type Tab = 'folha' | 'cadastros' | 'empresas' | 'esocial' | 'iobsage' | 'admin';
 
 const SUB_FOLHA: Partial<Record<Destino, SubTabFolha>> = {
     'folha:apontamento': 'apontamento', 'folha:implantacao': 'implantacao', 'folha:conferencia': 'conferencia',
     'folha:eventos': 'eventos', 'folha:ponto': 'validador-ponto',
+};
+const SUB_CADASTRO: Partial<Record<Destino, SubCadastro>> = {
+    'cadastros:funcionarios': 'funcionarios', 'cadastros:sindicatos': 'sindicatos', 'cadastros:tabelas': 'tabelas',
 };
 
 function extrairNomeAmigavel(user: any): string {
@@ -54,6 +59,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
     const [activeTab, setActiveTab] = useState<Tab>('folha');
     // Sub-aba da Folha pedida por outro módulo (IOB SAGE); a chave remonta o painel nela.
     const [folhaSub, setFolhaSub] = useState<{ sub: SubTabFolha; n: number } | null>(null);
+    const [cadastroSub, setCadastroSub] = useState<{ sub: SubCadastro; n: number } | null>(null);
     const [empresasCount, setEmpresasCount] = useState<number | null>(null);
     const [showWelcome, setShowWelcome] = useState(false);
     const [showPendencias, setShowPendencias] = useState(false);
@@ -158,6 +164,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
 
     const tabs: { id: Tab; label: string; icon: string; adminOnly: boolean }[] = [
         { id: 'folha',    label: 'Folha',     icon: '📋', adminOnly: false },
+        { id: 'cadastros', label: 'Cadastros', icon: '🗃️', adminOnly: false },
         { id: 'empresas', label: 'Empresas',  icon: '🏢', adminOnly: false },
         { id: 'esocial',  label: 'eSocial',   icon: '📡', adminOnly: false },
         { id: 'iobsage',  label: 'IOB SAGE',  icon: '🗂️', adminOnly: false },
@@ -306,9 +313,17 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                     <Suspense fallback={<div className="py-12 text-center text-sm text-slate-500">Carregando…</div>}>
                         <IobSagePanel onNavegar={d => {
                             const sub = SUB_FOLHA[d];
+                            const cad = SUB_CADASTRO[d];
                             if (sub) { setFolhaSub(f => ({ sub, n: (f?.n ?? 0) + 1 })); setActiveTab('folha'); }
+                            else if (cad) { setCadastroSub(c => ({ sub: cad, n: (c?.n ?? 0) + 1 })); setActiveTab('cadastros'); }
                             else if (d === 'empresas' || d === 'esocial') setActiveTab(d);
                         }} />
+                    </Suspense>
+                )}
+                {activeTab === 'cadastros' && (
+                    <Suspense fallback={<div className="py-12 text-center text-sm text-slate-500">Carregando…</div>}>
+                        <CadastrosPanel key={cadastroSub?.n ?? 0} currentUser={currentUser} subInicial={cadastroSub?.sub}
+                            onAbrirEventos={() => { setFolhaSub(f => ({ sub: 'eventos', n: (f?.n ?? 0) + 1 })); setActiveTab('folha'); }} />
                     </Suspense>
                 )}
                 {activeTab === 'admin' && isAdmin && <AdminUsersPanel currentUser={currentUser as any} />}
