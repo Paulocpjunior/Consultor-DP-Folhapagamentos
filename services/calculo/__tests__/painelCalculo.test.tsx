@@ -3,6 +3,7 @@ import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import CalculoPanel from '../../../components/calculo/CalculoPanel';
+import { EmpresaAtivaProvider } from '../../empresaAtiva/empresaAtivaContext';
 import { fichaVazia, type FichaFuncionario } from '../../cadastros/funcionarios';
 import type { TabelaLegal } from '../../cadastros/tabelasLegais';
 
@@ -48,6 +49,16 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('aba Cálculo', () => {
+    it('com empresa e período ativos: sem seletor de empresa, já na competência ativa', async () => {
+        const ativa = { id: 'emp1', nome: 'Um', cnpj: '11222333000181', codigoSage: '0229', competencia: '2026-03', ativadaPor: 'dp@escritorio.com.br', ativadaEm: 1 };
+        render(<EmpresaAtivaProvider ativa={ativa} trocar={() => {}}><CalculoPanel currentUser={USER} /></EmpresaAtivaProvider>);
+        expect(screen.queryByLabelText('Empresa')).toBeNull();
+        expect(screen.getByLabelText('Empresa ativa').textContent).toBe('0229 · Um');
+        expect((screen.getByLabelText('Competência') as HTMLInputElement).value).toBe('2026-03');
+        expect((screen.getByLabelText('Mês do pagamento') as HTMLInputElement).value).toBe('2026-04');
+        await waitFor(() => expect(screen.getByText('ANA')).toBeTruthy());
+    });
+
     it('calcula a empresa, abre o holerite, aplica o movimento e exporta', async () => {
         render(<CalculoPanel currentUser={USER} />);
         await waitFor(() => expect(screen.getByRole('option', { name: /0229/ })).toBeTruthy());

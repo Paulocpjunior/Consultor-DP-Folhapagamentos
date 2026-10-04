@@ -7,6 +7,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
+import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
 import { listarSindicatos, listarTodosAfastamentos, listarTodosFuncionariosAtivos, mensagemErro } from '../../services/cadastros/cadastrosService';
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
 import type { Afastamento } from '../../services/cadastros/afastamentos';
@@ -30,7 +31,9 @@ interface Props { onAbrirCadastros?: () => void; onAbrirConferencia?: () => void
 const PrazosPanel: React.FC<Props> = ({ onAbrirCadastros, onAbrirConferencia }) => {
     const hoje = new Date().toLocaleDateString('sv-SE'); // data local, AAAA-MM-DD
     const [horizonte, setHorizonte] = useState(60);
-    const [empresaId, setEmpresaId] = useState('');
+    // Abre na empresa ativa; dá para ver a carteira inteira escolhendo "todas".
+    const { ativa } = useEmpresaAtiva();
+    const [empresaId, setEmpresaId] = useState(ativa?.id ?? '');
     const [tipo, setTipo] = useState<TipoPrazo | ''>('');
     const [dados, setDados] = useState<{ empresas: Empresa[]; fichas: FichaFuncionario[]; afastamentos: Afastamento[]; sindicatos: Sindicato[] } | null>(null);
     const [erro, setErro] = useState('');
@@ -98,7 +101,7 @@ const PrazosPanel: React.FC<Props> = ({ onAbrirCadastros, onAbrirConferencia }) 
                 <div className="flex flex-wrap items-center gap-2">
                     <h3 className="mr-auto font-semibold text-slate-800 dark:text-white">Prazos dos funcionários e sindicatos</h3>
                     <select className={sel} value={empresaId} onChange={e => setEmpresaId(e.target.value)} aria-label="Empresa">
-                        <option value="">Todas as empresas</option>
+                        <option value="">Todas da carteira</option>
                         {dados?.empresas.map(e => <option key={e.id} value={e.id}>{e.codigoSage} · {e.nomeFantasia || e.razaoSocial}</option>)}
                     </select>
                     <select className={sel} value={tipo} onChange={e => setTipo(e.target.value as TipoPrazo | '')} aria-label="Tipo de prazo">

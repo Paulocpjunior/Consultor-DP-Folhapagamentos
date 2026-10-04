@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
 import { ehAdmin } from '../../services/auth/papeis';
 import type { User } from '../../types';
 import type { Empresa } from '../../services/empresas/empresasTypes';
@@ -27,6 +28,9 @@ interface Props {
 }
 
 const PontoEditorPanel: React.FC<Props> = ({ currentUser }) => {
+    // Com empresa ativa na sessão, só ela entra na lista.
+    const { ativa: empresaAtiva } = useEmpresaAtiva();
+    const daSessao = <T extends { id: string }>(l: T[]) => (empresaAtiva ? l.filter(e => e.id === empresaAtiva.id) : l);
     const [empresas, setEmpresas] = useState<Empresa[]>([]);
     const [empresaId, setEmpresaId] = useState('');
     const [modelo, setModelo] = useState<ModeloPonto | null>(null);
@@ -49,7 +53,7 @@ const PontoEditorPanel: React.FC<Props> = ({ currentUser }) => {
                     listarEmpresasVisiveis(),
                     buscarModelo(MODELO_ID),
                 ]);
-                setEmpresas(emps || []);
+                setEmpresas(daSessao(emps || []));
                 setModelo(mod);
             } catch (e: any) {
                 setErro(e?.message || 'Erro ao carregar contexto');

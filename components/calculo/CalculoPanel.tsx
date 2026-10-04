@@ -10,6 +10,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
+import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
+import EmpresaAtivaFixa from '../empresaAtiva/EmpresaAtivaFixa';
 import { listarAfastamentos, listarEnquadramentos, listarFuncionarios, listarTabelas, mensagemErro, salvarAfastamento, type Usuario } from '../../services/cadastros/cadastrosService';
 import { enquadramentoVigente, type Enquadramento } from '../../services/cadastros/enquadramento';
 import type { User } from '../../types';
@@ -55,9 +57,12 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const usuario: Usuario = { id: currentUser.uid ?? currentUser.id, email: currentUser.email };
     const mesAnterior = somarMeses(`${new Date().toLocaleDateString('sv-SE').slice(0, 7)}-01`, -1).slice(0, 7);
     const [empresas, setEmpresas] = useState<Empresa[] | null>(null);
-    const [empresaId, setEmpresaId] = useState('');
-    const [competencia, setCompetencia] = useState(mesAnterior);
-    const [pagamento, setPagamento] = useState(competenciaSeguinte(mesAnterior));
+    // Empresa e período ativos da sessão; fora do app (testes), escolhe aqui.
+    const { ativa } = useEmpresaAtiva();
+    const inicio = ativa?.competencia ?? mesAnterior;
+    const [empresaId, setEmpresaId] = useState(ativa?.id ?? '');
+    const [competencia, setCompetencia] = useState(inicio);
+    const [pagamento, setPagamento] = useState(competenciaSeguinte(inicio));
     const [dados, setDados] = useState<Dados | null>(null);
     const [movs, setMovs] = useState<Record<string, Movimento>>({});
     const [gravados, setGravados] = useState<Record<string, MovimentoGravado> | null>(null);
@@ -286,12 +291,12 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 <strong>Prévia do motor de cálculo (Fase 3).</strong> Não substitui o cálculo do IOB enquanto não for conferido contra ele. O movimento do mês é gravado quando você clica em "Salvar movimento"; o resultado do cálculo não é gravado. 13º, férias e rescisão usam as médias de horas extras dos movimentos gravados. Adicionais, comissões e outras médias ainda não estão no motor.
             </div>
             <div className="flex flex-wrap items-end gap-3">
-                <label className="text-sm dark:text-white">Empresa
+                {ativa ? <EmpresaAtivaFixa /> : <label className="text-sm dark:text-white">Empresa
                     <select aria-label="Empresa" className={`ml-2 ${inp}`} value={empresaId} onChange={e => { const v = e.target.value; seguro(() => setEmpresaId(v)); }}>
                         <option value="">— escolha —</option>
                         {(empresas ?? []).map(e => <option key={e.id} value={e.id}>{e.codigoSage} · {e.nomeFantasia || e.razaoSocial}</option>)}
                     </select>
-                </label>
+                </label>}
                 <label className="text-sm dark:text-white">Folha
                     <select aria-label="Folha" className={`ml-2 ${inp}`} value={folha} onChange={e => trocarFolha(e.target.value as Folha)}>
                         <option value="mensal">Mensal</option><option value="13-1a">13º — 1ª parcela</option><option value="13-2a">13º — 2ª parcela</option><option value="ferias">Férias</option><option value="rescisao">Rescisão</option>

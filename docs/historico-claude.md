@@ -1031,3 +1031,36 @@ limitado à carteira**; só o gestor vê todas as empresas.
   - **P2:** fora do gestor, certificados do Storage de empresas fora da
     carteira apareciam como "sem empresa cadastrada". Agora só aparecem os
     das empresas visíveis, e a lista de órfãos é só do gestor.
+
+## Etapa 3: ativar empresa e período antes de qualquer ação (04/10/2026)
+
+Como no CFI (`services/empresaAtiva.ts` de lá): a empresa ativa é o estado
+da SESSÃO, não um filtro de tela.
+
+- **`services/empresaAtiva/empresaAtiva.ts`** (puro, com testes): empresa e
+  competência (AAAA-MM) ativas, guardadas no navegador por usuário.
+  - **Usuários** e **Empresas** não exigem ativação; todas as outras abas
+    exigem (lista explícita e curta: o padrão é exigir);
+  - F5 mantém; **sair limpa**; outro usuário na mesma aba começa do zero;
+  - a ativação guardada cai se a empresa saiu da carteira.
+- **Portão** (`AtivarEmpresaScreen`): logo depois do login, lista só as
+  empresas que o usuário enxerga (carteira + cadastradas; gestor, todas),
+  com busca e competência (padrão: mês anterior). Carteira vazia explica e
+  leva ao cadastro de empresas (ou a Usuários, para admin/gestor).
+- **Faixa no topo:** empresa, CNPJ, código SAGE, competência e "⇄ Trocar
+  empresa ou período". A troca é uma só no app, pela mesma tela.
+- **Trocar de empresa ou de período remonta as telas** (dado de um cliente
+  ou de um mês nunca fica na tela de outro).
+- **Telas** (contexto `useEmpresaAtiva`; fora do app, nos testes, mantêm o
+  seletor próprio):
+  - Cálculo e Cadastros: sem seletor de empresa (mostram a ativa); o
+    Cálculo abre na competência ativa e o pagamento no mês seguinte;
+  - Folha › Apontamento: a sessão só oferece a empresa ativa, na
+    competência ativa; "trocar empresa" abre o portão;
+  - Prazos: abre na empresa ativa ("Todas da carteira" continua);
+  - eSocial (eventos, FGTS/SERPRO, download, calendário) e Ponto: abrem
+    na empresa e no período ativos;
+  - Conferência pós-folha: avisa quando os totalizadores lidos são de outra
+    empresa que não a ativa.
+- Fica para depois: travar por carteira nas regras as coleções `folha_*`,
+  `folha_perfis_colunas` e `ponto_layouts` (chave por código/CNPJ).

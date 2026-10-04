@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { gerarCalendarioObrigacoes } from '../../services/esocial/esocialService';
+import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
 import type { ObrigacaoTrabalhista } from '../../services/esocial/esocialTypes';
 
 const STATUS_STYLE: Record<string, { label: string; cls: string }> = {
@@ -17,8 +18,9 @@ const TIPO_ICON: Record<string, string> = {
 
 const ESocialCalendario: React.FC = () => {
     const hoje = new Date();
+    const { ativa } = useEmpresaAtiva();
     const [competencia, setCompetencia] = useState(
-        `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`
+        ativa?.competencia ?? `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`
     );
 
     const obrigacoes = useMemo(() => gerarCalendarioObrigacoes(competencia), [competencia]);

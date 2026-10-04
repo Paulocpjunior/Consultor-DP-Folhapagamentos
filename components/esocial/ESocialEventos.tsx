@@ -3,6 +3,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { listarEventosPaginado, criarEvento, atualizarEvento, excluirEvento, registrarAudit, verificarDuplicidade } from '../../services/esocial/esocialService';
 import type { PaginatedResult } from '../../services/esocial/esocialService';
 import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
+import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
 import type { EventoEsocial, EventoTipo, EventoStatus } from '../../services/esocial/esocialTypes';
 import { EVENTO_LABELS } from '../../services/esocial/esocialTypes';
 import app from '../../services/firebaseConfig';
@@ -30,7 +31,8 @@ const ESocialEventos: React.FC<Props> = ({ currentUser }) => {
     const [showForm, setShowForm] = useState(false);
     const [showRetifForm, setShowRetifForm] = useState(false);
     const [filtroStatus, setFiltroStatus] = useState<EventoStatus | 'todos'>('todos');
-    const [filtroEmpresa, setFiltroEmpresa] = useState<string>('');
+    const { ativa } = useEmpresaAtiva();
+    const [filtroEmpresa, setFiltroEmpresa] = useState<string>(ativa?.id ?? '');
     const [cursorStack, setCursorStack] = useState<(QueryDocumentSnapshot | null)[]>([null]);
     const [currentPage, setCurrentPage] = useState(0);
     const [erroLista, setErroLista] = useState('');
