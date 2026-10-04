@@ -35,3 +35,15 @@ export async function salvarMovimentos(empresaId: string, competencia: string, i
         await lote.commit();
     }
 }
+
+/** Movimentos do ano de uma empresa, por ficha e competência (para as médias do 13º). Filtra o ano no app: sem índice composto. */
+export async function listarMovimentosDoAno(empresaId: string, ano: number): Promise<Record<string, Record<string, Movimento>>> {
+    const snap = await getDocs(query(collection(db, MOV), where('empresaId', '==', empresaId)));
+    const out: Record<string, Record<string, Movimento>> = {};
+    for (const d of snap.docs) {
+        const x = d.data();
+        if (typeof x.competencia !== 'string' || !x.competencia.startsWith(`${ano}-`)) continue;
+        (out[x.fichaId] ??= {})[x.competencia] = x.movimento ?? {};
+    }
+    return out;
+}
