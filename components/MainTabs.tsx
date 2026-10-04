@@ -26,7 +26,7 @@ const SUB_FOLHA: Partial<Record<Destino, SubTabFolha>> = {
     'folha:eventos': 'eventos', 'folha:ponto': 'validador-ponto',
 };
 const SUB_CADASTRO: Partial<Record<Destino, SubCadastro>> = {
-    'cadastros:funcionarios': 'funcionarios', 'cadastros:horarios': 'horarios', 'cadastros:afastamentos': 'afastamentos',
+    'cadastros:funcionarios': 'funcionarios', 'cadastros:horarios': 'horarios', 'cadastros:afastamentos': 'afastamentos', 'cadastros:incidencias': 'incidencias',
     'cadastros:sindicatos': 'sindicatos', 'cadastros:tabelas': 'tabelas',
 };
 

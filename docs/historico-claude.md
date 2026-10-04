@@ -226,3 +226,53 @@ piloto em paralelo provar o cálculo próprio.
     no emulador. **Precisam de novo deploy das regras.**
   - **Faltam:** escalas e revezamento (12x36 como escala, não só como aviso),
     transmissão do S-2230 e férias com cálculo (Fase 3).
+
+## Incidências dos eventos (S-1010)
+
+- **04/10/2026, Paulo: *"podem seguir com a incidencia de eventos"*.**
+  As regras de horários e afastamentos foram publicadas.
+  - **O que já existia:** o catálogo de eventos (vindo do PDF do IOB) já trazia
+    as marcas de incidência do IOB (IN, INF, IR, IRF, FG, RT, VR).
+  - **O que faltava:** o lado eSocial, isto é, a rubrica do S-1010 com tpRubr,
+    natRubr, codIncCP, codIncIRRF e codIncFGTS. É ela que monta as bases dos
+    totalizadores S-5001 e S-5003.
+- **Cadastros › Incidências** (`services/cadastros/rubricas.ts`):
+  - Importa o S-1010 com recibo (201). Inclusão, alteração (inclusive
+    novaValidade) e exclusão são aplicadas na ordem de dhProcessamento.
+  - Guarda as vigências e escolhe a vigente na competência.
+  - Liga cada rubrica ao evento do IOB pelo código (4 dígitos) ou por vínculo
+    manual. O vínculo manual sobrevive à reimportação.
+  - Confere tipo, INSS, FGTS e IRRF e exporta Excel.
+- **Regras da conferência:**
+  - V ↔ tpRubr 1; D ↔ tpRubr 2 ou 4.
+  - IN ou INF ↔ codIncCP de base (11–16, 21, 22).
+  - FG ↔ codIncFGTS 11, 12 ou 21.
+  - IR ou IRF ↔ Tabela 21 nas faixas 11–15, 4x ou 51–55.
+  - Ficam para conferir: suspensão judicial (9x/9xxx), salário-maternidade
+    pago pelo INSS (CP 25/26) e código IRRF fora dessas faixas.
+  - A natureza 9253 exige desconto e FGTS 31 (validação do XSD).
+- **Fontes dos códigos:**
+  - codIncCP e codIncFGTS: enumerações do XSD oficial do S-1010 (S-1.3).
+  - Tabela 21: só 11, 12, 13, 14, 31, 41 e 51 foram conferidos em busca
+    pública e têm rótulo; os demais aparecem como "conferir na Tabela 21".
+- **Regra nova:** `cadastro_rubricas`, testada no emulador. Precisa de novo
+  deploy das regras.
+
+## Banco de dados: PostgreSQL 12 do SAGE × Firebase (pergunta do Paulo, 04/10/2026)
+
+- **Recomendação:** manter o Firebase como banco do Consultor DP, a mesma
+  decisão de 03/10/2026, e tratar o PostgreSQL 12 do SAGE como FONTE de
+  dados, não como banco a copiar.
+  - Migra-se dado (cadastros, rubricas, saldos de que a operação precisa),
+    remodelado em documentos.
+  - O histórico antigo fica consultável no backup restaurado ou no BigQuery.
+- **Riscos do Firestore para a folha:** não tem JOIN, a leitura é cobrada
+  por documento, os lotes têm limite de escritas e relatórios que varrem anos
+  (ficha financeira, resumo) ficam caros e lentos.
+- **Mitigação:** um documento por funcionário × competência com os
+  lançamentos e os totais gravados junto; relatórios pesados pela extensão
+  oficial Firestore → BigQuery.
+- **Plano B, sem sair do Firebase:** Firebase Data Connect (PostgreSQL
+  gerenciado) só para a parte de cálculo, se um teste de carga na Fase 3
+  mostrar que o Firestore não dá conta. O PostgreSQL 12 está sem suporte da
+  comunidade desde nov/2024, então não faz sentido adotá-lo como base própria.

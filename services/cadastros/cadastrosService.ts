@@ -17,6 +17,7 @@ import { sindicatoVazio, type Sindicato } from './sindicatos';
 import { tabelaVazia, type TabelaLegal } from './tabelasLegais';
 import { horarioVazio, type Horario } from './horarios';
 import { afastamentoVazio, type Afastamento, type MesclaAfastamento } from './afastamentos';
+import { rubricaVazia, type MesclaRubrica, type Rubrica } from './rubricas';
 
 export interface Usuario { id: string; email: string }
 
@@ -25,6 +26,7 @@ const SIND = 'cadastro_sindicatos';
 const TAB = 'cadastro_tabelas_legais';
 const HOR = 'cadastro_horarios';
 const AFA = 'cadastro_afastamentos';
+const RUB = 'cadastro_rubricas';
 const AUDIT = 'cadastro_audit';
 
 export const COMANDO_REGRAS = 'firebase deploy --only firestore:rules --project consultor-dp-folha';
@@ -101,8 +103,8 @@ export async function excluirFuncionario(f: FichaFuncionario, u: Usuario): Promi
 
 export interface RegistroAuditoria { id: string; acao: string; alteracoes: Alteracao[]; totalAlteracoes: number; autorEmail: string; origem?: string; quando?: Date }
 
-export async function historico(colecao: 'funcionarios' | 'sindicatos' | 'tabelas' | 'horarios' | 'afastamentos', docId: string): Promise<RegistroAuditoria[]> {
-    const nome = { funcionarios: FUNC, sindicatos: SIND, tabelas: TAB, horarios: HOR, afastamentos: AFA }[colecao];
+export async function historico(colecao: 'funcionarios' | 'sindicatos' | 'tabelas' | 'horarios' | 'afastamentos' | 'rubricas', docId: string): Promise<RegistroAuditoria[]> {
+    const nome = { funcionarios: FUNC, sindicatos: SIND, tabelas: TAB, horarios: HOR, afastamentos: AFA, rubricas: RUB }[colecao];
     const snap = await getDocs(query(collection(db, AUDIT), where('docId', '==', docId)));
     return snap.docs.map(d => {
         const x = d.data();
@@ -221,5 +223,43 @@ export async function excluirAfastamento(a: Afastamento, u: Usuario): Promise<vo
     const lote = writeBatch(db);
     lote.delete(doc(db, AFA, a.id));
     auditar(lote, u, AFA, a.id, 'excluir', diffObjeto(soCampos(a, afastamentoVazio()), {}), { empresaId: a.empresaId });
+    await lote.commit();
+}
+
+// ---------- Rubricas (S-1010) ----------
+
+export async function listarRubricas(empresaId: string): Promise<Rubrica[]> {
+    const snap = await getDocs(query(collection(db, RUB), where('empresaId', '==', empresaId)));
+    return snap.docs.map(d => ({ ...soCampos(d.data() as Rubrica, rubricaVazia()), id: d.id }))
+        .sort((a, b) => a.codRubr.localeCompare(b.codRubr, 'pt-BR', { numeric: true }));
+}
+
+/** Grava a prévia confirmada do S-1010 (rubrica + auditoria = 2 escritas). */
+export async function gravarRubricasImportadas(itens: MesclaRubrica[], antes: Rubrica[], u: Usuario, arquivos: string[]): Promise<void> {
+    const porId = new Map(antes.map(r => [r.id, r]));
+    const origem = arquivos.slice(0, 20).join(', ') + (arquivos.length > 20 ? ` e mais ${arquivos.length - 20}` : '');
+    for (let i = 0; i < itens.length; i += 200) {
+        const lote = writeBatch(db);
+        for (const { rubrica: r, novo } of itens.slice(i, i + 200)) {
+            lote.set(doc(db, RUB, r.id), { ...limpo(semId(soCampos(r, rubricaVazia()))), atualizadoPor: u.id, atualizadoPorEmail: u.email, atualizadoEm: serverTimestamp() });
+            const ant = porId.get(r.id);
+            auditar(lote, u, RUB, r.id, novo ? 'importar (novo)' : 'importar (atualizar)', diffObjeto(ant ? soCampos(ant, rubricaVazia()) : null, soCampos(r, rubricaVazia())), { empresaId: r.empresaId, origem: `XML eSocial: ${origem}` });
+        }
+        await lote.commit();
+    }
+}
+
+/** Liga a rubrica a outro evento do IOB (ou volta ao vínculo pelo código, com vazio). */
+export async function salvarVinculoRubrica(r: Rubrica, eventoIob: string, u: Usuario): Promise<void> {
+    const lote = writeBatch(db);
+    lote.update(doc(db, RUB, r.id), { eventoIob, atualizadoPor: u.id, atualizadoPorEmail: u.email, atualizadoEm: serverTimestamp() });
+    auditar(lote, u, RUB, r.id, 'editar', diffObjeto({ eventoIob: r.eventoIob }, { eventoIob }), { empresaId: r.empresaId });
+    await lote.commit();
+}
+
+export async function excluirRubrica(r: Rubrica, u: Usuario): Promise<void> {
+    const lote = writeBatch(db);
+    lote.delete(doc(db, RUB, r.id));
+    auditar(lote, u, RUB, r.id, 'excluir', diffObjeto(soCampos(r, rubricaVazia()), {}), { empresaId: r.empresaId });
     await lote.commit();
 }
