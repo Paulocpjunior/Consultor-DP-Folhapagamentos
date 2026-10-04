@@ -9,6 +9,7 @@
 // outras folhas (13º, férias, rescisão), mostra só o que aquela folha tem.
 
 import type { ResultadoCalculo } from '../calculo/motorMensal';
+import { calcularPatronal, type Enquadramento, type Patronal } from '../cadastros/enquadramento';
 
 export interface LinhaVerba { codigo: string; descricao: string; tipo: 'provento' | 'desconto'; funcionarios: number; valor: number }
 export interface ResumoFolha {
@@ -32,6 +33,10 @@ export interface ResumoFolha {
         salarioFamilia: number;
         /** Salário-maternidade pago pela empresa: compensado na DCTFWeb. */
         salarioMaternidade: number;
+        /** Parte patronal, quando a empresa tem enquadramento vigente. */
+        patronal?: Patronal;
+        /** Segurados + patronal + RAT + terceiros − salário-família − salário-maternidade. */
+        totalPrevidenciario?: number;
     };
 }
 
@@ -41,7 +46,7 @@ const IRRF = ['IRRF', 'IRRF13', 'IRRFFER', 'IRRFFERRET'];
 /** Verbas com período no código (férias vencidas por período) somam numa linha só. */
 const chaveVerba = (codigo: string) => codigo.replace(/\d{4}-\d{2}-\d{2}$/, '');
 
-export function resumirFolha(resultados: ResultadoCalculo[]): ResumoFolha {
+export function resumirFolha(resultados: ResultadoCalculo[], enquadramento?: Enquadramento): ResumoFolha {
     const validos = resultados.filter(r => r.situacao !== 'erro');
     const mapa = new Map<string, LinhaVerba & { fichas: Set<string> }>();
     for (const r of validos) {
@@ -58,6 +63,11 @@ export function resumirFolha(resultados: ResultadoCalculo[]): ResumoFolha {
         .sort((a, b) => (a.tipo === b.tipo ? b.valor - a.valor : a.tipo === 'provento' ? -1 : 1));
     const soma = (f: (r: ResultadoCalculo) => number) => validos.reduce((s, r) => s + f(r), 0);
     const somaCodigos = (codigos: string[]) => soma(r => r.verbas.filter(v => codigos.includes(v.codigo)).reduce((s, v) => s + v.valor, 0));
+    const inssSegurados = somaCodigos(INSS);
+    const salarioFamilia = somaCodigos(['SF']);
+    const salarioMaternidade = somaCodigos(['MAT']);
+    const baseInss = soma(r => r.bases.inss);
+    const patronal = enquadramento ? calcularPatronal(baseInss, salarioMaternidade, enquadramento) : undefined;
     return {
         funcionarios: new Set(resultados.map(r => r.fichaId)).size,
         registros: resultados.length,
@@ -70,12 +80,13 @@ export function resumirFolha(resultados: ResultadoCalculo[]): ResumoFolha {
         totais: { proventos: soma(r => r.totais.proventos), descontos: soma(r => r.totais.descontos), liquido: soma(r => r.totais.liquido) },
         bases: { inss: soma(r => r.bases.inss), fgts: soma(r => r.bases.fgts), irrf: soma(r => r.bases.irrf) },
         encargos: {
-            inssSegurados: somaCodigos(INSS),
+            inssSegurados,
             irrf: somaCodigos(IRRF),
             fgts: soma(r => r.fgts),
             multaFgts: soma(r => (r as ResultadoCalculo & { multaFgts?: number }).multaFgts ?? 0),
-            salarioFamilia: somaCodigos(['SF']),
-            salarioMaternidade: somaCodigos(['MAT']),
+            salarioFamilia,
+            salarioMaternidade,
+            ...(patronal ? { patronal, totalPrevidenciario: inssSegurados + patronal.patronal + patronal.rat + patronal.terceiros - salarioFamilia - salarioMaternidade } : {}),
         },
     };
 }

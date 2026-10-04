@@ -28,6 +28,7 @@ const ROTULO_DESTINO: Record<Destino, string> = {
     'cadastros:incidencias': 'Abrir Cadastros › Incidências',
     'cadastros:sindicatos': 'Abrir Cadastros › Sindicatos',
     'cadastros:tabelas': 'Abrir Cadastros › Tabelas legais',
+    'cadastros:enquadramento': 'Abrir Cadastros › Enquadramento',
     calculo: 'Abrir Cálculo (prévia)',
     empresas: 'Abrir Empresas',
     esocial: 'Abrir eSocial',

@@ -117,6 +117,12 @@ export function resumoPdf(resumo: ResumoFolha, o: OpcoesPdf, observacao: string)
             ['INSS dos segurados (descontado)', brl(e.inssSegurados)],
             ['Salário-família pago (deduzido na DCTFWeb)', brl(e.salarioFamilia)],
             ['Salário-maternidade pago (compensado na DCTFWeb)', brl(e.salarioMaternidade)],
+            ...(e.patronal ? [
+                ['Contribuição patronal', brl(e.patronal.patronal)],
+                [`RAT ajustado (RAT × FAP = ${e.patronal.aliquotaRat.toLocaleString('pt-BR', { maximumFractionDigits: 4 })}%)`, brl(e.patronal.rat)],
+                ['Terceiros', brl(e.patronal.terceiros)],
+                ['Total previdenciário na DCTFWeb (segurados + patronal + RAT + terceiros − salário-família − salário-maternidade)', brl(e.totalPrevidenciario ?? 0)],
+            ] : [['Parte patronal', 'sem enquadramento cadastrado']]),
             ['IRRF retido (DCTFWeb do mês do pagamento)', brl(e.irrf)],
             ['FGTS (FGTS Digital)', brl(e.fgts)],
             ...(e.multaFgts ? [['Multa rescisória do FGTS (FGTS Digital)', brl(e.multaFgts)]] : []),

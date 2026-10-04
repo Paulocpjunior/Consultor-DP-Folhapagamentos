@@ -19,8 +19,9 @@ import TabelasLegaisCadastro from './TabelasLegaisCadastro';
 import HorariosCadastro from './HorariosCadastro';
 import AfastamentosCadastro from './AfastamentosCadastro';
 import IncidenciasCadastro from './IncidenciasCadastro';
+import EnquadramentoCadastro from './EnquadramentoCadastro';
 
-export type SubCadastro = 'funcionarios' | 'horarios' | 'afastamentos' | 'incidencias' | 'sindicatos' | 'tabelas';
+export type SubCadastro = 'funcionarios' | 'horarios' | 'afastamentos' | 'incidencias' | 'enquadramento' | 'sindicatos' | 'tabelas';
 
 interface Props { currentUser: User; subInicial?: SubCadastro; onAbrirEventos?: () => void }
 
@@ -29,6 +30,7 @@ const SUBS: { id: SubCadastro; titulo: string; caminho: string }[] = [
     { id: 'horarios', titulo: 'Horários', caminho: 'Arquivos › Horários › Tabela de Horários' },
     { id: 'afastamentos', titulo: 'Afastamentos', caminho: 'Arquivos › Afastamentos/Retorno (S-2230)' },
     { id: 'incidencias', titulo: 'Incidências', caminho: 'eSocial › Rotinas Auxiliares › Relacionamento de Rubricas (SGC) · Arquivos › Eventos' },
+    { id: 'enquadramento', titulo: 'Enquadramento', caminho: 'Gerenciador de Sistemas › Empresas › Parâmetros (FPAS, RAT, FAP, terceiros)' },
     { id: 'sindicatos', titulo: 'Sindicatos', caminho: 'Arquivos › Sindicatos' },
     { id: 'tabelas', titulo: 'Tabelas legais', caminho: 'Cadastros › Genéricos › Tabelas Legais (SGC)' },
 ];
@@ -64,7 +66,7 @@ const CadastrosPanel: React.FC<Props> = ({ currentUser, subInicial, onAbrirEvent
     }, [empresaId]);
     useEffect(carregarHorarios, [carregarHorarios]);
     useEffect(carregarAfastamentos, [carregarAfastamentos]);
-    const porEmpresa = sub === 'funcionarios' || sub === 'horarios' || sub === 'afastamentos' || sub === 'incidencias';
+    const porEmpresa = sub === 'funcionarios' || sub === 'horarios' || sub === 'afastamentos' || sub === 'incidencias' || sub === 'enquadramento';
 
     const empresa = empresas?.find(e => e.id === empresaId);
     const atual = SUBS.find(s => s.id === sub)!;
@@ -100,6 +102,7 @@ const CadastrosPanel: React.FC<Props> = ({ currentUser, subInicial, onAbrirEvent
                     {empresa && sub === 'funcionarios' && <FuncionariosCadastro key={empresa.id} empresa={empresa} usuario={usuario} isAdmin={isAdmin} sindicatos={sindicatos ?? []} horarios={horarios ?? []} afastamentos={afastamentos ?? []} />}
                     {empresa && sub === 'horarios' && <HorariosCadastro key={empresa.id} empresa={empresa} horarios={horarios} erroLista={erroHor} usuario={usuario} isAdmin={isAdmin} onRecarregar={carregarHorarios} />}
                     {empresa && sub === 'incidencias' && <IncidenciasCadastro key={empresa.id} empresa={empresa} usuario={usuario} />}
+                    {empresa && sub === 'enquadramento' && <EnquadramentoCadastro key={empresa.id} empresa={empresa} usuario={usuario} isAdmin={isAdmin} />}
                     {empresa && sub === 'afastamentos' && <AfastamentosCadastro key={empresa.id} empresa={empresa} afastamentos={afastamentos} erroLista={erroAfa} usuario={usuario} isAdmin={isAdmin} onRecarregar={carregarAfastamentos} />}
                 </div>
             )}

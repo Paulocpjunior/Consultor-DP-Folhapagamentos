@@ -17,12 +17,13 @@ const INSS: TabelaLegal = { id: 'i', tipo: 'inss', vigencia: '2025-01', norma: '
     faixas: [{ ate: 151800, aliquota: 7.5, deducao: 0 }, { ate: 279388, aliquota: 9, deducao: 0 }, { ate: 419083, aliquota: 12, deducao: 0 }, { ate: 815741, aliquota: 14, deducao: 0 }] };
 const IR: TabelaLegal = { id: 'r', tipo: 'irrf', vigencia: '2025-05', norma: 'Lei de teste', observacao: '', valores: { deducaoDependente: 18959, descontoSimplificado: 60720 },
     faixas: [{ ate: 242880, aliquota: 0, deducao: 0 }, { ate: 282665, aliquota: 7.5, deducao: 18216 }, { ate: 375105, aliquota: 15, deducao: 39416 }, { ate: 466468, aliquota: 22.5, deducao: 67549 }, { ate: null, aliquota: 27.5, deducao: 90873 }] };
-const cad = vi.hoisted(() => ({ afastamentos: [] as unknown[] }));
+const cad = vi.hoisted(() => ({ afastamentos: [] as unknown[], enquadramentos: [] as unknown[], erroEnq: '' }));
 vi.mock('../../cadastros/cadastrosService', () => ({
     mensagemErro: (e: unknown) => String(e),
     listarFuncionarios: async () => [ficha('f1', 'ANA', { salario: '2200.00' }), ficha('f2', 'BRUNO', { salario: '' }), ficha('f3', 'CAIO', { salario: '3000.00', admissao: '2030-01-01' })],
     listarAfastamentos: async () => cad.afastamentos,
     salvarAfastamento: async () => undefined,
+    listarEnquadramentos: async () => { if (cad.erroEnq) throw new Error(cad.erroEnq); return cad.enquadramentos; },
     listarTabelas: async () => [INSS, IR],
 }));
 
@@ -40,6 +41,8 @@ beforeEach(() => {
     movs.listarMovimentosDoAno.mockReset().mockResolvedValue({});
     movs.listarMovimentosDaEmpresa.mockReset().mockResolvedValue({});
     cad.afastamentos = [];
+    cad.enquadramentos = [];
+    cad.erroEnq = '';
     pdf.save.mockReset(); pdf.holeritesPdf.mockReset().mockReturnValue({ save: pdf.save }); pdf.resumoPdf.mockReset().mockReturnValue({ save: pdf.save });
 });
 afterEach(cleanup);
@@ -283,5 +286,39 @@ describe('aba Cálculo', () => {
         fireEvent.click(screen.getByText('PDF deste holerite'));
         expect(pdf.holeritesPdf.mock.calls[1][0].map((r: { nome: string }) => r.nome)).toEqual(['ANA']);
         expect(pdf.save).toHaveBeenLastCalledWith('holerite-0229-2026-03-ana.pdf');
+    });
+
+    it('resumo com enquadramento: parte patronal e total previdenciário da DCTFWeb', async () => {
+        cad.enquadramentos = [{ id: 'emp1_2026-01', empresaId: 'emp1', vigencia: '2026-01', regime: 'normal', fpas: '515', codigoTerceiros: '0115', patronal: 20, rat: 2, fap: 1, terceiros: 5.8, observacao: '' }];
+        render(<CalculoPanel currentUser={USER} />);
+        await waitFor(() => expect(screen.getByRole('option', { name: /0229/ })).toBeTruthy());
+        fireEvent.change(screen.getByLabelText('Competência'), { target: { value: '2026-03' } });
+        fireEvent.change(screen.getByLabelText('Empresa'), { target: { value: 'emp1' } });
+        await waitFor(() => expect(screen.getByText('ANA')).toBeTruthy());
+        fireEvent.click(screen.getByText('Resumo da folha'));
+        const sec = screen.getByRole('region', { name: 'Resumo da folha' });
+        await waitFor(() => expect(within(sec).getByText('Contribuição patronal')).toBeTruthy());
+        // base 2.200: patronal 440,00; RAT 2% 44,00; terceiros 5,8% 127,60; segurados 175,23
+        expect(within(sec).getByText('Contribuição patronal').nextElementSibling!.textContent).toMatch(/440,00/);
+        expect(within(sec).getByText('Terceiros').nextElementSibling!.textContent).toMatch(/127,60/);
+        expect(within(sec).getByText('Total previdenciário (DCTFWeb)').nextElementSibling!.textContent).toMatch(/786,83/);
+        expect(within(sec).getByText(/Parte patronal pelo enquadramento de 01\/2026/)).toBeTruthy();
+    });
+
+    it('falha ao carregar o enquadramento aparece no resumo, no PDF e no Excel', async () => {
+        cad.erroEnq = 'sem permissão';
+        render(<CalculoPanel currentUser={USER} />);
+        await waitFor(() => expect(screen.getByRole('option', { name: /0229/ })).toBeTruthy());
+        fireEvent.change(screen.getByLabelText('Competência'), { target: { value: '2026-03' } });
+        fireEvent.change(screen.getByLabelText('Empresa'), { target: { value: 'emp1' } });
+        await waitFor(() => expect(screen.getByText('ANA')).toBeTruthy());
+        fireEvent.click(screen.getByText('Resumo da folha'));
+        const sec = screen.getByRole('region', { name: 'Resumo da folha' });
+        await waitFor(() => expect(within(sec).getByRole('alert').textContent).toContain('Enquadramento não carregado (Error: sem permissão)'));
+        fireEvent.click(within(sec).getByText('Resumo (PDF)'));
+        expect(pdf.resumoPdf.mock.calls.at(-1)![2]).toContain('ATENÇÃO: enquadramento não carregado');
+        fireEvent.click(screen.getByText('Exportar Excel'));
+        const wb = xlsx.writeFile.mock.calls.at(-1)![0];
+        expect(JSON.stringify(wb.Sheets['Resumo da folha'])).toContain('Parte patronal NÃO CARREGADA');
     });
 });
