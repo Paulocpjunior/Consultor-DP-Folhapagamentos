@@ -678,3 +678,73 @@ piloto em paralelo provar o cálculo próprio.
     - validação de 1 a 10 dias, só no motivo 15.
   - **P2:** um período com direito reduzido pelas faltas e já usado fica
     fechado, e o próximo gozo vai para o período seguinte.
+
+## Cálculo: rescisão em prévia (04/10/2026)
+
+- **Paulo: *"pode seguir com rescisão"*.**
+- **Motor** (`services/calculo/motorRescisao.ts`): monta o TRCT sobre os
+  outros motores.
+  - **Saldo de salário e movimento do mês:** motor mensal com a data do
+    desligamento (INSS e IRRF do mês).
+  - **Aviso prévio:**
+    - **proporcional** (Lei 12.506/2011): 30 dias + 3 por ano completo, até
+      90. Indenizado na dispensa sem justa causa (02); pela metade no acordo
+      (33, art. 484-A);
+    - **trabalhado:** só os dias além de 30 são indenizados;
+    - **pedido de demissão sem cumprir o aviso:** desconto de 30 dias
+      (art. 487, § 2º);
+    - **indenizado:** sem INSS e sem IRRF, com FGTS (Súmula 305 do TST).
+      **Projeta** o fim do contrato para 13º e férias (OJ 82 da SDI-1).
+  - **13º:**
+    - proporcional até a data real, com INSS em separado e IRRF exclusivo;
+    - 13º sobre o aviso indenizado (avos da projeção), sem INSS e com aviso
+      de que a regra precisa de confirmação;
+    - desconto do adiantamento informado;
+    - na justa causa, não há 13º.
+  - **Férias:**
+    - **vencidas**, pelos `periodosAquisitivos` das férias: saldo do período
+      (direito − gozos e abonos); em dobro quando o concessivo passou;
+    - **proporcionais** em avos (fração de 15 dias), com o direito pelas
+      faltas;
+    - todas indenizadas: sem INSS, FGTS e IRRF;
+    - na justa causa, só as vencidas;
+    - **mais de um período vencido, ou com dobra, gera aviso e situação
+      "incompleto"**: costuma ser histórico de férias que não foi lançado em
+      Afastamentos.
+  - **Contrato a termo:** art. 479 (metade dos dias restantes até o
+    `fimContrato` da ficha) no término antecipado pelo empregador (03). O
+    art. 480 (04) fica como aviso, para lançar como desconto.
+  - **FGTS e prazo:**
+    - FGTS do mês e rescisório;
+    - **multa** de 40% (02 e 03) ou 20% (33) sobre o saldo informado mais o
+      FGTS da rescisão, informativa (paga por guia);
+    - regra de saque por motivo;
+    - **pagamento em até 10 dias** (art. 477, § 6º).
+  - **Motivos cobertos (Tabela 19):** 01, 02, 03, 04, 06, 07 e 33.
+- **`services/calculo/tributos.ts`:** INSS e IRRF detalhados com memória
+  (simplificado, redutor e mínimo de R$ 10), usados pela rescisão.
+- **Tela (aba Cálculo):**
+  - "Folha › Rescisão" mostra os desligados do mês pela ficha (S-2299)
+    mais as **simulações** de funcionários ativos (funcionário, data, tipo,
+    aviso);
+  - no detalhe: tipo, aviso, data (na simulação), saldo do FGTS e
+    adiantamento do 13º; aviso, projeção, prazo, multa e saque;
+  - nada é gravado; Excel `calculo-<código>-rescisao-AAAA-MM.xlsx`.
+- **Fora desta versão:** TRCT impresso, rescisão complementar,
+  indenização adicional (Lei 7.238), estabilidades e categorias que não são
+  de empregado.
+- **Revisão do PR #55 (Codex), corrigida antes do merge:**
+  - **P1:** os desligados do mês não recebem mais "sem justa causa" por
+    padrão. O motivo do S-2299 ainda não é importado para a ficha, então o
+    tipo é OBRIGATÓRIO: sem ele, a rescisão dá erro pedindo a escolha.
+    Importar o `mtvDeslig` e a `dtProjFimAPI` do S-2299 fica como melhoria.
+  - **P1:** quando a projeção do aviso entra no ano seguinte, os avos desse
+    ano (fração de 15 dias) entram no 13º sobre o aviso.
+  - **P2:** o adiantamento do 13º sai da base do FGTS rescisório, porque já
+    teve FGTS quando foi pago. Corrige também a multa.
+  - **P2:** o mês do pagamento da rescisão pode ser informado (tabela do
+    IRRF pelo mês efetivo do pagamento). O padrão é o mês do prazo de 10
+    dias, com aviso quando esse mês é diferente do mês do desligamento.
+  - **P2:** as opções do IRRF da tela valem só para o 13º da rescisão, e o
+    texto agora diz isso. O saldo de salário segue a regra mensal
+    (simplificado e redutor, que são regra certa no mensal).
