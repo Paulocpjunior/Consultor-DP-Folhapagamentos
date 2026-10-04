@@ -1,21 +1,25 @@
 // components/calculo/CalculoPanel.tsx
 //
 // Aba "Cálculo" (Fase 3): prévia do cálculo mensal por empresa e competência,
-// com o motor de services/calculo. O movimento digitado (horas extras, faltas,
-// pensão, lançamentos) fica só nesta tela — não é gravado. Serve para
-// conferir o motor contra o holerite do IOB antes de qualquer uso real.
+// com o motor de services/calculo. O movimento do mês (horas extras, faltas,
+// pensão, lançamentos) é gravado por funcionário e competência, com auditoria;
+// o que foi digitado e ainda não salvo fica marcado. O resultado do cálculo
+// não é gravado: serve para conferir o motor contra o holerite do IOB.
 
 import React, { useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { listarTodasEmpresas } from '../../services/empresas/empresasService';
-import { listarAfastamentos, listarFuncionarios, listarTabelas, mensagemErro } from '../../services/cadastros/cadastrosService';
+import { listarAfastamentos, listarFuncionarios, listarTabelas, mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
+import type { User } from '../../types';
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
 import type { Afastamento } from '../../services/cadastros/afastamentos';
 import type { TabelaLegal } from '../../services/cadastros/tabelasLegais';
 import { centavosDeTexto, reais } from '../../services/cadastros/documentos';
 import { calcularMensal, competenciaSeguinte, noMes, type Lancamento, type Movimento, type ResultadoCalculo } from '../../services/calculo/motorMensal';
 import { somarMeses } from '../../services/prazos/calendario';
+import { limparMovimento, mesmoMovimento, movimentoVazio, validarMovimento, type MovimentoGravado } from '../../services/calculo/movimento';
+import { listarMovimentos, salvarMovimentos } from '../../services/calculo/movimentosService';
 
 const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const btn = 'rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
@@ -30,7 +34,11 @@ const real = (c: number) => (c ? reais(c) : '—');
 
 interface Dados { fichas: FichaFuncionario[]; afastamentos: Afastamento[]; tabelas: TabelaLegal[] }
 
-const CalculoPanel: React.FC = () => {
+const diasNoMes = (c: string) => { const [a, m] = c.split('-').map(Number); return new Date(Date.UTC(a, m, 0)).getUTCDate(); };
+const quando = (d?: Date) => (d ? d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '');
+
+const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
+    const usuario: Usuario = { id: currentUser.uid ?? currentUser.id, email: currentUser.email };
     const mesAnterior = somarMeses(`${new Date().toLocaleDateString('sv-SE').slice(0, 7)}-01`, -1).slice(0, 7);
     const [empresas, setEmpresas] = useState<Empresa[] | null>(null);
     const [empresaId, setEmpresaId] = useState('');
@@ -38,8 +46,13 @@ const CalculoPanel: React.FC = () => {
     const [pagamento, setPagamento] = useState(competenciaSeguinte(mesAnterior));
     const [dados, setDados] = useState<Dados | null>(null);
     const [movs, setMovs] = useState<Record<string, Movimento>>({});
+    const [gravados, setGravados] = useState<Record<string, MovimentoGravado> | null>(null);
+    const [versao, setVersao] = useState(0);
     const [aberto, setAberto] = useState('');
     const [erro, setErro] = useState('');
+    const [errosMov, setErrosMov] = useState<string[]>([]);
+    const [salvando, setSalvando] = useState(false);
+    const [aviso, setAviso] = useState('');
 
     useEffect(() => { listarTodasEmpresas().then(setEmpresas).catch(e => { setErro(mensagemErro(e)); setEmpresas([]); }); }, []);
     useEffect(() => {
@@ -51,6 +64,30 @@ const CalculoPanel: React.FC = () => {
             .catch(e => { setErro(mensagemErro(e)); setDados({ fichas: [], afastamentos: [], tabelas: [] }); });
     }, [empresaId]);
 
+    const compOk = /^\d{4}-(0[1-9]|1[0-2])$/.test(competencia);
+    const carregarMovimentos = () => {
+        setGravados(null); setErrosMov([]);
+        if (!empresaId || !compOk) { setMovs({}); return; }
+        listarMovimentos(empresaId, competencia)
+            .then(lista => {
+                const mapa = Object.fromEntries(lista.map(g => [g.fichaId, g]));
+                setGravados(mapa); setMovs(Object.fromEntries(lista.map(g => [g.fichaId, g.movimento]))); setVersao(n => n + 1);
+            })
+            .catch(e => { setErro(mensagemErro(e)); setGravados({}); setMovs({}); });
+    };
+    useEffect(carregarMovimentos, [empresaId, competencia]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const pendentes = useMemo(() => [...new Set([...Object.keys(movs), ...Object.keys(gravados ?? {})])]
+        .filter(id => !mesmoMovimento(movs[id], gravados?.[id]?.movimento)), [movs, gravados]);
+    useEffect(() => {
+        if (!pendentes.length) return;
+        const h = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+        window.addEventListener('beforeunload', h);
+        return () => window.removeEventListener('beforeunload', h);
+    }, [pendentes.length]);
+    /** Troca de empresa ou competência: pergunta antes de descartar o que não foi salvo. */
+    const seguro = (f: () => void) => { if (!pendentes.length || window.confirm(`Há movimento não salvo de ${pendentes.length} funcionário(s). Descartar?`)) { setAviso(''); f(); } };
+
     const empresa = empresas?.find(e => e.id === empresaId);
     const resultados = useMemo(() => {
         if (!dados || !/^\d{4}-\d{2}$/.test(competencia)) return [];
@@ -61,6 +98,22 @@ const CalculoPanel: React.FC = () => {
     }, [dados, competencia, pagamento, movs]);
     const total = (f: (r: ResultadoCalculo) => number) => resultados.reduce((s, r) => s + f(r), 0);
     const sel = resultados.find(r => r.fichaId === aberto);
+    const nomeDe = (id: string) => dados?.fichas.find(f => f.id === id)?.dados.nome || id;
+
+    async function salvar() {
+        if (!gravados) return;
+        const itens = pendentes.map(id => ({ fichaId: id, antes: gravados[id]?.movimento ?? null, depois: limparMovimento(movs[id] ?? {}) }));
+        const erros = itens.flatMap(i => validarMovimento(i.depois, diasNoMes(competencia)).map(e => `${nomeDe(i.fichaId)}: ${e}`));
+        setErrosMov(erros); setAviso('');
+        if (erros.length) return;
+        setSalvando(true);
+        try {
+            await salvarMovimentos(empresaId, competencia, itens, usuario);
+            setAviso(`Movimento de ${itens.length} funcionário(s) salvo.`);
+            carregarMovimentos();
+        } catch (e) { setErrosMov([mensagemErro(e)]); }
+        finally { setSalvando(false); }
+    }
 
     function exportar() {
         const resumo = resultados.map(r => ({
@@ -81,23 +134,28 @@ const CalculoPanel: React.FC = () => {
     return (
         <div className="space-y-4">
             <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-100">
-                <strong>Prévia do motor de cálculo (Fase 3).</strong> Não substitui o cálculo do IOB enquanto não for conferido contra ele. O movimento digitado aqui não é gravado. Férias, 13º, rescisão, adicionais e médias ainda não estão no motor.
+                <strong>Prévia do motor de cálculo (Fase 3).</strong> Não substitui o cálculo do IOB enquanto não for conferido contra ele. O movimento do mês é gravado quando você clica em "Salvar movimento"; o resultado do cálculo não é gravado. Férias, 13º, rescisão, adicionais e médias ainda não estão no motor.
             </div>
             <div className="flex flex-wrap items-end gap-3">
                 <label className="text-sm dark:text-white">Empresa
-                    <select aria-label="Empresa" className={`ml-2 ${inp}`} value={empresaId} onChange={e => setEmpresaId(e.target.value)}>
+                    <select aria-label="Empresa" className={`ml-2 ${inp}`} value={empresaId} onChange={e => { const v = e.target.value; seguro(() => setEmpresaId(v)); }}>
                         <option value="">— escolha —</option>
                         {(empresas ?? []).map(e => <option key={e.id} value={e.id}>{e.codigoSage} · {e.nomeFantasia || e.razaoSocial}</option>)}
                     </select>
                 </label>
                 <label className="text-sm dark:text-white">Competência
-                    <input aria-label="Competência" type="month" className={`ml-2 ${inp}`} value={competencia} onChange={e => { setCompetencia(e.target.value); if (/^\d{4}-\d{2}$/.test(e.target.value)) setPagamento(competenciaSeguinte(e.target.value)); }} />
+                    <input aria-label="Competência" type="month" className={`ml-2 ${inp}`} value={competencia} onChange={e => { const c = e.target.value; seguro(() => { setCompetencia(c); setAberto(''); if (/^\d{4}-\d{2}$/.test(c)) setPagamento(competenciaSeguinte(c)); }); }} />
                 </label>
                 <label className="text-sm dark:text-white" title="O IRRF segue o mês do pagamento (regime de caixa).">Pagamento em
                     <input aria-label="Mês do pagamento" type="month" className={`ml-2 ${inp}`} value={pagamento} onChange={e => setPagamento(e.target.value)} />
                 </label>
-                <button className={`ml-auto ${btn}`} disabled={!resultados.length} onClick={exportar}>Exportar Excel</button>
+                <button className="ml-auto rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={!pendentes.length || salvando || !gravados} onClick={salvar}>
+                    {salvando ? 'Salvando…' : `Salvar movimento${pendentes.length ? ` (${pendentes.length})` : ''}`}
+                </button>
+                <button className={btn} disabled={!resultados.length} onClick={exportar}>Exportar Excel</button>
             </div>
+            {errosMov.length > 0 && <ul role="alert" aria-label="Erros do movimento" className="list-disc rounded bg-red-50 p-2 pl-6 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{errosMov.map(e => <li key={e}>{e}</li>)}</ul>}
+            {aviso && <p role="status" className="rounded bg-green-50 p-2 text-sm text-green-800 dark:bg-green-900/30 dark:text-green-200">{aviso}</p>}
 
             {erro && <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
             {empresaId && !dados && <p className="text-sm text-slate-500">Carregando…</p>}
@@ -112,7 +170,7 @@ const CalculoPanel: React.FC = () => {
                         <tbody>
                             {resultados.map(r => (
                                 <tr key={r.fichaId} className={`cursor-pointer border-t border-slate-100 hover:bg-blue-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-700 ${aberto === r.fichaId ? 'bg-blue-50 dark:bg-slate-700' : ''}`} onClick={() => setAberto(a => (a === r.fichaId ? '' : r.fichaId))}>
-                                    <td className="p-2 font-medium">{r.nome}{movs[r.fichaId] && <span className="ml-1 text-xs text-blue-700 dark:text-blue-300">(com movimento)</span>}</td>
+                                    <td className="p-2 font-medium">{r.nome}{pendentes.includes(r.fichaId) ? <span className="ml-1 text-xs text-amber-700 dark:text-amber-300">(não salvo)</span> : !movimentoVazio(movs[r.fichaId]) && <span className="ml-1 text-xs text-blue-700 dark:text-blue-300">(com movimento)</span>}</td>
                                     <td className="p-2 text-right">{real(r.totais.proventos)}</td>
                                     <td className="p-2 text-right">{real(v(r, 'INSS'))}</td>
                                     <td className="p-2 text-right">{real(v(r, 'IRRF'))}</td>
@@ -130,12 +188,12 @@ const CalculoPanel: React.FC = () => {
                 </div>
             )}
 
-            {sel && <Holerite r={sel} mov={movs[sel.fichaId] ?? {}} onMov={m => setMovs(x => ({ ...x, [sel.fichaId]: m }))} />}
+            {sel && <Holerite key={`${sel.fichaId}-${versao}`} r={sel} mov={movs[sel.fichaId] ?? {}} gravado={gravados?.[sel.fichaId]} pendente={pendentes.includes(sel.fichaId)} onMov={m => setMovs(x => ({ ...x, [sel.fichaId]: m }))} />}
         </div>
     );
 };
 
-const Holerite: React.FC<{ r: ResultadoCalculo; mov: Movimento; onMov: (m: Movimento) => void }> = ({ r, mov, onMov }) => {
+const Holerite: React.FC<{ r: ResultadoCalculo; mov: Movimento; gravado?: MovimentoGravado; pendente: boolean; onMov: (m: Movimento) => void }> = ({ r, mov, gravado, pendente, onMov }) => {
     const campo = (k: 'horasExtras50' | 'horasExtras100' | 'faltasDias' | 'dsrDescontadoDias' | 'feriadosLocais', rotulo: string) => (
         <label className="text-xs dark:text-slate-200">{rotulo}
             <input aria-label={rotulo} className={`mt-0.5 block w-24 ${inp}`} defaultValue={mov[k] != null ? String(mov[k]).replace('.', ',') : ''}
@@ -166,8 +224,14 @@ const Holerite: React.FC<{ r: ResultadoCalculo; mov: Movimento; onMov: (m: Movim
                 </details>
                 {r.avisos.length > 0 && <ul className="mt-2 list-disc pl-5 text-xs text-amber-800 dark:text-amber-200">{r.avisos.map(a => <li key={a}>{a}</li>)}</ul>}
             </div>
-            <div key={r.fichaId} className="space-y-3">
-                <h4 className="text-sm font-semibold text-slate-800 dark:text-white">Movimento do mês (não é gravado)</h4>
+            <div className="space-y-3">
+                <div>
+                    <h4 className="text-sm font-semibold text-slate-800 dark:text-white">Movimento do mês</h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {pendente ? <span className="text-amber-700 dark:text-amber-300">Alterado e ainda não salvo.</span>
+                            : gravado ? `Salvo por ${gravado.atualizadoPorEmail ?? '—'}${gravado.atualizadoEm ? ` em ${quando(gravado.atualizadoEm)}` : ''}.` : 'Sem movimento gravado.'}
+                    </p>
+                </div>
                 <div className="flex flex-wrap gap-3">
                     {campo('horasExtras50', 'Horas extras 50%')}
                     {campo('horasExtras100', 'Horas extras 100%')}

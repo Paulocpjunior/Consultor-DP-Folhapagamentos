@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import CalculoPanel from '../../../components/calculo/CalculoPanel';
 import { fichaVazia, type FichaFuncionario } from '../../cadastros/funcionarios';
@@ -24,11 +24,19 @@ vi.mock('../../cadastros/cadastrosService', () => ({
     listarTabelas: async () => [INSS, IR],
 }));
 
+const movs = vi.hoisted(() => ({ listarMovimentos: vi.fn(), salvarMovimentos: vi.fn() }));
+vi.mock('../movimentosService', () => movs);
+const USER = { uid: 'u1', email: 'dp@escritorio.com.br', role: 'colaborador' } as never;
+
+beforeEach(() => {
+    movs.listarMovimentos.mockReset().mockResolvedValue([]);
+    movs.salvarMovimentos.mockReset().mockResolvedValue(undefined);
+});
 afterEach(cleanup);
 
 describe('aba Cálculo', () => {
     it('calcula a empresa, abre o holerite, aplica o movimento e exporta', async () => {
-        render(<CalculoPanel />);
+        render(<CalculoPanel currentUser={USER} />);
         await waitFor(() => expect(screen.getByRole('option', { name: /0229/ })).toBeTruthy());
         fireEvent.change(screen.getByLabelText('Competência'), { target: { value: '2026-03' } });
         expect((screen.getByLabelText('Mês do pagamento') as HTMLInputElement).value).toBe('2026-04');
@@ -44,7 +52,7 @@ describe('aba Cálculo', () => {
         await waitFor(() => expect(within(holerite).getByText('Horas extras 50%', { selector: 'td' })).toBeTruthy());
         expect(within(holerite).getByText('Horas extras 50%', { selector: 'td' }).closest('tr')!.textContent).toContain('150,00');
         expect(within(holerite).getByText('DSR sobre horas extras').closest('tr')!.textContent).toContain('28,85');
-        expect(screen.getByText('(com movimento)')).toBeTruthy();
+        expect(screen.getByText('(não salvo)')).toBeTruthy();
 
         fireEvent.click(within(holerite).getByText('Adicionar lançamento'));
         fireEvent.change(within(holerite).getByLabelText('Descrição do lançamento 1'), { target: { value: 'Vale-transporte' } });
@@ -54,5 +62,51 @@ describe('aba Cálculo', () => {
 
         fireEvent.click(screen.getByText('Exportar Excel'));
         expect(xlsx.writeFile).toHaveBeenCalledWith(expect.anything(), 'calculo-0229-2026-03.xlsx');
+    });
+
+    it('carrega o movimento gravado, valida e salva só o que mudou', async () => {
+        movs.listarMovimentos.mockResolvedValue([{ id: 'f1_2026-03', empresaId: 'emp1', fichaId: 'f1', competencia: '2026-03', movimento: { horasExtras50: 10 }, atualizadoPorEmail: 'ana@x.com', atualizadoEm: new Date(2026, 3, 2, 10, 30) }]);
+        render(<CalculoPanel currentUser={USER} />);
+        await waitFor(() => expect(screen.getByRole('option', { name: /0229/ })).toBeTruthy());
+        fireEvent.change(screen.getByLabelText('Competência'), { target: { value: '2026-03' } });
+        fireEvent.change(screen.getByLabelText('Empresa'), { target: { value: 'emp1' } });
+        await waitFor(() => expect(screen.getByText('(com movimento)')).toBeTruthy());
+        expect(movs.listarMovimentos).toHaveBeenLastCalledWith('emp1', '2026-03');
+        expect(screen.getByText('ANA').closest('tr')!.textContent).toContain('2.378,85'); // 2.200 + 150 + DSR 28,85 (março/2026: 26 úteis, 5 descansos)
+
+        fireEvent.click(screen.getByText('ANA'));
+        const holerite = screen.getByRole('region', { name: 'Holerite de ANA' });
+        expect(within(holerite).getByText(/Salvo por ana@x.com em 02\/04\/2026/)).toBeTruthy();
+        expect((within(holerite).getByLabelText('Horas extras 50%') as HTMLInputElement).value).toBe('10');
+        expect(screen.getByText('Salvar movimento').hasAttribute('disabled')).toBe(true);
+
+        fireEvent.change(within(holerite).getByLabelText('Faltas (dias)'), { target: { value: '1' } });
+        fireEvent.click(within(holerite).getByText('Adicionar lançamento'));
+        fireEvent.change(within(holerite).getByLabelText('Valor do lançamento 1'), { target: { value: '50,00' } });
+        fireEvent.click(screen.getByText('Salvar movimento (1)'));
+        expect(screen.getByRole('alert', { name: 'Erros do movimento' }).textContent).toContain('ANA: Lançamento 1: informe a descrição.');
+        expect(movs.salvarMovimentos).not.toHaveBeenCalled();
+
+        fireEvent.click(within(holerite).getByText('remover'));
+        fireEvent.click(screen.getByText('Salvar movimento (1)'));
+        await waitFor(() => expect(movs.salvarMovimentos).toHaveBeenCalledTimes(1));
+        expect(movs.salvarMovimentos).toHaveBeenCalledWith('emp1', '2026-03', [{ fichaId: 'f1', antes: { horasExtras50: 10 }, depois: { horasExtras50: 10, faltasDias: 1 } }], { id: 'u1', email: 'dp@escritorio.com.br' });
+        await waitFor(() => expect(screen.getByRole('status').textContent).toBe('Movimento de 1 funcionário(s) salvo.'));
+        expect(movs.listarMovimentos).toHaveBeenCalledTimes(2);
+    });
+
+    it('pergunta antes de trocar a competência com movimento não salvo', async () => {
+        const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(false);
+        render(<CalculoPanel currentUser={USER} />);
+        await waitFor(() => expect(screen.getByRole('option', { name: /0229/ })).toBeTruthy());
+        fireEvent.change(screen.getByLabelText('Competência'), { target: { value: '2026-03' } });
+        fireEvent.change(screen.getByLabelText('Empresa'), { target: { value: 'emp1' } });
+        await waitFor(() => expect(screen.getByText('ANA')).toBeTruthy());
+        fireEvent.click(screen.getByText('ANA'));
+        fireEvent.change(screen.getByLabelText('Horas extras 50%'), { target: { value: '2' } });
+        fireEvent.change(screen.getByLabelText('Competência'), { target: { value: '2026-04' } });
+        expect(confirmar).toHaveBeenCalledWith('Há movimento não salvo de 1 funcionário(s). Descartar?');
+        expect((screen.getByLabelText('Competência') as HTMLInputElement).value).toBe('2026-03');
+        confirmar.mockRestore();
     });
 });
