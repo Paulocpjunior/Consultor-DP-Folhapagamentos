@@ -796,3 +796,51 @@ piloto em paralelo provar o cálculo próprio.
     (retido no recibo)". O IRRF do recibo é rateado pela competência. Na
     conferência dos holerites, INSS e IRRF do motor somam o retido no
     recibo, para bater com "INSS s/ férias" e "IRRF férias" do IOB.
+
+## Fase 5: holerite em PDF e resumo da folha (04/10/2026)
+
+- **Paulo: *"pode seguir com a próxima etapa"*.**
+- **`services/relatorios/resumoFolha.ts`** (puro):
+  - totais por verba, com o número de funcionários;
+  - férias vencidas de vários períodos numa linha;
+  - lançamentos avulsos agrupados pela descrição, não pelo código
+    posicional LAN1/LAN2;
+  - situações (calculado, incompleto, erro); os com erro ficam fora dos
+    totais;
+  - bases;
+  - **quadro para conferir as guias:** INSS dos segurados (inclui o do 13º,
+    das férias e o retido no recibo), salário-família (dedução na DCTFWeb),
+    salário-maternidade (compensação), IRRF retido (DCTFWeb do mês do
+    pagamento) e FGTS.
+- **`services/relatorios/holeritePdf.ts`** (jsPDF + autotable, já no
+  projeto):
+  - holerite com um funcionário por página: cabeçalho da empresa,
+    funcionário, verbas, totais alinhados, bases e assinatura;
+  - resumo da folha em PDF;
+  - **marca d'água "PRÉVIA"** semitransparente por cima de tudo, mais o
+    aviso em vermelho, até a conferência com o IOB;
+  - `textoPdf` limpa caracteres fora da fonte padrão (sinal de menos,
+    aspas curvas).
+- **Aba Cálculo:**
+  - botões "Resumo da folha" (quadro na tela, com "Resumo (PDF)"),
+    "Holerites (PDF)" e, no detalhe, "PDF deste holerite";
+  - nova aba "Resumo da folha" no Excel;
+  - texto por folha explicando o que serve para a DCTFWeb e o FGTS Digital
+    (o quadro vale para a guia na folha mensal; 13º, férias e rescisão
+    mostram só o seu valor).
+  - **Fica de fora a parte patronal** (20%, RAT, terceiros), que depende do
+    enquadramento. O total segue conferido pelo S-5011 na Conferência
+    pós-folha.
+- **Catálogo IOB:** "Folha Mensal / Resumo da Folha" e "Holerite" passam a
+  "parcial", com link para a aba Cálculo.
+- **Revisão do PR #57 (Codex), corrigida:**
+  - **P1:** a multa rescisória do FGTS entra no quadro das guias como linha
+    própria (também é recolhida pelo FGTS Digital), na tela, no PDF e no
+    Excel.
+  - **P2:** "funcionários" conta pessoas distintas. Quando há mais de um
+    cálculo por pessoa (dois recibos de férias no mês), mostra também o
+    número de cálculos.
+  - **P2:** as linhas do resumo na tela usam código + descrição como chave
+    (os lançamentos avulsos têm o mesmo código "LAN").
+  - **P2:** no holerite em PDF, se bases, declaração e assinatura não
+    couberem no fim da página, vão para a página seguinte.
