@@ -28,6 +28,7 @@ const ROTULO_DESTINO: Record<Destino, string> = {
     'cadastros:incidencias': 'Abrir Cadastros › Incidências',
     'cadastros:sindicatos': 'Abrir Cadastros › Sindicatos',
     'cadastros:tabelas': 'Abrir Cadastros › Tabelas legais',
+    calculo: 'Abrir Cálculo (prévia)',
     empresas: 'Abrir Empresas',
     esocial: 'Abrir eSocial',
     'iobsage:restaurar': 'Abrir a restauração do backup',

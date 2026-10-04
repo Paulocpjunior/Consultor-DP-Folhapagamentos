@@ -11,6 +11,7 @@ import type { Destino } from '../services/iobSage/catalogoMenus';
 const IobSagePanel = lazy(() => import('./iobSage/IobSagePanel'));
 const CadastrosPanel = lazy(() => import('./cadastros/CadastrosPanel'));
 const PrazosPanel = lazy(() => import('./prazos/PrazosPanel'));
+const CalculoPanel = lazy(() => import('./calculo/CalculoPanel'));
 import type { SubCadastro } from './cadastros/CadastrosPanel';
 import EmpresasPanel from './empresas/EmpresasPanel';
 import ESocialMonitorPanel from './esocial/ESocialMonitorPanel';
@@ -20,7 +21,7 @@ import UpdateBanner from './UpdateBanner';
 import { listarMinhasEmpresas, listarTodasEmpresas } from '../services/empresas/empresasService';
 import type { User } from '../types';
 
-type Tab = 'folha' | 'cadastros' | 'prazos' | 'empresas' | 'esocial' | 'iobsage' | 'admin';
+type Tab = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'empresas' | 'esocial' | 'iobsage' | 'admin';
 
 const SUB_FOLHA: Partial<Record<Destino, SubTabFolha>> = {
     'folha:apontamento': 'apontamento', 'folha:implantacao': 'implantacao', 'folha:conferencia': 'conferencia',
@@ -167,6 +168,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
     const tabs: { id: Tab; label: string; icon: string; adminOnly: boolean }[] = [
         { id: 'folha',    label: 'Folha',     icon: '📋', adminOnly: false },
         { id: 'cadastros', label: 'Cadastros', icon: '🗃️', adminOnly: false },
+        { id: 'calculo',  label: 'Cálculo',   icon: '🧮', adminOnly: false },
         { id: 'prazos',   label: 'Prazos',    icon: '⏰', adminOnly: false },
         { id: 'empresas', label: 'Empresas',  icon: '🏢', adminOnly: false },
         { id: 'esocial',  label: 'eSocial',   icon: '📡', adminOnly: false },
@@ -320,8 +322,13 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                             const cad = SUB_CADASTRO[d];
                             if (sub) { setFolhaSub(f => ({ sub, n: (f?.n ?? 0) + 1 })); setActiveTab('folha'); }
                             else if (cad) { setCadastroSub(c => ({ sub: cad, n: (c?.n ?? 0) + 1 })); setActiveTab('cadastros'); }
-                            else if (d === 'empresas' || d === 'esocial') setActiveTab(d);
+                            else if (d === 'empresas' || d === 'esocial' || d === 'calculo') setActiveTab(d);
                         }} />
+                    </Suspense>
+                )}
+                {activeTab === 'calculo' && (
+                    <Suspense fallback={<div className="py-12 text-center text-sm text-slate-500">Carregando…</div>}>
+                        <CalculoPanel />
                     </Suspense>
                 )}
                 {activeTab === 'prazos' && (

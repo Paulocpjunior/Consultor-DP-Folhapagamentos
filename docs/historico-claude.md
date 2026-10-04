@@ -404,3 +404,67 @@ piloto em paralelo provar o cálculo próprio.
 - **Falta, quando o backup real chegar:**
   - confirmar a tabela e as colunas do IOB Office e fixar o de/para;
   - trazer dependentes, sindicatos, horários e eventos pelo mesmo caminho.
+
+## Fase 3: motor do cálculo mensal, em prévia (04/10/2026)
+
+- **Paulo: *"pode seguir com a próxima etapa"*.**
+  - A Fase 2 espera o backup real. Por isso começou a Fase 3 pelo cálculo
+    mensal, usando as tabelas legais já cadastradas.
+- **Motor** (`services/calculo/motorMensal.ts`): é puro, sem Firebase, e
+  devolve cada verba com a memória de cálculo.
+  - **Salário:** mensal, por hora (horas semanais × 5) ou por dia/quinzena.
+  - **Mês comercial:**
+    - mês inteiro sem afastamento vale 30 dias;
+    - com afastamento, pagam-se os dias trabalhados, até 30;
+    - em fevereiro, 30 menos os dias afastados;
+    - na admissão ou no desligamento, os dias do vínculo, com aviso para
+      conferir a regra com o IOB.
+  - **Afastamentos:**
+    - doença ou acidente: a empresa paga 15 dias e o INSS paga a partir do
+      16º. Se for o mesmo motivo de um afastamento anterior (infoMesmoMtv),
+      não há dias pagos pela empresa;
+    - acidente do trabalho mantém o FGTS sobre os dias pagos pelo INSS
+      (Lei 8.036, art. 15, § 5º);
+    - licença-maternidade entra como salário-maternidade;
+    - férias deixam o cálculo "incompleto";
+    - licença remunerada (16) é paga; os outros motivos não são pagos, e os
+      motivos 14, 24 e 25 geram aviso.
+  - **Movimento:**
+    - horas extras 50% e 100%, com DSR (dias úteis de segunda a sábado;
+      descanso = domingos e feriados nacionais por lei, mais os feriados
+      locais informados);
+    - faltas e DSR descontado;
+    - pensão alimentícia de valor fixo;
+    - lançamentos avulsos, com incidências marcadas.
+  - **INSS:** progressivo pela tabela da competência, limitado ao teto.
+  - **Salário-família:**
+    - devido até o mês em que o filho completa 14 anos, com remuneração até
+      o limite;
+    - proporcional na admissão e no desligamento.
+  - **IRRF:**
+    - tabela do **mês do pagamento** (regime de caixa); o padrão é o mês
+      seguinte à competência;
+    - usa o maior entre as deduções legais (INSS + dependentes + pensão) e
+      o desconto simplificado;
+    - aplica o **redutor da Lei 15.270/2025** sobre os rendimentos
+      tributáveis: redução total até o primeiro limite e parcial (parcela
+      fixa − coeficiente × rendimentos) até o segundo;
+    - imposto de até R$ 10,00 não é retido (Lei 9.430/1996, art. 67).
+  - **FGTS:** 8%; aprendiz (categoria 103) 2%.
+  - **Fora desta versão:** férias, 13º, rescisão, adicionais (noturno,
+    insalubridade, periculosidade), médias e categorias que não são de
+    empregado.
+- **Tabelas legais:** a tabela do IRRF ganhou os cinco campos do redutor.
+  - São opcionais e vão completos ou ficam em branco.
+  - O coeficiente é guardado em milionésimos (0,133145 → 133145).
+- **Aba nova "Cálculo":**
+  - escolha da empresa, da competência e do mês do pagamento;
+  - lista com proventos, INSS, IRRF, salário-família, líquido e FGTS;
+  - holerite com a memória de cálculo;
+  - movimento digitado na tela, que **não é gravado**;
+  - Excel com as abas Resumo, Verbas e Memória.
+- **Próximos passos:**
+  - conferir contra holerites reais do IOB (uma empresa, um mês);
+  - gravar o movimento;
+  - ligar as verbas aos eventos do IOB e às rubricas (Incidências);
+  - férias e 13º.

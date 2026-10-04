@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { inssProgressivo, tabelaVazia, tabelaVigente, tetoInss, validarTabela, type TabelaLegal } from '../tabelasLegais';
+import { coeficienteDeTexto, inssProgressivo, tabelaVazia, textoCoeficiente, tabelaVigente, tetoInss, validarTabela, type TabelaLegal } from '../tabelasLegais';
 import { normalizarSindicato, sindicatoVazio, situacaoConvencao, validarSindicato } from '../sindicatos';
 
 // Valores FICTÍCIOS, só para testar a mecânica. As tabelas reais são digitadas
@@ -28,6 +28,17 @@ describe('tabelas legais', () => {
         const irrf: TabelaLegal = { ...tabelaVazia('irrf'), id: 'i', vigencia: '2026-01', norma: 'Lei fictícia de teste', faixas: [{ ate: 200000, aliquota: 0, deducao: 0 }, { ate: null, aliquota: 27.5, deducao: 50000 }] };
         expect(validarTabela(irrf)).toEqual(['Informe dedução por dependente.', 'Informe desconto simplificado mensal.']);
         expect(validarTabela({ ...irrf, valores: { deducaoDependente: 10000, descontoSimplificado: 50000 } })).toEqual([]);
+        // Redutor: opcional, mas vai completo
+        const base = { deducaoDependente: 10000, descontoSimplificado: 50000 };
+        const redutor = { redutorAte: 300000, redutorMaximo: 20000, redutorLimite: 400000, redutorConstante: 60000, redutorCoeficiente: 150000 };
+        expect(validarTabela({ ...irrf, valores: { ...base, ...redutor } })).toEqual([]);
+        expect(validarTabela({ ...irrf, valores: { ...base, redutorAte: 300000 } })).toHaveLength(4);
+        expect(validarTabela({ ...irrf, valores: { ...base, ...redutor, redutorLimite: 300000 } })).toEqual(['Redutor: o limite da redução parcial deve ser maior que o da redução total.']);
+        expect(validarTabela({ ...irrf, valores: { ...base, ...redutor, redutorCoeficiente: 1_000_000 } })[0]).toContain('menor que 1');
+        expect(coeficienteDeTexto('0,133145')).toBe(133145);
+        expect(coeficienteDeTexto(',5')).toBe(500000);
+        expect(coeficienteDeTexto('1,2')).toBeNull();
+        expect(textoCoeficiente(133145)).toBe('0,133145');
         const meio = { ...irrf, faixas: [{ ate: null, aliquota: 0, deducao: 0 }, { ate: 100, aliquota: 1, deducao: 0 }], valores: { deducaoDependente: 1, descontoSimplificado: 1 } };
         expect(validarTabela(meio)).toEqual(['Faixa 1: informe o limite; só a última faixa pode ficar sem limite.']);
     });

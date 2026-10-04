@@ -6,8 +6,8 @@
 
 import React, { useState } from 'react';
 import {
-    DEF_TABELAS, TIPOS_TABELA, inssProgressivo, rotuloCompetencia, tabelaVazia, tabelaVigente, tetoInss, validarTabela,
-    type ChaveValor, type TabelaLegal, type TipoTabela,
+    DEF_TABELAS, TIPOS_TABELA, coeficienteDeTexto, inssProgressivo, rotuloCompetencia, tabelaVazia, tabelaVigente, tetoInss, textoCoeficiente, validarTabela,
+    type ChaveValor, type DefValor, type TabelaLegal, type TipoTabela,
 } from '../../services/cadastros/tabelasLegais';
 import { excluirTabela, mensagemErro, salvarTabela, type Usuario } from '../../services/cadastros/cadastrosService';
 import { centavosDeTexto, reais } from '../../services/cadastros/documentos';
@@ -16,6 +16,8 @@ interface Props { tabelas: TabelaLegal[] | null; erroLista: string; usuario: Usu
 
 const inp = 'w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const txt = (c: number | null | undefined) => (c == null ? '' : (c / 100).toFixed(2).replace('.', ','));
+const ehCoef = (tipo: TipoTabela, k: string) => DEF_TABELAS[tipo].valores.some(v => v.chave === k && v.formato === 'coeficiente');
+const mostrarValor = (v: DefValor, n: number) => (v.formato === 'coeficiente' ? textoCoeficiente(n) : reais(n));
 const pct = (n: number) => `${n.toLocaleString('pt-BR', { maximumFractionDigits: 4 })}%`;
 
 interface FaixaTexto { ate: string; aliquota: string; deducao: string }
@@ -26,7 +28,7 @@ function paraEdicao(antes: TabelaLegal | null, tipo: TipoTabela): Edicao {
     return {
         antes, t,
         faixas: t.faixas.map(f => ({ ate: txt(f.ate), aliquota: f.aliquota ? String(f.aliquota).replace('.', ',') : '', deducao: f.deducao ? txt(f.deducao) : '' })),
-        valores: Object.fromEntries(Object.entries(t.valores).map(([k, v]) => [k, txt(v)])),
+        valores: Object.fromEntries(Object.entries(t.valores).map(([k, v]) => [k, ehCoef(tipo, k) ? textoCoeficiente(v) : txt(v)])),
     };
 }
 
@@ -44,7 +46,7 @@ function deEdicao(e: Edicao): { t: TabelaLegal; erros: string[] } {
     const valores: TabelaLegal['valores'] = {};
     for (const [k, v] of Object.entries(e.valores) as [ChaveValor, string][]) {
         if (!v.trim()) continue;
-        const c = centavosDeTexto(v);
+        const c = ehCoef(e.t.tipo, k) ? coeficienteDeTexto(v) : centavosDeTexto(v);
         if (c === null) erros.push(`Valor inválido: ${v}.`); else valores[k] = c;
     }
     return { t: { ...e.t, faixas, valores, norma: e.t.norma.trim(), observacao: e.t.observacao.trim() }, erros };
@@ -109,7 +111,7 @@ const TabelasLegaisCadastro: React.FC<Props> = ({ tabelas, erroLista, usuario, i
                                             <strong>A partir de {rotuloCompetencia(t.vigencia)}</strong> · {t.norma}
                                             <span className="block text-xs text-slate-500 dark:text-slate-400">
                                                 {t.faixas.length > 0 && t.faixas.map(f => `${f.ate === null ? 'acima' : `até ${reais(f.ate)}`}: ${pct(f.aliquota)}${f.deducao ? ` − ${reais(f.deducao)}` : ''}`).join(' · ')}
-                                                {DEF_TABELAS[tipo].valores.map(v => t.valores[v.chave] != null ? ` · ${v.rotulo}: ${reais(t.valores[v.chave]!)}` : '').join('')}
+                                                {DEF_TABELAS[tipo].valores.map(v => t.valores[v.chave] != null ? ` · ${v.rotulo}: ${mostrarValor(v, t.valores[v.chave]!)}` : '').join('')}
                                                 {tipo === 'inss' && tetoInss(t) !== null && ` · contribuição no teto: ${reais(inssProgressivo(tetoInss(t)!, t))}`}
                                             </span>
                                         </button>
@@ -159,11 +161,12 @@ const TabelasLegaisCadastro: React.FC<Props> = ({ tabelas, erroLista, usuario, i
                             {def.valores.length > 0 && (
                                 <div className="grid gap-3 sm:grid-cols-2">
                                     {def.valores.map(v => (
-                                        <label key={v.chave} className="block"><span className="text-xs font-medium text-slate-600 dark:text-slate-300">{v.rotulo} (R$)</span>
+                                        <label key={v.chave} className="block"><span className="text-xs font-medium text-slate-600 dark:text-slate-300">{v.rotulo}{v.formato === 'coeficiente' ? ' (ex.: 0,133145)' : ' (R$)'}{v.grupo ? ' — opcional' : ''}</span>
                                             <input className={inp} value={edicao.valores[v.chave] ?? ''} onChange={e => setEdicao({ ...edicao, valores: { ...edicao.valores, [v.chave]: e.target.value } })} aria-label={v.rotulo} /></label>
                                     ))}
                                 </div>
                             )}
+                            {edicao.t.tipo === 'irrf' && <p className="text-xs text-slate-600 dark:text-slate-300">Redutor mensal (Lei 15.270/2025, a partir de 01/2026): preencha os cinco campos como estão na lei. Em tabela anterior a 2026, deixe em branco.</p>}
                             <label className="block"><span className="text-xs font-medium text-slate-600 dark:text-slate-300">Observação</span>
                                 <textarea className={inp} rows={2} value={edicao.t.observacao} onChange={e => setEdicao({ ...edicao, t: { ...edicao.t, observacao: e.target.value } })} aria-label="Observação" /></label>
                         </fieldset>
