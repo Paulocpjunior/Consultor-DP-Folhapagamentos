@@ -1,12 +1,14 @@
 import { limparSessaoImplantacao } from '../services/implantacao/sessao';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import * as authService from '../services/auth/authService';
 import { consultarGateDepartamento, type GateDepartamento } from '../services/departamentoGate';
 import { getAuth } from 'firebase/auth';
 import LoginScreen from './auth/LoginScreen';
 import PendingScreen from './auth/PendingScreen';
 import AdminUsersPanel from './auth/AdminUsersPanel';
-import FolhaPanel from './folha/FolhaPanel';
+import FolhaPanel, { type SubTabFolha } from './folha/FolhaPanel';
+import type { Destino } from '../services/iobSage/catalogoMenus';
+const IobSagePanel = lazy(() => import('./iobSage/IobSagePanel'));
 import EmpresasPanel from './empresas/EmpresasPanel';
 import ESocialMonitorPanel from './esocial/ESocialMonitorPanel';
 import AlertaPendenciasPopup from './AlertaPendenciasPopup';
@@ -15,7 +17,12 @@ import UpdateBanner from './UpdateBanner';
 import { listarMinhasEmpresas, listarTodasEmpresas } from '../services/empresas/empresasService';
 import type { User } from '../types';
 
-type Tab = 'folha' | 'empresas' | 'esocial' | 'admin';
+type Tab = 'folha' | 'empresas' | 'esocial' | 'iobsage' | 'admin';
+
+const SUB_FOLHA: Partial<Record<Destino, SubTabFolha>> = {
+    'folha:apontamento': 'apontamento', 'folha:implantacao': 'implantacao', 'folha:conferencia': 'conferencia',
+    'folha:eventos': 'eventos', 'folha:ponto': 'validador-ponto',
+};
 
 function extrairNomeAmigavel(user: any): string {
     if (!user) return 'Usuário';
@@ -45,6 +52,8 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [authReady, setAuthReady] = useState(false);
     const [activeTab, setActiveTab] = useState<Tab>('folha');
+    // Sub-aba da Folha pedida por outro módulo (IOB SAGE); a chave remonta o painel nela.
+    const [folhaSub, setFolhaSub] = useState<{ sub: SubTabFolha; n: number } | null>(null);
     const [empresasCount, setEmpresasCount] = useState<number | null>(null);
     const [showWelcome, setShowWelcome] = useState(false);
     const [showPendencias, setShowPendencias] = useState(false);
@@ -151,6 +160,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
         { id: 'folha',    label: 'Folha',     icon: '📋', adminOnly: false },
         { id: 'empresas', label: 'Empresas',  icon: '🏢', adminOnly: false },
         { id: 'esocial',  label: 'eSocial',   icon: '📡', adminOnly: false },
+        { id: 'iobsage',  label: 'IOB SAGE',  icon: '🗂️', adminOnly: false },
         { id: 'admin',    label: 'Usuários',  icon: '👥', adminOnly: true  },
     ];
 
@@ -271,6 +281,8 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
             <main className="max-w-7xl mx-auto p-4 sm:p-6">
                 {activeTab === 'folha' && (empresasCount && empresasCount > 0
                     ? <FolhaPanel
+                        key={folhaSub ? `sub-${folhaSub.n}` : 'folha'}
+                        subInicial={folhaSub?.sub}
                         currentUser={currentUser as any}
                         onIrParaEmpresas={() => setActiveTab('empresas')}
                       />
@@ -290,6 +302,15 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                 )}
                 {activeTab === 'empresas' && <EmpresasPanel currentUser={currentUser as any} />}
                 {activeTab === 'esocial' && <ESocialMonitorPanel currentUser={currentUser as any} />}
+                {activeTab === 'iobsage' && (
+                    <Suspense fallback={<div className="py-12 text-center text-sm text-slate-500">Carregando…</div>}>
+                        <IobSagePanel onNavegar={d => {
+                            const sub = SUB_FOLHA[d];
+                            if (sub) { setFolhaSub(f => ({ sub, n: (f?.n ?? 0) + 1 })); setActiveTab('folha'); }
+                            else if (d === 'empresas' || d === 'esocial') setActiveTab(d);
+                        }} />
+                    </Suspense>
+                )}
                 {activeTab === 'admin' && isAdmin && <AdminUsersPanel currentUser={currentUser as any} />}
             </main>
         </div>

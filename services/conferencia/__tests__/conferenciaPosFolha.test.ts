@@ -216,3 +216,86 @@ describe('valor digitado', () => {
         expect(lerValorDigitado(v as string)).toBe(c);
     });
 });
+
+import { cnpjParaSerpro, consultarSerproConferencia, type ClienteSerpro } from '../serproConferencia';
+
+const ok = (entregue: boolean, situacao: string) => ({ ok: true, entregue, situacao, dataEntrega: '2026-10-15' });
+function cliente(o: Partial<{ fgts: unknown; esocial: unknown; dctf: unknown; debitos: unknown }> = {}): ClienteSerpro {
+    const r = (v: unknown, padrao: unknown) => (v instanceof Error ? Promise.reject(v) : Promise.resolve(v ?? padrao));
+    return {
+        consultarFgtsRecolhimento: () => r(o.fgts, { ok: true, depositoDevido: 259.49, depositoRealizado: 259.49 }) as never,
+        consultarESocialFechamento: () => r(o.esocial, ok(true, 'FECHADO')) as never,
+        consultarDctfWebStatus: () => r(o.dctf, ok(true, 'ENTREGUE')) as never,
+        consultarDctfWebDebitos: () => r(o.debitos, { ok: true, fonte: 'serpro', debitos: [] }) as never,
+    };
+}
+
+describe('SERPRO na conferência', () => {
+    it('converte reais em centavos e trata 0 e 0 como "sem valor", não como nada devido', async () => {
+        const a = await consultarSerproConferencia(cliente(), '29463877000109', '2026-09');
+        expect(a.fgts).toEqual({ ok: true, devido: 25949, realizado: 25949 });
+        const b = await consultarSerproConferencia(cliente({ fgts: { ok: true, depositoDevido: 0, depositoRealizado: 0 } }), 'x', '2026-09');
+        expect(b.fgts).toEqual({ ok: true, devido: null, realizado: null });
+    });
+
+    it('falha de consulta vira ok=false com o erro, nunca "entregue"', async () => {
+        const r = await consultarSerproConferencia(cliente({ esocial: new Error('HTTP 502'), dctf: { ok: false, entregue: true, situacao: 'indisponivel', erro: 'timeout' } }), 'x', '2026-09');
+        expect(r.esocial).toMatchObject({ ok: false, entregue: false, erro: 'HTTP 502' });
+        expect(r.dctfweb).toMatchObject({ ok: false, entregue: false, erro: 'timeout' });
+    });
+
+    it('vira pendência: fechamento não transmitido, DCTFWeb não entregue, FGTS devido diferente do S-5013 e não recolhido', async () => {
+        const g = await grupo(s5001('1'), s5003('1'), s5011('300.00', '300.00', []), s5013([['11', '3243.65', '259.49']]));
+        const sp = await consultarSerproConferencia(cliente({
+            esocial: ok(false, 'ABERTO'), dctf: ok(false, 'EM ANDAMENTO'),
+            fgts: { ok: true, depositoDevido: 300, depositoRealizado: 0 },
+        }), '29463877000109', '2026-09');
+        const p = conferirPosFolha(g, { serpro: sp }).pendencias.filter(x => x.regra === 'SERPRO');
+        expect(p.map(x => x.gravidade)).toEqual(['critica', 'atencao', 'atencao', 'atencao']);
+        expect(p[0].mensagem).toMatch(/devido no SERPRO \(R\$\s?300,00\).*S-5013/);
+        expect(p.some(x => /não consta recolhimento/.test(x.mensagem))).toBe(true);
+        expect(p.some(x => /S-1299/.test(x.mensagem))).toBe(true);
+    });
+
+    it('tudo certo no SERPRO: nenhuma pendência; consulta indisponível vira só informativa', async () => {
+        const g = await grupo(s5001('1'), s5003('1'), s5011('300.00', '300.00', []), s5013([['11', '3243.65', '259.49']]));
+        const certo = await consultarSerproConferencia(cliente(), 'x', '2026-09');
+        expect(conferirPosFolha(g, { serpro: certo }).pendencias).toEqual([]);
+        const fora = await consultarSerproConferencia(cliente({ fgts: new Error('FGTS Digital não disponível no plano SERPRO contratado') }), 'x', '2026-09');
+        expect(conferirPosFolha(g, { serpro: fora }).pendencias.map(x => [x.gravidade, x.regra])).toEqual([['info', 'SERPRO']]);
+    });
+
+    it('escolhe o CNPJ: matriz do cadastro, senão estabelecimento dos totalizadores', async () => {
+        const g = await grupo(s5001('1'), s5003('1'));
+        const emp = (cnpj: string) => ({ id: cnpj, cnpj, razaoSocial: '', nomeFantasia: '', codigoSage: '', criadoPor: '' });
+        expect(cnpjParaSerpro(g, [emp('29.463.877/0002-90'), emp('29.463.877/0001-09'), emp('11.111.111/0001-11')])).toBe('29463877000109');
+        expect(cnpjParaSerpro(g, null)).toBe('29463877000109');
+        expect(cnpjParaSerpro(g, [emp('11.111.111/0001-11')])).toBe('29463877000109');
+    });
+});
+
+describe('débitos da DCTFWeb pelo SERPRO', () => {
+    const lote = () => grupo(s5001('1'), s5003('1'), s5011('300.00', '300.00', [['108201', '300.00'], ['113801', '1000.00']]), s5013([['11', '3243.65', '259.49']]));
+
+    it('saldo a pagar igual ao S-5011 por código de receita: nenhuma pendência', async () => {
+        const sp = await consultarSerproConferencia(cliente({ debitos: { ok: true, fonte: 'serpro', debitos: [{ codReceita: '1082-01', descricao: 'CP SEGURADOS', valor: 300 }, { codReceita: '113801', descricao: 'CP PATRONAL', valor: 1000 }, { codReceita: '056107', descricao: 'IRRF', valor: 50 }] } }), 'x', '2026-09');
+        expect(sp.dctfwebDebitos.debitos[0]).toEqual({ codReceita: '108201', descricao: 'CP SEGURADOS', valor: 30000 });
+        expect(conferirPosFolha(await lote(), { serpro: sp }).pendencias).toEqual([]);
+    });
+
+    it('diferença ou código ausente vira atenção, com a explicação das deduções', async () => {
+        const sp = await consultarSerproConferencia(cliente({ debitos: { ok: true, fonte: 'serpro', debitos: [{ codReceita: '113801', descricao: 'CP PATRONAL', valor: 950 }] } }), 'x', '2026-09');
+        const p = conferirPosFolha(await lote(), { serpro: sp }).pendencias;
+        expect(p.map(x => [x.gravidade, x.diferenca])).toEqual([['atencao', -30000], ['atencao', -5000]]);
+        expect(p.map(x => x.mensagem).join(' ')).toMatch(/salário-família/);
+    });
+
+    it('rota ainda não publicada (404) e modo mock do CFI ficam indisponíveis, nunca entram como número', async () => {
+        const a = await consultarSerproConferencia(cliente({ debitos: new Error('HTTP 404') }), 'x', '2026-09');
+        expect(a.dctfwebDebitos).toMatchObject({ ok: false, erro: 'consulta de débitos ainda não publicada no Consultor Fiscal' });
+        const b = await consultarSerproConferencia(cliente({ debitos: { ok: true, fonte: 'mock', debitos: [{ codReceita: '108201', descricao: '', valor: 999 }] } }), 'x', '2026-09');
+        expect(b.dctfwebDebitos).toMatchObject({ ok: false, debitos: [] });
+        expect(conferirPosFolha(await lote(), { serpro: b }).pendencias.map(x => x.gravidade)).toEqual(['info']);
+    });
+});
+

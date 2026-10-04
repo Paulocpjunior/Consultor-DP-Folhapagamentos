@@ -124,3 +124,20 @@ export async function consultarEmpresaCompleto(
     if (competencia) body.competencia = competencia;
     return callFiscal<EmpresaCompletoResult>('/empresa-completo', body);
 }
+
+// ─── DCTFWeb — débitos por código de receita ────────────────────────────
+// Rota nova do túnel (CFI: POST /api/dp-integration/dctfweb/debitos). Lê o XML
+// da declaração (CONSXMLDECLARACAO38) e devolve os débitos com saldo a pagar.
+
+export interface DctfWebDebito { codReceita: string; codigo: string; extensao: string; descricao: string; valor: number }
+export interface DctfWebDebitosResult {
+    ok: boolean;
+    fonte?: string | null;
+    identificacao?: { cnpj: string | null; perApuracao: string | null; competencia: string | null; categoriaDCTF: string | null };
+    debitos: DctfWebDebito[];
+    erro?: string;
+}
+
+export async function consultarDctfWebDebitos(cnpj: string, competencia: string): Promise<DctfWebDebitosResult> {
+    return callFiscal<DctfWebDebitosResult>('/dctfweb/debitos', { cnpj, competencia });
+}
