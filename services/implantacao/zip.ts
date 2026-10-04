@@ -3,6 +3,8 @@
 // sem dependência extra. Suficiente para a rotina de importação por XML da IOB,
 // que aceita .xml ou .zip.
 
+import { decodificar } from '../iobSage/dbf';
+
 const TABELA = (() => {
     const t = new Uint32Array(256);
     for (let n = 0; n < 256; n++) {
@@ -92,6 +94,21 @@ export interface EntradaZip {
     offLocal: number;
 }
 
+const LETRAS_PT = /[áéíóúâêôãõçàÁÉÍÓÚÂÊÔÃÕÇÀ]/g;
+
+/**
+ * Nome sem o bit 11 (UTF-8): página de código do DOS. A especificação diz
+ * CP437, mas o Windows em português grava na CP850 (ã, õ, Á…, que a CP437
+ * não tem): fica com a CP850 quando ela dá mais letras do português.
+ */
+function nomeDos(b: Uint8Array): string {
+    const cp437 = decodificar(b, 'cp437');
+    if (!b.some(x => x >= 0x80)) return cp437;
+    const cp850 = decodificar(b, 'cp850');
+    const letras = (t: string) => (t.match(LETRAS_PT) ?? []).length;
+    return letras(cp850) > letras(cp437) ? cp850 : cp437;
+}
+
 const u64 = (v: DataView, p: number) => v.getUint32(p, true) + v.getUint32(p + 4, true) * 0x100000000;
 
 /**
@@ -121,8 +138,6 @@ export async function indiceZip(fonte: FonteZip): Promise<EntradaZip[]> {
     const central = await fonte.ler(offCentral, offCentral + tamCentral);
     const v = new DataView(central.buffer, central.byteOffset, central.byteLength);
     const utf8 = new TextDecoder('utf-8');
-    // Sem o bit 11, o nome está na página de código do DOS; para nomes ASCII dá no mesmo.
-    const dos = new TextDecoder('latin1');
     const saida: EntradaZip[] = [];
     let p = 0;
     for (let n = 0; n < total; n++) {
@@ -133,7 +148,8 @@ export async function indiceZip(fonte: FonteZip): Promise<EntradaZip[]> {
         let tamanho = v.getUint32(p + 24, true);
         const lenNome = v.getUint16(p + 28, true), lenExtra = v.getUint16(p + 30, true), lenComent = v.getUint16(p + 32, true);
         let offLocal = v.getUint32(p + 42, true);
-        const nome = (flag & 0x0800 ? utf8 : dos).decode(central.subarray(p + 46, p + 46 + lenNome));
+        const bytesNome = central.subarray(p + 46, p + 46 + lenNome);
+        let nome = flag & 0x0800 ? utf8.decode(bytesNome) : nomeDos(bytesNome);
         // Campo extra ZIP64 (0x0001): traz, nesta ordem, só os valores que ficaram em 0xFFFFFFFF.
         for (let x = p + 46 + lenNome; x + 4 <= p + 46 + lenNome + lenExtra;) {
             const id = v.getUint16(x, true), len = v.getUint16(x + 2, true);
@@ -142,6 +158,10 @@ export async function indiceZip(fonte: FonteZip): Promise<EntradaZip[]> {
                 if (tamanho === 0xffffffff) { tamanho = u64(v, q); q += 8; }
                 if (comprimido === 0xffffffff) { comprimido = u64(v, q); q += 8; }
                 if (offLocal === 0xffffffff) { offLocal = u64(v, q); }
+            }
+            // Caminho Unicode (0x7075, Info-ZIP): vale se o CRC bate com o nome do cabeçalho.
+            if (id === 0x7075 && len > 5 && v.getUint8(x + 4) === 1 && v.getUint32(x + 5, true) === crc32(bytesNome)) {
+                nome = utf8.decode(central.subarray(x + 9, x + 4 + len));
             }
             x += 4 + len;
         }

@@ -6,11 +6,11 @@ import { describe, expect, it } from 'vitest';
 import { deflateRawSync } from 'node:zlib';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fonteDaEntrada, indiceZip, lerZip, type FonteZip } from '../zip';
+import { crc32, fonteDaEntrada, indiceZip, lerZip, type FonteZip } from '../zip';
 import { abrirRestauracao } from '../../iobSage/restauracao';
 import type { Valor } from '../../iobSage/backupPostgres';
 
-interface EntradaTeste { nome: string; dados?: Uint8Array; zeros?: number; metodo?: 0 | 8; flag?: number }
+interface EntradaTeste { nome: string; dados?: Uint8Array; zeros?: number; metodo?: 0 | 8; flag?: number; nomeDos?: Uint8Array; extra?: Uint8Array }
 interface Segmento { ini: number; fim: number; bytes?: Uint8Array }
 
 const enc = new TextEncoder();
@@ -28,16 +28,16 @@ function zipVirtual(entradas: EntradaTeste[], zip64 = false) {
     const add = (b?: Uint8Array, zeros = 0) => { const n = b ? b.length : zeros; segs.push({ ini: pos, fim: pos + n, bytes: b }); pos += n; };
     const central: Uint8Array[] = [];
     for (const e of entradas) {
-        const nome = enc.encode(e.nome);
+        const nome = e.nomeDos ?? enc.encode(e.nome);
         const metodo = e.metodo ?? (e.zeros ? 0 : 8);
         const dados = e.dados && metodo === 8 ? new Uint8Array(deflateRawSync(e.dados)) : e.dados;
         const comp = dados ? dados.length : e.zeros!;
         const tam = e.dados ? e.dados.length : e.zeros!;
         const off = pos;
-        const flag = (e.flag ?? 0) | 0x0800;
+        const flag = (e.flag ?? 0) | (e.nomeDos ? 0 : 0x0800);
         add(junta(bytes([0x04034b50, 4], [45, 2], [flag, 2], [metodo, 2], [0, 4], [0, 4], [zip64 ? 0xffffffff : comp, 4], [zip64 ? 0xffffffff : tam, 4], [nome.length, 2], [0, 2]), nome));
         add(dados, dados ? 0 : e.zeros);
-        const extra = zip64 ? bytes([1, 2], [24, 2], [tam, 8], [comp, 8], [off, 8]) : new Uint8Array(0);
+        const extra = junta(zip64 ? bytes([1, 2], [24, 2], [tam, 8], [comp, 8], [off, 8]) : new Uint8Array(0), e.extra ?? new Uint8Array(0));
         central.push(junta(bytes([0x02014b50, 4], [45, 2], [45, 2], [flag, 2], [metodo, 2], [0, 4], [0, 4],
             [zip64 ? 0xffffffff : comp, 4], [zip64 ? 0xffffffff : tam, 4], [nome.length, 2], [extra.length, 2], [0, 2], [0, 2], [0, 2], [0, 4],
             [zip64 ? 0xffffffff : off, 4]), nome, extra));
@@ -118,6 +118,21 @@ describe('zip lido por fatias', () => {
         expect(await fonteDaEntrada(fonte, idx[0]).ler(cinco - 4, cinco + 4)).toEqual(new Uint8Array(4));
         expect(new TextDecoder().decode(await fonteDaEntrada(fonte, idx[1]).ler(0, 99))).toBe('fim do backup');
         expect(Math.max(...leituras)).toBeLessThan(1024 * 1024);
+    });
+
+    it('nomes sem UTF-8: CP437 pela especificação, CP850 do Windows em português e caminho Unicode', async () => {
+        const dos = (...b: number[]) => new Uint8Array(b);
+        const unicode = (nomeHeader: Uint8Array, nome: string) => { const u = enc.encode(nome); return junta(bytes([0x7075, 2], [5 + u.length, 2], [1, 1], [crc32(nomeHeader), 4]), u); };
+        const fun = dos(0x46, 0x55, 0x4e, 0x80, 0x82, 0x4f); // FUNÇéO em CP437/CP850 (0x80 = Ç, 0x82 = é)
+        const cao = dos(0x41, 0x80, 0xc7, 0x4f); // AÇÃO na CP850 (0xC7 = Ã); na CP437 seria ╟
+        const outro = dos(0x58, 0x82);
+        const { fonte } = zipVirtual([
+            { nome: '', nomeDos: fun, dados: enc.encode('a'), metodo: 0 },
+            { nome: '', nomeDos: cao, dados: enc.encode('b'), metodo: 0 },
+            { nome: '', nomeDos: outro, dados: enc.encode('c'), metodo: 0, extra: unicode(outro, 'MEMÓRIA.DBF') },
+            { nome: '', nomeDos: outro, dados: enc.encode('d'), metodo: 0, extra: unicode(dos(0x59), 'ERRADO.DBF') },
+        ]);
+        expect((await indiceZip(fonte)).map(e => e.nome)).toEqual(['FUNÇéO', 'AÇÃO', 'MEMÓRIA.DBF', 'Xé']);
     });
 
     it('zip inválido e entrada protegida por senha dão mensagem clara', async () => {

@@ -892,7 +892,9 @@ piloto em paralelo provar o cálculo próprio.
 - **`services/implantacao/zip.ts`:**
   - `indiceZip(fonte)` lê só o diretório central, pelo fim do arquivo
     (inclusive **ZIP64**: arquivos e entradas acima de 4 GB). Nomes em
-    UTF-8 quando o zip marca; os outros, como página do DOS.
+    UTF-8 quando o zip marca; os outros, pela página do DOS (CP437, ou
+    CP850 quando dá mais letras do português — é a do Windows no Brasil),
+    ou pelo campo de caminho Unicode (0x7075), quando o CRC confere.
   - `fonteDaEntrada(fonte, entrada)` dá acesso por fatias a cada arquivo de
     dentro do zip:
     - "stored": lido direto do zip;
@@ -919,3 +921,8 @@ piloto em paralelo provar o cálculo próprio.
   - senha e zip inválido.
   Conferido também, fora da suíte, com zips do Info-ZIP (ZIP64 forçado e
   descritor de dados).
+- **Revisão do PR #59 (Codex), corrigida:**
+  - **P2:** nome sem o bit 11 era lido como Windows-1252 ("latin1" no
+    navegador): `0x80` virava `€` em vez de `Ç`. Agora usa a CP437 (ou a
+    CP850, ver acima) da tabela do leitor DBF e o caminho Unicode; com
+    teste.
