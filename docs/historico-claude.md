@@ -138,3 +138,52 @@ piloto em paralelo provar o cálculo próprio.
   .SBAK/.SBKP também abre); o conteúdo do .zip é listado inteiro; DBF casa com
   o memo da mesma pasta; tabelas DBF e PostgreSQL na mesma lista.
 
+## Cadastros (menu Arquivos do IOB Office)
+
+- **04/10/2026, Paulo: *"pode mergear o pr #41 e comecar pelos cadastros"*.**
+  Isso veio depois de ele notar que *"nao foram construidos os modulos como os existentes na iob"*.
+  Nova aba **Cadastros** com dados no Firestore e auditoria
+  (`services/cadastros/`, `components/cadastros/`):
+  - **Funcionários:** ficha por empresa com as abas do Office (Dados, Ident.
+    Adm., Documentos, Outros, Dependentes e Histórico).
+    - A chave é empresa + CPF + matrícula do eSocial. O código sequencial do
+      IOB fica num campo próprio, porque é ele que o TXT de ponto usa.
+    - A carga vem do XML do eSocial, pela mesma consolidação da implantação,
+      com prévia antes de gravar.
+    - Campo editado à mão vira origem "Manual" e uma reimportação não o
+      sobrescreve: a divergência aparece na prévia. Campo que veio do eSocial e
+      sumiu do XML é removido. Código IOB, banco e observações nunca são
+      tocados pela importação.
+    - Exporta Excel.
+  - **Sindicatos:** id = CNPJ, com data-base, piso, registro e vigência da
+    convenção (alerta a 30 dias do fim) e contribuição.
+  - **Tabelas legais:** INSS, IRRF, salário mínimo e salário-família por
+    vigência (AAAA-MM).
+    - **Nenhum valor vem pronto.** Sem norma não grava.
+    - Qualquer aprovado inclui; corrigir ou excluir é só do admin (regra no
+      Firestore).
+    - Tabela que vale = a de maior vigência até a competência. Duas com a mesma
+      vigência é erro.
+    - O INSS mostra a contribuição no teto, para conferir com a portaria.
+    - O redutor mensal do IRRF e as demais regras de cálculo entram com o motor
+      (Fase 3).
+  - **Eventos:** o atalho leva ao Catálogo de Eventos que já existe na Folha.
+    Incidências ficam para a próxima entrega.
+- **Coleções novas:** `cadastro_funcionarios`, `cadastro_sindicatos`,
+  `cadastro_tabelas_legais` e `cadastro_audit` (esta só aceita inclusão).
+  - As regras estão em `firestore.rules`. Foram testadas no emulador do
+    Firestore (firebase-tools 14 + @firebase/rules-unit-testing) e cobrem
+    colaborador, pendente, admin, id do documento, autor e auditoria imutável.
+  - **O deploy das regras é manual:** `firebase deploy --only firestore:rules
+    --project consultor-dp-folha`. Sem ele, a tela mostra "Sem permissão" com
+    o comando.
+- **Faltam:**
+  - abas Complementos, Lanç. Automático e Holerite (aguardam os prints do
+    Office);
+  - Horários e Afastamentos;
+  - incidências dos eventos;
+  - carga a partir do backup restaurado (de/para das tabelas do SAGE).
+- **Pendente de teste real:** o XML do André na pasta de testes é uma
+  retificação (indRetif 2) sem recibo nem original, e a importação a recusa,
+  como a implantação. Para importar, é preciso o XML com o recibo
+  (retornoEventoCompleto) ou o S-2200 original.

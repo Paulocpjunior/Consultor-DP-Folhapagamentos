@@ -126,6 +126,46 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ===== Cadastros (Arquivos do IOB Office) =====
+    // Toda gravação leva o autor; a auditoria é só inclusão.
+
+    match /cadastro_funcionarios/{fichaId} {
+      allow read, list: if isApproved();
+      allow create, update: if isApproved()
+                    && request.resource.data.atualizadoPor == request.auth.uid
+                    && request.resource.data.empresaId is string
+                    && request.resource.data.cpf is string
+                    && request.resource.data.matriculaEsocial is string
+                    && fichaId.matches('^' + request.resource.data.empresaId + '_' + request.resource.data.cpf + '_.+$');
+      allow delete: if isAdmin();
+    }
+
+    match /cadastro_sindicatos/{cnpj} {
+      allow read, list: if isApproved();
+      allow create, update: if isApproved()
+                    && request.resource.data.atualizadoPor == request.auth.uid
+                    && request.resource.data.cnpj == cnpj
+                    && request.resource.data.nome is string;
+      allow delete: if isAdmin();
+    }
+
+    // Tabela legal sem norma não entra; corrigir ou apagar tabela é do admin.
+    match /cadastro_tabelas_legais/{tabelaId} {
+      allow read, list: if isApproved();
+      allow create: if isApproved()
+                    && request.resource.data.atualizadoPor == request.auth.uid
+                    && request.resource.data.norma is string
+                    && request.resource.data.norma.size() >= 5
+                    && request.resource.data.vigencia is string;
+      allow update, delete: if isAdmin();
+    }
+
+    match /cadastro_audit/{logId} {
+      allow read, list: if isApproved();
+      allow create: if isApproved() && request.resource.data.autor == request.auth.uid;
+      allow update, delete: if false;
+    }
+
     match /{document=**} { allow read, write: if false; }
   }
 }
