@@ -308,3 +308,36 @@ piloto em paralelo provar o cálculo próprio.
   ou 20 no mês da competência e não ajustava dia útil. Agora usa as mesmas
   regras, e "atrasada" virou "prazo passou (conferir entrega)", porque a
   entrega não é verificada ali.
+
+## Download de eventos do eSocial (Fase 1, item 2)
+
+- **04/10/2026, Paulo: *"pode seguir com download dos eventos do esocial"*.**
+  - **CFI, PR #1370:** rotas do túnel
+    `/api/dp-integration/esocial/download/{identificadores,eventos}`. O CFI
+    assina o pedido e abre o mTLS com o A1 do cofre (por padrão o do
+    escritório, como procurador).
+  - **DP:** aba eSocial › Download (`components/esocial/ESocialDownload.tsx`,
+    `services/esocial/downloadEventos.ts`).
+- **Na tela:**
+  - **Consulta por trabalhador:** CPF e período, com sugestão dos CPFs da
+    empresa e da admissão como início. Tem "consultar os próximos" a partir
+    do `dhUltimoEvtRetornado`.
+  - **Consulta por competência:** tpEvt + perApur, sem continuação; acima de 50
+    eventos, consultar por trabalhador.
+  - **Consulta de tabelas:** S-1010 e outras.
+  - Baixa até 50 eventos por vez e acumula na sessão.
+  - **Salvar .zip:** cada evento é remontado no formato do portal
+    (retornoEventoCompleto: evento + recibo), e o zip entra direto em
+    Cadastros (Funcionários, Afastamentos, Incidências) e na Conferência
+    pós-folha. Os testes provam a leitura pelas quatro importações.
+  - Os XMLs não são gravados no app.
+  - A tela mostra quantos pedidos foram feitos hoje para a empresa, porque o
+    eSocial limita por dia. O limite exato não foi confirmado em fonte
+    oficial: as fontes falam em cerca de 10 a 12 por dia e 50 por resposta.
+- **Pendente de teste real:** depende do deploy do CFI depois do merge do
+  #1370 e de o A1 do escritório estar no cofre. O primeiro uso vai mostrar se
+  a procuração cobre o download; se não cobrir, usar a opção "da própria
+  empresa".
+- **Ajuste de teste:** o teste do editor de layout do Cadastro IOB levava
+  ~4,3 s, contra o limite padrão de 5 s, e estourava com a suíte cheia. O
+  limite dele subiu para 15 s.

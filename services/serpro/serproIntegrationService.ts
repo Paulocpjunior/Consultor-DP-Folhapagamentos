@@ -21,7 +21,7 @@ async function getToken(): Promise<string> {
     return u.getIdToken();
 }
 
-async function callFiscal<T>(path: string, body: object): Promise<T> {
+export async function callFiscal<T>(path: string, body: object): Promise<T> {
     const token = await getToken();
     const resp = await fetch(`${FISCAL_API_BASE}${path}`, {
         method: 'POST',
