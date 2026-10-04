@@ -4,6 +4,7 @@
 // + CRUD manual de eventos com auditoria (modal Novo/Editar + Histórico).
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { ehAdmin } from '../../services/auth/papeis';
 import type { User } from '../../types';
 import type { CatalogoEventos, EventoIobSage } from '../../services/folha/folhaTypes';
 import {
@@ -184,7 +185,7 @@ const EventosIobSagePanel: React.FC<Props> = ({ currentUser }) => {
 
     // Catálogo vazio → tela de bootstrap
     if (!catalogo) {
-        const isAdmin = currentUser.role === 'admin';
+        const isAdmin = ehAdmin(currentUser.role);
         return (
             <div className="max-w-2xl mx-auto p-6 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
                 <h3 className="text-lg font-bold mb-2 text-slate-800 dark:text-white">

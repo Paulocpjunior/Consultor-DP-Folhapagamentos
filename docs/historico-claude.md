@@ -926,3 +926,48 @@ piloto em paralelo provar o cálculo próprio.
     navegador): `0x80` virava `€` em vez de `Ç`. Agora usa a CP437 (ou a
     CP850, ver acima) da tabela do leitor DBF e o caminho Unicode; com
     teste.
+
+## Etapa 1 dos ajustes do Paulo: nível GESTOR + Storage fechado (04/10/2026)
+
+Pedido: ativar empresa e período antes de tudo; carteira por colaborador
+(como no CFI); calendário de obrigações da folha; nível GESTORES acima dos
+admins; cofre de certificados único do SaaS. Decisões do Paulo: carteira
+própria do DP (mesmo modal do CFI); **admin só vê a própria carteira, só o
+gestor vê todas**; o .pfx renovado sobe no app Legal, gravando no cofre do
+CFI; ordem: gestores → carteira → empresa/período → cofre → calendário.
+
+Achados do levantamento (para as próximas etapas):
+- O app Legal **não guarda certificado**: espelha vencimentos do Jotform
+  (`legalizacao_vencimentos`) e copia o arquivo para o SharePoint na
+  renovação. O cofre de verdade (.pfx e senha cifrados) é o do CFI
+  (`empresas_certificados`), no mesmo projeto Firebase do Legal. O CFI já
+  tem o túnel `/api/admin/cadastro/certificados` (só metadados, aceita o
+  DP).
+- No DP, o certificado subia para o Storage do próprio DP com leitura e
+  gravação para qualquer logado; as functions ainda procuram a senha em
+  texto no Firestore (fica para a etapa do cofre).
+
+Feito nesta etapa:
+- **`services/auth/papeis.ts`** (puro, com testes): gestor > admin >
+  colaborador > pendente; `ehAdmin`, `ehGestor`, `podeMudarPapel`,
+  `papeisPermitidos`. Ninguém muda o próprio papel; gestor muda qualquer
+  um; admin só entre pendente e colaborador.
+- **Master** `junior@spassessoriacontabil.com.br` (o mesmo do CFI), com
+  e-mail verificado, é sempre gestor: nasce gestor e, se já existia como
+  admin, vira gestor ao entrar. É quem destrava o primeiro gestor.
+- **Brecha fechada:** a regra de `users` aceitava criar o próprio perfil já
+  como **admin** (bastava chamar o Firestore direto). Agora nasce pendente;
+  gestor só o master. Sai o "primeiro usuário vira admin".
+- **Regras:** `isApproved`/`isAdmin` incluem o gestor; `isGestor`. Admin
+  só altera papel/aprovação de pendente e colaborador (nem a si mesmo, nem
+  outros campos); excluir usuário admin/gestor e **excluir empresa** só o
+  gestor.
+- **Storage:** `certificados/**` só admin/gestor; o resto fechado. A tela
+  de certificado esconde enviar/substituir/remover de quem não pode.
+- **Usuários:** botões conforme o que o papel permite (aprovar, tornar
+  admin/gestor, rebaixar, suspender), papel em destaque e erro claro de
+  permissão. As checagens `role === 'admin'` espalhadas viraram `ehAdmin`
+  (o papel inexistente "owner" do Ponto saiu).
+- **Emulador:** 8 testes novos (perfil, master, admin × gestor, empresa,
+  Storage) + os 10 anteriores: 18 passando. **Precisa publicar as regras
+  do Firestore e do Storage.**

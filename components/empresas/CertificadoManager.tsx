@@ -8,6 +8,7 @@ import {
 } from '../../services/empresas/certificadoService';
 import type { Empresa, CertificadoTipo } from '../../services/empresas/empresasTypes';
 import type { User } from '../../types';
+import { ehAdmin } from '../../services/auth/papeis';
 
 interface Props {
     empresa: Empresa;
@@ -28,6 +29,8 @@ const CertificadoManager: React.FC<Props> = ({ empresa, currentUser, onAtualizad
     const [titular, setTitular] = useState('');
 
     const cert = empresa.certificado;
+    // O arquivo do certificado só é enviado ou removido por admin/gestor (storage.rules).
+    const podeGerir = ehAdmin(currentUser.role);
     const status = calcularStatusCertificado(cert?.validade);
     const statusInfo = getStatusLabel(status);
 
@@ -118,7 +121,7 @@ const CertificadoManager: React.FC<Props> = ({ empresa, currentUser, onAtualizad
                                 </div>
                             </div>
                         </div>
-                        <div className="flex gap-1">
+                        {podeGerir && <div className="flex gap-1">
                             <button onClick={() => setShowUpload(true)}
                                 className="px-2 py-1 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 dark:text-blue-300 rounded">
                                 Substituir
@@ -127,9 +130,11 @@ const CertificadoManager: React.FC<Props> = ({ empresa, currentUser, onAtualizad
                                 className="px-2 py-1 text-xs bg-red-50 hover:bg-red-100 text-red-700 dark:bg-red-900/20 dark:hover:bg-red-900/40 dark:text-red-300 rounded disabled:opacity-50">
                                 Remover
                             </button>
-                        </div>
+                        </div>}
                     </div>
                 </div>
+            ) : !podeGerir ? (
+                <p className="p-3 text-xs text-slate-500 dark:text-slate-400 border border-dashed border-slate-300 dark:border-slate-600 rounded-lg">🔐 Sem certificado vinculado. Só admin ou gestor vincula o certificado digital.</p>
             ) : (
                 <button onClick={() => setShowUpload(true)}
                     className="w-full p-3 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg text-sm text-slate-500 dark:text-slate-400 hover:border-blue-400 hover:text-blue-600 dark:hover:border-blue-500 dark:hover:text-blue-400 transition-colors">
@@ -137,7 +142,7 @@ const CertificadoManager: React.FC<Props> = ({ empresa, currentUser, onAtualizad
                 </button>
             )}
 
-            {showUpload && (
+            {showUpload && podeGerir && (
                 <form onSubmit={handleUpload} className="mt-2 p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg space-y-2">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <div>

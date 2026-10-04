@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import * as authService from '../../services/auth/authService';
 import type { User } from '../../types';
+import { ROTULO_PAPEL, papelEfetivo, papeisPermitidos, type Papel } from '../../services/auth/papeis';
 
 interface Props { currentUser: User; }
 
@@ -22,15 +23,34 @@ const AdminUsersPanel: React.FC<Props> = ({ currentUser }) => {
     };
     useEffect(() => { reload(); }, []);
 
-    const aprovar = async (uid: string, role: authService.AuthRole) => {
-        if (!confirm(`Aprovar usuário como ${role}?`)) return;
-        await authService.approveUser(uid, currentUser.email, role);
+    const ator = papelEfetivo(currentUser.role);
+    const mudar = async (u: authService.UserDoc, novo: Papel) => {
+        const atual = papelEfetivo(u.role);
+        if (!confirm(`${u.name}: ${ROTULO_PAPEL[atual]} → ${ROTULO_PAPEL[novo]}?`)) return;
+        setErro('');
+        try {
+            if (atual === 'pendente') await authService.approveUser(u.uid, currentUser.email, novo);
+            else await authService.setRole(u.uid, novo);
+        } catch (e: any) {
+            setErro(e?.code === 'permission-denied' ? 'Sem permissão para esta mudança de papel.' : (e?.message ?? String(e)));
+        }
         reload();
     };
-    const trocarRole = async (uid: string, role: authService.AuthRole) => {
-        if (!confirm(`Mudar para ${role}?`)) return;
-        await authService.setRole(uid, role);
-        reload();
+    const rotuloBotao = (atual: Papel, novo: Papel) =>
+        atual === 'pendente' ? (novo === 'colaborador' ? 'Aprovar' : `Aprovar como ${ROTULO_PAPEL[novo].toLowerCase()}`)
+        : novo === 'pendente' ? 'Suspender'
+        : `Tornar ${ROTULO_PAPEL[novo].toLowerCase()}`;
+    const corBotao: Record<Papel, string> = {
+        gestor: 'bg-purple-600 hover:bg-purple-700',
+        admin: 'bg-amber-600 hover:bg-amber-700',
+        colaborador: 'bg-green-600 hover:bg-green-700',
+        pendente: 'bg-slate-500 hover:bg-slate-600',
+    };
+    const corPapel: Record<Papel, string> = {
+        gestor: 'bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-200',
+        admin: 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200',
+        colaborador: 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-200',
+        pendente: 'bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-200',
     };
 
     if (loading) return <div className="py-8 text-center text-slate-500">Carregando usuários…</div>;
@@ -40,7 +60,8 @@ const AdminUsersPanel: React.FC<Props> = ({ currentUser }) => {
             <header className="mb-4 flex items-center justify-between">
                 <div>
                     <h2 className="text-xl font-bold text-slate-800 dark:text-white">👥 Gerenciar usuários</h2>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{users.length} usuário(s) cadastrado(s)</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{users.length} usuário(s) cadastrado(s) · você é {ROTULO_PAPEL[ator].toLowerCase()}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Gestor administra admins e gestores e exclui empresas; admin aprova e administra colaboradores.</p>
                 </div>
                 <button onClick={reload} className="px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded">↻ Atualizar</button>
             </header>
@@ -60,29 +81,19 @@ const AdminUsersPanel: React.FC<Props> = ({ currentUser }) => {
                     <tbody>
                         {users.map((u) => {
                             const isMe = u.uid === (currentUser as any).uid;
-                            const badge = u.role === 'admin'
-                                ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200'
-                                : u.role === 'pendente'
-                                ? 'bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-200'
-                                : 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-200';
+                            const atual = papelEfetivo(u.role);
+                            const opcoes = papeisPermitidos(ator, isMe, atual);
                             return (
                                 <tr key={u.uid} className="border-t border-slate-100 dark:border-slate-700">
                                     <td className="px-3 py-2 text-slate-800 dark:text-slate-200">{u.name} {isMe && <span className="text-xs text-blue-500">(você)</span>}</td>
                                     <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{u.email}</td>
-                                    <td className="px-3 py-2"><span className={`px-2 py-0.5 text-xs font-medium rounded ${badge}`}>{u.role}</span></td>
+                                    <td className="px-3 py-2"><span className={`px-2 py-0.5 text-xs font-medium rounded ${corPapel[atual]}`}>{ROTULO_PAPEL[atual]}</span></td>
                                     <td className="px-3 py-2 text-right space-x-1">
-                                        {isMe ? (
+                                        {opcoes.length === 0 ? (
                                             <span className="text-xs text-slate-400">—</span>
-                                        ) : u.role === 'pendente' ? (
-                                            <>
-                                                <button onClick={() => aprovar(u.uid, 'colaborador')} className="px-2 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded">Aprovar</button>
-                                                <button onClick={() => aprovar(u.uid, 'admin')} className="px-2 py-1 text-xs bg-amber-600 hover:bg-amber-700 text-white rounded">Aprovar como admin</button>
-                                            </>
-                                        ) : u.role === 'colaborador' ? (
-                                            <button onClick={() => trocarRole(u.uid, 'admin')} className="px-2 py-1 text-xs bg-amber-600 hover:bg-amber-700 text-white rounded">Promover a admin</button>
-                                        ) : (
-                                            <button onClick={() => trocarRole(u.uid, 'colaborador')} className="px-2 py-1 text-xs bg-slate-500 hover:bg-slate-600 text-white rounded">Rebaixar</button>
-                                        )}
+                                        ) : opcoes.map(p => (
+                                            <button key={p} onClick={() => mudar(u, p)} className={`px-2 py-1 text-xs text-white rounded ${corBotao[p]}`}>{rotuloBotao(atual, p)}</button>
+                                        ))}
                                     </td>
                                 </tr>
                             );

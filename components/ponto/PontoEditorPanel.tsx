@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { ehAdmin } from '../../services/auth/papeis';
 import type { User } from '../../types';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import {
@@ -44,7 +45,7 @@ const PontoEditorPanel: React.FC<Props> = ({ currentUser }) => {
     useEffect(() => {
         (async () => {
             try {
-                const isAdmin = (currentUser as any)?.role === 'admin' || (currentUser as any)?.role === 'owner';
+                const isAdmin = ehAdmin((currentUser as any)?.role);
                 const [emps, mod] = await Promise.all([
                     isAdmin ? listarTodasEmpresas() : listarMinhasEmpresas((currentUser as any)?.uid),
                     buscarModelo(MODELO_ID),

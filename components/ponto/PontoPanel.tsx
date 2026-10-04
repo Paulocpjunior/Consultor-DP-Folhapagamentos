@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { ehAdmin } from '../../services/auth/papeis';
 import {
     collection,
     getDocs,
@@ -149,7 +150,7 @@ const TabImportar: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     useEffect(() => {
         (async () => {
             try {
-                const isAdmin = (currentUser as any)?.role === 'admin' || (currentUser as any)?.role === 'owner';
+                const isAdmin = ehAdmin((currentUser as any)?.role);
                 const [emps, mod] = await Promise.all([
                     isAdmin ? listarTodasEmpresas() : listarMinhasEmpresas((currentUser as any)?.uid),
                     buscarModelo(MODELO_ID),
@@ -437,7 +438,7 @@ const TabLayouts: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     useEffect(() => {
         (async () => {
             try {
-                const isAdmin = (currentUser as any)?.role === 'admin' || (currentUser as any)?.role === 'owner';
+                const isAdmin = ehAdmin((currentUser as any)?.role);
                 const emps = isAdmin ? await listarTodasEmpresas() : await listarMinhasEmpresas((currentUser as any)?.uid);
                 setEmpresas(emps || []);
 
@@ -545,7 +546,7 @@ const TabRegistros: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const [filtroPeriodo, setFiltroPeriodo] = useState('');
 
     const loadEmpresas = useCallback(async () => {
-        const isAdmin = (currentUser as any)?.role === 'admin' || (currentUser as any)?.role === 'owner';
+        const isAdmin = ehAdmin((currentUser as any)?.role);
         return isAdmin ? listarTodasEmpresas() : listarMinhasEmpresas((currentUser as any)?.uid);
     }, [currentUser]);
 

@@ -20,6 +20,7 @@ import {
 } from 'firebase/firestore';
 import app, { isFirebaseConfigured, db } from '../firebaseConfig';
 import type { User } from '../../types';
+import { ehMaster, papelEfetivo, type Papel } from './papeis';
 
 if (!isFirebaseConfigured || !app || !db) {
     throw new Error('Firebase não configurado. Verifique o .env.local com as 6 variáveis VITE_FIREBASE_*.');
@@ -28,7 +29,7 @@ if (!isFirebaseConfigured || !app || !db) {
 const auth = getAuth(app);
 const firestore = db;
 
-export type AuthRole = 'admin' | 'colaborador' | 'pendente';
+export type AuthRole = Papel;
 
 export interface UserDoc {
     uid: string;
@@ -45,15 +46,16 @@ async function fetchUserDoc(uid: string): Promise<UserDoc | null> {
     return snap.exists() ? (snap.data() as UserDoc) : null;
 }
 
-async function ensureFirstUserIsAdmin(uid: string, email: string, name: string): Promise<UserDoc> {
-    // Se a coleção users estiver vazia, esse cadastro é o primeiro admin
-    const all = await getDocs(collection(firestore,'users'));
-    const isFirst = all.empty;
-    const role: AuthRole = isFirst ? 'admin' : 'pendente';
+/**
+ * Perfil novo nasce pendente; só o e-mail master verificado nasce gestor
+ * (as regras do Firestore recusam qualquer outro papel na criação).
+ */
+async function criarPerfil(uid: string, email: string, name: string, masterVerificado: boolean): Promise<UserDoc> {
+    const role: AuthRole = masterVerificado ? 'gestor' : 'pendente';
     const docData: UserDoc = {
         uid, email, name, role,
         createdAt: serverTimestamp(),
-        ...(isFirst ? { approvedAt: serverTimestamp(), approvedBy: 'self' } : {}),
+        ...(masterVerificado ? { approvedAt: serverTimestamp(), approvedBy: 'master' } : {}),
     };
     await setDoc(doc(firestore,'users', uid), docData);
     return docData;
@@ -62,27 +64,33 @@ async function ensureFirstUserIsAdmin(uid: string, email: string, name: string):
 export function subscribeAuthState(cb: (user: User | null) => void): () => void {
     return onAuthStateChanged(auth, async (fbUser: FirebaseUser | null) => {
         if (!fbUser) { cb(null); return; }
+        const masterVerificado = ehMaster(fbUser.email) && fbUser.emailVerified;
         let userDoc = await fetchUserDoc(fbUser.uid);
         if (!userDoc) {
-            userDoc = await ensureFirstUserIsAdmin(
+            userDoc = await criarPerfil(
                 fbUser.uid,
                 fbUser.email ?? '',
                 fbUser.displayName ?? (fbUser.email ?? '').split('@')[0],
+                masterVerificado,
             );
+        } else if (masterVerificado && userDoc.role !== 'gestor') {
+            // O master é sempre gestor (destrava o primeiro gestor do app).
+            try { await updateDoc(doc(firestore, 'users', fbUser.uid), { role: 'gestor' }); userDoc = { ...userDoc, role: 'gestor' }; }
+            catch (e) { console.warn('Não foi possível gravar o papel de gestor do master:', e); }
         }
         cb({
             id: fbUser.uid,
             uid: fbUser.uid,
             email: fbUser.email ?? '',
             name: userDoc.name,
-            role: userDoc.role,
+            role: papelEfetivo(userDoc.role),
         } as any);
     });
 }
 
 export async function signup(email: string, password: string, name: string): Promise<void> {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
-    await ensureFirstUserIsAdmin(cred.user.uid, email, name);
+    await criarPerfil(cred.user.uid, email, name, false);
 }
 
 export async function login(email: string, password: string): Promise<void> {

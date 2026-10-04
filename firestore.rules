@@ -2,24 +2,38 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Hierarquia: gestor > admin > colaborador > pendente (services/auth/papeis.ts).
+    // O e-mail master verificado (o mesmo do CFI) é sempre gestor.
     function isSignedIn()  { return request.auth != null; }
+    function isMaster()    { return isSignedIn() && request.auth.token.email == 'junior@spassessoriacontabil.com.br'
+                                    && request.auth.token.email_verified == true; }
     function userDoc()     { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
-    function isApproved()  { return isSignedIn() && userDoc().role in ['admin','colaborador']; }
-    function isAdmin()     { return isSignedIn() && userDoc().role == 'admin'; }
+    function isApproved()  { return isMaster() || (isSignedIn() && userDoc().role in ['gestor','admin','colaborador']); }
+    function isAdmin()     { return isMaster() || (isSignedIn() && userDoc().role in ['gestor','admin']); }
+    function isGestor()    { return isMaster() || (isSignedIn() && userDoc().role == 'gestor'); }
 
     match /users/{uid} {
       allow read:   if isSignedIn() && (request.auth.uid == uid || isAdmin());
       allow list:   if isSignedIn();
+      // Perfil novo nasce pendente; só o master nasce gestor.
       allow create: if isSignedIn() && request.auth.uid == uid
-                    && request.resource.data.role in ['pendente','admin']
-                    && request.resource.data.uid == request.auth.uid;
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+                    && request.resource.data.uid == request.auth.uid
+                    && (request.resource.data.role == 'pendente'
+                        || (request.resource.data.role == 'gestor' && isMaster()));
+      // Gestor muda qualquer um; admin só aprova/rebaixa entre pendente e
+      // colaborador (nunca o próprio perfil, nunca outro admin ou gestor).
+      allow update: if isGestor()
+                    || (isAdmin() && request.auth.uid != uid
+                        && resource.data.role in ['pendente','colaborador']
+                        && request.resource.data.role in ['pendente','colaborador']
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role','approvedAt','approvedBy']));
+      allow delete: if isGestor()
+                    || (isAdmin() && request.auth.uid != uid && resource.data.role in ['pendente','colaborador']);
     }
 
     // Empresas: v2.2.0 — todo colaborador aprovado vê todas as empresas.
-    // Edição/exclusão continua restrita ao criador OU admin.
-    // Restrição por empresa específica fica para uma futura allowlist `colaboradoresAutorizados`.
+    // Edição continua restrita ao criador OU admin; exclusão, só o gestor.
+    // Restrição por empresa específica fica para a carteira do colaborador.
     match /empresas/{empresaId} {
       allow read:   if isApproved();
       allow list:   if isApproved();
@@ -33,10 +47,7 @@ service cloud.firestore {
                        resource.data.criadoPor == request.auth.uid
                        || isAdmin()
                     );
-      allow delete: if isApproved() && (
-                       resource.data.criadoPor == request.auth.uid
-                       || isAdmin()
-                    );
+      allow delete: if isGestor();
     }
 
     match /folha_catalogo/{docId} {

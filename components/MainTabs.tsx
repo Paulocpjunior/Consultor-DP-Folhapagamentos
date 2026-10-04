@@ -1,4 +1,5 @@
 import { limparSessaoImplantacao } from '../services/implantacao/sessao';
+import { ehAdmin } from '../services/auth/papeis';
 import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import * as authService from '../services/auth/authService';
 import { consultarGateDepartamento, type GateDepartamento } from '../services/departamentoGate';
@@ -72,7 +73,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
         if (!currentUser) return;
         (async () => {
             try {
-                const isAdminUser = currentUser.role === 'admin';
+                const isAdminUser = ehAdmin(currentUser.role);
                 const list = isAdminUser
                     ? await listarTodasEmpresas()
                     : await listarMinhasEmpresas((currentUser as any).uid);
@@ -159,7 +160,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
         );
     }
 
-    const isAdmin = currentUser.role === 'admin';
+    const isAdmin = ehAdmin(currentUser.role);
 
     if (!isAdmin && activeTab === 'admin') {
         setActiveTab('folha');

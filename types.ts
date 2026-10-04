@@ -69,7 +69,8 @@ export interface CnaeTaxDetail {
 // 'pendente' existe de verdade: o authService devolve role 'pendente' até o
 // admin aprovar (AuthRole em services/auth/authService.ts). O tipo dizia que
 // não existia e o tsc acusava as comparações — o runtime sempre teve os três.
-export type UserRole = 'admin' | 'colaborador' | 'pendente';
+// 'gestor' fica acima do admin (services/auth/papeis.ts).
+export type UserRole = 'gestor' | 'admin' | 'colaborador' | 'pendente';
 
 export interface User {
     id: string;
