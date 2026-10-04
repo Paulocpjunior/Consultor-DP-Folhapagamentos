@@ -7,11 +7,13 @@
 // oficial e informa a norma (portaria, lei, IN). Sem norma não grava. A tabela
 // que vale numa competência é a de maior vigência até ela; duas tabelas do
 // mesmo tipo com a mesma vigência é erro, nunca escolha silenciosa.
-// O redutor mensal do IRRF e outras regras de cálculo entram com o motor da
-// Fase 3; aqui fica o dado.
+// O redutor mensal do IRRF (Lei 15.270/2025, a partir de 01/2026) fica na
+// tabela do IRRF, como campos opcionais: tabela anterior a 2026 não tem.
+// O cálculo em si fica no motor (services/calculo).
 
 export type TipoTabela = 'inss' | 'irrf' | 'salario_minimo' | 'salario_familia';
-export type ChaveValor = 'deducaoDependente' | 'descontoSimplificado' | 'salarioMinimo' | 'cotaSalarioFamilia' | 'limiteSalarioFamilia';
+export type ChaveValor = 'deducaoDependente' | 'descontoSimplificado' | 'salarioMinimo' | 'cotaSalarioFamilia' | 'limiteSalarioFamilia'
+    | 'redutorAte' | 'redutorMaximo' | 'redutorLimite' | 'redutorConstante' | 'redutorCoeficiente';
 
 /** Valores em centavos; alíquota em percentual (7,5% = 7.5). `ate` nulo = "acima de" (só na última faixa do IRRF). */
 export interface Faixa { ate: number | null; aliquota: number; deducao: number }
@@ -26,13 +28,26 @@ export interface TabelaLegal {
     observacao: string;
 }
 
-export interface DefTabela { titulo: string; faixas: false | { deducao: boolean; ultimaAberta: boolean }; valores: { chave: ChaveValor; rotulo: string }[] }
+/**
+ * Valores em centavos, menos o formato 'coeficiente', guardado em milionésimos
+ * (0,133145 → 133145) para continuar inteiro. `grupo`: os campos opcionais do
+ * mesmo grupo vêm todos ou nenhum.
+ */
+export interface DefValor { chave: ChaveValor; rotulo: string; formato?: 'reais' | 'coeficiente'; grupo?: string }
+export interface DefTabela { titulo: string; faixas: false | { deducao: boolean; ultimaAberta: boolean }; valores: DefValor[] }
 
 export const DEF_TABELAS: Record<TipoTabela, DefTabela> = {
     inss: { titulo: 'INSS do segurado (progressiva)', faixas: { deducao: false, ultimaAberta: false }, valores: [] },
     irrf: {
         titulo: 'IRRF mensal', faixas: { deducao: true, ultimaAberta: true },
-        valores: [{ chave: 'deducaoDependente', rotulo: 'Dedução por dependente' }, { chave: 'descontoSimplificado', rotulo: 'Desconto simplificado mensal' }],
+        valores: [
+            { chave: 'deducaoDependente', rotulo: 'Dedução por dependente' }, { chave: 'descontoSimplificado', rotulo: 'Desconto simplificado mensal' },
+            { chave: 'redutorAte', rotulo: 'Redutor: rendimentos até (redução total)', grupo: 'redutor' },
+            { chave: 'redutorMaximo', rotulo: 'Redutor: redução máxima nessa faixa', grupo: 'redutor' },
+            { chave: 'redutorLimite', rotulo: 'Redutor: rendimentos até (redução parcial)', grupo: 'redutor' },
+            { chave: 'redutorConstante', rotulo: 'Redutor parcial: parcela fixa', grupo: 'redutor' },
+            { chave: 'redutorCoeficiente', rotulo: 'Redutor parcial: coeficiente sobre os rendimentos', formato: 'coeficiente', grupo: 'redutor' },
+        ],
     },
     salario_minimo: { titulo: 'Salário mínimo nacional', faixas: false, valores: [{ chave: 'salarioMinimo', rotulo: 'Salário mínimo mensal' }] },
     salario_familia: {
@@ -74,10 +89,16 @@ export function validarTabela(t: TabelaLegal, existentes: TabelaLegal[] = []): s
             if (t.tipo === 'inss' && f.aliquota === 0) erros.push(`${n}: alíquota do INSS não pode ser zero.`);
         });
     }
+    const grupoUsado = (g?: string) => !!g && def.valores.some(v => v.grupo === g && t.valores[v.chave] !== undefined);
     for (const v of def.valores) {
         const x = t.valores[v.chave];
-        if (x === undefined || !Number.isInteger(x) || x <= 0) erros.push(`Informe ${v.rotulo.toLowerCase()}.`);
+        if (v.grupo && !grupoUsado(v.grupo)) continue;
+        if (x === undefined || !Number.isInteger(x) || x <= 0) erros.push(`Informe ${v.rotulo.toLowerCase()}${v.grupo ? ' (o redutor vai completo ou fica em branco)' : ''}.`);
+        else if (v.formato === 'coeficiente' && x >= 1_000_000) erros.push(`${v.rotulo}: deve ser menor que 1.`);
     }
+    const r = t.valores;
+    if (grupoUsado('redutor') && r.redutorAte && r.redutorLimite && r.redutorLimite <= r.redutorAte)
+        erros.push('Redutor: o limite da redução parcial deve ser maior que o da redução total.');
     return erros;
 }
 
@@ -114,3 +135,12 @@ export function inssProgressivo(baseCentavos: number, t: TabelaLegal): number {
 export const tetoInss = (t: TabelaLegal) => t.faixas[t.faixas.length - 1]?.ate ?? null;
 
 export const rotuloCompetencia = (c: string) => (competenciaValida(c) ? `${c.slice(5)}/${c.slice(0, 4)}` : c);
+
+/** Coeficiente guardado em milionésimos → texto "0,133145". */
+export const textoCoeficiente = (n: number) => (n / 1_000_000).toFixed(6).replace('.', ',');
+/** "0,133145" → 133145; null se não for número entre 0 e 1. */
+export function coeficienteDeTexto(t: string): number | null {
+    const v = t.trim().replace(',', '.');
+    if (!/^0?\.\d{1,6}$/.test(v)) return null;
+    return Math.round(Number(v) * 1_000_000);
+}
