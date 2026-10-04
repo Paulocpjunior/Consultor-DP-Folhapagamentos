@@ -605,3 +605,15 @@ piloto em paralelo provar o cálculo próprio.
   - Excel `calculo-<código>-<ano>-13-<parcela>.xlsx`.
   - No 13º, não aparecem "Salvar movimento" nem a conferência com os
     holerites: as verbas de 13º ainda não estão na classificação.
+- **Revisão do PR #53 (Codex), corrigida antes do merge:**
+  - **P1:** o divisor da média de horas extras usa só os meses que dão avo
+    (15 dias ou mais), não qualquer mês com algum dia.
+  - **P1:** na 1ª parcela, quem foi admitido depois do mês do pagamento fica
+    fora (`com13` com `admitidosAte`; o motor dá erro explicando). Quem foi
+    admitido no ano recebe metade dos avos já cumpridos até o mês do
+    pagamento (Decreto 10.854/2021, arts. 76 a 78). Quem tem o ano inteiro
+    continua com os avos projetados (metade da remuneração).
+  - **Na 2ª parcela:** sem 1ª parcela em novembro (por exemplo, admitido em
+    dezembro), o adiantamento é zero.
+  - **P2:** a resposta antiga dos movimentos do ano (troca rápida de empresa
+    ou ano) é descartada e não sobrescreve a atual.

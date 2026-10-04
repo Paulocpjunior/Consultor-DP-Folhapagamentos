@@ -85,4 +85,23 @@ describe('13º salário', () => {
         const fs = [ficha(), { ...ficha({ dataDesligamento: '2026-06-30' }), id: 'f2' }, { ...ficha({ admissao: '2027-02-01' }), id: 'f3' }];
         expect(com13(fs, 2026).map(f => f.id)).toEqual(['f1']);
     });
+
+    it('revisão do PR #53: admitidos no ano, admitidos depois do pagamento e divisor da média', () => {
+        // Admitido em 20/03: na 1ª parcela, metade dos avos cumpridos até novembro (abr–nov = 8)
+        const meio = calc({ parcela: '1a', ficha: ficha({ admissao: '2026-03-20' }) });
+        expect(v(meio, '13A')).toBe(Math.round(300000 * 8 / 12 / 2));
+        expect(meio.avisos.join(' ')).toContain('8 avo(s) cumpridos até 11/2026');
+        // Admitido em dezembro: sem 1ª parcela; a 2ª não desconta adiantamento
+        expect(calc({ parcela: '1a', ficha: ficha({ admissao: '2026-12-01' }) }).erros[0]).toContain('recebe o 13º inteiro na 2ª');
+        const dez = calc({ ficha: ficha({ admissao: '2026-12-01' }) });
+        expect(v(dez, '13')).toBe(25000);
+        expect(v(dez, '13ADT')).toBe(0);
+        expect(dez.memoria).toContain('Sem adiantamento: não houve 1ª parcela em novembro.');
+        const fs = [ficha(), { ...ficha({ admissao: '2026-12-01' }), id: 'f2' }];
+        expect(com13(fs, 2026, '2026-11-30').map(f => f.id)).toEqual(['f1']);
+        expect(com13(fs, 2026).map(f => f.id)).toEqual(['f1', 'f2']);
+        // Divisor: março (12 dias, sem avo) não entra; abr–nov = 8 meses
+        const r = calc({ ficha: ficha({ admissao: '2026-03-20', salario: '2200.00' }), movimentos: { '2026-04': { horasExtras50: 10 } } });
+        expect(v(r, '13')).toBe(Math.round((220000 + Math.round(18000 / 8)) * 9 / 12)); // abril: 150 + DSR 30,00
+    });
 });

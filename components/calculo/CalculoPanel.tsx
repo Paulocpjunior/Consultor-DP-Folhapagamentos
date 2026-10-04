@@ -20,7 +20,7 @@ import { calcularMensal, competenciaSeguinte, noMes, type Lancamento, type Movim
 import { somarMeses } from '../../services/prazos/calendario';
 import { limparMovimento, mesmoMovimento, movimentoVazio, validarMovimento, type MovimentoGravado } from '../../services/calculo/movimento';
 import { listarMovimentos, listarMovimentosDoAno, salvarMovimentos } from '../../services/calculo/movimentosService';
-import { calcular13, com13, OPCOES_13_PADRAO, type Opcoes13 } from '../../services/calculo/motor13';
+import { calcular13, com13, OPCOES_13_PADRAO, ultimoDiaDoMes, type Opcoes13 } from '../../services/calculo/motor13';
 import ConferenciaHolerites, { conferirTodos, type LeituraHolerites } from './ConferenciaHolerites';
 
 const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
@@ -93,7 +93,12 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     useEffect(() => {
         setMovsAno(null); setPrimeiras({});
         if (mensal || !empresaId) return;
-        listarMovimentosDoAno(empresaId, ano).then(setMovsAno).catch(e => { setErro(mensagemErro(e)); setMovsAno({}); });
+        // Resposta antiga (troca rápida de empresa ou ano) não sobrescreve a atual.
+        let valida = true;
+        listarMovimentosDoAno(empresaId, ano)
+            .then(m => { if (valida) setMovsAno(m); })
+            .catch(e => { if (valida) { setErro(mensagemErro(e)); setMovsAno({}); } });
+        return () => { valida = false; };
     }, [empresaId, ano, mensal]);
     function trocarFolha(f: Folha, a = ano) {
         setFolha(f); setAno(a); setAberto(''); setConferir(false);
@@ -116,7 +121,8 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         if (!dados) return [];
         if (!mensal) {
             if (!movsAno) return [];
-            return com13(dados.fichas, ano).map(f => calcular13({
+            const admitidosAte = folha === '13-1a' && /^\d{4}-\d{2}$/.test(pagamento) ? ultimoDiaDoMes(pagamento) : `${ano}-12-31`;
+            return com13(dados.fichas, ano, admitidosAte).map(f => calcular13({
                 ano, parcela: folha === '13-1a' ? '1a' : '2a', pagamento, ficha: f, tabelas: dados.tabelas, opcoes: opcoes13,
                 afastamentos: dados.afastamentos.filter(a => a.fichaId === f.id), movimentos: movsAno[f.id] ?? {}, primeiraPaga: primeiras[f.id],
             }));

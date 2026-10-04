@@ -107,6 +107,7 @@ export function calcular13(e: Entrada13): ResultadoCalculo {
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(pagamento)) return erro('Mês do pagamento inválido.');
     if (!d.admissao || !dataValida(d.admissao)) return erro('Ficha sem data de admissão válida.');
     if (d.admissao > `${ano}-12-31`) return erro(`Admitido em ${brData(d.admissao)}, depois do ano.`);
+    if (parcela === '1a' && d.admissao > ultimoDia(pagamento)) return erro(`Admitido em ${brData(d.admissao)}, depois do pagamento da 1ª parcela: recebe o 13º inteiro na 2ª.`);
     const deslig = d.dataDesligamento && dataValida(d.dataDesligamento) ? d.dataDesligamento : '';
     if (deslig && deslig < `${ano}-12-31`) return erro(`Desligado em ${brData(deslig)}: o 13º é pago na rescisão, que ainda não está no motor.`);
     const categoria = d.categoria || '';
@@ -124,11 +125,19 @@ export function calcular13(e: Entrada13): ResultadoCalculo {
     const avos = meses.filter(m => m.conta).length;
     const naoContam = meses.filter(m => !m.conta && m.motivo !== 'antes da admissão');
     r.memoria.push(`Avos: ${avos}/12${naoContam.length ? ` (não contam: ${naoContam.map(m => `${rotuloCompetencia(m.competencia)} ${m.dias} dia(s)${m.motivo ? `, ${m.motivo}` : ''}`).join('; ')})` : ''}.`);
-    if (parcela === '1a') r.avisos.push('1ª parcela com os avos projetados até dezembro (afastamentos sem término seguem até o fim do ano).');
+    // 1ª parcela (Decreto 10.854/2021, arts. 76 a 78): quem tem o ano inteiro recebe
+    // metade da remuneração (avos projetados até dezembro); quem foi admitido no
+    // ano recebe metade dos avos já cumpridos até o mês do pagamento.
+    const admitidoNoAno = d.admissao > `${ano}-01-01`;
+    const avos1 = admitidoNoAno ? meses.filter(m => m.conta && m.competencia <= pagamento).length : avos;
+    if (parcela === '1a') r.avisos.push(admitidoNoAno
+        ? `Admitido no ano: 1ª parcela pelos ${avos1} avo(s) cumpridos até ${rotuloCompetencia(pagamento)}.`
+        : '1ª parcela com os avos projetados até dezembro (afastamentos sem término seguem até o fim do ano).');
     if (!avos) return erro('Nenhum avo no ano (nenhum mês com 15 dias ou mais trabalhados).');
 
     // Média de horas extras dos meses antes do pagamento, com o valor da hora atual.
-    const periodo = meses.filter(m => m.competencia < pagamento && m.dias > 0);
+    // Divisor: os meses do período que dão avo (15 dias ou mais trabalhados).
+    const periodo = meses.filter(m => m.competencia < pagamento && m.conta);
     let somaVar = 0; let horas = 0;
     for (const m of periodo) {
         const mov = e.movimentos[m.competencia]; if (!mov) continue;
@@ -145,20 +154,22 @@ export function calcular13(e: Entrada13): ResultadoCalculo {
     const remuneracao = sc.mensal + media;
     const integral = Math.round(remuneracao * avos / 12);
     r.memoria.push(`13º integral: (${reais(sc.mensal)}${media ? ` + ${reais(media)}` : ''}) × ${avos}/12 = ${reais(integral)}.`);
-    const primeiraCalculada = Math.round(integral / 2);
+    const primeiraCalculada = Math.round(remuneracao * avos1 / 12 / 2);
     const aliqFgts = aprendiz ? ALIQUOTA_FGTS_APRENDIZ : ALIQUOTA_FGTS;
 
     if (parcela === '1a') {
-        verba({ codigo: '13A', descricao: '13º salário — 1ª parcela', referencia: `${avos}/12`, tipo: 'provento', valor: primeiraCalculada, inss: false, fgts: true, irrf: false });
-        r.memoria.push(`1ª parcela: metade = ${reais(primeiraCalculada)}; sem INSS e sem IRRF (descontados na 2ª).`);
+        verba({ codigo: '13A', descricao: '13º salário — 1ª parcela', referencia: `${avos1}/12`, tipo: 'provento', valor: primeiraCalculada, inss: false, fgts: true, irrf: false });
+        r.memoria.push(`1ª parcela: metade de (${reais(remuneracao)} × ${avos1}/12) = ${reais(primeiraCalculada)}; sem INSS e sem IRRF (descontados na 2ª).`);
         r.bases.fgts = primeiraCalculada;
     } else {
         // Sem valor informado, desconta o que a 1ª parcela calculou em novembro
         // (avos projetados e média até outubro), que é o que foi pago.
         const r1 = e.primeiraPaga === undefined ? calcular13({ ...e, parcela: '1a', pagamento: `${ano}-11` }) : null;
-        const primeiraNov = r1?.verbas.find(x => x.codigo === '13A')?.valor;
-        const primeira = e.primeiraPaga ?? primeiraNov ?? primeiraCalculada;
+        // 1ª de novembro com erro (ex.: admitido depois de novembro) = nada foi adiantado.
+        const primeiraNov = r1 && r1.situacao !== 'erro' ? r1.verbas.find(x => x.codigo === '13A')?.valor ?? 0 : 0;
+        const primeira = e.primeiraPaga ?? primeiraNov;
         if (e.primeiraPaga !== undefined) r.memoria.push(`1ª parcela informada como paga: ${reais(primeira)}.`);
+        else if (!primeira) r.memoria.push('Sem adiantamento: não houve 1ª parcela em novembro.');
         else {
             r.memoria.push(`Adiantamento: ${reais(primeira)}, o valor da 1ª parcela calculada para novembro.`);
             r.avisos.push('Adiantamento descontado pelo valor calculado da 1ª parcela em novembro; se o pago foi outro (ex.: nas férias), informe.');
@@ -223,7 +234,12 @@ export function calcular13(e: Entrada13): ResultadoCalculo {
     return r;
 }
 
-/** Funcionários com direito ao 13º do ano (vínculo em dezembro; os desligados recebem na rescisão). */
-export function com13(fichas: FichaFuncionario[], ano: number): FichaFuncionario[] {
-    return fichas.filter(f => !!f.dados.admissao && f.dados.admissao <= `${ano}-12-31` && (!f.dados.dataDesligamento || f.dados.dataDesligamento >= `${ano}-12-31`));
+/**
+ * Funcionários com 13º do ano (vínculo em dezembro; os desligados recebem na
+ * rescisão). Na 1ª parcela, `admitidosAte` tira quem entra depois do pagamento.
+ */
+export function com13(fichas: FichaFuncionario[], ano: number, admitidosAte = `${ano}-12-31`): FichaFuncionario[] {
+    return fichas.filter(f => !!f.dados.admissao && f.dados.admissao <= admitidosAte && (!f.dados.dataDesligamento || f.dados.dataDesligamento >= `${ano}-12-31`));
 }
+
+export const ultimoDiaDoMes = ultimoDia;
