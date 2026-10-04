@@ -33,6 +33,7 @@ const ESocialEventos: React.FC<Props> = ({ currentUser }) => {
     const [filtroEmpresa, setFiltroEmpresa] = useState<string>('');
     const [cursorStack, setCursorStack] = useState<(QueryDocumentSnapshot | null)[]>([null]);
     const [currentPage, setCurrentPage] = useState(0);
+    const [erroLista, setErroLista] = useState('');
 
     // Form state
     const [formEmpresaId, setFormEmpresaId] = useState('');
@@ -47,19 +48,21 @@ const ESocialEventos: React.FC<Props> = ({ currentUser }) => {
 
     const loadPage = useCallback(async (cursor?: QueryDocumentSnapshot | null) => {
         setLoading(true);
+        setErroLista('');
+        // As empresas carregam à parte: se a lista de eventos falhar (ex.: carteira
+        // com mais de 30 empresas sem filtro), o seletor continua disponível.
+        if (empresas.length === 0) listarEmpresasVisiveis().then(setEmpresas).catch(e => console.error(e));
         try {
-            const [result, emp] = await Promise.all([
-                listarEventosPaginado(
-                    filtroEmpresa || undefined,
-                    filtroStatus,
-                    cursor,
-                ),
-                empresas.length > 0 ? Promise.resolve(empresas) : listarEmpresasVisiveis(),
-            ]);
+            const result = await listarEventosPaginado(
+                filtroEmpresa || undefined,
+                filtroStatus,
+                cursor,
+            );
             setPage(result);
-            if (empresas.length === 0) setEmpresas(emp);
         } catch (e) {
             console.error(e);
+            setPage({ items: [], total: 0, lastDoc: null, hasMore: false });
+            setErroLista((e as Error)?.message || 'Erro ao carregar os eventos.');
         } finally {
             setLoading(false);
         }
@@ -233,6 +236,7 @@ const ESocialEventos: React.FC<Props> = ({ currentUser }) => {
 
     return (
         <div className="space-y-4">
+            {erroLista && <p role="alert" className="rounded bg-amber-50 p-2 text-sm text-amber-800 dark:bg-amber-900/20 dark:text-amber-200">{erroLista}</p>}
             {/* Toolbar */}
             <div className="flex flex-wrap items-center gap-2">
                 <button

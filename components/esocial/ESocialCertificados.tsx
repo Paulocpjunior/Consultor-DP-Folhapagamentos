@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
+import { escopoAtual } from '../../services/carteira/carteiraService';
 import {
     cruzarEmpresasComCertificados,
     listarCertificadosNoStorage,
@@ -25,16 +26,19 @@ const ESocialCertificados: React.FC = () => {
         setLoading(true);
         setErro('');
         try {
-            const empresas = await listarEmpresasVisiveis();
-            const [cruz, todosStorage] = await Promise.all([
+            const [empresas, escopo] = await Promise.all([listarEmpresasVisiveis(), escopoAtual()]);
+            const [cruz, storageTodo] = await Promise.all([
                 cruzarEmpresasComCertificados(empresas),
                 listarCertificadosNoStorage(),
             ]);
+            const cnpjsEmpresas = new Set(empresas.map(e => e.cnpj.replace(/\D/g, '')));
+            // Fora do gestor, o Storage tem certificados de empresas fora da carteira: não são
+            // órfãos, só não são deste usuário. Mostra apenas os das empresas visíveis.
+            const todosStorage = escopo.todas ? storageTodo : storageTodo.filter(c => c.cnpj && cnpjsEmpresas.has(c.cnpj.replace(/\D/g, '')));
             setCruzamentos(cruz);
             setTodosArquivos(todosStorage);
-
-            const cnpjsEmpresas = new Set(empresas.map(e => e.cnpj.replace(/\D/g, '')));
-            setCertsOrfaos(todosStorage.filter(c => !c.cnpj || !cnpjsEmpresas.has(c.cnpj.replace(/\D/g, ''))));
+            // Órfão (sem empresa cadastrada) só dá para afirmar olhando todas as empresas: só para o gestor.
+            setCertsOrfaos(escopo.todas ? todosStorage.filter(c => !c.cnpj || !cnpjsEmpresas.has(c.cnpj.replace(/\D/g, ''))) : []);
         } catch (e: any) {
             setErro(e?.message || 'Erro ao carregar certificados');
         } finally {

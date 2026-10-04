@@ -4,7 +4,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import type { Empresa, EmpresaInput } from './empresasTypes';
-import { escopoAtual, lerEmpresasPorId } from '../carteira/carteiraService';
+import { escopoAtual, esquecerEscopo, lerEmpresasPorId } from '../carteira/carteiraService';
 
 export async function listarMinhasEmpresas(uid: string): Promise<Empresa[]> {
     const q = query(
@@ -50,6 +50,8 @@ export async function criarEmpresa(uid: string, input: EmpresaInput): Promise<st
         criadoEm: serverTimestamp(),
         atualizadoEm: serverTimestamp(),
     });
+    // A empresa criada entra no escopo de quem cadastrou: esquece o escopo guardado.
+    esquecerEscopo();
     return ref.id;
 }
 

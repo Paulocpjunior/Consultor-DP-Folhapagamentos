@@ -22,6 +22,8 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser }) => {
 
     const isAdmin = ehAdmin(currentUser.role);
     const isGestor = ehGestor(currentUser.role);
+    // Mesma condição das regras: gestor; quem cadastrou; admin nas empresas que enxerga (carteira ou cadastradas por ele).
+    const podeEditar = (e: Empresa) => isGestor || isAdmin || e.criadoPor === ((currentUser as any).uid ?? currentUser.id);
 
     const reload = async () => {
         setLoading(true); setErro('');
@@ -163,10 +165,10 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser }) => {
                                             })()}
                                         </td>
                                         <td className="px-3 py-2 text-right space-x-1">
-                                            <button onClick={() => { setEmpresaEditando(e); setShowForm(true); }}
+                                            {podeEditar(e) && <button onClick={() => { setEmpresaEditando(e); setShowForm(true); }}
                                                 className="px-2 py-1 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 dark:text-blue-300 rounded">
                                                 Editar
-                                            </button>
+                                            </button>}
                                             {isGestor && (
                                                 <button onClick={() => apagar(e.id, e.nomeFantasia)}
                                                     className="px-2 py-1 text-xs bg-red-50 hover:bg-red-100 text-red-700 dark:bg-red-900/20 dark:hover:bg-red-900/40 dark:text-red-300 rounded">

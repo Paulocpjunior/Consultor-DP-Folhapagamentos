@@ -1019,3 +1019,15 @@ limitado à carteira**; só o gestor vê todas as empresas.
     Firestore. Agora o gestor só muda e apaga **outros**; no próprio
     perfil, só o master, e só para virar gestor (nenhum outro campo).
     Emulador: 26 testes.
+- **Revisão do PR #61 (Codex), corrigida:**
+  - **P1:** a empresa recém-cadastrada sumia das telas até recarregar a
+    página (o escopo guardado era o de antes). `criarEmpresa` agora esquece
+    o escopo.
+  - **P1:** em Eventos do eSocial, com mais de 30 empresas na carteira e
+    sem filtro, o erro da lista também impedia de carregar o seletor de
+    empresas. Agora as empresas carregam à parte e o erro aparece num aviso.
+  - **P2:** "Editar" empresa só aparece para quem as regras deixam editar
+    (gestor, admin nas empresas que enxerga, ou quem cadastrou).
+  - **P2:** fora do gestor, certificados do Storage de empresas fora da
+    carteira apareciam como "sem empresa cadastrada". Agora só aparecem os
+    das empresas visíveis, e a lista de órfãos é só do gestor.
