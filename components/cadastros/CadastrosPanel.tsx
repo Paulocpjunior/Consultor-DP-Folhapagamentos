@@ -5,6 +5,7 @@
 // Dados no Firestore (services/cadastros/cadastrosService.ts), com auditoria.
 
 import React, { useCallback, useEffect, useState } from 'react';
+import { ehAdmin } from '../../services/auth/papeis';
 import type { User } from '../../types';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { listarTodasEmpresas } from '../../services/empresas/empresasService';
@@ -49,7 +50,7 @@ const CadastrosPanel: React.FC<Props> = ({ currentUser, subInicial, onAbrirEvent
     const [afastamentos, setAfastamentos] = useState<Afastamento[] | null>(null);
     const [erroAfa, setErroAfa] = useState('');
     const usuario: Usuario = { id: currentUser.uid ?? currentUser.id, email: currentUser.email };
-    const isAdmin = currentUser.role === 'admin';
+    const isAdmin = ehAdmin(currentUser.role);
 
     useEffect(() => { listarTodasEmpresas().then(setEmpresas).catch(e => { setErroEmpresas(mensagemErro(e)); setEmpresas([]); }); }, []);
     const carregarSindicatos = useCallback(() => { setErroSind(''); listarSindicatos().then(setSindicatos).catch(e => { setErroSind(mensagemErro(e)); setSindicatos([]); }); }, []);

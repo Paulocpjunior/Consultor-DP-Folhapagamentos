@@ -6,6 +6,7 @@
 // alinhado com o arquivo real do cliente.
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { ehAdmin } from '../../services/auth/papeis';
 import type { User } from '../../types';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import {
@@ -47,7 +48,7 @@ const ValidadorACJEFPanel: React.FC<Props> = ({ currentUser }) => {
     (async () => {
       try {
         const role = (currentUser as any)?.role;
-        const isAdmin = role === 'admin' || role === 'owner';
+        const isAdmin = ehAdmin(role);
         const fnEmpresas = isAdmin
           ? listarTodasEmpresas()
           : listarMinhasEmpresas((currentUser as any)?.uid);

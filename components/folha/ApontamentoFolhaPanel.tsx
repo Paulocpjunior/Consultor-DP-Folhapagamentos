@@ -11,6 +11,7 @@
 //   5. Funcionários sem matrícula bloqueiam a exportação (mensagem clara).
 
 import ExportacaoIobModal from './ExportacaoIobModal';
+import { ROTULO_PAPEL, ehAdmin, papelEfetivo } from '../../services/auth/papeis';
 import React, { useEffect, useMemo, useState } from 'react';
 // ─── Helper: filtro de abas por competência ────────────────────────────
 // Aceita variações: "ABRIL 2026 ", "ABRIL 2026", "ABRIL/2026", "abril 2026"
@@ -1514,8 +1515,8 @@ const ContextBar: React.FC<{ sessao: SessaoFolha; currentUser: User; onTrocar: (
                 <MetaCell label="Tipo">{sessao.tipo}</MetaCell>
                 <MetaCell label="Colaborador">
                     {currentUser.name || currentUser.email}
-                    {(currentUser as any).role === 'admin' && (
-                        <span className="ml-1.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400">· Admin</span>
+                    {ehAdmin((currentUser as any).role) && (
+                        <span className="ml-1.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400">· {ROTULO_PAPEL[papelEfetivo((currentUser as any).role)]}</span>
                     )}
                 </MetaCell>
                 <MetaCell label="Sessão" mono>

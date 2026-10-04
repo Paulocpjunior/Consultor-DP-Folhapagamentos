@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { ehAdmin, ehGestor } from '../../services/auth/papeis';
 import { listarMinhasEmpresas, listarTodasEmpresas, excluirEmpresa } from '../../services/empresas/empresasService';
 import { formatCnpj } from '../../services/brasilApiService';
 import type { Empresa } from '../../services/empresas/empresasTypes';
@@ -20,7 +21,8 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser }) => {
     const [verTodas, setVerTodas] = useState(false);
     const [expandedCert, setExpandedCert] = useState<string | null>(null);
 
-    const isAdmin = currentUser.role === 'admin';
+    const isAdmin = ehAdmin(currentUser.role);
+    const isGestor = ehGestor(currentUser.role);
 
     const reload = async () => {
         setLoading(true); setErro('');
@@ -174,10 +176,12 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser }) => {
                                                 className="px-2 py-1 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 dark:text-blue-300 rounded">
                                                 Editar
                                             </button>
-                                            <button onClick={() => apagar(e.id, e.nomeFantasia)}
-                                                className="px-2 py-1 text-xs bg-red-50 hover:bg-red-100 text-red-700 dark:bg-red-900/20 dark:hover:bg-red-900/40 dark:text-red-300 rounded">
-                                                🗑 Excluir
-                                            </button>
+                                            {isGestor && (
+                                                <button onClick={() => apagar(e.id, e.nomeFantasia)}
+                                                    className="px-2 py-1 text-xs bg-red-50 hover:bg-red-100 text-red-700 dark:bg-red-900/20 dark:hover:bg-red-900/40 dark:text-red-300 rounded">
+                                                    🗑 Excluir
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                     {expandedCert === e.id && (
