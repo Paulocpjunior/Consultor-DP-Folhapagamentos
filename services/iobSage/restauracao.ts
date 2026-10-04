@@ -6,9 +6,11 @@
 // com os dados da folha (PostgreSQL). Aqui cada arquivo é reconhecido pela
 // ASSINATURA, não pela extensão — assim .SBAK/.SBKP que sejam zip também
 // abrem — e o conteúdo do .zip é listado inteiro, inclusive o que não é tabela.
+// O zip não é carregado na memória: lê-se o índice pelo fim do arquivo e cada
+// entrada por fatias, então backups de mais de 1 GB abrem no navegador.
 
-import { abrirBackup, fonteDeBytes, type AoLinha, type Backup, type FonteBytes, type Valor } from './backupPostgres';
-import { lerZip } from '../implantacao/zip';
+import { abrirBackup, type AoLinha, type Backup, type FonteBytes, type Valor } from './backupPostgres';
+import { CacheZip, fonteDaEntrada, indiceZip } from '../implantacao/zip';
 import { abrirDbf, type Codificacao, type TabelaDbf } from './dbf';
 
 export type TipoArquivo = 'pg_dump' | 'zip' | 'dbf' | 'memo' | 'outro';
@@ -45,8 +47,6 @@ export interface Restauracao {
 
 export interface EntradaArquivo { nome: string; fonte: FonteBytes }
 
-const ZIP_MAXIMO = 512 * 1024 * 1024;
-
 function assinatura(b: Uint8Array): 'pgdmp' | 'zip' | 'gzip' | 'tar' | 'texto' | 'outro' {
     const t = (i: number, n: number) => String.fromCharCode(...b.subarray(i, i + n));
     if (t(0, 5) === 'PGDMP') return 'pgdmp';
@@ -72,17 +72,25 @@ export async function abrirRestauracao(entradas: EntradaArquivo[], opcoes: { cod
     for (let i = 0; i < todos.length; i++) {
         const { caminho, fonte, nivel } = todos[i];
         const ext = caminho.toLowerCase().split('.').pop() ?? '';
-        const cab = await fonte.ler(0, Math.min(fonte.tamanho, 512));
-        const sig = assinatura(cab);
         const reg = (tipo: TipoArquivo, detalhe: string) => arquivos.push({ caminho, tamanho: fonte.tamanho, tipo, detalhe });
+        let cab: Uint8Array;
+        try { cab = await fonte.ler(0, Math.min(fonte.tamanho, 512)); } catch (e) { reg('outro', (e as Error).message); continue; }
+        const sig = assinatura(cab);
 
         if (sig === 'zip') {
             if (nivel >= 2) { reg('zip', 'zip dentro de zip demais; não foi aberto'); continue; }
-            if (fonte.tamanho > ZIP_MAXIMO) { reg('zip', 'grande demais para abrir no navegador; extraia e escolha os arquivos'); continue; }
             try {
-                const itens = await lerZip(await fonte.ler(0, fonte.tamanho));
+                const itens = (await indiceZip(fonte)).filter(e => !e.pasta);
                 reg('zip', `${itens.length} arquivo(s)`);
-                for (const it of itens) todos.push({ caminho: `${caminho}/${it.nome}`, fonte: fonteDeBytes(it.bytes), nivel: nivel + 1 });
+                const cache = new CacheZip();
+                for (const it of itens) {
+                    const c = `${caminho}/${it.nome}`;
+                    if (it.criptografada || (it.metodo !== 0 && it.metodo !== 8)) {
+                        arquivos.push({ caminho: c, tamanho: it.tamanho, tipo: 'outro', detalhe: it.criptografada ? 'protegido por senha no zip; não foi aberto' : `método de compressão ${it.metodo} não suportado` });
+                        continue;
+                    }
+                    todos.push({ caminho: c, fonte: fonteDaEntrada(fonte, it, cache), nivel: nivel + 1 });
+                }
             } catch (e) { reg('zip', (e as Error).message); }
             continue;
         }

@@ -882,3 +882,40 @@ piloto em paralelo provar o cálculo próprio.
   - **P2:** falha ao ler os enquadramentos não parece mais "empresa sem
     enquadramento". O erro aparece no resumo (alerta vermelho: "não use
     para a DCTFWeb"), no texto do PDF e numa linha do Excel.
+
+## Restauração: zip de mais de 1 GB sem carregar na memória (04/10/2026)
+
+- **Motivo:** o backup de cadastros do IOB SAGE do Paulo tem mais de 1 GB
+  zipado, e a restauração recusava zip acima de 512 MB, porque lia o
+  arquivo inteiro na memória do navegador. A ideia é que a primeira
+  restauração funcione de primeira, sem tentativas.
+- **`services/implantacao/zip.ts`:**
+  - `indiceZip(fonte)` lê só o diretório central, pelo fim do arquivo
+    (inclusive **ZIP64**: arquivos e entradas acima de 4 GB). Nomes em
+    UTF-8 quando o zip marca; os outros, como página do DOS.
+  - `fonteDaEntrada(fonte, entrada)` dá acesso por fatias a cada arquivo de
+    dentro do zip:
+    - "stored": lido direto do zip;
+    - deflate até 32 MB: descomprimido inteiro, com cache LRU de 192 MB
+      por zip;
+    - deflate maior (ex.: um .backup dentro do zip): por cursor, que só
+      guarda a janela pedida. Para a frente, segue o fluxo; para trás,
+      recomeça do início. As leituras entram em fila.
+  - Entrada protegida por senha ou com método desconhecido: erro claro.
+  - `lerZip` passou a usar o mesmo índice (comportamento igual).
+- **`restauracao.ts`:**
+  - sem o limite de 512 MB;
+  - entradas do zip entram como fontes por fatias;
+  - entrada protegida por senha ou com método desconhecido aparece na
+    lista como "Outro", com o motivo, sem derrubar o resto.
+- **Restaurar backup:** o texto da tela avisa que zip de mais de 1 GB abre
+  direto. Continua tudo no computador do usuário: nada é enviado nem
+  gravado.
+- **Testes** (`zipGrande.test.ts`): zips "virtuais", em que os zeros não
+  ocupam memória, provam que nenhuma leitura passa de ~1 MB:
+  - zip de 1,2 GB com DBF + memo deflate: lista, casa o memo e lê a tabela;
+  - ZIP64 com entrada de 5 GB;
+  - entrada deflate de 34 MB lida por cursor (frente, trás, concorrência);
+  - senha e zip inválido.
+  Conferido também, fora da suíte, com zips do Info-ZIP (ZIP64 forçado e
+  descritor de dados).
