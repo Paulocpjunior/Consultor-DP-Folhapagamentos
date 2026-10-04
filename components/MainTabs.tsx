@@ -19,7 +19,7 @@ import ESocialMonitorPanel from './esocial/ESocialMonitorPanel';
 import AlertaPendenciasPopup from './AlertaPendenciasPopup';
 import Logo from './Logo';
 import UpdateBanner from './UpdateBanner';
-import { listarMinhasEmpresas, listarTodasEmpresas } from '../services/empresas/empresasService';
+import { listarEmpresasVisiveis } from '../services/empresas/empresasService';
 import type { User } from '../types';
 
 type Tab = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'empresas' | 'esocial' | 'iobsage' | 'admin';
@@ -73,10 +73,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
         if (!currentUser) return;
         (async () => {
             try {
-                const isAdminUser = ehAdmin(currentUser.role);
-                const list = isAdminUser
-                    ? await listarTodasEmpresas()
-                    : await listarMinhasEmpresas((currentUser as any).uid);
+                const list = await listarEmpresasVisiveis();
                 setEmpresasCount(list.length);
             } catch (e) {
                 console.warn('Falha ao carregar contagem de empresas:', e);
@@ -254,7 +251,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                             {isAdmin && <a href="https://consultor-fiscal-inteligente-631239634290.us-west1.run.app/?painel=comunicacao&departamento=dp-folha" target="_blank" rel="noopener noreferrer" className="px-3 py-2 rounded-lg text-sm font-medium text-blue-700 dark:text-blue-300" title="Administração central de comunicação — acesso de admin no CFI">Templates e agendamentos ↗</a>}
                             {tabs.filter(t => !t.adminOnly || isAdmin).map(t => {
                                 const bloqueado = t.id === 'folha' && empresasCount === 0;
-                                const titulo = bloqueado ? 'Cadastre uma empresa antes de acessar a Folha' : t.label;
+                                const titulo = bloqueado ? 'Nenhuma empresa na sua carteira: peça ao gestor ou admin' : t.label;
                                 return (
                                     <button
                                         key={t.id}
@@ -302,10 +299,10 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                       />
                     : (
                         <div className="p-6 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
-                            <h3 className="text-base font-semibold text-amber-800 dark:text-amber-200">Nenhuma empresa cadastrada</h3>
+                            <h3 className="text-base font-semibold text-amber-800 dark:text-amber-200">Nenhuma empresa na sua carteira</h3>
                             <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
-                                Antes de processar a folha, e necessario cadastrar pelo menos uma empresa.
-                                Isso evita importacoes em empresas erradas.
+                                Você só trabalha nas empresas da sua carteira. Peça ao gestor (ou ao admin) para incluir
+                                suas empresas em Usuários › Carteira, ou cadastre uma empresa nova.
                             </p>
                             <button onClick={() => setActiveTab('empresas')}
                                 className="mt-3 px-3 py-1.5 text-sm bg-amber-600 hover:bg-amber-700 text-white rounded font-medium">

@@ -10,8 +10,7 @@ import { ehAdmin } from '../../services/auth/papeis';
 import type { User } from '../../types';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import {
-  listarMinhasEmpresas,
-  listarTodasEmpresas,
+  listarEmpresasVisiveis,
 } from '../../services/empresas/empresasService';
 import { buscarModelo } from '../../services/ponto/pontoModelosService';
 import { buscarLayout } from '../../services/ponto/pontoLayoutsService';
@@ -49,9 +48,7 @@ const ValidadorACJEFPanel: React.FC<Props> = ({ currentUser }) => {
       try {
         const role = (currentUser as any)?.role;
         const isAdmin = ehAdmin(role);
-        const fnEmpresas = isAdmin
-          ? listarTodasEmpresas()
-          : listarMinhasEmpresas((currentUser as any)?.uid);
+        const fnEmpresas = listarEmpresasVisiveis();
         const [emps, mod] = await Promise.all([fnEmpresas, buscarModelo(MODELO_ID_PADRAO)]);
         if (!ativo) return;
         setEmpresas(emps || []);

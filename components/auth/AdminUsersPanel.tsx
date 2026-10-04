@@ -2,6 +2,13 @@ import React, { useEffect, useState } from 'react';
 import * as authService from '../../services/auth/authService';
 import type { User } from '../../types';
 import { ROTULO_PAPEL, papelEfetivo, papeisPermitidos, type Papel } from '../../services/auth/papeis';
+import type { Empresa } from '../../services/empresas/empresasTypes';
+import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
+import { lerCarteira, listarCarteiras } from '../../services/carteira/carteiraService';
+import { resumoCarteira } from '../../services/carteira/carteira';
+import CarteiraModal from './CarteiraModal';
+import { VerificarMaster } from './PendingScreen';
+import { ehMaster } from '../../services/auth/papeis';
 
 interface Props { currentUser: User; }
 
@@ -9,9 +16,15 @@ const AdminUsersPanel: React.FC<Props> = ({ currentUser }) => {
     const [users, setUsers] = useState<authService.UserDoc[]>([]);
     const [loading, setLoading] = useState(true);
     const [erro, setErro] = useState('');
+    const [carteiras, setCarteiras] = useState<Map<string, string[]>>(new Map());
+    const [empresas, setEmpresas] = useState<Empresa[]>([]);
+    const [minhas, setMinhas] = useState<string[]>([]);
+    const [erroCarteira, setErroCarteira] = useState('');
+    const [editando, setEditando] = useState<authService.UserDoc | null>(null);
+    const meuUid = (currentUser as any).uid ?? currentUser.id;
 
     const reload = async () => {
-        setLoading(true); setErro('');
+        setLoading(true); setErro(''); setErroCarteira('');
         try {
             const list = await authService.listUsers();
             setUsers(list);
@@ -20,10 +33,22 @@ const AdminUsersPanel: React.FC<Props> = ({ currentUser }) => {
         } finally {
             setLoading(false);
         }
+        // Carteiras à parte: uma falha aqui (ex.: regras ainda não publicadas) não esconde os usuários.
+        try {
+            const [c, e, m] = await Promise.all([listarCarteiras(), listarEmpresasVisiveis(), lerCarteira(meuUid)]);
+            setCarteiras(c); setEmpresas(e); setMinhas(m);
+        } catch (e: any) {
+            setErroCarteira(e?.code === 'permission-denied'
+                ? 'Carteiras indisponíveis: as regras do Firestore desta versão ainda não foram publicadas.'
+                : (e?.message ?? String(e)));
+        }
     };
     useEffect(() => { reload(); }, []);
 
     const ator = papelEfetivo(currentUser.role);
+    // Gestor monta a de qualquer admin/colaborador (gestor já vê tudo); admin, só a de colaboradores.
+    const podeCarteira = (u: authService.UserDoc, atual: Papel) => !erroCarteira && u.uid !== meuUid
+        && (ator === 'gestor' ? (atual === 'admin' || atual === 'colaborador') : ator === 'admin' && atual === 'colaborador');
     const mudar = async (u: authService.UserDoc, novo: Papel) => {
         const atual = papelEfetivo(u.role);
         if (!confirm(`${u.name}: ${ROTULO_PAPEL[atual]} → ${ROTULO_PAPEL[novo]}?`)) return;
@@ -66,6 +91,17 @@ const AdminUsersPanel: React.FC<Props> = ({ currentUser }) => {
                 <button onClick={reload} className="px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded">↻ Atualizar</button>
             </header>
 
+            {ehMaster(currentUser.email) && ator !== 'gestor' && <VerificarMaster email={currentUser.email} />}
+            {erroCarteira && <div role="alert" className="mb-3 p-2 text-sm text-amber-800 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 rounded">{erroCarteira}</div>}
+            {editando && (
+                <CarteiraModal
+                    alvo={{ uid: editando.uid, nome: editando.name, email: editando.email, papel: editando.role }}
+                    ator={ator} atorUid={meuUid} usuario={{ id: meuUid, email: currentUser.email }}
+                    empresas={empresas} atual={carteiras.get(editando.uid) ?? []} minhas={minhas}
+                    onFechar={() => setEditando(null)}
+                    onSalvo={() => { setEditando(null); reload(); }}
+                />
+            )}
             {erro && <div className="mb-3 p-2 text-sm text-red-700 bg-red-50 dark:bg-red-900/20 border border-red-200 rounded">{erro}</div>}
 
             <div className="overflow-auto border border-slate-200 dark:border-slate-700 rounded-lg">
@@ -75,6 +111,7 @@ const AdminUsersPanel: React.FC<Props> = ({ currentUser }) => {
                             <th className="px-3 py-2">Nome</th>
                             <th className="px-3 py-2">E-mail</th>
                             <th className="px-3 py-2">Papel</th>
+                            <th className="px-3 py-2">Carteira</th>
                             <th className="px-3 py-2 text-right">Ações</th>
                         </tr>
                     </thead>
@@ -88,6 +125,12 @@ const AdminUsersPanel: React.FC<Props> = ({ currentUser }) => {
                                     <td className="px-3 py-2 text-slate-800 dark:text-slate-200">{u.name} {isMe && <span className="text-xs text-blue-500">(você)</span>}</td>
                                     <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{u.email}</td>
                                     <td className="px-3 py-2"><span className={`px-2 py-0.5 text-xs font-medium rounded ${corPapel[atual]}`}>{ROTULO_PAPEL[atual]}</span></td>
+                                    <td className="px-3 py-2 text-xs text-slate-600 dark:text-slate-300">
+                                        {atual === 'pendente' ? '—' : resumoCarteira(atual, carteiras.get(u.uid))}
+                                        {podeCarteira(u, atual) && (
+                                            <button onClick={() => setEditando(u)} className="ml-2 rounded border border-blue-300 px-2 py-0.5 text-xs text-blue-700 dark:border-blue-700 dark:text-blue-300">Carteira</button>
+                                        )}
+                                    </td>
                                     <td className="px-3 py-2 text-right space-x-1">
                                         {opcoes.length === 0 ? (
                                             <span className="text-xs text-slate-400">—</span>

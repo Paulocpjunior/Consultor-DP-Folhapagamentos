@@ -12,8 +12,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../services/firebaseConfig';
 import {
-    listarMinhasEmpresas,
-    listarTodasEmpresas,
+    listarEmpresasVisiveis,
 } from '../../services/empresas/empresasService';
 import {
     parsearArquivoFixedWidth,
@@ -152,7 +151,7 @@ const TabImportar: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             try {
                 const isAdmin = ehAdmin((currentUser as any)?.role);
                 const [emps, mod] = await Promise.all([
-                    isAdmin ? listarTodasEmpresas() : listarMinhasEmpresas((currentUser as any)?.uid),
+                    listarEmpresasVisiveis(),
                     buscarModelo(MODELO_ID),
                 ]);
                 setEmpresas(emps || []);
@@ -439,7 +438,7 @@ const TabLayouts: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         (async () => {
             try {
                 const isAdmin = ehAdmin((currentUser as any)?.role);
-                const emps = isAdmin ? await listarTodasEmpresas() : await listarMinhasEmpresas((currentUser as any)?.uid);
+                const emps = await listarEmpresasVisiveis();
                 setEmpresas(emps || []);
 
                 // Load layouts for all companies
@@ -547,7 +546,7 @@ const TabRegistros: React.FC<{ currentUser: User }> = ({ currentUser }) => {
 
     const loadEmpresas = useCallback(async () => {
         const isAdmin = ehAdmin((currentUser as any)?.role);
-        return isAdmin ? listarTodasEmpresas() : listarMinhasEmpresas((currentUser as any)?.uid);
+        return listarEmpresasVisiveis();
     }, [currentUser]);
 
     const loadRegistros = useCallback(async () => {

@@ -6,7 +6,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import type { Empresa } from '../../services/empresas/empresasTypes';
-import { listarTodasEmpresas } from '../../services/empresas/empresasService';
+import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
 import { listarSindicatos, listarTodosAfastamentos, listarTodosFuncionariosAtivos, mensagemErro } from '../../services/cadastros/cadastrosService';
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
 import type { Afastamento } from '../../services/cadastros/afastamentos';
@@ -36,7 +36,7 @@ const PrazosPanel: React.FC<Props> = ({ onAbrirCadastros, onAbrirConferencia }) 
     const [erro, setErro] = useState('');
 
     useEffect(() => {
-        Promise.all([listarTodasEmpresas(), listarTodosFuncionariosAtivos(), listarTodosAfastamentos(), listarSindicatos()])
+        Promise.all([listarEmpresasVisiveis(), listarTodosFuncionariosAtivos(), listarTodosAfastamentos(), listarSindicatos()])
             .then(([empresas, fichas, afastamentos, sindicatos]) => setDados({ empresas, fichas, afastamentos, sindicatos }))
             .catch(e => { setErro(mensagemErro(e)); setDados({ empresas: [], fichas: [], afastamentos: [], sindicatos: [] }); });
     }, []);

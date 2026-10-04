@@ -9,7 +9,7 @@ const zip = vi.hoisted(() => ({ baixarBytes: vi.fn() }));
 vi.mock('../../serpro/serproIntegrationService', () => tunel);
 vi.mock('../../implantacao/zip', async orig => ({ ...(await orig<typeof import('../../implantacao/zip')>()), baixarBytes: zip.baixarBytes }));
 vi.mock('../../empresas/empresasService', () => ({
-    listarTodasEmpresas: async () => [{ id: 'emp1', cnpj: '11222333000181', razaoSocial: 'EMPRESA UM', nomeFantasia: 'Um', codigoSage: '0229', criadoPor: 'u' }],
+    listarEmpresasVisiveis: async () => [{ id: 'emp1', cnpj: '11222333000181', razaoSocial: 'EMPRESA UM', nomeFantasia: 'Um', codigoSage: '0229', criadoPor: 'u' }],
 }));
 vi.mock('../../cadastros/cadastrosService', () => ({
     listarFuncionarios: async () => [{ id: 'f1', empresaId: 'emp1', cnpj: '', cpf: '52998224725', matriculaEsocial: 'M1', situacao: 'ativo', dados: { nome: 'ANA', admissao: '2025-03-01' }, dependentes: [], origens: {}, pendenciasImportacao: [] }],

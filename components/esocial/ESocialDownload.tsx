@@ -6,7 +6,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import type { Empresa } from '../../services/empresas/empresasTypes';
-import { listarTodasEmpresas } from '../../services/empresas/empresasService';
+import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
 import { listarFuncionarios } from '../../services/cadastros/cadastrosService';
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
 import {
@@ -41,7 +41,7 @@ const ESocialDownload: React.FC = () => {
     const [ocupado, setOcupado] = useState('');
     const [erro, setErro] = useState('');
 
-    useEffect(() => { listarTodasEmpresas().then(setEmpresas).catch(() => setEmpresas([])); }, []);
+    useEffect(() => { listarEmpresasVisiveis().then(setEmpresas).catch(() => setEmpresas([])); }, []);
     useEffect(() => {
         setFichas([]); setRetorno(null); setBaixados(new Map()); setFalhas([]); setPedidosHoje(null);
         if (empresaId) listarFuncionarios(empresaId).then(setFichas).catch(() => setFichas([]));

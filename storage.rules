@@ -8,7 +8,7 @@ service firebase.storage {
       return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role;
     }
     function isMaster() {
-      return request.auth.token.email == 'junior@spassessoriacontabil.com.br' && request.auth.token.email_verified == true;
+      return request.auth.token.get('email', '') == 'junior@spassessoriacontabil.com.br' && request.auth.token.get('email_verified', false) == true;
     }
     function isAdmin() {
       return request.auth != null && (isMaster() || papel() in ['gestor', 'admin']);

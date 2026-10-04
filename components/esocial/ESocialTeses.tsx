@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { listarTeses, criarTese, atualizarTese } from '../../services/esocial/esocialService';
-import { listarTodasEmpresas } from '../../services/empresas/empresasService';
+import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
 import type { TeseRecuperacao } from '../../services/esocial/esocialTypes';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 
@@ -47,7 +47,7 @@ const ESocialTeses: React.FC = () => {
     const reload = async () => {
         setLoading(true);
         try {
-            const [t, e] = await Promise.all([listarTeses(), listarTodasEmpresas()]);
+            const [t, e] = await Promise.all([listarTeses(), listarEmpresasVisiveis()]);
             setTeses(t);
             setEmpresas(e);
         } catch (err) {

@@ -10,7 +10,7 @@ import { agruparPorApuracao, lerTotalizadores, type LeituraTotalizadores } from 
 import { conferirPosFolha, lerValorDigitado, reais, DESCRICAO_CR_SEGURADO, type Gravidade } from '../../services/conferencia/conferenciaPosFolha';
 import { gerarExcelConferencia, nomeArquivoConferencia, rotuloApuracao } from '../../services/conferencia/exportarConferencia';
 import { baixarBytes } from '../../services/implantacao/zip';
-import { listarTodasEmpresas } from '../../services/empresas/empresasService';
+import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { cnpjParaSerpro, consultarSerproConferencia, type ConsultaSerpro } from '../../services/conferencia/serproConferencia';
 import { extrairFuncionarios, lerPlanilhaResumo, ROTULO_CAMPO, type CampoResumo, type Mapeamento, type PlanilhaResumo } from '../../services/conferencia/resumoFolhaIob';
@@ -50,7 +50,7 @@ const ConferenciaPosFolhaPanel: React.FC = () => {
     const [resumoErro, setResumoErro] = useState('');
 
     useEffect(() => {
-        listarTodasEmpresas().then(setEmpresas).catch(() => setEmpresasErro(true));
+        listarEmpresasVisiveis().then(setEmpresas).catch(() => setEmpresasErro(true));
     }, []);
 
     const grupos = useMemo(() => (leitura ? agruparPorApuracao(leitura.totalizadores) : []), [leitura]);

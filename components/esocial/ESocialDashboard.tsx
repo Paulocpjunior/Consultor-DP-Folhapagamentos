@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { calcularResumoDashboard, listarEventos, calcularAlertasVencimento } from '../../services/esocial/esocialService';
-import { listarTodasEmpresas } from '../../services/empresas/empresasService';
+import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
 import { calcularStatusCertificado, diasParaVencer, getStatusLabel } from '../../services/empresas/certificadoService';
 import type { DashboardResumo, EventoEsocial } from '../../services/esocial/esocialTypes';
 import { EVENTO_LABELS } from '../../services/esocial/esocialTypes';
@@ -20,7 +20,7 @@ const ESocialDashboard: React.FC = () => {
                 const [res, eventos, emps] = await Promise.all([
                     calcularResumoDashboard(),
                     listarEventos(),
-                    listarTodasEmpresas(),
+                    listarEmpresasVisiveis(),
                 ]);
                 setResumo(res);
                 setAlertas(calcularAlertasVencimento(eventos));

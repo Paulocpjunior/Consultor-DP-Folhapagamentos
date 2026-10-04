@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { listarEventos } from '../../services/esocial/esocialService';
-import { listarTodasEmpresas } from '../../services/empresas/empresasService';
+import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
 import type { EventoEsocial } from '../../services/esocial/esocialTypes';
 import { EVENTO_LABELS } from '../../services/esocial/esocialTypes';
 import type { Empresa } from '../../services/empresas/empresasTypes';
@@ -30,7 +30,7 @@ const ESocialRelatorio: React.FC = () => {
         (async () => {
             setLoading(true);
             try {
-                const [ev, emp] = await Promise.all([listarEventos(), listarTodasEmpresas()]);
+                const [ev, emp] = await Promise.all([listarEventos(), listarEmpresasVisiveis()]);
                 setEventos(ev);
                 setEmpresas(emp);
             } catch (e) { console.error(e); }

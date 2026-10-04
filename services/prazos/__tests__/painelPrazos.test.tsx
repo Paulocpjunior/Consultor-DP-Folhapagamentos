@@ -6,7 +6,7 @@ import PrazosPanel from '../../../components/prazos/PrazosPanel';
 import { fichaVazia } from '../../cadastros/funcionarios';
 
 vi.mock('../../empresas/empresasService', () => ({
-    listarTodasEmpresas: async () => [
+    listarEmpresasVisiveis: async () => [
         { id: 'emp1', cnpj: '11222333000181', razaoSocial: 'EMPRESA UM', nomeFantasia: 'Um', codigoSage: '0001', criadoPor: 'u' },
         { id: 'emp2', cnpj: '11444777000161', razaoSocial: 'EMPRESA DOIS', nomeFantasia: 'Dois', codigoSage: '0002', criadoPor: 'u' },
     ],

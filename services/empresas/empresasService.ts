@@ -4,6 +4,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import type { Empresa, EmpresaInput } from './empresasTypes';
+import { escopoAtual, esquecerEscopo, lerEmpresasPorId } from '../carteira/carteiraService';
 
 export async function listarMinhasEmpresas(uid: string): Promise<Empresa[]> {
     const q = query(
@@ -15,15 +16,28 @@ export async function listarMinhasEmpresas(uid: string): Promise<Empresa[]> {
     return snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
 }
 
+/** Todas as empresas, sem filtro: só o gestor consegue (regras do Firestore). */
 export async function listarTodasEmpresas(): Promise<Empresa[]> {
     const q = query(collection(db, 'empresas'), orderBy('nomeFantasia', 'asc'));
     const snap = await getDocs(q);
     return snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
 }
 
+/**
+ * As empresas que o usuário logado enxerga: o gestor, todas; os demais, as
+ * da carteira mais as que ele mesmo cadastrou.
+ */
+export async function listarEmpresasVisiveis(): Promise<Empresa[]> {
+    const e = await escopoAtual();
+    if (e.todas) return listarTodasEmpresas();
+    const docs = await lerEmpresasPorId(e.empresaIds);
+    return docs.map(d => ({ id: d.id, ...(d.data() as any) }) as Empresa).sort((a, b) => (a.nomeFantasia || '').localeCompare(b.nomeFantasia || '', 'pt-BR'));
+}
+
 export async function criarEmpresa(uid: string, input: EmpresaInput): Promise<string> {
     const cnpjLimpo = input.cnpj.replace(/\D/g, '');
-    const todas = await listarTodasEmpresas();
+    // Fora do gestor, só dá para conferir as empresas visíveis (o gestor vê duplicatas na lista dele).
+    const todas = await listarEmpresasVisiveis();
     if (todas.some((e) => e.cnpj === cnpjLimpo)) {
         throw new Error('Já existe uma empresa cadastrada com este CNPJ.');
     }
@@ -36,6 +50,8 @@ export async function criarEmpresa(uid: string, input: EmpresaInput): Promise<st
         criadoEm: serverTimestamp(),
         atualizadoEm: serverTimestamp(),
     });
+    // A empresa criada entra no escopo de quem cadastrou: esquece o escopo guardado.
+    esquecerEscopo();
     return ref.id;
 }
 

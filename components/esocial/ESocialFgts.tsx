@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { listarFgts, criarFgts, atualizarFgts } from '../../services/esocial/esocialService';
-import { listarTodasEmpresas } from '../../services/empresas/empresasService';
+import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
 import type { FgtsDigitalRegistro, FgtsStatus } from '../../services/esocial/esocialTypes';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { consultarFgtsRecolhimento, consultarCrfFgts } from '../../services/serpro/serproIntegrationService';
@@ -42,7 +42,7 @@ const ESocialFgts: React.FC = () => {
     const reload = async () => {
         setLoading(true);
         try {
-            const [r, e] = await Promise.all([listarFgts(), listarTodasEmpresas()]);
+            const [r, e] = await Promise.all([listarFgts(), listarEmpresasVisiveis()]);
             setRegistros(r);
             setEmpresas(e);
         } catch (err) {

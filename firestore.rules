@@ -5,12 +5,22 @@ service cloud.firestore {
     // Hierarquia: gestor > admin > colaborador > pendente (services/auth/papeis.ts).
     // O e-mail master verificado (o mesmo do CFI) é sempre gestor.
     function isSignedIn()  { return request.auth != null; }
-    function isMaster()    { return isSignedIn() && request.auth.token.email == 'junior@spassessoriacontabil.com.br'
-                                    && request.auth.token.email_verified == true; }
+    function isMaster()    { return isSignedIn() && request.auth.token.get('email', '') == 'junior@spassessoriacontabil.com.br'
+                                    && request.auth.token.get('email_verified', false) == true; }
     function userDoc()     { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
     function isApproved()  { return isMaster() || (isSignedIn() && userDoc().role in ['gestor','admin','colaborador']); }
     function isAdmin()     { return isMaster() || (isSignedIn() && userDoc().role in ['gestor','admin']); }
     function isGestor()    { return isMaster() || (isSignedIn() && userDoc().role == 'gestor'); }
+
+    // Carteira (services/carteira): o gestor vê todas as empresas; os demais,
+    // as da carteira_acessos/{uid}.empresaIds e as que eles mesmos cadastraram.
+    function carteiraPath(uid) { return /databases/$(database)/documents/carteira_acessos/$(uid); }
+    function naCarteira(empId) { return exists(carteiraPath(request.auth.uid))
+                                    && empId in get(carteiraPath(request.auth.uid)).data.empresaIds; }
+    function criouEmpresa(empId) { return exists(/databases/$(database)/documents/empresas/$(empId))
+                                    && get(/databases/$(database)/documents/empresas/$(empId)).data.criadoPor == request.auth.uid; }
+    function podeEmpresa(empId) { return isGestor()
+                                    || (isApproved() && empId is string && (naCarteira(empId) || criouEmpresa(empId))); }
 
     match /users/{uid} {
       allow read:   if isSignedIn() && (request.auth.uid == uid || isAdmin());
@@ -20,14 +30,17 @@ service cloud.firestore {
                     && request.resource.data.uid == request.auth.uid
                     && (request.resource.data.role == 'pendente'
                         || (request.resource.data.role == 'gestor' && isMaster()));
-      // Gestor muda qualquer um; admin só aprova/rebaixa entre pendente e
+      // Gestor muda qualquer outro; admin só aprova/rebaixa entre pendente e
       // colaborador (nunca o próprio perfil, nunca outro admin ou gestor).
-      allow update: if isGestor()
+      // No próprio perfil, só o master, e só para se tornar gestor.
+      allow update: if (isGestor() && request.auth.uid != uid)
+                    || (isMaster() && request.auth.uid == uid && request.resource.data.role == 'gestor'
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role']))
                     || (isAdmin() && request.auth.uid != uid
                         && resource.data.role in ['pendente','colaborador']
                         && request.resource.data.role in ['pendente','colaborador']
                         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role','approvedAt','approvedBy']));
-      allow delete: if isGestor()
+      allow delete: if (isGestor() && request.auth.uid != uid)
                     || (isAdmin() && request.auth.uid != uid && resource.data.role in ['pendente','colaborador']);
     }
 
@@ -35,17 +48,44 @@ service cloud.firestore {
     // Edição continua restrita ao criador OU admin; exclusão, só o gestor.
     // Restrição por empresa específica fica para a carteira do colaborador.
     match /empresas/{empresaId} {
-      allow read:   if isApproved();
-      allow list:   if isApproved();
+      allow get:    if isGestor()
+                    || (isApproved() && (naCarteira(empresaId) || resource.data.criadoPor == request.auth.uid));
+      // Lista inteira só o gestor; os demais leem a carteira empresa por empresa
+      // e listam as que cadastraram (consulta por criadoPor).
+      allow list:   if isGestor()
+                    || (isApproved() && resource.data.criadoPor == request.auth.uid);
       allow create: if isApproved()
                     && request.resource.data.criadoPor == request.auth.uid
                     && request.resource.data.cnpj is string
                     && request.resource.data.razaoSocial is string
                     && request.resource.data.nomeFantasia is string
                     && request.resource.data.codigoSage is string;
-      allow update: if isApproved() && (
-                       resource.data.criadoPor == request.auth.uid
-                       || isAdmin()
+      allow update: if isGestor()
+                    || (isApproved() && (
+                         resource.data.criadoPor == request.auth.uid
+                         || (isAdmin() && naCarteira(empresaId))
+                       ));
+      allow delete: if isGestor();
+    }
+
+    // Carteira: o gestor monta a de qualquer um; o admin, só a de colaboradores,
+    // e só mexendo em empresas da carteira dele. Ninguém mexe na própria (fora o gestor).
+    match /carteira_acessos/{uid} {
+      function antesIds() { return resource == null ? [] : resource.data.empresaIds; }
+      function mudancas() { return request.resource.data.empresaIds.toSet().difference(antesIds().toSet())
+                                     .union(antesIds().toSet().difference(request.resource.data.empresaIds.toSet())); }
+      function formatoOk() { return request.resource.data.uid == uid
+                                   && request.resource.data.empresaIds is list
+                                   && request.resource.data.empresaIds.size() <= 5000
+                                   && request.resource.data.atualizadoPor == request.auth.uid; }
+      allow get:    if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow list:   if isAdmin();
+      allow create, update: if formatoOk() && (
+                       isGestor()
+                       || (isAdmin() && request.auth.uid != uid
+                           && get(/databases/$(database)/documents/users/$(uid)).data.role == 'colaborador'
+                           && exists(carteiraPath(request.auth.uid))
+                           && mudancas().hasOnly(get(carteiraPath(request.auth.uid)).data.empresaIds))
                     );
       allow delete: if isGestor();
     }
@@ -111,24 +151,24 @@ service cloud.firestore {
     // ===== eSocial Monitor =====
 
     match /esocial_eventos/{eventoId} {
-      allow read, list: if isApproved();
-      allow create:     if isApproved();
-      allow update:     if isApproved();
-      allow delete:     if isAdmin();
+      allow read, list: if podeEmpresa(resource.data.empresaId);
+      allow create:     if podeEmpresa(request.resource.data.empresaId);
+      allow update:     if podeEmpresa(resource.data.empresaId) && podeEmpresa(request.resource.data.empresaId);
+      allow delete:     if isAdmin() && podeEmpresa(resource.data.empresaId);
     }
 
     match /esocial_fgts/{registroId} {
-      allow read, list: if isApproved();
-      allow create:     if isApproved();
-      allow update:     if isApproved();
-      allow delete:     if isAdmin();
+      allow read, list: if podeEmpresa(resource.data.empresaId);
+      allow create:     if podeEmpresa(request.resource.data.empresaId);
+      allow update:     if podeEmpresa(resource.data.empresaId) && podeEmpresa(request.resource.data.empresaId);
+      allow delete:     if isAdmin() && podeEmpresa(resource.data.empresaId);
     }
 
     match /esocial_teses/{teseId} {
-      allow read, list: if isApproved();
-      allow create:     if isApproved();
-      allow update:     if isApproved();
-      allow delete:     if isAdmin();
+      allow read, list: if podeEmpresa(resource.data.empresaId);
+      allow create:     if podeEmpresa(request.resource.data.empresaId);
+      allow update:     if podeEmpresa(resource.data.empresaId) && podeEmpresa(request.resource.data.empresaId);
+      allow delete:     if isAdmin() && podeEmpresa(resource.data.empresaId);
     }
 
     match /esocial_audit/{logId} {
@@ -141,14 +181,14 @@ service cloud.firestore {
     // Toda gravação leva o autor; a auditoria é só inclusão.
 
     match /cadastro_funcionarios/{fichaId} {
-      allow read, list: if isApproved();
-      allow create, update: if isApproved()
+      allow read, list: if podeEmpresa(resource.data.empresaId);
+      allow create, update: if podeEmpresa(request.resource.data.empresaId)
                     && request.resource.data.atualizadoPor == request.auth.uid
                     && request.resource.data.empresaId is string
                     && request.resource.data.cpf is string
                     && request.resource.data.matriculaEsocial is string
                     && fichaId.matches('^' + request.resource.data.empresaId + '_' + request.resource.data.cpf + '_.+$');
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() && podeEmpresa(resource.data.empresaId);
     }
 
     match /cadastro_sindicatos/{cnpj} {
@@ -173,54 +213,54 @@ service cloud.firestore {
 
     // Horários e afastamentos: id começa pelo id da empresa (empresa_código, empresa_cpf_matrícula_data).
     match /cadastro_horarios/{horarioId} {
-      allow read, list: if isApproved();
-      allow create, update: if isApproved()
+      allow read, list: if podeEmpresa(resource.data.empresaId);
+      allow create, update: if podeEmpresa(request.resource.data.empresaId)
                     && request.resource.data.atualizadoPor == request.auth.uid
                     && request.resource.data.empresaId is string
                     && request.resource.data.codigo is string
                     && horarioId.matches('^' + request.resource.data.empresaId + '_.+$');
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() && podeEmpresa(resource.data.empresaId);
     }
 
     match /cadastro_afastamentos/{afastamentoId} {
-      allow read, list: if isApproved();
-      allow create, update: if isApproved()
+      allow read, list: if podeEmpresa(resource.data.empresaId);
+      allow create, update: if podeEmpresa(request.resource.data.empresaId)
                     && request.resource.data.atualizadoPor == request.auth.uid
                     && request.resource.data.empresaId is string
                     && request.resource.data.dtInicio is string
                     && afastamentoId.matches('^' + request.resource.data.empresaId + '_' + request.resource.data.cpf + '_.+_' + request.resource.data.dtInicio + '$');
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() && podeEmpresa(resource.data.empresaId);
     }
 
     // Rubricas do S-1010 por empresa: empresa_tabela_código.
     match /cadastro_rubricas/{rubricaId} {
-      allow read, list: if isApproved();
-      allow create, update: if isApproved()
+      allow read, list: if podeEmpresa(resource.data.empresaId);
+      allow create, update: if podeEmpresa(request.resource.data.empresaId)
                     && request.resource.data.atualizadoPor == request.auth.uid
                     && request.resource.data.empresaId is string
                     && request.resource.data.codRubr is string
                     && rubricaId.matches('^' + request.resource.data.empresaId + '_.+$');
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() && podeEmpresa(resource.data.empresaId);
     }
 
     // Enquadramento previdenciário por empresa e vigência: empresa_AAAA-MM.
     match /cadastro_enquadramentos/{enqId} {
-      allow read, list: if isApproved();
-      allow create, update: if isApproved()
+      allow read, list: if podeEmpresa(resource.data.empresaId);
+      allow create, update: if podeEmpresa(request.resource.data.empresaId)
                     && request.resource.data.atualizadoPor == request.auth.uid
                     && request.resource.data.empresaId is string
                     && request.resource.data.vigencia is string
                     && request.resource.data.vigencia.matches('^[0-9]{4}-(0[1-9]|1[0-2])$')
                     && request.resource.data.regime in ['normal', 'simples-iv', 'simples']
                     && enqId == request.resource.data.empresaId + '_' + request.resource.data.vigencia;
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() && podeEmpresa(resource.data.empresaId);
     }
 
     // ===== Cálculo (Fase 3) =====
     // Movimento do mês por funcionário: id = idDaFicha_AAAA-MM; a ficha começa pelo id da empresa.
     match /calculo_movimentos/{movId} {
-      allow read, list: if isApproved();
-      allow create, update: if isApproved()
+      allow read, list: if podeEmpresa(resource.data.empresaId);
+      allow create, update: if podeEmpresa(request.resource.data.empresaId)
                     && request.resource.data.atualizadoPor == request.auth.uid
                     && request.resource.data.empresaId is string
                     && request.resource.data.fichaId is string
@@ -229,7 +269,7 @@ service cloud.firestore {
                     && request.resource.data.movimento is map
                     && movId == request.resource.data.fichaId + '_' + request.resource.data.competencia
                     && request.resource.data.fichaId.matches('^' + request.resource.data.empresaId + '_.+$');
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() && podeEmpresa(resource.data.empresaId);
     }
 
     match /cadastro_audit/{logId} {
