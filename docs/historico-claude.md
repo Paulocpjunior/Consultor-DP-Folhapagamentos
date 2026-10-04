@@ -509,3 +509,56 @@ piloto em paralelo provar o cálculo próprio.
     alcance do navegador.
   - Não há motor de terceiros: o IOB continua sendo a referência até a
     conferência com os holerites reais.
+
+## Cálculo: conferência com os holerites do IOB pelo Gemini (04/10/2026)
+
+- **Paulo:** *"o motor que digo é o de cálculo, nos outros apps usamos
+  gemini 3.8"* e *"pode seguir com a conferência dos holerites pelo Gemini"*.
+- **Decisão:** as contas da folha ficam no motor próprio, em código, que dá
+  sempre o mesmo resultado e é auditável. O Gemini 3.8 fica em volta dele:
+  aqui, só para TRANSCREVER o holerite em PDF.
+- **CFI** (branch `claude/dp-holerites-gemini`): rota
+  `POST /api/dp-integration/holerites/extrair`, no túnel do DP.
+  - **Antes de chamar a IA:** confere o PDF (assinatura `%PDF-`, até 14 MB).
+  - **Chamada:** Gemini Flash da família resolvida no CFI (3.8), com
+    `responseSchema`, temperatura 0 e prompt de transcrição ("não calcule
+    nada").
+  - **Retorno:** holerites em centavos, com aviso quando a soma das verbas,
+    os totais e o líquido não fecham.
+  - **LGPD:** nada é gravado e o log não leva nomes nem valores.
+  - A rota está declarada em `rotaTemChamada` como túnel do DP.
+- **DP** (`services/calculo/conferenciaHolerites.ts`, sem IA):
+  - **Classificação das verbas pela descrição:** salário, maternidade,
+    horas extras 50%/100%, DSR sobre horas extras, faltas, DSR descontado,
+    salário-família, pensão, INSS, IRRF e outros.
+  - **Ligação holerite → ficha:** pelo CPF; senão pelo código do IOB (sem
+    zeros à esquerda); senão pelo nome, com aviso.
+  - **Comparação item a item, com tolerância de R$ 0,01:** cada classe,
+    totais, líquido, base do INSS, base do FGTS e FGTS do mês. Verbas do
+    IOB sem correspondente no motor deixam o resultado como "diverge".
+  - **Movimento sugerido pelo holerite:**
+    - horas e faltas pela referência ("10,50" ou "10:30");
+    - pensão pelo valor;
+    - as outras verbas viram lançamentos avulsos (provento incidindo em
+      tudo, desconto em nada, com aviso para conferir).
+- **Tela (aba Cálculo › "Conferir com holerites do IOB"):**
+  - escolha de um ou mais PDFs e leitura pelo Gemini;
+  - resumo: conferem, divergem, sem ficha, sem holerite;
+  - por funcionário: as diferenças e o detalhe motor × IOB;
+  - botão **"Aplicar movimento do holerite"**, que entra como "não salvo";
+  - aba "Conferência IOB" no Excel;
+  - cada leitura deixa registro em `cadastro_audit` (`holerites_iob`, com
+    quem, quantos, arquivos e modelo).
+- **Depende do deploy do CFI** com a rota nova. Não há regra nova do
+  Firestore.
+- **Revisão do PR #52 (Codex), corrigida antes do merge:**
+  - **P1:** um holerite de outra competência não é comparado (situação
+    "outra competência") nem vira movimento. Competência não lida gera aviso.
+  - **P1:** um holerite sem nenhum valor lido fica como "ilegível", nunca
+    como "confere". "Confere" exige pelo menos um item comparado.
+  - **P1:** um holerite ligado a uma ficha sem cálculo na competência mantém
+    o `fichaId` e não oferece "Aplicar movimento" (`podeAplicar`). A
+    gravação ignora movimento sem ficha.
+  - **P2:** DSR pago só conta como reflexo das horas extras quando diz isso
+    ou vem sem qualificação. "DSR s/ comissões" e "DSR s/ adicional noturno"
+    ficam em "outros" e viram lançamento avulso.

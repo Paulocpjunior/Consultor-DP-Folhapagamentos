@@ -26,6 +26,8 @@ vi.mock('../../cadastros/cadastrosService', () => ({
 
 const movs = vi.hoisted(() => ({ listarMovimentos: vi.fn(), salvarMovimentos: vi.fn() }));
 vi.mock('../movimentosService', () => movs);
+const hol = vi.hoisted(() => ({ lerHolerites: vi.fn(), registrarLeitura: vi.fn(), MAX_PDF_MB: 14 }));
+vi.mock('../holeritesService', () => hol);
 const USER = { uid: 'u1', email: 'dp@escritorio.com.br', role: 'colaborador' } as never;
 
 beforeEach(() => {
@@ -108,5 +110,44 @@ describe('aba Cálculo', () => {
         expect(confirmar).toHaveBeenCalledWith('Há movimento não salvo de 1 funcionário(s). Descartar?');
         expect((screen.getByLabelText('Competência') as HTMLInputElement).value).toBe('2026-03');
         confirmar.mockRestore();
+    });
+
+    it('confere com os holerites lidos pelo Gemini e aplica o movimento do holerite', async () => {
+        const P = (descricao: string, provento: number, referencia = '') => ({ codigo: '', descricao, referencia, provento, desconto: 0 });
+        const D = (descricao: string, desconto: number) => ({ codigo: '', descricao, referencia: '', provento: 0, desconto });
+        hol.registrarLeitura.mockReset().mockResolvedValue(undefined);
+        hol.lerHolerites.mockReset().mockResolvedValue({ ok: true, modelo: 'gemini-3.8-flash', avisos: [], holerites: [
+            { pagina: 1, nome: 'ANA', cpf: '52998224725', codigo: '', competencia: '2026-03', cargo: '', salarioBase: null, baseInss: null, baseFgts: null, fgtsMes: null, baseIrrf: null, avisos: [],
+                verbas: [P('SALARIO', 220000, '30,00'), P('HORAS EXTRAS 50%', 15000, '10,00'), P('DSR S/ HORAS EXTRAS', 2885), D('INSS', 19133)], totalProventos: 237885, totalDescontos: 19133, liquido: 218752 },
+            { pagina: 2, nome: 'FULANO SEM FICHA', cpf: '', codigo: '', competencia: '2026-03', cargo: '', salarioBase: null, baseInss: null, baseFgts: null, fgtsMes: null, baseIrrf: null, avisos: [],
+                verbas: [P('SALARIO', 100000)], totalProventos: 100000, totalDescontos: 0, liquido: 100000 },
+        ] });
+        render(<CalculoPanel currentUser={USER} />);
+        await waitFor(() => expect(screen.getByRole('option', { name: /0229/ })).toBeTruthy());
+        fireEvent.change(screen.getByLabelText('Competência'), { target: { value: '2026-03' } });
+        fireEvent.change(screen.getByLabelText('Empresa'), { target: { value: 'emp1' } });
+        await waitFor(() => expect(screen.getByText('ANA')).toBeTruthy());
+        fireEvent.click(screen.getByText('Conferir com holerites do IOB'));
+        const sec = screen.getByRole('region', { name: 'Conferência com os holerites do IOB' });
+        fireEvent.change(within(sec).getByLabelText('PDF dos holerites'), { target: { files: [new File(['%PDF-1.7'], 'holerites-03.pdf', { type: 'application/pdf' })] } });
+        fireEvent.click(within(sec).getByText('Ler holerites'));
+        await waitFor(() => expect(within(sec).getByText('FULANO SEM FICHA')).toBeTruthy());
+        expect(hol.lerHolerites).toHaveBeenCalledWith(expect.any(File), '2026-03');
+        expect(hol.registrarLeitura).toHaveBeenCalledWith({ id: 'u1', email: 'dp@escritorio.com.br' }, 'emp1', '2026-03', ['holerites-03.pdf'], 2, 'gemini-3.8-flash');
+        // Sem o movimento, o motor não tem as horas extras: diverge
+        const linhaAna = within(sec).getByText('ANA').closest('tr')!;
+        expect(linhaAna.textContent).toContain('diverge');
+        expect(within(sec).getByText('FULANO SEM FICHA').closest('tr')!.textContent).toContain('sem ficha');
+        expect(within(within(sec).getByText('FULANO SEM FICHA').closest('tr')!).queryByText('Aplicar movimento do holerite')).toBeNull();
+        expect(within(sec).getByText(/sem holerite no PDF: BRUNO/)).toBeTruthy();
+
+        fireEvent.click(within(linhaAna).getByText('Aplicar movimento do holerite'));
+        await waitFor(() => expect(within(sec).getByText('ANA').closest('tr')!.textContent).toContain('confere'));
+        expect(within(sec).getByText('já aplicado')).toBeTruthy();
+        expect(screen.getByText('Salvar movimento (1)')).toBeTruthy();
+
+        fireEvent.click(screen.getByText('Exportar Excel'));
+        const wb = xlsx.writeFile.mock.calls.at(-1)![0];
+        expect(wb.SheetNames).toEqual(['Resumo', 'Verbas', 'Memória', 'Conferência IOB']);
     });
 });
