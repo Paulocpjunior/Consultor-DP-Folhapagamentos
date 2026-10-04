@@ -107,7 +107,13 @@ describe('rescisão', () => {
     });
 
     it('revisão do PR #55: tipo obrigatório, avos do ano seguinte, FGTS do adiantamento e mês do pagamento', () => {
-        expect(calc({ tipo: '' }).erros).toEqual(['Escolha o tipo do desligamento: o motivo do S-2299 ainda não é importado para a ficha.']);
+        expect(calc({ tipo: '' }).erros).toEqual(['Escolha o tipo do desligamento (a ficha não tem o motivo do S-2299).']);
+        expect(calc({ tipo: '', ficha: ficha({ motivoDesligamento: '11' }) }).erros[0]).toContain('Motivo 11 do S-2299 ainda não é coberto');
+        // Motivo e fim projetado vindos do S-2299 são conferidos
+        const doS2299 = calc({ tipo: '07', aviso: 'dispensado', ficha: ficha({ dataDesligamento: '2026-03-10', motivoDesligamento: '02', dataProjetadaAviso: '2026-04-10' }) });
+        expect(doS2299.avisos).toContain('O S-2299 informou o motivo 02; o cálculo usa 07.');
+        const proj = calc({ ficha: ficha({ dataDesligamento: '2026-03-10', motivoDesligamento: '02', dataProjetadaAviso: '2026-04-10' }) });
+        expect(proj.avisos.join(' ')).toContain('O S-2299 informou o fim projetado em 10/04/2026; o cálculo projetou 15/04/2026');
         // Dezembro com projeção em janeiro (25 dias): o avo de janeiro do ano seguinte entra
         const dez = calc({ data: '2026-12-20' });
         expect(dez.dataProjetada).toBe('2027-01-25');

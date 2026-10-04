@@ -28,6 +28,7 @@ describe('conferência com os holerites do IOB', () => {
             [P('HORAS EXTRAS 50%', 1), 'HE50'], [P('H.E. 100%', 1), 'HE100'], [P('HORA EXTRA 100%', 1), 'HE100'],
             [P('D.S.R. S/ HORAS EXTRAS', 1), 'DSRHE'], [P('REFLEXO DSR', 1), 'DSRHE'], [P('D.S.R.', 1), 'DSRHE'], [D('DSR S/ FALTAS', 1), 'DSRF'],
             [P('DSR S/ COMISSÕES', 1), 'OUTRO'], [P('DSR SOBRE ADICIONAL NOTURNO', 1), 'OUTRO'],
+            [P('FÉRIAS NO MÊS', 1), 'FERMES'], [P('1/3 FÉRIAS', 1), 'FERMES'], [D('LÍQUIDO DE FÉRIAS', 1), 'FERPAGO'], [D('INSS S/ FÉRIAS', 1), 'INSS'], [P('ABONO PECUNIÁRIO DE FÉRIAS', 1), 'OUTRO'],
             [D('FALTAS', 1), 'FALTA'], [D('INSS', 1), 'INSS'], [D('I.R.R.F.', 1), 'IRRF'], [D('IMPOSTO DE RENDA', 1), 'IRRF'],
             [D('PENSAO ALIMENTICIA', 1), 'PENSAO'], [D('VALE TRANSPORTE', 1), 'OUTRO'], [D('ADIANTAMENTO SALARIAL', 1), 'OUTRO'], [P('ADICIONAL NOTURNO', 1), 'OUTRO'],
         ];

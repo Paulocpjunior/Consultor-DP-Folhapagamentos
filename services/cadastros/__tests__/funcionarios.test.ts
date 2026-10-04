@@ -113,7 +113,8 @@ describe('importação do eSocial', () => {
 
     it('S-2299 marca desligado com a data; reimportar igual não grava nada', () => {
         const p = prepararImportacao([fonte('adm.xml', admissao), fonte('des.xml', desligamento)], empresa, '2026-10-04', []);
-        expect(p.resultados[0].ficha).toMatchObject({ situacao: 'desligado', dados: { dataDesligamento: '2026-09-01' } });
+        expect(p.resultados[0].ficha).toMatchObject({ situacao: 'desligado', dados: { dataDesligamento: '2026-09-01', motivoDesligamento: '02' }, origens: { motivoDesligamento: 'eSocial: S-2299' } });
+        expect(p.resultados[0].ficha.dados.dataProjetadaAviso).toBeUndefined();
         const de_novo = prepararImportacao([fonte('adm.xml', admissao), fonte('des.xml', desligamento)], empresa, '2026-10-04', [p.resultados[0].ficha]);
         expect(de_novo.resultados[0].novo).toBe(false);
         expect(de_novo.resultados[0].alteracoes).toEqual([]);
@@ -147,5 +148,11 @@ describe('importação do eSocial', () => {
         expect(r.ficha.dados.telefone).toBeUndefined();
         expect(r.ficha.dados.email).toBe('a@b.com');
         expect(r.preservados).toEqual([]);
+    });
+
+    it('S-2299 com aviso indenizado traz o fim projetado', () => {
+        const comAviso = desligamento.replace('<mtvDeslig>02</mtvDeslig><dtDeslig>2026-09-01</dtDeslig>', '<mtvDeslig>07</mtvDeslig><dtDeslig>2026-09-01</dtDeslig><dtProjFimAPI>2026-10-06</dtProjFimAPI>');
+        const p = prepararImportacao([fonte('adm.xml', admissao), fonte('des.xml', comAviso)], empresa, '2026-10-04', []);
+        expect(p.resultados[0].ficha.dados).toMatchObject({ motivoDesligamento: '07', dataProjetadaAviso: '2026-10-06' });
     });
 });

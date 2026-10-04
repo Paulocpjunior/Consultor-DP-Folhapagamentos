@@ -233,4 +233,18 @@ describe('aba Cálculo', () => {
         fireEvent.click(within(det).getByText('Remover simulação'));
         await waitFor(() => expect(screen.getByText(/Nenhum desligamento em 03\/2026/)).toBeTruthy());
     });
+
+    it('folha do mês com férias: soma o recibo e não fica incompleta', async () => {
+        cad.afastamentos = [{ id: 'g1', empresaId: 'emp1', fichaId: 'f1', cpf: '', matriculaEsocial: 'f1', dtInicio: '2025-07-01', dtFim: '2025-07-20', motivo: '15', infoMesmoMtv: '', tpAcidTransito: '', observacao: '', perAquisInicio: '2024-01-02', perAquisFim: '', origem: '', recibos: [] }];
+        render(<CalculoPanel currentUser={USER} />);
+        await waitFor(() => expect(screen.getByRole('option', { name: /0229/ })).toBeTruthy());
+        fireEvent.change(screen.getByLabelText('Competência'), { target: { value: '2025-07' } });
+        fireEvent.change(screen.getByLabelText('Empresa'), { target: { value: 'emp1' } });
+        await waitFor(() => expect(screen.getByText('ANA').closest('tr')!.textContent).toContain('calculado'));
+        expect(movs.listarMovimentosDaEmpresa).toHaveBeenCalledWith('emp1');
+        fireEvent.click(screen.getByText('ANA'));
+        const hol = screen.getByRole('region', { name: 'Holerite de ANA' });
+        expect(within(hol).getByText('Férias + 1/3 do mês (pagas no recibo)')).toBeTruthy();
+        expect(within(hol).getByText('Férias pagas no recibo')).toBeTruthy();
+    });
 });

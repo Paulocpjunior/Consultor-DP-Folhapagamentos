@@ -20,7 +20,7 @@ import { calcularMensal, competenciaSeguinte, noMes, type Lancamento, type Movim
 import { somarMeses } from '../../services/prazos/calendario';
 import { limparMovimento, mesmoMovimento, movimentoVazio, validarMovimento, type MovimentoGravado } from '../../services/calculo/movimento';
 import { listarMovimentos, listarMovimentosDaEmpresa, listarMovimentosDoAno, salvarMovimentos } from '../../services/calculo/movimentosService';
-import { calcularFerias, gozosNoMes, OPCOES_FERIAS_PADRAO, type OpcoesFerias, type ResultadoFerias } from '../../services/calculo/motorFerias';
+import { calcularFerias, feriasDaCompetencia, gozosNoMes, OPCOES_FERIAS_PADRAO, type OpcoesFerias, type ResultadoFerias } from '../../services/calculo/motorFerias';
 import { calcularRescisao, ROTULO_AVISO, TIPOS_RESCISAO, type AvisoPrevio, type ResultadoRescisao, type TipoRescisao } from '../../services/calculo/motorRescisao';
 import { calcular13, com13, OPCOES_13_PADRAO, ultimoDiaDoMes, type Opcoes13 } from '../../services/calculo/motor13';
 import ConferenciaHolerites, { conferirTodos, type LeituraHolerites } from './ConferenciaHolerites';
@@ -79,6 +79,8 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const [abonos, setAbonos] = useState<Record<string, number>>({});
     const [opcoesFerias, setOpcoesFerias] = useState<OpcoesFerias>(OPCOES_FERIAS_PADRAO);
     const [recarga, setRecarga] = useState(0);
+    // Folha mensal: movimentos de todos os meses, para os recibos de férias que tocam o mês (médias e faltas).
+    const [movsEmpresa, setMovsEmpresa] = useState<Record<string, Record<string, Movimento>> | null>(null);
     const [gravandoAbono, setGravandoAbono] = useState(false);
 
     useEffect(() => { listarTodasEmpresas().then(setEmpresas).catch(e => { setErro(mensagemErro(e)); setEmpresas([]); }); }, []);
@@ -104,6 +106,13 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     };
     useEffect(carregarMovimentos, [empresaId, competencia]); // eslint-disable-line react-hooks/exhaustive-deps
     useEffect(() => setLeitura(null), [empresaId, competencia]);
+    useEffect(() => {
+        setMovsEmpresa(null);
+        if (!mensal || !empresaId) return;
+        let valida = true;
+        listarMovimentosDaEmpresa(empresaId).then(m => { if (valida) setMovsEmpresa(m); }).catch(() => { if (valida) setMovsEmpresa({}); });
+        return () => { valida = false; };
+    }, [empresaId, mensal, recarga]);
     useEffect(() => {
         setMovsAno(null); setPrimeiras({});
         if (mensal || !empresaId) return;
@@ -138,7 +147,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             if (!movsAno || !/^\d{4}-\d{2}$/.test(competencia)) return [];
             // Desligados do mês (data da ficha) e simulações do mês.
             const itens = new Map<string, ParamRescisao>();
-            for (const f of dados.fichas) if (f.dados.dataDesligamento?.startsWith(competencia)) itens.set(f.id, { data: f.dados.dataDesligamento, tipo: '', aviso: 'indenizado', simulada: false }); // motivo do S-2299 ainda não importado: escolher
+            for (const f of dados.fichas) if (f.dados.dataDesligamento?.startsWith(competencia)) itens.set(f.id, { data: f.dados.dataDesligamento, tipo: f.dados.motivoDesligamento && f.dados.motivoDesligamento in TIPOS_RESCISAO ? f.dados.motivoDesligamento as TipoRescisao : '', aviso: 'indenizado', simulada: false }); // motivo do S-2299, quando importado
             for (const [id, p] of Object.entries(paramsResc)) if (p.data.startsWith(competencia) || itens.has(id)) itens.set(id, { ...itens.get(id), ...p });
             return [...itens.entries()].flatMap(([id, p]) => {
                 const f = dados.fichas.find(x => x.id === id);
@@ -163,11 +172,14 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             }));
         }
         if (!/^\d{4}-\d{2}$/.test(competencia)) return [];
-        return noMes(dados.fichas, competencia).map(f => calcularMensal({
-            competencia, pagamento, ficha: f, tabelas: dados.tabelas, movimento: movs[f.id],
-            afastamentos: dados.afastamentos.filter(a => a.fichaId === f.id),
-        }));
-    }, [dados, competencia, pagamento, movs, mensal, ferias, rescisao, paramsResc, movsAno, ano, folha, opcoes13, primeiras, abonos, opcoesFerias]);
+        return noMes(dados.fichas, competencia).map(f => {
+            const afs = dados.afastamentos.filter(a => a.fichaId === f.id);
+            return calcularMensal({
+                competencia, pagamento, ficha: f, tabelas: dados.tabelas, movimento: movs[f.id], afastamentos: afs,
+                feriasDoMes: movsEmpresa ? feriasDaCompetencia(f, afs, dados.tabelas, movsEmpresa[f.id] ?? {}, competencia) : undefined,
+            });
+        });
+    }, [dados, competencia, pagamento, movs, movsEmpresa, mensal, ferias, rescisao, paramsResc, movsAno, ano, folha, opcoes13, primeiras, abonos, opcoesFerias]);
     const total = (f: (r: ResultadoCalculo) => number) => resultados.reduce((s, r) => s + f(r), 0);
     const sel = resultados.find(r => chave(r) === aberto);
     const nomeDe = (id: string) => dados?.fichas.find(f => f.id === id)?.dados.nome || id;
@@ -345,7 +357,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                             <h4 className="text-sm font-semibold text-slate-800 dark:text-white">Rescisão {p.simulada ? '(simulação)' : ''}</h4>
                             <label className="block">Tipo do desligamento
                                 <select aria-label="Tipo do desligamento" className={`mt-0.5 block ${inp}`} value={p.tipo} onChange={e => mudar({ tipo: e.target.value as TipoRescisao | '' })}>
-                                    <option value="">— escolha (o motivo do S-2299 não é importado) —</option>
+                                    <option value="">— escolha —</option>
                                     {Object.entries(TIPOS_RESCISAO).map(([c, x]) => <option key={c} value={c}>{c} — {x}</option>)}
                                 </select>
                             </label>

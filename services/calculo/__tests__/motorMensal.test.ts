@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { calcularMensal, competenciaSeguinte, diasDsr, noMes, type EntradaCalculo } from '../motorMensal';
+import { feriasDaCompetencia } from '../motorFerias';
 import { fichaVazia, type FichaFuncionario } from '../../cadastros/funcionarios';
 import { afastamentoVazio, type Afastamento } from '../../cadastros/afastamentos';
 import type { TabelaLegal } from '../../cadastros/tabelasLegais';
@@ -103,7 +104,7 @@ describe('motor do cálculo mensal', () => {
         expect(valor(mat, 'INSS')).toBe(25341);
         const fer = calc({ ficha: ficha({}), afastamentos: [afast({ dtInicio: '2026-03-02', dtFim: '2026-03-31', motivo: '15' })] });
         expect(fer.situacao).toBe('incompleto');
-        expect(valor(fer, 'SAL')).toBe(10000);
+        expect(valor(fer, 'SAL')).toBe(0); // 30 dias de férias em março: salário + férias fecham 30 (mês comercial)
     });
 
     it('horas extras com DSR e faltas', () => {
@@ -158,5 +159,25 @@ describe('motor do cálculo mensal', () => {
         const fs = [ficha({}), { ...ficha({ admissao: '2026-04-01' }), id: 'f2' }, { ...ficha({ dataDesligamento: '2026-02-28' }), id: 'f3' }, { ...ficha({ dataDesligamento: '2026-03-01' }), id: 'f4' }];
         expect(noMes(fs, '2026-03').map(f => f.id)).toEqual(['f1', 'f4']);
         expect(competenciaSeguinte('2025-12')).toBe('2026-01');
+    });
+
+    it('férias do mês pagas no recibo entram no INSS e no FGTS do mês, abatendo o INSS já retido', () => {
+        const f = ficha({ admissao: '2024-01-02' });
+        const gozo = afast({ dtInicio: '2025-07-01', dtFim: '2025-07-20', motivo: '15', perAquisInicio: '2024-01-02' });
+        const fm = feriasDaCompetencia(f, [gozo], TABELAS, {}, '2025-07')!;
+        expect(fm).toEqual({ dias: 20, ferias: 200000, terco: 66667, inss: 21723 }); // 2.666,67: 113,85 + 103,38
+        const r = calc({ ficha: f, competencia: '2025-07', pagamento: '2025-08', afastamentos: [gozo], feriasDoMes: fm });
+        expect(r.situacao).toBe('calculado');
+        expect(valor(r, 'SAL')).toBe(100000); // 30 − 20 dias
+        expect(valor(r, 'FERMES')).toBe(266667);
+        expect(valor(r, 'FERPAGO')).toBe(266667);
+        expect(r.bases.inss).toBe(366667);
+        // INSS sobre 3.666,67 = 113,85 + 114,83 + 104,73 = 333,41; menos 217,23 retidos
+        expect(valor(r, 'INSS')).toBe(33341 - 21723);
+        expect(r.bases.irrf).toBe(100000); // férias fora do IRRF do mês
+        expect(r.fgts).toBe(Math.round(366667 * 0.08));
+        expect(r.totais.liquido).toBe(100000 - (33341 - 21723) - valor(r, 'IRRF'));
+        // Sem o recibo, o mês fica incompleto
+        expect(calc({ ficha: f, competencia: '2025-07', afastamentos: [gozo] }).situacao).toBe('incompleto');
     });
 });

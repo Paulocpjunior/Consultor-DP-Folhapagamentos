@@ -14,7 +14,7 @@ import { lerDependentes, type Dependente } from '../implantacao/unificacao';
 import { UFS, cnpjValido, cpfValido, dataValida, centavosDeTexto, pisValido } from './documentos';
 
 export type { Dependente };
-export type CampoExtra = 'codigoIob' | 'horario' | 'banco' | 'agencia' | 'conta' | 'tipoConta' | 'pix' | 'observacoes' | 'dataDesligamento';
+export type CampoExtra = 'codigoIob' | 'horario' | 'banco' | 'agencia' | 'conta' | 'tipoConta' | 'pix' | 'observacoes' | 'dataDesligamento' | 'motivoDesligamento' | 'dataProjetadaAviso';
 export type CampoFicha = Exclude<Campo, 'dependentes' | 'matriculaIob'> | CampoExtra;
 export type Situacao = 'ativo' | 'desligado';
 export type ChaveOrigem = CampoFicha | 'dependentes' | 'situacao';
@@ -39,7 +39,15 @@ export const ROTULO: Record<CampoFicha, string> = {
     horario: 'Horário (tabela de horários)',
     banco: 'Banco (código)', agencia: 'Agência', conta: 'Conta', tipoConta: 'Tipo de conta', pix: 'Chave PIX',
     observacoes: 'Observações', dataDesligamento: 'Data de desligamento',
+    motivoDesligamento: 'Motivo do desligamento (eSocial)', dataProjetadaAviso: 'Fim projetado pelo aviso indenizado',
 };
+
+/** Motivos de desligamento (Tabela 19 do eSocial) mais usados; outro código fica como está. */
+export const MOTIVOS_DESLIGAMENTO: [string, string][] = [
+    ['01', 'Com justa causa, por iniciativa do empregador'], ['02', 'Sem justa causa, por iniciativa do empregador'],
+    ['03', 'Término antecipado do contrato a termo pelo empregador'], ['04', 'Término antecipado do contrato a termo pelo empregado'],
+    ['06', 'Término do contrato a termo'], ['07', 'Pedido de demissão'], ['33', 'Acordo entre as partes (art. 484-A)'],
+];
 
 export type TipoCampo = 'texto' | 'data' | 'lista' | 'longo';
 export interface DefCampo { tipo: TipoCampo; opcoes?: [string, string][] }
@@ -58,10 +66,11 @@ const OPCOES: Partial<Record<CampoFicha, [string, string][]>> = {
     tipoContrato: [['1', 'Prazo indeterminado'], ['2', 'Prazo determinado, em dias'], ['3', 'Prazo determinado, vinculado a fato']],
     regimeTrabalhista: [['1', 'CLT'], ['2', 'Estatutário']],
     regimePrevidenciario: [['1', 'RGPS'], ['2', 'RPPS'], ['3', 'Regime de previdência no exterior']],
+    motivoDesligamento: MOTIVOS_DESLIGAMENTO,
     tipoConta: [['corrente', 'Corrente'], ['poupanca', 'Poupança'], ['salario', 'Salário'], ['pagamento', 'Pagamento']],
     uf: UFS.map(u => [u, u]), ufCtps: UFS.map(u => [u, u]),
 };
-const DATAS: CampoFicha[] = ['nascimento', 'admissao', 'fimContrato', 'emissaoRg', 'dataDesligamento'];
+const DATAS: CampoFicha[] = ['nascimento', 'admissao', 'fimContrato', 'emissaoRg', 'dataDesligamento', 'dataProjetadaAviso'];
 const LONGOS: CampoFicha[] = ['observacoes', 'jornada', 'deficiencia', 'enderecoExterior'];
 
 export function defCampo(campo: CampoFicha): DefCampo {
@@ -74,7 +83,7 @@ export function defCampo(campo: CampoFicha): DefCampo {
 /** Abas na ordem do IOB Office. Complementos, Lanç. Automático e Holerite dependem dos prints do Office. */
 export const ABAS: { id: string; titulo: string; campos: CampoFicha[] }[] = [
     { id: 'dados', titulo: 'Dados', campos: ['nome', 'nascimento', 'sexo', 'estadoCivil', 'raca', 'escolaridade', 'nacionalidade', 'paisNascimento', 'naturalidade', 'mae', 'pai', 'cep', 'logradouro', 'numero', 'complemento', 'bairro', 'municipio', 'uf', 'telefone', 'email'] },
-    { id: 'identAdm', titulo: 'Ident. Adm.', campos: ['codigoIob', 'admissao', 'categoria', 'tipoContrato', 'fimContrato', 'cargo', 'cbo', 'funcao', 'cargoIob', 'departamentoIob', 'salario', 'unidadeSalario', 'horasSemanais', 'horario', 'jornada', 'horarioTrabalho', 'horarioIntervalo', 'sindicato', 'sindicatoIob', 'estabelecimento', 'regimeTrabalhista', 'regimePrevidenciario', 'opcaoFgts', 'dataDesligamento'] },
+    { id: 'identAdm', titulo: 'Ident. Adm.', campos: ['codigoIob', 'admissao', 'categoria', 'tipoContrato', 'fimContrato', 'cargo', 'cbo', 'funcao', 'cargoIob', 'departamentoIob', 'salario', 'unidadeSalario', 'horasSemanais', 'horario', 'jornada', 'horarioTrabalho', 'horarioIntervalo', 'sindicato', 'sindicatoIob', 'estabelecimento', 'regimeTrabalhista', 'regimePrevidenciario', 'opcaoFgts', 'dataDesligamento', 'motivoDesligamento', 'dataProjetadaAviso'] },
     { id: 'documentos', titulo: 'Documentos', campos: ['pis', 'cadastroPis', 'ctps', 'serieCtps', 'ufCtps', 'rg', 'orgaoRg', 'emissaoRg', 'tituloEleitor', 'zonaEleitoral', 'secaoEleitoral', 'documentoMilitar'] },
     { id: 'outros', titulo: 'Outros', campos: ['banco', 'agencia', 'conta', 'tipoConta', 'pix', 'deficiencia', 'enderecoExterior', 'observacoes'] },
 ];
@@ -99,8 +108,13 @@ export function fichaDoEsocial(c: Cadastro, empresa: { id: string; cnpj: string 
     }
     const dependentes = lerDependentes(c.dados.dependentes);
     if (c.origens.dependentes) origens.dependentes = `eSocial: ${c.origens.dependentes}`;
-    const deslig = c.eventos.filter(e => e.tipo === 'S-2299').map(e => e.data).sort().pop();
-    if (deslig) { dados.dataDesligamento = deslig; origens.dataDesligamento = 'eSocial: S-2299'; }
+    const s2299 = c.eventos.filter(e => e.tipo === 'S-2299').sort((a, b) => a.data.localeCompare(b.data)).pop();
+    if (s2299?.data) { dados.dataDesligamento = s2299.data; origens.dataDesligamento = 'eSocial: S-2299'; }
+    // Motivo (Tabela 19) e fim projetado do aviso indenizado, do conteúdo do S-2299.
+    const motivo = s2299?.conteudo.match(/\["mtvDeslig",\[\],"(\d{2})"\]/)?.[1];
+    if (motivo) { dados.motivoDesligamento = motivo; origens.motivoDesligamento = 'eSocial: S-2299'; }
+    const projetada = s2299?.conteudo.match(/\["dtProjFimAPI",\[\],"(\d{4}-\d{2}-\d{2})"\]/)?.[1];
+    if (projetada) { dados.dataProjetadaAviso = projetada; origens.dataProjetadaAviso = 'eSocial: S-2299'; }
     origens.situacao = c.desligado ? 'eSocial: S-2299' : 'eSocial';
     return {
         id: idFuncionario(empresa.id, c.cpf, c.matricula), empresaId: empresa.id, cnpj: empresa.cnpj,

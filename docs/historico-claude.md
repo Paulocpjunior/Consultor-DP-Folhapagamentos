@@ -748,3 +748,38 @@ piloto em paralelo provar o cálculo próprio.
   - **P2:** as opções do IRRF da tela valem só para o 13º da rescisão, e o
     texto agora diz isso. O saldo de salário segue a regra mensal
     (simplificado e redutor, que são regra certa no mensal).
+
+## Motor: motivo do S-2299 e férias na folha do mês (04/10/2026)
+
+- **Paulo: *"pode seguir com a próxima etapa"*.** Duas pontas abertas do
+  motor, sem depender de dados reais.
+- **Motivo e fim projetado do S-2299 na ficha:**
+  - `fichaDoEsocial` lê `infoDeslig/mtvDeslig` e `infoDeslig/dtProjFimAPI`
+    do conteúdo do último S-2299 e grava `motivoDesligamento` e
+    `dataProjetadaAviso` (campos novos na aba Ident. Adm., com origem
+    "eSocial: S-2299").
+  - **Na rescisão, o tipo vem do motivo da ficha** quando é um dos cobertos.
+    Motivo não coberto dá erro explicando.
+  - **A rescisão confere com o eSocial:** avisa se o tipo usado difere do
+    motivo do S-2299, ou se o fim projetado calculado difere do
+    `dtProjFimAPI`.
+- **Férias integradas à folha do mês:**
+  - `feriasDaCompetencia` soma, da competência, a parte de cada recibo de
+    férias que toca o mês. Se algum recibo dá erro, a folha volta a ficar
+    "incompleto" e aponta o recibo.
+  - **Na folha mensal:**
+    - entra "Férias + 1/3 do mês (pagas no recibo)" (soma no INSS e no
+      FGTS, fora do IRRF) e o desconto de igual valor "Férias pagas no
+      recibo";
+    - o INSS do mês é calculado sobre salário + férias, **menos o INSS já
+      retido no recibo**;
+    - o mês deixa de ficar "incompleto".
+  - **Mês comercial com férias:** o salário passa a ser 30 menos os dias
+    fora (com 20 dias de férias num mês de 31, paga 10 de salário, e não
+    11). Assim salário e férias fecham 30 dias.
+  - A aba Cálculo carrega os movimentos da empresa na folha mensal, para as
+    médias dos recibos. A rescisão também soma as férias do mês do
+    desligamento.
+  - **Conferência dos holerites:** as linhas de férias do holerite mensal
+    do IOB são reconhecidas ("Férias + 1/3 do mês" e "Férias pagas no
+    recibo"). "INSS s/ férias" continua como INSS e o abono como "outros".

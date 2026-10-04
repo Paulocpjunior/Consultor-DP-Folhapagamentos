@@ -309,3 +309,22 @@ export function gozosNoMes(afastamentos: Afastamento[], fichaIds: Set<string>, c
     return afastamentos.filter(a => a.motivo === '15' && fichaIds.has(a.fichaId) && a.dtInicio.slice(0, 7) === competencia)
         .sort((a, b) => a.dtInicio.localeCompare(b.dtInicio));
 }
+
+/**
+ * Férias da competência para a folha do mês: soma a parte da competência de
+ * cada recibo cujo gozo toca o mês. Se algum recibo der erro, devolve
+ * undefined (a folha fica "incompleto" e aponta o recibo).
+ */
+export function feriasDaCompetencia(ficha: FichaFuncionario, afastamentos: Afastamento[], tabelas: TabelaLegal[], movimentos: Record<string, Movimento>, competencia: string): { dias: number; ferias: number; terco: number; inss: number } | undefined {
+    const ini = `${competencia}-01`;
+    const gozos = afastamentos.filter(a => a.fichaId === ficha.id && a.motivo === '15' && a.dtInicio.slice(0, 7) <= competencia && (!a.dtFim || a.dtFim >= ini));
+    if (!gozos.length) return undefined;
+    const soma = { dias: 0, ferias: 0, terco: 0, inss: 0 };
+    for (const gozo of gozos) {
+        const r = calcularFerias({ ficha, gozo, afastamentos, tabelas, movimentos });
+        if (r.situacao === 'erro') return undefined;
+        const c = r.porCompetencia.find(x => x.competencia === competencia);
+        if (c) { soma.dias += c.dias; soma.ferias += c.ferias; soma.terco += c.terco; soma.inss += c.inss; }
+    }
+    return soma;
+}
