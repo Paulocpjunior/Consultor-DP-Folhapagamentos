@@ -6,6 +6,8 @@
 //   S-5003 evtBasesFGTS  — base e depósito de FGTS por trabalhador
 //   S-5011 evtCS         — contribuições sociais consolidadas da empresa (vai à DCTFWeb)
 //   S-5013 evtFGTS       — FGTS consolidado da empresa (vai ao FGTS Digital)
+//   S-5002 evtIrrfBenef  — IRRF por trabalhador (regime de CAIXA: mês do pagamento, S-1210)
+//   S-5012 evtIrrf       — IRRF consolidado da empresa, por código de receita (vai à DCTFWeb)
 //
 // A estrutura segue os XSDs do leiaute S-1.3 (pasta schemes/v_S_01_03_00 da
 // biblioteca pública nfephp-org/sped-esocial). Os elementos são procurados
@@ -18,13 +20,15 @@
 
 import { lerZip } from '../implantacao/zip';
 
-export type TipoTotalizador = 'S-5001' | 'S-5003' | 'S-5011' | 'S-5013';
+export type TipoTotalizador = 'S-5001' | 'S-5003' | 'S-5011' | 'S-5013' | 'S-5002' | 'S-5012';
 
 const EVENTOS: Record<string, TipoTotalizador> = {
     evtBasesTrab: 'S-5001',
     evtBasesFGTS: 'S-5003',
     evtCS: 'S-5011',
     evtFGTS: 'S-5013',
+    evtIrrfBenef: 'S-5002',
+    evtIrrf: 'S-5012',
 };
 
 export interface Cabecalho {
@@ -68,7 +72,21 @@ export interface S5011 extends Cabecalho {
 export interface BaseFgtsEmpresa { tpValor: string; indIncid: string; base: number; valorFgts: number; periodoAnterior: boolean }
 export interface S5013 extends Cabecalho { tipo: 'S-5013'; indExistInfo: string; bases: BaseFgtsEmpresa[] }
 
-export type Totalizador = S5001 | S5003 | S5011 | S5013;
+/** Totais de IRRF de um trabalhador por código de receita (CRMen), em centavos. */
+export interface ApuracaoIrrf {
+    crMen: string;
+    rendTrib: number; rendTrib13: number;
+    prevOficial: number; prevOficial13: number;
+    irrf: number; irrf13: number;
+}
+export interface S5002 extends Cabecalho {
+    tipo: 'S-5002'; cpf: string; apuracoes: ApuracaoIrrf[];
+    /** consolidado = totInfoIR/consolidApurMen; demonstrativos = soma de dmDev/totApurMen (leiaute sem o consolidado). */
+    fonte: 'consolidado' | 'demonstrativos';
+}
+export interface S5012 extends Cabecalho { tipo: 'S-5012'; indExistInfo: string; creditos: { crMen: string; valor: number }[] }
+
+export type Totalizador = S5001 | S5003 | S5011 | S5013 | S5002 | S5012;
 
 export interface LeituraTotalizadores {
     totalizadores: Totalizador[];
@@ -95,7 +113,7 @@ function cabecalho(ev: Element, tipo: TipoTotalizador, arquivo: string): Cabecal
     const ide = filho(ev, 'ideEvento');
     const emp = filho(ev, 'ideEmpregador');
     // No S-5011 e no S-5013 o recibo de origem fica dentro de infoCS/infoFGTS.
-    const nrRec = texto(ide, 'nrRecArqBase') || texto(filho(ev, 'infoCS'), 'nrRecArqBase') || texto(filho(ev, 'infoFGTS'), 'nrRecArqBase');
+    const nrRec = texto(ide, 'nrRecArqBase') || texto(filho(ev, 'infoCS'), 'nrRecArqBase') || texto(filho(ev, 'infoFGTS'), 'nrRecArqBase') || texto(filho(ev, 'infoIRRF'), 'nrRecArqBase');
     return {
         tipo, arquivo,
         id: ev.getAttribute('Id') ?? '',
@@ -177,8 +195,44 @@ function lerS5013(ev: Element, arquivo: string): S5013 {
     return { ...cab, tipo: 'S-5013', indExistInfo: texto(info, 'indExistInfo'), bases };
 }
 
+function apuracaoIrrf(e: Element): ApuracaoIrrf {
+    return {
+        crMen: texto(e, 'CRMen'),
+        rendTrib: valor(e, 'vlrRendTrib'), rendTrib13: valor(e, 'vlrRendTrib13'),
+        prevOficial: valor(e, 'vlrPrevOficial'), prevOficial13: valor(e, 'vlrPrevOficial13'),
+        irrf: valor(e, 'vlrCRMen'), irrf13: valor(e, 'vlrCR13Men'),
+    };
+}
+
+function lerS5002(ev: Element, arquivo: string): S5002 {
+    const cab = cabecalho(ev, 'S-5002', arquivo);
+    // XSD S-1.3: dmDev e totInfoIR ficam dentro de ideTrabalhador.
+    const trab = filho(ev, 'ideTrabalhador') ?? ev;
+    const cpf = texto(trab, 'cpfBenef');
+    const consolidado = filho(trab, 'totInfoIR');
+    if (consolidado) return { ...cab, tipo: 'S-5002', cpf, apuracoes: filhos(consolidado, 'consolidApurMen').map(apuracaoIrrf), fonte: 'consolidado' };
+    // Sem o consolidado, soma os totais de cada demonstrativo por código de receita.
+    const porCr = new Map<string, ApuracaoIrrf>();
+    for (const dm of filhos(trab, 'dmDev')) for (const t of filhos(dm, 'totApurMen')) {
+        const a = apuracaoIrrf(t);
+        const atual = porCr.get(a.crMen);
+        porCr.set(a.crMen, atual ? {
+            crMen: a.crMen, rendTrib: atual.rendTrib + a.rendTrib, rendTrib13: atual.rendTrib13 + a.rendTrib13,
+            prevOficial: atual.prevOficial + a.prevOficial, prevOficial13: atual.prevOficial13 + a.prevOficial13,
+            irrf: atual.irrf + a.irrf, irrf13: atual.irrf13 + a.irrf13,
+        } : a);
+    }
+    return { ...cab, tipo: 'S-5002', cpf, apuracoes: [...porCr.values()], fonte: 'demonstrativos' };
+}
+
+function lerS5012(ev: Element, arquivo: string): S5012 {
+    const cab = cabecalho(ev, 'S-5012', arquivo);
+    const info = filho(ev, 'infoIRRF');
+    return { ...cab, tipo: 'S-5012', indExistInfo: texto(info, 'indExistInfo'), creditos: (info ? filhos(info, 'infoCRMen') : []).map(c => ({ crMen: texto(c, 'CRMen'), valor: valor(c, 'vrCRMen') })) };
+}
+
 const LEITORES: Record<TipoTotalizador, (ev: Element, arquivo: string) => Totalizador> = {
-    'S-5001': lerS5001, 'S-5003': lerS5003, 'S-5011': lerS5011, 'S-5013': lerS5013,
+    'S-5001': lerS5001, 'S-5003': lerS5003, 'S-5011': lerS5011, 'S-5013': lerS5013, 'S-5002': lerS5002, 'S-5012': lerS5012,
 };
 
 /**
@@ -199,7 +253,7 @@ export function lerTotalizadoresXml(xml: string, arquivo: string, nivel = 0): To
         for (const e of todos) {
             if (e.children.length) continue;
             const t = e.textContent?.trim() ?? '';
-            if (t.startsWith('<') && /<(\w+:)?(evtBasesTrab|evtBasesFGTS|evtCS|evtFGTS)\b/.test(t)) saida.push(...lerTotalizadoresXml(t, arquivo, nivel + 1));
+            if (t.startsWith('<') && /<(\w+:)?(evtBasesTrab|evtBasesFGTS|evtCS|evtFGTS|evtIrrfBenef|evtIrrf)\b/.test(t)) saida.push(...lerTotalizadoresXml(t, arquivo, nivel + 1));
         }
     }
     return saida;
@@ -231,7 +285,7 @@ export async function lerTotalizadores(arquivos: ArquivoEntrada[]): Promise<Leit
         if (!/\.xml$/i.test(nome)) { avisos.push(`${nome}: ignorado (não é .xml nem .zip).`); continue; }
         try {
             const achados = lerTotalizadoresXml(decodificar(a.bytes), nome);
-            if (!achados.length) avisos.push(`${nome}: nenhum totalizador S-5001, S-5003, S-5011 ou S-5013 no arquivo.`);
+            if (!achados.length) avisos.push(`${nome}: nenhum totalizador S-5001, S-5002, S-5003, S-5011, S-5012 ou S-5013 no arquivo.`);
             lidos.push(...achados);
         } catch (e) {
             avisos.push(`${nome}: ${(e as Error).message}`);
@@ -261,6 +315,9 @@ export interface GrupoApuracao {
     s5003: S5003[];
     s5011: S5011[];
     s5013: S5013[];
+    /** IRRF segue o mês do PAGAMENTO (S-1210): o S-5002 de 10/2026 traz, em geral, o IRRF da folha de 09/2026. */
+    s5002: S5002[];
+    s5012: S5012[];
 }
 
 /** Separa por empresa, competência e apuração: misturar competências faria a conferência fechar errado. */
@@ -269,11 +326,13 @@ export function agruparPorApuracao(totalizadores: Totalizador[]): GrupoApuracao[
     for (const t of totalizadores) {
         const chave = `${t.empregador}|${t.perApur}|${t.indApuracao}`;
         let g = grupos.get(chave);
-        if (!g) { g = { chave, empregador: t.empregador, perApur: t.perApur, indApuracao: t.indApuracao, s5001: [], s5003: [], s5011: [], s5013: [] }; grupos.set(chave, g); }
+        if (!g) { g = { chave, empregador: t.empregador, perApur: t.perApur, indApuracao: t.indApuracao, s5001: [], s5003: [], s5011: [], s5013: [], s5002: [], s5012: [] }; grupos.set(chave, g); }
         if (t.tipo === 'S-5001') g.s5001.push(t);
         else if (t.tipo === 'S-5003') g.s5003.push(t);
         else if (t.tipo === 'S-5011') g.s5011.push(t);
-        else g.s5013.push(t);
+        else if (t.tipo === 'S-5013') g.s5013.push(t);
+        else if (t.tipo === 'S-5002') g.s5002.push(t);
+        else g.s5012.push(t);
     }
     return [...grupos.values()].sort((a, b) => b.perApur.localeCompare(a.perApur) || a.empregador.localeCompare(b.empregador) || a.indApuracao.localeCompare(b.indApuracao));
 }
