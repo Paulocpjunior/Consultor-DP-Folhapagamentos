@@ -551,3 +551,14 @@ piloto em paralelo provar o cálculo próprio.
     quem, quantos, arquivos e modelo).
 - **Depende do deploy do CFI** com a rota nova. Não há regra nova do
   Firestore.
+- **Revisão do PR #52 (Codex), corrigida antes do merge:**
+  - **P1:** um holerite de outra competência não é comparado (situação
+    "outra competência") nem vira movimento. Competência não lida gera aviso.
+  - **P1:** um holerite sem nenhum valor lido fica como "ilegível", nunca
+    como "confere". "Confere" exige pelo menos um item comparado.
+  - **P1:** um holerite ligado a uma ficha sem cálculo na competência mantém
+    o `fichaId` e não oferece "Aplicar movimento" (`podeAplicar`). A
+    gravação ignora movimento sem ficha.
+  - **P2:** DSR pago só conta como reflexo das horas extras quando diz isso
+    ou vem sem qualificação. "DSR s/ comissões" e "DSR s/ adicional noturno"
+    ficam em "outros" e viram lançamento avulso.

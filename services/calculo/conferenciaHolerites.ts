@@ -39,8 +39,10 @@ export function classificarVerba(v: VerbaHolerite): Classe {
     if (desconto && /\bI\.?R\.?R\.?F\b|IMPOSTO DE RENDA|^IR\b|I\.R\.? ?FONTE/.test(d)) return 'IRRF';
     if (desconto && /\bINSS\b|PREVIDENCIA|I\.N\.S\.S/.test(d)) return 'INSS';
     const extra = /EXTRA|\bH\.? ?E\b|\bHE\b/.test(d);
-    // DSR pago no mensal é o reflexo das variáveis (horas extras); o do salário já está nos 30 dias.
-    if (/D\.?S\.?R|REPOUSO|DESCANSO SEMANAL|\bRSR\b/.test(d)) return desconto ? 'DSRF' : 'DSRHE';
+    // DSR pago só é o reflexo das horas extras quando diz isso, ou quando vem sem
+    // qualificação ("D.S.R.", "REFLEXO DSR"); DSR sobre comissões, adicional
+    // noturno etc. fica em "outros" e vira lançamento avulso.
+    if (/D\.?S\.?R|REPOUSO|DESCANSO SEMANAL|\bRSR\b/.test(d)) return desconto ? 'DSRF' : extra || !/S\/|SOBRE/.test(d) ? 'DSRHE' : 'OUTRO';
     if (extra && /100/.test(d)) return 'HE100';
     if (extra && /50/.test(d)) return 'HE50';
     if (desconto && /FALTA|AUSENCIA/.test(d)) return 'FALTA';
@@ -61,7 +63,7 @@ export function ligarHolerite(h: HoleriteIob, fichas: FichaFuncionario[]): { fic
 export interface LinhaConferencia { item: string; motor: number; iob: number; diferenca: number; ok: boolean }
 export interface ConferenciaFuncionario {
     fichaId: string; nome: string; ligadoPor: string;
-    situacao: 'confere' | 'diverge' | 'sem cálculo';
+    situacao: 'confere' | 'diverge' | 'sem cálculo' | 'ilegível' | 'outra competência';
     linhas: LinhaConferencia[];
     /** Verbas do IOB que o motor não tem (lance como movimento ou confira). */
     semCorrespondente: VerbaHolerite[];
@@ -77,17 +79,36 @@ export function somaPorClasse(h: HoleriteIob): Record<Classe, number> {
     return s;
 }
 
-/** Compara o resultado do motor com o holerite do IOB, item a item. */
-export function conferirHolerite(r: ResultadoCalculo | undefined, h: HoleriteIob, ligadoPor: string): ConferenciaFuncionario {
+/** Só holerite comparado de fato (confere ou diverge) pode virar movimento. */
+export const podeAplicar = (c: ConferenciaFuncionario | null) => !!c && !!c.fichaId && (c.situacao === 'confere' || c.situacao === 'diverge');
+
+const mesAno = (c: string) => `${c.slice(5)}/${c.slice(0, 4)}`;
+
+/**
+ * Compara o resultado do motor com o holerite do IOB, item a item.
+ * `ctx` traz a ficha ligada e a competência conferida: holerite de outro mês
+ * não é comparado, e holerite sem nenhum valor lido nunca "confere".
+ */
+export function conferirHolerite(r: ResultadoCalculo | undefined, h: HoleriteIob, ligadoPor: string, ctx: { fichaId: string; nome: string; competencia: string }): ConferenciaFuncionario {
     const avisos = [...h.avisos];
     if (ligadoPor === 'nome') avisos.push('Holerite ligado à ficha pelo nome (sem CPF ou código do IOB no holerite): confira.');
     const semCorrespondente = h.verbas.filter(v => classificarVerba(v) === 'OUTRO');
+    const base = { fichaId: ctx.fichaId, nome: ctx.nome || h.nome, ligadoPor, semCorrespondente };
+    if (h.competencia && h.competencia !== ctx.competencia) {
+        return { ...base, situacao: 'outra competência', linhas: [], avisos: [...avisos, `Holerite de ${mesAno(h.competencia)}; a competência conferida é ${mesAno(ctx.competencia)}. Não comparado.`] };
+    }
+    if (!h.competencia) avisos.push('Competência não lida no holerite: confira se o PDF é do mês certo.');
     if (!r || r.situacao === 'erro') {
-        return { fichaId: r?.fichaId ?? '', nome: r?.nome ?? h.nome, ligadoPor, situacao: 'sem cálculo', linhas: [], semCorrespondente, avisos: [...avisos, ...(r?.erros ?? [])] };
+        return { ...base, situacao: 'sem cálculo', linhas: [], avisos: [...avisos, ...(r?.erros ?? ['Sem cálculo do motor para esta ficha na competência.'])] };
     }
     const iob = somaPorClasse(h);
     const motor = (c: Classe) => r.verbas.filter(v => v.codigo === c).reduce((s, v) => s + v.valor, 0);
     const linha = (item: string, m: number, i: number): LinhaConferencia => ({ item, motor: m, iob: i, diferenca: m - i, ok: Math.abs(m - i) <= TOLERANCIA });
+    const doIob = ITENS.filter(c => iob[c]);
+    const totaisLidos = [h.totalProventos, h.totalDescontos, h.liquido, h.baseInss, h.baseFgts, h.fgtsMes].some(v => v !== null);
+    if (!doIob.length && !semCorrespondente.length && !totaisLidos) {
+        return { ...base, situacao: 'ilegível', linhas: [], avisos: [...avisos, 'Nenhum valor lido neste holerite: confira o PDF.'] };
+    }
     const linhas: LinhaConferencia[] = ITENS.filter(c => motor(c) || iob[c]).map(c => linha(ROTULO_CLASSE[c], motor(c), iob[c]));
     if (h.totalProventos !== null) linhas.push(linha('Total de proventos', r.totais.proventos, h.totalProventos));
     if (h.totalDescontos !== null) linhas.push(linha('Total de descontos', r.totais.descontos, h.totalDescontos));
@@ -98,8 +119,8 @@ export function conferirHolerite(r: ResultadoCalculo | undefined, h: HoleriteIob
     const lancados = r.verbas.filter(v => v.codigo.startsWith('LAN')).length;
     if (semCorrespondente.length && lancados) avisos.push('Há lançamentos avulsos no movimento: confira se cobrem as verbas do IOB sem correspondente.');
     if (r.situacao === 'incompleto') avisos.push('Cálculo do motor incompleto (férias, rescisão…): a diferença pode vir daí.');
-    const situacao = linhas.every(l => l.ok) && (!semCorrespondente.length || lancados >= semCorrespondente.length) ? 'confere' : 'diverge';
-    return { fichaId: r.fichaId, nome: r.nome, ligadoPor, situacao, linhas, semCorrespondente, avisos };
+    const situacao = linhas.length > 0 && linhas.every(l => l.ok) && (!semCorrespondente.length || lancados >= semCorrespondente.length) ? 'confere' : 'diverge';
+    return { ...base, fichaId: r.fichaId, nome: r.nome, situacao, linhas, avisos };
 }
 
 /** "10,50" → 10.5; "10:30" → 10.5; vazio ou ilegível → 0. */

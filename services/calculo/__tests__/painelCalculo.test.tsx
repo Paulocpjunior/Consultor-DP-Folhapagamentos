@@ -138,6 +138,7 @@ describe('aba Cálculo', () => {
         const linhaAna = within(sec).getByText('ANA').closest('tr')!;
         expect(linhaAna.textContent).toContain('diverge');
         expect(within(sec).getByText('FULANO SEM FICHA').closest('tr')!.textContent).toContain('sem ficha');
+        expect(within(within(sec).getByText('FULANO SEM FICHA').closest('tr')!).queryByText('Aplicar movimento do holerite')).toBeNull();
         expect(within(sec).getByText(/sem holerite no PDF: BRUNO/)).toBeTruthy();
 
         fireEvent.click(within(linhaAna).getByText('Aplicar movimento do holerite'));

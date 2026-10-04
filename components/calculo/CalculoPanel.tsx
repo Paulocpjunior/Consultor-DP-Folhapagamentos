@@ -82,7 +82,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     useEffect(() => setLeitura(null), [empresaId, competencia]);
 
     const pendentes = useMemo(() => [...new Set([...Object.keys(movs), ...Object.keys(gravados ?? {})])]
-        .filter(id => !mesmoMovimento(movs[id], gravados?.[id]?.movimento)), [movs, gravados]);
+        .filter(id => id && !mesmoMovimento(movs[id], gravados?.[id]?.movimento)), [movs, gravados]);
     useEffect(() => {
         if (!pendentes.length) return;
         const h = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
@@ -133,7 +133,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(verbas), 'Verbas');
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(memoria), 'Memória');
         if (leitura && dados) {
-            const { linhas, semHolerite } = conferirTodos(leitura, dados.fichas, resultados);
+            const { linhas, semHolerite } = conferirTodos(leitura, dados.fichas, resultados, competencia);
             const conf: Record<string, string | number>[] = [
                 ...linhas.flatMap(({ holerite: h, conferencia: c }): Record<string, string | number>[] => (c && c.linhas.length
                     ? c.linhas.map(l => ({ Funcionário: c.nome, Holerite: h.nome, Situação: c.situacao, Item: l.item, Motor: l.motor / 100, IOB: l.iob / 100, Diferença: l.diferenca / 100, Confere: l.ok ? 'sim' : 'não' }))

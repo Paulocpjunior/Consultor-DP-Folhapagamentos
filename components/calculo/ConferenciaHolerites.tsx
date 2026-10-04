@@ -11,7 +11,7 @@ import { mensagemErro, type Usuario } from '../../services/cadastros/cadastrosSe
 import { reais } from '../../services/cadastros/documentos';
 import type { Movimento, ResultadoCalculo } from '../../services/calculo/motorMensal';
 import { mesmoMovimento, movimentoVazio } from '../../services/calculo/movimento';
-import { conferirHolerite, ligarHolerite, movimentoDoHolerite, type ConferenciaFuncionario, type HoleriteIob } from '../../services/calculo/conferenciaHolerites';
+import { conferirHolerite, ligarHolerite, movimentoDoHolerite, podeAplicar, type ConferenciaFuncionario, type HoleriteIob } from '../../services/calculo/conferenciaHolerites';
 import { lerHolerites, registrarLeitura, MAX_PDF_MB } from '../../services/calculo/holeritesService';
 
 export interface LeituraHolerites { holerites: HoleriteIob[]; arquivos: string[]; modelo: string; avisos: string[] }
@@ -26,18 +26,21 @@ const COR = {
     confere: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200',
     diverge: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200',
     'sem cálculo': 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200',
+    'ilegível': 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
+    'outra competência': 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
 };
 const dif = (c: number) => `${c > 0 ? '+' : c < 0 ? '−' : ''}${reais(Math.abs(c))}`;
 
 export interface LinhaConferida { holerite: HoleriteIob; conferencia: ConferenciaFuncionario | null; sugestao: ReturnType<typeof movimentoDoHolerite> }
 
 /** Liga e confere todos os holerites lidos; também usado na exportação. */
-export function conferirTodos(leitura: LeituraHolerites, fichas: FichaFuncionario[], resultados: ResultadoCalculo[]): { linhas: LinhaConferida[]; semHolerite: ResultadoCalculo[] } {
+export function conferirTodos(leitura: LeituraHolerites, fichas: FichaFuncionario[], resultados: ResultadoCalculo[], competencia: string): { linhas: LinhaConferida[]; semHolerite: ResultadoCalculo[] } {
     const usados = new Set<string>();
     const linhas = leitura.holerites.map(h => {
         const { ficha, por } = ligarHolerite(h, fichas);
-        if (ficha) usados.add(ficha.id);
-        return { holerite: h, conferencia: ficha ? conferirHolerite(resultados.find(r => r.fichaId === ficha.id), h, por) : null, sugestao: movimentoDoHolerite(h) };
+        const conferencia = ficha ? conferirHolerite(resultados.find(r => r.fichaId === ficha.id), h, por, { fichaId: ficha.id, nome: ficha.dados.nome ?? '', competencia }) : null;
+        if (ficha && conferencia?.situacao !== 'outra competência') usados.add(ficha.id);
+        return { holerite: h, conferencia, sugestao: movimentoDoHolerite(h) };
     });
     return { linhas, semHolerite: resultados.filter(r => !usados.has(r.fichaId)) };
 }
@@ -48,7 +51,7 @@ const ConferenciaHolerites: React.FC<Props> = ({ empresaId, competencia, fichas,
     const [erro, setErro] = useState('');
     const [aberto, setAberto] = useState<number | null>(null);
 
-    const conf = useMemo(() => (leitura ? conferirTodos(leitura, fichas, resultados) : null), [leitura, fichas, resultados]);
+    const conf = useMemo(() => (leitura ? conferirTodos(leitura, fichas, resultados, competencia) : null), [leitura, fichas, resultados, competencia]);
     const cont = (s: string) => conf?.linhas.filter(l => l.conferencia?.situacao === s).length ?? 0;
 
     async function ler() {
@@ -67,6 +70,7 @@ const ConferenciaHolerites: React.FC<Props> = ({ empresaId, competencia, fichas,
     }
 
     function aplicar(fichaId: string, m: Movimento, nome: string) {
+        if (!fichaId) return;
         const atual = movimentos[fichaId];
         if (!movimentoVazio(atual) && !mesmoMovimento(atual, m) && !window.confirm(`${nome} já tem movimento digitado. Trocar pelo que o holerite indica?`)) return;
         onAplicarMovimento(fichaId, m);
@@ -96,7 +100,7 @@ const ConferenciaHolerites: React.FC<Props> = ({ empresaId, competencia, fichas,
                         <div className="rounded bg-slate-50 p-2 dark:bg-slate-700 dark:text-slate-100"><strong>{leitura.holerites.length}</strong> holerite(s) lido(s)</div>
                         <div className="rounded bg-green-50 p-2 dark:bg-green-900/30 dark:text-green-100"><strong>{cont('confere')}</strong> conferem</div>
                         <div className="rounded bg-red-50 p-2 dark:bg-red-900/30 dark:text-red-100"><strong>{cont('diverge')}</strong> divergem</div>
-                        <div className="rounded bg-amber-50 p-2 dark:bg-amber-900/30 dark:text-amber-100"><strong>{conf.linhas.filter(l => !l.conferencia).length}</strong> sem ficha</div>
+                        <div className="rounded bg-amber-50 p-2 dark:bg-amber-900/30 dark:text-amber-100"><strong>{conf.linhas.filter(l => !l.conferencia || !['confere', 'diverge'].includes(l.conferencia.situacao)).length}</strong> sem ficha ou não comparados</div>
                         <div className="rounded bg-amber-50 p-2 dark:bg-amber-900/30 dark:text-amber-100"><strong>{conf.semHolerite.length}</strong> sem holerite</div>
                     </div>
                     <p className="text-xs text-slate-500">Lido por {leitura.modelo || 'Gemini'} · {leitura.arquivos.join(', ')}</p>
@@ -115,7 +119,7 @@ const ConferenciaHolerites: React.FC<Props> = ({ empresaId, competencia, fichas,
                                                 <td className="whitespace-nowrap p-2 text-xs">{c ? <span className={`rounded px-1.5 ${COR[c.situacao]}`}>{c.situacao}</span> : <span className="rounded bg-amber-100 px-1.5 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">sem ficha</span>}</td>
                                                 <td className="min-w-[14rem] p-2 text-xs">{divergentes.map(l => `${l.item} ${dif(l.diferenca)}`).join('; ')}{c && c.semCorrespondente.length > 0 && `${divergentes.length ? '; ' : ''}${c.semCorrespondente.length} verba(s) do IOB sem correspondente`}</td>
                                                 <td className="p-2 text-xs" onClick={e => e.stopPropagation()}>
-                                                    {c && temSugestao && (igual ? <span className="text-green-700 dark:text-green-300">já aplicado</span>
+                                                    {c && podeAplicar(c) && temSugestao && (igual ? <span className="text-green-700 dark:text-green-300">já aplicado</span>
                                                         : <button className="rounded border border-slate-300 px-2 py-1 dark:border-slate-600" onClick={() => aplicar(c.fichaId, sugestao.movimento, c.nome)}>Aplicar movimento do holerite</button>)}
                                                 </td>
                                             </tr>
