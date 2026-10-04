@@ -328,7 +328,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                 )}
                 {activeTab === 'calculo' && (
                     <Suspense fallback={<div className="py-12 text-center text-sm text-slate-500">Carregando…</div>}>
-                        <CalculoPanel />
+                        <CalculoPanel currentUser={currentUser} />
                     </Suspense>
                 )}
                 {activeTab === 'prazos' && (

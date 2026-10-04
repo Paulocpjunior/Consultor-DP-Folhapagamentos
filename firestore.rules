@@ -192,6 +192,22 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // ===== Cálculo (Fase 3) =====
+    // Movimento do mês por funcionário: id = idDaFicha_AAAA-MM; a ficha começa pelo id da empresa.
+    match /calculo_movimentos/{movId} {
+      allow read, list: if isApproved();
+      allow create, update: if isApproved()
+                    && request.resource.data.atualizadoPor == request.auth.uid
+                    && request.resource.data.empresaId is string
+                    && request.resource.data.fichaId is string
+                    && request.resource.data.competencia is string
+                    && request.resource.data.competencia.matches('^[0-9]{4}-(0[1-9]|1[0-2])$')
+                    && request.resource.data.movimento is map
+                    && movId == request.resource.data.fichaId + '_' + request.resource.data.competencia
+                    && request.resource.data.fichaId.matches('^' + request.resource.data.empresaId + '_.+$');
+      allow delete: if isAdmin();
+    }
+
     match /cadastro_audit/{logId} {
       allow read, list: if isApproved();
       allow create: if isApproved() && request.resource.data.autor == request.auth.uid;

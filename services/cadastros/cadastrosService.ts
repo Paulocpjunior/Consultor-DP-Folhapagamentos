@@ -40,9 +40,9 @@ export function mensagemErro(e: unknown): string {
 }
 
 // O Firestore recusa undefined; JSON elimina e mantém null.
-const limpo = <T,>(o: T): T => JSON.parse(JSON.stringify(o));
+export const limpo = <T,>(o: T): T => JSON.parse(JSON.stringify(o));
 
-function auditar(lote: WriteBatch, u: Usuario, colecao: string, docId: string, acao: string, alteracoes: Alteracao[], extra: Record<string, string> = {}) {
+export function auditar(lote: WriteBatch, u: Usuario, colecao: string, docId: string, acao: string, alteracoes: Alteracao[], extra: Record<string, string> = {}) {
     lote.set(doc(collection(db, AUDIT)), {
         ...limpo({ colecao, docId, acao, alteracoes: alteracoes.slice(0, 300), totalAlteracoes: alteracoes.length, autor: u.id, autorEmail: u.email, ...extra }),
         quando: serverTimestamp(),
@@ -119,7 +119,7 @@ export async function listarSindicatos(): Promise<Sindicato[]> {
     return snap.docs.map(d => ({ ...(d.data() as Sindicato), id: d.id })).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
 }
 
-const diffObjeto = (antes: object | null, depois: object): Alteracao[] => {
+export const diffObjeto = (antes: object | null, depois: object): Alteracao[] => {
     const a = (antes ?? {}) as Record<string, unknown>; const d = depois as Record<string, unknown>;
     return [...new Set([...Object.keys(a), ...Object.keys(d)])].filter(k => k !== 'id' && JSON.stringify(a[k] ?? '') !== JSON.stringify(d[k] ?? ''))
         .map(k => ({ campo: k as Alteracao['campo'], de: a[k] == null ? '' : typeof a[k] === 'object' ? JSON.stringify(a[k]) : String(a[k]), para: d[k] == null ? '' : typeof d[k] === 'object' ? JSON.stringify(d[k]) : String(d[k]) }));

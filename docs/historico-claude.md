@@ -468,3 +468,44 @@ piloto em paralelo provar o cálculo próprio.
   - gravar o movimento;
   - ligar as verbas aos eventos do IOB e às rubricas (Incidências);
   - férias e 13º.
+
+## Cálculo: gravação do movimento do mês (04/10/2026)
+
+- **Paulo: *"pode seguir com a gravação do movimento, e qual motor iremos
+  usar?"*.**
+- **Coleção nova:** `calculo_movimentos/{idDaFicha}_{AAAA-MM}`, com
+  `empresaId`, `fichaId`, `competencia`, `movimento` e o autor.
+  - **Regras:**
+    - autor = usuário logado;
+    - competência no formato AAAA-MM;
+    - id = ficha + competência, e a ficha começa pelo id da empresa;
+    - exclusão só pelo admin.
+  - Testadas no emulador (9 testes, scratchpad `/regras`).
+  - **Precisa publicar:** `firebase deploy --only firestore:rules --project
+    consultor-dp-folha`.
+- **Gravação:** em lote, junto com o registro em `cadastro_audit` ("lançar
+  movimento" / "editar movimento"), com a diferença campo a campo.
+  - Antes de gravar, o movimento é limpo: sem zeros, sem lançamentos em
+    branco, valores arredondados.
+- **Validação:**
+  - horas extras até 300 por mês;
+  - faltas, DSR e feriados até o número de dias do mês;
+  - nenhum valor negativo;
+  - lançamento com descrição e valor maior que zero.
+- **Tela (aba Cálculo):**
+  - carrega o movimento gravado da empresa e da competência;
+  - marca "(não salvo)" no que mudou; o botão "Salvar movimento (n)" grava
+    só o que mudou;
+  - o holerite mostra quem salvou e quando;
+  - pergunta antes de trocar de empresa ou competência e avisa ao fechar a
+    página com algo não salvo.
+- **Pergunta "qual motor":** o próprio motor do Consultor
+  (`services/calculo`), em TypeScript, puro e testado, com memória de
+  cálculo.
+  - Hoje roda no navegador, como prévia.
+  - Quando o cálculo virar oficial (fechamento da folha), o MESMO código
+    roda no servidor (Cloud Functions ou no Cloud Run do CFI) e grava o
+    resultado com a versão do motor. O resultado oficial fica fora do
+    alcance do navegador.
+  - Não há motor de terceiros: o IOB continua sendo a referência até a
+    conferência com os holerites reais.
