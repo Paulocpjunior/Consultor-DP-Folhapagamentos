@@ -20,6 +20,7 @@ import { calcularMensal, competenciaSeguinte, noMes, type Lancamento, type Movim
 import { somarMeses } from '../../services/prazos/calendario';
 import { limparMovimento, mesmoMovimento, movimentoVazio, validarMovimento, type MovimentoGravado } from '../../services/calculo/movimento';
 import { listarMovimentos, salvarMovimentos } from '../../services/calculo/movimentosService';
+import ConferenciaHolerites, { conferirTodos, type LeituraHolerites } from './ConferenciaHolerites';
 
 const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const btn = 'rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
@@ -53,6 +54,8 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const [errosMov, setErrosMov] = useState<string[]>([]);
     const [salvando, setSalvando] = useState(false);
     const [aviso, setAviso] = useState('');
+    const [conferir, setConferir] = useState(false);
+    const [leitura, setLeitura] = useState<LeituraHolerites | null>(null);
 
     useEffect(() => { listarTodasEmpresas().then(setEmpresas).catch(e => { setErro(mensagemErro(e)); setEmpresas([]); }); }, []);
     useEffect(() => {
@@ -76,6 +79,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             .catch(e => { setErro(mensagemErro(e)); setGravados({}); setMovs({}); });
     };
     useEffect(carregarMovimentos, [empresaId, competencia]); // eslint-disable-line react-hooks/exhaustive-deps
+    useEffect(() => setLeitura(null), [empresaId, competencia]);
 
     const pendentes = useMemo(() => [...new Set([...Object.keys(movs), ...Object.keys(gravados ?? {})])]
         .filter(id => !mesmoMovimento(movs[id], gravados?.[id]?.movimento)), [movs, gravados]);
@@ -128,6 +132,16 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumo), 'Resumo');
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(verbas), 'Verbas');
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(memoria), 'Memória');
+        if (leitura && dados) {
+            const { linhas, semHolerite } = conferirTodos(leitura, dados.fichas, resultados);
+            const conf: Record<string, string | number>[] = [
+                ...linhas.flatMap(({ holerite: h, conferencia: c }): Record<string, string | number>[] => (c && c.linhas.length
+                    ? c.linhas.map(l => ({ Funcionário: c.nome, Holerite: h.nome, Situação: c.situacao, Item: l.item, Motor: l.motor / 100, IOB: l.iob / 100, Diferença: l.diferenca / 100, Confere: l.ok ? 'sim' : 'não' }))
+                    : [{ Funcionário: c?.nome ?? '', Holerite: h.nome, Situação: c?.situacao ?? 'sem ficha', Item: '', Motor: '', IOB: '', Diferença: '', Confere: '' }])),
+                ...semHolerite.map(r => ({ Funcionário: r.nome, Holerite: '', Situação: 'sem holerite', Item: '', Motor: '', IOB: '', Diferença: '', Confere: '' })),
+            ];
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(conf), 'Conferência IOB');
+        }
         XLSX.writeFile(wb, `calculo-${empresa?.codigoSage ?? 'empresa'}-${competencia}.xlsx`);
     }
 
@@ -152,6 +166,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 <button className="ml-auto rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={!pendentes.length || salvando || !gravados} onClick={salvar}>
                     {salvando ? 'Salvando…' : `Salvar movimento${pendentes.length ? ` (${pendentes.length})` : ''}`}
                 </button>
+                <button className={btn} disabled={!resultados.length} aria-pressed={conferir} onClick={() => setConferir(c => !c)}>Conferir com holerites do IOB</button>
                 <button className={btn} disabled={!resultados.length} onClick={exportar}>Exportar Excel</button>
             </div>
             {errosMov.length > 0 && <ul role="alert" aria-label="Erros do movimento" className="list-disc rounded bg-red-50 p-2 pl-6 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{errosMov.map(e => <li key={e}>{e}</li>)}</ul>}
@@ -186,6 +201,12 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                         </tfoot>
                     </table>
                 </div>
+            )}
+
+            {conferir && dados && resultados.length > 0 && (
+                <ConferenciaHolerites empresaId={empresaId} competencia={competencia} fichas={dados.fichas} resultados={resultados} usuario={usuario}
+                    leitura={leitura} onLeitura={setLeitura} movimentos={movs}
+                    onAplicarMovimento={(id, m) => { setMovs(x => ({ ...x, [id]: m })); setVersao(n => n + 1); setAviso(''); }} />
             )}
 
             {sel && <Holerite key={`${sel.fichaId}-${versao}`} r={sel} mov={movs[sel.fichaId] ?? {}} gravado={gravados?.[sel.fichaId]} pendente={pendentes.includes(sel.fichaId)} onMov={m => setMovs(x => ({ ...x, [sel.fichaId]: m }))} />}
