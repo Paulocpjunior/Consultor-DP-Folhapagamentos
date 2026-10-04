@@ -98,11 +98,13 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     }, [empresaId, recarga]);
     // Enquadramento previdenciário (parte patronal do resumo); sem ele, o resumo mostra só os segurados.
     const [enquadramentos, setEnquadramentos] = useState<Enquadramento[]>([]);
+    const [erroEnq, setErroEnq] = useState('');
     useEffect(() => {
-        setEnquadramentos([]);
+        setEnquadramentos([]); setErroEnq('');
         if (!empresaId) return;
         let valida = true;
-        listarEnquadramentos(empresaId).then(l => { if (valida) setEnquadramentos(l); }).catch(() => { /* resumo segue sem a parte patronal, com aviso */ });
+        // Falha na leitura não pode parecer "empresa sem enquadramento": vira erro visível na tela, no PDF e no Excel.
+        listarEnquadramentos(empresaId).then(l => { if (valida) setEnquadramentos(l); }).catch(e => { if (valida) setErroEnq(mensagemErro(e)); });
         return () => { valida = false; };
     }, [empresaId]);
 
@@ -205,11 +207,12 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const resumo = useMemo(() => resumirFolha(resultados, enqVigente), [resultados, enqVigente]);
     const tituloFolha = mensal ? `Folha mensal ${br(competencia)}` : ferias ? `Recibos de férias ${br(competencia)}` : rescisao ? `Rescisões ${br(competencia)}` : `13º salário ${ano} — ${folha === '13-1a' ? '1ª' : '2ª'} parcela`;
     const sufixoArquivo = mensal ? competencia : ferias ? `ferias-${competencia}` : rescisao ? `rescisao-${competencia}` : `${ano}-13-${folha === '13-1a' ? '1a' : '2a'}-parcela`;
-    const observacaoResumo = mensal
+    const avisoEnq = erroEnq && !ferias ? ` ATENÇÃO: enquadramento não carregado (${erroEnq}); a parte patronal está fora do quadro.` : '';
+    const observacaoResumo = avisoEnq + (mensal
         ? 'Folha mensal: o INSS dos segurados já soma o retido nos recibos de férias da competência. O IRRF vai à DCTFWeb do mês do pagamento (regime de caixa). Rescisões do mês têm 13º e aviso no TRCT, fora desta folha.'
         : rescisao ? 'Rescisões: o INSS do saldo e do 13º e o FGTS rescisório entram na competência do desligamento, junto com a folha mensal.'
         : ferias ? 'Recibos de férias: o INSS e o FGTS de cada competência entram na folha mensal correspondente; aqui é só o valor dos recibos.'
-        : 'Folha de 13º: a 2ª parcela tem INSS e IRRF próprios (apuração do 13º na DCTFWeb); a 1ª parcela só tem FGTS.';
+        : 'Folha de 13º: a 2ª parcela tem INSS e IRRF próprios (apuração do 13º na DCTFWeb); a 1ª parcela só tem FGTS.');
     const opcoesPdf = () => ({ empresa: { razaoSocial: empresa?.razaoSocial ?? '', cnpj: empresa?.cnpj ?? '', codigoSage: empresa?.codigoSage }, titulo: tituloFolha, previa: true });
     function pdfHolerites(lista: ResultadoCalculo[], nome: string) {
         if (!dados) return;
@@ -258,7 +261,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 { Item: `RAT ajustado (${e.patronal.aliquotaRat}%)`, Tipo: 'guia', Funcionários: '', Valor: e.patronal.rat / 100 },
                 { Item: 'Terceiros', Tipo: 'guia', Funcionários: '', Valor: e.patronal.terceiros / 100 },
                 { Item: 'Total previdenciário (DCTFWeb)', Tipo: 'guia', Funcionários: '', Valor: (e.totalPrevidenciario ?? 0) / 100 },
-            ] : []),
+            ] : erroEnq ? [{ Item: `Parte patronal NÃO CARREGADA (${erroEnq}): fora do total`, Tipo: 'guia', Funcionários: '', Valor: '' }] : []),
             { Item: 'IRRF retido', Tipo: 'guia', Funcionários: '', Valor: e.irrf / 100 },
             { Item: 'FGTS', Tipo: 'guia', Funcionários: '', Valor: e.fgts / 100 },
             { Item: 'Multa rescisória do FGTS', Tipo: 'guia', Funcionários: '', Valor: e.multaFgts / 100 },
@@ -428,7 +431,8 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                             </dl>
                             <p className="text-xs text-slate-600 dark:text-slate-300">{observacaoResumo} {resumo.encargos.patronal
                                 ? `Parte patronal pelo enquadramento de ${enqVigente!.vigencia.split('-').reverse().join('/')} (${resumo.encargos.patronal.regime === 'simples' ? 'Simples: patronal no DAS' : `base ${reais(resumo.encargos.patronal.base)}, sem o salário-maternidade`}). Confira o total com a Conferência pós-folha (S-5011).`
-                                : ferias ? 'Nos recibos de férias não há parte patronal própria: ela entra na folha do mês.' : 'Sem enquadramento vigente (Cadastros › Enquadramento): a parte patronal não entra no quadro.'}</p>
+                                : ferias ? 'Nos recibos de férias não há parte patronal própria: ela entra na folha do mês.' : erroEnq ? '' : 'Sem enquadramento vigente (Cadastros › Enquadramento): a parte patronal não entra no quadro.'}</p>
+                            {erroEnq && !ferias && <p role="alert" className="rounded bg-red-50 p-2 text-xs text-red-800 dark:bg-red-900/30 dark:text-red-200">Enquadramento não carregado ({erroEnq}): a parte patronal está FORA do quadro e do total. Não use estes valores para a DCTFWeb.</p>}
                         </div>
                     </div>
                 </section>

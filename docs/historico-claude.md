@@ -875,3 +875,10 @@ piloto em paralelo provar o cálculo próprio.
     dezembro no 13º; nos recibos de férias não há (entra na folha do mês).
 - **Catálogo IOB:** "Empresas › Parâmetros" aponta para Cadastros ›
   Enquadramento.
+- **Revisão do PR #58 (Codex), corrigida:**
+  - **P1:** a vigência de um enquadramento não muda na edição: o campo fica
+    travado e o serviço recusa. Outra vigência é outro enquadramento (o id
+    é empresa + vigência). O antigo continua valendo até o admin excluir.
+  - **P2:** falha ao ler os enquadramentos não parece mais "empresa sem
+    enquadramento". O erro aparece no resumo (alerta vermelho: "não use
+    para a DCTFWeb"), no texto do PDF e numa linha do Excel.

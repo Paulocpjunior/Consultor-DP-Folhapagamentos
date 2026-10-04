@@ -34,6 +34,8 @@ describe('Cadastros › Enquadramento', () => {
         render(<EnquadramentoCadastro empresa={EMP} usuario={{ id: 'u1', email: 'a@b' }} isAdmin={true} />);
         await waitFor(() => expect(screen.getByText('Sem contribuição patronal na folha.')).toBeTruthy());
         fireEvent.click(screen.getByText(/A partir de 01\/2025/));
+        expect((screen.getByLabelText('Vigência') as HTMLInputElement).disabled).toBe(true);
+        expect(screen.getByText('Para outra vigência, crie um novo enquadramento.')).toBeTruthy();
         expect(screen.queryByLabelText('RAT')).toBeNull();
         expect(screen.queryByLabelText('Terceiros')).toBeNull();
         expect(screen.getByText('excluir')).toBeTruthy();

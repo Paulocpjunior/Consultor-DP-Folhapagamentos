@@ -84,7 +84,8 @@ const EnquadramentoCadastro: React.FC<Props> = ({ empresa, usuario, isAdmin }) =
                     <div className="my-4 w-full max-w-xl space-y-3 rounded-xl bg-white p-4 shadow-xl dark:bg-slate-800">
                         <div className="flex items-start justify-between"><h3 className="text-lg font-semibold text-slate-800 dark:text-white">{ed.antes ? 'Editar' : 'Novo'} enquadramento</h3><button aria-label="Fechar" className="px-2 text-xl text-slate-500" onClick={() => setEd(null)}>×</button></div>
                         <div className="grid gap-3 sm:grid-cols-2">
-                            <label className="block"><span className={rot}>Vigência (a partir de)</span><input aria-label="Vigência" type="month" className={inp} value={ed.e.vigencia} onChange={x => set({ vigencia: x.target.value })} /></label>
+                            <label className="block"><span className={rot}>Vigência (a partir de)</span><input aria-label="Vigência" type="month" className={inp} value={ed.e.vigencia} disabled={!!ed.antes} onChange={x => set({ vigencia: x.target.value })} />
+                                {ed.antes && <span className="text-xs text-slate-500">Para outra vigência, crie um novo enquadramento.</span>}</label>
                             <label className="block sm:col-span-2"><span className={rot}>Regime</span>
                                 <select aria-label="Regime" className={inp} value={ed.e.regime} onChange={x => set({ regime: x.target.value as RegimePatronal })}>
                                     {Object.entries(REGIMES).map(([k, t]) => <option key={k} value={k}>{t}</option>)}

@@ -286,13 +286,14 @@ export async function listarEnquadramentos(empresaId: string): Promise<Enquadram
         .sort((a, b) => b.vigencia.localeCompare(a.vigencia));
 }
 
-/** id = empresa_vigência; mudar a vigência é criar outro registro (o antigo fica no histórico). */
+/** id = empresa_vigência. A vigência não muda na edição: outra vigência é outro enquadramento (o antigo continua valendo até ser excluído pelo admin). */
 export async function salvarEnquadramento(antes: Enquadramento | null, e: Enquadramento, u: Usuario): Promise<void> {
     const id = idEnquadramento(e.empresaId, e.vigencia);
-    if ((!antes || antes.id !== id) && (await getDoc(doc(db, ENQ, id))).exists()) throw new Error('Já existe enquadramento desta empresa com esta vigência.');
+    if (antes && antes.id !== id) throw new Error('A vigência de um enquadramento não muda. Crie um novo enquadramento com a nova vigência.');
+    if (!antes && (await getDoc(doc(db, ENQ, id))).exists()) throw new Error('Já existe enquadramento desta empresa com esta vigência.');
     const lote = writeBatch(db);
     lote.set(doc(db, ENQ, id), { ...limpo(semId(soCampos(e, enquadramentoVazio()))), atualizadoPor: u.id, atualizadoPorEmail: u.email, atualizadoEm: serverTimestamp() });
-    auditar(lote, u, ENQ, id, antes && antes.id === id ? 'editar' : 'criar', diffObjeto(antes && antes.id === id ? soCampos(antes, enquadramentoVazio()) : null, soCampos(e, enquadramentoVazio())), { empresaId: e.empresaId });
+    auditar(lote, u, ENQ, id, antes ? 'editar' : 'criar', diffObjeto(antes && soCampos(antes, enquadramentoVazio()), soCampos(e, enquadramentoVazio())), { empresaId: e.empresaId });
     await lote.commit();
 }
 
