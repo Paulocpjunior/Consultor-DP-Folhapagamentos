@@ -148,6 +148,9 @@ const AfastamentoModal: React.FC<{ antes: Afastamento | null; inicial: Afastamen
                                 <input className={inp} type="date" value={a.perAquisInicio} onChange={e => set('perAquisInicio', e.target.value)} aria-label="Início do período aquisitivo" /></label>
                             <label className="block"><span className="text-xs font-medium text-slate-600 dark:text-slate-300">Período aquisitivo: fim</span>
                                 <input className={inp} type="date" value={a.perAquisFim} onChange={e => set('perAquisFim', e.target.value)} aria-label="Fim do período aquisitivo" /></label>
+                            <label className="block"><span className="text-xs font-medium text-slate-600 dark:text-slate-300">Abono pecuniário (dias vendidos)</span>
+                                <input className={inp} inputMode="numeric" value={a.abonoDias ?? ''} onChange={e => set('abonoDias', e.target.value.replace(/\D/g, ''))} aria-label="Dias de abono pecuniário" />
+                                <span className="text-xs text-slate-500">Só no Consultor (não vai ao eSocial); entra no recibo de férias e no saldo do período.</span></label>
                         </>
                     )}
                     <label className="block sm:col-span-2"><span className="text-xs font-medium text-slate-600 dark:text-slate-300">Observação</span>

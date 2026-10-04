@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calcularFerias, diasDeDireito, gozosNoMes, type EntradaFerias } from '../motorFerias';
+import { calcularFerias, diasDeDireito, gozosNoMes, mesesDoPeriodo, periodosAquisitivos, type EntradaFerias } from '../motorFerias';
 import { diasDsr } from '../motorMensal';
 import { fichaVazia, type FichaFuncionario } from '../../cadastros/funcionarios';
 import { afastamentoVazio, type Afastamento } from '../../cadastros/afastamentos';
@@ -78,7 +78,8 @@ describe('férias', () => {
         const gozo = af({ dtInicio: '2025-07-01', dtFim: '2025-07-30' });
         const doenca = af({ id: 'd', motivo: '03', dtInicio: '2024-02-01', dtFim: '2024-09-30' });
         const r = calcularFerias({ ficha: ficha(), gozo, afastamentos: [gozo, doenca], tabelas: [INSS, IR], movimentos: {} });
-        expect(r.erros[0]).toContain('228 dias com benefício do INSS');
+        expect(r.erros[0]).toContain('Período perdido: 02/01/2024 a 01/01/2025 (228 dias com benefício do INSS (CLT, art. 133, IV))');
+        expect(r.erros[0]).toContain('O período atual (01/10/2024 a 30/09/2025) ainda não completou.');
     });
 
     it('média das horas extras do período aquisitivo ÷ 12', () => {
@@ -90,9 +91,44 @@ describe('férias', () => {
 
     it('erros e gozos do mês', () => {
         expect(calc({ dtInicio: '2025-07-01', dtFim: '' }).erros).toEqual(['Informe o início e o término das férias no afastamento.']);
-        expect(calc({ dtInicio: '2024-06-01', dtFim: '2024-06-20' }).erros[0]).toContain('antes de 12 meses');
+        expect(calc({ dtInicio: '2024-06-01', dtFim: '2024-06-20' }).erros[0]).toContain('O período atual (02/01/2024 a 01/01/2025) ainda não completou. Férias antecipadas ou coletivas');
         expect(calc({ dtInicio: '2025-07-01', dtFim: '2025-07-30', motivo: '03' }).situacao).toBe('erro');
         const lista = [af({ dtInicio: '2025-07-20' }), af({ dtInicio: '2025-07-01' }), af({ dtInicio: '2025-08-01' }), af({ dtInicio: '2025-07-05', motivo: '03' }), { ...af({ dtInicio: '2025-07-02' }), fichaId: 'outra' }];
         expect(gozosNoMes(lista, new Set(['f1']), '2025-07').map(a => a.dtInicio)).toEqual(['2025-07-01', '2025-07-20']);
+    });
+
+    it('revisão do PR #54: período depois da perda, mês parcial, abonos anteriores e direito reduzido', () => {
+        // Depois da perda, o novo período começa na volta (art. 133, § 2º)
+        const doenca = af({ id: 'd', motivo: '03', dtInicio: '2024-02-01', dtFim: '2024-09-30' });
+        const ps = periodosAquisitivos('2024-01-02', '2025-12-31', 'f1', [doenca], {}, []);
+        expect(ps.map(x => [x.inicio, x.fim, !!x.perdido])).toEqual([['2024-01-02', '2025-01-01', true], ['2024-10-01', '2025-09-30', false], ['2025-10-01', '2026-09-30', false]]);
+        const gozo = af({ dtInicio: '2025-11-03', dtFim: '2025-11-22', perAquisInicio: '2024-10-01' });
+        const r = calcularFerias({ ficha: ficha(), gozo, afastamentos: [gozo, doenca], tabelas: [INSS, IR], movimentos: {} });
+        expect(r.situacao).toBe('calculado');
+        expect(r.periodo?.inicio).toBe('2024-10-01');
+        const perdido = af({ dtInicio: '2025-11-03', dtFim: '2025-11-22', perAquisInicio: '2024-01-02' });
+        expect(calcularFerias({ ficha: ficha(), gozo: perdido, afastamentos: [perdido, doenca], tabelas: [INSS, IR], movimentos: {} }).erros[0]).toContain('perdido');
+        // Mês parcial do fim do período entra nas faltas
+        expect(mesesDoPeriodo('2024-01-15', '2025-01-14')).toHaveLength(13);
+        expect(mesesDoPeriodo('2024-01-01', '2024-12-31')).toHaveLength(12);
+        expect(calc({ dtInicio: '2025-07-01', dtFim: '2025-07-24' }, { movimentos: { '2025-01': { faltasDias: 6 } } }).direito).toBe(24);
+        // Abono vendido antes desconta do saldo
+        const g1 = af({ dtInicio: '2025-03-03', dtFim: '2025-03-22', perAquisInicio: '2024-01-02', abonoDias: '10' });
+        const g2 = af({ dtInicio: '2025-07-01', dtFim: '2025-07-10', perAquisInicio: '2024-01-02' });
+        const r2 = calcularFerias({ ficha: ficha(), gozo: g2, afastamentos: [g1, g2], tabelas: [INSS, IR], movimentos: {} });
+        expect(r2.saldo).toBe(0);
+        expect(r2.erros[0]).toContain('30 já usados em gozos e abonos anteriores');
+        // Abono gravado no afastamento entra no recibo
+        const g3 = af({ dtInicio: '2025-07-01', dtFim: '2025-07-20', abonoDias: '10' });
+        const r3 = calcularFerias({ ficha: ficha(), gozo: g3, afastamentos: [g3], tabelas: [INSS, IR], movimentos: {} });
+        expect(r3.abonoDias).toBe(10);
+        expect(v(r3, 'ABONO')).toBe(100000);
+        // Direito reduzido (24) já gozado: o próximo gozo vai para o período seguinte
+        const movimentos = { '2024-05': { faltasDias: 6 } };
+        const a1 = af({ dtInicio: '2025-03-03', dtFim: '2025-03-26' });
+        const a2 = af({ dtInicio: '2026-02-02', dtFim: '2026-02-21' });
+        const r4 = calcularFerias({ ficha: ficha(), gozo: a2, afastamentos: [a1, a2], tabelas: [INSS, IR], movimentos });
+        expect(r4.periodo?.inicio).toBe('2025-01-02');
+        expect(r4.situacao).toBe('calculado');
     });
 });

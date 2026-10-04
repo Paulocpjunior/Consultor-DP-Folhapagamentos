@@ -660,3 +660,21 @@ piloto em paralelo provar o cálculo próprio.
     competência.
   - Os dias de abono são digitados na tela e não são gravados.
   - Excel `calculo-<código>-ferias-AAAA-MM.xlsx`.
+- **Revisão do PR #54 (Codex), corrigida antes do merge:**
+  - **P1:** depois de uma perda do direito (art. 133), o próximo período
+    começa na volta ao trabalho (§ 2º). Novo `periodosAquisitivos` no motor:
+    - recalcula os períodos marcando os perdidos;
+    - se o funcionário ainda está afastado, não há período seguinte;
+    - o período informado no afastamento casa com os novos inícios.
+  - **P1:** as faltas e as médias usam todas as competências que o período
+    toca. São 13 quando o período começa depois do dia 1º, e o motor avisa
+    que o movimento é mensal.
+  - **P1:** o abono pecuniário é gravado no afastamento (campo `abonoDias`,
+    só no Consultor e fora do S-2230):
+    - preenchido em Cadastros › Afastamentos ou pelo botão "Gravar abono no
+      afastamento" no recibo;
+    - o saldo do período desconta gozos E abonos anteriores;
+    - a reimportação do eSocial não apaga o abono;
+    - validação de 1 a 10 dias, só no motivo 15.
+  - **P2:** um período com direito reduzido pelas faltas e já usado fica
+    fechado, e o próximo gozo vai para o período seguinte.

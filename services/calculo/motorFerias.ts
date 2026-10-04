@@ -24,7 +24,6 @@ import { inicioBeneficio } from '../cadastros/afastamentos';
 import { dataValida, reais } from '../cadastros/documentos';
 import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros/tabelasLegais';
 import { diasEntre, somarDias, somarMeses } from '../prazos/calendario';
-import { periodosFerias } from '../prazos/prazosFuncionarios';
 import { diasDsr, salarioContratual, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
 
 export interface OpcoesFerias { simplificado: boolean; redutor: boolean }
@@ -66,11 +65,74 @@ export function diasDeDireito(faltas: number): number {
     return faltas <= 5 ? 30 : faltas <= 14 ? 24 : faltas <= 23 ? 18 : faltas <= 32 ? 12 : 0;
 }
 
-/** Competências (AAAA-MM) dos 12 meses do período aquisitivo. */
-const mesesDoPeriodo = (inicio: string) => Array.from({ length: 12 }, (_, i) => somarMeses(`${inicio.slice(0, 7)}-01`, i).slice(0, 7));
+/** Competências (AAAA-MM) que o período toca: 12, ou 13 quando começa depois do dia 1º (o mês do fim é parcial). */
+export function mesesDoPeriodo(inicio: string, fim: string): string[] {
+    const out: string[] = [];
+    for (let c = inicio.slice(0, 7); c <= fim.slice(0, 7); c = somarMeses(`${c}-01`, 1).slice(0, 7)) out.push(c);
+    return out;
+}
 
 /** Dias do intervalo [de, ate] que caem em [ini, fim]. */
 const intersecao = (de: string, ate: string, ini: string, fim: string) => { const a = de > ini ? de : ini; const b = ate < fim ? ate : fim; return a > b ? 0 : diasEntre(a, b) + 1; };
+
+const diasDoGozo = (a: Afastamento) => (a.dtFim && dataValida(a.dtFim) ? diasEntre(a.dtInicio, a.dtFim) + 1 : 0);
+export const abonoDoGozo = (a: Afastamento) => { const n = Number(a.abonoDias || 0); return Number.isInteger(n) && n > 0 ? n : 0; };
+
+export interface PeriodoAquisitivo {
+    inicio: string; fim: string; fimConcessivo: string;
+    /** Motivo da perda do direito (art. 133), ou ''. */
+    perdido: string;
+    faltas: number; direito: number;
+    /** Dias já usados: gozos anteriores + abonos vendidos. */
+    consumido: number;
+}
+
+/**
+ * Períodos aquisitivos desde a admissão até `ate`. Com perda do direito
+ * (art. 133: mais de 6 meses de INSS ou mais de 30 dias de licença
+ * remunerada), o período fica perdido e o próximo começa na volta ao
+ * trabalho (§ 2º). Os gozos informados entram no período deles (pelo início
+ * informado) ou no mais antigo com saldo.
+ */
+export function periodosAquisitivos(admissao: string, ate: string, fichaId: string, afastamentos: Afastamento[], movimentos: Record<string, Movimento>, gozosAnteriores: Afastamento[]): PeriodoAquisitivo[] {
+    const ps: PeriodoAquisitivo[] = [];
+    let inicio = admissao;
+    for (let guarda = 0; inicio <= ate && guarda < 100; guarda++) {
+        const fim = somarDias(somarMeses(inicio, 12), -1);
+        const fimConcessivo = somarDias(somarMeses(inicio, 24), -1);
+        let diasInss = 0; let diasLicenca = 0; let fimInss = ''; let fimLicenca = ''; let semFimInss = false; let semFimLicenca = false;
+        for (const a of afastamentos) {
+            if (a.fichaId && a.fichaId !== fichaId) continue;
+            const aberto = !a.dtFim || !dataValida(a.dtFim);
+            const fimA = aberto ? fim : a.dtFim;
+            if (['01', '03'].includes(a.motivo)) {
+                const desde = a.infoMesmoMtv === 'S' ? a.dtInicio : inicioBeneficio(a);
+                const n = desde ? intersecao(desde, fimA, inicio, fim) : 0;
+                if (n) { diasInss += n; if (aberto) semFimInss = true; else if (a.dtFim > fimInss) fimInss = a.dtFim; }
+            }
+            if (a.motivo === '16') {
+                const n = intersecao(a.dtInicio, fimA, inicio, fim);
+                if (n) { diasLicenca += n; if (aberto) semFimLicenca = true; else if (a.dtFim > fimLicenca) fimLicenca = a.dtFim; }
+            }
+        }
+        const perdaInss = diasInss > 180; const perdaLicenca = !perdaInss && diasLicenca > 30;
+        if (perdaInss || perdaLicenca) {
+            ps.push({ inicio, fim, fimConcessivo, faltas: 0, direito: 0, consumido: 0,
+                perdido: perdaInss ? `${diasInss} dias com benefício do INSS (CLT, art. 133, IV)` : `${diasLicenca} dias de licença remunerada (CLT, art. 133, II)` });
+            if (perdaInss ? semFimInss : semFimLicenca) break; // ainda afastado: o novo período começa na volta
+            inicio = somarDias(perdaInss ? fimInss : fimLicenca, 1);
+            continue;
+        }
+        const faltas = mesesDoPeriodo(inicio, fim).reduce((s, c) => s + Math.floor(movimentos[c]?.faltasDias ?? 0), 0);
+        ps.push({ inicio, fim, fimConcessivo, perdido: '', faltas, direito: diasDeDireito(faltas), consumido: 0 });
+        inicio = somarDias(fim, 1);
+    }
+    for (const g of [...gozosAnteriores].sort((a, b) => a.dtInicio.localeCompare(b.dtInicio))) {
+        const p = (g.perAquisInicio && ps.find(x => x.inicio === g.perAquisInicio)) || ps.find(x => !x.perdido && x.fim < g.dtInicio && x.consumido < x.direito);
+        if (p) p.consumido += diasDoGozo(g) + abonoDoGozo(g);
+    }
+    return ps;
+}
 
 function inssDaTabela(base: number, t: TabelaLegal): { valor: number; partes: string[] } {
     const teto = t.faixas[t.faixas.length - 1]?.ate ?? base;
@@ -110,39 +172,36 @@ export function calcularFerias(e: EntradaFerias): ResultadoFerias {
     r.diasGozo = diasGozo;
     if (diasGozo < 5) r.avisos.push('Período de férias com menos de 5 dias (CLT, art. 134, § 1º).');
 
-    // Período aquisitivo: o informado no afastamento, ou o mais antigo em aberto antes do gozo.
+    // Período aquisitivo: o informado no afastamento, ou o mais antigo com saldo antes do gozo.
     const outros = e.afastamentos.filter(a => a.motivo === '15' && a.id !== gozo.id && a.dtInicio < gozo.dtInicio);
-    const periodos = periodosFerias(d.admissao, gozo.dtInicio, outros);
-    const p = (gozo.perAquisInicio && periodos.find(x => x.inicio === gozo.perAquisInicio)) || periodos.find(x => x.fim < gozo.dtInicio && !x.completo) || null;
-    if (!p) return erro('Nenhum período aquisitivo completo antes do início: férias antes de 12 meses de trabalho (antecipação ou férias coletivas) ainda não estão no motor.');
-    if (!gozo.perAquisInicio) r.avisos.push(`Período aquisitivo não informado no afastamento: usado o mais antigo em aberto (${br(p.inicio)} a ${br(p.fim)}). Se as férias anteriores não estão lançadas em Afastamentos, informe o período aquisitivo no afastamento.`);
+    const periodos = periodosAquisitivos(d.admissao, gozo.dtInicio, ficha.id, e.afastamentos, e.movimentos, outros);
+    const informado = gozo.perAquisInicio ? periodos.find(x => x.inicio === gozo.perAquisInicio) : undefined;
+    if (informado?.perdido) return erro(`Período ${br(informado.inicio)} a ${br(informado.fim)} perdido: ${informado.perdido}. O novo período começa na volta ao trabalho.`);
+    if (gozo.perAquisInicio && !informado) r.avisos.push(`O período aquisitivo informado no afastamento (início ${br(gozo.perAquisInicio)}) não bate com os períodos calculados desde a admissão; usado o mais antigo com saldo.`);
+    const p = informado || periodos.find(x => !x.perdido && x.fim < gozo.dtInicio && x.consumido < x.direito) || null;
+    const perdidos = periodos.filter(x => x.perdido);
+    if (!p) {
+        const ultimo = periodos[periodos.length - 1];
+        return erro(`Nenhum período aquisitivo completo com saldo antes do início.${perdidos.length ? ` Período perdido: ${perdidos.map(x => `${br(x.inicio)} a ${br(x.fim)} (${x.perdido})`).join('; ')}.` : ''}${ultimo && !ultimo.perdido ? ` O período atual (${br(ultimo.inicio)} a ${br(ultimo.fim)}) ainda não completou.` : ''} Férias antecipadas ou coletivas ainda não estão no motor.`);
+    }
+    if (!gozo.perAquisInicio) r.avisos.push(`Período aquisitivo não informado no afastamento: usado o mais antigo com saldo (${br(p.inicio)} a ${br(p.fim)}). Se as férias anteriores não estão lançadas em Afastamentos, informe o período aquisitivo no afastamento.`);
+    for (const x of perdidos) r.memoria.push(`Período ${br(x.inicio)} a ${br(x.fim)} perdido: ${x.perdido}; o seguinte começa na volta.`);
     r.periodo = { inicio: p.inicio, fim: p.fim, fimConcessivo: p.fimConcessivo };
     r.memoria.push(`Período aquisitivo ${br(p.inicio)} a ${br(p.fim)}; concessivo até ${br(p.fimConcessivo)}. Gozo de ${br(gozo.dtInicio)} a ${br(gozo.dtFim)} (${diasGozo} dias); pagamento até ${br(pagarAte)}.`);
 
-    // Perda do direito (art. 133): INSS por mais de 6 meses ou licença remunerada por mais de 30 dias.
-    let diasInss = 0; let diasLicenca = 0;
-    for (const a of e.afastamentos) {
-        if (a.fichaId && a.fichaId !== ficha.id) continue;
-        const fimA = a.dtFim && dataValida(a.dtFim) ? a.dtFim : p.fim;
-        if (['01', '03'].includes(a.motivo)) { const desde = a.infoMesmoMtv === 'S' ? a.dtInicio : inicioBeneficio(a); if (desde) diasInss += intersecao(desde, fimA, p.inicio, p.fim); }
-        if (a.motivo === '16') diasLicenca += intersecao(a.dtInicio, fimA, p.inicio, p.fim);
-    }
-    if (diasInss > 180) return erro(`Perdeu o direito a estas férias: ${diasInss} dias com benefício do INSS no período aquisitivo (CLT, art. 133, IV). Um novo período começa na volta.`);
-    if (diasLicenca > 30) return erro(`Perdeu o direito a estas férias: ${diasLicenca} dias de licença remunerada no período aquisitivo (CLT, art. 133, II).`);
-
-    // Direito pelas faltas do período (movimentos gravados) e saldo.
-    const meses = mesesDoPeriodo(p.inicio);
-    const faltas = meses.reduce((s, c) => s + Math.floor(e.movimentos[c]?.faltasDias ?? 0), 0);
-    r.direito = diasDeDireito(faltas);
-    r.memoria.push(`Faltas no período (movimentos de ${rotuloCompetencia(meses[0])} a ${rotuloCompetencia(meses[11])}): ${faltas} → ${r.direito} dias de direito (CLT, art. 130).`);
-    if (!r.direito) return erro(`${faltas} faltas no período aquisitivo: sem direito a férias (CLT, art. 130).`);
-    // Dias já gozados no período: os outros gozos de motivo 15 (periodosFerias reconhece pelo período informado ou pelo mais antigo em aberto).
-    const jaGozados = p.diasGozados;
-    const abono = Math.max(0, Math.floor(e.abonoDias ?? 0));
+    // Direito pelas faltas do período (movimentos gravados) e saldo (gozos e abonos anteriores).
+    const meses = mesesDoPeriodo(p.inicio, p.fim);
+    r.direito = p.direito;
+    r.memoria.push(`Faltas no período (movimentos de ${rotuloCompetencia(meses[0])} a ${rotuloCompetencia(meses[meses.length - 1])}): ${p.faltas} → ${r.direito} dias de direito (CLT, art. 130).`);
+    if (meses.length > 12) r.avisos.push('O período começa no meio do mês: as faltas e horas extras do primeiro e do último mês entram inteiras (o movimento é mensal).');
+    if (!r.direito) return erro(`${p.faltas} faltas no período aquisitivo: sem direito a férias (CLT, art. 130).`);
+    const jaUsados = p.consumido;
+    const abono = Math.max(0, Math.floor(e.abonoDias ?? abonoDoGozo(gozo)));
+    r.abonoDias = abono;
     if (abono > Math.floor(r.direito / 3)) return erro(`Abono de ${abono} dias: o máximo é 1/3 dos dias de direito (${Math.floor(r.direito / 3)}).`);
-    r.saldo = r.direito - jaGozados;
-    if (diasGozo + abono > r.saldo) return erro(`Gozo de ${diasGozo} dias${abono ? ` + abono de ${abono}` : ''} passa do saldo do período (${r.saldo} de ${r.direito} dias${jaGozados ? `; ${jaGozados} já gozados` : ''}).`);
-    if (jaGozados) r.memoria.push(`Saldo do período: ${r.direito} − ${jaGozados} já gozados = ${r.saldo} dias.`);
+    r.saldo = r.direito - jaUsados;
+    if (diasGozo + abono > r.saldo) return erro(`Gozo de ${diasGozo} dias${abono ? ` + abono de ${abono}` : ''} passa do saldo do período (${r.saldo} de ${r.direito} dias${jaUsados ? `; ${jaUsados} já usados em gozos e abonos anteriores` : ''}).`);
+    if (jaUsados) r.memoria.push(`Saldo do período: ${r.direito} − ${jaUsados} já usados (gozos e abonos anteriores) = ${r.saldo} dias.`);
 
     // Remuneração: salário atual + média das horas extras do período aquisitivo (÷ 12).
     const sc = salarioContratual(d);

@@ -22,6 +22,7 @@ vi.mock('../../cadastros/cadastrosService', () => ({
     mensagemErro: (e: unknown) => String(e),
     listarFuncionarios: async () => [ficha('f1', 'ANA', { salario: '2200.00' }), ficha('f2', 'BRUNO', { salario: '' }), ficha('f3', 'CAIO', { salario: '3000.00', admissao: '2030-01-01' })],
     listarAfastamentos: async () => cad.afastamentos,
+    salvarAfastamento: async () => undefined,
     listarTabelas: async () => [INSS, IR],
 }));
 

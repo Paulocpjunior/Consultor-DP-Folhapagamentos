@@ -10,7 +10,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { listarTodasEmpresas } from '../../services/empresas/empresasService';
-import { listarAfastamentos, listarFuncionarios, listarTabelas, mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
+import { listarAfastamentos, listarFuncionarios, listarTabelas, mensagemErro, salvarAfastamento, type Usuario } from '../../services/cadastros/cadastrosService';
 import type { User } from '../../types';
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
 import type { Afastamento } from '../../services/cadastros/afastamentos';
@@ -73,6 +73,8 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const ferias = folha === 'ferias';
     const [abonos, setAbonos] = useState<Record<string, number>>({});
     const [opcoesFerias, setOpcoesFerias] = useState<OpcoesFerias>(OPCOES_FERIAS_PADRAO);
+    const [recarga, setRecarga] = useState(0);
+    const [gravandoAbono, setGravandoAbono] = useState(false);
 
     useEffect(() => { listarTodasEmpresas().then(setEmpresas).catch(e => { setErro(mensagemErro(e)); setEmpresas([]); }); }, []);
     useEffect(() => {
@@ -82,7 +84,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         Promise.all([listarFuncionarios(empresaId), listarAfastamentos(empresaId), listarTabelas()])
             .then(([fichas, afastamentos, tabelas]) => setDados({ fichas, afastamentos, tabelas }))
             .catch(e => { setErro(mensagemErro(e)); setDados({ fichas: [], afastamentos: [], tabelas: [] }); });
-    }, [empresaId]);
+    }, [empresaId, recarga]);
 
     const compOk = /^\d{4}-(0[1-9]|1[0-2])$/.test(competencia);
     const carregarMovimentos = () => {
@@ -295,11 +297,29 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                                 <table className="w-full max-w-sm"><thead className="text-left text-slate-500"><tr><th>Competência</th><th className="text-right">Dias</th><th className="text-right">Férias + 1/3</th><th className="text-right">INSS</th><th className="text-right">FGTS</th></tr></thead>
                                     <tbody>{f.porCompetencia.map(c => <tr key={c.competencia}><td>{br(c.competencia)}</td><td className="text-right">{c.dias}</td><td className="text-right">{reais(c.ferias + c.terco)}</td><td className="text-right">{reais(c.inss)}</td><td className="text-right">{reais(c.fgts)}</td></tr>)}</tbody></table>
                             )}
-                            <label className="block">Abono pecuniário (dias vendidos)
-                                <input aria-label="Dias de abono" className={`mt-0.5 block w-20 ${inp}`} defaultValue={abonos[f.gozoId] ? String(abonos[f.gozoId]) : ''}
-                                    onChange={e => { const n = Number(e.target.value.trim() || 0); setAbonos(x => { const y = { ...x }; if (Number.isInteger(n) && n > 0) y[f.gozoId] = n; else delete y[f.gozoId]; return y; }); }} />
-                                <span className="text-slate-500">Até 1/3 dos dias de direito; não é gravado. Para mudar as datas, edite o afastamento em Cadastros › Afastamentos.</span>
-                            </label>
+                            {(() => {
+                                const gozo = dados?.afastamentos.find(a => a.id === f.gozoId);
+                                const gravado = Number(gozo?.abonoDias || 0);
+                                const mudou = abonos[f.gozoId] !== undefined && abonos[f.gozoId] !== gravado;
+                                async function gravarAbono() {
+                                    if (!gozo) return;
+                                    setGravandoAbono(true); setErro('');
+                                    try {
+                                        await salvarAfastamento(gozo, { ...gozo, abonoDias: abonos[f.gozoId] ? String(abonos[f.gozoId]) : '' }, usuario);
+                                        setAbonos(x => { const y = { ...x }; delete y[f.gozoId]; return y; });
+                                        setRecarga(n => n + 1);
+                                    } catch (e) { setErro(mensagemErro(e)); }
+                                    finally { setGravandoAbono(false); }
+                                }
+                                return (
+                                    <label className="block">Abono pecuniário (dias vendidos)
+                                        <input aria-label="Dias de abono" className={`mt-0.5 block w-20 ${inp}`} defaultValue={String(abonos[f.gozoId] ?? (gravado || ''))}
+                                            onChange={e => { const t = e.target.value.trim(); const n = Number(t || 0); setAbonos(x => { const y = { ...x }; if (t && Number.isInteger(n) && n >= 0) y[f.gozoId] = n; else if (!t) y[f.gozoId] = 0; else delete y[f.gozoId]; return y; }); }} />
+                                        <span className="text-slate-500">Até 1/3 dos dias de direito. {gravado ? `Gravado no afastamento: ${gravado} dia(s).` : 'Nada gravado no afastamento.'} O abono gravado desconta do saldo do período nas próximas férias.</span>
+                                        {mudou && <button type="button" className="mt-1 block rounded border border-slate-300 px-2 py-1 dark:border-slate-600" disabled={gravandoAbono} onClick={gravarAbono}>{gravandoAbono ? 'Gravando…' : 'Gravar abono no afastamento'}</button>}
+                                    </label>
+                                );
+                            })()}
                             <p>Médias e faltas vêm dos movimentos gravados na folha mensal do período aquisitivo.</p>
                         </div>
                     </Holerite>

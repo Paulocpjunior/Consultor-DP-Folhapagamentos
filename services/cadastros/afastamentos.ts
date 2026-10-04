@@ -27,6 +27,8 @@ export interface Afastamento {
     observacao: string;
     perAquisInicio: string;
     perAquisFim: string;
+    /** Férias (motivo 15): dias vendidos como abono pecuniário (CLT, art. 143). Só no Consultor; não vai ao eSocial. */
+    abonoDias?: string;
     origem: string;
     recibos: string[];
 }
@@ -62,7 +64,7 @@ export const ACID_TRANSITO: Record<string, string> = { '1': 'Atropelamento', '2'
 export const idAfastamento = (fichaId: string, dtInicio: string) => `${fichaId}_${dtInicio}`;
 
 export function afastamentoVazio(): Afastamento {
-    return { id: '', empresaId: '', fichaId: '', cpf: '', matriculaEsocial: '', dtInicio: '', dtFim: '', motivo: '', infoMesmoMtv: '', tpAcidTransito: '', observacao: '', perAquisInicio: '', perAquisFim: '', origem: '', recibos: [] };
+    return { id: '', empresaId: '', fichaId: '', cpf: '', matriculaEsocial: '', dtInicio: '', dtFim: '', motivo: '', infoMesmoMtv: '', tpAcidTransito: '', observacao: '', perAquisInicio: '', perAquisFim: '', abonoDias: '', origem: '', recibos: [] };
 }
 
 export const emAberto = (a: Afastamento, hoje: string) => a.dtInicio <= hoje && (!a.dtFim || a.dtFim >= hoje);
@@ -104,6 +106,10 @@ export function validarAfastamento(a: Afastamento, ficha: FichaFuncionario | und
     if (a.infoMesmoMtv && !['01', '03'].includes(a.motivo)) erros.push('"Mesmo motivo em 60 dias" só com motivo 01 ou 03.');
     if ((a.perAquisInicio || a.perAquisFim) && a.motivo !== '15') erros.push('Período aquisitivo só para férias (motivo 15).');
     for (const [v, r] of [[a.perAquisInicio, 'Início'], [a.perAquisFim, 'Fim']]) if (v && !dataValida(v)) erros.push(`${r} do período aquisitivo inválido.`);
+    if (a.abonoDias) {
+        if (a.motivo !== '15') erros.push('Abono pecuniário só para férias (motivo 15).');
+        else if (!/^\d{1,2}$/.test(a.abonoDias) || Number(a.abonoDias) > 10) erros.push('Abono pecuniário: de 1 a 10 dias (até 1/3 das férias, CLT art. 143).');
+    }
     if (ficha && dataValida(a.dtInicio)) {
         if (ficha.dados.admissao && a.dtInicio < ficha.dados.admissao) erros.push('Início anterior à admissão.');
         if (ficha.dados.dataDesligamento && a.dtInicio > ficha.dados.dataDesligamento) erros.push('Início posterior ao desligamento.');
@@ -217,6 +223,7 @@ export function mesclarAfastamentos(importados: Afastamento[], existentes: Afast
         const atual = porId.get(imp.id);
         if (!atual) return { afastamento: imp, novo: true, mudou: true, preservado: false };
         if (atual.origem.startsWith('Manual')) return { afastamento: atual, novo: false, mudou: false, preservado: chave(atual) !== chave(imp) };
-        return { afastamento: imp, novo: false, mudou: chave(atual) !== chave(imp), preservado: false };
+        // O abono é só do Consultor: a reimportação do eSocial não o apaga.
+        return { afastamento: atual.abonoDias ? { ...imp, abonoDias: atual.abonoDias } : imp, novo: false, mudou: chave(atual) !== chave(imp), preservado: false };
     });
 }
