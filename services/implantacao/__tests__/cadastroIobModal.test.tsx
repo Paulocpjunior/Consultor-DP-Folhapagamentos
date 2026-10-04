@@ -67,5 +67,5 @@ describe('modal Cadastro IOB', () => {
         expect(screen.getByText('Baixar TXT de cadastro (só IOB Gestão Contábil)').hasAttribute('disabled')).toBe(true);
         fireEvent.click(screen.getByText('Restaurar padrão'));
         expect(screen.getByText('Baixar TXT de cadastro (só IOB Gestão Contábil)').hasAttribute('disabled')).toBe(false);
-    });
+    }, 15000); // renderiza o editor de layout inteiro: ~4,3 s sozinho, estourava os 5 s padrão com a suíte cheia
 });
