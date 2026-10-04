@@ -100,7 +100,7 @@ const RestaurarBackupModal: React.FC<Props> = ({ aberto, onFechar }) => {
                     <div>
                         <h3 className="text-lg font-semibold text-slate-800 dark:text-white">Restaurar backup do IOB SAGE</h3>
                         <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                            No modo SQL, o Backup SQL do IOB Office tem duas partes: o <b>.zip</b> com o cadastro das empresas (tabelas DBF) e o <b>.backup</b> com os dados da folha (PostgreSQL). Escolha as duas juntas. Também abre .tar, .sql, .sql.gz e DBF soltos.
+                            No modo SQL, o Backup SQL do IOB Office tem duas partes: o <b>.zip</b> com o cadastro das empresas (tabelas DBF) e o <b>.backup</b> com os dados da folha (PostgreSQL). Escolha as duas juntas. Também abre .tar, .sql, .sql.gz e DBF soltos. Zip de mais de 1 GB abre direto, sem extrair: o navegador lê só o índice e as partes de que precisa.
                         </p>
                         <p className="mt-1 text-xs font-medium text-green-700 dark:text-green-300">Os arquivos são lidos no seu computador. Nada é enviado ao servidor nem gravado no Consultor DP.</p>
                     </div>
