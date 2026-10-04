@@ -30,14 +30,17 @@ service cloud.firestore {
                     && request.resource.data.uid == request.auth.uid
                     && (request.resource.data.role == 'pendente'
                         || (request.resource.data.role == 'gestor' && isMaster()));
-      // Gestor muda qualquer um; admin só aprova/rebaixa entre pendente e
+      // Gestor muda qualquer outro; admin só aprova/rebaixa entre pendente e
       // colaborador (nunca o próprio perfil, nunca outro admin ou gestor).
-      allow update: if isGestor()
+      // No próprio perfil, só o master, e só para se tornar gestor.
+      allow update: if (isGestor() && request.auth.uid != uid)
+                    || (isMaster() && request.auth.uid == uid && request.resource.data.role == 'gestor'
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role']))
                     || (isAdmin() && request.auth.uid != uid
                         && resource.data.role in ['pendente','colaborador']
                         && request.resource.data.role in ['pendente','colaborador']
                         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role','approvedAt','approvedBy']));
-      allow delete: if isGestor()
+      allow delete: if (isGestor() && request.auth.uid != uid)
                     || (isAdmin() && request.auth.uid != uid && resource.data.role in ['pendente','colaborador']);
     }
 

@@ -7,6 +7,8 @@ import { listarEmpresasVisiveis } from '../../services/empresas/empresasService'
 import { lerCarteira, listarCarteiras } from '../../services/carteira/carteiraService';
 import { resumoCarteira } from '../../services/carteira/carteira';
 import CarteiraModal from './CarteiraModal';
+import { VerificarMaster } from './PendingScreen';
+import { ehMaster } from '../../services/auth/papeis';
 
 interface Props { currentUser: User; }
 
@@ -89,6 +91,7 @@ const AdminUsersPanel: React.FC<Props> = ({ currentUser }) => {
                 <button onClick={reload} className="px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded">↻ Atualizar</button>
             </header>
 
+            {ehMaster(currentUser.email) && ator !== 'gestor' && <VerificarMaster email={currentUser.email} />}
             {erroCarteira && <div role="alert" className="mb-3 p-2 text-sm text-amber-800 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 rounded">{erroCarteira}</div>}
             {editando && (
                 <CarteiraModal

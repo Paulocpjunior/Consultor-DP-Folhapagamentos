@@ -1009,3 +1009,13 @@ limitado à carteira**; só o gestor vê todas as empresas.
 - **Ao publicar as regras:** colaboradores e admins passam a ver só a
   carteira (vazia no início). O gestor monta as carteiras logo em seguida
   em Usuários › Carteira.
+- **Revisão do PR #60 (Codex), corrigida aqui:**
+  - **P1:** num projeto novo, o master nasce sem e-mail verificado e não
+    havia como verificar pelo app, então ninguém virava gestor. Agora a
+    tela de espera (e a aba Usuários, para o master que já é admin) envia
+    o link de verificação e, em "Já verifiquei", recarrega a conta e o
+    token; o perfil é reavaliado e vira gestor.
+  - **P2:** o gestor podia rebaixar ou apagar o próprio perfil direto no
+    Firestore. Agora o gestor só muda e apaga **outros**; no próprio
+    perfil, só o master, e só para virar gestor (nenhum outro campo).
+    Emulador: 26 testes.

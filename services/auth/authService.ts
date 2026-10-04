@@ -5,6 +5,7 @@ import {
     signInWithEmailAndPassword,
     signOut,
     sendPasswordResetEmail,
+    sendEmailVerification,
     type User as FirebaseUser,
 } from 'firebase/auth';
 import {
@@ -123,4 +124,27 @@ export async function approveUser(uid: string, approvedBy: string, role: AuthRol
 
 export async function setRole(uid: string, role: AuthRole): Promise<void> {
     await updateDoc(doc(firestore,'users', uid), { role });
+}
+
+// ─── Verificação do e-mail (destrava o primeiro gestor) ─────────────
+
+/** O e-mail master só vira gestor depois de verificado: envia o link de verificação. */
+export async function enviarVerificacaoEmail(): Promise<void> {
+    const u = auth.currentUser;
+    if (!u) throw new Error('Usuário não autenticado.');
+    await sendEmailVerification(u);
+}
+
+/**
+ * Depois de clicar no link: recarrega a conta e o token (que passa a dizer
+ * "verificado") e devolve se já está verificado. Quem chama recarrega a página
+ * para o perfil ser reavaliado.
+ */
+export async function confirmarVerificacaoEmail(): Promise<boolean> {
+    const u = auth.currentUser;
+    if (!u) return false;
+    await u.reload();
+    if (!auth.currentUser?.emailVerified) return false;
+    await auth.currentUser.getIdToken(true);
+    return true;
 }
