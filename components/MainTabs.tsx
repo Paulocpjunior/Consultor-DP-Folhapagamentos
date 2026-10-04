@@ -10,6 +10,7 @@ import FolhaPanel, { type SubTabFolha } from './folha/FolhaPanel';
 import type { Destino } from '../services/iobSage/catalogoMenus';
 const IobSagePanel = lazy(() => import('./iobSage/IobSagePanel'));
 const CadastrosPanel = lazy(() => import('./cadastros/CadastrosPanel'));
+const PrazosPanel = lazy(() => import('./prazos/PrazosPanel'));
 import type { SubCadastro } from './cadastros/CadastrosPanel';
 import EmpresasPanel from './empresas/EmpresasPanel';
 import ESocialMonitorPanel from './esocial/ESocialMonitorPanel';
@@ -19,7 +20,7 @@ import UpdateBanner from './UpdateBanner';
 import { listarMinhasEmpresas, listarTodasEmpresas } from '../services/empresas/empresasService';
 import type { User } from '../types';
 
-type Tab = 'folha' | 'cadastros' | 'empresas' | 'esocial' | 'iobsage' | 'admin';
+type Tab = 'folha' | 'cadastros' | 'prazos' | 'empresas' | 'esocial' | 'iobsage' | 'admin';
 
 const SUB_FOLHA: Partial<Record<Destino, SubTabFolha>> = {
     'folha:apontamento': 'apontamento', 'folha:implantacao': 'implantacao', 'folha:conferencia': 'conferencia',
@@ -166,6 +167,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
     const tabs: { id: Tab; label: string; icon: string; adminOnly: boolean }[] = [
         { id: 'folha',    label: 'Folha',     icon: '📋', adminOnly: false },
         { id: 'cadastros', label: 'Cadastros', icon: '🗃️', adminOnly: false },
+        { id: 'prazos',   label: 'Prazos',    icon: '⏰', adminOnly: false },
         { id: 'empresas', label: 'Empresas',  icon: '🏢', adminOnly: false },
         { id: 'esocial',  label: 'eSocial',   icon: '📡', adminOnly: false },
         { id: 'iobsage',  label: 'IOB SAGE',  icon: '🗂️', adminOnly: false },
@@ -320,6 +322,12 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                             else if (cad) { setCadastroSub(c => ({ sub: cad, n: (c?.n ?? 0) + 1 })); setActiveTab('cadastros'); }
                             else if (d === 'empresas' || d === 'esocial') setActiveTab(d);
                         }} />
+                    </Suspense>
+                )}
+                {activeTab === 'prazos' && (
+                    <Suspense fallback={<div className="py-12 text-center text-sm text-slate-500">Carregando…</div>}>
+                        <PrazosPanel onAbrirCadastros={() => setActiveTab('cadastros')}
+                            onAbrirConferencia={() => { setFolhaSub(f => ({ sub: 'conferencia', n: (f?.n ?? 0) + 1 })); setActiveTab('folha'); }} />
                     </Suspense>
                 )}
                 {activeTab === 'cadastros' && (

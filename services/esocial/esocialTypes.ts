@@ -48,6 +48,10 @@ export interface ObrigacaoTrabalhista {
     sigla: string;
     tipo: 'esocial' | 'fgts' | 'dctfweb' | 'inss';
     diaVencimento: number;
+    /** Data real do vencimento (AAAA-MM-DD), já ajustada para dia útil. */
+    dataVencimento: string;
+    /** Por que a data mudou (feriado ou fim de semana) e a regra aplicada. */
+    observacao?: string;
     descricao: string;
     competencia: string;
     status: 'pendente' | 'cumprida' | 'atrasada';
