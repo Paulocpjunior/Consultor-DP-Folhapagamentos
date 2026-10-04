@@ -3,8 +3,7 @@ import { ehAdmin } from '../../services/auth/papeis';
 import type { User } from '../../types';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import {
-    listarMinhasEmpresas,
-    listarTodasEmpresas,
+    listarEmpresasVisiveis,
 } from '../../services/empresas/empresasService';
 import {
     parsearArquivoFixedWidth,
@@ -47,7 +46,7 @@ const PontoEditorPanel: React.FC<Props> = ({ currentUser }) => {
             try {
                 const isAdmin = ehAdmin((currentUser as any)?.role);
                 const [emps, mod] = await Promise.all([
-                    isAdmin ? listarTodasEmpresas() : listarMinhasEmpresas((currentUser as any)?.uid),
+                    listarEmpresasVisiveis(),
                     buscarModelo(MODELO_ID),
                 ]);
                 setEmpresas(emps || []);

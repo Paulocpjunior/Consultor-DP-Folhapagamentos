@@ -106,7 +106,7 @@ import {
     type PerfilColunas,
 } from '../../services/folha/folhaPerfilColunasService';
 import { exportarTXT, nomeArquivoTXT, downloadFile, type FolhaFlag, FLAG_LABELS, type LayoutPontoIob, LAYOUT_PONTO_LABELS } from '../../services/folha/apontamentoExporter';
-import { listarTodasEmpresas } from '../../services/empresas/empresasService';
+import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
 import WizardMapeamentoMapas from './WizardMapeamentoMapas';
 import { acharEmpresaPorNome } from '../../services/empresas/matchEmpresa';
 // downloadFile vem de apontamentoExporter
@@ -198,7 +198,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
         (async () => {
             try {
                 // v2.2.0 — Firestore rules controlam visibilidade; listar sempre tudo.
-                const list = await listarTodasEmpresas();
+                const list = await listarEmpresasVisiveis();
                 setEmpresasCadastradas(list);
             } catch (e) {
                 console.warn('Não foi possível carregar empresas:', e);

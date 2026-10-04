@@ -971,3 +971,41 @@ Feito nesta etapa:
 - **Emulador:** 8 testes novos (perfil, master, admin × gestor, empresa,
   Storage) + os 10 anteriores: 18 passando. **Precisa publicar as regras
   do Firestore e do Storage.**
+
+## Etapa 2: carteira do colaborador (04/10/2026)
+
+Decisão do Paulo: carteira **própria do DP** (mesmo modal do CFI) e **admin
+limitado à carteira**; só o gestor vê todas as empresas.
+
+- **`carteira_acessos/{uid}`** `{ uid, nome, email, empresaIds[], atualizadoPor, atualizadoEm }`,
+  gravada em lote com o registro em `cadastro_audit` (incluídas/retiradas).
+- **Quem monta** (`services/carteira/carteira.ts`, puro, com testes):
+  - gestor: a de qualquer admin ou colaborador, com qualquer empresa;
+  - admin: só a de colaboradores, e só incluindo/retirando empresas da
+    carteira dele; nunca a própria.
+- **Quem vê:** gestor, todas; os demais, a carteira **e as empresas que
+  eles mesmos cadastraram**.
+- **Regras do Firestore** (`podeEmpresa`): `empresas` (lista inteira só o
+  gestor; os outros leem empresa por empresa ou as que criaram; editar:
+  gestor, criador ou admin da carteira; excluir: gestor), e todas as
+  coleções com `empresaId`: funcionários, horários, afastamentos, rubricas,
+  enquadramentos, movimentos do cálculo, eventos, FGTS e teses do eSocial.
+  Gravar também exige a empresa na carteira; trocar o `empresaId` de um
+  documento para fora dela é recusado.
+- **Consultas:** `listarEmpresasVisiveis` substitui `listarTodasEmpresas`
+  em todas as telas; as consultas que somavam todas as empresas (prazos,
+  eSocial) passaram a `empresaId in carteira` em lotes de 30
+  (`consultarPorEmpresas`). Lista paginada de eventos sem empresa, com
+  mais de 30 empresas na carteira, pede para escolher a empresa.
+- **Tela:** Usuários ganhou a coluna "Carteira" e o modal (busca, só as
+  marcadas, marcar/desmarcar a lista, empresas fora da carteira do admin
+  travadas, resumo do que muda). A Folha sem empresa explica a carteira.
+- **Emulador:** 7 testes novos da carteira + 18 anteriores = 25 passando.
+- **Ainda não travado por carteira** (chave é o código/CNPJ do cliente, não
+  o id da empresa): `folha_selecoes_eventos`, `folha_mapeamentos`,
+  `folha_historico`, `folha_perfis_colunas` e `ponto_layouts`. Entram com a
+  etapa 3 (empresa ativa). As Cloud Functions do eSocial também não olham a
+  carteira (usam o SDK de admin).
+- **Ao publicar as regras:** colaboradores e admins passam a ver só a
+  carteira (vazia no início). O gestor monta as carteiras logo em seguida
+  em Usuários › Carteira.

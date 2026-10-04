@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { listarTodasEmpresas } from '../../services/empresas/empresasService';
+import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
 import {
     cruzarEmpresasComCertificados,
     listarCertificadosNoStorage,
@@ -25,7 +25,7 @@ const ESocialCertificados: React.FC = () => {
         setLoading(true);
         setErro('');
         try {
-            const empresas = await listarTodasEmpresas();
+            const empresas = await listarEmpresasVisiveis();
             const [cruz, todosStorage] = await Promise.all([
                 cruzarEmpresasComCertificados(empresas),
                 listarCertificadosNoStorage(),

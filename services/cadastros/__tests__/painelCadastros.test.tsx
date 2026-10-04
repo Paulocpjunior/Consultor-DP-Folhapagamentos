@@ -22,7 +22,7 @@ vi.mock('../../folha/folhaFirestoreService', () => ({
 }));
 vi.mock('../cadastrosService', async orig => ({ ...(await orig<typeof import('../cadastrosService')>()), ...svc }));
 vi.mock('../../empresas/empresasService', () => ({
-    listarTodasEmpresas: async () => [{ id: 'emp1', cnpj: '11222333000181', razaoSocial: 'EMPRESA TESTE LTDA', nomeFantasia: 'Empresa Teste', codigoSage: '0229', criadoPor: 'u' }],
+    listarEmpresasVisiveis: async () => [{ id: 'emp1', cnpj: '11222333000181', razaoSocial: 'EMPRESA TESTE LTDA', nomeFantasia: 'Empresa Teste', codigoSage: '0229', criadoPor: 'u' }],
 }));
 
 const CPF = '52998224725';

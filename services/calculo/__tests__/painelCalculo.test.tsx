@@ -9,7 +9,7 @@ import type { TabelaLegal } from '../../cadastros/tabelasLegais';
 const xlsx = vi.hoisted(() => ({ writeFile: vi.fn() }));
 vi.mock('xlsx', async orig => ({ ...(await orig<typeof import('xlsx')>()), writeFile: xlsx.writeFile }));
 vi.mock('../../empresas/empresasService', () => ({
-    listarTodasEmpresas: async () => [{ id: 'emp1', cnpj: '11222333000181', razaoSocial: 'EMPRESA UM', nomeFantasia: 'Um', codigoSage: '0229', criadoPor: 'u' }],
+    listarEmpresasVisiveis: async () => [{ id: 'emp1', cnpj: '11222333000181', razaoSocial: 'EMPRESA UM', nomeFantasia: 'Um', codigoSage: '0229', criadoPor: 'u' }],
 }));
 const EMP = { id: 'emp1', cnpj: '11222333000181' };
 const ficha = (id: string, nome: string, dados: FichaFuncionario['dados']): FichaFuncionario => ({ ...fichaVazia(EMP), id, cpf: '52998224725', matriculaEsocial: id, situacao: 'ativo', dados: { nome, admissao: '2024-01-02', unidadeSalario: '5', horasSemanais: '44', categoria: '101', ...dados } });

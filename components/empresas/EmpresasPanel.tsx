@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ehAdmin, ehGestor } from '../../services/auth/papeis';
-import { listarMinhasEmpresas, listarTodasEmpresas, excluirEmpresa } from '../../services/empresas/empresasService';
+import { listarEmpresasVisiveis, excluirEmpresa } from '../../services/empresas/empresasService';
 import { formatCnpj } from '../../services/brasilApiService';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import type { User } from '../../types';
@@ -18,7 +18,6 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser }) => {
     const [erro, setErro]         = useState('');
     const [showForm, setShowForm] = useState(false);
     const [empresaEditando, setEmpresaEditando] = useState<Empresa | null>(null);
-    const [verTodas, setVerTodas] = useState(false);
     const [expandedCert, setExpandedCert] = useState<string | null>(null);
 
     const isAdmin = ehAdmin(currentUser.role);
@@ -27,9 +26,7 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser }) => {
     const reload = async () => {
         setLoading(true); setErro('');
         try {
-            const list = isAdmin && verTodas
-                ? await listarTodasEmpresas()
-                : await listarMinhasEmpresas((currentUser as any).uid);
+            const list = await listarEmpresasVisiveis();
             setEmpresas(list);
         } catch (e: any) {
             setErro(e?.message ?? String(e));
@@ -37,7 +34,7 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser }) => {
             setLoading(false);
         }
     };
-    useEffect(() => { reload(); }, [verTodas]);
+    useEffect(() => { reload(); }, []);
 
     // Conferência com o cadastro central do CFI (08/08): as empresas daqui
     // cruzadas com as de lá, pelo túnel. Falha do túnel não acende nada —
@@ -96,16 +93,10 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser }) => {
                 <div>
                     <h2 className="text-xl font-bold text-slate-800 dark:text-white">🏢 Empresas</h2>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                        {empresas.length} empresa(s) {verTodas ? '(visão admin)' : '(suas)'}
+                        {empresas.length} empresa(s) {isGestor ? '(todas — gestor)' : '(sua carteira e as que você cadastrou)'}
                     </p>
                 </div>
                 <div className="flex gap-2">
-                    {isAdmin && (
-                        <label className="text-sm flex items-center gap-1 text-slate-600 dark:text-slate-300">
-                            <input type="checkbox" checked={verTodas} onChange={(e) => setVerTodas(e.target.checked)} />
-                            Ver de todos
-                        </label>
-                    )}
                     <button onClick={reload}
                         className="px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded">
                         ↻ Atualizar

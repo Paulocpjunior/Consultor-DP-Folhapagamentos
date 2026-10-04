@@ -8,7 +8,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ehAdmin } from '../../services/auth/papeis';
 import type { User } from '../../types';
 import type { Empresa } from '../../services/empresas/empresasTypes';
-import { listarTodasEmpresas } from '../../services/empresas/empresasService';
+import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
 import { listarAfastamentos, listarHorarios, listarSindicatos, listarTabelas, mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
 import type { Horario } from '../../services/cadastros/horarios';
 import type { Afastamento } from '../../services/cadastros/afastamentos';
@@ -52,7 +52,7 @@ const CadastrosPanel: React.FC<Props> = ({ currentUser, subInicial, onAbrirEvent
     const usuario: Usuario = { id: currentUser.uid ?? currentUser.id, email: currentUser.email };
     const isAdmin = ehAdmin(currentUser.role);
 
-    useEffect(() => { listarTodasEmpresas().then(setEmpresas).catch(e => { setErroEmpresas(mensagemErro(e)); setEmpresas([]); }); }, []);
+    useEffect(() => { listarEmpresasVisiveis().then(setEmpresas).catch(e => { setErroEmpresas(mensagemErro(e)); setEmpresas([]); }); }, []);
     const carregarSindicatos = useCallback(() => { setErroSind(''); listarSindicatos().then(setSindicatos).catch(e => { setErroSind(mensagemErro(e)); setSindicatos([]); }); }, []);
     const carregarTabelas = useCallback(() => { setErroTab(''); listarTabelas().then(setTabelas).catch(e => { setErroTab(mensagemErro(e)); setTabelas([]); }); }, []);
     useEffect(carregarSindicatos, [carregarSindicatos]);

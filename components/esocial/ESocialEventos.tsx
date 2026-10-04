@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { listarEventosPaginado, criarEvento, atualizarEvento, excluirEvento, registrarAudit, verificarDuplicidade } from '../../services/esocial/esocialService';
 import type { PaginatedResult } from '../../services/esocial/esocialService';
-import { listarTodasEmpresas } from '../../services/empresas/empresasService';
+import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
 import type { EventoEsocial, EventoTipo, EventoStatus } from '../../services/esocial/esocialTypes';
 import { EVENTO_LABELS } from '../../services/esocial/esocialTypes';
 import app from '../../services/firebaseConfig';
@@ -54,7 +54,7 @@ const ESocialEventos: React.FC<Props> = ({ currentUser }) => {
                     filtroStatus,
                     cursor,
                 ),
-                empresas.length > 0 ? Promise.resolve(empresas) : listarTodasEmpresas(),
+                empresas.length > 0 ? Promise.resolve(empresas) : listarEmpresasVisiveis(),
             ]);
             setPage(result);
             if (empresas.length === 0) setEmpresas(emp);

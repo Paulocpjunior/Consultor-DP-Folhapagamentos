@@ -19,6 +19,7 @@ import { horarioVazio, type Horario } from './horarios';
 import { afastamentoVazio, type Afastamento, type MesclaAfastamento } from './afastamentos';
 import { rubricaVazia, type MesclaRubrica, type Rubrica } from './rubricas';
 import { enquadramentoVazio, idEnquadramento, type Enquadramento } from './enquadramento';
+import { consultarPorEmpresas } from '../carteira/carteiraService';
 
 export interface Usuario { id: string; email: string }
 
@@ -266,16 +267,16 @@ export async function excluirRubrica(r: Rubrica, u: Usuario): Promise<void> {
     await lote.commit();
 }
 
-// ---------- Todas as empresas (painel de prazos) ----------
+// ---------- Todas as empresas da carteira (painel de prazos) ----------
 
 export async function listarTodosFuncionariosAtivos(): Promise<FichaFuncionario[]> {
-    const snap = await getDocs(query(collection(db, FUNC), where('situacao', '==', 'ativo')));
-    return snap.docs.map(d => ({ dependentes: [], origens: {}, pendenciasImportacao: [], dados: {}, ...(d.data() as Omit<FichaFuncionario, 'id'>), id: d.id }));
+    const docs = await consultarPorEmpresas(FUNC, where('situacao', '==', 'ativo'));
+    return docs.map(d => ({ dependentes: [], origens: {}, pendenciasImportacao: [], dados: {}, ...(d.data() as Omit<FichaFuncionario, 'id'>), id: d.id }));
 }
 
 export async function listarTodosAfastamentos(): Promise<Afastamento[]> {
-    const snap = await getDocs(collection(db, AFA));
-    return snap.docs.map(d => ({ ...soCampos(d.data() as Afastamento, afastamentoVazio()), id: d.id }));
+    const docs = await consultarPorEmpresas(AFA);
+    return docs.map(d => ({ ...soCampos(d.data() as Afastamento, afastamentoVazio()), id: d.id }));
 }
 
 // ---------- Enquadramento previdenciário (parte patronal) ----------

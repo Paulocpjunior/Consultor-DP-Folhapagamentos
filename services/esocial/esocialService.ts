@@ -30,13 +30,20 @@ import type {
     ObrigacaoTrabalhista,
 } from './esocialTypes';
 import { EVENTO_PRAZOS } from './esocialTypes';
-import { listarTodasEmpresas } from '../empresas/empresasService';
+import { listarEmpresasVisiveis } from '../empresas/empresasService';
+import { LOTE_IN, consultarPorEmpresas, escopoAtual } from '../carteira/carteiraService';
 import { calcularStatusCertificado } from '../empresas/certificadoService';
 
 const COLECAO_EVENTOS = 'esocial_eventos';
 const COLECAO_FGTS = 'esocial_fgts';
 const COLECAO_TESES = 'esocial_teses';
 const COLECAO_AUDIT = 'esocial_audit';
+
+/** Junta lotes de consultas (carteira em lotes de 30) mantendo a ordem decrescente. */
+function ordenarDesc<T>(itens: T[], campo: string): T[] {
+    const v = (x: T) => { const c = (x as Record<string, unknown>)[campo] as { toMillis?: () => number } | string | undefined; return typeof c === 'string' ? c : c?.toMillis?.() ?? 0; };
+    return [...itens].sort((a, b) => { const x = v(a), y = v(b); return x < y ? 1 : x > y ? -1 : 0; });
+}
 
 function getCol(name: string) {
     if (!db) throw new Error('Firebase não configurado');
@@ -47,11 +54,11 @@ function getCol(name: string) {
 
 export async function listarEventos(empresaId?: string): Promise<EventoEsocial[]> {
     const col = getCol(COLECAO_EVENTOS);
-    const q = empresaId
-        ? query(col, where('empresaId', '==', empresaId), orderBy('criadoEm', 'desc'))
-        : query(col, orderBy('criadoEm', 'desc'));
-    const snap = await getDocs(q);
-    return snap.docs.map(d => ({ id: d.id, ...d.data() } as EventoEsocial));
+    // Sem empresa: só as da carteira (o gestor vê todas).
+    const docs = empresaId
+        ? (await getDocs(query(col, where('empresaId', '==', empresaId), orderBy('criadoEm', 'desc')))).docs
+        : await consultarPorEmpresas(COLECAO_EVENTOS, orderBy('criadoEm', 'desc'));
+    return ordenarDesc(docs.map(d => ({ id: d.id, ...d.data() } as EventoEsocial)), 'criadoEm');
 }
 
 export interface PaginatedResult<T> {
@@ -71,6 +78,17 @@ export async function listarEventosPaginado(
 ): Promise<PaginatedResult<EventoEsocial>> {
     const col = getCol(COLECAO_EVENTOS);
     const constraints: any[] = [orderBy('criadoEm', 'desc')];
+    // Sem empresa, fora do gestor, a consulta precisa se limitar à carteira (até 30 empresas numa consulta só).
+    let filtroCarteira: any = null;
+    if (!empresaId) {
+        const e = await escopoAtual();
+        if (!e.todas) {
+            if (!e.empresaIds.length) return { items: [], total: 0, lastDoc: null, hasMore: false };
+            if (e.empresaIds.length > LOTE_IN) throw new Error(`Sua carteira tem ${e.empresaIds.length} empresas: escolha uma empresa para listar os eventos.`);
+            filtroCarteira = where('empresaId', 'in', e.empresaIds);
+            constraints.unshift(filtroCarteira);
+        }
+    }
     if (empresaId) constraints.unshift(where('empresaId', '==', empresaId));
     if (statusFiltro && statusFiltro !== 'todos') constraints.push(where('status', '==', statusFiltro));
     if (cursor) constraints.push(startAfter(cursor));
@@ -82,6 +100,7 @@ export async function listarEventosPaginado(
     const sliced = hasMore ? docs.slice(0, pageSize) : docs;
     const countConstraints: any[] = [orderBy('criadoEm', 'desc')];
     if (empresaId) countConstraints.unshift(where('empresaId', '==', empresaId));
+    if (filtroCarteira) countConstraints.unshift(filtroCarteira);
     if (statusFiltro && statusFiltro !== 'todos') countConstraints.push(where('status', '==', statusFiltro));
     const countSnap = await getCountFromServer(query(col, ...countConstraints));
     return {
@@ -151,11 +170,10 @@ export async function excluirEvento(id: string): Promise<void> {
 
 export async function listarFgts(empresaId?: string): Promise<FgtsDigitalRegistro[]> {
     const col = getCol(COLECAO_FGTS);
-    const q = empresaId
-        ? query(col, where('empresaId', '==', empresaId), orderBy('competencia', 'desc'))
-        : query(col, orderBy('competencia', 'desc'));
-    const snap = await getDocs(q);
-    return snap.docs.map(d => ({ id: d.id, ...d.data() } as FgtsDigitalRegistro));
+    const docs = empresaId
+        ? (await getDocs(query(col, where('empresaId', '==', empresaId), orderBy('competencia', 'desc')))).docs
+        : await consultarPorEmpresas(COLECAO_FGTS, orderBy('competencia', 'desc'));
+    return ordenarDesc(docs.map(d => ({ id: d.id, ...d.data() } as FgtsDigitalRegistro)), 'competencia');
 }
 
 export async function criarFgts(registro: Omit<FgtsDigitalRegistro, 'id'>): Promise<string> {
@@ -173,11 +191,10 @@ export async function atualizarFgts(id: string, dados: Partial<FgtsDigitalRegist
 
 export async function listarTeses(empresaId?: string): Promise<TeseRecuperacao[]> {
     const col = getCol(COLECAO_TESES);
-    const q = empresaId
-        ? query(col, where('empresaId', '==', empresaId), orderBy('criadoEm', 'desc'))
-        : query(col, orderBy('criadoEm', 'desc'));
-    const snap = await getDocs(q);
-    return snap.docs.map(d => ({ id: d.id, ...d.data() } as TeseRecuperacao));
+    const docs = empresaId
+        ? (await getDocs(query(col, where('empresaId', '==', empresaId), orderBy('criadoEm', 'desc')))).docs
+        : await consultarPorEmpresas(COLECAO_TESES, orderBy('criadoEm', 'desc'));
+    return ordenarDesc(docs.map(d => ({ id: d.id, ...d.data() } as TeseRecuperacao)), 'criadoEm');
 }
 
 export async function criarTese(tese: Omit<TeseRecuperacao, 'id' | 'criadoEm'>): Promise<string> {
@@ -304,7 +321,7 @@ export async function calcularResumoPendencias(): Promise<ResumoPendencias> {
         [eventos, fgts, empresas] = await Promise.all([
             listarEventos().catch(() => []),
             listarFgts().catch(() => []),
-            listarTodasEmpresas().catch(() => []),
+            listarEmpresasVisiveis().catch(() => []),
         ]);
     } catch {
         // All failed — return empty summary

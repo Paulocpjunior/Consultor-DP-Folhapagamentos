@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState, Suspense, lazy } from 'react';
 import type { ModoExportacao } from './ExportacaoIobModal';
 import type { User } from '../../types';
 import type { Empresa } from '../../services/empresas/empresasTypes';
-import { listarTodasEmpresas } from '../../services/empresas/empresasService';
+import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
 import { baixarTemplateApontamento } from '../../services/folha/templateApontamentoIobSage';
 
 const EventosIobSagePanel = lazy(() => import('./EventosIobSagePanel'));
@@ -165,7 +165,7 @@ const SeletorEmpresa: React.FC<SeletorProps> = ({ currentUser, onSelecionar, onN
         (async () => {
             try {
                 // v2.2.0 — Firestore rules controlam visibilidade; listar sempre tudo.
-                const list = await listarTodasEmpresas();
+                const list = await listarEmpresasVisiveis();
                 setEmpresas(list);
             } catch (e) {
                 setErro(e instanceof Error ? e.message : String(e));
