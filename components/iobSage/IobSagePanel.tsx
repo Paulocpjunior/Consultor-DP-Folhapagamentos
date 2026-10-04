@@ -25,6 +25,7 @@ const ROTULO_DESTINO: Record<Destino, string> = {
     'cadastros:funcionarios': 'Abrir Cadastros › Funcionários',
     'cadastros:horarios': 'Abrir Cadastros › Horários',
     'cadastros:afastamentos': 'Abrir Cadastros › Afastamentos',
+    'cadastros:incidencias': 'Abrir Cadastros › Incidências',
     'cadastros:sindicatos': 'Abrir Cadastros › Sindicatos',
     'cadastros:tabelas': 'Abrir Cadastros › Tabelas legais',
     empresas: 'Abrir Empresas',

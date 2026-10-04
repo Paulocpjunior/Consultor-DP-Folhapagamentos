@@ -31,6 +31,7 @@ describe('catálogo IOB SAGE × Consultor DP', () => {
         expect(itens.find(i => i.id === 'arq-tabelas')?.destino).toBe('cadastros:tabelas');
         expect(itens.find(i => i.id === 'arq-horarios')?.destino).toBe('cadastros:horarios');
         expect(itens.find(i => i.id === 'arq-afastamentos')?.destino).toBe('cadastros:afastamentos');
+        expect(itens.find(i => i.id === 'es-rubricas')?.destino).toBe('cadastros:incidencias');
     });
 
     it('o resumo soma todos os itens', () => {

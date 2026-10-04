@@ -12,6 +12,13 @@ const svc = vi.hoisted(() => ({
     listarTabelas: vi.fn(), salvarTabela: vi.fn(), excluirTabela: vi.fn(),
     listarHorarios: vi.fn(), salvarHorario: vi.fn(), excluirHorario: vi.fn(),
     listarAfastamentos: vi.fn(), salvarAfastamento: vi.fn(), gravarAfastamentosImportados: vi.fn(), excluirAfastamento: vi.fn(),
+    listarRubricas: vi.fn(), gravarRubricasImportadas: vi.fn(), salvarVinculoRubrica: vi.fn(), excluirRubrica: vi.fn(),
+}));
+vi.mock('../../folha/folhaFirestoreService', () => ({
+    getCatalogo: async () => ({ eventos: [
+        { codigo: '0001', descricao: 'SALÁRIO', tipo: 'V', rv: 'R', coeficiente: 1, ro: '000', incidencias: { ir: 'S', in: 'S', irf: 'N', inf: 'N', fg: 'S', rt: 'S', vr: 'S' } },
+        { codigo: '0050', descricao: 'AJUDA DE CUSTO', tipo: 'V', rv: 'V', coeficiente: 1, ro: '060', incidencias: { ir: 'N', in: 'N', irf: 'N', inf: 'N', fg: 'N', rt: 'N', vr: 'N' } },
+    ] }),
 }));
 vi.mock('../cadastrosService', async orig => ({ ...(await orig<typeof import('../cadastrosService')>()), ...svc }));
 vi.mock('../../empresas/empresasService', () => ({
@@ -36,10 +43,12 @@ beforeEach(() => {
     svc.salvarHorario.mockResolvedValue(undefined);
     svc.salvarAfastamento.mockResolvedValue(undefined);
     svc.gravarAfastamentosImportados.mockResolvedValue(undefined);
+    svc.listarRubricas.mockResolvedValue([]);
+    svc.gravarRubricasImportadas.mockResolvedValue(undefined);
 });
 afterEach(cleanup);
 
-async function abrirEmpresa(sub?: 'funcionarios' | 'horarios' | 'afastamentos') {
+async function abrirEmpresa(sub?: 'funcionarios' | 'horarios' | 'afastamentos' | 'incidencias') {
     render(<CadastrosPanel currentUser={usuario} subInicial={sub} />);
     await waitFor(() => expect(screen.getByRole('option', { name: /0229/ })).toBeTruthy());
     fireEvent.change(screen.getByLabelText('Empresa'), { target: { value: 'emp1' } });
@@ -153,5 +162,28 @@ describe('Cadastros na interface', () => {
         fireEvent.click(within(dlg).getByText('Gravar'));
         await waitFor(() => expect(svc.salvarAfastamento).toHaveBeenCalledTimes(1));
         expect(svc.salvarAfastamento.mock.calls[0][1]).toMatchObject({ id: `emp1_${CPF}_M-1_2026-07-01`, cpf: CPF, motivo: '15', dtFim: '2026-07-30', origem: expect.stringMatching(/^Manual · ana@sp\.com/) });
+    });
+
+    it('incidências: importa o S-1010, liga pelo código e aponta a divergência com o IOB', async () => {
+        await abrirEmpresa('incidencias');
+        await waitFor(() => expect(screen.getByText(/Nenhuma rubrica desta empresa/)).toBeTruthy());
+        const rub = (id: string, cod: string, dsc: string, cp: string, ir: string, fg: string) => `<eSocial xmlns="http://www.esocial.gov.br/schema/eventoCompleto/retornoEventoCompleto/v1_0_0"><retornoEventoCompleto><evento><eSocial xmlns="http://www.esocial.gov.br/schema/evt/evtTabRubrica/v_S_01_03_00"><evtTabRubrica Id="${id}"><ideEvento><tpAmb>1</tpAmb></ideEvento><ideEmpregador><tpInsc>1</tpInsc><nrInsc>11222333</nrInsc></ideEmpregador><infoRubrica><inclusao><ideRubrica><codRubr>${cod}</codRubr><ideTabRubr>FP</ideTabRubr><iniValid>2026-01</iniValid></ideRubrica><dadosRubrica><dscRubr>${dsc}</dscRubr><natRubr>1000</natRubr><tpRubr>1</tpRubr><codIncCP>${cp}</codIncCP><codIncIRRF>${ir}</codIncIRRF><codIncFGTS>${fg}</codIncFGTS></dadosRubrica></inclusao></infoRubrica></evtTabRubrica></eSocial></evento><recibo><eSocial xmlns="http://www.esocial.gov.br/schema/evt/retornoEvento/v1_3_0"><retornoEvento Id="${id}"><processamento><cdResposta>201</cdResposta><dhProcessamento>2026-01-02T00:00:00</dhProcessamento></processamento><recibo><nrRecibo>${id}</nrRecibo></recibo></retornoEvento></eSocial></recibo></retornoEventoCompleto></eSocial>`;
+        const x1 = rub('IDR1', '1', 'SALARIO', '11', '11', '11');
+        const x2 = rub('IDR2', '50', 'AJUDA DE CUSTO', '11', '00', '11');
+        fireEvent.click(screen.getByText('Importar S-1010 (XML)'));
+        const imp = screen.getByRole('dialog', { name: 'Importar S-1010' });
+        fireEvent.change(within(imp).getByLabelText('XMLs do S-1010'), { target: { files: [{ name: 'r1.xml', size: 1, text: async () => x1 }, { name: 'r2.xml', size: 1, text: async () => x2 }] } });
+        fireEvent.click(within(imp).getByText('Ler arquivos'));
+        await waitFor(() => expect(within(imp).getByText('Gravar 2 rubrica(s)')).toBeTruthy());
+        svc.gravarRubricasImportadas.mockImplementation(async (itens: { rubrica: unknown }[]) => { svc.listarRubricas.mockResolvedValue(itens.map(i => i.rubrica)); });
+        fireEvent.click(within(imp).getByText('Gravar 2 rubrica(s)'));
+        await waitFor(() => expect(svc.gravarRubricasImportadas).toHaveBeenCalledTimes(1));
+        expect(svc.gravarRubricasImportadas.mock.calls[0][0].map((i: { rubrica: { id: string } }) => i.rubrica.id)).toEqual(['emp1_FP_1', 'emp1_FP_50']);
+        fireEvent.change(screen.getByLabelText('Competência das incidências'), { target: { value: '2026-03' } });
+        await waitFor(() => expect(screen.getAllByText('AJUDA DE CUSTO')).toHaveLength(2));
+        expect(screen.queryByText('SALARIO')).toBeNull();
+        expect(screen.getByText(/IOB não incide × eSocial 11 - Base: salário de contribuição mensal/)).toBeTruthy();
+        expect(screen.getByText('Divergente: 1')).toBeTruthy();
+        expect(screen.getByText('OK: 1')).toBeTruthy();
     });
 });

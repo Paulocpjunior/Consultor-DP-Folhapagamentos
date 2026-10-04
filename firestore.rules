@@ -181,6 +181,17 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Rubricas do S-1010 por empresa: empresa_tabela_código.
+    match /cadastro_rubricas/{rubricaId} {
+      allow read, list: if isApproved();
+      allow create, update: if isApproved()
+                    && request.resource.data.atualizadoPor == request.auth.uid
+                    && request.resource.data.empresaId is string
+                    && request.resource.data.codRubr is string
+                    && rubricaId.matches('^' + request.resource.data.empresaId + '_.+$');
+      allow delete: if isAdmin();
+    }
+
     match /cadastro_audit/{logId} {
       allow read, list: if isApproved();
       allow create: if isApproved() && request.resource.data.autor == request.auth.uid;
