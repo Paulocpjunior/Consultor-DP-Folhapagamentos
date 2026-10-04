@@ -11,11 +11,15 @@ import {
 } from '../../services/cadastros/funcionarios';
 import { historico, mensagemErro, salvarFuncionario, excluirFuncionario, type RegistroAuditoria, type Usuario } from '../../services/cadastros/cadastrosService';
 import type { Sindicato } from '../../services/cadastros/sindicatos';
+import { conferirHorasSemanais, descricaoJornada, type Horario } from '../../services/cadastros/horarios';
+import { duracao, rotuloMotivo, type Afastamento } from '../../services/cadastros/afastamentos';
 
 interface Props {
     ficha: FichaFuncionario;
     nova: boolean;
     sindicatos: Sindicato[];
+    horarios?: Horario[];
+    afastamentos?: Afastamento[];
     usuario: Usuario;
     isAdmin: boolean;
     onFechar: () => void;
@@ -26,7 +30,7 @@ const inp = 'w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm
 const DEP_VAZIO: Dependente = { tipo: '', nome: '', nascimento: '', cpf: '', irrf: 'N', salarioFamilia: 'N' };
 const formatarCpf = (c: string) => (c.length === 11 ? `${c.slice(0, 3)}.${c.slice(3, 6)}.${c.slice(6, 9)}-${c.slice(9)}` : c);
 
-const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, usuario, isAdmin, onFechar, onSalvo }) => {
+const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horarios = [], afastamentos = [], usuario, isAdmin, onFechar, onSalvo }) => {
     const [f, setF] = useState<FichaFuncionario>(ficha);
     const [aba, setAba] = useState<string>(ABAS[0].id);
     const [erros, setErros] = useState<string[]>([]);
@@ -66,7 +70,15 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, usuar
         const valor = f.dados[c] ?? '';
         const origem = f.origens[c];
         let entrada: React.ReactNode;
-        if (def.tipo === 'lista') {
+        if (c === 'horario') {
+            entrada = (
+                <select className={inp} value={valor} onChange={e => setCampo(c, e.target.value)} aria-label={ROTULO[c]}>
+                    <option value="">{horarios.length ? '—' : 'Nenhum horário cadastrado'}</option>
+                    {valor && !horarios.some(h => h.codigo === valor) && <option value={valor}>{valor} (não cadastrado)</option>}
+                    {horarios.map(h => <option key={h.id} value={h.codigo}>{h.codigo} · {h.descricao}</option>)}
+                </select>
+            );
+        } else if (def.tipo === 'lista') {
             const opcoes = def.opcoes!;
             entrada = (
                 <select className={inp} value={valor} onChange={e => setCampo(c, e.target.value)} aria-label={ROTULO[c]}>
@@ -77,19 +89,23 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, usuar
             );
         } else if (def.tipo === 'longo') entrada = <textarea className={inp} rows={2} value={valor} onChange={e => setCampo(c, e.target.value)} aria-label={ROTULO[c]} />;
         else entrada = <input className={inp} type={def.tipo === 'data' ? 'date' : 'text'} value={valor} onChange={e => setCampo(c, e.target.value)} aria-label={ROTULO[c]} list={c === 'sindicato' ? 'lista-sindicatos' : undefined} />;
+        const hor = c === 'horario' && valor ? horarios.find(h => h.codigo === valor) : undefined;
+        const difHoras = c === 'horario' && hor ? conferirHorasSemanais(f.dados.horasSemanais, hor) : null;
         const sind = c === 'sindicato' && valor ? sindicatos.find(s => s.cnpj === valor.replace(/[.\-/\s]/g, '').toUpperCase()) : undefined;
         return (
             <label key={c} className={`block ${def.tipo === 'longo' ? 'sm:col-span-2 lg:col-span-3' : ''}`}>
                 <span className="text-xs font-medium text-slate-600 dark:text-slate-300">{ROTULO[c]}</span>
                 {entrada}
                 {sind && <span className="block text-xs text-green-700 dark:text-green-400">{sind.nome}</span>}
+                {hor && <span className="block text-xs text-slate-500 dark:text-slate-400">{descricaoJornada(hor)}</span>}
+                {difHoras && <span className="block text-xs text-amber-700 dark:text-amber-400">{difHoras}</span>}
                 {c === 'sindicato' && valor && !sind && <span className="block text-xs text-amber-700 dark:text-amber-400">Sindicato não cadastrado.</span>}
                 {origem && <span className={`block truncate text-[11px] ${ehManual(origem) ? 'text-blue-700 dark:text-blue-300' : 'text-slate-400'}`} title={origem}>{origem}</span>}
             </label>
         );
     }
 
-    const abas = [...ABAS.map(a => ({ id: a.id, titulo: a.titulo })), { id: 'dependentes', titulo: `Dependentes (${f.dependentes.length})` }, ...(nova ? [] : [{ id: 'historico', titulo: 'Histórico' }])];
+    const abas = [...ABAS.map(a => ({ id: a.id, titulo: a.titulo })), { id: 'dependentes', titulo: `Dependentes (${f.dependentes.length})` }, ...(nova ? [] : [{ id: 'afastamentos', titulo: `Afastamentos (${afastamentos.length})` }, { id: 'historico', titulo: 'Histórico' }])];
     const atual = ABAS.find(a => a.id === aba);
 
     return (
@@ -160,6 +176,25 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, usuar
                             {!f.dependentes.length && <p className="text-sm text-slate-500">Nenhum dependente.</p>}
                             <button className="rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600 dark:text-white" onClick={() => setF({ ...f, dependentes: [...f.dependentes, { ...DEP_VAZIO }] })}>Adicionar dependente</button>
                             {f.origens.dependentes && <p className="text-[11px] text-slate-400">{f.origens.dependentes}</p>}
+                        </div>
+                    )}
+
+                    {aba === 'afastamentos' && (
+                        <div className="space-y-2 text-sm">
+                            {!afastamentos.length && <p className="text-slate-500">Nenhum afastamento. Lance em Cadastros › Afastamentos.</p>}
+                            {afastamentos.length > 0 && (
+                                <table className="w-full text-sm">
+                                    <thead><tr className="text-left text-xs text-slate-500 dark:text-slate-400"><th className="p-1">Início</th><th className="p-1">Término</th><th className="p-1">Dias</th><th className="p-1">Motivo</th></tr></thead>
+                                    <tbody>{[...afastamentos].sort((a, b) => b.dtInicio.localeCompare(a.dtInicio)).map(a => (
+                                        <tr key={a.id} className="border-t border-slate-100 dark:border-slate-700 dark:text-slate-100">
+                                            <td className="p-1">{a.dtInicio.split('-').reverse().join('/')}</td>
+                                            <td className="p-1">{a.dtFim ? a.dtFim.split('-').reverse().join('/') : 'em aberto'}</td>
+                                            <td className="p-1">{duracao(a) ?? '—'}</td>
+                                            <td className="p-1 text-xs">{rotuloMotivo(a.motivo)}</td>
+                                        </tr>
+                                    ))}</tbody>
+                                </table>
+                            )}
                         </div>
                     )}
 

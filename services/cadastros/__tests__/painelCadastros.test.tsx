@@ -10,6 +10,8 @@ const svc = vi.hoisted(() => ({
     listarFuncionarios: vi.fn(), gravarImportacao: vi.fn(), salvarFuncionario: vi.fn(), excluirFuncionario: vi.fn(), historico: vi.fn(),
     listarSindicatos: vi.fn(), salvarSindicato: vi.fn(), excluirSindicato: vi.fn(),
     listarTabelas: vi.fn(), salvarTabela: vi.fn(), excluirTabela: vi.fn(),
+    listarHorarios: vi.fn(), salvarHorario: vi.fn(), excluirHorario: vi.fn(),
+    listarAfastamentos: vi.fn(), salvarAfastamento: vi.fn(), gravarAfastamentosImportados: vi.fn(), excluirAfastamento: vi.fn(),
 }));
 vi.mock('../cadastrosService', async orig => ({ ...(await orig<typeof import('../cadastrosService')>()), ...svc }));
 vi.mock('../../empresas/empresasService', () => ({
@@ -29,14 +31,19 @@ beforeEach(() => {
     svc.gravarImportacao.mockResolvedValue(undefined);
     svc.salvarFuncionario.mockResolvedValue(undefined);
     svc.historico.mockResolvedValue([]);
+    svc.listarHorarios.mockResolvedValue([]);
+    svc.listarAfastamentos.mockResolvedValue([]);
+    svc.salvarHorario.mockResolvedValue(undefined);
+    svc.salvarAfastamento.mockResolvedValue(undefined);
+    svc.gravarAfastamentosImportados.mockResolvedValue(undefined);
 });
 afterEach(cleanup);
 
-async function abrirEmpresa() {
-    render(<CadastrosPanel currentUser={usuario} />);
+async function abrirEmpresa(sub?: 'funcionarios' | 'horarios' | 'afastamentos') {
+    render(<CadastrosPanel currentUser={usuario} subInicial={sub} />);
     await waitFor(() => expect(screen.getByRole('option', { name: /0229/ })).toBeTruthy());
     fireEvent.change(screen.getByLabelText('Empresa'), { target: { value: 'emp1' } });
-    await waitFor(() => expect(svc.listarFuncionarios).toHaveBeenCalledWith('emp1'));
+    await waitFor(() => expect(svc.listarHorarios).toHaveBeenCalledWith('emp1'));
 }
 
 describe('Cadastros na interface', () => {
@@ -96,5 +103,55 @@ describe('Cadastros na interface', () => {
         fireEvent.click(within(dlg).getByText('Gravar'));
         await waitFor(() => expect(svc.salvarTabela).toHaveBeenCalledTimes(1));
         expect(svc.salvarTabela.mock.calls[0][1]).toMatchObject({ tipo: 'salario_minimo', vigencia: '2026-01', valores: { salarioMinimo: 100000 }, norma: 'Decreto fictício de teste' });
+    });
+
+    it('horário: grava com id da empresa e código, mostra total e descrição da jornada', async () => {
+        await abrirEmpresa('horarios');
+        await waitFor(() => expect(screen.getByText(/Nenhum horário cadastrado/)).toBeTruthy());
+        fireEvent.click(screen.getByText('Novo horário'));
+        const dlg = screen.getByRole('dialog', { name: 'Horário' });
+        fireEvent.change(within(dlg).getByLabelText('Código do horário'), { target: { value: '001' } });
+        fireEvent.change(within(dlg).getByLabelText('Descrição do horário'), { target: { value: 'Comercial' } });
+        for (const d of ['Seg', 'Ter', 'Qua', 'Qui', 'Sex']) {
+            fireEvent.change(within(dlg).getByLabelText(`entrada ${d}`), { target: { value: '08:00' } });
+            fireEvent.change(within(dlg).getByLabelText(`saidaIntervalo ${d}`), { target: { value: '12:00' } });
+            fireEvent.change(within(dlg).getByLabelText(`retornoIntervalo ${d}`), { target: { value: '13:00' } });
+            fireEvent.change(within(dlg).getByLabelText(`saida ${d}`), { target: { value: '17:48' } });
+        }
+        expect(within(dlg).getByText('44:00')).toBeTruthy();
+        expect(within(dlg).getByText('Seg a Sex: 08:00-12:00 e 13:00-17:48; Sáb: folga; Dom: DSR')).toBeTruthy();
+        fireEvent.click(within(dlg).getByText('Gravar'));
+        await waitFor(() => expect(svc.salvarHorario).toHaveBeenCalledTimes(1));
+        expect(svc.salvarHorario.mock.calls[0][1]).toMatchObject({ id: 'emp1_001', empresaId: 'emp1', codigo: '001', descricao: 'Comercial' });
+        expect(svc.listarHorarios).toHaveBeenCalledTimes(2);
+    });
+
+    it('afastamento: importa o S-2230 com prévia e lança à mão com validação', async () => {
+        const ficha: FichaFuncionario = { id: `emp1_${CPF}_M-1`, empresaId: 'emp1', cnpj: '11222333000181', cpf: CPF, matriculaEsocial: 'M-1', situacao: 'ativo', dados: { nome: 'PESSOA', admissao: '2026-02-01' }, dependentes: [], origens: {}, pendenciasImportacao: [] };
+        svc.listarFuncionarios.mockResolvedValue([ficha]);
+        await abrirEmpresa('afastamentos');
+        await waitFor(() => expect(screen.getByText('Importar S-2230 (XML)').hasAttribute('disabled')).toBe(false));
+        const s2230 = `<eSocial xmlns="http://www.esocial.gov.br/schema/eventoCompleto/retornoEventoCompleto/v1_0_0"><retornoEventoCompleto><evento><eSocial xmlns="http://www.esocial.gov.br/schema/evt/evtAfastTemp/v_S_01_03_00"><evtAfastTemp Id="IDA1"><ideEvento><indRetif>1</indRetif><tpAmb>1</tpAmb></ideEvento><ideEmpregador><tpInsc>1</tpInsc><nrInsc>11222333</nrInsc></ideEmpregador><ideVinculo><cpfTrab>${CPF}</cpfTrab><matricula>M-1</matricula></ideVinculo><infoAfastamento><iniAfastamento><dtIniAfast>2026-05-04</dtIniAfast><codMotAfast>03</codMotAfast></iniAfastamento></infoAfastamento></evtAfastTemp></eSocial></evento><recibo><eSocial xmlns="http://www.esocial.gov.br/schema/evt/retornoEvento/v1_3_0"><retornoEvento Id="IDA1"><processamento><cdResposta>201</cdResposta></processamento><recibo><nrRecibo>1.9</nrRecibo></recibo></retornoEvento></eSocial></recibo></retornoEventoCompleto></eSocial>`;
+        fireEvent.click(screen.getByText('Importar S-2230 (XML)'));
+        const imp = screen.getByRole('dialog', { name: 'Importar S-2230' });
+        fireEvent.change(within(imp).getByLabelText('XMLs do S-2230'), { target: { files: [{ name: 'afast.xml', size: s2230.length, text: async () => s2230 }] } });
+        fireEvent.click(within(imp).getByText('Ler arquivos'));
+        await waitFor(() => expect(within(imp).getByText('Novo')).toBeTruthy());
+        fireEvent.click(within(imp).getByText('Gravar 1 afastamento(s)'));
+        await waitFor(() => expect(svc.gravarAfastamentosImportados).toHaveBeenCalledTimes(1));
+        expect(svc.gravarAfastamentosImportados.mock.calls[0][0][0].afastamento).toMatchObject({ id: `emp1_${CPF}_M-1_2026-05-04`, motivo: '03', dtFim: '', recibos: ['1.9'] });
+
+        fireEvent.click(screen.getByText('Novo afastamento'));
+        const dlg = screen.getByRole('dialog', { name: 'Afastamento' });
+        fireEvent.change(within(dlg).getByLabelText('Funcionário'), { target: { value: ficha.id } });
+        fireEvent.change(within(dlg).getByLabelText('Início do afastamento'), { target: { value: '2026-01-10' } });
+        fireEvent.change(within(dlg).getByLabelText('Motivo'), { target: { value: '15' } });
+        fireEvent.click(within(dlg).getByText('Gravar'));
+        expect(within(dlg).getByRole('alert').textContent).toContain('Início anterior à admissão.');
+        fireEvent.change(within(dlg).getByLabelText('Início do afastamento'), { target: { value: '2026-07-01' } });
+        fireEvent.change(within(dlg).getByLabelText('Término do afastamento'), { target: { value: '2026-07-30' } });
+        fireEvent.click(within(dlg).getByText('Gravar'));
+        await waitFor(() => expect(svc.salvarAfastamento).toHaveBeenCalledTimes(1));
+        expect(svc.salvarAfastamento.mock.calls[0][1]).toMatchObject({ id: `emp1_${CPF}_M-1_2026-07-01`, cpf: CPF, motivo: '15', dtFim: '2026-07-30', origem: expect.stringMatching(/^Manual · ana@sp\.com/) });
     });
 });

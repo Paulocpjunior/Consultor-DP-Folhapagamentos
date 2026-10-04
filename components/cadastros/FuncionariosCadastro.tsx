@@ -10,38 +10,20 @@ import { fichaVazia, linhasPlanilha, validarFicha, ROTULO, type CampoFicha, type
 import { gravarImportacao, listarFuncionarios, mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
 import { paraGravar, prepararImportacao, type PreviaImportacao } from '../../services/cadastros/importacaoEsocial';
 import type { Sindicato } from '../../services/cadastros/sindicatos';
-import { hashArquivo } from '../../services/implantacao/dossie';
-import { lerZip } from '../../services/implantacao/zip';
-import type { FonteXml } from '../../services/implantacao/implantacao';
+import type { Horario } from '../../services/cadastros/horarios';
+import { emAberto, type Afastamento } from '../../services/cadastros/afastamentos';
+import { fontesDosArquivos } from './lerArquivosXml';
 import FichaFuncionarioModal from './FichaFuncionarioModal';
 
-interface Props { empresa: Empresa; usuario: Usuario; isAdmin: boolean; sindicatos: Sindicato[] }
+interface Props { empresa: Empresa; usuario: Usuario; isAdmin: boolean; sindicatos: Sindicato[]; horarios: Horario[]; afastamentos: Afastamento[] }
 
 const btn = 'rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
 const fmtCpf = (c: string) => (c.length === 11 ? `${c.slice(0, 3)}.${c.slice(3, 6)}.${c.slice(6, 9)}-${c.slice(9)}` : c);
 const fmtData = (d?: string) => (d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d.split('-').reverse().join('/') : d ?? '');
 
-async function fontesDosArquivos(files: File[]): Promise<{ fontes: FonteXml[]; problemas: string[] }> {
-    const fontes: FonteXml[] = []; const problemas: string[] = [];
-    const vistos = new Set<string>();
-    const add = async (nome: string, xml: string) => {
-        const hash = await hashArquivo(new TextEncoder().encode(xml).buffer as ArrayBuffer);
-        if (!vistos.has(hash)) { vistos.add(hash); fontes.push({ nome, xml, hash }); }
-    };
-    for (const f of files) {
-        try {
-            if (/\.zip$/i.test(f.name)) {
-                const itens = (await lerZip(new Uint8Array(await f.arrayBuffer()))).filter(i => /\.xml$/i.test(i.nome));
-                if (!itens.length) problemas.push(`${f.name}: nenhum XML dentro do zip.`);
-                for (const i of itens) await add(`${f.name}/${i.nome}`, new TextDecoder().decode(i.bytes));
-            } else if (/\.xml$/i.test(f.name)) await add(f.name, await f.text());
-            else problemas.push(`${f.name}: envie XML do eSocial ou um .zip com os XMLs.`);
-        } catch (e) { problemas.push(`${f.name}: ${(e as Error).message}`); }
-    }
-    return { fontes, problemas };
-}
-
-const FuncionariosCadastro: React.FC<Props> = ({ empresa, usuario, isAdmin, sindicatos }) => {
+const FuncionariosCadastro: React.FC<Props> = ({ empresa, usuario, isAdmin, sindicatos, horarios, afastamentos }) => {
+    const hoje = new Date().toISOString().slice(0, 10);
+    const afastadoHoje = useMemo(() => new Map(afastamentos.filter(a => emAberto(a, hoje)).map(a => [a.fichaId, a])), [afastamentos, hoje]);
     const [fichas, setFichas] = useState<FichaFuncionario[] | null>(null);
     const [erro, setErro] = useState('');
     const [busca, setBusca] = useState('');
@@ -99,7 +81,7 @@ const FuncionariosCadastro: React.FC<Props> = ({ empresa, usuario, isAdmin, sind
                                         <td className="p-2 font-mono">{fmtCpf(f.cpf)}</td>
                                         <td className="p-2">{f.dados.cargo}</td>
                                         <td className="p-2">{fmtData(f.dados.admissao)}</td>
-                                        <td className="p-2">{f.situacao === 'ativo' ? 'Ativo' : `Desligado ${fmtData(f.dados.dataDesligamento)}`}</td>
+                                        <td className="p-2">{f.situacao === 'ativo' ? (afastadoHoje.has(f.id) ? <span className="text-amber-700 dark:text-amber-300" title={`Motivo ${afastadoHoje.get(f.id)!.motivo}`}>Afastado desde {fmtData(afastadoHoje.get(f.id)!.dtInicio)}</span> : 'Ativo') : `Desligado ${fmtData(f.dados.dataDesligamento)}`}</td>
                                         <td className="p-2 text-xs" title={[...v.erros, ...v.avisos, ...f.pendenciasImportacao].join('\n')}>
                                             {v.erros.length > 0 && <span className="mr-1 rounded bg-red-100 px-1.5 text-red-800 dark:bg-red-900/40 dark:text-red-200">{v.erros.length} erro(s)</span>}
                                             {v.avisos.length + f.pendenciasImportacao.length > 0 && <span className="rounded bg-amber-100 px-1.5 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">{v.avisos.length + f.pendenciasImportacao.length}</span>}
@@ -113,7 +95,7 @@ const FuncionariosCadastro: React.FC<Props> = ({ empresa, usuario, isAdmin, sind
                 </div>
             )}
 
-            {aberta && <FichaFuncionarioModal key={aberta.ficha.id || 'nova'} ficha={aberta.ficha} nova={aberta.nova} sindicatos={sindicatos} usuario={usuario} isAdmin={isAdmin}
+            {aberta && <FichaFuncionarioModal key={aberta.ficha.id || 'nova'} ficha={aberta.ficha} nova={aberta.nova} sindicatos={sindicatos} horarios={horarios} afastamentos={afastamentos.filter(a => a.fichaId === aberta.ficha.id)} usuario={usuario} isAdmin={isAdmin}
                 onFechar={() => setAberta(null)} onSalvo={() => { setAberta(null); carregar(); }} />}
             {importar && fichas && <ImportarEsocialModal empresa={empresa} usuario={usuario} existentes={fichas} onFechar={() => setImportar(false)} onGravado={() => { setImportar(false); carregar(); }} />}
         </div>
