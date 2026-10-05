@@ -7,6 +7,14 @@
         { "fieldPath": "criadoPor",    "order": "ASCENDING" },
         { "fieldPath": "nomeFantasia", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "esocial_envios",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "empresaId", "order": "ASCENDING" },
+        { "fieldPath": "enviadoEm", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

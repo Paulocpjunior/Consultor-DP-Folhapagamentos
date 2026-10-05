@@ -1139,3 +1139,52 @@ guias sindicais".
 - **Prazos:** no topo, "Calendário da empresa" da empresa e competência
   ativas — vencimento com ajuste de dia útil, responsável, base legal,
   atraso destacado, contadores e botões Entregue / Não se aplica / Desfazer.
+
+## 05/10/2026 — Transmissão do eSocial pelo cofre do CFI
+
+- **Paulo: *"pode seguir com a transmissão do esocial pelo cofre"*.**
+- **Por que mudou:** as Cloud Functions antigas (`functions/`) liam o .pfx de
+  um caminho que não existe mais e a senha em texto no Firestore, não
+  conferiam a carteira e geravam eventos incompletos (o S-1200 saía só com o
+  CPF). Saíram do repositório; a entrada `functions` do `firebase.json` também.
+  Se alguma delas estiver publicada no projeto, apagar pelo console.
+- **CFI** (`sefaz-backend/esocial-envio.js`, `dp-acesso-empresa.js`, rotas
+  `/api/dp-integration/esocial/envio/{lote,consulta}`):
+  - **Acesso:** só o projeto do DP entra. A carteira é conferida lendo a
+    empresa no Firestore do DP com o token do próprio usuário: as regras do
+    DP decidem, sem cópia da carteira no CFI.
+  - **Conferência de cada evento:** raiz `<eSocial>`, tipo, Id, empregador,
+    ambiente e grupo. O lote leva até 50 eventos, de um grupo só.
+  - **Assinatura e envio:** assina com o A1 do cofre (o do escritório,
+    procurador, ou o da empresa); a assinatura antiga do XML é trocada.
+    Envia em `WsEnviarLoteEventos` (o lote em si não é assinado).
+  - **Ambiente:** produção restrita é o padrão; produção exige
+    `confirmoProducao`, como no gateway da EFD-Reinf.
+  - **Consulta:** só aceita protocolo que saiu do túnel para a mesma empresa e
+    ambiente.
+  - **Auditoria:** `dp_esocial_envio_log`, sem o conteúdo dos eventos.
+- **DP** (`services/esocial/transmissao.ts`, `transmissaoService.ts`, aba
+  eSocial › Transmissão):
+  - **Eventos gerados aqui:** S-1299 (mensal ou anual do 13º, com os
+    indicadores e a DCTFWeb) e S-1298, leiaute S-1.3.
+  - **XML pronto:** IOB ou outro sistema; a tela confere empresa e ambiente
+    antes de enviar.
+  - **`esocial_envios`:** protocolo, Ids, tipos, recibos e ocorrências. O
+    usuário cria e a consulta atualiza; ninguém apaga. Precisa do índice
+    `empresaId` + `enviadoEm`.
+  - **Aba Eventos:** virou só controle. O botão "Transmitir" leva à aba
+    Transmissão.
+- **Validação contra os XSDs oficiais (nfephp sped-esocial):**
+  - S-1299 mensal e anual e S-1298, assinados com o A1 de teste do CFI,
+    passam em `evtFechaEvPer`/`evtReabreEvPer` v_S_01_03_00;
+  - o lote passa em EnvioLoteEventos v1_1_1;
+  - a consulta passa em ConsultaLoteEventos v1_0_0.
+- **Testes:**
+  - CFI: 14 novos (626 suítes, 9189 testes);
+  - DP: 11 novos (485 testes);
+  - regras no emulador: 32.
+- **Pendente de teste real:**
+  - Primeiro envio em produção restrita, depois do deploy do CFI, com o A1 do
+    escritório no cofre.
+  - Confirmar que a procuração cobre o envio; se não cobrir, usar
+    "certificado da própria empresa".
