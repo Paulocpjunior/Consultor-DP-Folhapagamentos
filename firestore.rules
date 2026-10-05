@@ -256,6 +256,26 @@ service cloud.firestore {
       allow delete: if isAdmin() && podeEmpresa(resource.data.empresaId);
     }
 
+    // Lotes do eSocial transmitidos pelo cofre do CFI (o CFI confere a carteira
+    // de novo antes de transmitir). Só Ids, tipos, recibos e ocorrências; o
+    // registro de uma entrega ao eSocial não se apaga, e a consulta só
+    // atualiza o resultado.
+    match /esocial_envios/{envioId} {
+      allow read, list: if podeEmpresa(resource.data.empresaId);
+      allow create: if podeEmpresa(request.resource.data.empresaId)
+                    && request.resource.data.enviadoPor == request.auth.uid
+                    && request.resource.data.empresaId is string
+                    && request.resource.data.protocolo is string
+                    && request.resource.data.tpAmb in [1, 2]
+                    && request.resource.data.eventos is list
+                    && request.resource.data.eventos.size() <= 50;
+      allow update: if podeEmpresa(resource.data.empresaId)
+                    && request.resource.data.consultadoPor == request.auth.uid
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['situacao', 'cdResposta', 'descResposta', 'ocorrencias', 'eventos', 'consultadoEm', 'consultadoPor', 'consultadoPorEmail']);
+      allow delete: if false;
+    }
+
     // Calendário de obrigações: o que já foi entregue (ou não se aplica) na
     // empresa e competência. Id = empresa_obrigação-AAAA-MM. Desfazer a
     // marcação é de quem trabalha na empresa (fica na auditoria). "competencia"

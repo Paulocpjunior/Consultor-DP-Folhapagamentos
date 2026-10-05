@@ -8,11 +8,12 @@ import CofreCertificadosPanel from '../certificados/CofreCertificadosPanel';
 import ESocialRelatorio from './ESocialRelatorio';
 import ESocialAuditLog from './ESocialAuditLog';
 import ESocialDownload from './ESocialDownload';
+import ESocialTransmissao from './ESocialTransmissao';
 import PontoEditorPanel from '../ponto/PontoEditorPanel';
 import PontoPanel from '../ponto/PontoPanel';
 import type { User } from '../../types';
 
-type SubTab = 'dashboard' | 'eventos' | 'download' | 'fgts' | 'calendario' | 'certificados' | 'teses' | 'ponto' | 'ponto_eletronico' | 'relatorio' | 'audit';
+type SubTab = 'dashboard' | 'eventos' | 'transmissao' | 'download' | 'fgts' | 'calendario' | 'certificados' | 'teses' | 'ponto' | 'ponto_eletronico' | 'relatorio' | 'audit';
 
 interface Props {
     currentUser: User;
@@ -24,6 +25,7 @@ const ESocialMonitorPanel: React.FC<Props> = ({ currentUser }) => {
     const tabs: { id: SubTab; label: string; icon: string }[] = [
         { id: 'dashboard',    label: 'Dashboard',    icon: '📊' },
         { id: 'eventos',      label: 'Eventos',      icon: '📄' },
+        { id: 'transmissao',  label: 'Transmissão',  icon: '📤' },
         { id: 'download',     label: 'Download',     icon: '⬇️' },
         { id: 'fgts',         label: 'FGTS Digital', icon: '💰' },
         { id: 'calendario',   label: 'Calendário',   icon: '📅' },
@@ -64,7 +66,8 @@ const ESocialMonitorPanel: React.FC<Props> = ({ currentUser }) => {
             </div>
 
             {subTab === 'dashboard' && <ESocialDashboard />}
-            {subTab === 'eventos' && <ESocialEventos currentUser={currentUser} />}
+            {subTab === 'eventos' && <ESocialEventos currentUser={currentUser} onIrParaTransmissao={() => setSubTab('transmissao')} />}
+            {subTab === 'transmissao' && <ESocialTransmissao usuario={currentUser ? { id: (currentUser as { uid?: string }).uid ?? currentUser.id, email: currentUser.email } : undefined} />}
             {subTab === 'download' && <ESocialDownload />}
             {subTab === 'fgts' && <ESocialFgts />}
             {subTab === 'calendario' && <ESocialCalendario />}

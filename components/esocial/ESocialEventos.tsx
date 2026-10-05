@@ -1,12 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { getFunctions, httpsCallable } from 'firebase/functions';
 import { listarEventosPaginado, criarEvento, atualizarEvento, excluirEvento, registrarAudit, verificarDuplicidade } from '../../services/esocial/esocialService';
 import type { PaginatedResult } from '../../services/esocial/esocialService';
 import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
 import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
 import type { EventoEsocial, EventoTipo, EventoStatus } from '../../services/esocial/esocialTypes';
 import { EVENTO_LABELS } from '../../services/esocial/esocialTypes';
-import app from '../../services/firebaseConfig';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import type { QueryDocumentSnapshot } from 'firebase/firestore';
 import type { User } from '../../types';
@@ -14,6 +12,8 @@ import { validarCPF, formatarCPF } from '../../utils/validacoes';
 
 interface Props {
     currentUser?: User;
+    /** A transmissão é feita em eSocial › Transmissão (pelo cofre do CFI). */
+    onIrParaTransmissao?: () => void;
 }
 
 const STATUS_BADGES: Record<EventoStatus, { label: string; cls: string }> = {
@@ -23,7 +23,7 @@ const STATUS_BADGES: Record<EventoStatus, { label: string; cls: string }> = {
     processado:  { label: 'Processado',  cls: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' },
 };
 
-const ESocialEventos: React.FC<Props> = ({ currentUser }) => {
+const ESocialEventos: React.FC<Props> = ({ currentUser, onIrParaTransmissao }) => {
     const auditUser = { email: currentUser?.email || '', uid: (currentUser as any)?.uid || '' };
     const [page, setPage] = useState<PaginatedResult<EventoEsocial> | null>(null);
     const [empresas, setEmpresas] = useState<Empresa[]>([]);
@@ -150,79 +150,6 @@ const ESocialEventos: React.FC<Props> = ({ currentUser }) => {
         reload();
     };
 
-    const [transmitindo, setTransmitindo] = useState<string | null>(null);
-    const [msgTransmissao, setMsgTransmissao] = useState('');
-    const [showMultiEmpresa, setShowMultiEmpresa] = useState(false);
-    const [empresasSelecionadas, setEmpresasSelecionadas] = useState<string[]>([]);
-    const [resumoMulti, setResumoMulti] = useState<any[] | null>(null);
-
-    const handleTransmitir = async (id: string) => {
-        if (!app) return;
-        // Deduplication check
-        const evento = eventos.find(e => e.id === id);
-        if (evento) {
-            try {
-                const duplicado = await verificarDuplicidade(evento.empresaId, evento.tipo, evento.competencia);
-                if (duplicado && duplicado.id !== id) {
-                    const comp = evento.competencia.split('-').reverse().join('/');
-                    if (!confirm(`Evento ${evento.tipo} ja transmitido para competencia ${comp}. Deseja retransmitir?`)) return;
-                }
-            } catch (e) {
-                console.error('Erro ao verificar duplicidade:', e);
-            }
-        }
-        if (!confirm('Transmitir este evento ao eSocial?')) return;
-        setTransmitindo(id);
-        setMsgTransmissao('');
-        try {
-            const functions = getFunctions(app, 'southamerica-east1');
-            const transmitir = httpsCallable(functions, 'transmitirEvento');
-            const result: any = await transmitir({ eventoId: id });
-            const sucesso = !!result.data?.sucesso;
-            setMsgTransmissao(sucesso
-                ? `Transmitido! Protocolo: ${result.data.protocolo || 'N/A'}`
-                : `Rejeitado: ${result.data.mensagem || 'Erro'}`);
-            registrarAudit({ acao: 'transmitir_evento', ...auditUser, usuarioEmail: auditUser.email, usuarioUid: auditUser.uid, eventoId: id, detalhes: result.data?.mensagem || (sucesso ? 'OK' : 'Erro'), sucesso });
-            reload();
-        } catch (e: any) {
-            setMsgTransmissao(`Erro: ${e?.message || 'Falha na transmissão'}`);
-            registrarAudit({ acao: 'transmitir_evento', ...auditUser, usuarioEmail: auditUser.email, usuarioUid: auditUser.uid, eventoId: id, detalhes: e?.message || 'Erro', sucesso: false });
-        } finally {
-            setTransmitindo(null);
-        }
-    };
-
-    const handleTransmitirMultiEmpresa = async () => {
-        if (!app || empresasSelecionadas.length === 0) return;
-        if (!confirm(`Transmitir pendentes de ${empresasSelecionadas.length} empresa(s)?`)) return;
-        setTransmitindo('multi');
-        setMsgTransmissao('');
-        setResumoMulti(null);
-        try {
-            const functions = getFunctions(app, 'southamerica-east1');
-            const fn = httpsCallable(functions, 'transmitirMultiEmpresa');
-            const result: any = await fn({ empresasIds: empresasSelecionadas });
-            const resumo = result.data?.resumo || [];
-            setResumoMulti(resumo);
-            const totalOk = resumo.reduce((a: number, r: any) => a + (r.sucesso || 0), 0);
-            const totalFail = resumo.reduce((a: number, r: any) => a + (r.falha || 0), 0);
-            const msg = `Multi-empresa: ${totalOk} transmitido(s), ${totalFail} rejeitado(s) em ${resumo.length} empresa(s)`;
-            setMsgTransmissao(msg);
-            registrarAudit({ acao: 'transmitir_multi_empresa', ...auditUser, usuarioEmail: auditUser.email, usuarioUid: auditUser.uid, detalhes: msg, sucesso: totalFail === 0 });
-            reload();
-        } catch (e: any) {
-            setMsgTransmissao(`Erro multi-empresa: ${e?.message || 'Falha'}`);
-        } finally {
-            setTransmitindo(null);
-        }
-    };
-
-    const toggleEmpresa = (id: string) => {
-        setEmpresasSelecionadas(prev =>
-            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-        );
-    };
-
     const eventos = page?.items || [];
     const pendentes = eventos.filter(e => e.status === 'pendente');
     const processados = eventos.filter(e => e.status === 'processado' && e.protocolo);
@@ -278,54 +205,22 @@ const ESocialEventos: React.FC<Props> = ({ currentUser }) => {
                     ))}
                 </select>
 
-                <button
-                    onClick={() => { setShowMultiEmpresa(!showMultiEmpresa); setShowForm(false); setShowRetifForm(false); }}
-                    className="px-3 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium"
-                >
-                    Multi-Empresa
-                </button>
 
                 <span className="text-xs text-slate-500 dark:text-slate-400 ml-auto">
                     Mostrando {eventos.length} de {page?.total || 0} evento(s)
                 </span>
 
-                {pendentes.length > 0 && (
-                    <button
-                        onClick={async () => {
-                            if (!app) return;
-                            if (!confirm(`Transmitir ${pendentes.length} evento(s) pendente(s) ao eSocial?`)) return;
-                            setTransmitindo('lote');
-                            setMsgTransmissao('');
-                            try {
-                                const functions = getFunctions(app, 'southamerica-east1');
-                                const transmitirLoteFn = httpsCallable(functions, 'transmitirLote');
-                                const result: any = await transmitirLoteFn({ eventosIds: pendentes.map(e => e.id) });
-                                const r = result.data?.resultados || [];
-                                const ok = r.filter((x: any) => x.sucesso).length;
-                                const fail = r.filter((x: any) => !x.sucesso).length;
-                                setMsgTransmissao(`Lote: ${ok} transmitido(s), ${fail} rejeitado(s)`);
-                                reload();
-                            } catch (e: any) {
-                                setMsgTransmissao(`Erro lote: ${e?.message || 'Falha'}`);
-                            } finally {
-                                setTransmitindo(null);
-                            }
-                        }}
-                        disabled={transmitindo !== null}
-                        className="px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-lg font-medium"
-                    >
-                        {transmitindo === 'lote' ? 'Transmitindo...' : `Transmitir ${pendentes.length} Pendente(s)`}
+                {pendentes.length > 0 && onIrParaTransmissao && (
+                    <button onClick={onIrParaTransmissao} className="px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium">
+                        Transmitir pelo cofre
                     </button>
                 )}
             </div>
 
             {/* Mensagem de transmissão */}
-            {msgTransmissao && (
-                <div className={`p-3 rounded-lg text-sm ${msgTransmissao.startsWith('Transmitido') || msgTransmissao.startsWith('Lote:') || msgTransmissao.startsWith('Multi-empresa:') ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700' : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-700'}`}>
-                    {msgTransmissao}
-                    <button onClick={() => setMsgTransmissao('')} className="ml-2 underline text-xs">fechar</button>
-                </div>
-            )}
+            <p className="rounded bg-blue-50 p-2 text-xs text-blue-800 dark:bg-blue-900/20 dark:text-blue-200">
+                Esta lista é o controle dos eventos da folha. A transmissão ao eSocial é feita em eSocial › Transmissão, pelo cofre de certificados do Consultor Fiscal (com a conferência da sua carteira).
+            </p>
 
             {/* Form de novo evento */}
             {showForm && (
@@ -413,86 +308,6 @@ const ESocialEventos: React.FC<Props> = ({ currentUser }) => {
                 </form>
             )}
 
-            {/* Painel multi-empresa */}
-            {showMultiEmpresa && (
-                <div className="p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-lg space-y-3">
-                    <h3 className="font-medium text-purple-700 dark:text-purple-300 text-sm">
-                        Transmitir Pendentes — Múltiplas Empresas
-                    </h3>
-                    <p className="text-xs text-purple-600 dark:text-purple-400">
-                        Selecione as empresas cujos eventos pendentes serão transmitidos em lote.
-                        Cada empresa usa seu próprio certificado digital.
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-48 overflow-y-auto">
-                        {empresas.map(emp => (
-                            <label key={emp.id} className="flex items-center gap-2 p-2 rounded hover:bg-purple-100 dark:hover:bg-purple-900/30 cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={empresasSelecionadas.includes(emp.id)}
-                                    onChange={() => toggleEmpresa(emp.id)}
-                                    className="rounded border-purple-300"
-                                />
-                                <span className="text-sm text-slate-700 dark:text-slate-300 truncate">{emp.nomeFantasia}</span>
-                            </label>
-                        ))}
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => setEmpresasSelecionadas(empresas.map(e => e.id))}
-                            className="px-2 py-1 text-xs text-purple-600 hover:underline"
-                        >
-                            Selecionar todas
-                        </button>
-                        <button
-                            onClick={() => setEmpresasSelecionadas([])}
-                            className="px-2 py-1 text-xs text-purple-600 hover:underline"
-                        >
-                            Limpar
-                        </button>
-                    </div>
-                    <div className="flex gap-2">
-                        <button
-                            onClick={handleTransmitirMultiEmpresa}
-                            disabled={empresasSelecionadas.length === 0 || transmitindo !== null}
-                            className="px-4 py-1.5 text-sm bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded font-medium"
-                        >
-                            {transmitindo === 'multi'
-                                ? 'Transmitindo...'
-                                : `Transmitir ${empresasSelecionadas.length} empresa(s)`}
-                        </button>
-                        <button onClick={() => setShowMultiEmpresa(false)}
-                            className="px-3 py-1.5 text-sm bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 rounded font-medium">
-                            Fechar
-                        </button>
-                    </div>
-                    {/* Resumo multi-empresa */}
-                    {resumoMulti && (
-                        <div className="mt-2 border-t border-purple-200 dark:border-purple-700 pt-2">
-                            <table className="w-full text-xs">
-                                <thead>
-                                    <tr className="text-left text-purple-600 dark:text-purple-400">
-                                        <th className="py-1 px-2">Empresa</th>
-                                        <th className="py-1 px-2 text-center">Total</th>
-                                        <th className="py-1 px-2 text-center">OK</th>
-                                        <th className="py-1 px-2 text-center">Falha</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {resumoMulti.map((r: any, i: number) => (
-                                        <tr key={i} className="border-t border-purple-100 dark:border-purple-800">
-                                            <td className="py-1 px-2 text-slate-700 dark:text-slate-300">{r.empresaNome}</td>
-                                            <td className="py-1 px-2 text-center">{r.total}</td>
-                                            <td className="py-1 px-2 text-center text-green-600">{r.sucesso}</td>
-                                            <td className="py-1 px-2 text-center text-red-600">{r.falha}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </div>
-            )}
-
             {/* Lista de eventos */}
             {eventos.length === 0 ? (
                 <div className="text-center py-8 text-slate-500 dark:text-slate-400">
@@ -537,11 +352,10 @@ const ESocialEventos: React.FC<Props> = ({ currentUser }) => {
                                             </td>
                                             <td className="py-2 px-2">
                                                 <div className="flex gap-1">
-                                                    {ev.status === 'pendente' && (
-                                                        <button onClick={() => handleTransmitir(ev.id)}
-                                                            disabled={transmitindo === ev.id}
-                                                            className="px-2 py-0.5 text-xs bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded font-medium">
-                                                            {transmitindo === ev.id ? '...' : 'Transmitir'}
+                                                    {ev.status === 'pendente' && onIrParaTransmissao && (
+                                                        <button onClick={onIrParaTransmissao}
+                                                            className="px-2 py-0.5 text-xs bg-green-600 hover:bg-green-700 text-white rounded font-medium">
+                                                            Transmitir
                                                         </button>
                                                     )}
                                                     {ev.status === 'rejeitado' && (
