@@ -1,5 +1,5 @@
 import { limparSessaoImplantacao } from '../services/implantacao/sessao';
-import { ehAdmin } from '../services/auth/papeis';
+import { ROTULO_PAPEL, ehAdmin, papelEfetivo } from '../services/auth/papeis';
 import React, { useState, useEffect, useRef, useCallback, Suspense, lazy } from 'react';
 import * as authService from '../services/auth/authService';
 import { consultarGateDepartamento, type GateDepartamento } from '../services/departamentoGate';
@@ -300,10 +300,10 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                     <div className="flex items-center justify-between h-14">
                         <div className="flex items-center gap-1">
                             <Logo iconOnly className="h-9 w-9 mr-3 hidden sm:block" />
-                            <span className="font-bold text-slate-800 dark:text-white mr-4 hidden sm:block">
+                            <span className="font-bold text-slate-800 dark:text-white mr-4 hidden xl:block whitespace-nowrap">
                                 Consultor DP · SP Assessoria
                             </span>
-                            {isAdmin && <a href="https://consultor-fiscal-inteligente-631239634290.us-west1.run.app/?painel=comunicacao&departamento=dp-folha" target="_blank" rel="noopener noreferrer" className="px-3 py-2 rounded-lg text-sm font-medium text-blue-700 dark:text-blue-300" title="Administração central de comunicação — acesso de admin no CFI">Templates e agendamentos ↗</a>}
+                            {isAdmin && <a href="https://consultor-fiscal-inteligente-631239634290.us-west1.run.app/?painel=comunicacao&departamento=dp-folha" target="_blank" rel="noopener noreferrer" className="px-3 py-2 rounded-lg text-sm font-medium text-blue-700 dark:text-blue-300 whitespace-nowrap" title="Administração central de comunicação (templates e agendamentos) — acesso de admin no CFI"><span className="hidden xl:inline">Templates e agendamentos </span><span className="xl:hidden">Templates </span>↗</a>}
                             {tabs.filter(t => !t.adminOnly || isAdmin).map(t => {
                                 const bloqueado = t.id === 'folha' && empresasCount === 0;
                                 const titulo = bloqueado ? 'Nenhuma empresa na sua carteira: peça ao gestor ou admin' : t.label;
@@ -330,7 +330,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                         <div className="flex items-center gap-2">
                             {isAdmin && (
                                 <span className="hidden sm:inline px-2 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-xs font-medium rounded">
-                                    👑 Admin
+                                    👑 {ROTULO_PAPEL[papelEfetivo(currentUser.role)]}
                                 </span>
                             )}
                             <span className="hidden md:block text-sm text-slate-600 dark:text-slate-300">
