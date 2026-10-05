@@ -1244,3 +1244,12 @@ guias sindicais".
   período".
 - **Login:** a tela não aparece com a sessão aberta (o Firebase mantém o login
   no navegador, como no CFI). Volta ao clicar em Sair.
+- **Ajustes vistos no print seguinte (mesmo dia):**
+  - **Selo do papel:** dizia "👑 Admin" também para o gestor; agora mostra o
+    papel de verdade (Gestor ou Admin).
+  - **Card "Selecionar empresa" da Folha:** dizia "1 empresa(s)" porque a tela
+    só mostra a empresa ativa. Com empresa ativa, passa a dizer "Abra o
+    período MM/AAAA da empresa ativa…".
+  - **Cabeçalho:** o nome do app e "Templates e agendamentos" não quebram mais
+    linha. O nome só aparece em telas largas, e o link fica "Templates ↗" nas
+    estreitas.

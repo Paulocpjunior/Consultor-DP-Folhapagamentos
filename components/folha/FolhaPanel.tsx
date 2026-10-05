@@ -291,7 +291,9 @@ const SeletorEmpresa: React.FC<SeletorProps> = ({ currentUser, onSelecionar, onN
                     </div>
                     <h4 className="font-bold text-slate-800 dark:text-white mb-1">Selecionar empresa</h4>
                     <p className="text-xs text-slate-600 dark:text-slate-400 mb-4">
-                        Busque entre suas <strong>{empresas.length} empresa(s)</strong> cadastrada(s) e abra um período.
+                        {ativa
+                            ? <>Abra o período <strong>{compInicial}</strong> da empresa ativa (<strong>{ativa.nome}</strong>). Para outra, use “Trocar empresa ou período”.</>
+                            : <>Busque entre suas <strong>{empresas.length} empresa(s)</strong> cadastrada(s) e abra um período.</>}
                     </p>
                     <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 inline-flex items-center gap-1 group-hover:gap-2 transition-all">
                         Buscar <span aria-hidden>→</span>
