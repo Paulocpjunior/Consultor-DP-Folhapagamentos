@@ -194,10 +194,65 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
         setActiveTab('folha');
     }
 
+    // Boas-vindas a cada login: vem ANTES do portão de empresa e período
+    // (login → boas-vindas → ativar empresa e período → pendências).
+    const boasVindas = showWelcome && currentUser ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 dark:border-slate-700 overflow-hidden">
+                <div className="px-6 pt-6 pb-4 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 dark:from-blue-500/20 dark:to-indigo-500/20 border-b border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-2xl shrink-0">
+                            👋
+                        </div>
+                        <div className="min-w-0">
+                            <div className="text-[11px] font-semibold uppercase tracking-wider text-blue-700 dark:text-blue-300">
+                                {saudacaoPorHora()}
+                            </div>
+                            <div className="text-xl font-bold text-slate-900 dark:text-white truncate">
+                                {extrairNomeAmigavel(currentUser)}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="px-6 py-5">
+                    <p className="text-sm text-slate-700 dark:text-slate-300 mb-3">
+                        Você está em <strong>Consultor DP · SP Assessoria</strong>.
+                    </p>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                        {ativa
+                            ? <>Pronto para iniciar o apontamento de folha no <strong>IOB SAGE FOLHAMATIC</strong>?</>
+                            : <>Para começar, escolha a empresa da sua carteira e o período em que vai trabalhar.</>}
+                    </p>
+
+                    <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 py-3 border-y border-slate-200 dark:border-slate-700">
+                        <span>
+                            {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                        </span>
+                        <span className="font-mono font-semibold">
+                            {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                    </div>
+                </div>
+
+                <div className="px-6 pb-6 pt-2">
+                    <button
+                        onClick={() => { setShowWelcome(false); setShowPendencias(true); }}
+                        className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                    >
+                        {ativa ? 'Iniciar Folha de Pagamento' : 'Escolher empresa e período'}
+                        <span aria-hidden>→</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    ) : null;
+
     // Portão: tela que trabalha sobre um cliente exige empresa e período ativos.
     if (trocando || (!ativa && exigeEmpresaAtiva(activeTab))) {
         return (
             <><UpdateBanner />
+            {boasVindas}
             <AtivarEmpresaScreen
                 empresas={visiveis} erro={erroVisiveis} competenciaInicial={competenciaPadrao()} atual={ativa}
                 usuarioEmail={currentUser.email}
@@ -229,55 +284,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                     ⚠ {gate.aviso}
                 </div>
             )}
-            {showWelcome && currentUser && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4">
-                    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 dark:border-slate-700 overflow-hidden">
-                        <div className="px-6 pt-6 pb-4 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 dark:from-blue-500/20 dark:to-indigo-500/20 border-b border-slate-200 dark:border-slate-700">
-                            <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-2xl shrink-0">
-                                    👋
-                                </div>
-                                <div className="min-w-0">
-                                    <div className="text-[11px] font-semibold uppercase tracking-wider text-blue-700 dark:text-blue-300">
-                                        {saudacaoPorHora()}
-                                    </div>
-                                    <div className="text-xl font-bold text-slate-900 dark:text-white truncate">
-                                        {extrairNomeAmigavel(currentUser)}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="px-6 py-5">
-                            <p className="text-sm text-slate-700 dark:text-slate-300 mb-3">
-                                Você está em <strong>Consultor DP · SP Assessoria</strong>.
-                            </p>
-                            <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-                                Pronto para iniciar o apontamento de folha no <strong>IOB SAGE FOLHAMATIC</strong>?
-                            </p>
-
-                            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 py-3 border-y border-slate-200 dark:border-slate-700">
-                                <span>
-                                    {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                                </span>
-                                <span className="font-mono font-semibold">
-                                    {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                            </div>
-                        </div>
-
-                        <div className="px-6 pb-6 pt-2">
-                            <button
-                                onClick={() => { setShowWelcome(false); setShowPendencias(true); }}
-                                className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
-                            >
-                                Iniciar Folha de Pagamento
-                                <span aria-hidden>→</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {boasVindas}
 
             {showPendencias && currentUser && !showWelcome && (
                 <AlertaPendenciasPopup

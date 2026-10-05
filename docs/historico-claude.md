@@ -1231,3 +1231,16 @@ guias sindicais".
   - **Gravação:** nada é sobrescrito; enquadramento já cadastrado na vigência
     mostra as diferenças. Grava em lotes, com auditoria (origem "Backup IOB").
 - **Testes:** 495 passando (11 novos).
+
+## 05/10/2026 — Boas-vindas antes do portão de empresa e período
+
+- **Paulo (print):** depois de publicar as regras, as empresas apareceram, mas
+  *"não está gerando uma tela de login e boas-vindas"*.
+- **Causa:** a saudação só era desenhada no layout principal. Desde o portão
+  "Ativar empresa e período" (PR #61), o app mostrava o portão antes, e a
+  saudação ficava escondida até ativar uma empresa.
+- **Correção:** a ordem passa a ser login → boas-vindas → ativar empresa e
+  período → pendências. Sem empresa ativa, o botão diz "Escolher empresa e
+  período".
+- **Login:** a tela não aparece com a sessão aberta (o Firebase mantém o login
+  no navegador, como no CFI). Volta ao clicar em Sair.
