@@ -93,6 +93,15 @@ describe('sindicatos', () => {
         ]);
     });
 
+    it('valida a guia sindical do calendário (dia, meses, descrição)', () => {
+        expect(validarSindicato(normalizarSindicato({ ...s, guiaDia: '10', guiaMeses: ' 3, 9 ', guiaDescricao: 'Assistencial' }))).toEqual([]);
+        expect(validarSindicato(normalizarSindicato({ ...s, guiaDia: '31', guiaMeses: 'TODOS' }))).toEqual([]);
+        expect(validarSindicato({ ...s, guiaDia: '32', guiaMeses: '3, 13' })).toEqual([
+            'Guia sindical: o dia de vencimento deve ser de 1 a 31.', 'Guia sindical: meses devem ser "todos" ou números de 1 a 12 separados por vírgula.',
+        ]);
+        expect(validarSindicato({ ...s, guiaMeses: 'todos' })).toEqual(['Guia sindical: informe o dia de vencimento.']);
+    });
+
     it('situação da convenção pela data', () => {
         expect(situacaoConvencao(s, '2026-10-04')).toBe('vigente');
         expect(situacaoConvencao(s, '2027-04-01')).toBe('a vencer');

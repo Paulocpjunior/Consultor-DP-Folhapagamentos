@@ -111,6 +111,13 @@ const SindicatosCadastro: React.FC<Props> = ({ sindicatos, erroLista, usuario, i
                                 <input className={inp} value={edicao.piso} onChange={e => setEdicao({ ...edicao, piso: e.target.value })} aria-label="Piso salarial" placeholder="0,00" /></label>
                             <div className="sm:col-span-2">{texto('contribuicao', 'Contribuição / desconto sindical (como prevê a convenção)')}</div>
                         </fieldset>
+                        <fieldset className="grid gap-3 rounded border border-slate-200 p-3 sm:grid-cols-3 dark:border-slate-700">
+                            <legend className="px-1 text-xs font-medium text-slate-600 dark:text-slate-300">Guia sindical no calendário de obrigações</legend>
+                            {texto('guiaDia', 'Dia de vencimento (mês seguinte)', { inputMode: 'numeric', placeholder: '10' })}
+                            {texto('guiaMeses', 'Competências (todos ou 3, 9)', { placeholder: 'todos' })}
+                            {texto('guiaDescricao', 'Descrição da guia', { placeholder: 'Contribuição assistencial' })}
+                            <p className="text-xs text-slate-500 sm:col-span-3 dark:text-slate-400">Sem o dia, a guia não entra no calendário (não se inventa data). Dia que não existe no mês vira o último dia; dia não útil antecipa.</p>
+                        </fieldset>
                         <label className="block"><span className="text-xs font-medium text-slate-600 dark:text-slate-300">Observações (adicionais, aviso prévio, cláusulas que o DP precisa lembrar)</span>
                             <textarea className={inp} rows={3} value={edicao.s.observacoes} onChange={e => set('observacoes', e.target.value)} aria-label="Observações" /></label>
                         {erros.length > 0 && <ul role="alert" className="list-disc rounded bg-red-50 p-2 pl-6 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erros.map(e => <li key={e}>{e}</li>)}</ul>}

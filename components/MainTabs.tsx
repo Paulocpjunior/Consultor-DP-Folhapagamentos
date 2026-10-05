@@ -398,7 +398,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                 )}
                 {activeTab === 'prazos' && (
                     <Suspense fallback={<div className="py-12 text-center text-sm text-slate-500">Carregando…</div>}>
-                        <PrazosPanel onAbrirCadastros={() => setActiveTab('cadastros')}
+                        <PrazosPanel onAbrirCadastros={() => setActiveTab('cadastros')} usuario={currentUser ? { id: uidAtual, email: currentUser.email } : undefined}
                             onAbrirConferencia={() => { setFolhaSub(f => ({ sub: 'conferencia', n: (f?.n ?? 0) + 1 })); setActiveTab('folha'); }} />
                     </Suspense>
                 )}
