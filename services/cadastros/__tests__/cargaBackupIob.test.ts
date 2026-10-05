@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chaveColuna, compararComFichas, dataDoIob, linhaParaCampos, normalizarValor, proporMapeamento } from '../cargaBackupIob';
+import { aplicarComplementos, chaveColuna, compararComFichas, complementosFolhaWin, dataDoIob, linhaParaCampos, normalizarValor, proporMapeamento } from '../cargaBackupIob';
 import { fichaVazia, idFuncionario, type FichaFuncionario } from '../funcionarios';
 
 const EMP = { id: 'emp1', cnpj: '11222333000181' };
@@ -121,5 +121,40 @@ describe('comparação com as fichas do Consultor', () => {
         ], fichas, EMP, 'IOB', false);
         expect(r.completar[0].ficha.dados.codigoIob).toBe('17');
         expect(r.avisos[0]).toContain('Linha 2');
+    });
+});
+
+describe('FolhaWin (schema fNNNN do Backup SQL)', () => {
+    // Colunas da tabela `func` do FolhaWin, como estão no inventário do backup (05/10/2026), na ordem original.
+    const FUNC = ['codfun', 'nome', 'tiphole', 'sit', 'endereco', 'numero', 'comple', 'bairro', 'cid', 'cep', 'uf', 'telefone', 'ramal', 'email', 'foto', 'sexo', 'nasc', 'funcao', 'depto', 'cbo', 'grusal',
+        'codsind', 'dtadm', 'tipadm', 'tipmov', 'dtres', 'dteadm', 'numcp', 'sercp', 'ufcp', 'cpf', 'numrg', 'dtemrg', 'orgrg', 'pis', 'numtit', 'zonvot', 'bcofgt', 'dvcc', 'ufccfgts', 'cc', 'bcosal', 'agdsal',
+        'pai', 'mae', 'nacio', 'salban', 'ufrg', 'cargo', 'complem', 'matricula', 'dtctps', 'agfgts'];
+    it('as siglas do FolhaWin entram no de/para', () => {
+        expect(proporMapeamento(FUNC)).toMatchObject({
+            codigoIob: 'codfun', dataDesligamento: 'dtres', ctps: 'numcp', serieCtps: 'sercp', ufCtps: 'ufcp', orgaoRg: 'orgrg', emissaoRg: 'dtemrg',
+            tituloEleitor: 'numtit', sindicatoIob: 'codsind', banco: 'bcosal', agencia: 'agdsal', complemento: 'comple',
+            cpf: 'cpf', nome: 'nome', nascimento: 'nasc', admissao: 'dtadm', rg: 'numrg', numero: 'numero', departamentoIob: 'depto',
+        });
+    });
+
+    it('salário atual (marcado em "ultimo", senão o mais recente) e PIX pelo codfun', () => {
+        const salarios = { colunas: ['composto', 'codfun', 'codeven', 'anomes', 'valor', 'ultimo'], linhas: [
+            ['1', '0007', '1', '202401', '2000,00', 'N'], ['2', '0007', '1', '202501', '2500,00', 'S'], ['3', '0007', '1', '202502', '9999,00', 'N'],
+            ['4', '8', '1', '202401', '1800.00', null], ['5', '8', '1', '202503', '1900.00', ''], ['6', '9', '1', '202503', '', 'S'],
+        ] };
+        const funcdoc = { colunas: ['codfun', 'tipo', 'tpchavepix', 'vlchavepix'], linhas: [['7', '1', '1', ''], ['7', '2', '1', 'ana@x.com'], ['8', '1', '3', '+5511999990000']] };
+        const c = complementosFolhaWin(salarios, funcdoc);
+        expect(c.get('7')).toEqual({ salario: '2500.00', pix: 'ana@x.com' });
+        expect(c.get('8')).toEqual({ salario: '1900.00', pix: '+5511999990000' });
+        expect(c.has('9')).toBe(false);
+        const linhas = aplicarComplementos([
+            { linha: 1, valores: { cpf: '52998224725', codigoIob: '007' } },
+            { linha: 2, valores: { cpf: '11144477735', codigoIob: '8', salario: '1500.00' } },
+            { linha: 3, valores: { cpf: '39053344705' } },
+        ], c);
+        expect(linhas[0].valores).toMatchObject({ salario: '2500.00', pix: 'ana@x.com' });
+        expect(linhas[1].valores).toMatchObject({ salario: '1500.00', pix: '+5511999990000' });
+        expect(linhas[2].valores).toEqual({ cpf: '39053344705' });
+        expect(complementosFolhaWin(null, null).size).toBe(0);
     });
 });

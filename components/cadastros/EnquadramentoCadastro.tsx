@@ -7,6 +7,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { REGIMES, enquadramentoVazio, numeroDeTexto, validarEnquadramento, type Enquadramento, type RegimePatronal } from '../../services/cadastros/enquadramento';
+import CargaEnquadramentoIobModal from './CargaEnquadramentoIobModal';
 import { excluirEnquadramento, listarEnquadramentos, mensagemErro, salvarEnquadramento, type Usuario } from '../../services/cadastros/cadastrosService';
 
 interface Props { empresa: Empresa; usuario: Usuario; isAdmin: boolean }
@@ -22,6 +23,7 @@ const EnquadramentoCadastro: React.FC<Props> = ({ empresa, usuario, isAdmin }) =
     const [ed, setEd] = useState<Edicao | null>(null);
     const [erros, setErros] = useState<string[]>([]);
     const [salvando, setSalvando] = useState(false);
+    const [carga, setCarga] = useState(false);
 
     const carregar = useCallback(() => {
         setErro(''); setLista(null);
@@ -57,9 +59,13 @@ const EnquadramentoCadastro: React.FC<Props> = ({ empresa, usuario, isAdmin }) =
     return (
         <div className="space-y-3">
             <p className="rounded bg-slate-50 p-3 text-sm text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                Enquadramento previdenciário de <strong>{empresa.nomeFantasia || empresa.razaoSocial}</strong>, por vigência. Fecha a parte patronal no resumo da folha (DCTFWeb). Informe a partir do FPAS, do RAT do CNAE preponderante e do FAP publicado para o ano. Nada vem pronto.
+                Enquadramento previdenciário de <strong>{empresa.nomeFantasia || empresa.razaoSocial}</strong>, por vigência. Fecha a parte patronal no resumo da folha (DCTFWeb). Informe a partir do FPAS, do RAT do CNAE preponderante e do FAP publicado para o ano, ou carregue do backup do IOB.
             </p>
-            <button className="rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white" onClick={() => abrir(null)}>Novo enquadramento</button>
+            <div className="flex flex-wrap gap-2">
+                <button className="rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white" onClick={() => abrir(null)}>Novo enquadramento</button>
+                <button className="rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:text-white" onClick={() => setCarga(true)}>Carregar do backup do IOB (todas as empresas)</button>
+            </div>
+            {carga && <CargaEnquadramentoIobModal usuario={usuario} onFechar={() => setCarga(false)} onGravado={() => { setCarga(false); carregar(); }} />}
             {erro && <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
             {!lista && <p className="text-sm text-slate-500">Carregando…</p>}
             {lista && !lista.length && !erro && <p className="rounded border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-600">Nenhum enquadramento: o resumo da folha mostra só a parte dos segurados.</p>}

@@ -298,6 +298,29 @@ export async function salvarEnquadramento(antes: Enquadramento | null, e: Enquad
     await lote.commit();
 }
 
+/** Enquadramentos de todas as empresas da carteira (o gestor vê todos). */
+export async function listarTodosEnquadramentos(): Promise<Enquadramento[]> {
+    const docs = await consultarPorEmpresas(ENQ);
+    return docs.map(d => ({ ...enquadramentoVazio(), ...(d.data() as Enquadramento), id: d.id }));
+}
+
+/**
+ * Grava vários enquadramentos novos (carga do backup do IOB), cada um com o
+ * registro na auditoria, em lotes de até 200 (o Firestore aceita 500 escritas).
+ */
+export async function gravarEnquadramentosEmLote(lista: Enquadramento[], u: Usuario, origem: string, aoProgresso?: (feitos: number) => void): Promise<void> {
+    for (let i = 0; i < lista.length; i += 200) {
+        const lote = writeBatch(db);
+        for (const e of lista.slice(i, i + 200)) {
+            const id = idEnquadramento(e.empresaId, e.vigencia);
+            lote.set(doc(db, ENQ, id), { ...limpo(semId(soCampos(e, enquadramentoVazio()))), atualizadoPor: u.id, atualizadoPorEmail: u.email, atualizadoEm: serverTimestamp() });
+            auditar(lote, u, ENQ, id, 'criar', diffObjeto(null, soCampos(e, enquadramentoVazio())), { empresaId: e.empresaId, origem });
+        }
+        await lote.commit();
+        aoProgresso?.(Math.min(i + 200, lista.length));
+    }
+}
+
 export async function excluirEnquadramento(e: Enquadramento, u: Usuario): Promise<void> {
     const lote = writeBatch(db);
     lote.delete(doc(db, ENQ, e.id));
