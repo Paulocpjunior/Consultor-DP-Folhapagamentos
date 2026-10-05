@@ -26,7 +26,8 @@ describe('empresa e período ativos', () => {
         expect(ativacaoAindaValida(e, [{ id: 'E1' }])).toEqual(e);
         expect(ativacaoAindaValida(e, [{ id: 'E2' }])).toBeNull();
     });
-    it('Usuários e Empresas não exigem ativação; o resto exige', () => {
+    it('Usuários, Empresas e Certificados não exigem ativação; o resto exige', () => {
+        expect(exigeEmpresaAtiva('certificados')).toBe(false);
         expect(exigeEmpresaAtiva('admin')).toBe(false);
         expect(exigeEmpresaAtiva('empresas')).toBe(false);
         expect(exigeEmpresaAtiva('calculo')).toBe(true);

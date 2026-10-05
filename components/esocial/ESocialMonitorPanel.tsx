@@ -4,7 +4,7 @@ import ESocialEventos from './ESocialEventos';
 import ESocialFgts from './ESocialFgts';
 import ESocialCalendario from './ESocialCalendario';
 import ESocialTeses from './ESocialTeses';
-import ESocialCertificados from './ESocialCertificados';
+import CofreCertificadosPanel from '../certificados/CofreCertificadosPanel';
 import ESocialRelatorio from './ESocialRelatorio';
 import ESocialAuditLog from './ESocialAuditLog';
 import ESocialDownload from './ESocialDownload';
@@ -68,7 +68,7 @@ const ESocialMonitorPanel: React.FC<Props> = ({ currentUser }) => {
             {subTab === 'download' && <ESocialDownload />}
             {subTab === 'fgts' && <ESocialFgts />}
             {subTab === 'calendario' && <ESocialCalendario />}
-            {subTab === 'certificados' && <ESocialCertificados />}
+            {subTab === 'certificados' && <CofreCertificadosPanel />}
             {subTab === 'teses' && <ESocialTeses />}
             {subTab === 'ponto' && <PontoEditorPanel currentUser={currentUser} />}
             {subTab === 'ponto_eletronico' && <PontoPanel currentUser={currentUser} />}

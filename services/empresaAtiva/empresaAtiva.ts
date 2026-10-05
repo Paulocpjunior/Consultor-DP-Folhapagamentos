@@ -3,8 +3,9 @@
 // Empresa e período ATIVOS da sessão (como no CFI): depois do login, o
 // colaborador ativa UMA empresa da carteira e a competência de trabalho; é
 // nela que todas as telas trabalham até ele trocar.
-// - Tela que trabalha sobre um cliente exige a ativação; Usuários e o
-//   cadastro de Empresas não (são sobre o conjunto, não sobre um cliente).
+// - Tela que trabalha sobre um cliente exige a ativação; Usuários, o
+//   cadastro de Empresas e os Certificados da carteira não (são sobre o
+//   conjunto, não sobre um cliente).
 // - Trocar de empresa limpa o que estava na tela (as telas remontam).
 // - Sair limpa a ativação; recarregar a página (F5) não.
 // Guardada no navegador por usuário; sem Firestore.
@@ -20,10 +21,10 @@ export interface EmpresaAtiva {
     ativadaEm: number;
 }
 
-export type AbaApp = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'empresas' | 'esocial' | 'iobsage' | 'admin';
+export type AbaApp = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin';
 
 /** Abas que NÃO exigem empresa ativa. Lista curta e explícita: o padrão é exigir. */
-export const DISPENSAM_EMPRESA_ATIVA: AbaApp[] = ['admin', 'empresas'];
+export const DISPENSAM_EMPRESA_ATIVA: AbaApp[] = ['admin', 'empresas', 'certificados'];
 
 export const exigeEmpresaAtiva = (aba: AbaApp) => !DISPENSAM_EMPRESA_ATIVA.includes(aba);
 

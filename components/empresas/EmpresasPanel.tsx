@@ -5,8 +5,7 @@ import { formatCnpj } from '../../services/brasilApiService';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import type { User } from '../../types';
 import EmpresaForm from './EmpresaForm';
-import CertificadoManager from './CertificadoManager';
-import { calcularStatusCertificado, getStatusLabel } from '../../services/empresas/certificadoService';
+import { ROTULO_SITUACAO, cofreDaMinhaCarteira, diasDaLinha, precisaAtencao, type LinhaCofre } from '../../services/certificados/cofreCertificados';
 import { buscarCadastroCentral, conferirEmpresas, type ConferenciaCadastroCentral } from '../../services/cadastroCentralConferencia';
 import { getAuth } from 'firebase/auth';
 
@@ -25,7 +24,16 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser }) => {
     // Mesma condição das regras: gestor; quem cadastrou; admin nas empresas que enxerga (carteira ou cadastradas por ele).
     const podeEditar = (e: Empresa) => isGestor || isAdmin || e.criadoPor === ((currentUser as any).uid ?? currentUser.id);
 
+    // Certificados vêm do cofre único (CFI + Legal); falha aqui não esconde as empresas.
+    const [cofre, setCofre] = useState<Map<string, LinhaCofre> | null>(null);
+    const [erroCofre, setErroCofre] = useState('');
+    const carregarCofre = () => {
+        setErroCofre('');
+        cofreDaMinhaCarteira().then(r => setCofre(new Map(r.linhas.map(l => [l.cnpj, l])))).catch(e => setErroCofre((e as Error).message));
+    };
+
     const reload = async () => {
+        carregarCofre(); // "Atualizar" também traz a situação do cofre (renovação pode ter acontecido no Legal)
         setLoading(true); setErro('');
         try {
             const list = await listarEmpresasVisiveis();
@@ -154,12 +162,17 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser }) => {
                                         <td className="px-3 py-2 text-center"><code className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-xs">{e.codigoSage}</code></td>
                                         <td className="px-3 py-2 text-center">
                                             {(() => {
-                                                const st = calcularStatusCertificado(e.certificado?.validade);
-                                                const info = getStatusLabel(st);
+                                                // Situação no cofre único (CFI + Legal); só leitura.
+                                                const l = cofre?.get(e.cnpj.replace(/\D/g, ''));
+                                                if (!cofre) return <span className="text-xs text-slate-400" title={erroCofre || 'Carregando o cofre…'}>{erroCofre ? '—' : '…'}</span>;
+                                                const cls = !l || !l.apto ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200'
+                                                    : precisaAtencao(l) ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
+                                                    : 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200';
+                                                const d = l ? diasDaLinha(l) : null;
                                                 return (
                                                     <button onClick={() => setExpandedCert(expandedCert === e.id ? null : e.id)}
-                                                        className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer hover:opacity-80 ${info.cls}`}>
-                                                        {e.certificado ? `🔐 ${e.certificado.tipo} · ${info.label}` : info.label}
+                                                        className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer hover:opacity-80 ${cls}`}>
+                                                        🔐 {l ? ROTULO_SITUACAO[l.situacao] ?? l.situacao : 'Fora do cadastro central'}{d !== null && l?.apto ? ` · ${d} dia(s)` : ''}
                                                     </button>
                                                 );
                                             })()}
@@ -180,7 +193,7 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser }) => {
                                     {expandedCert === e.id && (
                                         <tr>
                                             <td colSpan={6} className="px-3 py-2 bg-slate-50 dark:bg-slate-800/50">
-                                                <CertificadoManager empresa={e} currentUser={currentUser} onAtualizado={reload} />
+                                                <DetalheCofre linha={cofre?.get(e.cnpj.replace(/\D/g, ''))} />
                                             </td>
                                         </tr>
                                     )}
@@ -190,6 +203,21 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser }) => {
                     </table>
                 </div>
             )}
+        </div>
+    );
+};
+
+const DetalheCofre: React.FC<{ linha?: LinhaCofre }> = ({ linha }) => {
+    const c = linha ? linha.certificado ?? linha.certificadoDaRaiz : null;
+    const br = (d?: string | null) => (d ? d.slice(0, 10).split('-').reverse().join('/') : '—');
+    return (
+        <div className="space-y-1 text-xs text-slate-700 dark:text-slate-200">
+            {!linha && <p>Empresa fora do cadastro central do Consultor Fiscal: não há certificado no cofre. Cadastre-a no CFI.</p>}
+            {linha && <p>{linha.motivo}{linha.acao ? ` ${linha.acao}` : ''}</p>}
+            {c && <p>Titular: {c.titular ?? '—'} · {c.tipo} · emissor {c.emissor ?? '—'} · válido até {br(c.validoAte)}{linha?.certificadoDaRaiz ? ' (certificado da matriz)' : ''}</p>}
+            {linha?.legal && <p>Departamento Legal: vencimento acompanhado {br(linha.legal.vencimentoInformado)}{linha.legal.ultimaRenovacao ? ` · última renovação ${br(linha.legal.ultimaRenovacao.dataAntiga)} → ${br(linha.legal.ultimaRenovacao.dataNova)}` : ''}</p>}
+            {linha?.divergenciaLegal === 'renovado-sem-upload' && <p className="font-medium text-red-700 dark:text-red-300">Renovado no Legal, mas o A1 novo não subiu ao cofre.</p>}
+            <p className="text-slate-500">O certificado novo (.pfx) sobe pelo app Legal, direto no cofre. Este app não envia nem baixa certificado.</p>
         </div>
     );
 };
