@@ -2,18 +2,20 @@
 //
 // Painel de prazos do DP (Fase 1, item 3 do plano): vencimentos mensais com
 // ajuste de dia útil e os prazos que saem dos cadastros de todas as empresas.
+// No topo, o calendário de obrigações da empresa e competência ativas.
 
 import React, { useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
 import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
-import { listarSindicatos, listarTodosAfastamentos, listarTodosFuncionariosAtivos, mensagemErro } from '../../services/cadastros/cadastrosService';
+import { listarSindicatos, listarTodosAfastamentos, listarTodosFuncionariosAtivos, mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
 import type { Afastamento } from '../../services/cadastros/afastamentos';
 import type { Sindicato } from '../../services/cadastros/sindicatos';
 import { br, diasEntre, somarDias } from '../../services/prazos/calendario';
 import { vencimentosNoPeriodo } from '../../services/prazos/obrigacoes';
+import CalendarioEmpresa from './CalendarioEmpresa';
 import { ROTULO_TIPO, prazosFuncionarios, prazosSindicatos, type Prazo, type TipoPrazo } from '../../services/prazos/prazosFuncionarios';
 
 const COR: Record<Prazo['gravidade'], string> = {
@@ -26,13 +28,13 @@ const quando = (data: string, hoje: string) => {
     return d === 0 ? 'hoje' : d === 1 ? 'amanhã' : d > 0 ? `em ${d} dias` : d === -1 ? 'ontem' : `há ${-d} dias`;
 };
 
-interface Props { onAbrirCadastros?: () => void; onAbrirConferencia?: () => void }
+interface Props { onAbrirCadastros?: () => void; onAbrirConferencia?: () => void; usuario?: Usuario }
 
-const PrazosPanel: React.FC<Props> = ({ onAbrirCadastros, onAbrirConferencia }) => {
+const PrazosPanel: React.FC<Props> = ({ onAbrirCadastros, onAbrirConferencia, usuario }) => {
     const hoje = new Date().toLocaleDateString('sv-SE'); // data local, AAAA-MM-DD
     const [horizonte, setHorizonte] = useState(60);
     // Abre na empresa ativa; dá para ver a carteira inteira escolhendo "todas".
-    const { ativa } = useEmpresaAtiva();
+    const { ativa, trocar } = useEmpresaAtiva();
     const [empresaId, setEmpresaId] = useState(ativa?.id ?? '');
     const [tipo, setTipo] = useState<TipoPrazo | ''>('');
     const [dados, setDados] = useState<{ empresas: Empresa[]; fichas: FichaFuncionario[]; afastamentos: Afastamento[]; sindicatos: Sindicato[] } | null>(null);
@@ -73,6 +75,11 @@ const PrazosPanel: React.FC<Props> = ({ onAbrirCadastros, onAbrirConferencia }) 
                 <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Prazos do DP</h2>
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Vencimentos do mês com ajuste de dia útil e os prazos que saem dos cadastros de todas as empresas.</p>
             </header>
+
+            {ativa && dados && (
+                <CalendarioEmpresa empresa={{ id: ativa.id, nome: ativa.nome, competencia: ativa.competencia }} fichas={dados.fichas} sindicatos={dados.sindicatos}
+                    usuario={usuario} hoje={hoje} onTrocar={trocar} onAbrirCadastros={onAbrirCadastros} />
+            )}
 
             <section className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
                 <div className="flex flex-wrap items-center justify-between gap-2">

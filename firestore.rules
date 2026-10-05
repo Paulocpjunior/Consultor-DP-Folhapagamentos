@@ -256,6 +256,24 @@ service cloud.firestore {
       allow delete: if isAdmin() && podeEmpresa(resource.data.empresaId);
     }
 
+    // Calendário de obrigações: o que já foi entregue (ou não se aplica) na
+    // empresa e competência. Id = empresa_obrigação-AAAA-MM. Desfazer a
+    // marcação é de quem trabalha na empresa (fica na auditoria). "competencia"
+    // é a de trabalho (a do 13º anual leva só o ano no id da obrigação).
+    match /obrigacoes_status/{marcacaoId} {
+      allow read, list: if podeEmpresa(resource.data.empresaId);
+      allow create, update: if podeEmpresa(request.resource.data.empresaId)
+                    && request.resource.data.atualizadoPor == request.auth.uid
+                    && request.resource.data.empresaId is string
+                    && request.resource.data.obrigacao is string
+                    && request.resource.data.competencia is string
+                    && request.resource.data.competencia.matches('^[0-9]{4}-(0[1-9]|1[0-2])$')
+                    && request.resource.data.obrigacao.matches('^[a-z0-9-]{3,80}$')
+                    && request.resource.data.status in ['entregue', 'nao-se-aplica']
+                    && marcacaoId == request.resource.data.empresaId + '_' + request.resource.data.obrigacao;
+      allow delete: if podeEmpresa(resource.data.empresaId);
+    }
+
     // ===== Cálculo (Fase 3) =====
     // Movimento do mês por funcionário: id = idDaFicha_AAAA-MM; a ficha começa pelo id da empresa.
     match /calculo_movimentos/{movId} {

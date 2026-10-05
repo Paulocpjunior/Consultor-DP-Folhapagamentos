@@ -1107,3 +1107,35 @@ e cópia no SharePoint na renovação); o cofre de verdade é o do CFI.
     proposta ao Paulo.
   - **P2:** "Atualizar" em Empresas também recarrega o cofre; o painel do
     eSocial mostra a data do A1 da matriz quando é ele que vale.
+
+## 05/10/2026 — Etapa 5: calendário de obrigações da folha por empresa
+
+Pedido do Paulo: "ausência de calendário de obrigações mensais que se
+referem à folha de pagamentos e seus encargos, como FGTS, eSocial, Reinf,
+guias sindicais".
+
+- **`services/prazos/obrigacoesEmpresa.ts` (puro):** obrigações da empresa
+  na competência ativa. Parte dos vencimentos gerais (salário, S-1299,
+  DCTFWeb, DARF, FGTS Digital, 13º e anuais do 13º) e acrescenta:
+  - **EFD-Reinf:** dia 15 do mês seguinte, dia não útil adia (mesma régua
+    do catálogo do CFI). Responsável: fiscal; o DP acompanha.
+  - **Contribuição sindical (março):** recolhimento até 30/04, só de quem
+    autorizou (CLT arts. 578, 579, 582 e 583).
+  - **Comprovante de rendimentos (janeiro):** último dia útil de fevereiro
+    (IN RFB 2.060/2021).
+  - **Guias sindicais da convenção:** dia e meses vêm do cadastro do
+    sindicato dos empregados ativos (CNPJ da ficha). Sem dia cadastrado não
+    se inventa data: a tela avisa qual sindicato está sem guia.
+  - Sem empregados ativos no cadastro, as obrigações ficam com a condição
+    "confira se há folha" (S-1299 e DCTFWeb valem mesmo sem movimento).
+- **Sindicato:** campos novos `guiaDia` (1 a 31; dia que não existe vira o
+  último do mês; não útil antecipa), `guiaMeses` ("todos" ou "3, 9") e
+  `guiaDescricao`, com validação e o bloco "Guia sindical no calendário".
+- **`obrigacoes_status/{empresa}_{obrigação}`:** marcação "entregue" ou
+  "não se aplica" (com motivo), vista por toda a equipe da empresa, com
+  auditoria em `cadastro_audit`. Regras: só quem tem a empresa (carteira,
+  cadastrou, ou gestor) lê, marca e desfaz; autor, status, competência e id
+  conferidos. Emulador: 29 testes (3 novos).
+- **Prazos:** no topo, "Calendário da empresa" da empresa e competência
+  ativas — vencimento com ajuste de dia útil, responsável, base legal,
+  atraso destacado, contadores e botões Entregue / Não se aplica / Desfazer.
