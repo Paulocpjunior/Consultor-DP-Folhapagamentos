@@ -34,41 +34,44 @@ export const chaveColuna = (c: string) => c.normalize('NFD').replace(/[̀-ͯ]/g,
 
 // Padrões testados contra o nome normalizado. A ordem importa: o primeiro campo
 // que reconhece a coluna fica com ela. É proposta — a equipe confere na tela.
+// Inclui as siglas do FolhaWin (tabela `func` do schema fNNNN, conferida no
+// inventário do backup de 05/10/2026): codfun, dtres, numcp, sercp, ufcp,
+// orgrg, dtemrg, numtit, codsind, bcosal, agdsal e comple.
 const SINONIMOS: [CampoCarga, RegExp][] = [
     ['cpf', /^(nr|num|numero)?cpf(func|trab|empregado)?$/],
     ['pis', /^(nr|num)?(pis|pasep|pispasep|nit)(func)?$/],
     ['matriculaEsocial', /^(matricula|matric|matesocial|matriculaesocial|nrmatricula)$/],
-    ['codigoIob', /^(cod|codigo|codfunc|codfuncionario|codempregado|codigofuncionario|cdfunc)$/],
+    ['codigoIob', /^(cod|codigo|codfun|codfunc|codfuncionario|codempregado|codigofuncionario|cdfunc)$/],
     ['nome', /^(nome|nomefunc|nomefuncionario|nmfunc|nomeempregado|nmtrab)$/],
     ['nascimento', /^(dt|data)?(nasc|nascimento|nascto)$/],
     ['admissao', /^(dt|data)?(adm|admissao|admis)$/],
-    ['dataDesligamento', /^(dt|data)?(demissao|desligamento|deslig|rescisao|dem)$/],
+    ['dataDesligamento', /^(dt|data)?(demissao|desligamento|deslig|rescisao|dem|res)$/],
     ['sexo', /^sexo$/],
     ['mae', /^(nome)?(mae|nomemae)$/],
     ['pai', /^(nome)?(pai|nomepai)$/],
-    ['ctps', /^(nr|num)?ctps$/],
-    ['serieCtps', /^(serie|seriectps|ctpsserie)$/],
-    ['ufCtps', /^(ufctps|ctpsuf)$/],
+    ['ctps', /^((nr|num)?ctps|numcp)$/],
+    ['serieCtps', /^(serie|seriectps|ctpsserie|sercp)$/],
+    ['ufCtps', /^(ufctps|ctpsuf|ufcp)$/],
     ['rg', /^(nr|num)?(rg|identidade|ci)$/],
-    ['orgaoRg', /^(orgao|orgaoemissor|orgaorg|emissorrg)$/],
-    ['emissaoRg', /^(dt|data)?(emissaorg|rgemissao|emissao)$/],
-    ['tituloEleitor', /^(titulo|tituloeleitor|nrtitulo)$/],
+    ['orgaoRg', /^(orgao|orgaoemissor|orgaorg|emissorrg|orgrg)$/],
+    ['emissaoRg', /^(dt|data)?(emissaorg|rgemissao|emissao|emrg)$/],
+    ['tituloEleitor', /^(titulo|tituloeleitor|nrtitulo|numtit)$/],
     ['cbo', /^(cbo|codcbo)$/],
     ['cargo', /^(cargo|nomecargo|desccargo|dscargo)$/],
     ['cargoIob', /^(codcargo|cdcargo)$/],
     ['funcao', /^(funcao|nomefuncao|descfuncao)$/],
     ['departamentoIob', /^(depto|departamento|coddepto|coddepartamento)$/],
     ['salario', /^(salario|salbase|salariobase|vlrsalario|valorsalario|sal)$/],
-    ['sindicatoIob', /^(sindicato|codsindicato|cdsindicato)$/],
+    ['sindicatoIob', /^(sindicato|codsind|codsindicato|cdsindicato)$/],
     ['sindicato', /^(cnpjsindicato|cnpjsind)$/],
-    ['banco', /^(banco|codbanco|cdbanco|bco)$/],
-    ['agencia', /^(agencia|ag|codagencia)$/],
+    ['banco', /^(banco|codbanco|cdbanco|bco|bcosal)$/],
+    ['agencia', /^(agencia|ag|codagencia|agdsal)$/],
     ['conta', /^(conta|contacorrente|nrconta|cc)$/],
-    ['pix', /^(pix|chavepix)$/],
+    ['pix', /^(pix|chavepix|vlchavepix)$/],
     ['cep', /^cep$/],
     ['logradouro', /^(endereco|logradouro|rua|ender)$/],
     ['numero', /^(numero|nr|num|nrender)$/],
-    ['complemento', /^(complemento|compl)$/],
+    ['complemento', /^(complemento|compl|comple)$/],
     ['bairro', /^bairro$/],
     ['uf', /^(uf|estado)$/],
     ['telefone', /^(telefone|fone|tel|celular)$/],
@@ -191,4 +194,62 @@ export function compararComFichas(linhas: LinhaIob[], fichas: FichaFuncionario[]
         r.novas.push({ ficha: nova, novo: true, alteracoes: diffFicha(null, nova), preservados: [] });
     }
     return r;
+}
+
+// ─── Tabelas complementares do FolhaWin ─────────────────────────────────────
+// No FolhaWin o salário não está na `func`: fica em `salarios` (histórico, com
+// o registro atual marcado em `ultimo`). A chave PIX fica em `funcdoc`
+// (`vlchavepix`). As duas ligam pelo `codfun`, o código do funcionário no IOB.
+
+export interface TabelaLida { colunas: string[]; linhas: Valor[][] }
+export type Complemento = Partial<Record<'salario' | 'pix', string>>;
+
+/** Código do funcionário sem zeros à esquerda, para ligar as tabelas. */
+export const chaveCodfun = (v: Valor) => (v ?? '').trim().replace(/^0+(?=.)/, '').toUpperCase();
+const sim = (v: Valor) => /^(s|t|1|true|sim|y|\.t\.)$/i.test((v ?? '').trim());
+const col = (t: TabelaLida, nome: string) => t.colunas.findIndex(c => chaveColuna(c) === nome);
+
+/**
+ * Salário atual e PIX por codfun. Salário: o registro marcado como `ultimo`;
+ * sem marca, o de maior `anomes`. PIX: a primeira chave preenchida.
+ */
+export function complementosFolhaWin(salarios: TabelaLida | null, funcdoc: TabelaLida | null): Map<string, Complemento> {
+    const r = new Map<string, Complemento>();
+    const pegar = (k: string) => { let c = r.get(k); if (!c) { c = {}; r.set(k, c); } return c; };
+    if (salarios) {
+        const [iCod, iVal, iUlt, iAno] = ['codfun', 'valor', 'ultimo', 'anomes'].map(n => col(salarios, n));
+        if (iCod >= 0 && iVal >= 0) {
+            const melhor = new Map<string, { ultimo: boolean; anomes: string; valor: string }>();
+            for (const l of salarios.linhas) {
+                const k = chaveCodfun(l[iCod]);
+                const valor = normalizarValor('salario', l[iVal] ?? null);
+                if (!k || !valor) continue;
+                const cand = { ultimo: iUlt >= 0 && sim(l[iUlt]), anomes: iAno >= 0 ? (l[iAno] ?? '').trim() : '', valor };
+                const atual = melhor.get(k);
+                if (!atual || (cand.ultimo && !atual.ultimo) || (cand.ultimo === atual.ultimo && cand.anomes > atual.anomes)) melhor.set(k, cand);
+            }
+            for (const [k, v] of melhor) pegar(k).salario = v.valor;
+        }
+    }
+    if (funcdoc) {
+        const [iCod, iPix] = ['codfun', 'vlchavepix'].map(n => col(funcdoc, n));
+        if (iCod >= 0 && iPix >= 0) {
+            for (const l of funcdoc.linhas) {
+                const k = chaveCodfun(l[iCod]);
+                const pix = normalizarValor('pix', l[iPix] ?? null);
+                if (k && pix && !r.get(k)?.pix) pegar(k).pix = pix;
+            }
+        }
+    }
+    return r;
+}
+
+/** Acrescenta salário e PIX das tabelas complementares a quem não os trouxe da tabela principal. */
+export function aplicarComplementos(linhas: LinhaIob[], comp: Map<string, Complemento>): LinhaIob[] {
+    if (!comp.size) return linhas;
+    return linhas.map(l => {
+        const c = l.valores.codigoIob ? comp.get(chaveCodfun(l.valores.codigoIob)) : undefined;
+        if (!c) return l;
+        return { ...l, valores: { ...l.valores, ...(c.salario && !l.valores.salario ? { salario: c.salario } : {}), ...(c.pix && !l.valores.pix ? { pix: c.pix } : {}) } };
+    });
 }

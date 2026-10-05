@@ -1188,3 +1188,46 @@ guias sindicais".
     escritório no cofre.
   - Confirmar que a procuração cobre o envio; se não cobrir, usar
     "certificado da própria empresa".
+
+## 05/10/2026 — Backup do IOB: sinônimos do FolhaWin e carga do enquadramento
+
+- **Paulo: *"pode seguir com a carga de enquadramento e sinônimos"*.**
+- **Sinônimos do FolhaWin no de/para** (`cargaBackupIob.ts`):
+  - **Siglas:** `codfun`, `dtres`, `numcp`, `sercp`, `ufcp`, `orgrg`, `dtemrg`,
+    `numtit`, `codsind`, `bcosal`, `agdsal` e `comple`.
+  - **Resultado:** contra as 223 colunas reais da `func` (inventário do
+    backup), a proposta acerta 34 dos 38 campos. Faltam o código do cargo
+    (`codcargo` está na `funcdoc`) e o CNPJ do sindicato (não está na
+    `func`).
+  - **Salário e PIX:** vêm de tabelas complementares do mesmo schema, ligadas
+    pelo `codfun`:
+    - salário de `salarios`: o registro marcado em `ultimo` ou, sem marca, o
+      de maior `anomes`;
+    - PIX de `funcdoc.vlchavepix`.
+    - O modal "Completar pelo backup do IOB" lê essas tabelas quando estão no
+      backup.
+  - **A conferir:** a `func` tem `cc` (proposto como conta) e `salban`; qual
+    é a conta do salário ainda não foi confirmado com dados reais.
+- **Carga do enquadramento** (`cargaEnquadramentoIob.ts`; botão em Cadastros ›
+  Enquadramento › "Carregar do backup do IOB"):
+  - **Escopo:** todas as empresas da carteira, ligadas pelo código SAGE
+    (`CODEMPRESA`).
+  - **Regime:** pela classificação tributária do S-1000 (`ES_S1000.FKCLASTRIB`):
+    - 01 → Simples (CPP no DAS);
+    - 02 → Simples Anexo IV;
+    - 03 e 04 → conferir;
+    - 06–14 e 60–99 → normal;
+    - código desconhecido → conferir (pode ser índice interno do IOB).
+  - **RAT e CNAE:** RAT (`PERCSAT`), RAT ajustado e CNAE vêm do `ES_S1005`.
+    Estabelecimentos com RAT diferentes viram pendência.
+  - **FAP:** por período (`ESOCIALEMPRESA`). Cada período ainda em uso
+    (encerrado depois do corte, por padrão janeiro do ano anterior) vira uma
+    vigência. Sem período, o FAP sai do RAT ajustado ÷ RAT, ou 1,0000
+    provisório com pendência.
+  - **CNPJ:** o CNPJ do IOB tem de ter a mesma raiz da empresa; senão, erro.
+  - **FPAS e terceiros:** vêm do `depto` do schema `fNNNN`, que só existe no
+    Backup SQL completo. Sem ele, a tela oferece um "FPAS padrão" (com
+    sugestões da `TERC`), aplicado só a quem a equipe marcar, com pendência.
+  - **Gravação:** nada é sobrescrito; enquadramento já cadastrado na vigência
+    mostra as diferenças. Grava em lotes, com auditoria (origem "Backup IOB").
+- **Testes:** 495 passando (11 novos).

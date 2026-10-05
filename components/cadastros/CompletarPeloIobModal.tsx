@@ -11,7 +11,7 @@ import type { Empresa } from '../../services/empresas/empresasTypes';
 import { fonteDeBlob } from '../../services/iobSage/backupPostgres';
 import { abrirRestauracao, type Restauracao, type TabelaRestauracao } from '../../services/iobSage/restauracao';
 import type { Codificacao } from '../../services/iobSage/dbf';
-import { CAMPOS_CARGA, compararComFichas, linhaParaCampos, proporMapeamento, rotuloCarga, type CampoCarga, type Comparacao, type LinhaIob, type Mapeamento } from '../../services/cadastros/cargaBackupIob';
+import { CAMPOS_CARGA, aplicarComplementos, complementosFolhaWin, compararComFichas, linhaParaCampos, proporMapeamento, rotuloCarga, type CampoCarga, type Comparacao, type LinhaIob, type Mapeamento, type TabelaLida } from '../../services/cadastros/cargaBackupIob';
 import { ROTULO, type CampoFicha, type FichaFuncionario } from '../../services/cadastros/funcionarios';
 import { gravarImportacao, mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
 import { CODIFICACOES } from '../iobSage/RestaurarBackupModal';
@@ -43,6 +43,11 @@ const CompletarPeloIobModal: React.FC<Props> = ({ empresa, usuario, existentes, 
         .map(t => ({ t, n: Object.keys(proporMapeamento(t.colunas)).length }))
         .sort((a, b) => b.n - a.n || nomeTabela(a.t).localeCompare(nomeTabela(b.t))), [rest]);
     const tabela = rest?.tabelas.find(t => t.id === tabelaId) ?? null;
+    // FolhaWin: salário em `salarios` e PIX em `funcdoc`, no mesmo schema da `func`, ligados pelo codfun.
+    const complementares = useMemo(() => (tabela && rest ? ['salarios', 'funcdoc']
+        .map(n => rest.tabelas.find(t => t.grupo === tabela.grupo && t.tabela.toLowerCase() === n))
+        .filter((t): t is TabelaRestauracao => !!t) : []), [rest, tabela]);
+    const [usarComplementares, setUsarComplementares] = useState(true);
 
     function escolherTabela(id: string, r = rest) {
         const t = r?.tabelas.find(x => x.id === id);
@@ -77,7 +82,18 @@ const CompletarPeloIobModal: React.FC<Props> = ({ empresa, usuario, existentes, 
                 if (iEmp >= 0 && alvo && semZeros(v[iEmp] ?? '') !== alvo) return;
                 linhas.push(linhaParaCampos(tabela.colunas, v, mapa, n));
             });
-            const c = compararComFichas(linhas, existentes, empresa, `IOB: ${nomeTabela(tabela)}`, criarNovas);
+            let finais = linhas;
+            if (usarComplementares && mapa.codigoIob && complementares.length) {
+                const lidas: Record<string, TabelaLida> = {};
+                for (const t of complementares) {
+                    setOcupado(`Lendo ${nomeTabela(t)}…`);
+                    const l: TabelaLida = { colunas: t.colunas, linhas: [] };
+                    await rest.lerTabela(t, v => { l.linhas.push(v); });
+                    lidas[t.tabela.toLowerCase()] = l;
+                }
+                finais = aplicarComplementos(linhas, complementosFolhaWin(lidas.salarios ?? null, lidas.funcdoc ?? null));
+            }
+            const c = compararComFichas(finais, existentes, empresa, `IOB: ${nomeTabela(tabela)}`, criarNovas);
             setComp(c); setLidas(linhas.length);
             setMarcados(new Set([...c.completar, ...c.novas].map(r => r.ficha.id)));
         } catch (e) { setErro(`${nomeTabela(tabela)}: ${(e as Error).message}`); }
@@ -163,6 +179,10 @@ const CompletarPeloIobModal: React.FC<Props> = ({ empresa, usuario, existentes, 
                                         </select>
                                     </label>
                                     {colEmpresa && <label>igual a<input aria-label="Código da empresa no IOB" className={`ml-2 w-24 ${sel}`} value={valorEmpresa} onChange={e => { setValorEmpresa(e.target.value); setComp(null); }} /></label>}
+                                    {complementares.length > 0 && (
+                                        <label className="flex items-center gap-1"><input type="checkbox" checked={usarComplementares} onChange={e => { setUsarComplementares(e.target.checked); setComp(null); }} />
+                                            Trazer {complementares.map(t => (t.tabela.toLowerCase() === 'salarios' ? 'o salário atual (salarios)' : 'a chave PIX (funcdoc)')).join(' e ')} pelo código do funcionário{!mapa.codigoIob && ' (indique a coluna do código IOB)'}</label>
+                                    )}
                                     <label className="flex items-center gap-1"><input type="checkbox" checked={criarNovas} onChange={e => { setCriarNovas(e.target.checked); setComp(null); }} />Criar ficha para quem não tem (com CPF válido e matrícula do eSocial)</label>
                                     <button className="ml-auto rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50" disabled={!temChave || !!ocupado} onClick={comparar}>Comparar com as fichas</button>
                                 </div>
