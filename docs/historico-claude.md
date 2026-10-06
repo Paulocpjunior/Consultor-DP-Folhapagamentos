@@ -1306,3 +1306,20 @@ guias sindicais".
   for gestor.
 - **Testes:** emulador com 38 testes (6 novos de chaves únicas); vitest com
   501.
+
+## 06/10/2026 — Busca de empresa na Folha e na ativação
+
+- **Paulo (prints):** *"a busca e pesquisa de empresa não está funcional, nem
+  por nome, nem número SAGE"*.
+- **Causa:** desde o portão (PR #61), a Folha só carregava a empresa ativa, e
+  o modal "Selecionar / Abrir empresa" buscava apenas nela. Por isso 1200 e
+  outros nomes não apareciam. A busca também não ignorava acentos e não
+  achava o CNPJ digitado com pontuação.
+- **Correção:**
+  - **Busca única** (`services/empresas/buscaEmpresas.ts`): nome e razão
+    social sem acento nem maiúscula, CNPJ com ou sem pontuação, código SAGE
+    com ou sem zeros. Vale no modal da Folha e na tela de ativação.
+  - **Modal da Folha:** busca em toda a carteira, com a empresa ativa já
+    marcada. Escolhendo outra empresa (ou outro mês), o app troca a empresa
+    ativa (`ativar` no contexto) e abre a folha dela direto: o pedido fica em
+    `sessionStorage` enquanto a tela remonta.

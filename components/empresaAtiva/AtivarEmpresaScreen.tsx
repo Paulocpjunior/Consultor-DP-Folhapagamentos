@@ -7,6 +7,7 @@
 import React, { useMemo, useState } from 'react';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { competenciaBr, competenciaValida, type EmpresaAtiva } from '../../services/empresaAtiva/empresaAtiva';
+import { filtrarEmpresas } from '../../services/empresas/buscaEmpresas';
 
 interface Props {
     empresas: Empresa[] | null;
@@ -24,17 +25,13 @@ interface Props {
 }
 
 const cnpjFmt = (c: string) => (c?.length === 14 ? `${c.slice(0, 2)}.${c.slice(2, 5)}.${c.slice(5, 8)}/${c.slice(8, 12)}-${c.slice(12)}` : c);
-const sem = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
 const AtivarEmpresaScreen: React.FC<Props> = ({ empresas, erro, competenciaInicial, atual, usuarioEmail, onAtivar, onCancelar, onIrParaEmpresas, onIrParaUsuarios, onSair }) => {
     const [busca, setBusca] = useState('');
     const [competencia, setCompetencia] = useState(atual?.competencia ?? competenciaInicial);
     const compOk = competenciaValida(competencia);
 
-    const lista = useMemo(() => {
-        const b = sem(busca.trim());
-        return (empresas ?? []).filter(e => !b || sem(`${e.nomeFantasia} ${e.razaoSocial} ${e.cnpj} ${e.codigoSage}`).includes(b));
-    }, [empresas, busca]);
+    const lista = useMemo(() => filtrarEmpresas(empresas ?? [], busca), [empresas, busca]);
 
     const ativar = (e: Empresa) => {
         if (!compOk) return;
