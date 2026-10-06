@@ -43,8 +43,8 @@ const CompletarPeloIobModal: React.FC<Props> = ({ empresa, usuario, existentes, 
         .map(t => ({ t, n: Object.keys(proporMapeamento(t.colunas)).length }))
         .sort((a, b) => b.n - a.n || nomeTabela(a.t).localeCompare(nomeTabela(b.t))), [rest]);
     const tabela = rest?.tabelas.find(t => t.id === tabelaId) ?? null;
-    // FolhaWin: salário em `salarios` e PIX em `funcdoc`, no mesmo schema da `func`, ligados pelo codfun.
-    const complementares = useMemo(() => (tabela && rest ? ['salarios', 'funcdoc']
+    // FolhaWin: salário em `salarios`, PIX em `funcdoc` e matrícula do eSocial no S-1200, no mesmo schema da `func`, ligados pelo codfun.
+    const complementares = useMemo(() => (tabela && rest ? ['salarios', 'funcdoc', 'esocialdadosficha_s1200_remunperapur']
         .map(n => rest.tabelas.find(t => t.grupo === tabela.grupo && t.tabela.toLowerCase() === n))
         .filter((t): t is TabelaRestauracao => !!t) : []), [rest, tabela]);
     const [usarComplementares, setUsarComplementares] = useState(true);
@@ -91,7 +91,7 @@ const CompletarPeloIobModal: React.FC<Props> = ({ empresa, usuario, existentes, 
                     await rest.lerTabela(t, v => { l.linhas.push(v); });
                     lidas[t.tabela.toLowerCase()] = l;
                 }
-                finais = aplicarComplementos(linhas, complementosFolhaWin(lidas.salarios ?? null, lidas.funcdoc ?? null));
+                finais = aplicarComplementos(linhas, complementosFolhaWin(lidas.salarios ?? null, lidas.funcdoc ?? null, lidas.esocialdadosficha_s1200_remunperapur ?? null));
             }
             const c = compararComFichas(finais, existentes, empresa, `IOB: ${nomeTabela(tabela)}`, criarNovas);
             setComp(c); setLidas(linhas.length);
@@ -181,7 +181,7 @@ const CompletarPeloIobModal: React.FC<Props> = ({ empresa, usuario, existentes, 
                                     {colEmpresa && <label>igual a<input aria-label="Código da empresa no IOB" className={`ml-2 w-24 ${sel}`} value={valorEmpresa} onChange={e => { setValorEmpresa(e.target.value); setComp(null); }} /></label>}
                                     {complementares.length > 0 && (
                                         <label className="flex items-center gap-1"><input type="checkbox" checked={usarComplementares} onChange={e => { setUsarComplementares(e.target.checked); setComp(null); }} />
-                                            Trazer {complementares.map(t => (t.tabela.toLowerCase() === 'salarios' ? 'o salário atual (salarios)' : 'a chave PIX (funcdoc)')).join(' e ')} pelo código do funcionário{!mapa.codigoIob && ' (indique a coluna do código IOB)'}</label>
+                                            Trazer {complementares.map(t => ({ salarios: 'o salário atual (salarios)', funcdoc: 'a chave PIX (funcdoc)' } as Record<string, string>)[t.tabela.toLowerCase()] ?? 'a matrícula do eSocial (S-1200)').join(', ')} pelo código do funcionário{!mapa.codigoIob && ' (indique a coluna do código IOB)'}</label>
                                     )}
                                     <label className="flex items-center gap-1"><input type="checkbox" checked={criarNovas} onChange={e => { setCriarNovas(e.target.checked); setComp(null); }} />Criar ficha para quem não tem (com CPF válido e matrícula do eSocial)</label>
                                     <button className="ml-auto rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50" disabled={!temChave || !!ocupado} onClick={comparar}>Comparar com as fichas</button>
