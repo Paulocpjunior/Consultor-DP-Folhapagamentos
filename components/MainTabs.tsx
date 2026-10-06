@@ -257,6 +257,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
             <AtivarEmpresaScreen
                 empresas={visiveis} erro={erroVisiveis} competenciaInicial={competenciaPadrao()} atual={ativa}
                 usuarioEmail={currentUser.email}
+                papel={ROTULO_PAPEL[papelEfetivo(currentUser.role)]}
                 onAtivar={ativarEmpresa}
                 onCancelar={ativa ? () => setTrocando(false) : undefined}
                 onIrParaEmpresas={() => { setTrocando(false); setActiveTab('empresas'); }}

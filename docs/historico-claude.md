@@ -1439,3 +1439,21 @@ guias sindicais".
     que passou): prazo indeterminado, e a data fica de fora.
 - **Regra de sempre:** a carga só preenche campos vazios. O que veio do
   eSocial ou foi digitado à mão não muda.
+
+## 06/10/2026 — Ativação: perfil e total de empresas visíveis
+
+- **Paulo (print da Juliana na tela Ativar empresa, busca "sp"):** *"esse
+  colaborador em questão, juliana é gestor"*.
+- **Diagnóstico pelo print:**
+  - A tela mostrou "Nenhuma empresa nesta busca", e não "Nenhuma empresa na
+    sua carteira". Logo, a lista dela não estava vazia, mas não trazia a SP.
+  - O gestor do Consultor DP lista todas as empresas (`escopoAtual` →
+    `listarTodasEmpresas`). Então, para o DP, a Juliana não é gestor.
+  - O papel do DP é o `users/{uid}.role` do próprio DP, que é diferente do
+    papel no CFI.
+- **Mudança:**
+  - A tela de ativação mostra o e-mail, o perfil no Consultor DP e quantas
+    empresas a pessoa enxerga ("todas as N" para o gestor, "N na carteira"
+    para os demais).
+  - A busca sem resultado diz entre quantas empresas procurou e, para quem
+    não é gestor, que falta incluir a empresa na carteira.
