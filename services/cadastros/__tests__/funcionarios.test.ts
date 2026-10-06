@@ -150,6 +150,14 @@ describe('importação do eSocial', () => {
         expect(r.preservados).toEqual([]);
     });
 
+    it('desligado pela data do IOB e sem S-2299: o eSocial não reativa, e fica pendência', () => {
+        const base = { ...fichaBase(), situacao: 'desligado' as const, dados: { ...fichaBase().dados, dataDesligamento: '2025-03-10' }, origens: { dataDesligamento: 'IOB: f1200.func', situacao: 'IOB: f1200.func' } };
+        const importada = { ...fichaBase(), situacao: 'ativo' as const, dados: { ...fichaBase().dados }, origens: { situacao: 'eSocial' } };
+        const r = mesclarComEsocial(base, importada);
+        expect(r.ficha.situacao).toBe('desligado');
+        expect(r.ficha.pendenciasImportacao.join(' ')).toMatch(/Desligado em 2025-03-10 .* sem S-2299/);
+    });
+
     it('S-2299 com aviso indenizado traz o fim projetado', () => {
         const comAviso = desligamento.replace('<mtvDeslig>02</mtvDeslig><dtDeslig>2026-09-01</dtDeslig>', '<mtvDeslig>07</mtvDeslig><dtDeslig>2026-09-01</dtDeslig><dtProjFimAPI>2026-10-06</dtProjFimAPI>');
         const p = prepararImportacao([fonte('adm.xml', admissao), fonte('des.xml', comAviso)], empresa, '2026-10-04', []);
