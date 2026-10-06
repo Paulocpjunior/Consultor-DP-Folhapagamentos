@@ -6,7 +6,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import type { Empresa } from '../../services/empresas/empresasTypes';
-import { fichaVazia, linhasPlanilha, validarFicha, ROTULO, type CampoFicha, type FichaFuncionario } from '../../services/cadastros/funcionarios';
+import { fichaVazia, linhasPlanilha, validarFicha, rotuloAlteracao, ROTULO, type CampoFicha, type FichaFuncionario } from '../../services/cadastros/funcionarios';
 import { gravarImportacao, listarFuncionarios, mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
 import { paraGravar, prepararImportacao, type PreviaImportacao } from '../../services/cadastros/importacaoEsocial';
 import type { Sindicato } from '../../services/cadastros/sindicatos';
@@ -205,7 +205,7 @@ const ImportarEsocialModal: React.FC<{ empresa: Empresa; usuario: Usuario; exist
                                                     onChange={e => setMarcados(m => { const n = new Set(m); if (e.target.checked) n.add(r.ficha.id); else n.delete(r.ficha.id); return n; })} /></td>
                                                 <td className="p-2">{r.ficha.dados.nome}{r.ficha.situacao === 'desligado' && <span className="ml-1 text-xs text-slate-500">(desligado)</span>}</td>
                                                 <td className="p-2 font-mono">{r.ficha.matriculaEsocial}</td>
-                                                <td className="p-2 text-xs">{r.novo ? 'Ficha nova' : r.alteracoes.length ? r.alteracoes.map(a => `${ROTULO[a.campo as CampoFicha] ?? a.campo}: ${a.de || '∅'} → ${a.para || '∅'}`).join('; ') : 'Nada'}</td>
+                                                <td className="p-2 text-xs">{r.novo ? 'Ficha nova' : r.alteracoes.length ? r.alteracoes.map(a => `${rotuloAlteracao(a.campo)}: ${a.de || '∅'} → ${a.para || '∅'}`).join('; ') : 'Nada'}</td>
                                                 <td className="p-2 text-xs text-amber-700 dark:text-amber-300">{r.ficha.pendenciasImportacao.length || ''}</td>
                                             </tr>
                                         );

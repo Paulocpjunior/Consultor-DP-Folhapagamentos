@@ -120,7 +120,8 @@ export function fichaDoEsocial(c: Cadastro, empresa: { id: string; cnpj: string 
         id: idFuncionario(empresa.id, c.cpf, c.matricula), empresaId: empresa.id, cnpj: empresa.cnpj,
         cpf: c.cpf, matriculaEsocial: c.matricula, situacao: c.desligado ? 'desligado' : 'ativo',
         dados, dependentes, origens,
-        pendenciasImportacao: c.pendencias.filter(p => !/Matrícula para IOB|Código IOB repetido|campo de 6 dígitos/.test(p)),
+        // A mesma pendência em vários eventos (ex.: leiaute antigo em cada S-2206) aparece uma vez.
+        pendenciasImportacao: [...new Set(c.pendencias.filter(p => !/Matrícula para IOB|Código IOB repetido|campo de 6 dígitos/.test(p)))],
     };
 }
 
@@ -177,7 +178,10 @@ export function validarFicha(f: FichaFuncionario): Validacao {
     return { erros, avisos };
 }
 
-export interface Alteracao { campo: ChaveOrigem | 'codigoIob' | 'matriculaEsocial' | 'cpf'; de: string; para: string }
+export interface Alteracao { campo: ChaveOrigem | 'codigoIob' | 'matriculaEsocial' | 'cpf' | 'pendencias'; de: string; para: string }
+
+/** Rótulo de uma alteração na prévia e no histórico. */
+export const rotuloAlteracao = (campo: string) => (campo === 'pendencias' ? 'Pendências da importação' : ROTULO[campo as CampoFicha] ?? campo);
 
 const depsTexto = (l: Dependente[]) => l.map(d => `${d.nome} (${d.nascimento || 's/ nasc.'}${d.cpf ? `, CPF ${d.cpf}` : ''})`).join('; ');
 
@@ -194,6 +198,9 @@ export function diffFicha(antes: FichaFuncionario | null, depois: FichaFuncionar
         if (de !== para) r.push({ campo: k, de, para });
     }
     if (depsTexto(a.dependentes) !== depsTexto(depois.dependentes)) r.push({ campo: 'dependentes', de: depsTexto(a.dependentes), para: depsTexto(depois.dependentes) });
+    // Pendências da importação também contam: senão um aviso novo (ou a limpeza de repetidos) nunca é gravado.
+    const pend = (f: FichaFuncionario) => (f.pendenciasImportacao ?? []).join('\n');
+    if (antes && pend(antes) !== pend(depois)) r.push({ campo: 'pendencias', de: `${antes.pendenciasImportacao?.length ?? 0}`, para: `${depois.pendenciasImportacao?.length ?? 0}` });
     return r;
 }
 
@@ -235,7 +242,14 @@ export function mesclarComEsocial(existente: FichaFuncionario | undefined, impor
             if (importada.dependentes.length) preservados.push({ campo: 'dependentes', manual: depsTexto(existente.dependentes), esocial: depsTexto(importada.dependentes) });
         } else { ficha.dependentes = importada.dependentes; ficha.origens.dependentes = importada.origens.dependentes; }
     }
-    if (existente.situacao !== importada.situacao) {
+    // Desligado pela data do IOB (dtres) e sem S-2299 nos arquivos: continua desligado, com pendência.
+    // Situação digitada à mão segue a regra de sempre (fica, e a divergência é listada).
+    const desligadoForaDoEsocial = importada.situacao === 'ativo' && !ehManual(existente.origens.situacao)
+        && !!ficha.dados.dataDesligamento && !ficha.origens.dataDesligamento?.startsWith('eSocial');
+    if (desligadoForaDoEsocial) {
+        ficha.situacao = 'desligado';
+        ficha.pendenciasImportacao = [...ficha.pendenciasImportacao, `Desligado em ${ficha.dados.dataDesligamento} (${ficha.origens.dataDesligamento ?? 'sem origem'}), sem S-2299 nos arquivos do eSocial: conferir.`];
+    } else if (existente.situacao !== importada.situacao) {
         if (ehManual(existente.origens.situacao)) preservados.push({ campo: 'situacao', manual: existente.situacao, esocial: importada.situacao });
         else { ficha.situacao = importada.situacao; ficha.origens.situacao = importada.origens.situacao; }
     }

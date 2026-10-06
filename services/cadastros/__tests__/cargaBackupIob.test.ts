@@ -274,3 +274,14 @@ describe('demais campos do contrato pelo FolhaWin', () => {
         expect(normalizarValor('categoria', '314')).toBe('314');
     });
 });
+
+describe('situação pela data de desligamento do IOB', () => {
+    it('ficha ativa que recebe a data de desligamento vira desligada; situação digitada à mão fica', () => {
+        const l = [{ linha: 1, valores: { cpf: CPF_A, dataDesligamento: '2025-03-10' } }];
+        const r = compararComFichas(l, [ficha(CPF_A, 'M1', { nome: 'ANA' })], EMP, 'IOB: f1200.func', false);
+        expect(r.completar[0].ficha.situacao).toBe('desligado');
+        expect(r.completar[0].alteracoes.map(a => a.campo)).toEqual(expect.arrayContaining(['dataDesligamento', 'situacao']));
+        const manual = compararComFichas(l, [{ ...ficha(CPF_A, 'M1', { nome: 'ANA' }), origens: { situacao: 'Manual · ana · 2026-10-01' } }], EMP, 'IOB', false);
+        expect(manual.completar[0].ficha.situacao).toBe('ativo');
+    });
+});

@@ -208,6 +208,10 @@ export function compararComFichas(linhas: LinhaIob[], fichas: FichaFuncionario[]
                 if (!atual || cboInvalido) { depois.dados[campo] = valor; depois.origens[campo] = origem; }
                 else if (atual !== valor) divergencias.push({ campo, consultor: atual, iob: valor });
             }
+            // Data de desligamento que chegou agora numa ficha ativa (e a situação não foi digitada): desligado.
+            if (depois.dados.dataDesligamento && !ficha.dados.dataDesligamento && depois.situacao === 'ativo' && !ehManual(ficha.origens.situacao)) {
+                depois.situacao = 'desligado'; depois.origens.situacao = origem;
+            }
             const alteracoes = diffFicha(ficha, depois);
             if (alteracoes.length) r.completar.push({ ficha: depois, novo: false, alteracoes, preservados: [], divergencias });
             else if (divergencias.length) r.soDivergencias.push({ ficha, divergencias });

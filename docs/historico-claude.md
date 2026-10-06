@@ -1476,3 +1476,17 @@ guias sindicais".
   - S-2206: o contrato é lido também quando está ao lado do `vinculo`
     (estrutura do 2.x).
   - Avisos repetidos viram uma linha com a quantidade e um exemplo.
+
+## 06/10/2026 — Situação pelo desligamento do IOB e pendências sem repetição
+
+- **Print após a nova importação:** 64 ativos (eram 59). Entraram fichas
+  novas pelo eSocial, por exemplo ALEKSANDRO, matrícula 000172, ainda sem
+  código IOB. Os números amarelos subiram em alguns funcionários antigos,
+  como ALEXANDRE SANCHES (5) e BRUNO HENRIQUE (5).
+- **Ajustes:**
+  - Carga do backup: uma ficha ativa que recebe a data de desligamento do
+    IOB (`dtres`) passa a desligada, salvo se a situação foi digitada à mão.
+  - Importação do eSocial: uma ficha desligada pela data do IOB, sem S-2299
+    nos arquivos, não é reativada. Fica com a pendência "conferir".
+  - Pendências repetidas em vários eventos (por exemplo, a de leiaute
+    antigo em cada S-2206) aparecem uma vez só.
