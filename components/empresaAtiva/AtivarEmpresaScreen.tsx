@@ -15,6 +15,8 @@ interface Props {
     competenciaInicial: string;
     atual: EmpresaAtiva | null;
     usuarioEmail: string;
+    /** Papel no Consultor DP (ex.: "Gestor"), para a pessoa saber por que vê estas empresas. */
+    papel?: string;
     onAtivar: (e: EmpresaAtiva) => void;
     /** Voltar sem trocar (só quando já há uma empresa ativa). */
     onCancelar?: () => void;
@@ -26,7 +28,7 @@ interface Props {
 
 const cnpjFmt = (c: string) => (c?.length === 14 ? `${c.slice(0, 2)}.${c.slice(2, 5)}.${c.slice(5, 8)}/${c.slice(8, 12)}-${c.slice(12)}` : c);
 
-const AtivarEmpresaScreen: React.FC<Props> = ({ empresas, erro, competenciaInicial, atual, usuarioEmail, onAtivar, onCancelar, onIrParaEmpresas, onIrParaUsuarios, onSair }) => {
+const AtivarEmpresaScreen: React.FC<Props> = ({ empresas, erro, competenciaInicial, atual, usuarioEmail, papel, onAtivar, onCancelar, onIrParaEmpresas, onIrParaUsuarios, onSair }) => {
     const [busca, setBusca] = useState('');
     const [competencia, setCompetencia] = useState(atual?.competencia ?? competenciaInicial);
     const compOk = competenciaValida(competencia);
@@ -47,6 +49,11 @@ const AtivarEmpresaScreen: React.FC<Props> = ({ empresas, erro, competenciaInici
                         <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
                             Escolha a empresa e a competência em que vai trabalhar. Todas as telas passam a usar essa empresa e esse período até você trocar.
                         </p>
+                        {papel && empresas && !erro && (
+                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                {usuarioEmail} · perfil no Consultor DP: <strong>{papel}</strong> · {papel === 'Gestor' ? `todas as ${empresas.length} empresas` : `${empresas.length} empresa(s) na carteira`}
+                            </p>
+                        )}
                     </div>
                     <div className="flex gap-2">
                         {onCancelar && <button onClick={onCancelar} className="rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600 dark:text-white">Voltar</button>}
@@ -95,7 +102,7 @@ const AtivarEmpresaScreen: React.FC<Props> = ({ empresas, erro, competenciaInici
                                 </button>
                             </li>
                         ))}
-                        {!lista.length && <li className="p-4 text-center text-sm text-slate-500">Nenhuma empresa nesta busca.</li>}
+                        {!lista.length && <li className="p-4 text-center text-sm text-slate-500">Nenhuma empresa nesta busca entre as {empresas.length} {papel === 'Gestor' ? 'cadastradas' : 'da sua carteira'}.{papel !== 'Gestor' && ' Se faltar alguma, peça ao gestor para incluí-la na sua carteira (Usuários › Carteira).'}</li>}
                     </ul>
                 )}
             </div>

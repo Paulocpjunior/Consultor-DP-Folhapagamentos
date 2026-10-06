@@ -6,7 +6,7 @@ import { fonteDeBytes } from '../../iobSage/backupPostgres';
 import { abrirRestauracao } from '../../iobSage/restauracao';
 import { gerarZip } from '../../implantacao/zip';
 import { brutoDoValor, chaveIdEvento, esocialDoBackup, recibosDoRetorno, xmlsDoValor } from '../esocialDoBackup';
-import { prepararImportacao } from '../importacaoEsocial';
+import { agruparAvisos, prepararImportacao } from '../importacaoEsocial';
 import { fichaVazia, idFuncionario, type FichaFuncionario } from '../funcionarios';
 
 const empresa = { id: 'emp1', cnpj: '11222333000181' };
@@ -126,5 +126,37 @@ describe('XMLs transmitidos pelo IOB, no Backup SQL', () => {
         const p = prepararImportacao([{ nome: 'a.xml', xml: admissao(ID_ADM), hash: 'h1' }], empresa, '2026-10-06', []);
         expect(p.resultados).toHaveLength(1);
         expect(p.resultados[0].ficha.pendenciasImportacao.join(' ')).toMatch(/aceitação não comprovada/);
+    });
+});
+
+describe('leiautes antigos guardados pelo IOB (só na importação pelo backup)', () => {
+    const v25 = (xml: string) => xml.replace(/v_S_01_03_00/g, 'v02_05_00');
+    const alt25 = `<eSocial xmlns="http://www.esocial.gov.br/schema/evt/evtAltContratual/v02_05_00"><evtAltContratual Id="${ID_ALT}"><ideEvento><indRetif>1</indRetif><tpAmb>1</tpAmb></ideEvento><ideEmpregador><tpInsc>1</tpInsc><nrInsc>11222333</nrInsc></ideEmpregador><ideVinculo><cpfTrab>${CPF}</cpfTrab><matricula>59</matricula></ideVinculo><altContratual><dtAlteracao>2026-03-01</dtAlteracao><vinculo><tpRegPrev>1</tpRegPrev></vinculo><infoRegimeTrab><infoCeletista><cnpjSindCategProf>11222333000181</cnpjSindCategProf></infoCeletista></infoRegimeTrab><infoContrato><codCateg>101</codCateg><remuneracao><vrSalFx>2700.00</vrSalFx><undSalFixo>5</undSalFixo></remuneracao><duracao><tpContr>1</tpContr></duracao><horContratual><qtdHrsSem>44</qtdHrsSem></horContratual></infoContrato></altContratual></evtAltContratual></eSocial>`;
+    const recibos = new Map([[chaveIdEvento(ID_ADM), '1.1.1'], [chaveIdEvento(ID_ALT), '1.1.2']]);
+
+    it('leiaute 2.5: aceito com aviso; o contrato do S-2206 2.x (ao lado do vinculo) é lido', () => {
+        const fontes = [{ nome: 'adm.xml', xml: v25(admissao(ID_ADM)), hash: 'a' }, { nome: 'alt.xml', xml: alt25, hash: 'b' }];
+        const p = prepararImportacao(fontes, empresa, '2026-10-06', [], { recibos, leiautesAntigos: true });
+        expect(p.resultados).toHaveLength(1);
+        expect(p.resultados[0].ficha.dados).toMatchObject({ categoria: '101', salario: '2700.00', horasSemanais: '44', sindicato: '11222333000181', tipoContrato: '1' });
+        expect(p.resultados[0].ficha.pendenciasImportacao.join(' ')).toMatch(/Leiaute v02_05_00/);
+        // Sem a opção (importação de XML baixado): recusa e diz o namespace que veio.
+        const sem = prepararImportacao(fontes, empresa, '2026-10-06', [], { recibos });
+        expect(sem.resultados).toEqual([]);
+        expect(sem.avisos.join(' ')).toContain('veio "http://www.esocial.gov.br/schema/evt/evtAdmissao/v02_05_00"');
+    });
+
+    it('XML sem namespace: aceito com aviso', () => {
+        const x = admissao(ID_ADM).replace(/ xmlns="[^"]+"/, '');
+        const p = prepararImportacao([{ nome: 'a.xml', xml: x, hash: 'a' }], empresa, '2026-10-06', [], { recibos, leiautesAntigos: true });
+        expect(p.resultados).toHaveLength(1);
+        expect(p.resultados[0].ficha.pendenciasImportacao.join(' ')).toMatch(/sem namespace/);
+    });
+
+    it('avisos repetidos viram uma linha com a quantidade', () => {
+        const msg = 'Versão/namespace eSocial não suportado.';
+        expect(agruparAvisos([...Array.from({ length: 5 }, (_, i) => `f1200.arquivo/ID${i}.xml: ${msg}`), 'x.xml: outro', 'Backup do IOB: 3 XML(s)'])).toEqual([
+            'Backup do IOB: 3 XML(s)', `5 arquivo(s): ${msg} Ex.: f1200.arquivo/ID0.xml`, 'x.xml: outro',
+        ]);
     });
 });

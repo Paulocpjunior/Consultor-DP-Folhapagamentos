@@ -1439,3 +1439,40 @@ guias sindicais".
     que passou): prazo indeterminado, e a data fica de fora.
 - **Regra de sempre:** a carga só preenche campos vazios. O que veio do
   eSocial ou foi digitado à mão não muda.
+
+## 06/10/2026 — Ativação: perfil e total de empresas visíveis
+
+- **Paulo (print da Juliana na tela Ativar empresa, busca "sp"):** *"esse
+  colaborador em questão, juliana é gestor"*.
+- **Diagnóstico pelo print:**
+  - A tela mostrou "Nenhuma empresa nesta busca", e não "Nenhuma empresa na
+    sua carteira". Logo, a lista dela não estava vazia, mas não trazia a SP.
+  - O gestor do Consultor DP lista todas as empresas (`escopoAtual` →
+    `listarTodasEmpresas`). Então, para o DP, a Juliana não é gestor.
+  - O papel do DP é o `users/{uid}.role` do próprio DP, que é diferente do
+    papel no CFI.
+- **Mudança:**
+  - A tela de ativação mostra o e-mail, o perfil no Consultor DP e quantas
+    empresas a pessoa enxerga ("todas as N" para o gestor, "N na carteira"
+    para os demais).
+  - A busca sem resultado diz entre quantas empresas procurou e, para quem
+    não é gestor, que falta incluir a empresa na carteira.
+
+## 06/10/2026 — Importação pelo backup: leiaute 2.x, XML sem namespace e avisos agrupados
+
+- **Print da importação na empresa 1200:**
+  - O backup foi lido: 2169 XMLs de vínculo e 22.535 recibos.
+  - Na prévia, 137 vínculos sem mudança (já importados) e 0 novos.
+  - Vieram 1946 avisos, a maioria "Versão/namespace eSocial não suportado".
+    Entre eles há eventos de 2022 e 2023, quando o leiaute já era S-1.x. O
+    problema, então, não é só versão: o IOB guarda parte dos XMLs com um
+    namespace que o leitor recusa.
+- **Mudanças:**
+  - A mensagem de recusa mostra o namespace que veio, para o diagnóstico.
+  - Na importação pelo backup (`leiautesAntigos`), o leitor aceita o leiaute
+    2.4/2.5 e o XML sem namespace. A ficha recebe uma pendência "conferir",
+    e, no 2.x, cargo e CBO não vêm no evento. A implantação e o XML baixado
+    do portal continuam exigindo S-1.x.
+  - S-2206: o contrato é lido também quando está ao lado do `vinculo`
+    (estrutura do 2.x).
+  - Avisos repetidos viram uma linha com a quantidade e um exemplo.

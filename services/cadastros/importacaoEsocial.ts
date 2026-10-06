@@ -19,6 +19,28 @@ export interface OpcoesImportacao {
      * fora — também quando o mapa vem vazio (nenhum envio aceito).
      */
     recibos?: Map<string, string> | null;
+    /** Aceita leiaute 2.x e XML sem namespace (backup do IOB), com aviso. */
+    leiautesAntigos?: boolean;
+}
+
+/**
+ * Avisos repetidos em muitos arquivos ("arquivo: mensagem") viram uma linha só,
+ * com a quantidade e um exemplo; os demais ficam como estão.
+ */
+export function agruparAvisos(avisos: string[], minimo = 3): string[] {
+    const porMsg = new Map<string, string[]>();
+    const soltos: string[] = [];
+    for (const a of avisos) {
+        const m = a.match(/^(.+?\.xml(?:#\d+)?|[^:]+\/[^:]+): (.+)$/);
+        if (!m) { soltos.push(a); continue; }
+        porMsg.set(m[2], [...(porMsg.get(m[2]) ?? []), m[1]]);
+    }
+    const r = [...soltos];
+    for (const [msg, arquivos] of porMsg) {
+        if (arquivos.length < minimo) r.push(...arquivos.map(f => `${f}: ${msg}`));
+        else r.push(`${arquivos.length} arquivo(s): ${msg} Ex.: ${arquivos[0]}`);
+    }
+    return [...new Set(r)];
 }
 
 const SEM_RETORNO = 'Sem retorno de processamento 201 associado; aceitação não comprovada.';
@@ -28,7 +50,7 @@ export function prepararImportacao(fontes: FonteXml[], empresa: { id: string; cn
     let semRecibo = 0;
     for (const f of fontes) {
         try {
-            const r = lerXml(f);
+            const r = lerXml(f, { leiautesAntigos: opcoes.leiautesAntigos });
             avisos.push(...r.avisos);
             for (const e of r.eventos) {
                 const rec = opcoes.recibos && !e.recibo ? opcoes.recibos.get(chaveIdEvento(e.id)) : undefined;
@@ -47,7 +69,7 @@ export function prepararImportacao(fontes: FonteXml[], empresa: { id: string; cn
     const resultados = consolidado.cadastros
         .map(c => mesclarComEsocial(porId.get(fichaDoEsocial(c, empresa).id), fichaDoEsocial(c, empresa)))
         .sort((a, b) => (a.ficha.dados.nome ?? '').localeCompare(b.ficha.dados.nome ?? '', 'pt-BR'));
-    return { resultados, avisos: [...new Set(avisos)] };
+    return { resultados, avisos: agruparAvisos(avisos) };
 }
 
 /** Só o que muda alguma coisa vai para gravação. */

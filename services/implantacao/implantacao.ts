@@ -94,7 +94,20 @@ function extract(e: Element | undefined, paths: Partial<Record<Campo, string>>):
     }
     return dados;
 }
-export function lerXml(fonte: FonteXml): { eventos: Evento[]; avisos: string[] } {
+const NS_S1 = /^http:\/\/www\.esocial\.gov\.br\/schema\/evt\/[^/]+\/v_S_01_0[0-3]_00$/;
+// Leiaute 2.4/2.5 (até 2021/2022): mesma estrutura nos campos do cadastro, sem nmCargo/CBOCargo.
+const NS_2X = /^https?:\/\/www\.esocial\.gov\.br\/schema\/evt\/[^/]+\/v0?2_0[45]_\d\d$/;
+
+export interface OpcoesLeitura {
+    /**
+     * Aceita também o leiaute 2.4/2.5 e o XML sem namespace (como o IOB guarda
+     * alguns envios no backup), com aviso no cadastro. Só para a importação
+     * de cadastro com prévia; a implantação continua exigindo S-1.x.
+     */
+    leiautesAntigos?: boolean;
+}
+
+export function lerXml(fonte: FonteXml, opcoes: OpcoesLeitura = {}): { eventos: Evento[]; avisos: string[] } {
     if (fonte.xml.length > 10 * 1024 * 1024) throw new Error('XML excede 10 MB.');
     if (/<!DOCTYPE|<!ENTITY/i.test(fonte.xml)) throw new Error('XML com DTD ou entidades não é aceito.');
     const doc = new DOMParser().parseFromString(fonte.xml, 'application/xml');
@@ -107,10 +120,15 @@ export function lerXml(fonte: FonteXml): { eventos: Evento[]; avisos: string[] }
     for (const el of elementos) {
         const tipo = TIPOS[el.localName];
         if (!tipo) { avisos.push(`${fonte.nome}: ${el.localName} não consolidado. Revisar situação/histórico antes de usar o cadastro.`); continue; }
-        if (!/^http:\/\/www\.esocial\.gov\.br\/schema\/evt\/[^/]+\/v_S_01_0[0-3]_00$/.test(el.namespaceURI || '')) throw new Error('Versão/namespace eSocial não suportado (esperado S-1.0 a S-1.3).');
+        const ns = el.namespaceURI || '';
+        const localAvisos: string[] = [];
+        if (!NS_S1.test(ns)) {
+            if (opcoes.leiautesAntigos && NS_2X.test(ns)) localAvisos.push(`Leiaute ${ns.slice(ns.lastIndexOf('/') + 1)} (anterior ao S-1.0): conferir cargo e CBO.`);
+            else if (opcoes.leiautesAntigos && !ns) localAvisos.push('XML sem namespace do eSocial (cópia guardada pelo IOB): conferir.');
+            else throw new Error(`Versão/namespace eSocial não suportado (esperado S-1.0 a S-1.3; veio "${ns || 'sem namespace'}").`);
+        }
         const empregador = value(el, 'ideEmpregador/nrInsc');
         const tpInsc = value(el, 'ideEmpregador/tpInsc');
-        const localAvisos: string[] = [];
         if (tpInsc !== '1' || !/^(\d{8}|\d{14})$/.test(empregador)) throw new Error('Esta versão aceita empregador CNPJ (8 ou 14 dígitos).');
         const cpf = value(el, 'ideVinculo/cpfTrab') || value(el, 'trabalhador/cpfTrab') || value(el, 'ideTrabalhador/cpfTrab');
         const matricula = value(el, 'ideVinculo/matricula') || value(el, 'vinculo/matricula');
@@ -124,7 +142,8 @@ export function lerXml(fonte: FonteXml): { eventos: Evento[]; avisos: string[] }
             dados = extract(node(el, 'alteracao/dadosTrabalhador'), PESSOA_ALTERACAO);
             data = value(el, 'alteracao/dtAlteracao');
         } else if (tipo === 'S-2206') {
-            dados = extract(node(el, 'altContratual/vinculo'), CONTRATO);
+            // No S-1.x o contrato fica dentro de altContratual/vinculo; no 2.x, ao lado dele.
+            dados = { ...extract(node(el, 'altContratual'), CONTRATO), ...extract(node(el, 'altContratual/vinculo'), CONTRATO) };
             data = value(el, 'altContratual/dtAlteracao');
             if (value(el, 'altContratual/dtEf') && value(el, 'altContratual/dtEf') !== data) localAvisos.push(`Efeitos remuneratórios em ${value(el, 'altContratual/dtEf')}: revisar retroatividade; cadastro usa a data de alteração.`);
         } else if (tipo === 'S-2299') data = value(el, 'infoDeslig/dtDeslig');

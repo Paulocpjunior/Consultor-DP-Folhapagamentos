@@ -140,7 +140,7 @@ const ImportarEsocialModal: React.FC<{ empresa: Empresa; usuario: Usuario; exist
                     recibos = b.recibos;
                 }
             }
-            const p = prepararImportacao(fontes, empresa, corte, existentes, { recibos });
+            const p = prepararImportacao(fontes, empresa, corte, existentes, { recibos, leiautesAntigos: backups.length > 0 });
             setPrevia(p); setProblemas(problemas); setNomes([...new Set([...backups.map(f => f.name), ...fontes.map(f => f.nome)])]);
             setMarcados(new Set(paraGravar(p).map(r => r.ficha.id)));
         } catch (e) { setErro((e as Error).message); }
