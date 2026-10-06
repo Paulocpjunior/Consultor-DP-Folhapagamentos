@@ -1,5 +1,6 @@
 import { limparSessaoImplantacao } from '../services/implantacao/sessao';
-import { ROTULO_PAPEL, ehAdmin, papelEfetivo } from '../services/auth/papeis';
+import { ROTULO_PAPEL, ehAdmin, ehMaster, papelEfetivo } from '../services/auth/papeis';
+import { VerificarMaster } from './auth/PendingScreen';
 import React, { useState, useEffect, useRef, useCallback, Suspense, lazy } from 'react';
 import * as authService from '../services/auth/authService';
 import { consultarGateDepartamento, type GateDepartamento } from '../services/departamentoGate';
@@ -295,6 +296,10 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
             )}
 
             <UpdateBanner />
+            {/* Master ainda sem o papel de gestor: o e-mail precisa estar verificado. */}
+            {ehMaster(currentUser.email) && papelEfetivo(currentUser.role) !== 'gestor' && (
+                <div className="mx-auto max-w-7xl px-4 pt-3"><VerificarMaster email={currentUser.email} /></div>
+            )}
             <nav className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-40 shadow-sm">
                 <div className="max-w-7xl mx-auto px-4">
                     <div className="flex items-center justify-between h-14">

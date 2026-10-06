@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ehAdmin, ehGestor } from '../../services/auth/papeis';
-import { listarEmpresasVisiveis, excluirEmpresa } from '../../services/empresas/empresasService';
+import { listarEmpresasVisiveis, excluirEmpresa, protegerEmpresasExistentes } from '../../services/empresas/empresasService';
+import { chaveCnpj, chaveSage, repetidas } from '../../services/empresas/chavesUnicas';
 import { formatCnpj } from '../../services/brasilApiService';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import type { User } from '../../types';
@@ -64,6 +65,20 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser }) => {
         return () => { vivo = false; };
     }, [empresas]);
 
+    // Código SAGE ou CNPJ repetido entre as empresas visíveis (cadastro de antes da trava).
+    const dup = useMemo(() => repetidas(empresas), [empresas]);
+    const chavesRepetidas = useMemo(() => new Set(dup.map(d => `${d.tipo}_${d.valor}`)), [dup]);
+    const [protegendo, setProtegendo] = useState('');
+    const [msgProtecao, setMsgProtecao] = useState('');
+    const proteger = async () => {
+        setProtegendo('Protegendo 0 de ' + empresas.length + '…'); setMsgProtecao('');
+        try {
+            const r = await protegerEmpresasExistentes(empresas, n => setProtegendo(`Protegendo ${n} de ${empresas.length}…`));
+            setMsgProtecao(`Códigos e CNPJs protegidos.${r.repetidas.length ? ` Continuam repetidos ${r.repetidas.length}: corrija o cadastro (a empresa mais antiga ficou com a chave).` : ''}`);
+        } catch (e) { setMsgProtecao((e as Error).message); }
+        finally { setProtegendo(''); }
+    };
+
     const apagar = async (id: string, nome: string) => {
         if (!confirm(`Excluir a empresa "${nome}"?\nIsso não pode ser desfeito.`)) return;
         await excluirEmpresa(id);
@@ -122,6 +137,21 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser }) => {
 
             {erro && <div className="mb-3 p-2 text-sm text-red-700 bg-red-50 dark:bg-red-900/20 border border-red-200 rounded">{erro}</div>}
 
+            {dup.length > 0 && (
+                <div role="alert" className="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/20 dark:text-red-200">
+                    <strong>Cadastro repetido:</strong> o código SAGE e o CNPJ são únicos por empresa. Corrija em "Editar" (o código certo está no IOB):
+                    <ul className="mt-1 list-disc pl-5 text-xs">
+                        {dup.map(d => <li key={`${d.tipo}${d.valor}`}>{d.tipo === 'sage' ? `Código SAGE ${d.valor}` : `CNPJ ${formatCnpj(d.valor)}`}: {d.empresas.map(e => e.nomeFantasia || e.razaoSocial).join(' · ')}</li>)}
+                    </ul>
+                </div>
+            )}
+            {isGestor && (
+                <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                    <button onClick={proteger} disabled={!!protegendo || !empresas.length} className="rounded border border-slate-300 px-2 py-1 disabled:opacity-50 dark:border-slate-600">🔒 Proteger códigos e CNPJs das empresas existentes</button>
+                    <span>{protegendo || msgProtecao || 'Empresa nova já nasce protegida; as cadastradas antes da trava precisam disto uma vez.'}</span>
+                </div>
+            )}
+
             {showForm && (
                 <div className="mb-4">
                     <EmpresaForm
@@ -158,8 +188,8 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser }) => {
                                     <tr className="border-t border-slate-100 dark:border-slate-700">
                                         <td className="px-3 py-2 font-medium text-slate-800 dark:text-slate-200">{e.nomeFantasia}</td>
                                         <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{e.razaoSocial}</td>
-                                        <td className="px-3 py-2 text-slate-600 dark:text-slate-400 font-mono text-xs">{formatCnpj(e.cnpj)}</td>
-                                        <td className="px-3 py-2 text-center"><code className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-xs">{e.codigoSage}</code></td>
+                                        <td className={`px-3 py-2 font-mono text-xs ${chavesRepetidas.has(chaveCnpj(e.cnpj)) ? 'font-bold text-red-700 dark:text-red-300' : 'text-slate-600 dark:text-slate-400'}`} title={chavesRepetidas.has(chaveCnpj(e.cnpj)) ? 'CNPJ repetido em outra empresa' : undefined}>{formatCnpj(e.cnpj)}</td>
+                                        <td className="px-3 py-2 text-center"><code className={`px-1.5 py-0.5 rounded text-xs ${chavesRepetidas.has(chaveSage(e.codigoSage)) ? 'bg-red-100 font-bold text-red-800 dark:bg-red-900/40 dark:text-red-200' : 'bg-slate-100 dark:bg-slate-700'}`} title={chavesRepetidas.has(chaveSage(e.codigoSage)) ? 'Código SAGE repetido em outra empresa' : undefined}>{e.codigoSage}</code></td>
                                         <td className="px-3 py-2 text-center">
                                             {(() => {
                                                 // Situação no cofre único (CFI + Legal); só leitura.
