@@ -90,8 +90,12 @@ export function recibosDoRetorno(xml: string): Map<string, string> {
 
 export interface EsocialDoBackup {
     fontes: FonteXml[];
-    /** Id do evento (chaveIdEvento) → número do recibo, como o IOB registrou. */
-    recibos: Map<string, string>;
+    /**
+     * Id do evento (chaveIdEvento) → número do recibo, como o IOB registrou.
+     * `null` quando o backup não traz informação de recibo (sem a tabela de
+     * eventos nem retorno de lote); mapa vazio quando traz e nenhum foi aceito.
+     */
+    recibos: Map<string, string> | null;
     /** Esquemas lidos (fNNNN). */
     grupos: string[];
     linhas: number;
@@ -111,7 +115,7 @@ export async function esocialDoBackup(rest: Pick<Restauracao, 'tabelas' | 'lerTa
     const avisos: string[] = [];
     const daqui = (t: TabelaRestauracao) => t.origem === 'postgres' && [...TABELAS_ARQUIVO, TABELA_EVENTOS].includes(t.tabela.toLowerCase());
     let tabelas = rest.tabelas.filter(daqui);
-    if (!tabelas.length) return { fontes: [], recibos: new Map(), grupos: [], linhas: 0, avisos: ['O backup não tem as tabelas de transmissão do eSocial do IOB (arquivoeventotransmissaoesocial).'] };
+    if (!tabelas.length) return { fontes: [], recibos: null, grupos: [], linhas: 0, avisos: ['O backup não tem as tabelas de transmissão do eSocial do IOB (arquivoeventotransmissaoesocial).'] };
     const codigo = codigoSage ? codigoIob(codigoSage) : '';
     if (codigo) {
         const daEmpresa = tabelas.filter(t => codigoDoSchema(t.grupo) === codigo);
@@ -119,6 +123,7 @@ export async function esocialDoBackup(rest: Pick<Restauracao, 'tabelas' | 'lerTa
         else avisos.push(`Nenhum schema f${codigo} no backup: lidos os XMLs de todas as empresas (os de outro CNPJ ficam de fora na prévia).`);
     }
     const recibos = new Map<string, string>();
+    let comRecibos = false;
     const candidatos: { nome: string; valor: Valor }[] = [];
     let linhas = 0, ilegiveis = 0;
     for (const t of tabelas) {
@@ -127,6 +132,7 @@ export async function esocialDoBackup(rest: Pick<Restauracao, 'tabelas' | 'lerTa
         if (t.tabela.toLowerCase() === TABELA_EVENTOS) {
             const [iId, iRec] = [i('idevento'), i('recesocia')];
             if (iId < 0 || iRec < 0) { avisos.push(`${nomeTabela(t)}: sem as colunas id_evento e rec_esocia; recibos não lidos.`); continue; }
+            comRecibos = true;
             await rest.lerTabela(t, v => {
                 const id = (v[iId] ?? '').trim(), rec = (v[iRec] ?? '').trim();
                 if (id && /\d/.test(rec)) recibos.set(chaveIdEvento(id), rec);
@@ -155,6 +161,7 @@ export async function esocialDoBackup(rest: Pick<Restauracao, 'tabelas' | 'lerTa
         try { xmls = await xmlsDoValor(c.valor); } catch { ilegiveis++; continue; }
         if (!xmls.length) { ilegiveis++; continue; }
         for (const [n, xml] of xmls.entries()) {
+            if (RETORNO.test(xml)) comRecibos = true;
             if (RETORNO.test(xml)) for (const [id, rec] of recibosDoRetorno(xml)) if (!recibos.has(chaveIdEvento(id))) recibos.set(chaveIdEvento(id), rec);
             if (!EVENTO_CADASTRAL.test(xml)) continue;
             const hash = await hashArquivo(new TextEncoder().encode(xml).buffer as ArrayBuffer);
@@ -165,5 +172,6 @@ export async function esocialDoBackup(rest: Pick<Restauracao, 'tabelas' | 'lerTa
     }
     if (ilegiveis) avisos.push(`${ilegiveis} arquivo(s) do eSocial no backup em formato não reconhecido; ficaram de fora.`);
     if (linhas && !fontes.length) avisos.push('O backup tem arquivos do eSocial, mas nenhum S-2200, S-2205, S-2206, S-2299 ou S-3000.');
-    return { fontes, recibos, grupos: [...new Set(tabelas.map(t => t.grupo))].sort(), linhas, avisos };
+    if (!comRecibos && fontes.length) avisos.push('O backup não traz os recibos do eSocial: os eventos entram como não comprovados.');
+    return { fontes, recibos: comRecibos ? recibos : null, grupos: [...new Set(tabelas.map(t => t.grupo))].sort(), linhas, avisos };
 }

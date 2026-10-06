@@ -125,7 +125,7 @@ const ImportarEsocialModal: React.FC<{ empresa: Empresa; usuario: Usuario; exist
             // XML/zip baixados do eSocial, ou o Backup SQL do IOB com os XMLs que ele transmitiu.
             const ehXml = (f: File) => /\.(xml|zip)$/i.test(f.name);
             const { fontes, problemas } = await fontesDosArquivos(arquivos.filter(ehXml));
-            let recibos: Map<string, string> | undefined;
+            let recibos: Map<string, string> | null = null;
             const backups = arquivos.filter(f => !ehXml(f));
             if (backups.length) {
                 setOcupado('Abrindo o backup do IOB…');
@@ -136,7 +136,7 @@ const ImportarEsocialModal: React.FC<{ empresa: Empresa; usuario: Usuario; exist
                     const vistos = new Set(fontes.map(f => f.hash));
                     fontes.push(...b.fontes.filter(f => !vistos.has(f.hash)));
                     problemas.push(...b.avisos);
-                    if (b.fontes.length) problemas.unshift(`Backup do IOB (${b.grupos.join(', ')}): ${b.fontes.length} XML(s) de vínculo e ${b.recibos.size} recibo(s) do eSocial.`);
+                    if (b.fontes.length) problemas.unshift(`Backup do IOB (${b.grupos.join(', ')}): ${b.fontes.length} XML(s) de vínculo e ${b.recibos ? `${b.recibos.size} recibo(s)` : 'nenhum recibo'} do eSocial.`);
                     recibos = b.recibos;
                 }
             }

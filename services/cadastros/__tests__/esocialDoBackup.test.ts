@@ -80,9 +80,9 @@ describe('XMLs transmitidos pelo IOB, no Backup SQL', () => {
             'f1200.arquivoeventotransmissaoesocial/S2200_59_recusado.xml',
             'f1200.arquivoeventotransmissaoesocial/S2206_59.xml',
         ]);
-        expect(b.recibos.get(chaveIdEvento(ID_ADM))).toBe('1.1.0000000000000000001');
-        expect(b.recibos.get(chaveIdEvento(ID_ALT))).toBe('1.1.0000000000000000002');
-        expect(b.recibos.has(chaveIdEvento(ID_ADM_RECUSADO))).toBe(false);
+        expect(b.recibos?.get(chaveIdEvento(ID_ADM))).toBe('1.1.0000000000000000001');
+        expect(b.recibos?.get(chaveIdEvento(ID_ALT))).toBe('1.1.0000000000000000002');
+        expect(b.recibos?.has(chaveIdEvento(ID_ADM_RECUSADO))).toBe(false);
         expect(b.avisos).toEqual([]);
 
         // A ficha que veio da carga do backup (sem contrato) é completada pelo eSocial; o envio recusado fica de fora.
@@ -104,6 +104,22 @@ describe('XMLs transmitidos pelo IOB, no Backup SQL', () => {
         expect(b.avisos[0]).toMatch(/Nenhum schema f777/);
         const vazio = await esocialDoBackup({ tabelas: [], lerTabela: async () => 0 }, '1200');
         expect(vazio.avisos[0]).toMatch(/não tem as tabelas de transmissão/);
+    });
+
+    it('backup com a tabela de recibos e nenhum aceito: nada entra; sem informação de recibo: entra como não comprovado', async () => {
+        const fonte = [{ nome: 'a.xml', xml: admissao(ID_ADM_RECUSADO), hash: 'h1' }];
+        const vazio = prepararImportacao(fonte, empresa, '2026-10-06', [], { recibos: new Map() });
+        expect(vazio.resultados).toEqual([]);
+        expect(vazio.avisos).toContain('1 evento(s) sem recibo no IOB (envio recusado ou não concluído) ficaram de fora.');
+        expect(prepararImportacao(fonte, empresa, '2026-10-06', [], { recibos: null }).resultados).toHaveLength(1);
+
+        // Backup só com os XMLs (sem eventotransmissaoesocial): recibos = null, com aviso.
+        const sql = ['--', 'COPY f1200.arquivoeventotransmissaoesocial (id_protoco, dados_arq) FROM stdin;', ['1', hex(admissao(ID_ADM))].join('\t'), '\\.', ''].join('\n');
+        const rest = await abrirRestauracao([{ nome: 'f.backup', fonte: fonteDeBytes(new TextEncoder().encode(sql)) }]);
+        const b = await esocialDoBackup(rest, '1200');
+        expect(b.fontes).toHaveLength(1);
+        expect(b.recibos).toBeNull();
+        expect(b.avisos).toContain('O backup não traz os recibos do eSocial: os eventos entram como não comprovados.');
     });
 
     it('sem recibos (XML baixado do portal) nada muda na importação', () => {

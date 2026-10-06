@@ -15,9 +15,10 @@ export interface OpcoesImportacao {
     /**
      * Recibos que o IOB guardou no backup (Id do evento → nrRecibo). O XML
      * enviado não traz o retorno: o recibo do IOB vale como processamento
-     * aceito, e o evento sem recibo (envio recusado ou não concluído) fica de fora.
+     * aceito, e o evento sem recibo (envio recusado ou não concluído) fica de
+     * fora — também quando o mapa vem vazio (nenhum envio aceito).
      */
-    recibos?: Map<string, string>;
+    recibos?: Map<string, string> | null;
 }
 
 const SEM_RETORNO = 'Sem retorno de processamento 201 associado; aceitação não comprovada.';
@@ -30,9 +31,9 @@ export function prepararImportacao(fontes: FonteXml[], empresa: { id: string; cn
             const r = lerXml(f);
             avisos.push(...r.avisos);
             for (const e of r.eventos) {
-                const rec = opcoes.recibos?.size && !e.recibo ? opcoes.recibos.get(chaveIdEvento(e.id)) : undefined;
+                const rec = opcoes.recibos && !e.recibo ? opcoes.recibos.get(chaveIdEvento(e.id)) : undefined;
                 if (rec) eventos.push({ ...e, recibo: rec, processado: true, avisos: e.avisos.filter(a => a !== SEM_RETORNO) });
-                else if (opcoes.recibos?.size && !e.processado) semRecibo++;
+                else if (opcoes.recibos && !e.processado) semRecibo++;
                 else eventos.push(e);
             }
         }
