@@ -1411,3 +1411,31 @@ guias sindicais".
   - O deploy passou a buscar 60 commits de histórico (`fetch-depth`).
 - **Correção:** quem se inscreve no aviso depois que ele já foi disparado
   (ex.: a tela troca após o login) agora também o recebe.
+
+## 06/10/2026 — Demais campos do contrato pela carga do FolhaWin
+
+- **Print da lista após a importação:** a maioria das fichas aparece "ok".
+  ALEXANDRE ROSA ATHAYDE, ALEXANDRE SANCHES e BRUNO HENRIQUE, admitidos em
+  2022, 2003 e 2015, ficaram com 3 ou 4 avisos (provavelmente sem o S-2200
+  no backup).
+- **Paulo:** *"pode seguir completando os demais campos"*.
+- **Fontes, todas do schema da empresa e ligadas pelo `codfun`:**
+  - **`esocialdadosficha_s1200_dmdev`** (`codcateg`, `codcbo`): categoria e
+    CBO do S-1200 mais recente. É o valor que o IOB transmitiu. A `func.catego`
+    não é usada: o código dela é do IOB, não do eSocial.
+  - **`esocialdadosficha_s1300_contribsind`** (`cnpjsindic`): CNPJ do
+    sindicato.
+  - **`hist_horarios` + `cad_horarios.hrsemanal`:** horas semanais do horário
+    vigente.
+  - **`func`:**
+    - `tipsal` vira a unidade salarial (letras M/H/D/S/Q/T). Um código numérico
+      não é conhecido e fica de fora.
+    - `hrssem` vira horas semanais (até 44).
+    - `fimcontr` vira o fim do contrato.
+    - `dtopfg` vira a opção do FGTS.
+- **Campos derivados:**
+  - Categoria 1xx: regime CLT e RGPS.
+  - Fim de contrato no futuro: prazo determinado. Fim já vencido (experiência
+    que passou): prazo indeterminado, e a data fica de fora.
+- **Regra de sempre:** a carga só preenche campos vazios. O que veio do
+  eSocial ou foi digitado à mão não muda.

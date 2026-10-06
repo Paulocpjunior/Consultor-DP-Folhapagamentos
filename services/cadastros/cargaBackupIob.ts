@@ -23,7 +23,7 @@ export type CampoCarga = 'cpf' | 'matriculaEsocial' | CampoFicha;
 export const CAMPOS_CARGA: CampoCarga[] = [
     'cpf', 'matriculaEsocial', 'codigoIob', 'nome', 'nascimento', 'admissao', 'dataDesligamento', 'sexo',
     'mae', 'pai', 'pis', 'ctps', 'serieCtps', 'ufCtps', 'rg', 'orgaoRg', 'emissaoRg', 'tituloEleitor',
-    'cargo', 'cbo', 'funcao', 'cargoIob', 'departamentoIob', 'salario', 'sindicato', 'sindicatoIob',
+    'cargo', 'cbo', 'funcao', 'cargoIob', 'departamentoIob', 'salario', 'unidadeSalario', 'horasSemanais', 'fimContrato', 'opcaoFgts', 'categoria', 'sindicato', 'sindicatoIob',
     'banco', 'agencia', 'conta', 'pix', 'cep', 'logradouro', 'numero', 'complemento', 'bairro', 'uf', 'telefone', 'email',
 ];
 
@@ -64,6 +64,13 @@ const SINONIMOS: [CampoCarga, RegExp][] = [
     ['funcao', /^(funcao|nomefuncao|descfuncao)$/],
     ['departamentoIob', /^(depto|departamento|coddepto|coddepartamento)$/],
     ['salario', /^(salario|salbase|salariobase|vlrsalario|valorsalario|sal)$/],
+    // FolhaWin: tipsal (M/H/D/S/Q/T), hrssem, fimcontr e dtopfg da `func`. A `catego`
+    // não entra: o código do IOB não é o do eSocial; a categoria vem do S-1200 (dmdev).
+    ['unidadeSalario', /^(tipsal|tiposalario|unidadesalario|undsalfixo)$/],
+    ['horasSemanais', /^(hrssem|horassemanais|hrsemanal|qtdhrssem)$/],
+    ['fimContrato', /^(fimcontr|dtfimcontrato|fimcontrato|dtterm)$/],
+    ['opcaoFgts', /^(dtopfg|dtopfgts|dtopcaofgts|opcaofgts)$/],
+    ['categoria', /^(codcateg|categoriaesocial|categesocial)$/],
     ['sindicatoIob', /^(sindicato|codsind|codsindicato|cdsindicato)$/],
     ['sindicato', /^(cnpjsindicato|cnpjsind)$/],
     ['banco', /^(banco|codbanco|cdbanco|bco|bcosal)$/],
@@ -104,7 +111,13 @@ export function dataDoIob(v: string): string | null {
     return d && dataValida(d) && d > '1900-01-01' ? d : null;
 }
 
-const DATAS: CampoCarga[] = ['nascimento', 'admissao', 'dataDesligamento', 'emissaoRg'];
+const DATAS: CampoCarga[] = ['nascimento', 'admissao', 'dataDesligamento', 'emissaoRg', 'fimContrato', 'opcaoFgts'];
+
+/** Tabela 01 do eSocial (categorias de trabalhador). */
+export const CATEGORIAS_ESOCIAL = new Set(['101', '102', '103', '104', '105', '106', '107', '108', '111', '201', '202', '301', '302', '303', '304', '305', '306', '307', '308', '309', '310', '311', '312', '313', '401', '410', '501', '701', '711', '712', '721', '722', '723', '731', '734', '738', '741', '751', '761', '771', '781', '901', '902', '903', '904', '906']);
+
+/** Tipo de salário do IOB → unidade salarial do eSocial; código numérico do IOB não é conhecido e fica de fora. */
+const UNIDADE: [RegExp, string][] = [[/^(h|hora|horista)/i, '1'], [/^(d|dia|diarista)/i, '2'], [/^(s|semana|semanal|semanalista)/i, '3'], [/^(q|quinzena|quinzenal|quinzenalista)/i, '4'], [/^(m|mes|mês|mensal|mensalista)/i, '5'], [/^(t|tarefa|tarefeiro)/i, '6']];
 const DIGITOS: CampoCarga[] = ['cpf', 'pis', 'cep', 'cbo'];
 
 /** Valor do IOB já no formato da ficha; vazio ou ilegível → ''. */
@@ -120,6 +133,12 @@ export function normalizarValor(campo: CampoCarga, v: Valor): string {
     if (DIGITOS.includes(campo)) { const d = t.replace(/\D/g, ''); return /^0*$/.test(d) ? '' : d; }
     if (campo === 'salario') { const c = centavosDeTexto(t); return c ? (c / 100).toFixed(2) : ''; }
     if (campo === 'uf' || campo === 'ufCtps') return t.toUpperCase().slice(0, 2);
+    if (campo === 'unidadeSalario') return /^\d/.test(t) ? '' : UNIDADE.find(([re]) => re.test(t))?.[1] ?? '';
+    if (campo === 'horasSemanais') {
+        const h = Number(t.replace(',', '.'));
+        return Number.isFinite(h) && h > 0 && h <= 44 ? String(Math.round(h * 100) / 100) : '';
+    }
+    if (campo === 'categoria') { const d = t.replace(/\D/g, ''); return CATEGORIAS_ESOCIAL.has(d) ? d : ''; }
     if (campo === 'sexo') return /^m/i.test(t) ? 'M' : /^f/i.test(t) ? 'F' : '';
     if (campo === 'sindicato') return t.toUpperCase().replace(/[.\-/\s]/g, '');
     return t.replace(/\s+/g, ' ');
@@ -220,8 +239,42 @@ export function compararComFichas(linhas: LinhaIob[], fichas: FichaFuncionario[]
 // Conferido no backup da empresa 1200 (06/10/2026): 432 de 432 sem matrícula na func.
 
 export interface TabelaLida { colunas: string[]; linhas: Valor[][] }
-export type Complemento = Partial<Record<'salario' | 'pix' | 'matriculaEsocial' | 'cargo' | 'cargoIob' | 'funcao' | 'cbo', string>>;
-const CAMPOS_COMPLEMENTO: (keyof Complemento)[] = ['salario', 'pix', 'matriculaEsocial', 'cargo', 'cargoIob', 'funcao', 'cbo'];
+export type Complemento = Partial<Record<'salario' | 'pix' | 'matriculaEsocial' | 'cargo' | 'cargoIob' | 'funcao' | 'cbo' | 'categoria' | 'sindicato' | 'horasSemanais', string>>;
+const CAMPOS_COMPLEMENTO: (keyof Complemento)[] = ['salario', 'pix', 'matriculaEsocial', 'cargo', 'cargoIob', 'funcao', 'cbo', 'categoria', 'sindicato', 'horasSemanais'];
+
+/**
+ * Mais tabelas do FolhaWin, com valores no padrão do eSocial (o que o IOB transmitiu):
+ * - esocialdadosficha_s1200_dmdev (codfun, anomes, codcateg, codcbo): categoria e CBO do S-1200;
+ * - esocialdadosficha_s1300_contribsind (codfun, anomes, cnpjsindic): CNPJ do sindicato;
+ * - hist_horarios (codfun, codhorario, data) + cad_horarios (codhorario, hrsemanal): horas semanais.
+ */
+export interface ComplementosEsocial { dmdev?: TabelaLida | null; contribSind?: TabelaLida | null; histHorarios?: TabelaLida | null; cadHorarios?: TabelaLida | null }
+
+/** Tabelas que a carga do FolhaWin lê no mesmo schema da `func`, com o que cada uma traz. */
+export const TABELAS_COMPLEMENTARES: [string, string][] = [
+    ['salarios', 'o salário atual (salarios)'], ['funcdoc', 'a chave PIX (funcdoc)'],
+    ['esocialdadosficha_s1200_remunperapur', 'a matrícula do eSocial (S-1200)'],
+    ['rsalfunc', 'o cargo, o CBO e o salário do histórico (rsalfunc)'], ['cargos', 'o nome do cargo (cargos)'],
+    ['esocialdadosficha_s1200_dmdev', 'a categoria e o CBO do S-1200'], ['esocialdadosficha_s1300_contribsind', 'o CNPJ do sindicato (S-1300)'],
+    ['hist_horarios', 'o horário (hist_horarios)'], ['cad_horarios', 'as horas semanais (cad_horarios)'],
+];
+
+/** Valor do registro mais recente de cada codfun (pela coluna de data ou anomes), só os que passam no filtro. */
+function maisRecente(t: TabelaLida | null | undefined, chaveData: string, colunas: string[], valido: (v: string[]) => boolean): Map<string, string[]> {
+    const r = new Map<string, { data: string; v: string[] }>();
+    if (!t) return new Map();
+    const iCod = col(t, 'codfun'), iData = col(t, chaveData), is = colunas.map(c => col(t, c));
+    if (iCod < 0 || is.some(i => i < 0)) return new Map();
+    for (const l of t.linhas) {
+        const k = chaveCodfun(l[iCod]);
+        const v = is.map(i => (l[i] ?? '').trim());
+        if (!k || !valido(v)) continue;
+        const d = iData >= 0 ? (dataDoIob(l[iData] ?? '') ?? (l[iData] ?? '').replace(/\D/g, '')) : '';
+        const a = r.get(k);
+        if (!a || d >= a.data) r.set(k, { data: d, v });
+    }
+    return new Map([...r].map(([k, x]) => [k, x.v]));
+}
 
 /** Código do funcionário sem zeros à esquerda, para ligar as tabelas. */
 export const chaveCodfun = (v: Valor) => (v ?? '').trim().replace(/^0+(?=.)/, '').toUpperCase();
@@ -232,7 +285,7 @@ const col = (t: TabelaLida, nome: string) => t.colunas.findIndex(c => chaveColun
  * Salário atual e PIX por codfun. Salário: o registro marcado como `ultimo`;
  * sem marca, o de maior `anomes`. PIX: a primeira chave preenchida.
  */
-export function complementosFolhaWin(salarios: TabelaLida | null, funcdoc: TabelaLida | null, s1200: TabelaLida | null = null, rsalfunc: TabelaLida | null = null, cargos: TabelaLida | null = null): Map<string, Complemento> {
+export function complementosFolhaWin(salarios: TabelaLida | null, funcdoc: TabelaLida | null, s1200: TabelaLida | null = null, rsalfunc: TabelaLida | null = null, cargos: TabelaLida | null = null, esocial: ComplementosEsocial = {}): Map<string, Complemento> {
     const r = new Map<string, Complemento>();
     const pegar = (k: string) => { let c = r.get(k); if (!c) { c = {}; r.set(k, c); } return c; };
     if (salarios) {
@@ -333,7 +386,50 @@ export function complementosFolhaWin(salarios: TabelaLida | null, funcdoc: Tabel
         const cbo = [v.cbo, tab?.cbo].find(x => x && /^\d{6}$/.test(x));
         if (cbo) c.cbo = cbo;
     }
+    // Categoria e CBO como foram no último S-1200 (o CBO do histórico, se houver, tem preferência).
+    for (const [k, [categ, cbo]] of maisRecente(esocial.dmdev, 'anomes', ['codcateg', 'codcbo'], ([a, b]) => !!normalizarValor('categoria', a) || !!normalizarValor('cbo', b))) {
+        const c = pegar(k);
+        const cat = normalizarValor('categoria', categ), cb = normalizarValor('cbo', cbo);
+        if (cat) c.categoria = cat;
+        if (cb && !c.cbo) c.cbo = cb;
+    }
+    for (const [k, [cnpj]] of maisRecente(esocial.contribSind, 'anomes', ['cnpjsindic'], ([a]) => a.replace(/\D/g, '').length === 14)) pegar(k).sindicato = cnpj.replace(/\D/g, '');
+    // Horas semanais pelo horário vigente do funcionário.
+    if (esocial.cadHorarios) {
+        const [iCod, iHrs] = ['codhorario', 'hrsemanal'].map(n => col(esocial.cadHorarios!, n));
+        const horas = new Map<string, string>();
+        if (iCod >= 0 && iHrs >= 0) for (const l of esocial.cadHorarios.linhas) {
+            const h = normalizarValor('horasSemanais', l[iHrs] ?? null);
+            if (h) horas.set(chaveCodfun(l[iCod]), h);
+        }
+        for (const [k, [cod]] of maisRecente(esocial.histHorarios, 'data', ['codhorario'], ([a]) => !!a)) {
+            const h = horas.get(chaveCodfun(cod));
+            if (h) pegar(k).horasSemanais = h;
+        }
+    }
     return r;
+}
+
+/**
+ * Campos que decorrem dos outros, só onde a linha não os trouxe:
+ * - categoria de empregado (1xx): regime trabalhista CLT e previdenciário RGPS;
+ * - fim de contrato vencido (ex.: experiência já passada) não vale para quem
+ *   está ativo: o contrato é por prazo indeterminado; fim futuro: prazo determinado.
+ */
+export function derivarContrato(linhas: LinhaIob[], hoje: string): LinhaIob[] {
+    return linhas.map(l => {
+        const v = { ...l.valores };
+        if (v.categoria && /^1\d\d$/.test(v.categoria)) {
+            if (!v.regimeTrabalhista) v.regimeTrabalhista = '1';
+            if (!v.regimePrevidenciario) v.regimePrevidenciario = '1';
+            if (!v.tipoContrato) {
+                if (v.fimContrato && v.fimContrato >= hoje && (!v.admissao || v.fimContrato > v.admissao)) v.tipoContrato = '2';
+                else { v.tipoContrato = '1'; delete v.fimContrato; }
+            }
+        }
+        if (v.fimContrato && (v.fimContrato < hoje || v.tipoContrato === '1') && !v.dataDesligamento) delete v.fimContrato;
+        return { ...l, valores: v };
+    });
 }
 
 /** Acrescenta salário, PIX, matrícula do eSocial e cargo (código, nome, função, CBO) das tabelas complementares a quem não os trouxe da tabela principal. */

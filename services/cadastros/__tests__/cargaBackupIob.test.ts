@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { aplicarComplementos, chaveColuna, compararComFichas, complementosFolhaWin, dataDoIob, linhaParaCampos, normalizarValor, proporMapeamento } from '../cargaBackupIob';
+import { aplicarComplementos, chaveColuna, compararComFichas, complementosFolhaWin, dataDoIob, derivarContrato, linhaParaCampos, normalizarValor, proporMapeamento } from '../cargaBackupIob';
 import { fichaVazia, idFuncionario, type FichaFuncionario } from '../funcionarios';
 
 const EMP = { id: 'emp1', cnpj: '11222333000181' };
@@ -225,5 +225,48 @@ describe('CBO e salário do FolhaWin (ficha com "1 erro" de CBO)', () => {
         const c = complementosFolhaWin(salarios, null, null, rsalfunc);
         expect(c.get('7')?.salario).toBe('2100.00');
         expect(c.get('8')?.salario).toBe('3200.00');
+    });
+});
+
+describe('demais campos do contrato pelo FolhaWin', () => {
+    it('func: tipo de salário, horas semanais, fim de contrato e opção do FGTS', () => {
+        const colunas = ['codfun', 'cpf', 'tipsal', 'hrssem', 'fimcontr', 'dtopfg', 'catego'];
+        const m = proporMapeamento(colunas);
+        expect(m).toMatchObject({ unidadeSalario: 'tipsal', horasSemanais: 'hrssem', fimContrato: 'fimcontr', opcaoFgts: 'dtopfg' });
+        expect(m.categoria).toBeUndefined();
+        expect(linhaParaCampos(colunas, ['7', CPF_A, 'M', '44,00', '2026-12-31', '2010-01-04', '1'], m, 1).valores)
+            .toMatchObject({ unidadeSalario: '5', horasSemanais: '44', fimContrato: '2026-12-31', opcaoFgts: '2010-01-04' });
+        expect(normalizarValor('unidadeSalario', 'H')).toBe('1');
+        expect(normalizarValor('unidadeSalario', '2')).toBe('');
+        expect(normalizarValor('horasSemanais', '220')).toBe('');
+        expect(normalizarValor('horasSemanais', '36.5')).toBe('36.5');
+        expect(normalizarValor('categoria', '101')).toBe('101');
+        expect(normalizarValor('categoria', '1')).toBe('');
+    });
+
+    it('categoria e CBO do S-1200, sindicato do S-1300 e horas pelo horário vigente', () => {
+        const dmdev = { colunas: ['anomes', 'codfun', 'pk_padrao', 'fk_ficha', 'idedmdev', 'codcateg', 'codcbo', 'natativide', 'qtddiatrab'], linhas: [
+            ['202401', '52', '1', '1', 'X', '101', '411010', '1', ''], ['202509', '000052', '2', '1', 'Y', '103', '252210', '1', ''], ['202509', '8', '3', '1', 'Z', '99', '', '1', ''],
+        ] };
+        const contribSind = { colunas: ['anomes', 'codfun', 'pk_padrao', 'fk_ficha', 'cnpjsindic', 'tpcontrsin', 'vcontrsind'], linhas: [['202503', '52', '1', '1', '11.222.333/0001-81', '1', '50']] };
+        const histHorarios = { colunas: ['codfun', 'codhorario', 'data', 'composto', 'pk_padrao'], linhas: [['52', '1', '2020-01-01', '', ''], ['52', '2', '2024-05-01', '', '']] };
+        const cadHorarios = { colunas: ['codhorario', 'descricao', 'hrsemanal'], linhas: [['1', 'COMERCIAL', '44'], ['2', 'MEIO PERIODO', '30']] };
+        const c = complementosFolhaWin(null, null, null, null, null, { dmdev, contribSind, histHorarios, cadHorarios });
+        expect(c.get('52')).toEqual({ categoria: '103', cbo: '252210', sindicato: '11222333000181', horasSemanais: '30' });
+        expect(c.has('8')).toBe(false);
+    });
+
+    it('regimes pela categoria; fim de contrato vencido vira prazo indeterminado', () => {
+        const [a, b, d, e] = derivarContrato([
+            { linha: 1, valores: { categoria: '101', admissao: '2026-08-28', fimContrato: '2026-11-25' } },
+            { linha: 2, valores: { categoria: '101', admissao: '2022-05-02', fimContrato: '2022-07-30' } },
+            { linha: 3, valores: { categoria: '701', fimContrato: '2020-01-01' } },
+            { linha: 4, valores: { categoria: '101', regimeTrabalhista: '2', tipoContrato: '3' } },
+        ], '2026-10-06');
+        expect(a.valores).toMatchObject({ regimeTrabalhista: '1', regimePrevidenciario: '1', tipoContrato: '2', fimContrato: '2026-11-25' });
+        expect(b.valores).toMatchObject({ tipoContrato: '1' });
+        expect(b.valores.fimContrato).toBeUndefined();
+        expect(d.valores).toEqual({ categoria: '701' });
+        expect(e.valores).toMatchObject({ regimeTrabalhista: '2', regimePrevidenciario: '1', tipoContrato: '3' });
     });
 });
