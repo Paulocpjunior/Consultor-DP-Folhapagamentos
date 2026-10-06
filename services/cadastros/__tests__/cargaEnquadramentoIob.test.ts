@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { anomes, aplicarFpasPadrao, fapDe, gravavel, proporEnquadramentos, regimeDaClassTrib, sugestoesTerceiros } from '../cargaEnquadramentoIob';
+import { anomes, aplicarFpasPadrao, codigoDoSchema, fapDe, gravavel, periodosDoDeptoMa, proporEnquadramentos, regimeDaClassTrib, sugestoesTerceiros } from '../cargaEnquadramentoIob';
 import type { TabelaLida } from '../cargaBackupIob';
 import { enquadramentoVazio } from '../enquadramento';
 
@@ -44,7 +44,7 @@ describe('proposta de enquadramento por empresa', () => {
             eEmp('14', '202501', '', '1,0000', '99888777000166'),
         ]),
         es1000: T(ES_S1000, [['1', '12', '1', '99'], ['2', '13', '1', '01'], ['3', '14', '1', '99']]),
-        deptos: [{ grupo: 'f0012', tabela: T(['coddepto', 'fpas', 'codterc', 'percterc'], [['1', '', '', ''], ['2', '515', '0115', '5,8']]) }],
+        schemas: [{ grupo: 'f0012', depto: T(['coddepto', 'fpas', 'codterc', 'percterc'], [['1', '', '', ''], ['2', '515', '0115', '5,8']]) }],
     };
     const r = proporEnquadramentos(tabelas, EMPRESAS, [{ ...enquadramentoVazio('A'), id: 'A_2025-01', vigencia: '2025-01', rat: 2, fap: 1, fpas: '515', terceiros: 5.8 }], '2024-01');
     const de = (id: string) => r.propostas.filter(p => p.empresa.id === id);
@@ -80,5 +80,48 @@ describe('proposta de enquadramento por empresa', () => {
     it('sem dado no backup e código do IOB sem empresa', () => {
         expect(r.semDados.map(e => e.id)).toEqual(['D']);
         expect(r.semEmpresa).toEqual(['500']);
+    });
+});
+
+describe('só com o .backup da empresa (schema fNNNN)', () => {
+    // Colunas como estão no inventário do backup da empresa 1200 (06/10/2026).
+    const DEPTO_MA = ['composto', 'depsetsec', 'anomes', 'codgps', 'percterc', 'percsat', 'percinss', 'meepp', 'percfap', 'fpas', 'codterc'];
+    const ma = (dep: string, mes: string, terc: string, rat: string, fap: string, fpas = '515', cod = '0115') => ['', dep, mes, '2100', terc, rat, '20', '', fap, fpas, cod];
+    const S1000 = ['pk_padrao', 'codigo', 'tpinsc', 'nrinsc', 'nmrazao', 'classtrib'];
+    it('períodos do depto_ma: muda o parâmetro, nova vigência; só os que valem a partir do corte; lotação com mais meses', () => {
+        const ls = [
+            ma('1', '202401', '5,8', '2', '1,0000'), ma('1', '202402', '5,8', '2', '1,0000'), ma('1', '202501', '5,8', '2', '0,9512'),
+            ma('1', '202502', '5,8', '2', '0,9512'), ma('1', '202601', '5,8', '3', '0,9512'), ma('2', '202601', '4,5', '1', '1,0000'),
+        ].map(l => Object.fromEntries(DEPTO_MA.map((c, i) => [c, l[i]])));
+        const r = periodosDoDeptoMa(ls, '2025-01');
+        expect(r.periodos).toEqual([
+            { ini: '2025-01', fap: 0.9512, rat: 2, fpas: '515', codigoTerceiros: '0115', terceiros: 5.8 },
+            { ini: '2026-01', fap: 0.9512, rat: 3, fpas: '515', codigoTerceiros: '0115', terceiros: 5.8 },
+        ]);
+        expect(r.aviso).toMatch(/Mais de uma lotação no depto_ma \(2\): usada a 1/);
+        expect(periodosDoDeptoMa(ls.filter(l => l.depsetsec === '1'), '2024-06').periodos[0].ini).toBe('2024-01');
+        expect(codigoDoSchema('f1200')).toBe('1200');
+        expect(codigoDoSchema('backup.f0012')).toBe('12');
+        expect(codigoDoSchema('empresa')).toBe('');
+    });
+    it('sem tabelas de sistema: regime pelo classtrib do S-1000 do schema, FPAS/RAT/FAP do depto_ma, CNPJ conferido', () => {
+        const r = proporEnquadramentos({
+            schemas: [{
+                grupo: 'f1200',
+                s1000: T(S1000, [['1', '1', '1', '11222333', 'ALFA LTDA', '99']]),
+                deptoMa: T(DEPTO_MA, [ma('1', '202501', '5,8', '2', '0,9800'), ma('1', '202601', '5,8', '2', '1,0100')]),
+                depto: T(['coddepto', 'percsat', 'cnaef20', 'fpas', 'codterc', 'percterc'], [['1', '2', '4711302', '515', '0115', '5,8']]),
+            }],
+        }, [{ id: 'A', nome: 'ALFA', cnpj: '11222333000181', codigoSage: '1200' }], [], '2025-01');
+        expect(r.semDados).toEqual([]);
+        expect(r.propostas.map(p => p.enquadramento)).toMatchObject([
+            { id: 'A_2025-01', regime: 'normal', rat: 2, fap: 0.98, fpas: '515', codigoTerceiros: '0115', terceiros: 5.8 },
+            { id: 'A_2026-01', regime: 'normal', rat: 2, fap: 1.01, fpas: '515', terceiros: 5.8 },
+        ]);
+        expect(r.propostas[0].enquadramento.observacao).toBe('Carga do backup do IOB (código 1200, depto_ma) · CNAE 4711302');
+        expect(r.propostas.every(p => gravavel(p) && !p.pendencias.length)).toBe(true);
+        const outro = proporEnquadramentos({ schemas: [{ grupo: 'f1200', s1000: T(S1000, [['1', '1', '1', '99888777', 'X', '01']]) }] }, [{ id: 'A', nome: 'ALFA', cnpj: '11222333000181', codigoSage: '1200' }], [], '2025-01');
+        expect(outro.propostas[0].erros[0]).toMatch(/raiz 99888777/);
+        expect(outro.propostas[0].enquadramento.regime).toBe('simples');
     });
 });

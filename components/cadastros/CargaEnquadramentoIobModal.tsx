@@ -12,7 +12,7 @@ import { fonteDeBlob } from '../../services/iobSage/backupPostgres';
 import { abrirRestauracao, type Restauracao, type TabelaRestauracao } from '../../services/iobSage/restauracao';
 import type { TabelaLida } from '../../services/cadastros/cargaBackupIob';
 import {
-    aplicarFpasPadrao, gravavel, proporEnquadramentos, sugestoesTerceiros,
+    aplicarFpasPadrao, codigoDoSchema, gravavel, proporEnquadramentos, sugestoesTerceiros,
     type PropostaEnquadramento, type ResultadoCargaEnq, type TabelasEnquadramento,
 } from '../../services/cadastros/cargaEnquadramentoIob';
 import { REGIMES, numeroDeTexto } from '../../services/cadastros/enquadramento';
@@ -60,13 +60,16 @@ const CargaEnquadramentoIobModal: React.FC<Props> = ({ usuario, onFechar, onGrav
             };
             const tabelas: TabelasEnquadramento = {
                 es1005: await ler(acharTabela(r, 'ES_S1005')), esocialEmpresa: await ler(acharTabela(r, 'ESOCIALEMPRESA')),
-                es1000: await ler(acharTabela(r, 'ES_S1000')), terc: await ler(acharTabela(r, 'TERC')), deptos: [],
+                es1000: await ler(acharTabela(r, 'ES_S1000')), terc: await ler(acharTabela(r, 'TERC')), schemas: [],
             };
-            for (const t of r.tabelas.filter(x => x.tabela.toLowerCase() === 'depto' && /(^|[./])f\d+$/i.test(x.grupo))) {
-                tabelas.deptos!.push({ grupo: t.grupo, tabela: (await ler(t))! });
+            // Schemas fNNNN do .backup da folha: um por empresa.
+            const doSchema = (grupo: string, nome: string) => r.tabelas.find(x => x.grupo === grupo && x.tabela.toLowerCase() === nome) ?? null;
+            for (const grupo of [...new Set(r.tabelas.map(x => x.grupo))].filter(g => codigoDoSchema(g))) {
+                const [depto, deptoMa, s1000] = [doSchema(grupo, 'depto'), doSchema(grupo, 'depto_ma'), doSchema(grupo, 'esocialdadosficha_s1000')];
+                if (depto || deptoMa || s1000) tabelas.schemas!.push({ grupo, depto: await ler(depto), deptoMa: await ler(deptoMa), s1000: await ler(s1000) });
             }
-            if (!tabelas.es1005 && !tabelas.esocialEmpresa && !tabelas.es1000) {
-                setErro('O backup não tem ES_S1005, ESOCIALEMPRESA nem ES_S1000. Abra o .zip do FolhaWin (pasta "empresa").');
+            if (!tabelas.es1005 && !tabelas.esocialEmpresa && !tabelas.es1000 && !tabelas.schemas!.length) {
+                setErro('O backup não tem as tabelas do enquadramento: abra o .zip do FolhaWin (pasta "empresa") ou o .backup da folha (schemas fNNNN).');
                 return;
             }
             setOcupado('Conferindo com o cadastro…');
@@ -110,7 +113,7 @@ const CargaEnquadramentoIobModal: React.FC<Props> = ({ usuario, onFechar, onGrav
                     <div>
                         <h3 className="text-lg font-semibold text-slate-800 dark:text-white">Carregar enquadramento do backup do IOB</h3>
                         <p className="text-sm text-slate-600 dark:text-slate-300">
-                            Para todas as empresas da sua carteira, pelo código SAGE. Abra o .zip do FolhaWin: regime (classificação tributária do S-1000), RAT e CNAE (S-1005) e FAP por período.
+                            Para todas as empresas da sua carteira, pelo código SAGE. Abra o .zip do FolhaWin (regime, RAT, CNAE e FAP de todas as empresas) e/ou o .backup da folha (por empresa: FPAS, terceiros, RAT e FAP mês a mês do depto_ma e a classificação tributária do S-1000).
                             O FPAS e os terceiros ficam na folha de cada empresa e só vêm com o Backup SQL completo; sem ele, informe o FPAS padrão abaixo para quem você marcar. Enquadramento já cadastrado não é trocado.
                         </p>
                     </div>

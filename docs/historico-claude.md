@@ -1253,3 +1253,26 @@ guias sindicais".
   - **Cabeçalho:** o nome do app e "Templates e agendamentos" não quebram mais
     linha. O nome só aparece em telas largas, e o link fica "Templates ↗" nas
     estreitas.
+
+## 06/10/2026 — Enquadramento pelo .backup de uma empresa (schema fNNNN)
+
+- **Paulo mandou o inventário do backup do banco de uma empresa:** schema
+  `f1200`, 367 tabelas, com dados reais (`func` com 85 KB, `salarios` com
+  389 KB, `holerith` com 1 MB).
+- **Funcionários:** o dicionário é o mesmo do `f1316`: `func` (223 colunas
+  idênticas), `salarios` (com `ultimo`) e `funcdoc` (com `vlchavepix`). O
+  de/para do PR #66 vale como está.
+- **Enquadramento:** a carga exigia as tabelas de sistema do FolhaWin
+  (`ES_S1005`…), que não vêm no `.backup`. Agora também lê o schema da
+  empresa:
+  - `esocialdadosficha_s1000`: o `classtrib` é o código do eSocial e tem
+    preferência sobre o `FKCLASTRIB`; o `nrinsc` confere o CNPJ.
+  - `depto_ma`: FPAS, código e % de terceiros, RAT e FAP mês a mês, da
+    lotação com mais meses. Cada mudança de parâmetro vira uma vigência, e
+    ficam as que ainda valem a partir do corte.
+  - `depto`: FPAS, terceiros, RAT e CNAE, como reserva.
+  - O schema `fNNNN` liga ao código SAGE `NNNN`.
+- **Para o futuro, o mesmo backup tem:**
+  - `holerith`/`holetot`, os holerites calculados pelo IOB, que podem servir
+    para conferir o motor sem PDF;
+  - `arquivoeventotransmissaoesocial`, os XMLs que o IOB transmitiu.

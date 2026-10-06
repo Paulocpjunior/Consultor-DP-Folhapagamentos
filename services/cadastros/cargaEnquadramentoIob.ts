@@ -10,9 +10,15 @@
 //   - ES_S1000 (empregador no eSocial): CODEMPRESA, FKCLASTRIB (classificação
 //     tributária → regime);
 //   - TERC: FPAS, CODIGO, PERCENTUAL, DESC (terceiros por FPAS, sugestão);
-//   - depto (schema fNNNN da folha de cada empresa, só no Backup SQL completo):
-//     fpas, codterc, percterc.
-// O FPAS da empresa NÃO está no diretório de sistema: sem o depto, a equipe
+//   - schema fNNNN da folha de cada empresa (o .backup do PostgreSQL; conferido
+//     no inventário do backup da empresa 1200, 06/10/2026):
+//       esocialdadosficha_s1000: classtrib (código do eSocial) e nrinsc (CNPJ);
+//       depto_ma: mês a mês (anomes) fpas, codterc, percterc, percsat (RAT) e
+//         percfap (FAP) por lotação (depsetsec);
+//       depto: fpas, codterc, percterc, percsat e cnaef20 (reserva).
+//     Com o schema, a carga não depende das tabelas de sistema: cada mudança
+//     dos parâmetros no depto_ma vira uma vigência.
+// O FPAS da empresa NÃO está no diretório de sistema: sem o schema, a equipe
 // informa (há um "FPAS padrão" na tela, aplicado só a quem ela marcar).
 //
 // Nada é sobrescrito: enquadramento já cadastrado na mesma vigência fica e as
@@ -27,9 +33,14 @@ export interface TabelasEnquadramento {
     esocialEmpresa?: TabelaLida | null;
     es1000?: TabelaLida | null;
     terc?: TabelaLida | null;
-    /** Tabelas `depto` dos schemas fNNNN (Backup SQL completo da folha). */
-    deptos?: { grupo: string; tabela: TabelaLida }[];
+    /** Tabelas do schema fNNNN de cada empresa (.backup da folha). */
+    schemas?: SchemaFolha[];
 }
+
+export interface SchemaFolha { grupo: string; depto?: TabelaLida | null; deptoMa?: TabelaLida | null; s1000?: TabelaLida | null }
+
+/** Código da empresa pelo nome do schema: "f1200" ou "backup.f1200" → "1200". */
+export const codigoDoSchema = (grupo: string) => { const m = grupo.match(/(?:^|[./])f0*(\d+)$/i); return m ? codigoIob(m[1]) : ''; };
 
 export interface EmpresaCarga { id: string; nome: string; cnpj: string; codigoSage: string }
 
@@ -140,12 +151,12 @@ export function proporEnquadramentos(t: TabelasEnquadramento, empresas: EmpresaC
     const s1005 = agrupar(linhas(t.es1005));
     const fapEmp = agrupar(linhas(t.esocialEmpresa));
     const s1000 = agrupar(linhas(t.es1000));
-    const deptos = new Map<string, Record<string, string>[]>();
-    for (const d of t.deptos ?? []) {
-        const m = d.grupo.match(/(?:^|[./])f0*(\d+)$/i);
-        if (m) deptos.set(codigoIob(m[1]), linhas(d.tabela));
+    const schemas = new Map<string, { depto: Record<string, string>[]; deptoMa: Record<string, string>[]; s1000: Record<string, string>[] }>();
+    for (const sc of t.schemas ?? []) {
+        const c = codigoDoSchema(sc.grupo);
+        if (c) schemas.set(c, { depto: linhas(sc.depto), deptoMa: linhas(sc.deptoMa), s1000: linhas(sc.s1000) });
     }
-    const codigosBackup = new Set([...s1005.keys(), ...fapEmp.keys(), ...s1000.keys()]);
+    const codigosBackup = new Set([...s1005.keys(), ...fapEmp.keys(), ...s1000.keys(), ...schemas.keys()]);
     const semEmpresa = [...codigosBackup].filter(c => !porCodigo.has(c)).sort((a, b) => Number(a) - Number(b) || a.localeCompare(b));
     const existentesPorId = new Map(existentes.map(e => [e.id || idEnquadramento(e.empresaId, e.vigencia), e]));
 
@@ -155,40 +166,47 @@ export function proporEnquadramentos(t: TabelasEnquadramento, empresas: EmpresaC
         const estab = s1005.get(cod) ?? [];
         const faps = fapEmp.get(cod) ?? [];
         const emp = s1000.get(cod) ?? [];
-        if (!estab.length && !faps.length && !emp.length) { semDados.push(empresa); continue; }
+        const sch = schemas.get(cod);
+        if (!estab.length && !faps.length && !emp.length && !sch) { semDados.push(empresa); continue; }
         const comum: string[] = [];
 
         // CNPJ do IOB tem de ser o da empresa (mesma raiz).
         const raiz = empresa.cnpj.replace(/\D/g, '').slice(0, 8);
-        const cnpjsIob = [...new Set(faps.map(f => (f.cnpjcpf || f.nroinscr || '').replace(/\D/g, '')).filter(x => x.length === 8 || x.length === 14).map(x => x.slice(0, 8)))];
+        const inscricoes = [...faps.map(f => f.cnpjcpf || f.nroinscr || ''), ...(sch?.s1000 ?? []).map(x => x.nrinsc ?? '')];
+        const cnpjsIob = [...new Set(inscricoes.map(x => x.replace(/\D/g, '')).filter(x => x.length === 8 || x.length === 14).map(x => x.slice(0, 8)))];
         const cnpjErrado = raiz && cnpjsIob.length && !cnpjsIob.includes(raiz) ? `CNPJ no IOB (raiz ${cnpjsIob.join(', ')}) não é o da empresa (raiz ${raiz}): confira o código SAGE.` : '';
 
         // RAT pelo estabelecimento (o CNAE preponderante vale para todos).
-        const rats = estab.map(e => numero(e.percsat ?? '')).filter(n => [1, 2, 3].includes(n));
+        const rats = (estab.length ? estab : sch?.depto ?? []).map(e => numero(e.percsat ?? '')).filter(n => [1, 2, 3].includes(n));
         const freq = [...contar(rats)].sort((a, b) => b[1] - a[1] || b[0] - a[0]);
         const rat = freq[0]?.[0] ?? 0;
         if (freq.length > 1) comum.push(`Estabelecimentos com RAT diferentes (${freq.map(f => `${f[0]}%`).join(', ')}): usado ${rat}%; conferir o CNAE preponderante.`);
-        if (!rat) comum.push('RAT não informado no backup.');
-        const cnae = estab.map(e => e.cnaef20 ?? '').find(Boolean) ?? '';
+        const cnae = [...estab, ...(sch?.depto ?? [])].map(e => e.cnaef20 ?? '').find(Boolean) ?? '';
         const ratAjus = estab.map(e => numero(e.ratajus ?? '')).find(n => n > 0) ?? NaN;
 
-        const cls = regimeDaClassTrib(emp[0]?.fkclastrib ?? '');
+        // O classtrib do schema é o código do eSocial; o FKCLASTRIB do sistema pode ser índice interno.
+        const cls = regimeDaClassTrib(sch?.s1000.find(x => x.classtrib)?.classtrib ?? emp[0]?.fkclastrib ?? '');
         if (cls.pendencia) comum.push(cls.pendencia);
 
         // FPAS e terceiros: só no depto da folha da empresa.
-        const dep = (deptos.get(cod) ?? []).find(d => /^\d{3}$/.test((d.fpas ?? '').replace(/\D/g, '')));
-        const fpas = dep ? dep.fpas.replace(/\D/g, '') : '';
-        const codigoTerceiros = dep ? (dep.codterc ?? '').replace(/\D/g, '').slice(0, 4) : '';
-        const terceiros = dep ? numero(dep.percterc ?? '') : NaN;
-        if (cls.regime === 'normal' && !fpas) comum.push('FPAS e terceiros não estão neste backup (ficam no depto da folha de cada empresa): informe o FPAS.');
+        const dep = (sch?.depto ?? []).find(d => /^\d{3}$/.test((d.fpas ?? '').replace(/\D/g, '')));
+        const base = {
+            fpas: dep ? dep.fpas.replace(/\D/g, '') : '',
+            codigoTerceiros: dep ? (dep.codterc ?? '').replace(/\D/g, '').slice(0, 4) : '',
+            terceiros: dep ? numero(dep.percterc ?? '') : NaN,
+        };
 
-        // Uma proposta por período do FAP que ainda serve às folhas.
-        type Periodo = { ini: string; fap: number };
-        const periodos: Periodo[] = faps
+        // Uma proposta por período: pelo depto_ma (mês a mês) quando houver; senão, pelo FAP do ESOCIALEMPRESA.
+        type Periodo = { ini: string; fap: number; rat?: number; fpas?: string; codigoTerceiros?: string; terceiros?: number };
+        const doMes = periodosDoDeptoMa(sch?.deptoMa ?? [], corte);
+        if (doMes.aviso) comum.push(doMes.aviso);
+        const periodos: Periodo[] = doMes.periodos.length ? doMes.periodos : faps
             .map(f => ({ ini: anomes(f.anomesini ?? ''), fim: anomes(f.anomesfim ?? ''), fap: fapDe(f.fap ?? '') }))
             .filter(p => p.ini && (!p.fim || p.fim >= corte))
             .sort((a, b) => a.ini.localeCompare(b.ini))
             .filter((p, i, a) => a.findIndex(x => x.ini === p.ini) === i);
+        if (!rat && !periodos.some(p => p.rat)) comum.push('RAT não informado no backup.');
+        if (cls.regime === 'normal' && !base.fpas && !periodos.some(p => p.fpas)) comum.push('FPAS e terceiros não estão neste backup (ficam no depto da folha de cada empresa): informe o FPAS.');
         if (!periodos.length) {
             const fapAjus = rat && ratAjus > 0 ? fapDe(String(Math.round((ratAjus / rat) * 10000) / 10000)) : NaN;
             periodos.push({ ini: corte, fap: fapAjus });
@@ -199,12 +217,17 @@ export function proporEnquadramentos(t: TabelasEnquadramento, empresas: EmpresaC
             const pend = [...comum];
             let fap = p.fap;
             if (!Number.isFinite(fap)) { fap = 1; pend.push('FAP não informado neste período: 1,0000 provisório; conferir o FAP publicado.'); }
+            const fpas = p.fpas || base.fpas;
+            const codigoTerceiros = p.fpas ? p.codigoTerceiros ?? '' : base.codigoTerceiros;
+            const terceiros = p.terceiros !== undefined && Number.isFinite(p.terceiros) ? p.terceiros : base.terceiros;
+            const normal = cls.regime === 'normal';
             const e: Enquadramento = {
                 ...enquadramentoVazio(empresa.id), id: idEnquadramento(empresa.id, p.ini), vigencia: p.ini, regime: cls.regime,
-                fpas: cls.regime === 'normal' ? fpas : '', codigoTerceiros: cls.regime === 'normal' ? codigoTerceiros : '',
-                patronal: 20, rat, fap, terceiros: cls.regime === 'normal' && Number.isFinite(terceiros) ? terceiros : 0,
-                observacao: [`Carga do backup do IOB (código ${cod})`, cnae && `CNAE ${cnae}`, Number.isFinite(ratAjus) && `RAT ajustado no IOB ${fmt(ratAjus)}%`].filter(Boolean).join(' · '),
+                fpas: normal ? fpas : '', codigoTerceiros: normal ? codigoTerceiros : '',
+                patronal: 20, rat: p.rat || rat, fap, terceiros: normal && Number.isFinite(terceiros) ? terceiros : 0,
+                observacao: [`Carga do backup do IOB (código ${cod}${doMes.periodos.length ? ', depto_ma' : ''})`, cnae && `CNAE ${cnae}`, Number.isFinite(ratAjus) && `RAT ajustado no IOB ${fmt(ratAjus)}%`].filter(Boolean).join(' · '),
             };
+            if (!e.rat && !pend.includes('RAT não informado no backup.')) pend.push('RAT não informado no backup.');
             const existente = existentesPorId.get(e.id) ?? null;
             const diferencas = existente ? ([
                 ['regime', existente.regime, e.regime], ['RAT', existente.rat, e.rat], ['FAP', existente.fap, e.fap], ['FPAS', existente.fpas, e.fpas],
@@ -216,6 +239,31 @@ export function proporEnquadramentos(t: TabelasEnquadramento, empresas: EmpresaC
     propostas.sort((a, b) => a.empresa.nome.localeCompare(b.empresa.nome, 'pt-BR') || a.enquadramento.vigencia.localeCompare(b.enquadramento.vigencia));
     semDados.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
     return { propostas, semDados, semEmpresa, avisos };
+}
+
+/**
+ * Períodos do depto_ma (parâmetros da folha mês a mês). Usa a lotação com
+ * mais meses; meses seguidos com os mesmos FPAS, terceiros, RAT e FAP formam
+ * um período, e cada período vira uma vigência. Ficam os períodos que ainda
+ * valem a partir de `corte`.
+ */
+export function periodosDoDeptoMa(ls: Record<string, string>[], corte: string): { periodos: { ini: string; fap: number; rat: number; fpas: string; codigoTerceiros: string; terceiros: number }[]; aviso?: string } {
+    const porLotacao = new Map<string, Record<string, string>[]>();
+    for (const l of ls) { const k = l.depsetsec ?? ''; porLotacao.set(k, [...(porLotacao.get(k) ?? []), l]); }
+    const lotacoes = [...porLotacao].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
+    if (!lotacoes.length) return { periodos: [] };
+    const [lotacao, meses] = lotacoes[0];
+    const linhasMes = meses
+        .map(l => ({ mes: anomes(l.anomes ?? ''), fpas: (l.fpas ?? '').replace(/\D/g, ''), codigoTerceiros: (l.codterc ?? '').replace(/\D/g, '').slice(0, 4), terceiros: numero(l.percterc ?? ''), rat: numero(l.percsat ?? ''), fap: fapDe(l.percfap ?? '') }))
+        .filter(l => l.mes)
+        .sort((a, b) => a.mes.localeCompare(b.mes))
+        .filter((l, i, a) => a.findIndex(x => x.mes === l.mes) === i);
+    const chave = (l: typeof linhasMes[number]) => [l.fpas, l.codigoTerceiros, String(l.terceiros), String(l.rat), String(l.fap)].join('|');
+    const runs = linhasMes.filter((l, i) => i === 0 || chave(l) !== chave(linhasMes[i - 1]));
+    const periodos = runs
+        .filter((r, i) => !runs[i + 1] || runs[i + 1].mes > corte)
+        .map(r => ({ ini: r.mes, fap: r.fap, rat: [1, 2, 3].includes(r.rat) ? r.rat : 0, fpas: /^\d{3}$/.test(r.fpas) ? r.fpas : '', codigoTerceiros: r.codigoTerceiros, terceiros: r.terceiros }));
+    return { periodos, aviso: lotacoes.length > 1 ? `Mais de uma lotação no depto_ma (${lotacoes.length}): usada a ${lotacao || '(sem código)'}, a de mais meses; conferir.` : undefined };
 }
 
 /** Aplica o FPAS padrão escolhido na tela às propostas do regime normal sem FPAS. */
