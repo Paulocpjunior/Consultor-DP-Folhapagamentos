@@ -1490,3 +1490,19 @@ guias sindicais".
     nos arquivos, não é reativada. Fica com a pendência "conferir".
   - Pendências repetidas em vários eventos (por exemplo, a de leiaute
     antigo em cada S-2206) aparecem uma vez só.
+
+## 06/10/2026 — Perfil relido a cada login
+
+- **Contexto:**
+  - O link de verificação do e-mail master não chegou: o remetente
+    `noreply@…firebaseapp.com` costuma ser barrado pelo e-mail corporativo.
+  - Paulo mudou o `role` dele e o da Juliana para `gestor` direto no console
+    do Firestore.
+- **Problema:** o escopo (papel e carteira) ficava guardado em memória por
+  uid (`escopoAtual`). Quem saía e entrava na mesma aba, sem recarregar,
+  continuava com o perfil antigo.
+- **Correção:** a cada entrada ou saída, o `MainTabs` chama `esquecerEscopo()`
+  no próprio retorno do login, antes de marcar o usuário. Com isso, as telas
+  que abrem logo depois (Empresas, Certificados) já leem o papel e a carteira
+  novos. A revisão do Codex no PR #78 apontou que, num efeito que roda depois
+  da tela aparecer, essas telas ainda leriam o perfil antigo.

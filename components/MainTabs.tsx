@@ -22,6 +22,7 @@ import AlertaPendenciasPopup from './AlertaPendenciasPopup';
 import Logo from './Logo';
 import UpdateBanner from './UpdateBanner';
 import { listarEmpresasVisiveis } from '../services/empresas/empresasService';
+import { esquecerEscopo } from '../services/carteira/carteiraService';
 import type { Empresa } from '../services/empresas/empresasTypes';
 import type { User } from '../types';
 import AtivarEmpresaScreen from './empresaAtiva/AtivarEmpresaScreen';
@@ -122,6 +123,9 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
     useEffect(() => {
         const unsub = authService.subscribeAuthState((user: User | null) => {
             if (!user) limparSessaoImplantacao();
+            // Entrada ou saída (mesmo na mesma aba): papel e carteira são lidos de novo,
+            // antes de qualquer tela montar, para valer na hora uma mudança de perfil.
+            esquecerEscopo();
             setCurrentUser(user);
             setAuthReady(true);
         });
