@@ -16,7 +16,7 @@
 
 import type { Valor } from '../iobSage/backupPostgres';
 import { centavosDeTexto, cpfValido, dataValida } from './documentos';
-import { ROTULO, idFuncionario, fichaVazia, diffFicha, type CampoFicha, type FichaFuncionario, type ResultadoMescla } from './funcionarios';
+import { ROTULO, ehManual, idFuncionario, fichaVazia, diffFicha, type CampoFicha, type FichaFuncionario, type ResultadoMescla } from './funcionarios';
 
 export type CampoCarga = 'cpf' | 'matriculaEsocial' | CampoFicha;
 
@@ -56,6 +56,8 @@ const SINONIMOS: [CampoCarga, RegExp][] = [
     ['orgaoRg', /^(orgao|orgaoemissor|orgaorg|emissorrg|orgrg)$/],
     ['emissaoRg', /^(dt|data)?(emissaorg|rgemissao|emissao|emrg)$/],
     ['tituloEleitor', /^(titulo|tituloeleitor|nrtitulo|numtit)$/],
+    // No FolhaWin a `func` tem `cbo` (CBO antiga, de 5 dígitos, ex.: 01105) e `cbo2` (CBO 2002): vale a cbo2.
+    ['cbo', /^(cbo2|cbo2002)$/],
     ['cbo', /^(cbo|codcbo)$/],
     ['cargo', /^(cargo|nomecargo|desccargo|dscargo)$/],
     ['cargoIob', /^(codcargo|cdcargo)$/],
@@ -113,6 +115,8 @@ export function normalizarValor(campo: CampoCarga, v: Valor): string {
     if (DATAS.includes(campo)) return dataDoIob(t) ?? '';
     if (campo === 'cpf') { const d = t.replace(/\D/g, ''); return d && /^\d+$/.test(d) && d.length <= 11 && !/^0+$/.test(d) ? d.padStart(11, '0') : ''; }
     if (campo === 'cep') { const d = t.replace(/\D/g, ''); return /^0*$/.test(d) ? '' : d.length === 7 ? d.padStart(8, '0') : d; }
+    // CBO só com os 6 dígitos da CBO 2002; o código antigo de 5 dígitos não vai para a ficha.
+    if (campo === 'cbo') { const d = t.replace(/\D/g, ''); return /^\d{6}$/.test(d) && !/^0+$/.test(d) ? d : ''; }
     if (DIGITOS.includes(campo)) { const d = t.replace(/\D/g, ''); return /^0*$/.test(d) ? '' : d; }
     if (campo === 'salario') { const c = centavosDeTexto(t); return c ? (c / 100).toFixed(2) : ''; }
     if (campo === 'uf' || campo === 'ufCtps') return t.toUpperCase().slice(0, 2);
@@ -130,6 +134,13 @@ export function linhaParaCampos(colunas: string[], valores: Valor[], m: Mapeamen
         if (i < 0) continue;
         const v = normalizarValor(campo, valores[i] ?? null);
         if (v) out[campo] = v;
+    }
+    // CBO vazio ou antigo na coluna escolhida: tenta a outra coluna de CBO da mesma linha.
+    if (m.cbo && !out.cbo) {
+        for (const [j, c] of colunas.entries()) {
+            const v = c !== m.cbo && /^(cbo2?|cbo2002|codcbo)$/.test(chaveColuna(c)) ? normalizarValor('cbo', valores[j] ?? null) : '';
+            if (v) { out.cbo = v; break; }
+        }
     }
     return { linha, valores: out };
 }
@@ -173,7 +184,9 @@ export function compararComFichas(linhas: LinhaIob[], fichas: FichaFuncionario[]
             for (const [campo, valor] of Object.entries(v) as [CampoCarga, string][]) {
                 if (campo === 'cpf' || campo === 'matriculaEsocial') continue;
                 const atual = ficha.dados[campo];
-                if (!atual) { depois.dados[campo] = valor; depois.origens[campo] = origem; }
+                // CBO inválido (ex.: o de 5 dígitos de uma carga anterior) que ninguém digitou é trocado.
+                const cboInvalido = campo === 'cbo' && !!atual && !/^\d{6}$/.test(atual) && !ehManual(ficha.origens.cbo);
+                if (!atual || cboInvalido) { depois.dados[campo] = valor; depois.origens[campo] = origem; }
                 else if (atual !== valor) divergencias.push({ campo, consultor: atual, iob: valor });
             }
             const alteracoes = diffFicha(ficha, depois);
@@ -277,12 +290,17 @@ export function complementosFolhaWin(salarios: TabelaLida | null, funcdoc: Tabel
     }
     const codCargoPorFunc = new Map<string, { codcargo: string; funcao: string; cbo: string }>();
     if (rsalfunc) {
-        const [iCod, iData, iCargo, iFk, iFuncao, iCbo] = ['codfun', 'data', 'codcargo', 'fkcodcarg', 'funcao', 'cbo'].map(n => col(rsalfunc, n));
+        const [iCod, iData, iCargo, iFk, iFuncao, iCbo, iSal] = ['codfun', 'data', 'codcargo', 'fkcodcarg', 'funcao', 'cbo', 'salario'].map(n => col(rsalfunc, n));
         if (iCod >= 0) {
             const melhor = new Map<string, { data: string; codcargo: string; funcao: string; cbo: string }>();
+            // Salário: reserva para quem não tem registro em `salarios` — o do histórico mais recente.
+            const salario = new Map<string, { data: string; valor: string }>();
             for (const l of rsalfunc.linhas) {
                 const k = chaveCodfun(l[iCod]);
                 if (!k) continue;
+                const valor = iSal >= 0 ? normalizarValor('salario', l[iSal] ?? null) : '';
+                const dataSal = iData >= 0 ? dataDoIob(l[iData] ?? '') ?? '' : '';
+                if (valor && (!salario.has(k) || dataSal >= salario.get(k)!.data)) salario.set(k, { data: dataSal, valor });
                 const cand = {
                     data: iData >= 0 ? dataDoIob(l[iData] ?? '') ?? '' : '',
                     codcargo: ((iCargo >= 0 ? l[iCargo] : '') || (iFk >= 0 ? l[iFk] : '') || '').trim(),
@@ -294,6 +312,7 @@ export function complementosFolhaWin(salarios: TabelaLida | null, funcdoc: Tabel
                 if (!atual || cand.data >= atual.data) melhor.set(k, cand);
             }
             for (const [k, v] of melhor) codCargoPorFunc.set(k, v);
+            for (const [k, v] of salario) if (!r.get(k)?.salario) pegar(k).salario = v.valor;
         }
     }
     if (funcdoc) {

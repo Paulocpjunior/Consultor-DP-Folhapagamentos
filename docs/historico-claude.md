@@ -1358,3 +1358,35 @@ guias sindicais".
 - **CEP:** com 7 dígitos (zero à esquerda cortado) passa a vir com o zero.
 - **Para completar as 59 fichas:** rodar a carga de novo. Ela só preenche
   campos vazios.
+
+## 06/10/2026 — Ficha completa pelo eSocial que o IOB transmitiu
+
+- **Paulo (print da ficha ALEXANDRE ROSA ATHAYDE):** *"conforme importacao,
+  essas sao as informacoes faltantes, como podemos restaurar usando este
+  backup"*. Faltavam categoria, tipo e fim de contrato, salário e unidade,
+  horas, horário, sindicato, regimes, FGTS e desligamento, e o CBO dava erro.
+- **"1 erro" da ficha:** CBO "01105", da coluna `func.cbo` (CBO antiga, de 5
+  dígitos).
+  - A carga passa a preferir `func.cbo2` (CBO 2002).
+  - CBO que não tenha 6 dígitos não vai para a ficha.
+  - Um CBO inválido de carga anterior é trocado; se foi digitado à mão,
+    vira divergência.
+- **Salário:** quem não tem registro em `salarios` recebe o do `rsalfunc`
+  mais recente.
+- **Fonte dos campos do contrato:** os XMLs que o IOB transmitiu, guardados
+  no próprio Backup SQL, no schema fNNNN:
+  - `arquivoeventotransmissaoesocial.dados_arq`: o XML de cada evento;
+  - `eventotransmissaoesocial` (`id_evento` → `rec_esocia`): o recibo de
+    cada um.
+- **Como funciona:** "Importar do eSocial (XML)" passa a aceitar o
+  `.backup`.
+  - Ele lê só o schema da empresa (f1200 para o SAGE 1200) e só os eventos de
+    vínculo (S-2200, S-2205, S-2206, S-2299, S-3000).
+  - Liga o recibo do IOB pelo Id do evento. O evento sem recibo (envio
+    recusado) fica de fora.
+  - Mostra a mesma prévia de sempre; nada é gravado sem confirmação.
+  - A ficha que veio da carga do backup é completada pela mesma chave (CPF +
+    matrícula). Edição manual é preservada.
+- **Formato de dados_arq:** não consta do inventário. A leitura aceita texto,
+  bytea (`\x`), base64, zip e gzip; o que não abrir aparece como aviso
+  contado.

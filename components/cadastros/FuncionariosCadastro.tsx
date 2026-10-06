@@ -13,6 +13,9 @@ import type { Sindicato } from '../../services/cadastros/sindicatos';
 import type { Horario } from '../../services/cadastros/horarios';
 import { emAberto, type Afastamento } from '../../services/cadastros/afastamentos';
 import { fontesDosArquivos } from './lerArquivosXml';
+import { esocialDoBackup } from '../../services/cadastros/esocialDoBackup';
+import { abrirRestauracao } from '../../services/iobSage/restauracao';
+import { fonteDeBlob } from '../../services/iobSage/backupPostgres';
 import FichaFuncionarioModal from './FichaFuncionarioModal';
 import CompletarPeloIobModal from './CompletarPeloIobModal';
 
@@ -119,9 +122,26 @@ const ImportarEsocialModal: React.FC<{ empresa: Empresa; usuario: Usuario; exist
     async function ler() {
         setOcupado('Lendo os XMLs…'); setErro('');
         try {
-            const { fontes, problemas } = await fontesDosArquivos(arquivos);
-            const p = prepararImportacao(fontes, empresa, corte, existentes);
-            setPrevia(p); setProblemas(problemas); setNomes(fontes.map(f => f.nome));
+            // XML/zip baixados do eSocial, ou o Backup SQL do IOB com os XMLs que ele transmitiu.
+            const ehXml = (f: File) => /\.(xml|zip)$/i.test(f.name);
+            const { fontes, problemas } = await fontesDosArquivos(arquivos.filter(ehXml));
+            let recibos: Map<string, string> | undefined;
+            const backups = arquivos.filter(f => !ehXml(f));
+            if (backups.length) {
+                setOcupado('Abrindo o backup do IOB…');
+                const rest = await abrirRestauracao(backups.map(f => ({ nome: f.name, fonte: fonteDeBlob(f) })));
+                if (!rest.backups.length) problemas.push(`${backups.map(f => f.name).join(', ')}: não é XML, zip nem Backup SQL do IOB.`);
+                else {
+                    const b = await esocialDoBackup(rest, empresa.codigoSage, setOcupado);
+                    const vistos = new Set(fontes.map(f => f.hash));
+                    fontes.push(...b.fontes.filter(f => !vistos.has(f.hash)));
+                    problemas.push(...b.avisos);
+                    if (b.fontes.length) problemas.unshift(`Backup do IOB (${b.grupos.join(', ')}): ${b.fontes.length} XML(s) de vínculo e ${b.recibos.size} recibo(s) do eSocial.`);
+                    recibos = b.recibos;
+                }
+            }
+            const p = prepararImportacao(fontes, empresa, corte, existentes, { recibos });
+            setPrevia(p); setProblemas(problemas); setNomes([...new Set([...backups.map(f => f.name), ...fontes.map(f => f.nome)])]);
             setMarcados(new Set(paraGravar(p).map(r => r.ficha.id)));
         } catch (e) { setErro((e as Error).message); }
         finally { setOcupado(''); }
@@ -146,12 +166,12 @@ const ImportarEsocialModal: React.FC<{ empresa: Empresa; usuario: Usuario; exist
                 <div className="flex items-start justify-between gap-3">
                     <div>
                         <h3 className="text-lg font-semibold text-slate-800 dark:text-white">Importar funcionários do eSocial — {empresa.nomeFantasia}</h3>
-                        <p className="text-sm text-slate-600 dark:text-slate-300">XMLs baixados do eSocial (S-2200, S-2205, S-2206, S-2299, S-3000), soltos ou em .zip. Só eventos com recibo de processamento entram. Nada é gravado antes de você confirmar.</p>
+                        <p className="text-sm text-slate-600 dark:text-slate-300">XMLs baixados do eSocial (S-2200, S-2205, S-2206, S-2299, S-3000), soltos ou em .zip, ou o Backup SQL do IOB (.backup), de onde saem os XMLs que o IOB transmitiu, com os recibos. Nada é gravado antes de você confirmar.</p>
                     </div>
                     <button aria-label="Fechar" className="rounded px-2 text-xl text-slate-500" onClick={onFechar}>×</button>
                 </div>
                 <div className="flex flex-wrap items-end gap-3">
-                    <label className="text-sm dark:text-white">Arquivos<input className="block text-sm" type="file" multiple accept=".xml,.zip" onChange={e => { setArquivos(Array.from(e.target.files ?? [])); setPrevia(null); }} aria-label="XMLs do eSocial" /></label>
+                    <label className="text-sm dark:text-white">Arquivos<input className="block text-sm" type="file" multiple accept=".xml,.zip,.backup,.sql,.gz,.tar" onChange={e => { setArquivos(Array.from(e.target.files ?? [])); setPrevia(null); }} aria-label="XMLs do eSocial" /></label>
                     <label className="text-sm dark:text-white">Considerar eventos até<input className="block rounded border border-slate-300 px-2 py-1 dark:border-slate-600 dark:bg-slate-900" type="date" value={corte} onChange={e => { setCorte(e.target.value); setPrevia(null); }} /></label>
                     <button className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50" disabled={!arquivos.length || !!ocupado} onClick={ler}>Ler arquivos</button>
                 </div>
