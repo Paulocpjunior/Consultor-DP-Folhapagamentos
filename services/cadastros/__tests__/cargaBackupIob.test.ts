@@ -171,4 +171,25 @@ describe('FolhaWin (schema fNNNN do Backup SQL)', () => {
         expect(fichas.novas.map(n => n.ficha.matriculaEsocial)).toEqual(['000123']);
         expect(aplicarComplementos([{ linha: 1, valores: { codigoIob: '7', matriculaEsocial: 'DA-FUNC' } }], c)[0].valores.matriculaEsocial).toBe('DA-FUNC');
     });
+
+    it('cargo, função e CBO pelo rsalfunc mais recente e o nome pela tabela cargos (a func vem sem cargo)', () => {
+        // Colunas como estão no inventário do backup da empresa 1200.
+        const rsalfunc = { colunas: ['codfun', 'data', 'composto', 'salario', 'motivosal', 'funcao', 'motivofun', 'cbo', 'codcargo', 'fk_codcarg'], linhas: [
+            ['000052', '2022-05-02', '1', '1800', '', '', '', '411010', '0003', ''],
+            ['000052', '2024-03-01', '2', '2200', '', 'Supervisor de vendas', '', '', '0007', ''],
+            ['8', '2015-01-02', '1', '1500', '', '12', '', '41101', '', '0003'],
+            ['9', '2020-01-01', '1', '1500', '', '', '', '', '', ''],
+        ] };
+        const cargos = { colunas: ['codcargo', 'cargo', 'descricao', 'cbo'], linhas: [['0003', 'AUXILIAR ADMINISTRATIVO', '', '411010'], ['7', '', 'SUPERVISOR COMERCIAL', '520110']] };
+        const funcdoc = { colunas: ['codfun', 'codcargo', 'vlchavepix'], linhas: [['10', '3', '']] };
+        const c = complementosFolhaWin(null, funcdoc, null, rsalfunc, cargos);
+        expect(c.get('52')).toEqual({ cargoIob: '0007', cargo: 'SUPERVISOR COMERCIAL', funcao: 'Supervisor de vendas', cbo: '520110' });
+        // Função só como texto; CBO de 5 dígitos (CBO antiga) fica de fora e vale o da tabela de cargos.
+        expect(c.get('8')).toEqual({ cargoIob: '0003', cargo: 'AUXILIAR ADMINISTRATIVO', cbo: '411010' });
+        expect(c.has('9')).toBe(false);
+        expect(c.get('10')).toEqual({ cargoIob: '3', cargo: 'AUXILIAR ADMINISTRATIVO', cbo: '411010' });
+        const [l] = aplicarComplementos([{ linha: 1, valores: { cpf: '52998224725', codigoIob: '000052', cargo: 'JÁ TINHA' } }], c);
+        expect(l.valores).toMatchObject({ cargo: 'JÁ TINHA', cargoIob: '0007', cbo: '520110' });
+        expect(normalizarValor('cep', '1310100')).toBe('01310100');
+    });
 });

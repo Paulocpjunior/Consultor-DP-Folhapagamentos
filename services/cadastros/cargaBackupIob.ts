@@ -112,6 +112,7 @@ export function normalizarValor(campo: CampoCarga, v: Valor): string {
     if (!t) return '';
     if (DATAS.includes(campo)) return dataDoIob(t) ?? '';
     if (campo === 'cpf') { const d = t.replace(/\D/g, ''); return d && /^\d+$/.test(d) && d.length <= 11 && !/^0+$/.test(d) ? d.padStart(11, '0') : ''; }
+    if (campo === 'cep') { const d = t.replace(/\D/g, ''); return /^0*$/.test(d) ? '' : d.length === 7 ? d.padStart(8, '0') : d; }
     if (DIGITOS.includes(campo)) { const d = t.replace(/\D/g, ''); return /^0*$/.test(d) ? '' : d; }
     if (campo === 'salario') { const c = centavosDeTexto(t); return c ? (c / 100).toFixed(2) : ''; }
     if (campo === 'uf' || campo === 'ufCtps') return t.toUpperCase().slice(0, 2);
@@ -206,7 +207,8 @@ export function compararComFichas(linhas: LinhaIob[], fichas: FichaFuncionario[]
 // Conferido no backup da empresa 1200 (06/10/2026): 432 de 432 sem matrícula na func.
 
 export interface TabelaLida { colunas: string[]; linhas: Valor[][] }
-export type Complemento = Partial<Record<'salario' | 'pix' | 'matriculaEsocial', string>>;
+export type Complemento = Partial<Record<'salario' | 'pix' | 'matriculaEsocial' | 'cargo' | 'cargoIob' | 'funcao' | 'cbo', string>>;
+const CAMPOS_COMPLEMENTO: (keyof Complemento)[] = ['salario', 'pix', 'matriculaEsocial', 'cargo', 'cargoIob', 'funcao', 'cbo'];
 
 /** Código do funcionário sem zeros à esquerda, para ligar as tabelas. */
 export const chaveCodfun = (v: Valor) => (v ?? '').trim().replace(/^0+(?=.)/, '').toUpperCase();
@@ -217,7 +219,7 @@ const col = (t: TabelaLida, nome: string) => t.colunas.findIndex(c => chaveColun
  * Salário atual e PIX por codfun. Salário: o registro marcado como `ultimo`;
  * sem marca, o de maior `anomes`. PIX: a primeira chave preenchida.
  */
-export function complementosFolhaWin(salarios: TabelaLida | null, funcdoc: TabelaLida | null, s1200: TabelaLida | null = null): Map<string, Complemento> {
+export function complementosFolhaWin(salarios: TabelaLida | null, funcdoc: TabelaLida | null, s1200: TabelaLida | null = null, rsalfunc: TabelaLida | null = null, cargos: TabelaLida | null = null): Map<string, Complemento> {
     const r = new Map<string, Complemento>();
     const pegar = (k: string) => { let c = r.get(k); if (!c) { c = {}; r.set(k, c); } return c; };
     if (salarios) {
@@ -261,15 +263,67 @@ export function complementosFolhaWin(salarios: TabelaLida | null, funcdoc: Tabel
             for (const [k, v] of melhor) pegar(k).matriculaEsocial = v.matricula;
         }
     }
+    // Cargo: o FolhaWin não guarda na `func`. Vem do registro mais recente do
+    // histórico `rsalfunc` (codcargo, funcao, cbo por data) e o nome, da tabela
+    // `cargos` (codcargo → cargo/descricao e cbo); sem histórico, o codcargo da `funcdoc`.
+    const tabelaCargos = new Map<string, { nome: string; cbo: string }>();
+    if (cargos) {
+        const [iCod, iCargo, iDesc, iCbo] = ['codcargo', 'cargo', 'descricao', 'cbo'].map(n => col(cargos, n));
+        if (iCod >= 0) for (const l of cargos.linhas) {
+            const k = chaveCodfun(l[iCod]);
+            const nome = ((iCargo >= 0 ? l[iCargo] : '') || (iDesc >= 0 ? l[iDesc] : '') || '').trim();
+            if (k) tabelaCargos.set(k, { nome, cbo: iCbo >= 0 ? normalizarValor('cbo', l[iCbo] ?? null) : '' });
+        }
+    }
+    const codCargoPorFunc = new Map<string, { codcargo: string; funcao: string; cbo: string }>();
+    if (rsalfunc) {
+        const [iCod, iData, iCargo, iFk, iFuncao, iCbo] = ['codfun', 'data', 'codcargo', 'fkcodcarg', 'funcao', 'cbo'].map(n => col(rsalfunc, n));
+        if (iCod >= 0) {
+            const melhor = new Map<string, { data: string; codcargo: string; funcao: string; cbo: string }>();
+            for (const l of rsalfunc.linhas) {
+                const k = chaveCodfun(l[iCod]);
+                if (!k) continue;
+                const cand = {
+                    data: iData >= 0 ? dataDoIob(l[iData] ?? '') ?? '' : '',
+                    codcargo: ((iCargo >= 0 ? l[iCargo] : '') || (iFk >= 0 ? l[iFk] : '') || '').trim(),
+                    funcao: iFuncao >= 0 ? (l[iFuncao] ?? '').trim() : '',
+                    cbo: iCbo >= 0 ? normalizarValor('cbo', l[iCbo] ?? null) : '',
+                };
+                if (!cand.codcargo && !cand.funcao && !cand.cbo) continue;
+                const atual = melhor.get(k);
+                if (!atual || cand.data >= atual.data) melhor.set(k, cand);
+            }
+            for (const [k, v] of melhor) codCargoPorFunc.set(k, v);
+        }
+    }
+    if (funcdoc) {
+        const [iCod, iCargo] = ['codfun', 'codcargo'].map(n => col(funcdoc, n));
+        if (iCod >= 0 && iCargo >= 0) for (const l of funcdoc.linhas) {
+            const k = chaveCodfun(l[iCod]);
+            const codcargo = (l[iCargo] ?? '').trim();
+            if (k && codcargo && !codCargoPorFunc.get(k)?.codcargo) codCargoPorFunc.set(k, { ...(codCargoPorFunc.get(k) ?? { funcao: '', cbo: '' }), codcargo });
+        }
+    }
+    for (const [k, v] of codCargoPorFunc) {
+        const c = pegar(k);
+        const tab = v.codcargo ? tabelaCargos.get(chaveCodfun(v.codcargo)) : undefined;
+        if (v.codcargo) c.cargoIob = v.codcargo;
+        if (tab?.nome) c.cargo = tab.nome;
+        // Função: só quando é texto (no FolhaWin costuma ser código).
+        if (v.funcao && /[a-zA-ZÀ-ú]{3}/.test(v.funcao)) c.funcao = v.funcao;
+        const cbo = [v.cbo, tab?.cbo].find(x => x && /^\d{6}$/.test(x));
+        if (cbo) c.cbo = cbo;
+    }
     return r;
 }
 
-/** Acrescenta salário, PIX e matrícula do eSocial das tabelas complementares a quem não os trouxe da tabela principal. */
+/** Acrescenta salário, PIX, matrícula do eSocial e cargo (código, nome, função, CBO) das tabelas complementares a quem não os trouxe da tabela principal. */
 export function aplicarComplementos(linhas: LinhaIob[], comp: Map<string, Complemento>): LinhaIob[] {
     if (!comp.size) return linhas;
     return linhas.map(l => {
         const c = l.valores.codigoIob ? comp.get(chaveCodfun(l.valores.codigoIob)) : undefined;
         if (!c) return l;
-        return { ...l, valores: { ...l.valores, ...(c.salario && !l.valores.salario ? { salario: c.salario } : {}), ...(c.pix && !l.valores.pix ? { pix: c.pix } : {}), ...(c.matriculaEsocial && !l.valores.matriculaEsocial ? { matriculaEsocial: c.matriculaEsocial } : {}) } };
+        const extra = Object.fromEntries(CAMPOS_COMPLEMENTO.filter(k => c[k] && !l.valores[k]).map(k => [k, c[k]!]));
+        return { ...l, valores: { ...l.valores, ...extra } };
     });
 }
