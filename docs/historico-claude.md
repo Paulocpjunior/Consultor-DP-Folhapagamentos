@@ -1390,3 +1390,24 @@ guias sindicais".
 - **Formato de dados_arq:** não consta do inventário. A leitura aceita texto,
   bytea (`\x`), base64, zip e gzip; o que não abrir aparece como aviso
   contado.
+
+## 06/10/2026 — Aviso de atualização em popup, com o que mudou
+
+- **Paulo:** *"o banner de atualizacao o mesmo deve chamar o maximo de atencao
+  do colaborador, em forma de popup, sempre elencando o que foi atualizado"*.
+- **Nova versão publicada:** popup no centro da tela, com fundo escurecido e
+  borda em destaque. Ele lista o que mudou desde a versão aberta e tem o botão
+  "Atualizar agora".
+  - "Depois" só adia por 10 minutos; o adiamento sobrevive ao recarregar a
+    página.
+  - Enquanto adiado, fica uma faixa laranja no topo, sem opção de esconder de
+    vez.
+- **Depois de atualizar:** popup "Sistema atualizado", com o que mudou desde a
+  última versão que a pessoa usou naquele navegador. No primeiro acesso, nada
+  aparece.
+- **Lista do que mudou:**
+  - O build grava `novidades` no `version.json`: os últimos 40 commits sem
+    merge, com título sem o "(#NN)" e os itens "- ..." do corpo do commit.
+  - O deploy passou a buscar 60 commits de histórico (`fetch-depth`).
+- **Correção:** quem se inscreve no aviso depois que ele já foi disparado
+  (ex.: a tela troca após o login) agora também o recebe.

@@ -22,6 +22,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Histórico para o version.json listar as novidades do aviso de atualização.
+          fetch-depth: 60
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:

@@ -26,12 +26,36 @@ export const APP_INFO = Object.freeze({
     builtAt: APP_BUILT_AT,
 });
 
+/** Uma mudança publicada (commit do main), gerada no build por scripts/genVersion.mjs. */
+export interface Novidade {
+    build: string;
+    data: string;
+    titulo: string;
+    itens: string[];
+}
+
 export interface RemoteVersion {
     version: string;
     build: string;
     release: string;
     branch?: string;
     builtAt: string;
+    novidades?: Novidade[];
+}
+
+/** SHAs curtos podem ter tamanhos diferentes conforme o ambiente do build. */
+export const mesmoBuild = (a: string, b: string) => !!a && !!b && (a.startsWith(b) || b.startsWith(a));
+
+/**
+ * O que mudou desde `build` (a versão aberta): as novidades mais novas até
+ * encontrar a dela. Se ela não estiver na lista (versão muito antiga ou
+ * build local), as `max` mais recentes.
+ */
+export function novidadesDesde(lista: Novidade[] | undefined, build: string, max = 12): { itens: Novidade[]; mais: number } {
+    const todas = lista ?? [];
+    const i = todas.findIndex(n => mesmoBuild(n.build, build));
+    const novas = i >= 0 ? todas.slice(0, i) : todas;
+    return { itens: novas.slice(0, max), mais: Math.max(0, novas.length - max) };
 }
 
 /** URL do version.json respeitando o `base` do Vite (GitHub Pages subpath). */
@@ -42,7 +66,7 @@ function versionUrl(): string {
     return `${base}version.json?t=${ts}`;
 }
 
-async function fetchRemoteVersion(): Promise<RemoteVersion | null> {
+export async function fetchRemoteVersion(): Promise<RemoteVersion | null> {
     try {
         const res = await fetch(versionUrl(), {
             cache: 'no-store',
@@ -65,7 +89,7 @@ async function fetchRemoteVersion(): Promise<RemoteVersion | null> {
 export async function checkForUpdate(): Promise<RemoteVersion | null> {
     const remote = await fetchRemoteVersion();
     if (!remote) return null;
-    if (remote.build && remote.build !== APP_BUILD) return remote;
+    if (remote.build && !mesmoBuild(remote.build, APP_BUILD)) return remote;
     return null;
 }
 
@@ -73,6 +97,7 @@ export type UpdateListener = (remote: RemoteVersion) => void;
 
 let pollHandle: ReturnType<typeof setInterval> | null = null;
 let lastNotifiedBuild: string | null = null;
+let lastRemote: RemoteVersion | null = null;
 const listeners = new Set<UpdateListener>();
 
 async function tick(): Promise<void> {
@@ -80,6 +105,7 @@ async function tick(): Promise<void> {
     if (!remote) return;
     if (remote.build === lastNotifiedBuild) return;
     lastNotifiedBuild = remote.build;
+    lastRemote = remote;
     listeners.forEach((fn) => {
         try { fn(remote); } catch (e) { console.warn('[updateService] listener error:', e); }
     });
@@ -91,6 +117,8 @@ async function tick(): Promise<void> {
  */
 export function subscribeUpdates(listener: UpdateListener): () => void {
     listeners.add(listener);
+    // Quem se inscreve depois do aviso (ex.: tela trocada após o login) também recebe.
+    if (lastRemote) setTimeout(() => { if (listeners.has(listener) && lastRemote) listener(lastRemote); }, 0);
 
     if (!pollHandle) {
         pollHandle = setInterval(tick, 60_000);
