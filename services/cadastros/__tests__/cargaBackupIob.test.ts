@@ -268,5 +268,9 @@ describe('demais campos do contrato pelo FolhaWin', () => {
         expect(b.valores.fimContrato).toBeUndefined();
         expect(d.valores).toEqual({ categoria: '701' });
         expect(e.valores).toMatchObject({ regimeTrabalhista: '2', regimePrevidenciario: '1', tipoContrato: '3' });
+        // Desligado com contrato a termo encerrado: o fim é histórico e fica.
+        const [f] = derivarContrato([{ linha: 5, valores: { categoria: '101', admissao: '2024-01-02', fimContrato: '2024-03-31', dataDesligamento: '2024-03-31' } }], '2026-10-06');
+        expect(f.valores).toMatchObject({ tipoContrato: '2', fimContrato: '2024-03-31' });
+        expect(normalizarValor('categoria', '314')).toBe('314');
     });
 });

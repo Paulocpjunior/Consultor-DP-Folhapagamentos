@@ -114,7 +114,7 @@ export function dataDoIob(v: string): string | null {
 const DATAS: CampoCarga[] = ['nascimento', 'admissao', 'dataDesligamento', 'emissaoRg', 'fimContrato', 'opcaoFgts'];
 
 /** Tabela 01 do eSocial (categorias de trabalhador). */
-export const CATEGORIAS_ESOCIAL = new Set(['101', '102', '103', '104', '105', '106', '107', '108', '111', '201', '202', '301', '302', '303', '304', '305', '306', '307', '308', '309', '310', '311', '312', '313', '401', '410', '501', '701', '711', '712', '721', '722', '723', '731', '734', '738', '741', '751', '761', '771', '781', '901', '902', '903', '904', '906']);
+export const CATEGORIAS_ESOCIAL = new Set(['101', '102', '103', '104', '105', '106', '107', '108', '111', '201', '202', '301', '302', '303', '304', '305', '306', '307', '308', '309', '310', '311', '312', '313', '314', '401', '410', '501', '701', '711', '712', '721', '722', '723', '731', '734', '738', '741', '751', '761', '771', '781', '901', '902', '903', '904', '906']);
 
 /** Tipo de salário do IOB → unidade salarial do eSocial; código numérico do IOB não é conhecido e fica de fora. */
 const UNIDADE: [RegExp, string][] = [[/^(h|hora|horista)/i, '1'], [/^(d|dia|diarista)/i, '2'], [/^(s|semana|semanal|semanalista)/i, '3'], [/^(q|quinzena|quinzenal|quinzenalista)/i, '4'], [/^(m|mes|mês|mensal|mensalista)/i, '5'], [/^(t|tarefa|tarefeiro)/i, '6']];
@@ -414,7 +414,9 @@ export function complementosFolhaWin(salarios: TabelaLida | null, funcdoc: Tabel
  * Campos que decorrem dos outros, só onde a linha não os trouxe:
  * - categoria de empregado (1xx): regime trabalhista CLT e previdenciário RGPS;
  * - fim de contrato vencido (ex.: experiência já passada) não vale para quem
- *   está ativo: o contrato é por prazo indeterminado; fim futuro: prazo determinado.
+ *   está ativo: o contrato é por prazo indeterminado; fim futuro: prazo determinado;
+ * - desligado: o fim do contrato é histórico e fica como está (prazo determinado
+ *   quando houver fim depois da admissão).
  */
 export function derivarContrato(linhas: LinhaIob[], hoje: string): LinhaIob[] {
     return linhas.map(l => {
@@ -422,9 +424,10 @@ export function derivarContrato(linhas: LinhaIob[], hoje: string): LinhaIob[] {
         if (v.categoria && /^1\d\d$/.test(v.categoria)) {
             if (!v.regimeTrabalhista) v.regimeTrabalhista = '1';
             if (!v.regimePrevidenciario) v.regimePrevidenciario = '1';
+            const fimValido = !!v.fimContrato && (!v.admissao || v.fimContrato > v.admissao);
             if (!v.tipoContrato) {
-                if (v.fimContrato && v.fimContrato >= hoje && (!v.admissao || v.fimContrato > v.admissao)) v.tipoContrato = '2';
-                else { v.tipoContrato = '1'; delete v.fimContrato; }
+                if (fimValido && (v.dataDesligamento || v.fimContrato! >= hoje)) v.tipoContrato = '2';
+                else { v.tipoContrato = '1'; if (!v.dataDesligamento) delete v.fimContrato; }
             }
         }
         if (v.fimContrato && (v.fimContrato < hoje || v.tipoContrato === '1') && !v.dataDesligamento) delete v.fimContrato;
