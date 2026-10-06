@@ -155,7 +155,12 @@ describe('importação do eSocial', () => {
         const importada = { ...fichaBase(), situacao: 'ativo' as const, dados: { ...fichaBase().dados }, origens: { situacao: 'eSocial' } };
         const r = mesclarComEsocial(base, importada);
         expect(r.ficha.situacao).toBe('desligado');
-        expect(r.ficha.pendenciasImportacao.join(' ')).toMatch(/Desligado em 2025-03-10 .* sem S-2299/);
+        expect(r.ficha.pendenciasImportacao.join(' ')).toMatch(/Desligado em 2025-03-10 .* sem S-2299/);        // A pendência nova conta como alteração (senão não seria gravada).
+        expect(r.alteracoes).toEqual([{ campo: 'pendencias', de: '0', para: '1' }]);
+        // Situação digitada à mão como ativa: não muda.
+        const manual = mesclarComEsocial({ ...base, situacao: 'ativo', origens: { ...base.origens, situacao: 'Manual · ana · 2026-10-01' } }, importada);
+        expect(manual.ficha.situacao).toBe('ativo');
+        expect(manual.alteracoes).toEqual([]);
     });
 
     it('S-2299 com aviso indenizado traz o fim projetado', () => {

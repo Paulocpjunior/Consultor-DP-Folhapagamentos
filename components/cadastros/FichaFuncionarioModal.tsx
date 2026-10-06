@@ -6,7 +6,7 @@
 
 import React, { useEffect, useState } from 'react';
 import {
-    ABAS, ROTULO, aplicarEdicao, defCampo, ehManual, idFuncionario, normalizarFicha, validarFicha,
+    ABAS, ROTULO, aplicarEdicao, defCampo, ehManual, idFuncionario, normalizarFicha, rotuloAlteracao, validarFicha,
     type CampoFicha, type Dependente, type FichaFuncionario,
 } from '../../services/cadastros/funcionarios';
 import { historico, mensagemErro, salvarFuncionario, excluirFuncionario, type RegistroAuditoria, type Usuario } from '../../services/cadastros/cadastrosService';
@@ -207,7 +207,7 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                                 <details key={h.id} className="rounded border border-slate-200 p-2 dark:border-slate-700">
                                     <summary className="cursor-pointer dark:text-white">{h.quando ? h.quando.toLocaleString('pt-BR') : '—'} · {h.acao} · {h.autorEmail} · {h.totalAlteracoes} campo(s)</summary>
                                     {h.origem && <p className="mt-1 text-xs text-slate-500">{h.origem}</p>}
-                                    <ul className="mt-1 space-y-0.5 text-xs dark:text-slate-300">{h.alteracoes.map((a, i) => <li key={i}><strong>{ROTULO[a.campo as CampoFicha] ?? a.campo}:</strong> {a.de || '∅'} → {a.para || '∅'}</li>)}</ul>
+                                    <ul className="mt-1 space-y-0.5 text-xs dark:text-slate-300">{h.alteracoes.map((a, i) => <li key={i}><strong>{rotuloAlteracao(a.campo)}:</strong> {a.de || '∅'} → {a.para || '∅'}</li>)}</ul>
                                 </details>
                             ))}
                         </div>

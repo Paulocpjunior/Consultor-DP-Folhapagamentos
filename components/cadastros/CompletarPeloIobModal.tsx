@@ -12,7 +12,7 @@ import { fonteDeBlob } from '../../services/iobSage/backupPostgres';
 import { abrirRestauracao, type Restauracao, type TabelaRestauracao } from '../../services/iobSage/restauracao';
 import type { Codificacao } from '../../services/iobSage/dbf';
 import { CAMPOS_CARGA, TABELAS_COMPLEMENTARES, aplicarComplementos, complementosFolhaWin, compararComFichas, derivarContrato, linhaParaCampos, proporMapeamento, rotuloCarga, type CampoCarga, type Comparacao, type LinhaIob, type Mapeamento, type TabelaLida } from '../../services/cadastros/cargaBackupIob';
-import { ROTULO, type CampoFicha, type FichaFuncionario } from '../../services/cadastros/funcionarios';
+import { ROTULO, rotuloAlteracao, type CampoFicha, type FichaFuncionario } from '../../services/cadastros/funcionarios';
 import { gravarImportacao, mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
 import { CODIFICACOES } from '../iobSage/RestaurarBackupModal';
 
@@ -114,7 +114,7 @@ const CompletarPeloIobModal: React.FC<Props> = ({ empresa, usuario, existentes, 
     }
 
     const temChave = !!(mapa.cpf || mapa.matriculaEsocial);
-    const rotulo = (c: string) => ROTULO[c as CampoFicha] ?? c;
+    const rotulo = rotuloAlteracao;
     const itens = comp ? [...comp.completar, ...comp.novas] : [];
     const divergencias = comp ? [
         ...comp.completar.filter(c => c.divergencias.length).map(c => ({ ficha: c.ficha, divergencias: c.divergencias })),
