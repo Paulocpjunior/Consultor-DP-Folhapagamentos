@@ -1323,3 +1323,20 @@ guias sindicais".
     marcada. Escolhendo outra empresa (ou outro mês), o app troca a empresa
     ativa (`ativar` no contexto) e abre a folha dela direto: o pedido fica em
     `sessionStorage` enquanto a tela remonta.
+
+## 06/10/2026 — Matrícula do eSocial pelo S-1200 na carga do FolhaWin
+
+- **Paulo (prints do teste com a empresa 1200):**
+  - leitura: 432 linhas lidas, 0 novas, 432 "sem ficha";
+  - motivo de todas: "Sem matrícula do eSocial no IOB" (os CPFs estavam
+    certos).
+- **Causa:** a coluna `func.matricula` do FolhaWin vem vazia. O IOB gera a
+  matrícula (`funcdoc.geramatric`) e não a guarda na ficha. No backup, a
+  única fonte preenchida é `esocialdadosficha_s1200_remunperapur` (`codfun`,
+  `anomes`, `matricula`), a matrícula que o próprio IOB mandou no S-1200.
+- **Correção:**
+  - A tabela entrou nas complementares da carga: a matrícula vem do S-1200
+    mais recente de cada `codfun`, e a da `func`, quando houver, tem
+    preferência.
+  - Quem nunca teve S-1200 (desligados antes do eSocial) continua listado
+    sem ficha, de propósito.

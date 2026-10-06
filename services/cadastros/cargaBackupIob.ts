@@ -200,9 +200,13 @@ export function compararComFichas(linhas: LinhaIob[], fichas: FichaFuncionario[]
 // No FolhaWin o salário não está na `func`: fica em `salarios` (histórico, com
 // o registro atual marcado em `ultimo`). A chave PIX fica em `funcdoc`
 // (`vlchavepix`). As duas ligam pelo `codfun`, o código do funcionário no IOB.
+// A matrícula do eSocial não fica na `func` (a coluna `matricula` vem vazia:
+// o IOB gera a matrícula, `funcdoc.geramatric`); a que foi enviada ao eSocial
+// está em `esocialdadosficha_s1200_remunperapur` (codfun, anomes, matricula).
+// Conferido no backup da empresa 1200 (06/10/2026): 432 de 432 sem matrícula na func.
 
 export interface TabelaLida { colunas: string[]; linhas: Valor[][] }
-export type Complemento = Partial<Record<'salario' | 'pix', string>>;
+export type Complemento = Partial<Record<'salario' | 'pix' | 'matriculaEsocial', string>>;
 
 /** Código do funcionário sem zeros à esquerda, para ligar as tabelas. */
 export const chaveCodfun = (v: Valor) => (v ?? '').trim().replace(/^0+(?=.)/, '').toUpperCase();
@@ -213,7 +217,7 @@ const col = (t: TabelaLida, nome: string) => t.colunas.findIndex(c => chaveColun
  * Salário atual e PIX por codfun. Salário: o registro marcado como `ultimo`;
  * sem marca, o de maior `anomes`. PIX: a primeira chave preenchida.
  */
-export function complementosFolhaWin(salarios: TabelaLida | null, funcdoc: TabelaLida | null): Map<string, Complemento> {
+export function complementosFolhaWin(salarios: TabelaLida | null, funcdoc: TabelaLida | null, s1200: TabelaLida | null = null): Map<string, Complemento> {
     const r = new Map<string, Complemento>();
     const pegar = (k: string) => { let c = r.get(k); if (!c) { c = {}; r.set(k, c); } return c; };
     if (salarios) {
@@ -241,15 +245,31 @@ export function complementosFolhaWin(salarios: TabelaLida | null, funcdoc: Tabel
             }
         }
     }
+    if (s1200) {
+        // Matrícula do S-1200 mais recente de cada funcionário.
+        const [iCod, iMat, iAno] = ['codfun', 'matricula', 'anomes'].map(n => col(s1200, n));
+        if (iCod >= 0 && iMat >= 0) {
+            const melhor = new Map<string, { anomes: string; matricula: string }>();
+            for (const l of s1200.linhas) {
+                const k = chaveCodfun(l[iCod]);
+                const matricula = (l[iMat] ?? '').trim();
+                if (!k || !matricula) continue;
+                const anomes = iAno >= 0 ? (l[iAno] ?? '').replace(/\D/g, '') : '';
+                const atual = melhor.get(k);
+                if (!atual || anomes > atual.anomes) melhor.set(k, { anomes, matricula });
+            }
+            for (const [k, v] of melhor) pegar(k).matriculaEsocial = v.matricula;
+        }
+    }
     return r;
 }
 
-/** Acrescenta salário e PIX das tabelas complementares a quem não os trouxe da tabela principal. */
+/** Acrescenta salário, PIX e matrícula do eSocial das tabelas complementares a quem não os trouxe da tabela principal. */
 export function aplicarComplementos(linhas: LinhaIob[], comp: Map<string, Complemento>): LinhaIob[] {
     if (!comp.size) return linhas;
     return linhas.map(l => {
         const c = l.valores.codigoIob ? comp.get(chaveCodfun(l.valores.codigoIob)) : undefined;
         if (!c) return l;
-        return { ...l, valores: { ...l.valores, ...(c.salario && !l.valores.salario ? { salario: c.salario } : {}), ...(c.pix && !l.valores.pix ? { pix: c.pix } : {}) } };
+        return { ...l, valores: { ...l.valores, ...(c.salario && !l.valores.salario ? { salario: c.salario } : {}), ...(c.pix && !l.valores.pix ? { pix: c.pix } : {}), ...(c.matriculaEsocial && !l.valores.matriculaEsocial ? { matriculaEsocial: c.matriculaEsocial } : {}) } };
     });
 }

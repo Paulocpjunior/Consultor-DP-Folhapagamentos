@@ -157,4 +157,18 @@ describe('FolhaWin (schema fNNNN do Backup SQL)', () => {
         expect(linhas[2].valores).toEqual({ cpf: '39053344705' });
         expect(complementosFolhaWin(null, null).size).toBe(0);
     });
+
+    it('matrícula do eSocial pelo S-1200 mais recente (a func do FolhaWin vem sem matrícula)', () => {
+        const s1200 = { colunas: ['anomes', 'codfun', 'pk_padrao', 'fk_ficha', 'matricula', 'indsimples', 'grauexp'], linhas: [
+            ['202401', '0007', '1', '1', 'MAT-ANTIGA', '', ''], ['202509', '7', '2', '1', '000123', '', ''], ['202508', '8', '3', '1', '', '', ''],
+        ] };
+        const c = complementosFolhaWin(null, null, s1200);
+        expect(c.get('7')).toEqual({ matriculaEsocial: '000123' });
+        expect(c.has('8')).toBe(false);
+        const [l] = aplicarComplementos([{ linha: 1, valores: { cpf: '52998224725', codigoIob: '7', nome: 'ANA' } }], c);
+        expect(l.valores.matriculaEsocial).toBe('000123');
+        const fichas = compararComFichas([l], [], { id: 'emp1', cnpj: '11222333000181' }, 'IOB', true);
+        expect(fichas.novas.map(n => n.ficha.matriculaEsocial)).toEqual(['000123']);
+        expect(aplicarComplementos([{ linha: 1, valores: { codigoIob: '7', matriculaEsocial: 'DA-FUNC' } }], c)[0].valores.matriculaEsocial).toBe('DA-FUNC');
+    });
 });
