@@ -1340,3 +1340,21 @@ guias sindicais".
     preferência.
   - Quem nunca teve S-1200 (desligados antes do eSocial) continua listado
     sem ficha, de propósito.
+
+## 06/10/2026 — Cargo e CBO na carga do FolhaWin
+
+- **Resultado da carga com o S-1200 (print):** 59 fichas ativas criadas na
+  SP ASSESSORIA CONTABIL (SAGE 1200), com matrícula = código IOB, CPF e
+  admissão. Cargo veio vazio, e as fichas recentes acusam "1 erro"; o erro
+  ainda não foi visto.
+- **Paulo: *"pode seguir com rsalfunc cargo"*.**
+- **Cargo:** a carga lê `rsalfunc` (histórico do funcionário: `codcargo`,
+  `funcao` e `cbo` por data) e `cargos` (`codcargo` → `cargo`/`descricao` e
+  `cbo`). Do registro mais recente vêm:
+  - **Código e nome do cargo:** o código vem do `rsalfunc` (sem ele, de
+    `funcdoc.codcargo`) e o nome, da tabela `cargos`.
+  - **Função:** só quando vem como texto.
+  - **CBO:** só com 6 dígitos (CBO 2002), do histórico ou do cargo.
+- **CEP:** com 7 dígitos (zero à esquerda cortado) passa a vir com o zero.
+- **Para completar as 59 fichas:** rodar a carga de novo. Ela só preenche
+  campos vazios.
