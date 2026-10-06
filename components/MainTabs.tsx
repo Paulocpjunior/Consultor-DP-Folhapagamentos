@@ -22,6 +22,7 @@ import AlertaPendenciasPopup from './AlertaPendenciasPopup';
 import Logo from './Logo';
 import UpdateBanner from './UpdateBanner';
 import { listarEmpresasVisiveis } from '../services/empresas/empresasService';
+import { esquecerEscopo } from '../services/carteira/carteiraService';
 import type { Empresa } from '../services/empresas/empresasTypes';
 import type { User } from '../types';
 import AtivarEmpresaScreen from './empresaAtiva/AtivarEmpresaScreen';
@@ -86,6 +87,9 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
 
     // Outro usuário na mesma aba: começa sem ativação (a dele é lida do navegador).
     useEffect(() => { setAtiva(null); setVisiveis(null); setTrocando(false); }, [uidAtual]);
+    // Novo login (mesmo na mesma aba): o papel e a carteira são lidos de novo,
+    // para valer na hora uma mudança de perfil (ex.: virou gestor).
+    useEffect(() => { esquecerEscopo(); }, [currentUser]);
 
     useEffect(() => {
         if (!currentUser) return;
