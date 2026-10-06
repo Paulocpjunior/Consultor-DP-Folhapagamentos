@@ -31,6 +31,10 @@ describe('tela de ativação de empresa e período', () => {
         cleanup();
         render(<AtivarEmpresaScreen {...base} papel="Gestor" empresas={[emp('A', 'Alfa', '0001'), emp('B', 'Beta', '0002')]} onAtivar={() => {}} />);
         expect(screen.getByText(/perfil no Consultor DP/).textContent).toContain('Gestor · todas as 2 empresas');
+        // Falha ao carregar: não mostra "0 empresas" como se fosse a contagem real.
+        cleanup();
+        render(<AtivarEmpresaScreen {...base} papel="Gestor" erro="Não foi possível carregar as empresas" empresas={[]} onAtivar={() => {}} />);
+        expect(screen.queryByText(/perfil no Consultor DP/)).toBeNull();
     });
 
     it('carteira vazia: explica e leva ao cadastro de empresas; sem "Voltar" sem ativação', () => {

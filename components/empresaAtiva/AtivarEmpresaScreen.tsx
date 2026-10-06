@@ -49,7 +49,7 @@ const AtivarEmpresaScreen: React.FC<Props> = ({ empresas, erro, competenciaInici
                         <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
                             Escolha a empresa e a competência em que vai trabalhar. Todas as telas passam a usar essa empresa e esse período até você trocar.
                         </p>
-                        {papel && empresas && (
+                        {papel && empresas && !erro && (
                             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                                 {usuarioEmail} · perfil no Consultor DP: <strong>{papel}</strong> · {papel === 'Gestor' ? `todas as ${empresas.length} empresas` : `${empresas.length} empresa(s) na carteira`}
                             </p>
