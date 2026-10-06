@@ -174,10 +174,14 @@ export function proporEnquadramentos(t: TabelasEnquadramento, empresas: EmpresaC
         const raiz = empresa.cnpj.replace(/\D/g, '').slice(0, 8);
         const inscricoes = [...faps.map(f => f.cnpjcpf || f.nroinscr || ''), ...(sch?.s1000 ?? []).map(x => x.nrinsc ?? '')];
         const cnpjsIob = [...new Set(inscricoes.map(x => x.replace(/\D/g, '')).filter(x => x.length === 8 || x.length === 14).map(x => x.slice(0, 8)))];
-        const cnpjErrado = raiz && cnpjsIob.length && !cnpjsIob.includes(raiz) ? `CNPJ no IOB (raiz ${cnpjsIob.join(', ')}) não é o da empresa (raiz ${raiz}): confira o código SAGE.` : '';
+        // Toda fonte com CNPJ (ESOCIALEMPRESA e o S-1000 do schema) tem de ser da empresa: uma certa não salva a outra.
+        const outrasRaizes = cnpjsIob.filter(x => x !== raiz);
+        const cnpjErrado = raiz && outrasRaizes.length ? `CNPJ no IOB (raiz ${outrasRaizes.join(', ')}) não é o da empresa (raiz ${raiz}): confira o código SAGE.` : '';
 
         // RAT pelo estabelecimento (o CNAE preponderante vale para todos).
-        const rats = (estab.length ? estab : sch?.depto ?? []).map(e => numero(e.percsat ?? '')).filter(n => [1, 2, 3].includes(n));
+        const ratValidos = (ls: Record<string, string>[]) => ls.map(e => numero(e.percsat ?? '')).filter(n => [1, 2, 3].includes(n));
+        // S-1005 primeiro; sem RAT válido nele, o depto da folha é a reserva.
+        const rats = ratValidos(estab).length ? ratValidos(estab) : ratValidos(sch?.depto ?? []);
         const freq = [...contar(rats)].sort((a, b) => b[1] - a[1] || b[0] - a[0]);
         const rat = freq[0]?.[0] ?? 0;
         if (freq.length > 1) comum.push(`Estabelecimentos com RAT diferentes (${freq.map(f => `${f[0]}%`).join(', ')}): usado ${rat}%; conferir o CNAE preponderante.`);

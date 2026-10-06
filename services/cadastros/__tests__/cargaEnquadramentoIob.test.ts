@@ -122,6 +122,18 @@ describe('só com o .backup da empresa (schema fNNNN)', () => {
         expect(r.propostas.every(p => gravavel(p) && !p.pendencias.length)).toBe(true);
         const outro = proporEnquadramentos({ schemas: [{ grupo: 'f1200', s1000: T(S1000, [['1', '1', '1', '99888777', 'X', '01']]) }] }, [{ id: 'A', nome: 'ALFA', cnpj: '11222333000181', codigoSage: '1200' }], [], '2025-01');
         expect(outro.propostas[0].erros[0]).toMatch(/raiz 99888777/);
+        // Uma fonte certa (ESOCIALEMPRESA) não salva outra errada (S-1000 do schema).
+        const misto = proporEnquadramentos({
+            esocialEmpresa: T(ESOCIALEMPRESA, [eEmp('1200', '202501', '', '1,0000', '11222333000181')]),
+            schemas: [{ grupo: 'f1200', s1000: T(S1000, [['1', '1', '1', '99888777', 'X', '99']]) }],
+        }, [{ id: 'A', nome: 'ALFA', cnpj: '11222333000181', codigoSage: '1200' }], [], '2025-01');
+        expect(misto.propostas[0].erros[0]).toMatch(/raiz 99888777\) não é o da empresa \(raiz 11222333\)/);
+        // S-1005 sem RAT válido: o RAT do depto é a reserva.
+        const reserva = proporEnquadramentos({
+            es1005: T(ES_S1005, [e1005('1200', '')]),
+            schemas: [{ grupo: 'f1200', s1000: T(S1000, [['1', '1', '1', '11222333', 'A', '01']]), depto: T(['coddepto', 'percsat'], [['1', '3']]) }],
+        }, [{ id: 'A', nome: 'ALFA', cnpj: '11222333000181', codigoSage: '1200' }], [], '2025-01');
+        expect(reserva.propostas[0].enquadramento.rat).toBe(3);
         expect(outro.propostas[0].enquadramento.regime).toBe('simples');
     });
 });
