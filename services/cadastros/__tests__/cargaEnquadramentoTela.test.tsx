@@ -63,12 +63,30 @@ describe('carga do enquadramento pelo backup do IOB', () => {
         expect(gravados.find((e: { id: string }) => e.id.startsWith('C_'))).toMatchObject({ regime: 'normal', fpas: '515', terceiros: 5.8, rat: 3 });
     });
 
+    it('só o .backup da empresa (schema fNNNN): propõe pelo depto_ma', async () => {
+        emp.listarEmpresasVisiveis.mockResolvedValue(EMPRESAS);
+        const T2 = [
+            tab('f13', 'esocialdadosficha_s1000', ['codigo', 'nrinsc', 'classtrib'], [['1', '11444777', '99']]),
+            tab('f13', 'depto_ma', ['depsetsec', 'anomes', 'percterc', 'percsat', 'percfap', 'fpas', 'codterc'], [['1', '202601', '5,8', '1', '1,0000', '515', '0115']]),
+            tab('f13', 'func', ['codfun', 'nome'], [['1', 'X']]),
+        ];
+        rest.abrirRestauracao.mockResolvedValue({ tabelas: T2.map(x => x.t), lerTabela: async (t: { id: string }, aoLinha: (v: (string | null)[]) => void) => { const x = T2.find(y => y.t.id === t.id)!; x.linhas.forEach(aoLinha); return x.linhas.length; } });
+        svc.listarTodosEnquadramentos.mockResolvedValue([]);
+        render(<CargaEnquadramentoIobModal usuario={{ id: 'u1', email: 'a@b' }} onFechar={() => {}} onGravado={() => {}} />);
+        await waitFor(() => expect(emp.listarEmpresasVisiveis).toHaveBeenCalled());
+        fireEvent.change(screen.getByLabelText('Arquivos do backup do IOB'), { target: { files: [new File(['x'], 'folha.backup')] } });
+        await screen.findByRole('button', { name: 'Prontas (1)' });
+        const beta = screen.getByText('BETA').closest('tr')!;
+        expect(within(beta).getByText('1% × 1,0000')).toBeTruthy();
+        expect(within(beta).getByText('515 · 0115 · 5,8%')).toBeTruthy();
+    });
+
     it('backup sem as tabelas do eSocial avisa', async () => {
         emp.listarEmpresasVisiveis.mockResolvedValue(EMPRESAS);
         rest.abrirRestauracao.mockResolvedValue({ tabelas: [], lerTabela: async () => 0 });
         render(<CargaEnquadramentoIobModal usuario={{ id: 'u1', email: 'a@b' }} onFechar={() => {}} onGravado={() => {}} />);
         await waitFor(() => expect(emp.listarEmpresasVisiveis).toHaveBeenCalled());
         fireEvent.change(screen.getByLabelText('Arquivos do backup do IOB'), { target: { files: [new File(['x'], 'x.zip')] } });
-        await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('não tem ES_S1005'));
+        await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('não tem as tabelas do enquadramento'));
     });
 });
