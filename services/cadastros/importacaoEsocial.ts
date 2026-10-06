@@ -7,15 +7,39 @@
 
 import { consolidar, lerXml, type Evento, type FonteXml } from '../implantacao/implantacao';
 import { fichaDoEsocial, mesclarComEsocial, type FichaFuncionario, type ResultadoMescla } from './funcionarios';
+import { chaveIdEvento } from './esocialDoBackup';
 
 export interface PreviaImportacao { resultados: ResultadoMescla[]; avisos: string[] }
 
-export function prepararImportacao(fontes: FonteXml[], empresa: { id: string; cnpj: string }, corte: string, existentes: FichaFuncionario[]): PreviaImportacao {
+export interface OpcoesImportacao {
+    /**
+     * Recibos que o IOB guardou no backup (Id do evento → nrRecibo). O XML
+     * enviado não traz o retorno: o recibo do IOB vale como processamento
+     * aceito, e o evento sem recibo (envio recusado ou não concluído) fica de
+     * fora — também quando o mapa vem vazio (nenhum envio aceito).
+     */
+    recibos?: Map<string, string> | null;
+}
+
+const SEM_RETORNO = 'Sem retorno de processamento 201 associado; aceitação não comprovada.';
+
+export function prepararImportacao(fontes: FonteXml[], empresa: { id: string; cnpj: string }, corte: string, existentes: FichaFuncionario[], opcoes: OpcoesImportacao = {}): PreviaImportacao {
     const eventos: Evento[] = []; const avisos: string[] = [];
+    let semRecibo = 0;
     for (const f of fontes) {
-        try { const r = lerXml(f); eventos.push(...r.eventos); avisos.push(...r.avisos); }
+        try {
+            const r = lerXml(f);
+            avisos.push(...r.avisos);
+            for (const e of r.eventos) {
+                const rec = opcoes.recibos && !e.recibo ? opcoes.recibos.get(chaveIdEvento(e.id)) : undefined;
+                if (rec) eventos.push({ ...e, recibo: rec, processado: true, avisos: e.avisos.filter(a => a !== SEM_RETORNO) });
+                else if (opcoes.recibos && !e.processado) semRecibo++;
+                else eventos.push(e);
+            }
+        }
         catch (e) { avisos.push(`${f.nome}: ${(e as Error).message}`); }
     }
+    if (semRecibo) avisos.push(`${semRecibo} evento(s) sem recibo no IOB (envio recusado ou não concluído) ficaram de fora.`);
     // Mesma regra da implantação: admissão retificada com recibo vale como cadastro provisório.
     const consolidado = consolidar(eventos, empresa.cnpj, corte, [], { revisarAdmissaoRetificada: true });
     avisos.push(...consolidado.avisos);

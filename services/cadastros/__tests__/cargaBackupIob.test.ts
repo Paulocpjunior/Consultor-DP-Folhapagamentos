@@ -183,13 +183,47 @@ describe('FolhaWin (schema fNNNN do Backup SQL)', () => {
         const cargos = { colunas: ['codcargo', 'cargo', 'descricao', 'cbo'], linhas: [['0003', 'AUXILIAR ADMINISTRATIVO', '', '411010'], ['7', '', 'SUPERVISOR COMERCIAL', '520110']] };
         const funcdoc = { colunas: ['codfun', 'codcargo', 'vlchavepix'], linhas: [['10', '3', '']] };
         const c = complementosFolhaWin(null, funcdoc, null, rsalfunc, cargos);
-        expect(c.get('52')).toEqual({ cargoIob: '0007', cargo: 'SUPERVISOR COMERCIAL', funcao: 'Supervisor de vendas', cbo: '520110' });
+        expect(c.get('52')).toEqual({ cargoIob: '0007', cargo: 'SUPERVISOR COMERCIAL', funcao: 'Supervisor de vendas', cbo: '520110', salario: '2200.00' });
         // Função só como texto; CBO de 5 dígitos (CBO antiga) fica de fora e vale o da tabela de cargos.
-        expect(c.get('8')).toEqual({ cargoIob: '0003', cargo: 'AUXILIAR ADMINISTRATIVO', cbo: '411010' });
-        expect(c.has('9')).toBe(false);
+        expect(c.get('8')).toEqual({ cargoIob: '0003', cargo: 'AUXILIAR ADMINISTRATIVO', cbo: '411010', salario: '1500.00' });
+        // Sem cargo no histórico, só o salário (reserva para quem não está em `salarios`).
+        expect(c.get('9')).toEqual({ salario: '1500.00' });
         expect(c.get('10')).toEqual({ cargoIob: '3', cargo: 'AUXILIAR ADMINISTRATIVO', cbo: '411010' });
         const [l] = aplicarComplementos([{ linha: 1, valores: { cpf: '52998224725', codigoIob: '000052', cargo: 'JÁ TINHA' } }], c);
         expect(l.valores).toMatchObject({ cargo: 'JÁ TINHA', cargoIob: '0007', cbo: '520110' });
         expect(normalizarValor('cep', '1310100')).toBe('01310100');
+    });
+});
+
+describe('CBO e salário do FolhaWin (ficha com "1 erro" de CBO)', () => {
+    it('prefere a cbo2 (CBO 2002) e descarta o CBO antigo de 5 dígitos', () => {
+        const colunas = ['codfun', 'nome', 'cpf', 'cbo', 'cbo2'];
+        const m = proporMapeamento(colunas);
+        expect(m.cbo).toBe('cbo2');
+        expect(normalizarValor('cbo', '01105')).toBe('');
+        expect(normalizarValor('cbo', '4110-05')).toBe('411005');
+        expect(linhaParaCampos(colunas, ['7', 'ANA', CPF_A, '01105', '411010'], m, 1).valores.cbo).toBe('411010');
+        // cbo2 vazia: vale a outra coluna, se for CBO válido; senão fica em branco.
+        expect(linhaParaCampos(colunas, ['7', 'ANA', CPF_A, '411005', ''], m, 1).valores.cbo).toBe('411005');
+        expect(linhaParaCampos(colunas, ['7', 'ANA', CPF_A, '01105', null], m, 1).valores.cbo).toBeUndefined();
+    });
+
+    it('CBO inválido de carga anterior é trocado; o digitado à mão, não', () => {
+        const l = [{ linha: 1, valores: { cpf: CPF_A, cbo: '411010' } }];
+        const r = compararComFichas(l, [ficha(CPF_A, 'M1', { cbo: '01105' }, { cbo: 'Backup IOB' })], EMP, 'IOB', false);
+        expect(r.completar[0].ficha.dados.cbo).toBe('411010');
+        const m = compararComFichas(l, [ficha(CPF_A, 'M1', { cbo: '01105' }, { cbo: 'Manual · ana · 2026-10-01' })], EMP, 'IOB', false);
+        expect(m.completar).toEqual([]);
+        expect(m.soDivergencias[0].divergencias).toEqual([{ campo: 'cbo', consultor: '01105', iob: '411010' }]);
+    });
+
+    it('salário pelo rsalfunc mais recente só para quem não tem registro em salarios', () => {
+        const rsalfunc = { colunas: ['codfun', 'data', 'salario', 'codcargo'], linhas: [
+            ['7', '2024-01-01', '1800,00', ''], ['7', '2025-03-01', '2100,00', ''], ['8', '2025-03-01', '3000,00', ''],
+        ] };
+        const salarios = { colunas: ['codfun', 'anomes', 'valor', 'ultimo'], linhas: [['8', '202503', '3200,00', 'S']] };
+        const c = complementosFolhaWin(salarios, null, null, rsalfunc);
+        expect(c.get('7')?.salario).toBe('2100.00');
+        expect(c.get('8')?.salario).toBe('3200.00');
     });
 });
