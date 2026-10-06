@@ -1501,5 +1501,8 @@ guias sindicais".
 - **Problema:** o escopo (papel e carteira) ficava guardado em memória por
   uid (`escopoAtual`). Quem saía e entrava na mesma aba, sem recarregar,
   continuava com o perfil antigo.
-- **Correção:** a cada login, o `MainTabs` chama `esquecerEscopo()`, e o
-  papel e a carteira são lidos de novo.
+- **Correção:** a cada entrada ou saída, o `MainTabs` chama `esquecerEscopo()`
+  no próprio retorno do login, antes de marcar o usuário. Com isso, as telas
+  que abrem logo depois (Empresas, Certificados) já leem o papel e a carteira
+  novos. A revisão do Codex no PR #78 apontou que, num efeito que roda depois
+  da tela aparecer, essas telas ainda leriam o perfil antigo.

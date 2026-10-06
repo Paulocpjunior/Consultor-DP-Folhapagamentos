@@ -87,9 +87,6 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
 
     // Outro usuário na mesma aba: começa sem ativação (a dele é lida do navegador).
     useEffect(() => { setAtiva(null); setVisiveis(null); setTrocando(false); }, [uidAtual]);
-    // Novo login (mesmo na mesma aba): o papel e a carteira são lidos de novo,
-    // para valer na hora uma mudança de perfil (ex.: virou gestor).
-    useEffect(() => { esquecerEscopo(); }, [currentUser]);
 
     useEffect(() => {
         if (!currentUser) return;
@@ -126,6 +123,9 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
     useEffect(() => {
         const unsub = authService.subscribeAuthState((user: User | null) => {
             if (!user) limparSessaoImplantacao();
+            // Entrada ou saída (mesmo na mesma aba): papel e carteira são lidos de novo,
+            // antes de qualquer tela montar, para valer na hora uma mudança de perfil.
+            esquecerEscopo();
             setCurrentUser(user);
             setAuthReady(true);
         });
