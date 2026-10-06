@@ -1276,3 +1276,33 @@ guias sindicais".
   - `holerith`/`holetot`, os holerites calculados pelo IOB, que podem servir
     para conferir o motor sem PDF;
   - `arquivoeventotransmissaoesocial`, os XMLs que o IOB transmitiu.
+
+## 06/10/2026 — Código SAGE e CNPJ únicos; master vira gestor pela verificação no app
+
+- **Paulo (print de Empresas):** *"você deve bloquear o cadastro de empresas
+  com a mesma numeração, exemplo 1200"*. Havia duas empresas com SAGE 1200:
+  SP (44.388.152/0001-89) e SP ASSESSORIA CONTABIL (04.896.300/0001-51).
+- **Causa:** a checagem de CNPJ repetido olhava só as empresas visíveis, e a
+  de código SAGE não existia. Fora do gestor, a lista não mostra as empresas
+  de outras carteiras.
+- **Trava:**
+  - **Chaves:** `empresas_unicos/{sage_0000 | cnpj_…}` aponta a empresa dona.
+  - **Criar:** a empresa e as duas chaves vão no mesmo lote. As regras só
+    aceitam a empresa com as duas chaves dela.
+  - **Trocar código ou CNPJ:** exige reservar a chave nova; a antiga é
+    liberada quando a empresa deixa de usá-la ou é excluída.
+  - **Dono fixo:** a chave não troca de dono (`update: false`).
+  - **Mensagem:** a tela confere antes de gravar e diz com qual empresa
+    conflita, ou que é "fora da sua carteira".
+- **Empresas de antes da trava:**
+  - **Botão do gestor:** "Proteger códigos e CNPJs das empresas existentes"
+    reserva as chaves; a empresa mais antiga fica com a chave repetida.
+  - **Aviso:** a lista marca em vermelho o código ou CNPJ repetido, para
+    corrigir em "Editar".
+  - **Reserva ao editar:** qualquer edição também reserva as chaves livres.
+- **Master:** o print mostrou "Admin". A conta master só vira gestor com o
+  e-mail verificado, e o aviso de verificação aparecia só na tela de
+  "aguardando aprovação". Agora aparece no topo do app enquanto o master não
+  for gestor.
+- **Testes:** emulador com 38 testes (6 novos de chaves únicas); vitest com
+  501.

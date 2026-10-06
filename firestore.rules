@@ -59,13 +59,44 @@ service cloud.firestore {
                     && request.resource.data.cnpj is string
                     && request.resource.data.razaoSocial is string
                     && request.resource.data.nomeFantasia is string
-                    && request.resource.data.codigoSage is string;
-      allow update: if isGestor()
+                    && request.resource.data.codigoSage is string
+                    && chaveDaEmpresa('sage_' + request.resource.data.codigoSage, empresaId)
+                    && chaveDaEmpresa('cnpj_' + request.resource.data.cnpj, empresaId);
+      allow update: if (isGestor()
                     || (isApproved() && (
                          resource.data.criadoPor == request.auth.uid
                          || (isAdmin() && naCarteira(empresaId))
-                       ));
+                       )))
+                    // Trocar o código SAGE ou o CNPJ exige reservar a chave nova.
+                    && (request.resource.data.codigoSage == resource.data.codigoSage
+                        || chaveDaEmpresa('sage_' + request.resource.data.codigoSage, empresaId))
+                    && (request.resource.data.cnpj == resource.data.cnpj
+                        || chaveDaEmpresa('cnpj_' + request.resource.data.cnpj, empresaId));
       allow delete: if isGestor();
+    }
+
+    // Código SAGE e CNPJ únicos (06/10/2026): empresas_unicos/{sage_0000 | cnpj_…}
+    // aponta a empresa dona. A chave nasce no mesmo lote da empresa, não troca
+    // de dono e só é liberada quando a empresa deixa de usá-la (ou é excluída).
+    function chaveDaEmpresa(chave, empId) {
+      return existsAfter(/databases/$(database)/documents/empresas_unicos/$(chave))
+          && getAfter(/databases/$(database)/documents/empresas_unicos/$(chave)).data.empresaId == empId;
+    }
+    match /empresas_unicos/{chave} {
+      function empresaDepois(empId) { return getAfter(/databases/$(database)/documents/empresas/$(empId)).data; }
+      function usaChave(empId) {
+        return existsAfter(/databases/$(database)/documents/empresas/$(empId))
+            && (chave == 'sage_' + empresaDepois(empId).codigoSage || chave == 'cnpj_' + empresaDepois(empId).cnpj);
+      }
+      allow get:    if isApproved();
+      allow list:   if isGestor();
+      allow create: if isApproved()
+                    && request.resource.data.chave == chave
+                    && request.resource.data.empresaId is string
+                    && request.resource.data.criadoPor == request.auth.uid
+                    && usaChave(request.resource.data.empresaId);
+      allow update: if false;
+      allow delete: if isApproved() && !usaChave(resource.data.empresaId);
     }
 
     // Carteira: o gestor monta a de qualquer um; o admin, só a de colaboradores,
