@@ -366,7 +366,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                 </div>
             </div>
 
-            <EmpresaAtivaProvider ativa={ativa} trocar={abrirTroca}>
+            <EmpresaAtivaProvider ativa={ativa} trocar={abrirTroca} ativar={ativarEmpresa}>
             {/* Trocar de empresa ou de período remonta as telas: dado de um cliente (ou de um mês) nunca fica na tela de outro. */}
             <main key={ativa ? `${ativa.id}_${ativa.competencia}` : 'sem-empresa'} className="max-w-7xl mx-auto p-4 sm:p-6">
                 {activeTab === 'folha' && (empresasCount && empresasCount > 0

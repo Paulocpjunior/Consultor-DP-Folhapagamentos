@@ -11,12 +11,14 @@ interface Ctx {
     ativa: EmpresaAtiva | null;
     /** Abre a tela de ativação para trocar de empresa ou de período. */
     trocar: () => void;
+    /** Ativa outra empresa (ou período) direto, sem passar pela tela de ativação. */
+    ativar?: (e: EmpresaAtiva) => void;
 }
 
 const EmpresaAtivaCtx = createContext<Ctx>({ ativa: null, trocar: () => {} });
 
-export const EmpresaAtivaProvider: React.FC<Ctx & { children: React.ReactNode }> = ({ ativa, trocar, children }) => {
-    const valor = useMemo(() => ({ ativa, trocar }), [ativa, trocar]);
+export const EmpresaAtivaProvider: React.FC<Ctx & { children: React.ReactNode }> = ({ ativa, trocar, ativar, children }) => {
+    const valor = useMemo(() => ({ ativa, trocar, ativar }), [ativa, trocar, ativar]);
     return <EmpresaAtivaCtx.Provider value={valor}>{children}</EmpresaAtivaCtx.Provider>;
 };
 

@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState, Suspense, lazy } from 'react';
 import type { ModoExportacao } from './ExportacaoIobModal';
 import type { User } from '../../types';
 import type { Empresa } from '../../services/empresas/empresasTypes';
+import { filtrarEmpresas } from '../../services/empresas/buscaEmpresas';
 import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
 import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
 import { baixarTemplateApontamento } from '../../services/folha/templateApontamentoIobSage';
@@ -153,15 +154,27 @@ const competenciaAtual = (): string => {
     return `${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
 };
 
+// Folha pedida para outra empresa: guarda o pedido enquanto o app troca a empresa ativa (a tela remonta).
+const CHAVE_PENDENTE = 'dp_folha_pendente';
+interface Pendente { empresaId: string; competencia: string; tipo: string }
+function gravarPendente(p: Pendente) { try { sessionStorage.setItem(CHAVE_PENDENTE, JSON.stringify(p)); } catch { /* sem sessionStorage: abre só a empresa */ } }
+function lerPendente(): Pendente | null {
+    try { const v = sessionStorage.getItem(CHAVE_PENDENTE); sessionStorage.removeItem(CHAVE_PENDENTE); return v ? JSON.parse(v) as Pendente : null; } catch { return null; }
+}
+/** "09/2026" → "2026-09"; inválida → ''. */
+export const competenciaAaaaMm = (c: string) => { const m = c.trim().match(/^(0[1-9]|1[0-2])\/(\d{4})$/); return m ? `${m[2]}-${m[1]}` : ''; };
+
 const SeletorEmpresa: React.FC<SeletorProps> = ({ currentUser, onSelecionar, onNovaEmpresa }) => {
     const [empresas, setEmpresas] = useState<Empresa[]>([]);
+    // Toda a carteira, para o modal buscar e trocar de empresa (a lista acima fica só com a ativa).
+    const [carteira, setCarteira] = useState<Empresa[]>([]);
     const [loading, setLoading] = useState(true);
     const [erro, setErro] = useState<string | null>(null);
     const [modal, setModal] = useState<null | 'select' | 'recent'>(null);
     const [filtro, setFiltro] = useState('');
     const [empresaEscolhida, setEmpresaEscolhida] = useState<Empresa | null>(null);
     // Com empresa ativa na sessão, só ela aparece e a competência já vem dela.
-    const { ativa } = useEmpresaAtiva();
+    const { ativa, ativar } = useEmpresaAtiva();
     const compInicial = ativa ? `${ativa.competencia.slice(5)}/${ativa.competencia.slice(0, 4)}` : competenciaAtual();
     const [competencia, setCompetencia] = useState(compInicial);
     const [tipo, setTipo] = useState(TIPOS_FOLHA[0]);
@@ -171,7 +184,14 @@ const SeletorEmpresa: React.FC<SeletorProps> = ({ currentUser, onSelecionar, onN
             try {
                 // v2.2.0 — Firestore rules controlam visibilidade; listar sempre tudo.
                 const list = await listarEmpresasVisiveis();
+                setCarteira(list);
                 setEmpresas(ativa ? list.filter(e => e.id === ativa.id) : list);
+                // Folha pedida para outra empresa: o app trocou a ativa e remontou; abre a sessão agora.
+                const pendente = lerPendente();
+                if (pendente && ativa && pendente.empresaId === ativa.id) {
+                    const emp = list.find(e => e.id === ativa.id);
+                    if (emp) onSelecionar({ empresa: emp, competencia: pendente.competencia, tipo: pendente.tipo, iniciadaEm: new Date() });
+                }
             } catch (e) {
                 setErro(e instanceof Error ? e.message : String(e));
             } finally {
@@ -180,16 +200,7 @@ const SeletorEmpresa: React.FC<SeletorProps> = ({ currentUser, onSelecionar, onN
         })();
     }, [currentUser]);
 
-    const empresasFiltradas = useMemo(() => {
-        if (!filtro.trim()) return empresas;
-        const f = filtro.toLowerCase();
-        return empresas.filter((e) =>
-            (e.razaoSocial || '').toLowerCase().includes(f) ||
-            (e.nomeFantasia || '').toLowerCase().includes(f) ||
-            (e.cnpj || '').includes(f) ||
-            (e.codigoSage || '').includes(f),
-        );
-    }, [empresas, filtro]);
+    const empresasFiltradas = useMemo(() => filtrarEmpresas(carteira, filtro), [carteira, filtro]);
 
     const recentes = useMemo(() => {
         const copy = [...empresas];
@@ -201,8 +212,25 @@ const SeletorEmpresa: React.FC<SeletorProps> = ({ currentUser, onSelecionar, onN
         return copy.slice(0, 3);
     }, [empresas]);
 
+    const abrirModal = (m: 'select' | 'recent') => {
+        setFiltro('');
+        setEmpresaEscolhida(ativa ? carteira.find(e => e.id === ativa.id) ?? null : null);
+        setModal(m);
+    };
+
     const confirmarSelecao = () => {
         if (!empresaEscolhida) return;
+        // Outra empresa ou outro mês: troca a empresa ativa (todas as telas passam a usá-la) e abre a folha.
+        const comp = competenciaAaaaMm(competencia);
+        if (ativa && ativar && comp && (empresaEscolhida.id !== ativa.id || comp !== ativa.competencia)) {
+            gravarPendente({ empresaId: empresaEscolhida.id, competencia, tipo });
+            ativar({
+                id: empresaEscolhida.id, nome: empresaEscolhida.nomeFantasia || empresaEscolhida.razaoSocial, cnpj: empresaEscolhida.cnpj,
+                codigoSage: empresaEscolhida.codigoSage, competencia: comp, ativadaPor: currentUser?.email ?? '', ativadaEm: Date.now(),
+            });
+            setModal(null);
+            return;
+        }
         onSelecionar({
             empresa: empresaEscolhida,
             competencia,
@@ -276,7 +304,7 @@ const SeletorEmpresa: React.FC<SeletorProps> = ({ currentUser, onSelecionar, onN
                 </button>
 
                 <button
-                    onClick={() => setModal('select')}
+                    onClick={() => abrirModal('select')}
                     disabled={empresas.length === 0}
                     className="group p-5 text-left bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-blue-500 dark:hover:border-blue-400 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
@@ -301,7 +329,7 @@ const SeletorEmpresa: React.FC<SeletorProps> = ({ currentUser, onSelecionar, onN
                 </button>
 
                 <button
-                    onClick={() => setModal('recent')}
+                    onClick={() => abrirModal('recent')}
                     disabled={recentes.length === 0}
                     className="group p-5 text-left bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-blue-500 dark:hover:border-blue-400 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
@@ -414,14 +442,14 @@ const SeletorEmpresa: React.FC<SeletorProps> = ({ currentUser, onSelecionar, onN
                                 type="text"
                                 value={filtro}
                                 onChange={(ev) => setFiltro(ev.target.value)}
-                                placeholder="Buscar por razão social, CNPJ ou código SAGE…"
+                                placeholder="Buscar por nome, razão social, CNPJ ou código SAGE…"
                                 className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-lg mb-3"
                             />
 
                             <div className="space-y-1 max-h-64 overflow-y-auto">
                                 {empresasFiltradas.length === 0 && (
                                     <div className="text-xs text-slate-500 dark:text-slate-400 text-center py-6">
-                                        Nenhuma empresa encontrada.
+                                        Nenhuma empresa encontrada na sua carteira. Busque pelo nome, CNPJ ou código SAGE; se a empresa não estiver na carteira, peça ao gestor.
                                     </div>
                                 )}
                                 {empresasFiltradas.map((e) => (
