@@ -341,6 +341,23 @@ service cloud.firestore {
       allow delete: if isAdmin() && podeEmpresa(resource.data.empresaId);
     }
 
+    // Registro de guarda dos backups do IOB SAGE: inventário (nome, tamanho,
+    // SHA-256, local), sem o conteúdo. Só o gestor registra; ninguém altera.
+    match /backups_guarda/{sha} {
+      allow read, list: if isAdmin();
+      allow create: if isGestor()
+                    && sha.matches('^[0-9a-f]{64}$')
+                    && request.resource.data.sha256 == sha
+                    && request.resource.data.registradoPor == request.auth.uid
+                    && request.resource.data.arquivo is string && request.resource.data.arquivo.size() > 0
+                    && request.resource.data.tamanho is int && request.resource.data.tamanho > 0
+                    && request.resource.data.dataBackup is string
+                    && request.resource.data.empresas is list
+                    && request.resource.data.localGuarda is string && request.resource.data.localGuarda.size() > 0
+                    && request.resource.data.keys().hasOnly(['sha256', 'arquivo', 'tamanho', 'dataBackup', 'empresas', 'localGuarda', 'observacao', 'registradoPor', 'registradoPorEmail', 'registradoEm']);
+      allow update, delete: if false;
+    }
+
     match /cadastro_audit/{logId} {
       allow read, list: if isApproved();
       allow create: if isApproved() && request.resource.data.autor == request.auth.uid;
