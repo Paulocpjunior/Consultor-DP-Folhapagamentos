@@ -161,6 +161,13 @@ export function linhaParaCampos(colunas: string[], valores: Valor[], m: Mapeamen
             if (v) { out.cbo = v; break; }
         }
     }
+    // Dígito da conta e da agência em colunas próprias (FolhaWin: dvcc): vão junto, "12345-6", para o arquivo bancário.
+    for (const [campo, re] of [['conta', /^(dvcc|dvconta|digconta|dgconta)$/], ['agencia', /^(dvag|dvagencia|digagencia|dgagencia|dvagdsal)$/]] as [CampoCarga, RegExp][]) {
+        if (!out[campo] || /-/.test(out[campo]!)) continue;
+        const j = colunas.findIndex(c => re.test(chaveColuna(c)));
+        const dv = j >= 0 ? String(valores[j] ?? '').trim().toUpperCase() : '';
+        if (/^[0-9X]$/.test(dv)) out[campo] = `${out[campo]}-${dv}`;
+    }
     return { linha, valores: out };
 }
 
@@ -205,7 +212,9 @@ export function compararComFichas(linhas: LinhaIob[], fichas: FichaFuncionario[]
                 const atual = ficha.dados[campo];
                 // CBO inválido (ex.: o de 5 dígitos de uma carga anterior) que ninguém digitou é trocado.
                 const cboInvalido = campo === 'cbo' && !!atual && !/^\d{6}$/.test(atual) && !ehManual(ficha.origens.cbo);
-                if (!atual || cboInvalido) { depois.dados[campo] = valor; depois.origens[campo] = origem; }
+                // Conta/agência gravada sem o dígito por uma carga anterior: completa com o dígito do IOB.
+                const semDigito = (campo === 'conta' || campo === 'agencia') && !!atual && valor.startsWith(`${atual}-`) && !ehManual(ficha.origens[campo]);
+                if (!atual || cboInvalido || semDigito) { depois.dados[campo] = valor; depois.origens[campo] = origem; }
                 else if (atual !== valor) divergencias.push({ campo, consultor: atual, iob: valor });
             }
             // Data de desligamento que chegou agora numa ficha ativa (e a situação não foi digitada): desligado.

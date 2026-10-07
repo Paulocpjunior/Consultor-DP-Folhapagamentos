@@ -23,6 +23,8 @@ export interface Empresa {
     criadoEm?: any;            // serverTimestamp
     atualizadoEm?: any;
     certificado?: CertificadoDigital;
+    /** Contas da empresa para o arquivo bancário (remessa CNAB 240 de salários). */
+    contasPagamento?: import('../bancario/cnab240').ContaPagamento[];
 }
 
 export interface EmpresaInput {

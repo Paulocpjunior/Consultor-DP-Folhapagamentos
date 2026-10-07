@@ -285,3 +285,17 @@ describe('situação pela data de desligamento do IOB', () => {
         expect(manual.completar[0].ficha.situacao).toBe('ativo');
     });
 });
+
+describe('conta e agência com o dígito do IOB (arquivo bancário)', () => {
+    it('dvcc vai junto da conta; conta gravada sem dígito por carga anterior é completada', () => {
+        const l = linhaParaCampos(['codfun', 'cpf', 'bcosal', 'agdsal', 'cc', 'dvcc'], ['17', CPF_A, '237', '0987', '55555', '0'], { codigoIob: 'codfun', cpf: 'cpf', banco: 'bcosal', agencia: 'agdsal', conta: 'cc' }, 1);
+        expect(l.valores).toMatchObject({ banco: '237', agencia: '0987', conta: '55555-0' });
+        const semDv = ficha(CPF_A, 'M1', { nome: 'ANA', conta: '55555' }, { conta: 'IOB: carga antiga' });
+        const r = compararComFichas([l], [semDv], EMP, 'IOB: backup', false);
+        expect(r.completar[0].ficha.dados.conta).toBe('55555-0');
+        const manual = ficha(CPF_A, 'M1', { nome: 'ANA', conta: '55555' }, { conta: 'Manual · ana@x · 2026-10-01' });
+        const m = compararComFichas([l], [manual], EMP, 'IOB: backup', false).completar[0];
+        expect(m.ficha.dados.conta).toBe('55555');
+        expect(m.divergencias).toEqual([{ campo: 'conta', consultor: '55555', iob: '55555-0' }]);
+    });
+});

@@ -1827,3 +1827,85 @@ guias sindicais".
   imposto zerava, porque o desconto zerado não vira verba. Corrigido:
   `linhasIrrfFerias` imprime no PDF a conta do IRRF e o motivo da não
   retenção, e a declaração e a assinatura descem quando precisa.
+
+## 07/10/2026 — "Baixar convite de agenda" no recibo de férias
+
+- **Paulo:** pediu que o envio ao cliente (e-mail ou WhatsApp) leve um convite
+  com as datas de vencimento que entre na agenda. Escolheu começar pelo botão
+  de baixar o convite (*"pode seguir com o botão baixar envio da agenda"*).
+  O envio pela Central de Comunicação do CFI fica para depois.
+- **Mudança:**
+  - `services/agenda/convite.ts`:
+    - `.ics` (RFC 5545) com eventos de dia inteiro, texto escapado, linhas
+      dobradas em 75 octetos sem partir acento e lembrete na véspera às 9h;
+    - link "adicionar ao Google Agenda" por evento;
+    - texto pronto para o WhatsApp;
+    - `eventosDoReciboFerias`, com os eventos:
+      - pagamento até 2 dias antes do gozo (CLT art. 145), antecipado para
+        dia útil;
+      - período de gozo;
+      - DARF da DCTFWeb de cada competência com o INSS das férias, e com o
+        IRRF na competência do pagamento, quando houver;
+      - FGTS Digital da competência.
+    - Datas das guias pelas regras de `vencimentosDaCompetencia` (o mesmo
+      painel de Prazos).
+  - O recibo de férias (gravado ou programado) ganha o quadro **"Agenda do
+    cliente"**, com:
+    - "Baixar convite de agenda (.ics)";
+    - "Copiar texto para WhatsApp";
+    - a lista dos eventos com o link do Google Agenda.
+  - Caso do José: pagamento em 06/11/2026 (07/11 é sábado), férias de 09/11 a
+    28/11, DARF da DCTFWeb 11/2026 e FGTS Digital em 18/12/2026 (20/12 é
+    domingo).
+- **Observação:** o motor ainda mostra "pagar até 07/11/2026" sem antecipar o
+  fim de semana. Só o convite antecipa. Fica para alinhar.
+
+## 07/10/2026 — Arquivo Bancário (remessa CNAB 240 de salários)
+
+- **Paulo:** *"vamos trabalhar na criação do modal 'Arquivo Bancário', como já
+  existente na SAGE; ele deve conter os dados necessários conforme layout do
+  banco cadastrado na empresa e conforme tabela disponível na FEBRABAN; o
+  arquivo também fará parte do pacote de arquivos enviados aos clientes para
+  importação no banco correspondente"*.
+- **Respostas do Paulo:**
+  - bancos: Itaú (341), Bradesco (237), Santander (033) e BB (001);
+  - formas: conta corrente/salário, TED, PIX e poupança;
+  - folhas: mensal, férias, 13º e rescisão;
+  - vai mandar um arquivo de remessa da SAGE por banco, para conferir
+    posição a posição.
+- **Fontes:** padrão FEBRABAN 240 (v10.11) e o manual CNAB 240 Pagamentos do
+  Banco Inter (v1.9, que segue o padrão). Os manuais da FEBRABAN e dos quatro
+  bancos não abriram daqui (bloqueados pelo proxy).
+- **Mudança:**
+  - `services/bancario/cnab240.ts`: remessa de pagamento de salários
+    (serviço 30), com header de arquivo, um lote por forma, segmentos A e B
+    por funcionário, trailers e linhas de 240 posições com CRLF.
+    - **Formas:** 01 crédito em conta no banco da empresa, 05 poupança, 41
+      TED (câmara 018, finalidade e CC/PP) e 45 PIX (câmara 009; o segmento B
+      leva a forma de iniciação e a chave: telefone, e-mail, CPF ou
+      aleatória).
+    - **Classificação:** mesmo banco → crédito; outro banco → TED; sem conta
+      e com chave → PIX; opção de preferir PIX.
+    - **Fora do arquivo, com o motivo:** sem dados bancários, conta sem
+      dígito, chave PIX inválida, CPF inválido ou sem líquido.
+    - **`PERFIS_BANCO`:** guarda o que varia entre os bancos (versões 107/046,
+      densidade, finalidade da TED 00004). Fica `conferido: false` até a
+      comparação com a SAGE. O Itaú (SISPAG) tem posições próprias.
+  - Contas da empresa em `empresas.contasPagamento`: banco, agência, conta
+    com dígito, convênio, próximo NSA e endereço opcional. A função é
+    `salvarContasPagamento`, e as regras atuais já permitem a gravação.
+  - Modal **Arquivo Bancário** no Cálculo, botão "Arquivo bancário" ao lado
+    de "Holerites (PDF)":
+    - cadastra e edita a conta;
+    - data de pagamento sugerida: 5º dia útil na mensal, 30/11 e 20/12 no
+      13º, data de cada recibo nas férias;
+    - prévia por forma e lista de quem fica de fora;
+    - "Gerar arquivo (.REM)", que avança o NSA;
+    - aviso de layout ainda não conferido com a SAGE.
+  - Carga do IOB: o dígito da conta e da agência (`dvcc`/`dvag`) entra junto
+    ("55555-0"). A conta gravada sem dígito por carga anterior é completada,
+    menos a digitada à mão.
+- **Pendente:**
+  - conferir com os arquivos da SAGE (versões, convênio do BB, finalidade da
+    TED, SISPAG do Itaú) e marcar `conferido`;
+  - incluir o .REM no pacote de arquivos do cliente.

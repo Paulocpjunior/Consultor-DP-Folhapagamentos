@@ -20,7 +20,8 @@ import { afastamentoVazio, idAfastamento, type Afastamento } from '../../service
 import type { TabelaLegal } from '../../services/cadastros/tabelasLegais';
 import { centavosDeTexto, reais } from '../../services/cadastros/documentos';
 import { calcularMensal, competenciaSeguinte, noMes, type Lancamento, type Movimento, type ResultadoCalculo } from '../../services/calculo/motorMensal';
-import { somarMeses } from '../../services/prazos/calendario';
+import { diaUtilAnterior, diaUtilSeguinte, quintoDiaUtilSalario, somarMeses } from '../../services/prazos/calendario';
+import ArquivoBancarioModal from '../bancario/ArquivoBancarioModal';
 import { limparMovimento, mesmoMovimento, movimentoVazio, validarMovimento, type MovimentoGravado } from '../../services/calculo/movimento';
 import { listarMovimentos, listarMovimentosDaEmpresa, listarMovimentosDoAno, salvarMovimentos } from '../../services/calculo/movimentosService';
 import { calcularFerias, feriasDaCompetencia, gozosNoMes, OPCOES_FERIAS_PADRAO, type OpcoesFerias, type ResultadoFerias } from '../../services/calculo/motorFerias';
@@ -30,6 +31,8 @@ import ConferenciaHolerites, { conferirTodos, type LeituraHolerites } from './Co
 import { resumirFolha } from '../../services/relatorios/resumoFolha';
 import { listarEnvios, type Envio } from '../../services/esocial/transmissaoService';
 import StatusEsocialAfastamento from '../esocial/StatusEsocialAfastamento';
+import ConviteAgenda from '../agenda/ConviteAgenda';
+import { eventosDoReciboFerias } from '../../services/agenda/convite';
 import { holeritesPdf, resumoPdf } from '../../services/relatorios/holeritePdf';
 
 const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
@@ -94,6 +97,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     // Lotes do eSocial da empresa: situação do S-2230 de cada gozo gravado.
     const [enviosEsocial, setEnviosEsocial] = useState<Envio[] | null>(null);
     const [recargaEnvios, setRecargaEnvios] = useState(0);
+    const [arquivoBancario, setArquivoBancario] = useState(false);
     useEffect(() => { setEnviosEsocial(null); if (!empresaId || folha !== 'ferias') return; listarEnvios(empresaId).then(setEnviosEsocial).catch(() => setEnviosEsocial([])); }, [empresaId, folha, recargaEnvios]);
     const [opcoesFerias, setOpcoesFerias] = useState<OpcoesFerias>(OPCOES_FERIAS_PADRAO);
     const [recarga, setRecarga] = useState(0);
@@ -329,6 +333,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 {mensal && <button className={btn} disabled={!resultados.length} aria-pressed={conferir} onClick={() => setConferir(c => !c)}>Conferir com holerites do IOB</button>}
                 <button className={`${mensal ? '' : 'ml-auto '}${btn}`} disabled={!resultados.length} aria-pressed={verResumo} onClick={() => setVerResumo(x => !x)}>Resumo da folha</button>
                 <button className={btn} disabled={!resultados.some(r => r.situacao !== 'erro')} onClick={() => pdfHolerites(resultados, `holerites-${empresa?.codigoSage ?? 'empresa'}-${sufixoArquivo}.pdf`)}>Holerites (PDF)</button>
+                <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado')} onClick={() => setArquivoBancario(true)}>Arquivo bancário</button>
                 <button className={btn} disabled={!resultados.length} onClick={exportar}>Exportar Excel</button>
             </div>
             {rescisao && dados && (
@@ -531,6 +536,17 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                     </Holerite>
                 );
             })()}
+            {arquivoBancario && empresa && dados && (() => {
+                const hoje = new Date().toISOString().slice(0, 10);
+                const [pa, pm] = (/^\d{4}-\d{2}$/.test(pagamento) ? pagamento : competenciaSeguinte(competencia)).split('-').map(Number);
+                const sugerida = mensal ? quintoDiaUtilSalario(pa, pm) : folha === '13-1a' ? diaUtilAnterior(`${ano}-11-30`) : folha === '13-2a' ? diaUtilAnterior(`${ano}-12-20`) : diaUtilSeguinte(hoje);
+                return (
+                    <ArquivoBancarioModal empresa={empresa} resultados={resultados} fichas={dados.fichas} titulo={tituloFolha} dataSugerida={sugerida}
+                        dataPorResultado={ferias ? (r => { const p = (r as ResultadoFerias).pagarAte; return p ? diaUtilAnterior(p) : undefined; }) : undefined}
+                        onFechar={() => setArquivoBancario(false)}
+                        onContasSalvas={contas => setEmpresas(l => l?.map(e => (e.id === empresa.id ? { ...e, contasPagamento: contas } : e)) ?? l)} />
+                );
+            })()}
             {sel && ferias && (() => {
                 const f = sel as ResultadoFerias;
                 return (
@@ -551,6 +567,14 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                                     {f.irrf.semRetencao && <p role="note" className="mt-1 rounded bg-amber-50 p-1 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">Sem retenção: {f.irrf.semRetencao}.</p>}
                                 </div>
                             )}
+                            {(() => {
+                                const gozo = dados?.afastamentos.find(a => a.id === f.gozoId) ?? feriasSimuladas.find(a => a.id === f.gozoId);
+                                const emp = empresas?.find(e => e.id === empresaId);
+                                if (!gozo || !emp || f.situacao === 'erro') return null;
+                                const nomeEmp = emp.nomeFantasia || emp.razaoSocial;
+                                return <ConviteAgenda eventos={eventosDoReciboFerias(f, { nome: nomeEmp, cnpj: emp.cnpj }, gozo)} titulo={`${nomeEmp}: férias de ${f.nome}`}
+                                    nomeArquivo={`ferias-${f.nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}-${gozo.dtInicio}`} />;
+                            })()}
                             {(() => {
                                 const gravado = dados?.afastamentos.find(a => a.id === f.gozoId);
                                 const emp = empresas?.find(e => e.id === empresaId);
