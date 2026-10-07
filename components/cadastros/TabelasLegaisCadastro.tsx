@@ -11,6 +11,7 @@ import {
 } from '../../services/cadastros/tabelasLegais';
 import { excluirTabela, mensagemErro, salvarTabela, type Usuario } from '../../services/cadastros/cadastrosService';
 import { centavosDeTexto, reais } from '../../services/cadastros/documentos';
+import { oficiaisQueFaltam } from '../../services/cadastros/tabelasOficiais';
 
 interface Props { tabelas: TabelaLegal[] | null; erroLista: string; usuario: Usuario; isAdmin: boolean; onRecarregar: () => void }
 
@@ -58,6 +59,24 @@ const TabelasLegaisCadastro: React.FC<Props> = ({ tabelas, erroLista, usuario, i
     const [salvando, setSalvando] = useState(false);
     const competenciaAtual = new Date().toISOString().slice(0, 7);
     const somenteLeitura = !!edicao?.antes && !isAdmin;
+    const faltam = tabelas ? oficiaisQueFaltam(tabelas) : [];
+    const [msgOficiais, setMsgOficiais] = useState('');
+
+    async function gravarOficiais() {
+        if (!tabelas || !faltam.length) return;
+        if (!window.confirm(`Gravar ${faltam.length} tabela(s) oficial(is) de 2026?\n\n${faltam.map(t => `${DEF_TABELAS[t.tipo].titulo} — ${t.norma}`).join('\n')}`)) return;
+        setSalvando(true); setMsgOficiais('');
+        const feitas: string[] = []; const falhas: string[] = [];
+        for (const t of faltam) {
+            const v = validarTabela(t, tabelas);
+            if (v.length) { falhas.push(`${DEF_TABELAS[t.tipo].titulo}: ${v.join(' ')}`); continue; }
+            try { await salvarTabela(null, t, usuario); feitas.push(DEF_TABELAS[t.tipo].titulo); }
+            catch (e) { falhas.push(`${DEF_TABELAS[t.tipo].titulo}: ${mensagemErro(e)}`); }
+        }
+        setMsgOficiais(`${feitas.length ? `Gravadas: ${feitas.join(', ')}.` : ''}${falhas.length ? ` Não gravadas: ${falhas.join(' | ')}` : ''}`.trim());
+        setSalvando(false);
+        onRecarregar();
+    }
 
     async function salvar() {
         if (!edicao) return;
@@ -88,6 +107,21 @@ const TabelasLegaisCadastro: React.FC<Props> = ({ tabelas, erroLista, usuario, i
             <div className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-100">
                 Nenhuma tabela vem pronta. Digite os valores da norma oficial (portaria, lei, decreto) e informe a norma. Toda atualização aplicada no SAGE tem de ser cadastrada aqui também.
             </div>
+            {tabelas && faltam.length > 0 && (
+                <div className="rounded border border-blue-300 bg-blue-50 p-3 text-sm text-blue-900 dark:border-blue-700 dark:bg-blue-900/20 dark:text-blue-100">
+                    <p><strong>Tabelas oficiais de 2026</strong> (vigência 01/2026) ainda não cadastradas: {faltam.map(t => DEF_TABELAS[t.tipo].titulo).join(', ')}.</p>
+                    <ul className="mt-1 list-disc pl-5 text-xs">
+                        {faltam.map(t => (
+                            <li key={t.tipo}>{DEF_TABELAS[t.tipo].titulo} · {t.norma}
+                                {t.faixas.length > 0 && ` · ${t.faixas.map(f => `${f.ate === null ? 'acima' : `até ${reais(f.ate)}`}: ${pct(f.aliquota)}${f.deducao ? ` − ${reais(f.deducao)}` : ''}`).join(' · ')}`}
+                                {DEF_TABELAS[t.tipo].valores.map(v => t.valores[v.chave] != null ? ` · ${v.rotulo}: ${mostrarValor(v, t.valores[v.chave]!)}` : '').join('')}
+                            </li>
+                        ))}
+                    </ul>
+                    <button className="mt-2 rounded bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={salvando} onClick={gravarOficiais}>Gravar as tabelas oficiais de 2026 ({faltam.length})</button>
+                </div>
+            )}
+            {msgOficiais && <p role="status" className="rounded bg-green-50 p-2 text-sm text-green-800 dark:bg-green-900/30 dark:text-green-200">{msgOficiais}</p>}
             {erroLista && <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erroLista}</p>}
             {!tabelas && !erroLista && <p className="text-sm text-slate-500">Carregando…</p>}
 

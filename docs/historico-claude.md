@@ -1742,3 +1742,30 @@ guias sindicais".
     o abono) e "Remover simulação".
   - A importação pelo backup não grava mais a pendência "XML sem namespace".
     As fichas perdem essas pendências na próxima restauração ou importação.
+
+## 07/10/2026 — Tabelas oficiais de 2026 para carregar com um clique
+
+- **Contexto:** o Paulo comparou o recibo de férias do José Venancio (1200,
+  09/11/2026: 20 dias + 10 de abono) com o do IOB. Os proventos batiam
+  (4.900,00), mas o Consultor não descontava INSS: não havia tabela de INSS
+  nem de IRRF para 2026.
+- **Paulo:** *"pode cadastrar as tabelas de 2026 pra mim"*.
+- **Mudança:**
+  - `services/cadastros/tabelasOficiais.ts` com as tabelas de 2026
+    (vigência 01/2026), cada uma com a norma:
+    - INSS (Portaria Interministerial MPS/MF nº 13, de 09/01/2026): até
+      1.621,00 7,5%; 2.902,84 9%; 4.354,27 12%; 8.475,55 14%.
+    - IRRF (Lei 15.191/2025 e Lei 15.270/2025):
+      - faixas 2.428,80 / 2.826,65 / 3.751,05 / 4.664,68;
+      - dependente 189,59; simplificado 607,20;
+      - redutor: até 5.000,00 (máximo 312,89); parcial até 7.350,00 com
+        978,62 − 0,133145 × rendimentos.
+    - Salário mínimo (Decreto 12.797/2025): 1.621,00.
+    - Salário-família (Portaria MPS/MF nº 13/2026): cota 67,54; limite
+      1.980,38.
+  - Na tela Cadastros › Tabelas Legais, um quadro mostra as que faltam e o
+    botão **"Gravar as tabelas oficiais de 2026"**. A equipe confirma, e cada
+    tabela passa pela validação e pela auditoria de sempre. Nada é gravado
+    sozinho.
+  - Conferido contra o IOB, em teste: INSS de 280,60 sobre 3.266,67, IRRF
+    zero pelo redutor e líquido de 4.619,40, iguais ao recibo do IOB.
