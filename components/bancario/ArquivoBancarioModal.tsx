@@ -11,8 +11,9 @@ import type { ResultadoCalculo } from '../../services/calculo/motorMensal';
 import { salvarContasPagamento } from '../../services/empresas/empresasService';
 import {
     BANCOS_SUPORTADOS, PERFIS_BANCO, ROTULO_FORMA, contaPagamentoVazia, gerarRemessa, tipoChavePix,
-    type ContaPagamento, type Favorecido,
+    avisoConferencia, type ContaPagamento,
 } from '../../services/bancario/cnab240';
+import { favorecidosDaFolha } from '../../services/bancario/favorecidos';
 import { reais } from '../../services/cadastros/documentos';
 
 const inp = 'w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
@@ -42,22 +43,9 @@ const ArquivoBancarioModal: React.FC<Props> = ({ empresa, resultados, fichas, ti
     const conta = contas.find(c => c.id === contaId) ?? null;
     const perfil = conta ? PERFIS_BANCO[conta.banco] : undefined;
 
-    const fichaPorId = useMemo(() => new Map(fichas.map(f => [f.id, f])), [fichas]);
-    const { favorecidos, foraDoCalculo } = useMemo(() => {
-        const favs: Favorecido[] = []; const fora: { nome: string; motivo: string }[] = [];
-        for (const r of resultados) {
-            if (r.situacao !== 'calculado') { fora.push({ nome: r.nome, motivo: r.situacao === 'erro' ? 'cálculo com erro' : 'cálculo incompleto' }); continue; }
-            const f = fichaPorId.get(r.fichaId);
-            const d = f?.dados ?? {};
-            favs.push({
-                ref: (d.codigoIob || f?.matriculaEsocial || r.fichaId).slice(0, 20), nome: r.nome, cpf: f?.cpf ?? '',
-                banco: d.banco ?? '', agencia: d.agencia ?? '', conta: d.conta ?? '', tipoConta: d.tipoConta ?? '', pix: d.pix ?? '',
-                valor: r.totais.liquido, dataPagamento: (usarDataDoRecibo && dataPorResultado?.(r)) || data,
-                logradouro: d.logradouro, numero: d.numero, complemento: d.complemento, bairro: d.bairro, cidade: d.municipio, cep: d.cep, uf: d.uf,
-            });
-        }
-        return { favorecidos: favs, foraDoCalculo: fora };
-    }, [resultados, fichaPorId, data, usarDataDoRecibo, dataPorResultado]);
+    const { favorecidos, foraDoCalculo } = useMemo(
+        () => favorecidosDaFolha(resultados, fichas, data, usarDataDoRecibo ? dataPorResultado : undefined),
+        [resultados, fichas, data, usarDataDoRecibo, dataPorResultado]);
 
     const previa = useMemo(() => {
         if (!conta) return null;
@@ -84,7 +72,7 @@ const ArquivoBancarioModal: React.FC<Props> = ({ empresa, resultados, fichas, ti
         if (!previa?.r || !conta) return;
         const r = previa.r;
         if (!r.incluidos.length) { setErro('Nenhum funcionário com dados bancários para o arquivo.'); return; }
-        if (!r.perfil.conferido && !window.confirm(`O layout do ${r.perfil.nome} ainda não foi conferido com o arquivo da SAGE.\n\nBaixe para conferência ou homologação; envie ao banco só depois da conferência. Continuar?`)) return;
+        if (r.naoConferidas.length && !window.confirm(`${avisoConferencia(r.perfil, r.naoConferidas)}\n\nBaixe para conferência ou homologação; envie ao banco só depois da conferência. Continuar?`)) return;
         const blob = new Blob([r.conteudo], { type: 'text/plain;charset=us-ascii' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a'); a.href = url; a.download = r.nomeArquivo; document.body.appendChild(a); a.click(); a.remove();
@@ -137,9 +125,11 @@ const ArquivoBancarioModal: React.FC<Props> = ({ empresa, resultados, fichas, ti
                             </div>
                         </div>
                     )}
-                    {perfil && !perfil.conferido && !edicao && (
-                        <p role="note" className="rounded bg-amber-50 p-2 text-xs text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">
-                            Layout do {perfil.nome} no padrão FEBRABAN 240, ainda não conferido com o arquivo gerado pela SAGE. {perfil.observacao}
+                    {perfil && !edicao && (
+                        <p role="note" className={`rounded p-2 text-xs ${perfil.formasConferidas.length ? 'bg-slate-50 text-slate-700 dark:bg-slate-900 dark:text-slate-300' : 'bg-amber-50 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100'}`}>
+                            {perfil.formasConferidas.length
+                                ? `Layout ${perfil.layout === 'sispag' ? 'SISPAG' : 'FEBRABAN 240'} do ${perfil.nome}. ${perfil.observacao}`
+                                : `Layout do ${perfil.nome} no padrão FEBRABAN 240, ainda não conferido com o arquivo gerado pela SAGE. ${perfil.observacao}`}
                         </p>
                     )}
                 </section>
@@ -154,6 +144,9 @@ const ArquivoBancarioModal: React.FC<Props> = ({ empresa, resultados, fichas, ti
                         {previa?.erro && <p role="alert" className="rounded bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{previa.erro}</p>}
                         {previa?.r && (
                             <>
+                                {previa.r.naoConferidas.length > 0 && previa.r.perfil.formasConferidas.length > 0 && (
+                                    <p role="note" className="rounded bg-amber-50 p-2 text-xs text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">{avisoConferencia(previa.r.perfil, previa.r.naoConferidas)}</p>
+                                )}
                                 <p>{previa.r.lotes.map(l => `${ROTULO_FORMA[l.forma]}: ${l.quantidade} · ${reais(l.total)}`).join(' | ') || 'Nenhum pagamento no arquivo.'} · <strong>Total {reais(previa.r.total)}</strong> · arquivo nº {previa.r.nsa}</p>
                                 <div className="max-h-72 overflow-auto rounded border border-slate-200 dark:border-slate-700">
                                     <table className="w-full text-xs">

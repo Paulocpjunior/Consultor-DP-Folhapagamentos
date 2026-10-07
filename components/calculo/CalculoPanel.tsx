@@ -22,6 +22,9 @@ import { centavosDeTexto, reais } from '../../services/cadastros/documentos';
 import { calcularMensal, competenciaSeguinte, noMes, type Lancamento, type Movimento, type ResultadoCalculo } from '../../services/calculo/motorMensal';
 import { diaUtilAnterior, diaUtilSeguinte, quintoDiaUtilSalario, somarMeses } from '../../services/prazos/calendario';
 import ArquivoBancarioModal from '../bancario/ArquivoBancarioModal';
+import PacoteClienteModal from '../pacoteCliente/PacoteClienteModal';
+import { eventosDaFolha } from '../../services/pacoteCliente/pacote';
+import type { ContaPagamento } from '../../services/bancario/cnab240';
 import { limparMovimento, mesmoMovimento, movimentoVazio, validarMovimento, type MovimentoGravado } from '../../services/calculo/movimento';
 import { listarMovimentos, listarMovimentosDaEmpresa, listarMovimentosDoAno, salvarMovimentos } from '../../services/calculo/movimentosService';
 import { calcularFerias, feriasDaCompetencia, gozosNoMes, OPCOES_FERIAS_PADRAO, type OpcoesFerias, type ResultadoFerias } from '../../services/calculo/motorFerias';
@@ -98,6 +101,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const [enviosEsocial, setEnviosEsocial] = useState<Envio[] | null>(null);
     const [recargaEnvios, setRecargaEnvios] = useState(0);
     const [arquivoBancario, setArquivoBancario] = useState(false);
+    const [pacote, setPacote] = useState(false);
     useEffect(() => { setEnviosEsocial(null); if (!empresaId || folha !== 'ferias') return; listarEnvios(empresaId).then(setEnviosEsocial).catch(() => setEnviosEsocial([])); }, [empresaId, folha, recargaEnvios]);
     const [opcoesFerias, setOpcoesFerias] = useState<OpcoesFerias>(OPCOES_FERIAS_PADRAO);
     const [recarga, setRecarga] = useState(0);
@@ -334,6 +338,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 <button className={`${mensal ? '' : 'ml-auto '}${btn}`} disabled={!resultados.length} aria-pressed={verResumo} onClick={() => setVerResumo(x => !x)}>Resumo da folha</button>
                 <button className={btn} disabled={!resultados.some(r => r.situacao !== 'erro')} onClick={() => pdfHolerites(resultados, `holerites-${empresa?.codigoSage ?? 'empresa'}-${sufixoArquivo}.pdf`)}>Holerites (PDF)</button>
                 <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado')} onClick={() => setArquivoBancario(true)}>Arquivo bancário</button>
+                <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado')} onClick={() => setPacote(true)}>Pacote do cliente</button>
                 <button className={btn} disabled={!resultados.length} onClick={exportar}>Exportar Excel</button>
             </div>
             {rescisao && dados && (
@@ -536,15 +541,35 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                     </Holerite>
                 );
             })()}
-            {arquivoBancario && empresa && dados && (() => {
+            {(arquivoBancario || pacote) && empresa && dados && (() => {
                 const hoje = new Date().toISOString().slice(0, 10);
                 const [pa, pm] = (/^\d{4}-\d{2}$/.test(pagamento) ? pagamento : competenciaSeguinte(competencia)).split('-').map(Number);
                 const sugerida = mensal ? quintoDiaUtilSalario(pa, pm) : folha === '13-1a' ? diaUtilAnterior(`${ano}-11-30`) : folha === '13-2a' ? diaUtilAnterior(`${ano}-12-20`) : diaUtilSeguinte(hoje);
-                return (
+                const dataDoRecibo = ferias ? (r: ResultadoCalculo) => { const p = (r as ResultadoFerias).pagarAte; return p ? diaUtilAnterior(p) : undefined; } : undefined;
+                const contasSalvas = (contas: ContaPagamento[]) => setEmpresas(l => l?.map(e => (e.id === empresa.id ? { ...e, contasPagamento: contas } : e)) ?? l);
+                const nomeEmp = empresa.nomeFantasia || empresa.razaoSocial;
+                const cod = empresa.codigoSage ?? 'empresa';
+                if (arquivoBancario) return (
                     <ArquivoBancarioModal empresa={empresa} resultados={resultados} fichas={dados.fichas} titulo={tituloFolha} dataSugerida={sugerida}
-                        dataPorResultado={ferias ? (r => { const p = (r as ResultadoFerias).pagarAte; return p ? diaUtilAnterior(p) : undefined; }) : undefined}
-                        onFechar={() => setArquivoBancario(false)}
-                        onContasSalvas={contas => setEmpresas(l => l?.map(e => (e.id === empresa.id ? { ...e, contasPagamento: contas } : e)) ?? l)} />
+                        dataPorResultado={dataDoRecibo} onFechar={() => setArquivoBancario(false)} onContasSalvas={contasSalvas} />
+                );
+                const eventos = (data: string) => (ferias
+                    ? (resultados as ResultadoFerias[]).filter(f => f.situacao !== 'erro').flatMap(f => {
+                        const gozo = dados.afastamentos.find(a => a.id === f.gozoId) ?? feriasSimuladas.find(a => a.id === f.gozoId);
+                        return gozo ? eventosDoReciboFerias(f, { nome: nomeEmp, cnpj: empresa.cnpj }, gozo) : [];
+                    }).sort((a, b) => a.inicio.localeCompare(b.inicio))
+                    : eventosDaFolha({ folha: folha as Exclude<Folha, 'ferias'>, empresa: { nome: nomeEmp, cnpj: empresa.cnpj }, competencia, ano,
+                        pagamento: rescisao ? (resultados[0]?.pagamento || competencia) : pagamento, dataPagamento: data, resultados, encargos: resumo.encargos }));
+                const recibos = mensal ? 'Holerites' : ferias ? 'Recibos de férias' : rescisao ? 'Rescisões (TRCT em prévia)' : 'Holerites do 13º';
+                return (
+                    <PacoteClienteModal empresa={empresa} resultados={resultados} fichas={dados.fichas} titulo={tituloFolha} sufixo={sufixoArquivo}
+                        dataSugerida={sugerida} dataPorResultado={dataDoRecibo} eventos={eventos} onFechar={() => setPacote(false)} onContasSalvas={contasSalvas}
+                        documentos={[
+                            { id: 'holerites', rotulo: `${recibos} (PDF)`, nome: `holerites-${cod}-${sufixoArquivo}.pdf`, descricao: `${recibos.toLowerCase()} para assinatura dos funcionários`,
+                                gerar: () => holeritesPdf(resultados, dados.fichas, opcoesPdf()).output('arraybuffer') },
+                            { id: 'resumo', rotulo: 'Resumo da folha (PDF)', nome: `resumo-${cod}-${sufixoArquivo}.pdf`, descricao: 'resumo da folha com os valores para conferir as guias',
+                                gerar: () => resumoPdf(resumo, opcoesPdf(), observacaoResumo).output('arraybuffer') },
+                        ]} />
                 );
             })()}
             {sel && ferias && (() => {
