@@ -371,7 +371,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 <button className={btn} disabled={!resultados.some(r => r.situacao !== 'erro')} onClick={() => pdfHolerites(resultados, `holerites-${empresa?.codigoSage ?? 'empresa'}-${sufixoArquivo}.pdf`)}>Holerites (PDF)</button>
                 <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado')} onClick={() => setArquivoBancario(true)}>Arquivo bancário</button>
                 <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado')} onClick={() => setPacote(true)}>Pacote do cliente</button>
-                {mensal && <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado')} onClick={() => setEventosFolha(true)}>S-1200 e S-1210</button>}
+                {mensal && <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado') || pendentes.length > 0} title={pendentes.length ? 'Salve o movimento antes: o S-1200 sai do movimento gravado.' : undefined} onClick={() => setEventosFolha(true)}>S-1200 e S-1210</button>}
                 <button className={btn} disabled={!resultados.length} onClick={exportar}>Exportar Excel</button>
             </div>
             {rescisao && dados && (

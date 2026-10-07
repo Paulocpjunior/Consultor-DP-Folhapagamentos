@@ -2230,3 +2230,11 @@ guias sindicais".
   - a nota no histórico do CFI.
   - **Portas:** build, lint, lint:strict e jest (636 suítes, 9.259 testes)
     passando.
+- **Revisão do Codex no #97 (S-1200/S-1210, já mergeado), corrigida no #98:**
+  - **P1:** o botão "S-1200 e S-1210" fica desligado enquanto houver
+    movimento não salvo. O evento sai do movimento gravado.
+  - **P2:** o desconto só aceita rubrica de desconto (`tpRubr` 2). Rubrica
+    informativa (3 ou 4) é recusada, com o tipo no motivo.
+  - **P2:** o `ideDmDev` não se repete entre contratos do mesmo CPF.
+    Matrículas longas que coincidem no início ganham sufixo, sempre com até
+    30 caracteres.

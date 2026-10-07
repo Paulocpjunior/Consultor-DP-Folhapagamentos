@@ -77,10 +77,24 @@ describe('S-1200 e S-1210', () => {
         expect(t1.s1200).toBeNull();
         expect(t1.erros).toEqual(['Sem matrícula do eSocial na ficha.', 'Categoria do eSocial (3 dígitos) em branco na ficha.', '"Pensão" sem rubrica no de/para.']);
         const trocado = { ...params, rubricas: { ...params.rubricas, SAL: { codRubr: '0901', ideTabRubr: 'T1' } } };
-        expect(gerarEventosFolha({ ...base, parametros: trocado, fichas: [ficha('f1', '52998224725', 'ANA', 'M001')], resultados: [ANA] }).trabalhadores[0].erros[0]).toMatch(/0901 é desconto ou informativa no S-1010, e "Salário" é provento/);
+        expect(gerarEventosFolha({ ...base, parametros: trocado, fichas: [ficha('f1', '52998224725', 'ANA', 'M001')], resultados: [ANA] }).trabalhadores[0].erros[0]).toMatch(/0901 é desconto no S-1010, e "Salário" é provento/);
         const inc = gerarEventosFolha({ ...base, fichas: [ficha('f1', '52998224725', 'ANA', 'M001')], resultados: [{ ...ANA, situacao: 'incompleto', avisos: ['Sem tabela.'] }] }).trabalhadores[0];
         expect(inc.erros[0]).toMatch(/Cálculo incompleto: Sem tabela\./);
         expect(gerarEventosFolha({ ...base, parametros: { ...params, codLotacao: '', nrInscEstab: '123' }, fichas: [], resultados: [] }).erros).toEqual(['Informe o CNPJ do estabelecimento (14 dígitos).', 'Informe o código da lotação tributária (S-1020).']);
+    });
+
+    it('desconto em rubrica informativa é recusado; matrículas longas parecidas não repetem o demonstrativo', () => {
+        const info = { ...params, rubricas: { ...params.rubricas, IRRF: { codRubr: '0903', ideTabRubr: 'T1' } } };
+        const comInfo = [...RUBRICAS, rub('0903', 'IRRF INFORMATIVO', '9203', '3')];
+        expect(gerarEventosFolha({ ...base, rubricas: comInfo, parametros: info, fichas: [ficha('f1', '52998224725', 'ANA', 'M001')], resultados: [ANA] }).trabalhadores[0].erros)
+            .toEqual(['Rubrica 0903 é informativa no S-1010, e "IRRF" é desconto.']);
+        const b = resultado('f2', 'ANA', [verba('SAL', 'Salário', 'provento', 100000, '30 dias')]);
+        const m1 = 'CONTRATO-MUITO-LONGO-0000000001'.slice(0, 30); const m2 = 'CONTRATO-MUITO-LONGO-0000000002'.slice(0, 30);
+        const { trabalhadores } = gerarEventosFolha({ ...base, fichas: [ficha('f1', '52998224725', 'ANA', m1), ficha('f2', '52998224725', 'ANA', m2)], resultados: [ANA, b] });
+        const ids = txt(doc(trabalhadores[0].s1200!.xml), 'ideDmDev');
+        expect(new Set(ids).size).toBe(2);
+        expect(ids.every(i => (i ?? '').length <= 30)).toBe(true);
+        expect(txt(doc(trabalhadores[0].s1210!.xml), 'ideDmDev')).toEqual(ids);
     });
 
     it('lotes de 50 e identificador do demonstrativo com até 30 caracteres', () => {
