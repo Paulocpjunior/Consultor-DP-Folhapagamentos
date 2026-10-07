@@ -6,7 +6,7 @@
 
 import React, { useEffect, useState } from 'react';
 import {
-    ABAS, ROTULO, aplicarEdicao, defCampo, ehManual, idFuncionario, normalizarFicha, rotuloAlteracao, validarFicha,
+    ABAS, ROTULO, aplicarEdicao, defCampo, depNoEsocial, ehManual, idFuncionario, normalizarFicha, rotuloAlteracao, validarFicha,
     type CampoFicha, type Dependente, type FichaFuncionario,
 } from '../../services/cadastros/funcionarios';
 import { historico, mensagemErro, salvarFuncionario, excluirFuncionario, type RegistroAuditoria, type Usuario } from '../../services/cadastros/cadastrosService';
@@ -27,7 +27,7 @@ interface Props {
 }
 
 const inp = 'w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
-const DEP_VAZIO: Dependente = { tipo: '', nome: '', nascimento: '', cpf: '', irrf: 'N', salarioFamilia: 'N' };
+const DEP_VAZIO: Dependente = { tipo: '', nome: '', nascimento: '', cpf: '', irrf: 'N', salarioFamilia: 'N', pensao: 'N', cotaPensao: '', noEsocial: 'N' };
 const formatarCpf = (c: string) => (c.length === 11 ? `${c.slice(0, 3)}.${c.slice(3, 6)}.${c.slice(6, 9)}-${c.slice(9)}` : c);
 
 const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horarios = [], afastamentos = [], usuario, isAdmin, onFechar, onSalvo }) => {
@@ -156,7 +156,7 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                         <div className="space-y-2">
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
-                                    <thead><tr className="text-left text-xs text-slate-500 dark:text-slate-400"><th className="p-1">Tipo (eSocial)</th><th className="p-1">Nome</th><th className="p-1">Nascimento</th><th className="p-1">CPF</th><th className="p-1">IRRF</th><th className="p-1">Sal.-família</th><th /></tr></thead>
+                                    <thead><tr className="text-left text-xs text-slate-500 dark:text-slate-400"><th className="p-1">Tipo (eSocial)</th><th className="p-1">Nome</th><th className="p-1">Nascimento</th><th className="p-1">CPF</th><th className="p-1">IRRF</th><th className="p-1">Sal.-família</th><th className="p-1" title="Recebe pensão alimentícia descontada do trabalhador (alimentando): vai no S-1210 pelo CPF.">Pensão</th><th className="p-1" title="Parte da pensão do mês, quando há mais de um alimentando.">Cota %</th><th className="p-1" title="Cadastrado no eSocial (S-2200/S-2205). Se não, o S-1210 informa os dados dele.">No eSocial</th><th /></tr></thead>
                                     <tbody>
                                         {f.dependentes.map((d, i) => (
                                             <tr key={i}>
@@ -167,6 +167,9 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                                                 {(['irrf', 'salarioFamilia'] as const).map(k => (
                                                     <td key={k} className="p-1"><select className={inp} value={d[k]} onChange={e => setDep(i, k, e.target.value)} aria-label={`${k === 'irrf' ? 'IRRF' : 'Salário-família'} do dependente ${i + 1}`}><option value="S">Sim</option><option value="N">Não</option></select></td>
                                                 ))}
+                                                <td className="p-1"><select className={inp} value={d.pensao === 'S' ? 'S' : 'N'} onChange={e => setDep(i, 'pensao', e.target.value)} aria-label={`Pensão do dependente ${i + 1}`}><option value="S">Sim</option><option value="N">Não</option></select></td>
+                                                <td className="p-1"><input className={`${inp} w-16`} inputMode="decimal" disabled={d.pensao !== 'S'} value={d.cotaPensao ?? ''} onChange={e => setDep(i, 'cotaPensao', e.target.value)} aria-label={`Cota da pensão do dependente ${i + 1}`} /></td>
+                                                <td className="p-1"><select className={inp} value={depNoEsocial(ficha, d) ? 'S' : 'N'} onChange={e => setDep(i, 'noEsocial', e.target.value)} aria-label={`No eSocial o dependente ${i + 1}`}><option value="S">Sim</option><option value="N">Não</option></select></td>
                                                 <td className="p-1"><button className="text-xs text-red-600 underline" onClick={() => setF({ ...f, dependentes: f.dependentes.filter((_, j) => j !== i) })}>Remover</button></td>
                                             </tr>
                                         ))}
@@ -176,6 +179,7 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                             {!f.dependentes.length && <p className="text-sm text-slate-500">Nenhum dependente.</p>}
                             <button className="rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600 dark:text-white" onClick={() => setF({ ...f, dependentes: [...f.dependentes, { ...DEP_VAZIO }] })}>Adicionar dependente</button>
                             {f.origens.dependentes && <p className="text-[11px] text-slate-400">{f.origens.dependentes}</p>}
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400">Pensão alimentícia: marque quem recebe (com CPF). Com mais de um alimentando, a cota (%) de cada um divide a pensão do mês no S-1210. A mesma pessoa não é deduzida como dependente e como alimentando.</p>
                         </div>
                     )}
 

@@ -2321,3 +2321,41 @@ guias sindicais".
   - **Conferência:** S-3000, S-1200 e S-1210 validados no `evtExclusao.xsd`,
     no `evtRemun.xsd` e no `evtPgtos.xsd` (só falta a assinatura, que é do
     CFI). Testes: 86 arquivos, 652 testes.
+
+## 07/10/2026 — CPF do alimentando (penAlim) no S-1210
+
+- **Paulo:** *"pode seguir com o CPF do alimentado do S-1210"*.
+- **Regra do leiaute S-1.3:**
+  - o grupo `penAlim` (tpRend, cpfDep, vlrDedPenAlim) é obrigatório
+    quando o pagamento tem rubrica de pensão (codIncIRRF 51 a 54);
+  - o `cpfDep` precisa ser de um dependente cadastrado no S-2200/S-2205
+    ou estar no grupo `infoDep` do próprio S-1210.
+- **Ficha (Cadastros › Funcionários › Dependentes):** três colunas novas.
+  - **Pensão:** marca o alimentando.
+  - **Cota %:** divide a pensão do mês quando há mais de um alimentando;
+    as cotas precisam somar 100%.
+  - **No eSocial:** diz se o dependente está no S-2200/S-2205. Em branco,
+    vale a origem dos dependentes da ficha: vindos do XML do eSocial, sim.
+    Ao gravar, a marca fica explícita, porque a origem passa a "Manual".
+- **Validação da ficha:**
+  - o alimentando precisa ter CPF, diferente do CPF do trabalhador;
+  - a mesma pessoa não pode ser deduzida no IRRF como dependente e como
+    alimentando;
+  - cota entre 0 e 100.
+- **Histórico da ficha:** a marca de pensão entra no histórico. Com isso,
+  a reimportação do eSocial preserva a marca, porque os dependentes
+  editados ficam com origem "Manual".
+- **S-1210 (`gerarEventosFolha`):**
+  - a pensão de cada contrato (verba PENSAO) é dividida pelos alimentandos
+    (`ratearPensao`; os centavos do arredondamento vão para o último) e vai
+    num `penAlim` por CPF, inclusive com o desconto simplificado;
+  - os dependentes do IRRF continuam só quando o motor usou as deduções
+    legais, agora sem repetir o CPF quando há dois contratos;
+  - quem não está no eSocial vai no `infoDep`: CPF, nascimento, nome e,
+    se for dependente do IRRF, `depIRRF` e `tpDep`;
+  - **bloqueios:** pensão sem alimentando marcado; cota errada; dependente
+    do IRRF fora do eSocial sem tipo ou com tipo 99.
+- **MiA:** o guia do app diz onde marcar o alimentando.
+- **Conferência:** S-1210 com dedDepen, dois penAlim e infoDep validado no
+  `evtPgtos.xsd` (só falta a assinatura, que é do CFI). Testes: 86 arquivos,
+  655 testes.

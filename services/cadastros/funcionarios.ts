@@ -138,8 +138,39 @@ export function normalizarFicha(f: FichaFuncionario): FichaFuncionario {
     }
     return {
         ...f, cpf: f.cpf.replace(/\D/g, ''), matriculaEsocial: f.matriculaEsocial.trim(), dados,
-        dependentes: f.dependentes.map(d => ({ ...d, nome: d.nome.trim(), cpf: d.cpf.replace(/\D/g, ''), nascimento: d.nascimento.trim() })),
+        dependentes: f.dependentes.map(d => ({ ...d, nome: d.nome.trim(), cpf: d.cpf.replace(/\D/g, ''), nascimento: d.nascimento.trim(), noEsocial: d.noEsocial || (depNoEsocial(f, d) ? 'S' : 'N'),
+            ...(d.pensao === 'S' ? { cotaPensao: (d.cotaPensao ?? '').trim().replace(',', '.') } : { pensao: 'N', cotaPensao: '' }) })),
     };
+}
+
+/**
+ * Dependente cadastrado no eSocial (S-2200/S-2205)? Sem a marca, vale a
+ * origem dos dependentes da ficha: vindos do XML do eSocial, sim.
+ */
+export const depNoEsocial = (f: Pick<FichaFuncionario, 'origens'>, d: Dependente) => (d.noEsocial ? d.noEsocial === 'S' : !!f.origens.dependentes?.startsWith('eSocial'));
+
+/** Alimentandos da ficha (pensão alimentícia descontada do trabalhador). */
+export const alimentandos = (f: Pick<FichaFuncionario, 'dependentes'>) => f.dependentes.filter(d => d.pensao === 'S');
+
+/**
+ * Divide a pensão do mês entre os alimentandos: um só leva tudo; mais de um,
+ * pela cota (%) da ficha, que deve somar 100. Os centavos que sobram do
+ * arredondamento vão para o último.
+ */
+export function ratearPensao(f: Pick<FichaFuncionario, 'dependentes'>, valor: number): { itens: { dependente: Dependente; valor: number }[]; erro: string } {
+    const lista = alimentandos(f);
+    if (!lista.length) return { itens: [], erro: 'Pensão alimentícia sem alimentando na ficha: em Cadastros › Funcionários › Dependentes, marque quem recebe a pensão (com CPF).' };
+    if (lista.length === 1) return { itens: [{ dependente: lista[0], valor }], erro: '' };
+    const cotas = lista.map(d => Number((d.cotaPensao ?? '').replace(',', '.')));
+    if (cotas.some(c => !Number.isFinite(c) || c <= 0) || Math.abs(cotas.reduce((a, b) => a + b, 0) - 100) > 0.001)
+        return { itens: [], erro: 'Mais de um alimentando: informe a cota (%) de cada um na ficha, somando 100%.' };
+    let resto = valor;
+    const itens = lista.map((d, i) => {
+        const v = i === lista.length - 1 ? resto : Math.round(valor * cotas[i] / 100);
+        resto -= v;
+        return { dependente: d, valor: v };
+    });
+    return { itens, erro: '' };
 }
 
 export interface Validacao { erros: string[]; avisos: string[] }
@@ -166,7 +197,18 @@ export function validarFicha(f: FichaFuncionario): Validacao {
         if (!dep.nome) erros.push(`${n}: informe o nome.`);
         if (dep.nascimento && !dataValida(dep.nascimento)) erros.push(`${n}: nascimento inválido.`);
         if (dep.cpf && !cpfValido(dep.cpf)) erros.push(`${n}: CPF inválido.`);
+        if (dep.pensao === 'S') {
+            if (!dep.cpf) erros.push(`${n}: alimentando sem CPF (o S-1210 informa a pensão pelo CPF de quem recebe).`);
+            else if (dep.cpf === f.cpf) erros.push(`${n}: o alimentando não pode ter o CPF do trabalhador.`);
+            if (dep.irrf === 'S') erros.push(`${n}: a mesma pessoa não pode ser deduzida no IRRF como dependente e como alimentando; deixe só a pensão.`);
+            const c = (dep.cotaPensao ?? '').trim();
+            if (c && !(Number(c.replace(',', '.')) > 0 && Number(c.replace(',', '.')) <= 100)) erros.push(`${n}: cota da pensão deve ser um percentual entre 0 e 100.`);
+        }
     });
+    const pensionistas = alimentandos(f);
+    // Cota em branco vira NaN e reprova a soma.
+    if (pensionistas.length > 1 && !(Math.abs(pensionistas.reduce((a, d) => a + Number((d.cotaPensao ?? '').replace(',', '.') || NaN), 0) - 100) <= 0.001))
+        erros.push('Mais de um alimentando: a cota da pensão (%) de cada um deve somar 100%.');
     for (const k of ['admissao', 'cargo', 'cbo', 'salario', 'categoria'] as CampoFicha[]) if (!d[k]) avisos.push(`${ROTULO[k]} em branco.`);
     if (!d.codigoIob) avisos.push('Código no IOB em branco: o TXT de ponto usa esse código.');
     if (f.situacao === 'desligado' && !d.dataDesligamento) avisos.push('Desligado sem data de desligamento.');
@@ -183,7 +225,7 @@ export interface Alteracao { campo: ChaveOrigem | 'codigoIob' | 'matriculaEsocia
 /** Rótulo de uma alteração na prévia e no histórico. */
 export const rotuloAlteracao = (campo: string) => (campo === 'pendencias' ? 'Pendências da importação' : campo === 'cnpj' ? 'CNPJ do empregador' : ROTULO[campo as CampoFicha] ?? campo);
 
-const depsTexto = (l: Dependente[]) => l.map(d => `${d.nome} (${d.nascimento || 's/ nasc.'}${d.cpf ? `, CPF ${d.cpf}` : ''})`).join('; ');
+const depsTexto = (l: Dependente[]) => l.map(d => `${d.nome} (${d.nascimento || 's/ nasc.'}${d.cpf ? `, CPF ${d.cpf}` : ''}${d.pensao === 'S' ? `, pensão${d.cotaPensao ? ` ${d.cotaPensao}%` : ''}` : ''})`).join('; ');
 
 /** Diferença campo a campo entre duas versões, para a trilha de auditoria. */
 export function diffFicha(antes: FichaFuncionario | null, depois: FichaFuncionario): Alteracao[] {
