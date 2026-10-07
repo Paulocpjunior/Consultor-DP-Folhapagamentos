@@ -25,9 +25,9 @@ import {
     type LinhaIob, type Mapeamento, type TabelaLida,
 } from '../cadastros/cargaBackupIob';
 import {
-    aplicarFpasPadrao, codigoDoSchema, codigoIob, gravavel, proporEnquadramentos, type PropostaEnquadramento, type TabelasEnquadramento,
+    aplicarFpasPadrao, aplicarRegime, codigoDoSchema, codigoIob, gravavel, proporEnquadramentos, type PropostaEnquadramento, type TabelasEnquadramento,
 } from '../cadastros/cargaEnquadramentoIob';
-import type { Enquadramento } from '../cadastros/enquadramento';
+import { REGIMES, type Enquadramento, type RegimePatronal } from '../cadastros/enquadramento';
 import { consolidarAfastamentos, lerXmlAfastamentos, mesclarAfastamentos, type Afastamento, type MesclaAfastamento } from '../cadastros/afastamentos';
 import { TABELA_HIST_FERIAS, gozosDoHistorico, juntarComHistorico } from '../cadastros/feriasDoBackup';
 import { mesclarMovimentos, movimentosDoHolerith, naturezasDosEventos, type ClasseManual, type EventoResumo, type MesclaMovimento } from '../calculo/movimentosDoBackup';
@@ -46,12 +46,14 @@ export interface ParametrosRestauracao {
     mapeamento: Mapeamento;
     /** Classificação dos eventos do IOB acertada pela equipe (código do evento → classe ou "ignorar"). */
     eventos: Record<string, ClasseManual>;
+    /** Regime previdenciário informado pela equipe, por empresa (id → regime); vale sobre o S-1000 do backup. */
+    regimes: Record<string, RegimePatronal>;
 }
 
 const mesAtras = (meses: number) => { const d = new Date(); d.setMonth(d.getMonth() - meses); return d.toISOString().slice(0, 7); };
 export const parametrosPadrao = (): ParametrosRestauracao => ({
     fpas: '', codigoTerceiros: '', terceiros: 0, historicoDesde: mesAtras(36), fapDesde: `${new Date().getFullYear() - 1}-01`,
-    sexagesimal: false, criarFichas: true, mapeamento: {}, eventos: {},
+    sexagesimal: false, criarFichas: true, mapeamento: {}, eventos: {}, regimes: {},
 });
 
 /** Empresas do backup (schemas fNNNN) com a empresa do Consultor de mesmo código SAGE. */
@@ -145,11 +147,16 @@ export async function planejarRestauracao(rest: Leitor, empresa: Empresa, existe
     const [depto, deptoMa, s1000] = [doSchema('depto'), doSchema('depto_ma'), doSchema('esocialdadosficha_s1000')];
     if (depto || deptoMa || s1000) tabelas.schemas!.push({ grupo: (depto ?? deptoMa ?? s1000)!.grupo, depto: await ler(rest, depto), deptoMa: await ler(rest, deptoMa), s1000: await ler(rest, s1000) });
     const enq = proporEnquadramentos(tabelas, [{ id: empresa.id, nome: empresa.nomeFantasia || empresa.razaoSocial, cnpj: empresa.cnpj, codigoSage: empresa.codigoSage }], existentes.enquadramentos, p.fapDesde);
-    const propostas = enq.propostas.map(x => (/^\d{3}$/.test(p.fpas) ? aplicarFpasPadrao(x, { fpas: p.fpas, codigoTerceiros: p.codigoTerceiros, terceiros: p.terceiros }) : x));
+    const regime = p.regimes?.[empresa.id];
+    const propostas = enq.propostas
+        .map(x => (regime ? aplicarRegime(x, regime) : x))
+        .map(x => (/^\d{3}$/.test(p.fpas) ? aplicarFpasPadrao(x, { fpas: p.fpas, codigoTerceiros: p.codigoTerceiros, terceiros: p.terceiros }) : x));
+    const comErro = propostas.filter(x => !x.existente && x.erros.length);
     const enqGravaveis = propostas.filter(gravavel);
     etapas.push({
         titulo: 'Enquadramento',
-        resumo: `${propostas.length} vigência(s) · ${enqGravaveis.length} para gravar, ${propostas.filter(x => x.existente).length} já cadastrada(s), ${propostas.filter(x => !x.existente && x.erros.length).length} com erro`,
+        resumo: `${propostas.length} vigência(s) · ${enqGravaveis.length} para gravar, ${propostas.filter(x => x.existente).length} já cadastrada(s), ${comErro.length} com erro`
+            + (comErro.length ? ` (${REGIMES[comErro[0].enquadramento.regime].split(':')[0]}: ${[...new Set(comErro.flatMap(x => x.erros))].join(' ')})` : ''),
         avisos: [...enq.avisos, ...propostas.flatMap(x => [...x.erros, ...x.pendencias].map(m => `${x.enquadramento.vigencia}: ${m}`))],
     });
 

@@ -1631,3 +1631,24 @@ guias sindicais".
   vírgula sumia.
 - **Mudança:** o campo guarda o texto digitado (vírgula ou ponto, uma casa
   decimal ou mais) e só converte para o parâmetro. Aceita "5,8" e "0,0".
+
+## 07/10/2026 — Regime da empresa na restauração (1200 no Simples)
+
+- **Paulo:** a restauração da 1200 gravou fichas, férias e histórico, mas o
+  enquadramento ficou com "1 com erro". *"O CNPJ está correto, a empresa é
+  optante pelo Simples."*
+- **Causa provável:** a carga lia a **primeira** linha do
+  `esocialdadosficha_s1000`. O S-1000 tem histórico, e a empresa que entrou
+  no Simples guarda a linha antiga do regime normal. Com isso o regime saía
+  "normal" e a validação barrava (RAT/FPAS).
+- **Mudança:**
+  - `s1000Vigente`: usa a linha de maior vigência (`inivalid`), senão a
+    última gravada (`pk_padrao`). Vale também para a carga de enquadramento
+    em Cadastros.
+  - Na seção "Restaurar a empresa no Consultor", novo campo **"Regime
+    previdenciário desta empresa"**: "Pelo backup (S-1000)" ou o regime
+    escolhido, que vale sobre o backup. Fica salvo por empresa
+    (`regimes`). Fora do regime normal, FPAS e terceiros são zerados e o
+    FPAS padrão não se aplica.
+  - O resumo da etapa 3 mostra o regime e o erro que impede gravar, sem
+    precisar abrir os avisos.

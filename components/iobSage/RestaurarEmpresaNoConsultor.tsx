@@ -14,6 +14,7 @@ import { mensagemErro, type Usuario } from '../../services/cadastros/cadastrosSe
 import { empresasDoBackup, planejarRestauracao, type Existentes, type ParametrosRestauracao, type PlanoRestauracao } from '../../services/iobSage/restaurarEmpresa';
 import { CAMPOS_HISTORICO, type ClasseManual, type EventoResumo } from '../../services/calculo/movimentosDoBackup';
 import { ROTULO_MOVIMENTO } from '../../services/calculo/movimento';
+import { REGIMES, type RegimePatronal } from '../../services/cadastros/enquadramento';
 import { carregarExistentes, gravarRestauracao, lerParametros, salvarParametros } from '../../services/iobSage/restaurarEmpresaService';
 
 interface Props { restauracao: Restauracao; arquivos: string[]; usuario?: Usuario; podeRestaurar: boolean }
@@ -98,13 +99,25 @@ const RestaurarEmpresaNoConsultor: React.FC<Props> = ({ restauracao, arquivos, u
                         {doBackup.map(x => <option key={x.grupo} value={x.codigo} disabled={!x.empresa}>{x.codigo} · {x.empresa ? x.empresa.nomeFantasia || x.empresa.razaoSocial : 'sem empresa no Consultor (cadastre com este código SAGE)'}</option>)}
                     </select>
                 </label>
+                {escolhida?.empresa && (
+                    <label>Regime previdenciário desta empresa
+                        <select aria-label="Regime previdenciário" className={`ml-2 ${inp}`} value={param.regimes?.[escolhida.empresa.id] ?? ''} onChange={e => {
+                            const regimes = { ...(param.regimes ?? {}) };
+                            if (e.target.value) regimes[escolhida.empresa!.id] = e.target.value as RegimePatronal; else delete regimes[escolhida.empresa!.id];
+                            mudar({ regimes });
+                        }}>
+                            <option value="">Pelo backup (S-1000)</option>
+                            {(Object.keys(REGIMES) as RegimePatronal[]).map(r => <option key={r} value={r}>{REGIMES[r].split(':')[0]}</option>)}
+                        </select>
+                    </label>
+                )}
             </div>
             <fieldset className="grid gap-2 rounded border border-slate-200 p-2 text-xs sm:grid-cols-3 dark:border-slate-700 dark:text-slate-200">
                 <legend className="px-1 font-medium">Parâmetros (salvos para as próximas empresas)</legend>
                 <label>Histórico da folha a partir de<input aria-label="Histórico a partir de" type="month" className={`block ${inp}`} value={param.historicoDesde} onChange={e => mudar({ historicoDesde: e.target.value })} /></label>
                 <label>FAP a partir de<input aria-label="FAP a partir de" type="month" className={`block ${inp}`} value={param.fapDesde} onChange={e => mudar({ fapDesde: e.target.value })} /></label>
                 <label className="flex items-center gap-1 self-end"><input type="checkbox" checked={param.sexagesimal} onChange={e => mudar({ sexagesimal: e.target.checked })} />Horas no formato hh,mm</label>
-                <label>FPAS padrão (sem FPAS no backup)<input aria-label="FPAS padrão" className={`block w-20 ${inp}`} value={param.fpas} onChange={e => mudar({ fpas: e.target.value.replace(/\D/g, '').slice(0, 3) })} /></label>
+                <label>FPAS padrão (regime normal sem FPAS no backup)<input aria-label="FPAS padrão" className={`block w-20 ${inp}`} value={param.fpas} onChange={e => mudar({ fpas: e.target.value.replace(/\D/g, '').slice(0, 3) })} /></label>
                 <label>Código de terceiros<input aria-label="Código de terceiros" className={`block w-24 ${inp}`} value={param.codigoTerceiros} onChange={e => mudar({ codigoTerceiros: e.target.value.replace(/\D/g, '').slice(0, 4) })} /></label>
                 <label>Terceiros (%)<input aria-label="Terceiros (%)" className={`block w-20 ${inp}`} inputMode="decimal" value={terceirosTxt} onChange={e => {
                     const t = e.target.value.replace('.', ',').replace(/[^\d,]/g, '').replace(/(,.*),/g, '$1').slice(0, 6);

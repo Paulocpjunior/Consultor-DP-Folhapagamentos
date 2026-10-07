@@ -22,6 +22,7 @@ function backup(): Uint8Array {
         ...copy('f1200.holerith', 'codfun, anomes, codeven, ref, descricao', [['52', '202501', '50', '10,5', 'HORAS EXTRAS 50%'], ['52', '202502', '120', '2', 'FALTAS']]),
         ...copy('f1200.eventos_esocial', 'codeven, rubesocial', [['50', '50'], ['120', '120']]),
         ...copy('f1200.esocialdadosficha_s1010', 'codrubr, natrubr, inivalid, fimvalid', [['50', '1003', '2018-01', ''], ['120', '9207', '2018-01', '']]),
+        ...copy('f1200.esocialdadosficha_s1000', 'pk_padrao, nrinsc, classtrib', [['1', '11222333', '99']]),
         ...copy('f0300.func', 'codfun, nome, cpf', [['1', 'OUTRA', '11144477735']]),
     ].join('\n'));
 }
@@ -55,5 +56,16 @@ describe('restaurar a empresa pelo backup', () => {
         };
         const segunda = await planejarRestauracao(rest, empresa, gravado, { ...parametrosPadrao(), historicoDesde: '2024-01' });
         expect([segunda.fichas.length, segunda.afastamentos.length, segunda.movimentos.length]).toEqual([0, 0, 0]);
+    });
+
+    it('regime informado na tela vale sobre o S-1000 do backup; o erro aparece no resumo', async () => {
+        const rest = await abrirRestauracao([{ nome: 'folha.backup', fonte: fonteDeBytes(backup()) }]);
+        const vazio = { fichas: [], afastamentos: [], enquadramentos: [], movimentos: {} };
+        const pelo = await planejarRestauracao(rest, empresa, vazio, { ...parametrosPadrao(), historicoDesde: '2024-01' });
+        expect(pelo.enquadramentos).toHaveLength(0);
+        expect(pelo.etapas[2].resumo).toMatch(/1 com erro \(Normal \(lucro presumido ou real\): .*FPAS: 3 dígitos\./);
+        const simples = await planejarRestauracao(rest, empresa, vazio, { ...parametrosPadrao(), historicoDesde: '2024-01', fpas: '515', codigoTerceiros: '0115', terceiros: 5.8, regimes: { emp1: 'simples' } });
+        expect(simples.enquadramentos.map(({ enquadramento: e }) => [e.regime, e.fpas, e.terceiros])).toEqual([['simples', '', 0]]);
+        expect(simples.etapas[2].resumo).toMatch(/1 para gravar.*0 com erro$/);
     });
 });

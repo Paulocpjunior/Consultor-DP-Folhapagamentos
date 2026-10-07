@@ -131,6 +131,35 @@ export function sugestoesTerceiros(terc: TabelaLida | null | undefined): { fpas:
 }
 
 /**
+ * Linha do S-1000 que vale hoje: o S-1000 tem histórico (a empresa que entrou
+ * no Simples tem a linha antiga do regime normal). Pela maior vigência
+ * (inivalid), senão pela última gravada (pk_padrao, depois a ordem do backup).
+ */
+export function s1000Vigente(ls: Record<string, string>[]): Record<string, string> | undefined {
+    const comClass = ls.map((l, i) => ({ l, i })).filter(x => x.l.classtrib);
+    const ini = (l: Record<string, string>) => anomes(l.inivalid ?? l.inivalidade ?? l.iniValid ?? '');
+    const pk = (l: Record<string, string>) => Number(l.pkpadrao ?? l.pk_padrao ?? '') || 0;
+    comClass.sort((a, b) => ini(b.l).localeCompare(ini(a.l)) || pk(b.l) - pk(a.l) || b.i - a.i);
+    return comClass[0]?.l;
+}
+
+/**
+ * Regime informado pela equipe (vale sobre a classificação do backup). Fora
+ * do regime normal não há FPAS nem terceiros; os erros são refeitos.
+ */
+export function aplicarRegime(p: PropostaEnquadramento, regime: RegimePatronal): PropostaEnquadramento {
+    if (p.enquadramento.regime === regime) return p;
+    const normal = regime === 'normal';
+    const novo: Enquadramento = { ...p.enquadramento, regime, ...(normal ? {} : { fpas: '', codigoTerceiros: '', terceiros: 0 }) };
+    const outros = p.erros.filter(x => x.startsWith('CNPJ no IOB'));
+    return {
+        ...p, enquadramento: novo,
+        pendencias: [...p.pendencias.filter(x => !/classificação tributária|classTrib|^FPAS e terceiros/i.test(x)), `Regime informado na restauração (${regime}); no backup: ${p.enquadramento.regime}.`],
+        erros: [...outros, ...validarEnquadramento(novo)],
+    };
+}
+
+/**
  * Propõe os enquadramentos. `corte` (AAAA-MM): períodos do FAP encerrados
  * antes dele ficam de fora (não servem às folhas atuais).
  */
@@ -189,7 +218,7 @@ export function proporEnquadramentos(t: TabelasEnquadramento, empresas: EmpresaC
         const ratAjus = estab.map(e => numero(e.ratajus ?? '')).find(n => n > 0) ?? NaN;
 
         // O classtrib do schema é o código do eSocial; o FKCLASTRIB do sistema pode ser índice interno.
-        const cls = regimeDaClassTrib(sch?.s1000.find(x => x.classtrib)?.classtrib ?? emp[0]?.fkclastrib ?? '');
+        const cls = regimeDaClassTrib(s1000Vigente(sch?.s1000 ?? [])?.classtrib ?? emp[0]?.fkclastrib ?? '');
         if (cls.pendencia) comum.push(cls.pendencia);
 
         // FPAS e terceiros: só no depto da folha da empresa.
