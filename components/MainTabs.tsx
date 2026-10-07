@@ -399,7 +399,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                 {activeTab === 'esocial' && <ESocialMonitorPanel currentUser={currentUser as any} />}
                 {activeTab === 'iobsage' && (
                     <Suspense fallback={<div className="py-12 text-center text-sm text-slate-500">Carregando…</div>}>
-                        <IobSagePanel onNavegar={d => {
+                        <IobSagePanel usuario={{ id: uidAtual, email: currentUser.email }} ehGestor={papelEfetivo(currentUser.role) === 'gestor'} ehAdmin={isAdmin} onNavegar={d => {
                             const sub = SUB_FOLHA[d];
                             const cad = SUB_CADASTRO[d];
                             if (sub) { setFolhaSub(f => ({ sub, n: (f?.n ?? 0) + 1 })); setActiveTab('folha'); }

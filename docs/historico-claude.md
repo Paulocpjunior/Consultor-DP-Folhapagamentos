@@ -1538,3 +1538,36 @@ guias sindicais".
     afastamentos. O próximo passo é o `holerith`, para as médias.
   - Copiar as cerca de 200 tabelas do schema para o Firebase guardaria dados
     pessoais sem uso. Isso fere a regra de não gravar o backup no Firebase.
+
+## 07/10/2026 — Histórico da folha (médias) e registro de guarda dos backups
+
+- **Paulo:** *"pode seguir com holerite e registro de guarda"*.
+- **Histórico da folha** (Funcionários › "Histórico da folha (IOB)"):
+  - Fonte: `holerith` do schema da empresa. Vira movimento mensal com horas
+    extras 50% e 100%, faltas e DSR descontado, por funcionário e mês, no
+    vínculo em vigor no mês.
+  - O tipo de cada evento vem da natureza da rubrica que o IOB mandou ao
+    eSocial (`eventos_esocial` → `esocialdadosficha_s1010.natrubr`):
+    1003 = horas extras (100% pela descrição); 9207 = faltas; 9211 = faltas
+    e atrasos (só com "falta" na descrição). Sem natureza, vale a descrição.
+    Códigos de faltas conferidos em fonte pública (Portal SPED Brasil,
+    Senior). O 1003 veio do resultado da busca; a tabela oficial do gov.br
+    está bloqueada aqui.
+  - A prévia lista os eventos reconhecidos, com os totais, para conferir
+    com o IOB.
+  - "Horas no formato hh,mm" vem desmarcado: o formato da referência do IOB
+    não está confirmado.
+  - Só preenche o que o movimento ainda não tem. Um valor já lançado fica e
+    aparece listado.
+- **Registro de guarda** (aba IOB SAGE, coleção `backups_guarda/{sha256}`):
+  - Inventário dos backups do SAGE guardados no UNAS Pro 4: arquivo,
+    tamanho, SHA-256, empresas (schemas fNNNN), data, local, observação e
+    quem registrou. O conteúdo não entra.
+  - O SHA-256 é calculado no navegador, em fatias de 4 MB (classe
+    incremental própria, conferida contra o `node:crypto`), porque o
+    WebCrypto não lê arquivos de mais de 1 GB em partes.
+  - "Conferir um arquivo" informa se ele está íntegro, renomeado, alterado
+    ou não registrado.
+  - Regras: só o gestor registra; admin e gestor leem; ninguém altera nem
+    apaga. Testes no emulador: 34/34, rodando um arquivo por vez (em
+    paralelo, o `clearFirestore` de um arquivo apaga os dados do outro).

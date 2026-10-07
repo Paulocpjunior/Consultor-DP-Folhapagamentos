@@ -8,6 +8,8 @@
 import React, { useMemo, useState } from 'react';
 import { MENUS_IOB, ROTULO_SITUACAO, resumoSituacao, type Destino, type ItemMenu, type Situacao } from '../../services/iobSage/catalogoMenus';
 import RestaurarBackupModal from './RestaurarBackupModal';
+import GuardaBackups from './GuardaBackups';
+import type { Usuario } from '../../services/cadastros/cadastrosService';
 
 const COR: Record<Situacao, string> = {
     disponivel: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200',
@@ -35,9 +37,9 @@ const ROTULO_DESTINO: Record<Destino, string> = {
     'iobsage:restaurar': 'Abrir a restauração do backup',
 };
 
-interface Props { onNavegar?: (destino: Destino) => void }
+interface Props { onNavegar?: (destino: Destino) => void; usuario?: Usuario; ehGestor?: boolean; ehAdmin?: boolean }
 
-const IobSagePanel: React.FC<Props> = ({ onNavegar }) => {
+const IobSagePanel: React.FC<Props> = ({ onNavegar, usuario, ehGestor = false, ehAdmin = false }) => {
     const [menuId, setMenuId] = useState(MENUS_IOB[0].id);
     const [filtro, setFiltro] = useState<Situacao | ''>('');
     const [item, setItem] = useState<ItemMenu | null>(null);
@@ -63,6 +65,9 @@ const IobSagePanel: React.FC<Props> = ({ onNavegar }) => {
                 </div>
                 <button className="rounded bg-blue-700 px-4 py-2 text-sm font-medium text-white" onClick={() => setRestaurar(true)}>Restaurar backup do IOB SAGE</button>
             </header>
+
+            {/* O registro de guarda é só de admin e gestor (as regras não deixam o colaborador ler). */}
+            {(ehAdmin || ehGestor) && <GuardaBackups usuario={usuario} podeRegistrar={ehGestor && !!usuario} />}
 
             <div className="flex flex-wrap gap-2 text-sm">
                 {(Object.keys(resumo) as Situacao[]).map(s => (
