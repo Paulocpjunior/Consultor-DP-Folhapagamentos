@@ -415,7 +415,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                                     <td className="p-2 font-medium">{r.nome}{!mensal ? null : pendentes.includes(r.fichaId) ? <span className="ml-1 text-xs text-amber-700 dark:text-amber-300">(não salvo)</span> : !movimentoVazio(movs[r.fichaId]) && <span className="ml-1 text-xs text-blue-700 dark:text-blue-300">(com movimento)</span>}</td>
                                     <td className="p-2 text-right">{real(r.totais.proventos)}</td>
                                     <td className="p-2 text-right">{real(inssDe(r))}</td>
-                                    <td className="p-2 text-right">{real(irrfDe(r))}</td>
+                                    <td className="p-2 text-right" title={(r as Partial<ResultadoFerias>).irrf?.semRetencao ? `Sem retenção: ${(r as ResultadoFerias).irrf!.semRetencao}` : undefined}>{(r as Partial<ResultadoFerias>).irrf && !irrfDe(r) ? 'R$ 0,00' : real(irrfDe(r))}</td>
                                     <td className="p-2 text-right">{real(v(r, 'SF'))}</td>
                                     <td className="p-2 text-right font-medium">{r.situacao === 'erro' ? '—' : reais(r.totais.liquido)}</td>
                                     <td className="p-2 text-right">{real(r.fgts)}</td>
@@ -536,6 +536,14 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                             {f.porCompetencia.length > 0 && (
                                 <table className="w-full max-w-sm"><thead className="text-left text-slate-500"><tr><th>Competência</th><th className="text-right">Dias</th><th className="text-right">Férias + 1/3</th><th className="text-right">INSS</th><th className="text-right">FGTS</th></tr></thead>
                                     <tbody>{f.porCompetencia.map(c => <tr key={c.competencia}><td>{br(c.competencia)}</td><td className="text-right">{c.dias}</td><td className="text-right">{reais(c.ferias + c.terco)}</td><td className="text-right">{reais(c.inss)}</td><td className="text-right">{reais(c.fgts)}</td></tr>)}</tbody></table>
+                            )}
+                            {f.irrf && (
+                                <div aria-label="IRRF sobre férias" className="rounded border border-slate-200 p-2 dark:border-slate-700">
+                                    <p className="font-medium">IRRF sobre férias (em separado)</p>
+                                    <p>Rendimento tributável {reais(f.irrf.tributavel)} − {f.irrf.usouSimplificado ? 'desconto simplificado' : `INSS${f.irrf.dependentes ? ` e ${f.irrf.dependentes} dependente(s)` : ''}`} {reais(f.irrf.deducoes)} = base <strong>{reais(f.irrf.base)}</strong></p>
+                                    <p>Tabela: {f.irrf.aliquota.toLocaleString('pt-BR')}%{f.irrf.parcelaDeduzir ? ` − ${reais(f.irrf.parcelaDeduzir)}` : ''} = {reais(f.irrf.calculado)}{f.irrf.redutor ? ` · redutor 2026 −${reais(f.irrf.redutor)}` : ''}{f.irrf.dispensado ? ` · dispensado (até R$ 10,00) −${reais(f.irrf.dispensado)}` : ''} · <strong>IRRF devido {reais(f.irrf.devido)}</strong></p>
+                                    {f.irrf.semRetencao && <p role="note" className="mt-1 rounded bg-amber-50 p-1 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">Sem retenção: {f.irrf.semRetencao}.</p>}
+                                </div>
                             )}
                             {(() => {
                                 const simulado = !dados?.afastamentos.some(a => a.id === f.gozoId) ? feriasSimuladas.find(a => a.id === f.gozoId) : undefined;

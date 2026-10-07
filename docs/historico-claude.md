@@ -1769,3 +1769,24 @@ guias sindicais".
     sozinho.
   - Conferido contra o IOB, em teste: INSS de 280,60 sobre 3.266,67, IRRF
     zero pelo redutor e líquido de 4.619,40, iguais ao recibo do IOB.
+
+## 07/10/2026 — IRRF das férias sempre informado, com aviso quando não há retenção
+
+- **Paulo:** confronto feito com o IOB e cálculos ok (José Venancio, 1200,
+  11/2026: proventos 4.900,00, INSS 280,60, líquido 4.619,40). Pediu: *"quanto
+  ao IR sobre férias, de acordo com a tabela cadastrada o mesmo deve ser
+  informado e gerado pelo consultor; quando não houver a incidência de acordo
+  com a tabela de cálculo, um aviso deve ser gerado para notificação"*.
+- **Mudança:**
+  - `ResultadoFerias.irrf` é sempre preenchido: rendimento tributável,
+    deduções (INSS e dependentes, ou simplificado), base, alíquota, parcela a
+    deduzir, imposto pela tabela, redutor de 2026, dispensa até R$ 10,00 e
+    IRRF devido.
+  - Sem retenção, o motivo vai para o aviso do recibo: faixa isenta, zerado
+    pelo redutor ou abaixo do mínimo.
+  - O recibo mostra o quadro "IRRF sobre férias". Na lista, o IRRF aparece
+    como R$ 0,00, com o motivo no título da célula, e não mais como "—".
+- **Também pedido (não feito ainda):** enviar o recibo de férias e a guia ou
+  DARF ao cliente por e-mail ou WhatsApp com convite de agenda (vencimento).
+  O envio fica na Central de Comunicação do CFI (templates e agendamentos).
+  Proposta enviada ao Paulo, aguardando a decisão.

@@ -51,6 +51,17 @@ export interface ResultadoFerias extends ResultadoCalculo {
     direito: number; saldo: number; diasGozo: number; diasDobra: number; abonoDias: number;
     pagarAte: string;
     porCompetencia: CompetenciaFerias[];
+    /** IRRF das férias, sempre informado (também quando não há retenção). */
+    irrf: InfoIrrfFerias | null;
+}
+
+export interface InfoIrrfFerias {
+    tributavel: number; deducoes: number; usouSimplificado: boolean; dependentes: number;
+    base: number; aliquota: number; parcelaDeduzir: number;
+    /** Imposto pela tabela, antes do redutor e da dispensa. */
+    calculado: number; redutor: number; dispensado: number; devido: number;
+    /** Por que não há retenção (vazio quando há). */
+    semRetencao: string;
 }
 
 const ALIQUOTA_FGTS = 8;
@@ -157,7 +168,7 @@ export function calcularFerias(e: EntradaFerias): ResultadoFerias {
         fichaId: ficha.id, nome: d.nome || ficha.cpf, competencia: gozo.dtInicio.slice(0, 7), pagamento, situacao: 'calculado',
         verbas: [], bases: { inss: 0, fgts: 0, irrf: 0 }, totais: { proventos: 0, descontos: 0, liquido: 0 }, fgts: 0,
         memoria: [], avisos: [], erros: [],
-        gozoId: gozo.id, periodo: null, direito: 0, saldo: 0, diasGozo: 0, diasDobra: 0, abonoDias: e.abonoDias ?? 0, pagarAte, porCompetencia: [],
+        gozoId: gozo.id, periodo: null, direito: 0, saldo: 0, diasGozo: 0, diasDobra: 0, abonoDias: e.abonoDias ?? 0, pagarAte, porCompetencia: [], irrf: null,
     };
     const erro = (m: string) => { r.erros.push(m); r.situacao = 'erro'; return r; };
     const verba = (v: Verba) => { if (v.valor > 0) r.verbas.push(v); };
@@ -282,17 +293,24 @@ export function calcularFerias(e: EntradaFerias): ResultadoFerias {
         const usaSimpl = simpl > legais;
         const base = Math.max(0, tributavel - (usaSimpl ? simpl : legais));
         const faixa = t.faixas.find(f => f.ate === null || base <= f.ate) ?? t.faixas[t.faixas.length - 1];
-        let ir = Math.max(0, Math.round(base * faixa.aliquota / 100) - faixa.deducao);
+        const calculado = Math.max(0, Math.round(base * faixa.aliquota / 100) - faixa.deducao);
+        let ir = calculado; let red = 0; let dispensado = 0;
         r.memoria.push(`IRRF das férias (em separado, tabela de ${rotuloCompetencia(t.vigencia)}): ${reais(tributavel)} − ${usaSimpl ? `desconto simplificado ${reais(simpl)}` : `INSS ${reais(inssTotal)}${nDep ? ` e ${nDep} dependente(s)` : ''}`} = base ${reais(base)} × ${pct(faixa.aliquota)} − ${reais(faixa.deducao)} = ${reais(ir)}.`);
         r.avisos.push(`IRRF das férias ${opcoes.simplificado ? 'COM' : 'SEM'} desconto simplificado e ${opcoes.redutor ? 'COM' : 'SEM'} o redutor de 2026: confirme na conferência com o IOB.`);
         const v = t.valores;
         if (opcoes.redutor && ir > 0 && v.redutorAte && v.redutorMaximo && v.redutorLimite && v.redutorConstante && v.redutorCoeficiente) {
-            let red = 0;
             if (tributavel <= v.redutorAte) red = Math.min(ir, v.redutorMaximo);
             else if (tributavel <= v.redutorLimite) red = Math.min(ir, Math.max(0, v.redutorConstante - Math.round(tributavel * v.redutorCoeficiente / 1_000_000)));
             if (red) { ir -= red; r.memoria.push(`Redutor sobre ${reais(tributavel)}: −${reais(red)}. IRRF ${reais(ir)}.`); }
         }
-        if (ir > 0 && ir <= IRRF_MINIMO) { r.memoria.push(`IRRF de ${reais(ir)} não retido: até R$ 10,00 a retenção é dispensada.`); ir = 0; }
+        if (ir > 0 && ir <= IRRF_MINIMO) { r.memoria.push(`IRRF de ${reais(ir)} não retido: até R$ 10,00 a retenção é dispensada.`); dispensado = ir; ir = 0; }
+        const semRetencao = ir > 0 ? ''
+            : !calculado ? `base de ${reais(base)} na faixa isenta da tabela${faixa.ate !== null ? ` (até ${reais(faixa.ate)})` : ''}`
+            : red && !dispensado ? `imposto de ${reais(calculado)} zerado pelo redutor de 2026 (Lei 15.270/2025)`
+            : `imposto de ${reais(dispensado)} abaixo do mínimo de retenção (R$ 10,00)`;
+        r.irrf = { tributavel, deducoes: usaSimpl ? simpl : legais, usouSimplificado: usaSimpl, dependentes: nDep, base, aliquota: faixa.aliquota, parcelaDeduzir: faixa.deducao,
+            calculado, redutor: red, dispensado, devido: ir, semRetencao };
+        if (semRetencao) r.avisos.push(`IRRF sobre férias sem retenção: ${semRetencao}. Rendimento tributável de ${reais(tributavel)} informado no recibo.`);
         verba({ codigo: 'IRRFFER', descricao: 'IRRF sobre férias', referencia: faixa.aliquota ? pct(faixa.aliquota) : '', tipo: 'desconto', valor: ir, inss: false, fgts: false, irrf: false });
     }
 
