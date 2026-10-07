@@ -1622,3 +1622,12 @@ guias sindicais".
     acertar os outros, e depois é só preparar de novo.
   - Evento acertado como falta não é descartado pela palavra "hora" na
     descrição; o limite de 31 dias continua.
+
+## 07/10/2026 — Terceiros (%) com decimal na restauração
+
+- **Paulo:** *"no campo % de terceiros, ele deve aceitar 0,0; só aceita número
+  inteiro"*.
+- **Causa:** o campo convertia para número a cada tecla; "5," virava 5 e a
+  vírgula sumia.
+- **Mudança:** o campo guarda o texto digitado (vírgula ou ponto, uma casa
+  decimal ou mais) e só converte para o parâmetro. Aceita "5,8" e "0,0".

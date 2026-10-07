@@ -73,3 +73,23 @@ describe('restaurar empresa: classificação dos eventos', () => {
         expect((m.salvos.at(-1) as { eventos: unknown }).eventos).toEqual({ 130: 'horasExtras50', 5850: 'ignorar' });
     });
 });
+
+describe('restaurar empresa: terceiros (%)', () => {
+    it('aceita decimal com vírgula (5,8 e 0,0) sem perder o que foi digitado', async () => {
+        render(<RestaurarEmpresaNoConsultor restauracao={rest('d')} arquivos={['d.backup']} usuario={{ id: 'u', email: 'e' }} podeRestaurar />);
+        await waitFor(() => expect(screen.getByRole('option', { name: /1200 · SP/ })).toBeTruthy());
+        fireEvent.change(screen.getByLabelText('Empresa do backup'), { target: { value: '1200' } });
+        const campo = screen.getByLabelText('Terceiros (%)') as HTMLInputElement;
+        for (const t of ['5', '5,', '5,8']) fireEvent.change(campo, { target: { value: t } });
+        expect(campo.value).toBe('5,8');
+        fireEvent.change(campo, { target: { value: '0,0' } });
+        expect(campo.value).toBe('0,0');
+        fireEvent.change(campo, { target: { value: '5.8' } });
+        expect(campo.value).toBe('5,8');
+
+        m.resolver = null;
+        fireEvent.click(screen.getByRole('button', { name: 'Preparar a restauração' }));
+        await waitFor(() => expect(m.resolver).not.toBeNull());
+        expect((m.param as { terceiros: number }).terceiros).toBe(5.8);
+    });
+});
