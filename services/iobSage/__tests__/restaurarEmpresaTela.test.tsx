@@ -10,7 +10,7 @@ vi.mock('../../empresas/empresasService', () => ({
     listarEmpresasVisiveis: async () => [{ id: 'emp1', cnpj: '11222333000181', razaoSocial: 'SP LTDA', nomeFantasia: 'SP', codigoSage: '1200', criadoPor: 'g' }],
 }));
 vi.mock('../restaurarEmpresaService', () => ({
-    lerParametros: () => ({ fpas: '', codigoTerceiros: '', terceiros: 0, historicoDesde: '2024-01', fapDesde: '2025-01', sexagesimal: false, criarFichas: true, mapeamento: {}, eventos: {} }),
+    lerParametros: () => ({ fpas: '', codigoTerceiros: '', terceiros: 0, historicoDesde: '2024-01', fapDesde: '2025-01', sexagesimal: false, criarFichas: true, mapeamento: {}, eventos: {}, regimes: {} }),
     salvarParametros: (p: unknown) => { m.salvos.push(p); },
     carregarExistentes: async () => ({ fichas: [], afastamentos: [], enquadramentos: [], movimentos: {} }),
     gravarRestauracao: vi.fn(),

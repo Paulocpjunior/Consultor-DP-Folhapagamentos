@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { anomes, aplicarFpasPadrao, codigoDoSchema, fapDe, gravavel, periodosDoDeptoMa, proporEnquadramentos, regimeDaClassTrib, sugestoesTerceiros } from '../cargaEnquadramentoIob';
+import { anomes, aplicarFpasPadrao, aplicarRegime, codigoDoSchema, fapDe, gravavel, periodosDoDeptoMa, proporEnquadramentos, regimeDaClassTrib, sugestoesTerceiros } from '../cargaEnquadramentoIob';
 import type { TabelaLida } from '../cargaBackupIob';
 import { enquadramentoVazio } from '../enquadramento';
 
@@ -135,5 +135,26 @@ describe('só com o .backup da empresa (schema fNNNN)', () => {
         }, [{ id: 'A', nome: 'ALFA', cnpj: '11222333000181', codigoSage: '1200' }], [], '2025-01');
         expect(reserva.propostas[0].enquadramento.rat).toBe(3);
         expect(outro.propostas[0].enquadramento.regime).toBe('simples');
+    });
+    it('S-1000 com histórico: vale a linha mais recente (empresa que entrou no Simples)', () => {
+        const emp = [{ id: 'A', nome: 'ALFA', cnpj: '11222333000181', codigoSage: '1200' }];
+        const hist = proporEnquadramentos({ schemas: [{ grupo: 'f1200', s1000: T(S1000, [['1', '1', '1', '11222333', 'A', '99'], ['7', '1', '1', '11222333', 'A', '01']]) }] }, emp, [], '2025-01');
+        expect(hist.propostas[0].enquadramento.regime).toBe('simples');
+        expect(gravavel(hist.propostas[0])).toBe(true);
+        const porVigencia = T([...S1000, 'inivalid'], [['9', '1', '1', '11222333', 'A', '99', '2015-01'], ['2', '1', '1', '11222333', 'A', '1', '2019-03']]);
+        expect(proporEnquadramentos({ schemas: [{ grupo: 'f1200', s1000: porVigencia }] }, emp, [], '2025-01').propostas[0].enquadramento.regime).toBe('simples');
+    });
+
+    it('regime informado pela equipe vale sobre o backup', () => {
+        const emp = [{ id: 'A', nome: 'ALFA', cnpj: '11222333000181', codigoSage: '1200' }];
+        const [normal] = proporEnquadramentos({ schemas: [{ grupo: 'f1200', s1000: T(S1000, [['1', '1', '1', '11222333', 'A', '99']]), depto: T(['coddepto', 'fpas', 'codterc', 'percterc'], [['1', '515', '0115', '5,8']]) }] }, emp, [], '2025-01').propostas;
+        expect(normal.erros).toContain('RAT: 1, 2 ou 3% (pelo CNAE preponderante).');
+        const simples = aplicarRegime(normal, 'simples');
+        expect(simples.enquadramento).toMatchObject({ regime: 'simples', fpas: '', codigoTerceiros: '', terceiros: 0 });
+        expect(gravavel(simples)).toBe(true);
+        expect(simples.pendencias.join(' ')).toMatch(/Regime informado na restauração \(simples\); no backup: normal/);
+        expect(aplicarRegime(simples, 'simples')).toBe(simples);
+        // O FPAS padrão não se aplica fora do regime normal.
+        expect(aplicarFpasPadrao(simples, { fpas: '515', codigoTerceiros: '0115', terceiros: 5.8 })).toBe(simples);
     });
 });
