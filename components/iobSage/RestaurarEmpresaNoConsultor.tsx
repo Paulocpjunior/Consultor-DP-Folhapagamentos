@@ -26,6 +26,8 @@ const RestaurarEmpresaNoConsultor: React.FC<Props> = ({ restauracao, arquivos, u
     const [empresas, setEmpresas] = useState<Empresa[] | null>(null);
     const [codigo, setCodigo] = useState('');
     const [param, setParam] = useState<ParametrosRestauracao>(lerParametros);
+    // Texto do campo como digitado ("5,8", "0,0"): converter a cada tecla perderia a vírgula.
+    const [terceirosTxt, setTerceirosTxt] = useState(() => (param.terceiros ? String(param.terceiros).replace('.', ',') : ''));
     const [plano, setPlano] = useState<{ empresa: Empresa; existentes: Existentes; plano: PlanoRestauracao } | null>(null);
     // Eventos do último preparo: a tabela continua aberta enquanto a equipe acerta vários eventos.
     const [eventos, setEventos] = useState<EventoResumo[]>([]);
@@ -104,7 +106,11 @@ const RestaurarEmpresaNoConsultor: React.FC<Props> = ({ restauracao, arquivos, u
                 <label className="flex items-center gap-1 self-end"><input type="checkbox" checked={param.sexagesimal} onChange={e => mudar({ sexagesimal: e.target.checked })} />Horas no formato hh,mm</label>
                 <label>FPAS padrão (sem FPAS no backup)<input aria-label="FPAS padrão" className={`block w-20 ${inp}`} value={param.fpas} onChange={e => mudar({ fpas: e.target.value.replace(/\D/g, '').slice(0, 3) })} /></label>
                 <label>Código de terceiros<input aria-label="Código de terceiros" className={`block w-24 ${inp}`} value={param.codigoTerceiros} onChange={e => mudar({ codigoTerceiros: e.target.value.replace(/\D/g, '').slice(0, 4) })} /></label>
-                <label>Terceiros (%)<input aria-label="Terceiros (%)" className={`block w-20 ${inp}`} inputMode="decimal" value={param.terceiros || ''} onChange={e => mudar({ terceiros: Number(e.target.value.replace(',', '.')) || 0 })} /></label>
+                <label>Terceiros (%)<input aria-label="Terceiros (%)" className={`block w-20 ${inp}`} inputMode="decimal" value={terceirosTxt} onChange={e => {
+                    const t = e.target.value.replace('.', ',').replace(/[^\d,]/g, '').replace(/(,.*),/g, '$1').slice(0, 6);
+                    setTerceirosTxt(t);
+                    mudar({ terceiros: Number(t.replace(',', '.')) || 0 });
+                }} /></label>
                 <label className="flex items-center gap-1 sm:col-span-3"><input type="checkbox" checked={param.criarFichas} onChange={e => mudar({ criarFichas: e.target.checked })} />Criar ficha para quem está no IOB com CPF e matrícula do eSocial e ainda não tem ficha</label>
             </fieldset>
             <div className="flex flex-wrap gap-2">
