@@ -1652,3 +1652,17 @@ guias sindicais".
     FPAS padrão não se aplica.
   - O resumo da etapa 3 mostra o regime e o erro que impede gravar, sem
     precisar abrir os avisos.
+
+## 07/10/2026 — S-1000 com linha de outra inscrição (1200)
+
+- **Print do Paulo** depois do #84: o regime da 1200 já saiu certo pelo
+  backup (Simples, demais anexos). O que barrava era o CNPJ: *"CNPJ no IOB
+  (raiz 44388152) não é o da empresa (raiz 04896300)"*. O Paulo confirmou que
+  o CNPJ do Consultor está certo.
+- **Causa:** o `esocialdadosficha_s1000` da 1200 tem também uma linha com
+  outra inscrição, e a conferência exigia que **todas** as linhas fossem da
+  empresa.
+- **Mudança:** valem as linhas do S-1000 com a raiz da empresa, tanto para o
+  regime quanto para a conferência do CNPJ. As de outra raiz viram pendência
+  ("ignorada; conferir") e não impedem gravar. Sem nenhuma linha da empresa,
+  continua o erro de CNPJ (código SAGE trocado).

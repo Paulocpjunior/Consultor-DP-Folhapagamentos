@@ -157,4 +157,13 @@ describe('só com o .backup da empresa (schema fNNNN)', () => {
         // O FPAS padrão não se aplica fora do regime normal.
         expect(aplicarFpasPadrao(simples, { fpas: '515', codigoTerceiros: '0115', terceiros: 5.8 })).toBe(simples);
     });
+
+    it('S-1000 com linha de outra inscrição: vale a da empresa; a outra vira pendência', () => {
+        const emp = [{ id: 'A', nome: 'ALFA', cnpj: '11222333000181', codigoSage: '1200' }];
+        const s1000 = T(S1000, [['1', '1', '1', '11222333', 'A', '01'], ['5', '1', '1', '44388152000100', 'OUTRA', '99']]);
+        const [p] = proporEnquadramentos({ schemas: [{ grupo: 'f1200', s1000 }] }, emp, [], '2025-01').propostas;
+        expect(p.enquadramento.regime).toBe('simples');
+        expect(p.erros).toEqual([]);
+        expect(p.pendencias.join(' ')).toMatch(/outra raiz \(44388152\): ignorada; usado o da empresa \(raiz 11222333\)/);
+    });
 });
