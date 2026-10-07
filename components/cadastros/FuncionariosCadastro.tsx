@@ -18,6 +18,7 @@ import { abrirRestauracao } from '../../services/iobSage/restauracao';
 import { fonteDeBlob } from '../../services/iobSage/backupPostgres';
 import FichaFuncionarioModal from './FichaFuncionarioModal';
 import CompletarPeloIobModal from './CompletarPeloIobModal';
+import HistoricoFolhaIobModal from './HistoricoFolhaIobModal';
 
 interface Props { empresa: Empresa; usuario: Usuario; isAdmin: boolean; sindicatos: Sindicato[]; horarios: Horario[]; afastamentos: Afastamento[] }
 
@@ -35,6 +36,7 @@ const FuncionariosCadastro: React.FC<Props> = ({ empresa, usuario, isAdmin, sind
     const [aberta, setAberta] = useState<{ ficha: FichaFuncionario; nova: boolean } | null>(null);
     const [importar, setImportar] = useState(false);
     const [completarIob, setCompletarIob] = useState(false);
+    const [historicoIob, setHistoricoIob] = useState(false);
 
     const carregar = useCallback(() => {
         setErro(''); setFichas(null);
@@ -59,6 +61,7 @@ const FuncionariosCadastro: React.FC<Props> = ({ empresa, usuario, isAdmin, sind
                 <button className="rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white" onClick={() => setAberta({ ficha: fichaVazia(empresa), nova: true })}>Nova ficha</button>
                 <button className={btn} onClick={() => setImportar(true)}>Importar do eSocial (XML)</button>
                 <button className={btn} disabled={!fichas} onClick={() => setCompletarIob(true)}>Completar pelo backup do IOB</button>
+                <button className={btn} disabled={!fichas?.length} onClick={() => setHistoricoIob(true)} title="Horas extras, faltas e DSR de cada mês, para as médias">Histórico da folha (IOB)</button>
                 <button className={btn} disabled={!filtradas.length} onClick={exportar}>Exportar Excel</button>
                 <input className="ml-auto w-full rounded border border-slate-300 px-3 py-2 text-sm sm:w-64 dark:border-slate-600 dark:bg-slate-900 dark:text-white" placeholder="Buscar nome, CPF, matrícula, cargo" value={busca} onChange={e => setBusca(e.target.value)} aria-label="Buscar funcionário" />
                 <select className="rounded border border-slate-300 px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-white" value={situacao} onChange={e => setSituacao(e.target.value as typeof situacao)} aria-label="Situação">
@@ -104,6 +107,7 @@ const FuncionariosCadastro: React.FC<Props> = ({ empresa, usuario, isAdmin, sind
             {aberta && <FichaFuncionarioModal key={aberta.ficha.id || 'nova'} ficha={aberta.ficha} nova={aberta.nova} sindicatos={sindicatos} horarios={horarios} afastamentos={afastamentos.filter(a => a.fichaId === aberta.ficha.id)} usuario={usuario} isAdmin={isAdmin}
                 onFechar={() => setAberta(null)} onSalvo={() => { setAberta(null); carregar(); }} />}
             {importar && fichas && <ImportarEsocialModal empresa={empresa} usuario={usuario} existentes={fichas} onFechar={() => setImportar(false)} onGravado={() => { setImportar(false); carregar(); }} />}
+            {historicoIob && fichas && <HistoricoFolhaIobModal empresa={empresa} usuario={usuario} fichas={fichas} onFechar={() => setHistoricoIob(false)} onGravado={() => setHistoricoIob(false)} />}
             {completarIob && fichas && <CompletarPeloIobModal empresa={empresa} usuario={usuario} existentes={fichas} onFechar={() => setCompletarIob(false)} onGravado={() => { setCompletarIob(false); carregar(); }} />}
         </div>
     );
