@@ -6,7 +6,7 @@
 // afastamentos e férias, histórico da folha). Mostra o resumo de cada etapa
 // antes de gravar. Os parâmetros acertados na empresa piloto ficam salvos.
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import type { Restauracao } from '../../services/iobSage/restauracao';
 import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
@@ -28,22 +28,30 @@ const RestaurarEmpresaNoConsultor: React.FC<Props> = ({ restauracao, arquivos, u
     const [erro, setErro] = useState('');
     const [feito, setFeito] = useState('');
 
+    // Cada preparo tem um número: resultado de um preparo antigo (outro backup, empresa ou parâmetro) é descartado.
+    const pedido = useRef(0);
+    const descartarPlano = () => { pedido.current++; setPlano(null); };
+
     useEffect(() => { listarEmpresasVisiveis().then(setEmpresas).catch(e => { setErro(mensagemErro(e)); setEmpresas([]); }); }, []);
+    // Outro backup aberto: o plano do anterior não vale mais.
+    useEffect(() => { descartarPlano(); setFeito(''); setOcupado(''); }, [restauracao, arquivos.join('|')]);
     const doBackup = useMemo(() => (empresas ? empresasDoBackup(restauracao, empresas) : []), [restauracao, empresas]);
     const escolhida = doBackup.find(x => x.codigo === codigo);
-    const mudar = (p: Partial<ParametrosRestauracao>) => { setParam(x => ({ ...x, ...p })); setPlano(null); };
+    const mudar = (p: Partial<ParametrosRestauracao>) => { setParam(x => ({ ...x, ...p })); descartarPlano(); };
 
     async function preparar() {
         if (!escolhida?.empresa) return;
+        const meu = ++pedido.current;
+        const atual = () => meu === pedido.current;
         setErro(''); setFeito(''); setPlano(null);
         try {
             salvarParametros(param);
             setOcupado('Lendo o que já está gravado no Consultor…');
             const existentes = await carregarExistentes(escolhida.empresa.id);
-            const p = await planejarRestauracao(restauracao, escolhida.empresa, existentes, param, setOcupado);
-            setPlano({ empresa: escolhida.empresa, existentes, plano: p });
-        } catch (e) { setErro((e as Error).message); }
-        finally { setOcupado(''); }
+            const p = await planejarRestauracao(restauracao, escolhida.empresa, existentes, param, m => { if (atual()) setOcupado(m); });
+            if (atual()) setPlano({ empresa: escolhida.empresa, existentes, plano: p });
+        } catch (e) { if (atual()) setErro((e as Error).message); }
+        finally { if (atual()) setOcupado(''); }
     }
 
     async function gravar() {
@@ -72,7 +80,7 @@ const RestaurarEmpresaNoConsultor: React.FC<Props> = ({ restauracao, arquivos, u
             {!podeRestaurar && <p className="text-xs text-amber-700 dark:text-amber-300">Só o gestor restaura empresas.</p>}
             <div className="flex flex-wrap items-end gap-3 text-sm dark:text-slate-100">
                 <label>Empresa do backup
-                    <select aria-label="Empresa do backup" className={`ml-2 ${inp}`} value={codigo} onChange={e => { setCodigo(e.target.value); setPlano(null); setFeito(''); }}>
+                    <select aria-label="Empresa do backup" className={`ml-2 ${inp}`} value={codigo} onChange={e => { setCodigo(e.target.value); descartarPlano(); setFeito(''); setOcupado(''); }}>
                         <option value="">— escolha —</option>
                         {doBackup.map(x => <option key={x.grupo} value={x.codigo} disabled={!x.empresa}>{x.codigo} · {x.empresa ? x.empresa.nomeFantasia || x.empresa.razaoSocial : 'sem empresa no Consultor (cadastre com este código SAGE)'}</option>)}
                     </select>
