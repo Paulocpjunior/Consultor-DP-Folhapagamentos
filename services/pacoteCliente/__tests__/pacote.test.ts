@@ -47,18 +47,25 @@ describe('eventos da agenda da folha', () => {
     });
 
     it('rescisão: pagamento e FGTS rescisório por funcionário, no dia útil até o prazo', () => {
-        const ev = eventosDaFolha({ ...base, folha: 'rescisao', resultados: [res('f1', 'Ana', 300000, { pagarAte: '2026-09-13', multaFgts: 120000, fgts: 30000 }),
-            res('f2', 'Bia', 100000, { pagarAte: '2026-09-15', multaFgts: 0, fgts: 8000 })] });
+        const ev = eventosDaFolha({ ...base, folha: 'rescisao', resultados: [res('f1', 'Ana', 300000, { tipo: '02', pagarAte: '2026-09-13', multaFgts: 120000, fgts: 30000 }),
+            res('f2', 'Bia', 100000, { tipo: '06', pagarAte: '2026-09-15', multaFgts: 0, fgts: 8000 }),
+            res('f3', 'Caio', 50000, { tipo: '07', pagarAte: '2026-09-16', multaFgts: 0, fgts: 4000 }),
+            res('f4', 'Duda', 40000, { tipo: '01', pagarAte: '2026-09-16', multaFgts: 0, fgts: 2000 })] });
         const pag = ev.find(e => e.titulo.startsWith('Pagar a rescisão de Ana'))!;
         expect(pag.inicio).toBe('2026-09-11'); // 13/09/2026 é domingo: antecipa
         expect(pag.descricao).toMatch(/13\/09\/2026 não é dia útil, antecipado/);
         const fgtsAna = ev.find(e => e.titulo === 'FGTS rescisório de Ana (R$ 1.500,00)')!;
         expect(fgtsAna.inicio).toBe('2026-09-11');
         expect(fgtsAna.descricao).toMatch(/FGTS da rescisão R\$ 300,00 e multa R\$ 1\.200,00/);
-        // Pedido de demissão (sem multa): o FGTS do mês da rescisão ainda vai por guia.
+        // Término do contrato a termo: saque sem multa, guia rescisória só com o FGTS.
         const fgtsBia = ev.find(e => e.titulo === 'FGTS rescisório de Bia (R$ 80,00)')!;
         expect(fgtsBia.inicio).toBe('2026-09-15');
         expect(fgtsBia.descricao).not.toMatch(/multa/);
+        // Pedido de demissão e justa causa: sem guia rescisória; o FGTS vai na guia mensal (dia 20).
+        expect(ev.some(e => /Caio|Duda/.test(e.titulo) && e.titulo.startsWith('FGTS'))).toBe(false);
+        const mensal = ev.find(e => e.titulo === 'FGTS Digital 09/2026 (R$ 60,00)')!;
+        expect(mensal.inicio).toBe(venc('2026-09', 'fgts-2026-09'));
+        expect(mensal.descricao).toMatch(/rescisões sem saque/);
     });
 
     it('sem recibo calculado não há evento', () => {

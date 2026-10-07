@@ -41,6 +41,12 @@ export const TIPOS_RESCISAO = {
     '04': 'Término antecipado do contrato a termo pelo empregado',
 } as const;
 export type TipoRescisao = keyof typeof TIPOS_RESCISAO;
+/**
+ * Motivos com saque do FGTS: só nestes há guia rescisória do FGTS Digital. Nos
+ * demais (pedido de demissão, justa causa, término antecipado pelo empregado)
+ * o FGTS do mês vai na guia mensal (FAQ do FGTS Digital 04.04).
+ */
+export const PERMITE_SAQUE_FGTS: readonly string[] = ['02', '03', '06', '33'];
 export type AvisoPrevio = 'indenizado' | 'trabalhado' | 'dispensado' | 'nao-cumprido';
 export const ROTULO_AVISO: Record<AvisoPrevio, string> = {
     indenizado: 'Indenizado', trabalhado: 'Trabalhado', dispensado: 'Dispensado do cumprimento', 'nao-cumprido': 'Não cumprido pelo empregado (desconto)',
@@ -263,7 +269,7 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
     r.fgts = Math.round(fgtsBase * aliqFgts / 100);
     r.memoria.push(`FGTS do mês e rescisório: ${reais(fgtsBase)} × ${aliqFgts}% = ${reais(r.fgts)}.`);
     r.percentualMulta = tipo === '02' || tipo === '03' ? 40 : tipo === '33' ? 20 : 0;
-    r.saqueFgts = ['02', '03', '06'].includes(tipo) ? 'Saque do saldo do FGTS liberado.' : tipo === '33' ? 'Saque de até 80% do saldo do FGTS (art. 484-A, § 1º); sem seguro-desemprego.' : 'Sem saque do FGTS por este motivo.';
+    r.saqueFgts = PERMITE_SAQUE_FGTS.includes(tipo) && tipo !== '33' ? 'Saque do saldo do FGTS liberado.' : tipo === '33' ? 'Saque de até 80% do saldo do FGTS (art. 484-A, § 1º); sem seguro-desemprego.' : 'Sem saque do FGTS por este motivo.';
     if (r.percentualMulta) {
         if (e.saldoFgts === undefined) r.avisos.push(`Informe o saldo do FGTS para fins rescisórios (extrato do FGTS Digital) para calcular a multa de ${r.percentualMulta}%.`);
         else {

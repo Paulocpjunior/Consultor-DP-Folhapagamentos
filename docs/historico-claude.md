@@ -1973,6 +1973,12 @@ guias sindicais".
   rescisório só saía quando havia multa. No pedido de demissão e no fim de
   contrato, o FGTS do mês da rescisão também vai por guia. Corrigido: o
   evento sai sempre que há FGTS, e a multa só aparece quando existe.
+- **Revisão do Codex (#94, P1):** a guia rescisória do FGTS Digital só
+  existe nos motivos com saque (02, 03, 06 e 33, em `PERMITE_SAQUE_FGTS` do
+  motor de rescisão). Pedido de demissão, justa causa e término antecipado
+  pelo empregado não têm guia rescisória. O FGTS do mês dessas rescisões vai
+  na guia mensal, com vencimento no dia 20 (FAQ do FGTS Digital 04.04), e é
+  isso que o lembrete da agenda mostra agora.
 - **Pendência fechada do convite de agenda:** o recibo de férias e a rescisão
   na tela agora mostram o "pagar até" já no dia útil anterior, com a data
   original entre parênteses, por exemplo "27/06/2025 (29/06/2025 não é dia
