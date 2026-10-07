@@ -1680,3 +1680,27 @@ guias sindicais".
   como alteração ("CNPJ do empregador") e como aviso na etapa 1. A edição
   manual da ficha não marca o CNPJ como "Manual". Afastamentos, movimentos e
   enquadramento não guardam CNPJ.
+
+## 07/10/2026 — Empresas: busca e "Proteger" sem erro de permissão
+
+- **Paulo** (print da tela Empresas, 93 empresas): *"o campo de pesquisa por
+  nome ou número ou CNPJ está desativado e também relata erro de
+  permissão"*. O "Proteger códigos e CNPJs" mostrava "Missing or insufficient
+  permissions".
+- **Causas:**
+  - **Busca:** a tela Empresas não tinha campo de busca. Só a Folha e a
+    ativação de empresa tinham.
+  - **Proteger:** as regras conferem a chave contra o valor gravado
+    (`'sage_' + codigoSage`, `'cnpj_' + cnpj`). Empresas antigas gravadas
+    fora do formato (código sem os zeros, como "93", ou CNPJ com pontuação)
+    tinham a chave recusada. A primeira recusa parava tudo. Conferido no
+    emulador: só a chave, recusa; normalizando no mesmo lote, aceita.
+- **Mudança:**
+  - Campo **"Buscar por nome, razão social, CNPJ ou código SAGE"** na tela
+    Empresas, com o mesmo `filtrarEmpresas` da Folha e da ativação.
+  - `protegerEmpresasExistentes`: cada empresa num lote próprio. Acerta o
+    código e o CNPJ para o formato padrão no mesmo lote da chave. Uma empresa
+    recusada não interrompe as outras: vai para a lista de falhas, com o
+    motivo. Cadastro repetido continua para a equipe corrigir.
+  - `atualizarEmpresa`: editar uma empresa antiga que só muda o formato
+    ("93" → "0093") reserva a chave, em vez de ser recusado.

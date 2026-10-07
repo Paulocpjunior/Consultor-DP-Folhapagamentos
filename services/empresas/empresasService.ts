@@ -91,7 +91,8 @@ export async function atualizarEmpresa(id: string, input: Partial<EmpresaInput> 
     if (input.codigoSage   !== undefined) patch.codigoSage   = normalizarSage(input.codigoSage);
     if ('certificado' in input) patch.certificado = input.certificado;
     const trocas: { tipo: 'sage' | 'cnpj'; antes: string; depois: string }[] = [];
-    if (patch.codigoSage !== undefined && patch.codigoSage !== normalizarSage(atual.codigoSage)) trocas.push({ tipo: 'sage', antes: atual.codigoSage, depois: patch.codigoSage });
+    // Compara com o gravado como está: empresa antiga com "93" passa a "0093" e precisa da chave.
+    if (patch.codigoSage !== undefined && patch.codigoSage !== atual.codigoSage) trocas.push({ tipo: 'sage', antes: atual.codigoSage, depois: patch.codigoSage });
     if (patch.cnpj !== undefined && patch.cnpj !== atual.cnpj) trocas.push({ tipo: 'cnpj', antes: atual.cnpj, depois: patch.cnpj });
     const visiveis = trocas.length ? await listarEmpresasVisiveis() : [];
     for (const t of trocas) await conferirLivre(t.tipo, t.depois, id, visiveis);
@@ -100,6 +101,8 @@ export async function atualizarEmpresa(id: string, input: Partial<EmpresaInput> 
     for (const t of trocas) {
         const nova = t.tipo === 'sage' ? chaveSage(t.depois) : chaveCnpj(t.depois);
         const velha = t.tipo === 'sage' ? chaveSage(t.antes) : chaveCnpj(t.antes);
+        // Chave já desta empresa (só normalizou o formato): não regrava nem libera.
+        if (await donoDaChave(nova) === id) continue;
         lote.set(doc(db, UNICOS, nova), { chave: nova, empresaId: id, criadoPor: uid, criadoEm: serverTimestamp() });
         // Libera a chave antiga só se for desta empresa (a de outra continua dela).
         if (await donoDaChave(velha) === id) lote.delete(doc(db, UNICOS, velha));
@@ -123,21 +126,56 @@ async function reservarChaves(e: Pick<Empresa, 'id' | 'cnpj' | 'codigoSage'>, ui
 }
 
 /**
+ * Protege uma empresa de antes da trava. As regras conferem a chave contra o
+ * valor gravado ("sage_" + codigoSage, "cnpj_" + cnpj): empresa antiga com o
+ * código sem os zeros ("93") ou o CNPJ com pontuação tem o cadastro
+ * normalizado no mesmo lote em que a chave é reservada. Chave de outra
+ * empresa (cadastro repetido) fica para a equipe corrigir.
+ */
+async function protegerUma(e: Empresa, uid: string): Promise<{ reservadas: number; normalizada: boolean }> {
+    const valores = { codigoSage: e.codigoSage ? normalizarSage(e.codigoSage) : '', cnpj: String(e.cnpj ?? '').replace(/\D/g, '') };
+    const lote = writeBatch(db);
+    const patch: Partial<Record<'codigoSage' | 'cnpj', string>> = {};
+    let reservadas = 0;
+    for (const campo of ['codigoSage', 'cnpj'] as const) {
+        const valor = valores[campo];
+        if (!valor) continue;
+        const chave = campo === 'codigoSage' ? chaveSage(valor) : chaveCnpj(valor);
+        const dono = await donoDaChave(chave);
+        if (dono && dono !== e.id) continue;
+        if (!dono) { lote.set(doc(db, UNICOS, chave), { chave, empresaId: e.id, criadoPor: uid, criadoEm: serverTimestamp() }); reservadas++; }
+        if (e[campo] !== valor) patch[campo] = valor;
+    }
+    const normalizada = Object.keys(patch).length > 0;
+    if (!reservadas && !normalizada) return { reservadas: 0, normalizada: false };
+    if (normalizada) lote.update(doc(db, 'empresas', e.id), { ...patch, atualizadoEm: serverTimestamp() });
+    await lote.commit();
+    return { reservadas, normalizada };
+}
+
+/**
  * Gestor: protege as empresas cadastradas antes da trava. Reserva as chaves
  * livres (a mais antiga fica com a chave) e devolve o que continua repetido
- * para a equipe corrigir o cadastro.
+ * para a equipe corrigir o cadastro. Uma empresa recusada não interrompe as
+ * outras: vai para a lista de falhas.
  */
-export async function protegerEmpresasExistentes(empresas: Empresa[], aoProgresso?: (feitas: number) => void): Promise<{ reservadas: number; repetidas: ReturnType<typeof repetidas> }> {
+export async function protegerEmpresasExistentes(empresas: Empresa[], aoProgresso?: (feitas: number) => void): Promise<{ reservadas: number; normalizadas: number; repetidas: ReturnType<typeof repetidas>; falhas: string[] }> {
     const uid = getAuth(app!).currentUser?.uid ?? '';
     const ordem = [...empresas].sort((a, b) => ((a as any).criadoEm?.toMillis?.() ?? 0) - ((b as any).criadoEm?.toMillis?.() ?? 0));
-    let reservadas = 0;
+    let reservadas = 0; let normalizadas = 0;
+    const falhas: string[] = [];
     for (let i = 0; i < ordem.length; i++) {
-        const antes = ordem[i];
-        const conflitos = await reservarChaves(antes, uid);
-        reservadas += 2 - conflitos.length;
+        const e = ordem[i];
+        try {
+            const r = await protegerUma(e, uid);
+            reservadas += r.reservadas;
+            if (r.normalizada) normalizadas++;
+        } catch (err) {
+            falhas.push(`${e.nomeFantasia || e.razaoSocial} (SAGE ${e.codigoSage || '—'}, CNPJ ${e.cnpj || '—'}): ${negado(err) ? 'sem permissão para gravar' : (err as Error).message}`);
+        }
         aoProgresso?.(i + 1);
     }
-    return { reservadas, repetidas: repetidas(empresas) };
+    return { reservadas, normalizadas, repetidas: repetidas(empresas), falhas };
 }
 
 export async function excluirEmpresa(id: string): Promise<void> {

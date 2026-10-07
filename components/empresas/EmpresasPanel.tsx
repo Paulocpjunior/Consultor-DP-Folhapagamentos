@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ehAdmin, ehGestor } from '../../services/auth/papeis';
 import { listarEmpresasVisiveis, excluirEmpresa, protegerEmpresasExistentes } from '../../services/empresas/empresasService';
 import { chaveCnpj, chaveSage, repetidas } from '../../services/empresas/chavesUnicas';
+import { filtrarEmpresas } from '../../services/empresas/buscaEmpresas';
 import { formatCnpj } from '../../services/brasilApiService';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import type { User } from '../../types';
@@ -19,6 +20,7 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser }) => {
     const [showForm, setShowForm] = useState(false);
     const [empresaEditando, setEmpresaEditando] = useState<Empresa | null>(null);
     const [expandedCert, setExpandedCert] = useState<string | null>(null);
+    const [busca, setBusca] = useState('');
 
     const isAdmin = ehAdmin(currentUser.role);
     const isGestor = ehGestor(currentUser.role);
@@ -70,11 +72,15 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser }) => {
     const chavesRepetidas = useMemo(() => new Set(dup.map(d => `${d.tipo}_${d.valor}`)), [dup]);
     const [protegendo, setProtegendo] = useState('');
     const [msgProtecao, setMsgProtecao] = useState('');
+    const [falhasProtecao, setFalhasProtecao] = useState<string[]>([]);
+    const visiveis = useMemo(() => filtrarEmpresas(empresas, busca), [empresas, busca]);
     const proteger = async () => {
-        setProtegendo('Protegendo 0 de ' + empresas.length + '…'); setMsgProtecao('');
+        setProtegendo('Protegendo 0 de ' + empresas.length + '…'); setMsgProtecao(''); setFalhasProtecao([]);
         try {
             const r = await protegerEmpresasExistentes(empresas, n => setProtegendo(`Protegendo ${n} de ${empresas.length}…`));
-            setMsgProtecao(`Códigos e CNPJs protegidos.${r.repetidas.length ? ` Continuam repetidos ${r.repetidas.length}: corrija o cadastro (a empresa mais antiga ficou com a chave).` : ''}`);
+            setMsgProtecao(`Códigos e CNPJs protegidos: ${r.reservadas} chave(s) reservada(s)${r.normalizadas ? `, ${r.normalizadas} cadastro(s) com o código ou o CNPJ acertado para o formato padrão` : ''}.${r.repetidas.length ? ` Continuam repetidos ${r.repetidas.length}: corrija o cadastro (a empresa mais antiga ficou com a chave).` : ''}${r.falhas.length ? ` ${r.falhas.length} empresa(s) não puderam ser protegidas (lista abaixo).` : ''}`);
+            setFalhasProtecao(r.falhas);
+            if (r.normalizadas) reload();
         } catch (e) { setMsgProtecao((e as Error).message); }
         finally { setProtegendo(''); }
     };
@@ -149,6 +155,18 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser }) => {
                 <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
                     <button onClick={proteger} disabled={!!protegendo || !empresas.length} className="rounded border border-slate-300 px-2 py-1 disabled:opacity-50 dark:border-slate-600">🔒 Proteger códigos e CNPJs das empresas existentes</button>
                     <span>{protegendo || msgProtecao || 'Empresa nova já nasce protegida; as cadastradas antes da trava precisam disto uma vez.'}</span>
+                    {falhasProtecao.length > 0 && (
+                        <ul className="w-full list-disc pl-5 text-red-700 dark:text-red-300">{falhasProtecao.map(f => <li key={f}>{f}</li>)}</ul>
+                    )}
+                </div>
+            )}
+
+            {empresas.length > 0 && (
+                <div className="mb-3 flex items-center gap-2">
+                    <input type="search" aria-label="Buscar empresa" value={busca} onChange={ev => setBusca(ev.target.value)}
+                        placeholder="Buscar por nome, razão social, CNPJ ou código SAGE"
+                        className="w-full max-w-md rounded border border-slate-300 bg-white px-3 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100" />
+                    {busca && <span className="text-xs text-slate-500 dark:text-slate-400">{visiveis.length} de {empresas.length}</span>}
                 </div>
             )}
 
@@ -183,7 +201,10 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser }) => {
                             </tr>
                         </thead>
                         <tbody>
-                            {empresas.map((e) => (
+                            {visiveis.length === 0 && (
+                                <tr><td colSpan={6} className="px-3 py-6 text-center text-slate-400">Nenhuma empresa encontrada para "{busca}".</td></tr>
+                            )}
+                            {visiveis.map((e) => (
                                 <React.Fragment key={e.id}>
                                     <tr className="border-t border-slate-100 dark:border-slate-700">
                                         <td className="px-3 py-2 font-medium text-slate-800 dark:text-slate-200">{e.nomeFantasia}</td>
