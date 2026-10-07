@@ -14,7 +14,7 @@
 // Fica de fora (aviso e situação "incompleto"): férias, 13º, rescisão,
 // adicionais e médias de variáveis.
 
-import { fichaNaCompetencia, type FichaFuncionario } from '../cadastros/funcionarios';
+import { fichaNaCompetencia, memoriaDoHistorico, type FichaFuncionario } from '../cadastros/funcionarios';
 import type { Afastamento } from '../cadastros/afastamentos';
 import { inicioBeneficio, rotuloMotivo } from '../cadastros/afastamentos';
 import { centavosDeTexto, dataValida, reais } from '../cadastros/documentos';
@@ -165,7 +165,7 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     if ('erro' in sc) return erro(sc.erro);
     const { mensal, horasMes } = sc;
     r.memoria.push(sc.memoria);
-    if (naCompetencia.faixa) r.memoria.push(`Salário de ${brData(naCompetencia.faixa.desde)} (${naCompetencia.faixa.origem.split(' · ')[0]}), vigente na competência; o atual da ficha vale depois do último reajuste.`);
+    if (naCompetencia.faixa) r.memoria.push(memoriaDoHistorico(naCompetencia.faixa, 'na competência'));
     if (naCompetencia.alteradoNoMes) r.avisos.push(`Salário alterado em ${brData(naCompetencia.alteradoNoMes)}, no meio do mês: o motor usa o vigente no fim do mês; confira se o IOB pagou proporcional.`);
     const salarioHora = mensal / horasMes;
     const diaria = mensal / 30;

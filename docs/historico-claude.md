@@ -2429,3 +2429,26 @@ guias sindicais".
   alteração dos dependentes. A origem continuava "eSocial", e uma
   reimportação podia desfazer a marca. Agora a marca "fora do eSocial"
   entra na comparação, e a origem passa a "Manual".
+
+## 07/10/2026 — Histórico de salário nas férias e no 13º
+
+- **Paulo:** *"pode seguir com histórico de salários férias e 13"*.
+- **`fichaNaData`** (`funcionarios.ts`): a mesma regra da competência, para
+  uma data. Antes da última faixa do histórico, vale o salário da faixa
+  vigente, com a unidade e as horas da época; dali em diante, o salário da
+  ficha. `fichaNaCompetencia` passa a usá-la com o fim do mês.
+- **Férias:** a remuneração é pelo salário da concessão, ou seja, o do
+  início do gozo (CLT, art. 142). Isso vale também para o salário-hora da
+  média das horas extras.
+- **13º:**
+  - **2ª parcela:** pelo salário de dezembro (Lei 4.090/1962, art. 1º,
+    § 1º);
+  - **adiantamento:** pelo salário do mês anterior ao pagamento
+    (Lei 4.749/1965, art. 2º);
+  - **desconto do adiantamento na 2ª:** fica como foi pago. Com reajuste em
+    novembro, o adiantamento sai pelo salário de outubro.
+- **Memória de cálculo:** traz uma linha dizendo de qual faixa veio o
+  salário e por quê.
+- **Fora desta etapa:** a rescisão continua com o salário atual da ficha,
+  que é o vigente no desligamento.
+- **Testes:** 86 arquivos, 663 testes.

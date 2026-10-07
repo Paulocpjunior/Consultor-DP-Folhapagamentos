@@ -21,7 +21,7 @@
 // opção da tela, com aviso, até a conferência com o IOB confirmar a regra.
 // 13º na rescisão fica de fora.
 
-import type { FichaFuncionario } from '../cadastros/funcionarios';
+import { fichaNaData, memoriaDoHistorico, type FichaFuncionario } from '../cadastros/funcionarios';
 import type { Afastamento } from '../cadastros/afastamentos';
 import { inicioBeneficio } from '../cadastros/afastamentos';
 import { dataValida, reais } from '../cadastros/documentos';
@@ -56,6 +56,7 @@ const pct = (n: number) => `${n.toLocaleString('pt-BR', { maximumFractionDigits:
 const num = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
 const brData = (d: string) => d.split('-').reverse().join('/');
 const pad = (n: number) => String(n).padStart(2, '0');
+const somarMesesComp = (comp: string, n: number) => { const [a, m] = comp.split('-').map(Number); const t = a * 12 + (m - 1) + n; return `${Math.floor(t / 12)}-${pad((t % 12) + 1)}`; };
 const ultimoDia = (comp: string) => { const [a, m] = comp.split('-').map(Number); return new Date(Date.UTC(a, m, 0)).toISOString().slice(0, 10); };
 
 export interface MesAvo { competencia: string; dias: number; conta: boolean; motivo: string }
@@ -93,9 +94,14 @@ export function avosDoAno(ano: number, ficha: FichaFuncionario, afastamentos: Af
 }
 
 export function calcular13(e: Entrada13): ResultadoCalculo {
-    const { ano, parcela, ficha } = e;
+    const { ano, parcela } = e;
     const opcoes = e.opcoes ?? OPCOES_13_PADRAO;
     const pagamento = e.pagamento || `${ano}-${parcela === '1a' ? '11' : '12'}`;
+    // Salário pelo histórico: na 2ª parcela, o de dezembro (Lei 4.090/1962, art. 1º, § 1º); no adiantamento,
+    // o do mês anterior ao pagamento (Lei 4.749/1965, art. 2º).
+    const dataSalario = parcela === '2a' ? `${ano}-12-31` : /^\d{4}-\d{2}$/.test(pagamento) ? ultimoDia(somarMesesComp(pagamento, -1)) : '';
+    const naData = dataSalario ? fichaNaData(e.ficha, dataSalario) : { ficha: e.ficha, faixa: null };
+    const ficha = naData.ficha;
     const d = ficha.dados;
     const r: ResultadoCalculo = {
         fichaId: ficha.id, nome: d.nome || ficha.cpf, competencia: `${ano}-13`, pagamento, situacao: 'calculado',
@@ -118,6 +124,7 @@ export function calcular13(e: Entrada13): ResultadoCalculo {
     r.avisos.push(...sc.avisos);
     if ('erro' in sc) return erro(sc.erro);
     r.memoria.push(sc.memoria);
+    if (naData.faixa) r.memoria.push(memoriaDoHistorico(naData.faixa, parcela === '2a' ? `em dezembro de ${ano}` : `no mês anterior ao adiantamento (${brData(dataSalario).slice(3)})`));
     const salarioHora = sc.mensal / sc.horasMes;
 
     // Avos: na 1ª parcela, os meses depois do pagamento são projetados como trabalhados.

@@ -171,12 +171,21 @@ const fimDoMes = (competencia: string) => { const [a, m] = competencia.split('-'
 export function fichaNaCompetencia(f: FichaFuncionario, competencia: string): { ficha: FichaFuncionario; faixa: FaixaSalarial | null; alteradoNoMes: string } {
     const h = f.historicoSalario ?? [];
     if (!h.length || !/^\d{4}-\d{2}$/.test(competencia)) return { ficha: f, faixa: null, alteradoNoMes: '' };
-    const fim = fimDoMes(competencia);
     // A primeira faixa é a admissão: proporcional pelos dias, não é alteração.
     const alteradoNoMes = h.slice(1).find(x => x.desde.slice(0, 7) === competencia && x.desde.slice(8) !== '01')?.desde ?? '';
-    if (h[h.length - 1].desde <= fim) return { ficha: f, faixa: null, alteradoNoMes };
-    const faixa = [...h].reverse().find(x => x.desde <= fim);
-    if (!faixa) return { ficha: f, faixa: null, alteradoNoMes };
+    return { ...fichaNaData(f, fimDoMes(competencia)), alteradoNoMes };
+}
+
+/**
+ * A ficha como estava numa data (férias: o início do gozo; 13º: dezembro ou o
+ * mês anterior ao adiantamento). Mesma regra da competência: antes da última
+ * faixa do histórico, o salário da faixa vigente; dali em diante, o da ficha.
+ */
+export function fichaNaData(f: FichaFuncionario, data: string): { ficha: FichaFuncionario; faixa: FaixaSalarial | null } {
+    const h = f.historicoSalario ?? [];
+    if (!h.length || !dataValida(data) || h[h.length - 1].desde <= data) return { ficha: f, faixa: null };
+    const faixa = [...h].reverse().find(x => x.desde <= data);
+    if (!faixa) return { ficha: f, faixa: null };
     // Unidade e horas da época. Se o histórico nunca as trouxe, ficam as atuais da ficha; se trouxe e
     // esta faixa não tem, saem (o motor usa o padrão com aviso) em vez de herdar as de um contrato posterior.
     const dados = { ...f.dados, salario: faixa.salario };
@@ -185,8 +194,12 @@ export function fichaNaCompetencia(f: FichaFuncionario, competencia: string): { 
         if (!h.some(x => x[chave])) continue;
         if (faixa[chave]) dados[campo] = faixa[chave]; else delete dados[campo];
     }
-    return { ficha: { ...f, dados }, faixa, alteradoNoMes };
+    return { ficha: { ...f, dados }, faixa };
 }
+
+/** Linha da memória quando o salário veio do histórico. */
+export const memoriaDoHistorico = (faixa: FaixaSalarial, quando: string) =>
+    `Salário de ${faixa.desde.split('-').reverse().join('/')} (${faixa.origem.split(' · ')[0]}), vigente ${quando}; o atual da ficha vale depois do último reajuste.`;
 
 /** Limpa espaços, deixa só dígitos onde o campo é numérico e padroniza o salário com ponto decimal. */
 export function normalizarFicha(f: FichaFuncionario): FichaFuncionario {
