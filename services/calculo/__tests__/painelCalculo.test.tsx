@@ -243,6 +243,15 @@ describe('aba Cálculo', () => {
         // Mesmo gozo do teste anterior (20 dias a partir de 01/07/2025): 1.955,56.
         expect(screen.getByRole('cell', { name: 'ANA' }).closest('tr')!.textContent).toContain('1.955,56');
         expect(within(rec).getByText(/ainda não gravadas em Afastamentos/)).toBeTruthy();
+        // Convite de agenda para o cliente: pagamento, gozo e guias, baixado como .ics.
+        const agenda = within(rec).getByLabelText('Convite de agenda');
+        expect(within(agenda).getByText(/Férias de ANA/)).toBeTruthy();
+        const criar = vi.fn(() => 'blob:x'); const revogar = vi.fn();
+        Object.assign(URL, { createObjectURL: criar, revokeObjectURL: revogar });
+        fireEvent.click(within(agenda).getByText('Baixar convite de agenda (.ics)'));
+        expect(criar).toHaveBeenCalledTimes(1);
+        expect(((criar.mock.calls[0] as unknown[])[0] as Blob).type).toBe('text/calendar;charset=utf-8');
+        expect(within(agenda).getByRole('status').textContent).toMatch(/anexe o .ics/);
         fireEvent.click(within(rec).getByText('Gravar em Afastamentos'));
         await waitFor(() => expect(gravar).toHaveBeenCalledTimes(1));
         expect(gravar.mock.calls[0][0]).toBeNull();

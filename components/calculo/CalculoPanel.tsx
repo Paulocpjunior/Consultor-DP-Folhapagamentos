@@ -30,6 +30,8 @@ import ConferenciaHolerites, { conferirTodos, type LeituraHolerites } from './Co
 import { resumirFolha } from '../../services/relatorios/resumoFolha';
 import { listarEnvios, type Envio } from '../../services/esocial/transmissaoService';
 import StatusEsocialAfastamento from '../esocial/StatusEsocialAfastamento';
+import ConviteAgenda from '../agenda/ConviteAgenda';
+import { eventosDoReciboFerias } from '../../services/agenda/convite';
 import { holeritesPdf, resumoPdf } from '../../services/relatorios/holeritePdf';
 
 const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
@@ -551,6 +553,14 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                                     {f.irrf.semRetencao && <p role="note" className="mt-1 rounded bg-amber-50 p-1 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">Sem retenção: {f.irrf.semRetencao}.</p>}
                                 </div>
                             )}
+                            {(() => {
+                                const gozo = dados?.afastamentos.find(a => a.id === f.gozoId) ?? feriasSimuladas.find(a => a.id === f.gozoId);
+                                const emp = empresas?.find(e => e.id === empresaId);
+                                if (!gozo || !emp || f.situacao === 'erro') return null;
+                                const nomeEmp = emp.nomeFantasia || emp.razaoSocial;
+                                return <ConviteAgenda eventos={eventosDoReciboFerias(f, { nome: nomeEmp, cnpj: emp.cnpj }, gozo)} titulo={`${nomeEmp}: férias de ${f.nome}`}
+                                    nomeArquivo={`ferias-${f.nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}-${gozo.dtInicio}`} />;
+                            })()}
                             {(() => {
                                 const gravado = dados?.afastamentos.find(a => a.id === f.gozoId);
                                 const emp = empresas?.find(e => e.id === empresaId);

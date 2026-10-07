@@ -1827,3 +1827,35 @@ guias sindicais".
   imposto zerava, porque o desconto zerado não vira verba. Corrigido:
   `linhasIrrfFerias` imprime no PDF a conta do IRRF e o motivo da não
   retenção, e a declaração e a assinatura descem quando precisa.
+
+## 07/10/2026 — "Baixar convite de agenda" no recibo de férias
+
+- **Paulo:** pediu que o envio ao cliente (e-mail ou WhatsApp) leve um convite
+  com as datas de vencimento que entre na agenda. Escolheu começar pelo botão
+  de baixar o convite (*"pode seguir com o botão baixar envio da agenda"*).
+  O envio pela Central de Comunicação do CFI fica para depois.
+- **Mudança:**
+  - `services/agenda/convite.ts`:
+    - `.ics` (RFC 5545) com eventos de dia inteiro, texto escapado, linhas
+      dobradas em 75 octetos sem partir acento e lembrete na véspera às 9h;
+    - link "adicionar ao Google Agenda" por evento;
+    - texto pronto para o WhatsApp;
+    - `eventosDoReciboFerias`, com os eventos:
+      - pagamento até 2 dias antes do gozo (CLT art. 145), antecipado para
+        dia útil;
+      - período de gozo;
+      - DARF da DCTFWeb de cada competência com o INSS das férias, e com o
+        IRRF na competência do pagamento, quando houver;
+      - FGTS Digital da competência.
+    - Datas das guias pelas regras de `vencimentosDaCompetencia` (o mesmo
+      painel de Prazos).
+  - O recibo de férias (gravado ou programado) ganha o quadro **"Agenda do
+    cliente"**, com:
+    - "Baixar convite de agenda (.ics)";
+    - "Copiar texto para WhatsApp";
+    - a lista dos eventos com o link do Google Agenda.
+  - Caso do José: pagamento em 06/11/2026 (07/11 é sábado), férias de 09/11 a
+    28/11, DARF da DCTFWeb 11/2026 e FGTS Digital em 18/12/2026 (20/12 é
+    domingo).
+- **Observação:** o motor ainda mostra "pagar até 07/11/2026" sem antecipar o
+  fim de semana. Só o convite antecipa. Fica para alinhar.
