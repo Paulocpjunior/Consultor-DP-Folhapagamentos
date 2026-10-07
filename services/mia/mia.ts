@@ -76,7 +76,14 @@ export function ouvirContextoMia(f: () => void): () => void { ouvintes.add(f); r
 
 /** Pergunta à MiA: as últimas mensagens da conversa e, se a usuária deixar, o contexto da tela + o mapa do app. */
 export async function perguntarMia(conversa: MensagemMia[], contexto: ContextoMia | null, aba: string): Promise<MensagemMia> {
-    const mensagens = conversa.slice(-MAX_MENSAGENS).map(m => ({ papel: m.papel, texto: m.texto }));
+    // O CFI exige turnos alternados (usuária, MiA, usuária…): perguntas seguidas (ex.: repetida depois de um erro) viram uma só.
+    const alternadas: { papel: Papel; texto: string }[] = [];
+    for (const m of conversa) {
+        const ult = alternadas[alternadas.length - 1];
+        if (ult && ult.papel === m.papel) ult.texto = `${ult.texto}\n\n${m.texto}`;
+        else alternadas.push({ papel: m.papel, texto: m.texto });
+    }
+    const mensagens = alternadas.slice(-MAX_MENSAGENS);
     while (mensagens.length && mensagens[0].papel !== 'usuaria') mensagens.shift();
     const partes = [`Aba aberta: ${aba}.`, GUIA_DO_APP, ...(contexto ? [`Tela "${contexto.tela}":`, contexto.texto] : [])];
     let texto = partes.join('\n\n');

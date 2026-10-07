@@ -2244,3 +2244,10 @@ guias sindicais".
     trocas, a conversa começava por uma resposta solta.
   - **P2:** "Nova conversa" com resposta a caminho: a resposta antiga é
     descartada (número da conversa) e o "pensando" some.
+- **Revisão do Codex no PR da MiA no CFI (#1388):**
+  - **Conversa alternada:** o CFI passa a exigir turnos alternados,
+    começando pela usuária. O Consultor DP junta numa só as perguntas
+    seguidas (por exemplo, a repetida depois de um erro) antes de enviar.
+  - **Transparência:** o aviso do painel e a instrução da MiA dizem que a
+    pergunta e a tela vão ao Gemini (Google), pela conta do escritório, só
+    para responder, e que ela não grava nem transmite nada no sistema.

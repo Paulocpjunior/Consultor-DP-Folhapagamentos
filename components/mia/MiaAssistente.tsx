@@ -102,7 +102,7 @@ const MiaAssistente: React.FC<{ aba: string }> = ({ aba }) => {
                                 placeholder="Pergunte à MiA…" className="flex-1 resize-none rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100" />
                             <button type="submit" disabled={!texto.trim() || pensando} className="rounded-lg bg-violet-600 px-3 text-sm font-semibold text-white disabled:opacity-50">Enviar</button>
                         </form>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400">A MiA pode errar: confira a base legal. Ela não grava, não transmite e não altera nada.</p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">A MiA pode errar: confira a base legal. Ela não grava nem transmite nada no sistema; a pergunta e a tela vão ao Gemini (Google) da conta do escritório só para responder.</p>
                     </div>
                 </section>
             )}
