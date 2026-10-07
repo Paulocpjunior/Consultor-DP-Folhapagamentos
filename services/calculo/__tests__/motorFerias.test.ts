@@ -132,3 +132,15 @@ describe('férias', () => {
         expect(r4.situacao).toBe('calculado');
     });
 });
+
+describe('férias com as tabelas oficiais de 2026 (conferido com o IOB)', () => {
+    it('1200, 11/2026: 20 dias + 10 de abono sobre R$ 3.675,00 — INSS 280,60, IRRF zero pelo redutor, líquido 4.619,40', async () => {
+        const { TABELAS_OFICIAIS_2026 } = await import('../../cadastros/tabelasOficiais');
+        const g = af({ dtInicio: '2026-11-09', dtFim: '2026-11-28', abonoDias: '10' });
+        const r = calcularFerias({ ficha: ficha({ admissao: '2025-10-30', salario: '3675.00' }), gozo: g, afastamentos: [g], tabelas: TABELAS_OFICIAIS_2026, movimentos: {} });
+        expect(r.situacao).toBe('calculado');
+        expect([v(r, 'FER'), v(r, 'FER13'), v(r, 'ABONO'), v(r, 'ABONO13')]).toEqual([245000, 81667, 122500, 40833]);
+        expect(r.bases.inss).toBe(326667);
+        expect(r.totais).toEqual({ proventos: 490000, descontos: 28060, liquido: 461940 });
+    });
+});
