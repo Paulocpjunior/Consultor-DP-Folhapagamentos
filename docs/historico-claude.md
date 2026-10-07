@@ -1963,3 +1963,24 @@ guias sindicais".
   - conferir as outras formas do Itaú (poupança, TED, PIX) quando houver
     arquivo da SAGE;
   - conferir Bradesco, Santander e BB com os arquivos da SAGE.
+
+## 07/10/2026 — FGTS rescisório sem multa e "pagar até" em dia útil
+
+- **Paulo:** *"bradesco e demais bancos vamos deixar p depois, vamos seguir"*.
+  A conferência do Bradesco, do Santander e do BB fica para quando vierem os
+  arquivos da SAGE.
+- **Revisão do Codex (#93, P1):** no pacote do cliente, o lembrete do FGTS
+  rescisório só saía quando havia multa. No pedido de demissão e no fim de
+  contrato, o FGTS do mês da rescisão também vai por guia. Corrigido: o
+  evento sai sempre que há FGTS, e a multa só aparece quando existe.
+- **Revisão do Codex (#94, P1):** a guia rescisória do FGTS Digital só
+  existe nos motivos com saque (02, 03, 06 e 33, em `PERMITE_SAQUE_FGTS` do
+  motor de rescisão). Pedido de demissão, justa causa e término antecipado
+  pelo empregado não têm guia rescisória. O FGTS do mês dessas rescisões vai
+  na guia mensal, com vencimento no dia 20 (FAQ do FGTS Digital 04.04), e é
+  isso que o lembrete da agenda mostra agora.
+- **Pendência fechada do convite de agenda:** o recibo de férias e a rescisão
+  na tela agora mostram o "pagar até" já no dia útil anterior, com a data
+  original entre parênteses, por exemplo "27/06/2025 (29/06/2025 não é dia
+  útil)". A data é a mesma do arquivo bancário e da agenda. O motor continua
+  guardando o prazo legal.

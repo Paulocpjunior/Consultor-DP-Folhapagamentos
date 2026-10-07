@@ -12,7 +12,7 @@
 import { diaUtilAnterior, type Data } from '../prazos/calendario';
 import { vencimentosDaCompetencia } from '../prazos/obrigacoes';
 import type { ResultadoCalculo } from '../calculo/motorMensal';
-import type { ResultadoRescisao } from '../calculo/motorRescisao';
+import { PERMITE_SAQUE_FGTS, type ResultadoRescisao } from '../calculo/motorRescisao';
 import type { ResumoFolha } from '../relatorios/resumoFolha';
 import type { EventoAgenda } from '../agenda/convite';
 import { ROTULO_FORMA, type ResultadoRemessa } from '../bancario/cnab240';
@@ -103,14 +103,19 @@ export function eventosDaFolha(p: ParamsEventosFolha): EventoAgenda[] {
         if (e.irrf) darf(`darf-${p.pagamento}`, p.pagamento, `DARF da DCTFWeb ${compBr(p.pagamento)}: IRRF do 13º`, [`IRRF do 13º ${reais(e.irrf)} (vai à DCTFWeb do mês do pagamento)`], e.irrf);
         fgts(`${p.ano}-12`, e.fgts, ' (2ª parcela do 13º)');
     } else {
+        let fgtsSemSaque = 0;
         for (const r of calculados as ResultadoRescisao[]) {
             if (!r.pagarAte) continue;
             const dia = diaUtilAnterior(r.pagarAte);
             ev.push({ uid: uid(`rescisao-${r.fichaId}`), titulo: `Pagar a rescisão de ${r.nome} (${reais(r.totais.liquido)})`, inicio: dia, lembrete: true,
                 descricao: `${base}. Rescisão de ${r.nome}: líquido ${reais(r.totais.liquido)}. Prazo: 10 dias do término do contrato (CLT art. 477, §6º)${dia !== r.pagarAte ? `; ${br(r.pagarAte)} não é dia útil, antecipado` : ''}.` });
-            if (r.multaFgts) ev.push({ uid: uid(`grfgts-${r.fichaId}`), titulo: `FGTS rescisório de ${r.nome} (multa ${reais(r.multaFgts)})`, inicio: dia, lembrete: true,
-                descricao: `${base}. Guia rescisória do FGTS Digital de ${r.nome}: multa ${reais(r.multaFgts)} e o FGTS do mês da rescisão, no mesmo prazo do pagamento.` });
+            // Guia rescisória só nos motivos com saque; nos demais o FGTS do mês vai na guia mensal (FAQ do FGTS Digital 04.04).
+            if (!PERMITE_SAQUE_FGTS.includes(r.tipo)) { fgtsSemSaque += r.fgts ?? 0; continue; }
+            const fgtsResc = (r.fgts ?? 0) + (r.multaFgts ?? 0);
+            if (fgtsResc) ev.push({ uid: uid(`grfgts-${r.fichaId}`), titulo: `FGTS rescisório de ${r.nome} (${reais(fgtsResc)})`, inicio: dia, lembrete: true,
+                descricao: `${base}. Guia rescisória do FGTS Digital de ${r.nome}: FGTS da rescisão ${reais(r.fgts ?? 0)}${r.multaFgts ? ` e multa ${reais(r.multaFgts)}` : ''}, no mesmo prazo do pagamento.` });
         }
+        fgts(p.competencia, fgtsSemSaque, ' de rescisões sem saque (pedido de demissão, justa causa ou término antecipado pelo empregado): não há guia rescisória, vai na guia mensal');
         darf(`darf-${p.competencia}`, p.competencia, `DARF da DCTFWeb ${compBr(p.competencia)} (rescisões)`, inss());
         irrfSeparado(p.competencia);
     }

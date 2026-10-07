@@ -218,7 +218,8 @@ describe('aba Cálculo', () => {
         expect(screen.getByRole('cell', { name: 'ANA' }).closest('tr')!.textContent).toContain('1.955,56');
         fireEvent.click(screen.getByRole('cell', { name: 'ANA' }));
         const rec = screen.getByRole('region', { name: 'Holerite de ANA' });
-        expect(within(rec).getByText(/pagar até/).textContent).toContain('29/06/2025');
+        // 29/06/2025 é domingo: o prazo aparece no dia útil anterior.
+        expect(within(rec).getByText(/pagar até/).textContent).toContain('27/06/2025 (29/06/2025 não é dia útil)');
         fireEvent.change(within(rec).getByLabelText('Dias de abono'), { target: { value: '10' } });
         await waitFor(() => expect(within(rec).getByText('Abono pecuniário')).toBeTruthy());
         fireEvent.click(screen.getByText('Exportar Excel'));

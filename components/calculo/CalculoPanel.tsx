@@ -56,6 +56,13 @@ const chave = (r: ResultadoCalculo) => (r as Partial<ResultadoFerias>).gozoId ||
 const br = (d: string) => d.split('-').reverse().join('/');
 const real = (c: number) => (c ? reais(c) : '—');
 
+/** Prazo de pagamento já no dia útil anterior quando cai em fim de semana ou feriado (o mesmo do arquivo bancário e da agenda). */
+const PagarAte: React.FC<{ data: string }> = ({ data }) => {
+    if (!data) return <strong>—</strong>;
+    const util = diaUtilAnterior(data);
+    return <><strong>{br(util)}</strong>{util !== data && <span className="text-slate-500"> ({br(data)} não é dia útil)</span>}</>;
+};
+
 interface Dados { fichas: FichaFuncionario[]; afastamentos: Afastamento[]; tabelas: TabelaLegal[] }
 
 const diasNoMes = (c: string) => { const [a, m] = c.split('-').map(Number); return new Date(Date.UTC(a, m, 0)).getUTCDate(); };
@@ -533,7 +540,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                             </label>
                             {reaisCampo('Saldo do FGTS para fins rescisórios (R$)', 'saldoFgts')}
                             {reaisCampo('13º já adiantado no ano (R$)', 'adiantamento13')}
-                            <p>{t.diasAviso ? `Aviso de ${t.diasAviso} dias · ` : ''}fim projetado {br(t.dataProjetada)} · pagar até <strong>{t.pagarAte ? br(t.pagarAte) : '—'}</strong></p>
+                            <p>{t.diasAviso ? `Aviso de ${t.diasAviso} dias · ` : ''}fim projetado {br(t.dataProjetada)} · pagar até <PagarAte data={t.pagarAte} /></p>
                             <p>Multa do FGTS{t.percentualMulta ? ` (${t.percentualMulta}%)` : ''}: <strong>{t.percentualMulta ? (t.multaFgts ? reais(t.multaFgts) : 'informe o saldo') : 'não há'}</strong> — paga por guia, fora do líquido. {t.saqueFgts}</p>
                             <p className="text-slate-500">Nada aqui é gravado. O desligamento oficial é o S-2299; a data e o motivo vêm da ficha.</p>
                             {p.simulada && <button className="rounded border border-slate-300 px-2 py-1 dark:border-slate-600" onClick={() => { setParamsResc(x => { const y = { ...x }; delete y[t.fichaId]; return y; }); setAberto(''); }}>Remover simulação</button>}
@@ -579,7 +586,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                         <div className="space-y-2 text-xs text-slate-700 dark:text-slate-200">
                             <h4 className="text-sm font-semibold text-slate-800 dark:text-white">Recibo de férias</h4>
                             {f.periodo && <p>Período aquisitivo {br(f.periodo.inicio)} a {br(f.periodo.fim)} · concessivo até {br(f.periodo.fimConcessivo)}</p>}
-                            <p>{f.diasGozo} dias de gozo · direito {f.direito} · saldo {f.saldo}{f.diasDobra ? ` · ${f.diasDobra} em dobro` : ''} · pagar até <strong>{f.pagarAte ? br(f.pagarAte) : '—'}</strong></p>
+                            <p>{f.diasGozo} dias de gozo · direito {f.direito} · saldo {f.saldo}{f.diasDobra ? ` · ${f.diasDobra} em dobro` : ''} · pagar até <PagarAte data={f.pagarAte} /></p>
                             {f.porCompetencia.length > 0 && (
                                 <table className="w-full max-w-sm"><thead className="text-left text-slate-500"><tr><th>Competência</th><th className="text-right">Dias</th><th className="text-right">Férias + 1/3</th><th className="text-right">INSS</th><th className="text-right">FGTS</th></tr></thead>
                                     <tbody>{f.porCompetencia.map(c => <tr key={c.competencia}><td>{br(c.competencia)}</td><td className="text-right">{c.dias}</td><td className="text-right">{reais(c.ferias + c.terco)}</td><td className="text-right">{reais(c.inss)}</td><td className="text-right">{reais(c.fgts)}</td></tr>)}</tbody></table>
