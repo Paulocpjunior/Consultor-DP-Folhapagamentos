@@ -127,7 +127,7 @@ const IobSagePanel: React.FC<Props> = ({ onNavegar, usuario, ehGestor = false, e
                 </div>
             )}
 
-            <RestaurarBackupModal aberto={restaurar} onFechar={() => setRestaurar(false)} />
+            <RestaurarBackupModal aberto={restaurar} onFechar={() => setRestaurar(false)} usuario={usuario} podeRestaurar={ehGestor && !!usuario} />
         </div>
     );
 };

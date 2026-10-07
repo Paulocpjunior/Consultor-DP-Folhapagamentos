@@ -1571,3 +1571,31 @@ guias sindicais".
   - Regras: só o gestor registra; admin e gestor leem; ninguém altera nem
     apaga. Testes no emulador: 34/34, rodando um arquivo por vez (em
     paralelo, o `clearFirestore` de um arquivo apaga os dados do outro).
+
+## 07/10/2026 — Restaurar a empresa no Consultor pela tela de restore do SAGE
+
+- **Paulo:**
+  - *"você não entendeu! tudo que precisamos está no backup da SAGE, ou seja,
+    temos que restaurar o backup primeiro dessa empresa piloto, efetuamos os
+    parâmetros e assim seguimos com as demais"*.
+  - Sobre como fazer: *"a tela e função restore backup sage já existe"*.
+- **Mudança:** na tela IOB SAGE › "Restaurar backup do IOB SAGE", depois de
+  abrir o `.backup`, aparece a seção **"Restaurar a empresa no Consultor"**:
+  - Lista as empresas do backup (schemas fNNNN), ligadas à empresa do
+    Consultor de mesmo código SAGE.
+  - **Parâmetros** salvos no navegador para as próximas empresas: histórico
+    a partir de, FAP a partir de, horas hh,mm, FPAS padrão, terceiros e
+    criação de fichas.
+  - "Preparar a restauração" monta o plano em cinco etapas encadeadas, cada
+    uma sobre as fichas que a anterior deixou:
+    1. vínculos pelo eSocial transmitido;
+    2. fichas pela `func` e pelas tabelas complementares;
+    3. enquadramento;
+    4. afastamentos (S-2230) e férias (`hist_ferias`);
+    5. histórico da folha (`holerith`).
+  - A tela mostra o resumo e os avisos de cada etapa. "Gravar tudo" grava na
+    ordem fichas → enquadramento → afastamentos → movimentos, pelos serviços
+    de sempre (auditoria e regras).
+  - Só completa o que falta. O que já está gravado, inclusive o digitado à
+    mão, é mantido; rodar de novo não repete nada.
+  - Só o gestor restaura.
