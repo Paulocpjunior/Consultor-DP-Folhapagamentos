@@ -12,6 +12,13 @@ import {
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
 import { excluirAfastamento, gravarAfastamentosImportados, listarFuncionarios, mensagemErro, salvarAfastamento, type Usuario } from '../../services/cadastros/cadastrosService';
 import { fontesDosArquivos } from './lerArquivosXml';
+import { esocialDoBackup } from '../../services/cadastros/esocialDoBackup';
+import { gozosDoHistorico, juntarComHistorico, TABELA_HIST_FERIAS } from '../../services/cadastros/feriasDoBackup';
+import { codigoDoSchema, codigoIob } from '../../services/cadastros/cargaEnquadramentoIob';
+import type { TabelaLida } from '../../services/cadastros/cargaBackupIob';
+import { abrirRestauracao } from '../../services/iobSage/restauracao';
+import { agruparAvisos } from '../../services/cadastros/importacaoEsocial';
+import { fonteDeBlob } from '../../services/iobSage/backupPostgres';
 
 interface Props { empresa: Empresa; afastamentos: Afastamento[] | null; erroLista: string; usuario: Usuario; isAdmin: boolean; onRecarregar: () => void }
 
@@ -36,7 +43,7 @@ const AfastamentosCadastro: React.FC<Props> = ({ empresa, afastamentos, erroList
         <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
                 <button className="rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white" disabled={!fichas.length} onClick={() => setEdicao({ antes: null, a: { ...afastamentoVazio(), empresaId: empresa.id } })}>Novo afastamento</button>
-                <button className={btn} disabled={!fichas.length || !afastamentos} onClick={() => setImportar(true)}>Importar S-2230 (XML)</button>
+                <button className={btn} disabled={!fichas.length || !afastamentos} onClick={() => setImportar(true)}>Importar S-2230 (XML) ou backup do IOB</button>
                 <select className="ml-auto rounded border border-slate-300 px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-white" value={filtro} onChange={e => setFiltro(e.target.value as typeof filtro)} aria-label="Filtro de afastamentos">
                     <option value="abertos">Afastados hoje</option><option value="competencia">Na competência</option><option value="todos">Todos</option>
                 </select>
@@ -185,10 +192,36 @@ const ImportarS2230Modal: React.FC<{ empresa: Empresa; fichas: FichaFuncionario[
     async function ler() {
         setOcupado('Lendo os XMLs…'); setErro('');
         try {
-            const { fontes, problemas } = await fontesDosArquivos(arquivos);
+            const ehXml = (f: File) => /\.(xml|zip)$/i.test(f.name);
+            const { fontes, problemas } = await fontesDosArquivos(arquivos.filter(ehXml));
             const lidos = fontes.map(f => lerXmlAfastamentos(f.nome, f.xml, empresa.cnpj.slice(0, 8)));
+            const backups = arquivos.filter(f => !ehXml(f));
+            let doHistorico: ReturnType<typeof gozosDoHistorico> | null = null;
+            if (backups.length) {
+                // Backup SQL do IOB: S-2230 transmitidos (com os recibos) e o histórico de férias do schema da empresa.
+                setOcupado('Abrindo o backup do IOB…');
+                const rest = await abrirRestauracao(backups.map(f => ({ nome: f.name, fonte: fonteDeBlob(f) })));
+                if (!rest.backups.length) problemas.push(`${backups.map(f => f.name).join(', ')}: não é XML, zip nem Backup SQL do IOB.`);
+                else {
+                    const b = await esocialDoBackup(rest, empresa.codigoSage, setOcupado);
+                    problemas.push(...b.avisos.filter(a => !/nenhum S-2200/.test(a)));
+                    lidos.push(...b.fontesAfastamento.map(f => lerXmlAfastamentos(f.nome, f.xml, empresa.cnpj.slice(0, 8), { recibos: b.recibos, leiautesAntigos: true })));
+                    const codigo = codigoIob(empresa.codigoSage);
+                    const hist = rest.tabelas.find(t => t.origem === 'postgres' && t.tabela.toLowerCase() === TABELA_HIST_FERIAS && codigoDoSchema(t.grupo) === codigo);
+                    if (hist) {
+                        setOcupado(`Lendo ${hist.grupo}.${hist.tabela}…`);
+                        const l: TabelaLida = { colunas: hist.colunas, linhas: [] };
+                        await rest.lerTabela(hist, v => { l.linhas.push(v); });
+                        doHistorico = gozosDoHistorico(l, empresa, fichas);
+                        problemas.push(...doHistorico.avisos);
+                    } else problemas.push(`Sem a tabela hist_ferias do schema f${codigo} no backup: as férias anteriores não vieram.`);
+                    problemas.unshift(`Backup do IOB: ${b.fontesAfastamento.length} XML(s) de afastamento (S-2230)${doHistorico ? ` e ${doHistorico.afastamentos.length} gozo(s) de férias do histórico` : ''}.`);
+                }
+            }
             const c = consolidarAfastamentos(lidos.flatMap(l => l.eventos), empresa, fichas);
-            setPrevia({ itens: mesclarAfastamentos(c.afastamentos, existentes), avisos: [...problemas, ...lidos.flatMap(l => l.avisos), ...c.avisos], nomes: fontes.map(f => f.nome) });
+            const importados = doHistorico ? juntarComHistorico(c.afastamentos, doHistorico.afastamentos) : c.afastamentos;
+            const avisos = agruparAvisos([...problemas, ...lidos.flatMap(l => l.avisos), ...c.avisos]);
+            setPrevia({ itens: mesclarAfastamentos(importados, existentes), avisos, nomes: [...backups.map(f => f.name), ...fontes.map(f => f.nome)] });
         } catch (e) { setErro((e as Error).message); }
         finally { setOcupado(''); }
     }
@@ -207,12 +240,12 @@ const ImportarS2230Modal: React.FC<{ empresa: Empresa; fichas: FichaFuncionario[
                 <div className="flex items-start justify-between gap-3">
                     <div>
                         <h3 className="text-lg font-semibold text-slate-800 dark:text-white">Importar afastamentos (S-2230) — {empresa.nomeFantasia}</h3>
-                        <p className="text-sm text-slate-600 dark:text-slate-300">XMLs do S-2230 e dos S-3000 que os excluem, soltos ou em .zip. Início e término podem vir em arquivos separados. Só eventos com recibo de processamento entram; nada é gravado antes de você confirmar.</p>
+                        <p className="text-sm text-slate-600 dark:text-slate-300">XMLs do S-2230 e dos S-3000 que os excluem, soltos ou em .zip, ou o Backup SQL do IOB (.backup): dele vêm os S-2230 que o IOB transmitiu (com os recibos) e as férias já gozadas do histórico do IOB (com o período aquisitivo e o abono). Nada é gravado antes de você confirmar.</p>
                     </div>
                     <button aria-label="Fechar" className="rounded px-2 text-xl text-slate-500" onClick={onFechar}>×</button>
                 </div>
                 <div className="flex flex-wrap items-end gap-3">
-                    <input className="text-sm dark:text-white" type="file" multiple accept=".xml,.zip" onChange={e => { setArquivos(Array.from(e.target.files ?? [])); setPrevia(null); }} aria-label="XMLs do S-2230" />
+                    <input className="text-sm dark:text-white" type="file" multiple accept=".xml,.zip,.backup,.sql,.gz,.tar" onChange={e => { setArquivos(Array.from(e.target.files ?? [])); setPrevia(null); }} aria-label="XMLs do S-2230" />
                     <button className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50" disabled={!arquivos.length || !!ocupado} onClick={ler}>Ler arquivos</button>
                 </div>
                 {ocupado && <p className="text-sm text-blue-700 dark:text-blue-300">{ocupado}</p>}
@@ -226,7 +259,14 @@ const ImportarS2230Modal: React.FC<{ empresa: Empresa; fichas: FichaFuncionario[
                                     {previa.itens.map(i => (
                                         <tr key={i.afastamento.id} className="border-t border-slate-100 dark:border-slate-700 dark:text-slate-100">
                                             <td className="p-2">{nome.get(i.afastamento.fichaId)}</td>
-                                            <td className="p-2 text-xs">{rotuloMotivo(i.afastamento.motivo)}</td>
+                                            <td className="p-2 text-xs">{rotuloMotivo(i.afastamento.motivo)}
+                                                {i.afastamento.motivo === '15' && (i.afastamento.perAquisInicio || i.afastamento.abonoDias) && (
+                                                    <span className="block text-slate-500 dark:text-slate-400">
+                                                        {i.afastamento.perAquisInicio && `Aquisitivo ${br(i.afastamento.perAquisInicio)} a ${br(i.afastamento.perAquisFim)}`}
+                                                        {i.afastamento.abonoDias && ` · abono ${i.afastamento.abonoDias} dia(s)`}
+                                                    </span>
+                                                )}
+                                            </td>
                                             <td className="p-2">{br(i.afastamento.dtInicio)}</td>
                                             <td className="p-2">{br(i.afastamento.dtFim) || 'em aberto'}</td>
                                             <td className="p-2 text-xs">{i.novo ? 'Novo' : i.preservado ? <span className="text-amber-700 dark:text-amber-300">Lançado à mão e diferente do eSocial: mantido o manual</span> : i.mudou ? 'Atualizado' : 'Sem mudança'}</td>

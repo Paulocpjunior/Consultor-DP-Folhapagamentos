@@ -12,6 +12,8 @@
 
 import { dataValida } from './documentos';
 import { idFuncionario, type FichaFuncionario } from './funcionarios';
+import { NS_2X, NS_S1 } from '../implantacao/implantacao';
+import { chaveIdEvento } from './esocialDoBackup';
 
 export interface Afastamento {
     id: string;
@@ -136,8 +138,20 @@ const filhos = (e: Element, n: string) => Array.from(e.children).filter(c => c.l
 const no = (e: Element | null | undefined, caminho: string) => caminho.split('/').reduce<Element | undefined>((p, n) => p && filhos(p, n)[0], e ?? undefined);
 const val = (e: Element | null | undefined, caminho: string) => no(e, caminho)?.textContent?.trim() ?? '';
 
+export interface OpcoesAfastamentos {
+    /**
+     * Recibos que o IOB guardou no backup (Id do evento → nrRecibo). O XML
+     * enviado não traz o retorno: com o mapa, o recibo dele vale e o evento
+     * sem recibo fica de fora; `null` = o backup não traz recibos (o evento
+     * entra sem recibo). Sem a opção, exige o retorno 201 no próprio XML.
+     */
+    recibos?: Map<string, string> | null;
+    /** Aceita leiaute 2.x e XML sem namespace (cópias guardadas pelo IOB). */
+    leiautesAntigos?: boolean;
+}
+
 /** Lê S-2230 e as exclusões (S-3000) de S-2230 de um arquivo; só eventos de produção com recibo 201 entram. */
-export function lerXmlAfastamentos(nome: string, xml: string, raizCnpj: string): { eventos: EventoAfast[]; avisos: string[] } {
+export function lerXmlAfastamentos(nome: string, xml: string, raizCnpj: string, opcoes: OpcoesAfastamentos = {}): { eventos: EventoAfast[]; avisos: string[] } {
     const avisos: string[] = []; const eventos: EventoAfast[] = [];
     if (/<!DOCTYPE|<!ENTITY/i.test(xml)) return { eventos, avisos: [`${nome}: XML com DTD ou entidades não é aceito.`] };
     const doc = new DOMParser().parseFromString(xml, 'application/xml');
@@ -145,15 +159,24 @@ export function lerXmlAfastamentos(nome: string, xml: string, raizCnpj: string):
     const els = Array.from(doc.getElementsByTagName('*')).filter(e => (e.localName === 'evtAfastTemp' || e.localName === 'evtExclusao') && e.hasAttribute('Id'));
     if (!els.length) return { eventos, avisos: [`${nome}: nenhum S-2230 no arquivo.`] };
     for (const el of els) {
-        if (!/^http:\/\/www\.esocial\.gov\.br\/schema\/evt\/[^/]+\/v_S_01_0[0-3]_00$/.test(el.namespaceURI || '')) { avisos.push(`${nome}: versão do leiaute não suportada.`); continue; }
+        const ns = el.namespaceURI || '';
+        if (!NS_S1.test(ns) && !(opcoes.leiautesAntigos && (NS_2X.test(ns) || !ns))) { avisos.push(`${nome}: versão do leiaute não suportada ("${ns || 'sem namespace'}").`); continue; }
         if (el.localName === 'evtExclusao' && val(el, 'infoExclusao/tpEvento') !== 'S-2230') continue;
         if (val(el, 'ideEmpregador/nrInsc').slice(0, 8) !== raizCnpj) { avisos.push(`${nome}: empregador diferente; ignorado.`); continue; }
         if (val(el, 'ideEvento/tpAmb') !== '1') { avisos.push(`${nome}: ambiente diferente de produção; ignorado.`); continue; }
         let env: Element | null = el.parentElement;
         while (env && env.localName !== 'retornoEventoCompleto') env = env.parentElement;
         const ret = env ? no(env, 'recibo/eSocial/retornoEvento') : undefined;
-        if (!ret || val(ret, 'processamento/cdResposta') !== '201') { avisos.push(`${nome}: evento sem recibo de processamento (201); ignorado.`); continue; }
-        const recibo = val(ret, 'recibo/nrRecibo');
+        let recibo = '';
+        if (ret) {
+            if (val(ret, 'processamento/cdResposta') !== '201') { avisos.push(`${nome}: evento sem recibo de processamento (201); ignorado.`); continue; }
+            recibo = val(ret, 'recibo/nrRecibo');
+        } else if (opcoes.recibos !== undefined) {
+            // Backup do IOB: o recibo vem da tabela de eventos transmitidos.
+            const rec = opcoes.recibos?.get(chaveIdEvento(el.getAttribute('Id')!));
+            if (opcoes.recibos && !rec) { avisos.push(`${nome}: sem recibo no IOB (envio recusado ou não concluído); ignorado.`); continue; }
+            recibo = rec ?? '';
+        } else { avisos.push(`${nome}: evento sem recibo de processamento (201); ignorado.`); continue; }
         if (el.localName === 'evtExclusao') {
             eventos.push({ id: el.getAttribute('Id')!, tipo: 'S-3000', fonte: nome, cpf: val(el, 'infoExclusao/ideTrabalhador/cpfTrab'), matricula: '', recibo, retifica: '', exclui: val(el, 'infoExclusao/nrRecEvt') });
             continue;
@@ -218,12 +241,19 @@ export interface MesclaAfastamento { afastamento: Afastamento; novo: boolean; mu
 /** Afastamento lançado à mão (origem "Manual") não é trocado pela importação; a diferença aparece na prévia. */
 export function mesclarAfastamentos(importados: Afastamento[], existentes: Afastamento[]): MesclaAfastamento[] {
     const porId = new Map(existentes.map(a => [a.id, a]));
-    const chave = (a: Afastamento) => JSON.stringify([a.dtFim, a.motivo, a.infoMesmoMtv, a.tpAcidTransito, a.observacao, a.perAquisInicio, a.perAquisFim]);
+    const chave = (a: Afastamento) => JSON.stringify([a.dtFim, a.motivo, a.infoMesmoMtv, a.tpAcidTransito, a.observacao, a.perAquisInicio, a.perAquisFim, a.abonoDias || '']);
     return importados.map(imp => {
         const atual = porId.get(imp.id);
         if (!atual) return { afastamento: imp, novo: true, mudou: true, preservado: false };
         if (atual.origem.startsWith('Manual')) return { afastamento: atual, novo: false, mudou: false, preservado: chave(atual) !== chave(imp) };
-        // O abono é só do Consultor: a reimportação do eSocial não o apaga.
-        return { afastamento: atual.abonoDias ? { ...imp, abonoDias: atual.abonoDias } : imp, novo: false, mudou: chave(atual) !== chave(imp), preservado: false };
+        // O abono é só do Consultor e o período aquisitivo pode ter vindo do histórico do IOB:
+        // a reimportação de um S-2230 que não os traz não os apaga.
+        const final = {
+            ...imp,
+            abonoDias: imp.abonoDias || atual.abonoDias,
+            perAquisInicio: imp.perAquisInicio || atual.perAquisInicio,
+            perAquisFim: imp.perAquisInicio ? imp.perAquisFim : atual.perAquisFim,
+        };
+        return { afastamento: final, novo: false, mudou: chave(atual) !== chave(final), preservado: false };
     });
 }

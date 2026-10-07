@@ -139,9 +139,9 @@ describe('Cadastros na interface', () => {
         const ficha: FichaFuncionario = { id: `emp1_${CPF}_M-1`, empresaId: 'emp1', cnpj: '11222333000181', cpf: CPF, matriculaEsocial: 'M-1', situacao: 'ativo', dados: { nome: 'PESSOA', admissao: '2026-02-01' }, dependentes: [], origens: {}, pendenciasImportacao: [] };
         svc.listarFuncionarios.mockResolvedValue([ficha]);
         await abrirEmpresa('afastamentos');
-        await waitFor(() => expect(screen.getByText('Importar S-2230 (XML)').hasAttribute('disabled')).toBe(false));
+        await waitFor(() => expect(screen.getByText('Importar S-2230 (XML) ou backup do IOB').hasAttribute('disabled')).toBe(false));
         const s2230 = `<eSocial xmlns="http://www.esocial.gov.br/schema/eventoCompleto/retornoEventoCompleto/v1_0_0"><retornoEventoCompleto><evento><eSocial xmlns="http://www.esocial.gov.br/schema/evt/evtAfastTemp/v_S_01_03_00"><evtAfastTemp Id="IDA1"><ideEvento><indRetif>1</indRetif><tpAmb>1</tpAmb></ideEvento><ideEmpregador><tpInsc>1</tpInsc><nrInsc>11222333</nrInsc></ideEmpregador><ideVinculo><cpfTrab>${CPF}</cpfTrab><matricula>M-1</matricula></ideVinculo><infoAfastamento><iniAfastamento><dtIniAfast>2026-05-04</dtIniAfast><codMotAfast>03</codMotAfast></iniAfastamento></infoAfastamento></evtAfastTemp></eSocial></evento><recibo><eSocial xmlns="http://www.esocial.gov.br/schema/evt/retornoEvento/v1_3_0"><retornoEvento Id="IDA1"><processamento><cdResposta>201</cdResposta></processamento><recibo><nrRecibo>1.9</nrRecibo></recibo></retornoEvento></eSocial></recibo></retornoEventoCompleto></eSocial>`;
-        fireEvent.click(screen.getByText('Importar S-2230 (XML)'));
+        fireEvent.click(screen.getByText('Importar S-2230 (XML) ou backup do IOB'));
         const imp = screen.getByRole('dialog', { name: 'Importar S-2230' });
         fireEvent.change(within(imp).getByLabelText('XMLs do S-2230'), { target: { files: [{ name: 'afast.xml', size: s2230.length, text: async () => s2230 }] } });
         fireEvent.click(within(imp).getByText('Ler arquivos'));

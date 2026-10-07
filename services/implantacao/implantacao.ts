@@ -94,9 +94,9 @@ function extract(e: Element | undefined, paths: Partial<Record<Campo, string>>):
     }
     return dados;
 }
-const NS_S1 = /^http:\/\/www\.esocial\.gov\.br\/schema\/evt\/[^/]+\/v_S_01_0[0-3]_00$/;
+export const NS_S1 = /^http:\/\/www\.esocial\.gov\.br\/schema\/evt\/[^/]+\/v_S_01_0[0-3]_00$/;
 // Leiaute 2.4/2.5 (até 2021/2022): mesma estrutura nos campos do cadastro, sem nmCargo/CBOCargo.
-const NS_2X = /^https?:\/\/www\.esocial\.gov\.br\/schema\/evt\/[^/]+\/v0?2_0[45]_\d\d$/;
+export const NS_2X = /^https?:\/\/www\.esocial\.gov\.br\/schema\/evt\/[^/]+\/v0?2_0[45]_\d\d$/;
 
 export interface OpcoesLeitura {
     /**
