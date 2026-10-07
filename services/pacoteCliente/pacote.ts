@@ -108,8 +108,10 @@ export function eventosDaFolha(p: ParamsEventosFolha): EventoAgenda[] {
             const dia = diaUtilAnterior(r.pagarAte);
             ev.push({ uid: uid(`rescisao-${r.fichaId}`), titulo: `Pagar a rescisão de ${r.nome} (${reais(r.totais.liquido)})`, inicio: dia, lembrete: true,
                 descricao: `${base}. Rescisão de ${r.nome}: líquido ${reais(r.totais.liquido)}. Prazo: 10 dias do término do contrato (CLT art. 477, §6º)${dia !== r.pagarAte ? `; ${br(r.pagarAte)} não é dia útil, antecipado` : ''}.` });
-            if (r.multaFgts) ev.push({ uid: uid(`grfgts-${r.fichaId}`), titulo: `FGTS rescisório de ${r.nome} (multa ${reais(r.multaFgts)})`, inicio: dia, lembrete: true,
-                descricao: `${base}. Guia rescisória do FGTS Digital de ${r.nome}: multa ${reais(r.multaFgts)} e o FGTS do mês da rescisão, no mesmo prazo do pagamento.` });
+            // FGTS do mês da rescisão sempre que houver; a multa só quando há (pedido de demissão e fim de contrato não têm).
+            const fgtsResc = (r.fgts ?? 0) + (r.multaFgts ?? 0);
+            if (fgtsResc) ev.push({ uid: uid(`grfgts-${r.fichaId}`), titulo: `FGTS rescisório de ${r.nome} (${reais(fgtsResc)})`, inicio: dia, lembrete: true,
+                descricao: `${base}. Guia rescisória do FGTS Digital de ${r.nome}: FGTS da rescisão ${reais(r.fgts ?? 0)}${r.multaFgts ? ` e multa ${reais(r.multaFgts)}` : ''}, no mesmo prazo do pagamento.` });
         }
         darf(`darf-${p.competencia}`, p.competencia, `DARF da DCTFWeb ${compBr(p.competencia)} (rescisões)`, inss());
         irrfSeparado(p.competencia);

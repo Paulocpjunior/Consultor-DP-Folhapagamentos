@@ -47,11 +47,18 @@ describe('eventos da agenda da folha', () => {
     });
 
     it('rescisão: pagamento e FGTS rescisório por funcionário, no dia útil até o prazo', () => {
-        const ev = eventosDaFolha({ ...base, folha: 'rescisao', resultados: [res('f1', 'Ana', 300000, { pagarAte: '2026-09-13', multaFgts: 120000 })] });
+        const ev = eventosDaFolha({ ...base, folha: 'rescisao', resultados: [res('f1', 'Ana', 300000, { pagarAte: '2026-09-13', multaFgts: 120000, fgts: 30000 }),
+            res('f2', 'Bia', 100000, { pagarAte: '2026-09-15', multaFgts: 0, fgts: 8000 })] });
         const pag = ev.find(e => e.titulo.startsWith('Pagar a rescisão de Ana'))!;
         expect(pag.inicio).toBe('2026-09-11'); // 13/09/2026 é domingo: antecipa
         expect(pag.descricao).toMatch(/13\/09\/2026 não é dia útil, antecipado/);
-        expect(ev.find(e => e.titulo === 'FGTS rescisório de Ana (multa R$ 1.200,00)')!.inicio).toBe('2026-09-11');
+        const fgtsAna = ev.find(e => e.titulo === 'FGTS rescisório de Ana (R$ 1.500,00)')!;
+        expect(fgtsAna.inicio).toBe('2026-09-11');
+        expect(fgtsAna.descricao).toMatch(/FGTS da rescisão R\$ 300,00 e multa R\$ 1\.200,00/);
+        // Pedido de demissão (sem multa): o FGTS do mês da rescisão ainda vai por guia.
+        const fgtsBia = ev.find(e => e.titulo === 'FGTS rescisório de Bia (R$ 80,00)')!;
+        expect(fgtsBia.inicio).toBe('2026-09-15');
+        expect(fgtsBia.descricao).not.toMatch(/multa/);
     });
 
     it('sem recibo calculado não há evento', () => {
