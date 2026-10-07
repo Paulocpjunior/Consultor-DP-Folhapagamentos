@@ -201,7 +201,15 @@ export function proporEnquadramentos(t: TabelasEnquadramento, empresas: EmpresaC
 
         // CNPJ do IOB tem de ser o da empresa (mesma raiz).
         const raiz = empresa.cnpj.replace(/\D/g, '').slice(0, 8);
-        const inscricoes = [...faps.map(f => f.cnpjcpf || f.nroinscr || ''), ...(sch?.s1000 ?? []).map(x => x.nrinsc ?? '')];
+        const raizDe = (v: string) => { const d = v.replace(/\D/g, ''); return d.length === 8 || d.length === 14 ? d.slice(0, 8) : ''; };
+        // O S-1000 do schema pode ter linhas de outra inscrição (histórico do IOB): valem as da empresa;
+        // sem nenhuma da empresa, todas entram na conferência e o CNPJ errado barra.
+        const s1000Todas = sch?.s1000 ?? [];
+        const s1000Empresa = raiz ? s1000Todas.filter(x => raizDe(x.nrinsc ?? '') === raiz) : [];
+        const s1000Usadas = s1000Empresa.length ? s1000Empresa : s1000Todas;
+        const s1000Outras = s1000Empresa.length ? [...new Set(s1000Todas.map(x => raizDe(x.nrinsc ?? '')).filter(x => x && x !== raiz))] : [];
+        if (s1000Outras.length) comum.push(`S-1000 do backup também tem a inscrição de outra raiz (${s1000Outras.join(', ')}): ignorada; usado o da empresa (raiz ${raiz}).`);
+        const inscricoes = [...faps.map(f => f.cnpjcpf || f.nroinscr || ''), ...s1000Usadas.map(x => x.nrinsc ?? '')];
         const cnpjsIob = [...new Set(inscricoes.map(x => x.replace(/\D/g, '')).filter(x => x.length === 8 || x.length === 14).map(x => x.slice(0, 8)))];
         // Toda fonte com CNPJ (ESOCIALEMPRESA e o S-1000 do schema) tem de ser da empresa: uma certa não salva a outra.
         const outrasRaizes = cnpjsIob.filter(x => x !== raiz);
@@ -218,7 +226,7 @@ export function proporEnquadramentos(t: TabelasEnquadramento, empresas: EmpresaC
         const ratAjus = estab.map(e => numero(e.ratajus ?? '')).find(n => n > 0) ?? NaN;
 
         // O classtrib do schema é o código do eSocial; o FKCLASTRIB do sistema pode ser índice interno.
-        const cls = regimeDaClassTrib(s1000Vigente(sch?.s1000 ?? [])?.classtrib ?? emp[0]?.fkclastrib ?? '');
+        const cls = regimeDaClassTrib(s1000Vigente(s1000Usadas)?.classtrib ?? emp[0]?.fkclastrib ?? '');
         if (cls.pendencia) comum.push(cls.pendencia);
 
         // FPAS e terceiros: só no depto da folha da empresa.
