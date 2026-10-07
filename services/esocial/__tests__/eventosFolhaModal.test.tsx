@@ -13,7 +13,7 @@ const sv = vi.hoisted(() => ({
 }));
 vi.mock('../../cadastros/cadastrosService', () => ({ listarRubricas: (id: string) => sv.rubricas(id), mensagemErro: (e: unknown) => String(e) }));
 vi.mock('../../empresas/empresasService', () => ({ salvarParametrosEsocialFolha: (...a: unknown[]) => sv.salvar(...a) }));
-vi.mock('../transmissaoService', () => ({ registrarEnvio: (...a: unknown[]) => sv.registrar(...a) }));
+vi.mock('../transmissaoService', () => ({ registrarEnvio: (...a: unknown[]) => sv.registrar(...a), listarEnvios: async () => [] }));
 vi.mock('../transmissao', async orig => ({ ...(await orig<typeof import('../transmissao')>()), enviarLote: (p: { eventos: string[]; tpAmb: number }) => sv.enviar(p) }));
 vi.mock('../../implantacao/zip', async orig => ({ ...(await orig<typeof import('../../implantacao/zip')>()), baixarBytes: (nome: string) => { sv.baixados.push(nome); } }));
 import EventosFolhaModal from '../../../components/esocial/EventosFolhaModal';

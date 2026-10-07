@@ -2251,3 +2251,36 @@ guias sindicais".
   - **Transparência:** o aviso do painel e a instrução da MiA dizem que a
     pergunta e a tela vão ao Gemini (Google), pela conta do escritório, só
     para responder, e que ela não grava nem transmite nada no sistema.
+
+## 07/10/2026 — Retificação do S-1200 e do S-1210
+
+- **Paulo:** *"pode seguir com a retificação do S-1200"*.
+- **Feito:**
+  - **`services/esocial/recibosEsocial.ts`:** lê os recibos dos S-1200 e
+    S-1210 aceitos.
+    - **Origens:**
+      - download do eSocial (o que o IOB transmitiu), no envelope
+        `retornoEventoCompleto` com cdResposta 201/202;
+      - envios do próprio Consultor em produção (`esocial_envios`, depois da
+        consulta).
+    - **Do S-1200:** guarda o `ideDmDev` de cada matrícula.
+    - **Recibo que vale:** `recibosVigentes` escolhe o processado por último
+      e mantém o demonstrativo do original do IOB, mesmo quando o último
+      recibo é do Consultor.
+  - **`gerarEventosFolha`:** com `retificacao`, quem tem recibo vai com
+    `indRetif` 2 e `nrRecibo`, na ordem do XSD (conferido com o xmllint). O
+    retificador repete o `ideDmDev` do original, porque o S-1210 aponta para
+    ele.
+    - **Avisos:** quando o original tem demonstrativo que o cálculo não gera
+      (por exemplo, férias ou outro contrato, que a retificação retira) e
+      quando a matrícula não estava no original.
+  - **Tela "S-1200 e S-1210"**, seção "Eventos já aceitos no eSocial":
+    - **Recibos:** os envios do Consultor entram sozinhos; o .zip do
+      download (S-1200 da competência e S-1210 do mês do pagamento) se
+      escolhe na tela.
+    - **Lista:** quem vai como retificação e com qual recibo.
+    - **Só em produção:** na produção restrita vai sempre como original.
+    - **Lembrete:** reabrir com o S-1298 se a competência já foi fechada.
+- **Paulo:** não achava o botão "Pacote do cliente" (ele fica na barra do
+  topo do Cálculo). Ganhou um atalho no recibo de férias, ao lado da agenda
+  do cliente.

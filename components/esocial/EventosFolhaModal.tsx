@@ -14,7 +14,8 @@ import { listarRubricas, mensagemErro, type Usuario } from '../../services/cadas
 import { salvarParametrosEsocialFolha } from '../../services/empresas/empresasService';
 import { emLotes, gerarEventosFolha, parametrosVazios, sugerirDePara, type ParametrosEsocialFolha, type RubricaEsocial } from '../../services/esocial/eventosFolha';
 import { ROTULO_AMBIENTE, enviarLote, type Certificado, type TpAmb } from '../../services/esocial/transmissao';
-import { registrarEnvio } from '../../services/esocial/transmissaoService';
+import { listarEnvios, registrarEnvio } from '../../services/esocial/transmissaoService';
+import { lerRecibosArquivos, recibosDosEnvios, recibosVigentes, type ReciboEvento } from '../../services/esocial/recibosEsocial';
 import { baixarBytes, gerarZip } from '../../services/implantacao/zip';
 import { reais } from '../../services/cadastros/documentos';
 
@@ -43,6 +44,10 @@ const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resu
     const [confirmoProducao, setConfirmoProducao] = useState(false);
     const [ocupado, setOcupado] = useState(''); const [erro, setErro] = useState(''); const [msg, setMsg] = useState('');
     const [enviados, setEnviados] = useState<string[]>([]);
+    // Retificação: recibos dos eventos já aceitos (envios do Consultor e download do eSocial com o que o IOB transmitiu).
+    const [recibosConsultor, setRecibosConsultor] = useState<ReciboEvento[]>([]);
+    const [recibosArquivo, setRecibosArquivo] = useState<ReciboEvento[]>([]);
+    const [lendoRecibos, setLendoRecibos] = useState(false);
 
     useEffect(() => {
         let vivo = true;
@@ -57,7 +62,28 @@ const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resu
         for (const i of dePara) if (!r[i.chave] && i.sugestao) r[i.chave] = i.sugestao;
         return { ...params, rubricas: r };
     }, [params, dePara]);
-    const geracao = useMemo(() => (rubricas ? gerarEventosFolha({ cnpj: empresa.cnpj, tpAmb, competencia, dataPagamento: data, fichas, resultados, rubricas, parametros: efetivos }) : null), [rubricas, empresa.cnpj, tpAmb, competencia, data, fichas, resultados, efetivos]);
+    useEffect(() => {
+        let vivo = true;
+        listarEnvios(empresa.id).then(e => { if (vivo) setRecibosConsultor(recibosDosEnvios(e, fichas)); }).catch(() => { /* sem envios: nada a retificar por eles */ });
+        return () => { vivo = false; };
+    }, [empresa.id, fichas]);
+    // A retificação vale para produção: na produção restrita os eventos vão sempre como originais.
+    const retificacao = useMemo(() => {
+        if (tpAmb !== 1) return undefined;
+        const todos = [...recibosConsultor, ...recibosArquivo];
+        return { s1200: recibosVigentes(todos, 'S-1200', competencia), s1210: recibosVigentes(todos, 'S-1210', data.slice(0, 7)) };
+    }, [tpAmb, recibosConsultor, recibosArquivo, competencia, data]);
+    async function lerRecibos(arquivos: File[]) {
+        if (!arquivos.length) return;
+        setLendoRecibos(true); setErro('');
+        try {
+            const r = await lerRecibosArquivos(await Promise.all(arquivos.map(async f => ({ nome: f.name, bytes: new Uint8Array(await f.arrayBuffer()) }))), empresa.cnpj);
+            setRecibosArquivo(r);
+            setMsg(r.length ? `${r.length} evento(s) aceito(s) lido(s) do arquivo (S-1200 e S-1210 com recibo).` : 'Nenhum S-1200 ou S-1210 com recibo nos arquivos.');
+        } catch (e) { setErro(`Não foi possível ler os arquivos: ${(e as Error).message}`); }
+        finally { setLendoRecibos(false); }
+    }
+    const geracao = useMemo(() => (rubricas ? gerarEventosFolha({ cnpj: empresa.cnpj, tpAmb, competencia, dataPagamento: data, fichas, resultados, rubricas, parametros: efetivos, retificacao }) : null), [rubricas, empresa.cnpj, tpAmb, competencia, data, fichas, resultados, efetivos, retificacao]);
     const prontos = geracao?.trabalhadores.filter(t => t.s1200) ?? [];
     const comErro = geracao?.trabalhadores.filter(t => !t.s1200) ?? [];
     const naoGravado = JSON.stringify(efetivos) !== JSON.stringify(gravados);
@@ -150,6 +176,25 @@ const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resu
                 </section>
 
                 {geracao?.erros.length ? <ul role="alert" className="list-disc rounded bg-red-50 p-2 pl-6 text-xs text-red-800 dark:bg-red-900/30 dark:text-red-200">{geracao.erros.map(e => <li key={e}>{e}</li>)}</ul> : null}
+                <section aria-label="Retificação" className="space-y-1 rounded border border-slate-200 p-2 text-xs dark:border-slate-700">
+                    <p className="font-medium">Eventos já aceitos no eSocial (retificação)</p>
+                    <p className="text-slate-500">Em produção, quem já tem S-1200 ou S-1210 aceito na competência vai como <strong>retificação</strong> (com o recibo do que está valendo e o mesmo demonstrativo). Os envios do Consultor entram sozinhos; o que o IOB transmitiu vem do .zip do eSocial › Download de eventos (empregador: S-1200 da competência e S-1210 do mês do pagamento). Se a competência já foi fechada (S-1299), transmita antes a reabertura (S-1298) em eSocial › Transmissão.</p>
+                    <label className="block">S-1200/S-1210 já transmitidos (.zip ou .xml do download)
+                        <input aria-label="Eventos já transmitidos" type="file" accept=".zip,.xml" multiple disabled={lendoRecibos} className="block text-xs" onChange={e => lerRecibos(Array.from(e.target.files ?? []))} /></label>
+                    {tpAmb !== 1 && <p className="text-slate-500">Na produção restrita os eventos vão como originais.</p>}
+                    {geracao && tpAmb === 1 && (() => {
+                        const r1200 = geracao.trabalhadores.filter(t => t.retifica1200).length; const r1210 = geracao.trabalhadores.filter(t => t.retifica1210).length;
+                        return <p><strong>{r1200}</strong> S-1200 e <strong>{r1210}</strong> S-1210 vão como retificação; os demais, como originais.{recibosConsultor.length + recibosArquivo.length === 0 ? ' Nenhum recibo carregado ainda.' : ''}</p>;
+                    })()}
+                    {geracao && tpAmb === 1 && geracao.trabalhadores.some(t => t.retifica1200 || t.retifica1210) && (
+                        <ul className="max-h-28 list-disc overflow-auto pl-5">
+                            {geracao.trabalhadores.filter(t => t.retifica1200 || t.retifica1210).map(t => (
+                                <li key={t.cpf}>{t.nome}: {t.retifica1200 ? `S-1200 retifica ${t.retifica1200.nrRecibo} (${t.retifica1200.origem})` : 'S-1200 original'}; {t.retifica1210 ? `S-1210 retifica ${t.retifica1210.nrRecibo}` : 'S-1210 original'}</li>
+                            ))}
+                        </ul>
+                    )}
+                </section>
+
                 {geracao && !geracao.erros.length && (
                     <section className="space-y-1 text-xs">
                         <p><strong>{prontos.length}</strong> trabalhador(es) com S-1200 e S-1210 prontos{comErro.length ? `, ${comErro.length} com pendência (sem evento)` : ''} · líquido {reais(prontos.reduce((s, t) => s + t.liquido, 0))}</p>

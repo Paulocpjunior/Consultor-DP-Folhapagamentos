@@ -642,6 +642,14 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                                 return <ConviteAgenda eventos={eventosDoReciboFerias(f, { nome: nomeEmp, cnpj: emp.cnpj }, gozo)} titulo={`${nomeEmp}: férias de ${f.nome}`}
                                     nomeArquivo={`ferias-${f.nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}-${gozo.dtInicio}`} />;
                             })()}
+                            {/* Atalho: o pacote fica na barra do topo, longe de quem está no recibo. */}
+                            {f.situacao === 'calculado' && (
+                                <div className="flex flex-wrap items-center gap-2 rounded border border-slate-200 p-2 dark:border-slate-700">
+                                    <span className="font-medium">Enviar ao cliente</span>
+                                    <button type="button" className="rounded bg-green-700 px-2 py-1 text-white" onClick={() => setPacote(true)}>Pacote do cliente</button>
+                                    <span className="text-slate-500 dark:text-slate-400">.zip com os recibos de férias de {br(competencia)}, a agenda e o LEIA-ME, com envio por WhatsApp ou e-mail.</span>
+                                </div>
+                            )}
                             {(() => {
                                 const gravado = dados?.afastamentos.find(a => a.id === f.gozoId);
                                 const emp = empresas?.find(e => e.id === empresaId);
