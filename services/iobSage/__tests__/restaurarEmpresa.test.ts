@@ -68,4 +68,16 @@ describe('restaurar a empresa pelo backup', () => {
         expect(simples.enquadramentos.map(({ enquadramento: e }) => [e.regime, e.fpas, e.terceiros])).toEqual([['simples', '', 0]]);
         expect(simples.etapas[2].resumo).toMatch(/1 para gravar.*0 com erro$/);
     });
+
+    it('empresa que mudou de CNPJ: as fichas gravadas passam para o CNPJ atual', async () => {
+        const rest = await abrirRestauracao([{ nome: 'folha.backup', fonte: fonteDeBytes(backup()) }]);
+        const vazio = { fichas: [], afastamentos: [], enquadramentos: [], movimentos: {} };
+        const primeira = await planejarRestauracao(rest, empresa, vazio, { ...parametrosPadrao(), historicoDesde: '2024-01' });
+        const antiga = { ...primeira.fichas[0].ficha, cnpj: '04896300000100' };
+        const p = await planejarRestauracao(rest, empresa, { ...vazio, fichas: [antiga], afastamentos: primeira.afastamentos.map(a => a.afastamento) }, { ...parametrosPadrao(), historicoDesde: '2024-01' });
+        expect(p.fichas).toHaveLength(1);
+        expect(p.fichas[0].ficha.cnpj).toBe('11222333000181');
+        expect(p.fichas[0].alteracoes).toContainEqual({ campo: 'cnpj', de: '04896300000100', para: '11222333000181' });
+        expect(p.etapas[0].avisos[0]).toMatch(/1 ficha\(s\) com outro CNPJ \(04896300000100\): passam para o CNPJ atual da empresa \(11222333000181\)/);
+    });
 });

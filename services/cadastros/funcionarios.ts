@@ -178,10 +178,10 @@ export function validarFicha(f: FichaFuncionario): Validacao {
     return { erros, avisos };
 }
 
-export interface Alteracao { campo: ChaveOrigem | 'codigoIob' | 'matriculaEsocial' | 'cpf' | 'pendencias'; de: string; para: string }
+export interface Alteracao { campo: ChaveOrigem | 'codigoIob' | 'matriculaEsocial' | 'cpf' | 'cnpj' | 'pendencias'; de: string; para: string }
 
 /** Rótulo de uma alteração na prévia e no histórico. */
-export const rotuloAlteracao = (campo: string) => (campo === 'pendencias' ? 'Pendências da importação' : ROTULO[campo as CampoFicha] ?? campo);
+export const rotuloAlteracao = (campo: string) => (campo === 'pendencias' ? 'Pendências da importação' : campo === 'cnpj' ? 'CNPJ do empregador' : ROTULO[campo as CampoFicha] ?? campo);
 
 const depsTexto = (l: Dependente[]) => l.map(d => `${d.nome} (${d.nascimento || 's/ nasc.'}${d.cpf ? `, CPF ${d.cpf}` : ''})`).join('; ');
 
@@ -190,6 +190,7 @@ export function diffFicha(antes: FichaFuncionario | null, depois: FichaFuncionar
     const r: Alteracao[] = [];
     const a = antes ?? { ...depois, cpf: '', matriculaEsocial: '', situacao: '' as Situacao, dados: {}, dependentes: [] };
     if (a.cpf !== depois.cpf) r.push({ campo: 'cpf', de: a.cpf, para: depois.cpf });
+    if (antes && antes.cnpj !== depois.cnpj) r.push({ campo: 'cnpj', de: antes.cnpj, para: depois.cnpj });
     if (a.matriculaEsocial !== depois.matriculaEsocial) r.push({ campo: 'matriculaEsocial', de: a.matriculaEsocial, para: depois.matriculaEsocial });
     if (a.situacao !== depois.situacao) r.push({ campo: 'situacao', de: a.situacao, para: depois.situacao });
     const chaves = new Set([...Object.keys(a.dados), ...Object.keys(depois.dados)]) as Set<CampoFicha>;
@@ -208,7 +209,7 @@ export function diffFicha(antes: FichaFuncionario | null, depois: FichaFuncionar
 export function aplicarEdicao(antes: FichaFuncionario | null, depois: FichaFuncionario, autor: string, quando: string): FichaFuncionario {
     const origens = { ...depois.origens };
     for (const alt of diffFicha(antes, depois)) {
-        if (alt.campo === 'cpf' || alt.campo === 'matriculaEsocial') continue;
+        if (alt.campo === 'cpf' || alt.campo === 'matriculaEsocial' || alt.campo === 'cnpj') continue;
         origens[alt.campo] = `Manual · ${autor} · ${quando}`;
     }
     return { ...depois, origens };
