@@ -18,12 +18,12 @@ const INSS: TabelaLegal = { id: 'i', tipo: 'inss', vigencia: '2025-01', norma: '
     faixas: [{ ate: 151800, aliquota: 7.5, deducao: 0 }, { ate: 279388, aliquota: 9, deducao: 0 }, { ate: 419083, aliquota: 12, deducao: 0 }, { ate: 815741, aliquota: 14, deducao: 0 }] };
 const IR: TabelaLegal = { id: 'r', tipo: 'irrf', vigencia: '2025-05', norma: 'Lei de teste', observacao: '', valores: { deducaoDependente: 18959, descontoSimplificado: 60720 },
     faixas: [{ ate: 242880, aliquota: 0, deducao: 0 }, { ate: 282665, aliquota: 7.5, deducao: 18216 }, { ate: 375105, aliquota: 15, deducao: 39416 }, { ate: 466468, aliquota: 22.5, deducao: 67549 }, { ate: null, aliquota: 27.5, deducao: 90873 }] };
-const cad = vi.hoisted(() => ({ afastamentos: [] as unknown[], enquadramentos: [] as unknown[], erroEnq: '' }));
+const cad = vi.hoisted(() => ({ afastamentos: [] as unknown[], enquadramentos: [] as unknown[], erroEnq: '', salvar: vi.fn(async (..._a: unknown[]) => undefined) }));
 vi.mock('../../cadastros/cadastrosService', () => ({
     mensagemErro: (e: unknown) => String(e),
     listarFuncionarios: async () => [ficha('f1', 'ANA', { salario: '2200.00' }), ficha('f2', 'BRUNO', { salario: '' }), ficha('f3', 'CAIO', { salario: '3000.00', admissao: '2030-01-01' })],
     listarAfastamentos: async () => cad.afastamentos,
-    salvarAfastamento: async () => undefined,
+    salvarAfastamento: (...a: unknown[]) => cad.salvar(...a),
     listarEnquadramentos: async () => { if (cad.erroEnq) throw new Error(cad.erroEnq); return cad.enquadramentos; },
     listarTabelas: async () => [INSS, IR],
 }));
@@ -212,17 +212,42 @@ describe('aba Cálculo', () => {
         fireEvent.change(screen.getByLabelText('Competência'), { target: { value: '2025-06' } });
         await waitFor(() => expect(screen.getByText(/Nenhum gozo de férias começando em 06\/2025/)).toBeTruthy());
         fireEvent.change(screen.getByLabelText('Competência'), { target: { value: '2025-07' } });
-        await waitFor(() => expect(screen.getByText('ANA')).toBeTruthy());
+        await waitFor(() => expect(screen.getByRole('cell', { name: 'ANA' })).toBeTruthy());
         expect(movs.listarMovimentosDaEmpresa).toHaveBeenCalledWith('emp1');
         // 2.200 ÷ 30 × 20 = 1.466,67 + 1/3 488,89 = 1.955,56
-        expect(screen.getByText('ANA').closest('tr')!.textContent).toContain('1.955,56');
-        fireEvent.click(screen.getByText('ANA'));
+        expect(screen.getByRole('cell', { name: 'ANA' }).closest('tr')!.textContent).toContain('1.955,56');
+        fireEvent.click(screen.getByRole('cell', { name: 'ANA' }));
         const rec = screen.getByRole('region', { name: 'Holerite de ANA' });
         expect(within(rec).getByText(/pagar até/).textContent).toContain('29/06/2025');
         fireEvent.change(within(rec).getByLabelText('Dias de abono'), { target: { value: '10' } });
         await waitFor(() => expect(within(rec).getByText('Abono pecuniário')).toBeTruthy());
         fireEvent.click(screen.getByText('Exportar Excel'));
         expect(xlsx.writeFile).toHaveBeenLastCalledWith(expect.anything(), 'calculo-0229-ferias-2025-07.xlsx');
+    });
+
+    it('férias: programa o gozo na tela (simulação), calcula e grava em Afastamentos', async () => {
+        cad.afastamentos = [];
+        const gravar = cad.salvar; gravar.mockClear();
+        const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(true);
+        render(<CalculoPanel currentUser={USER} />);
+        await waitFor(() => expect(screen.getByRole('option', { name: /0229/ })).toBeTruthy());
+        fireEvent.change(screen.getByLabelText('Empresa'), { target: { value: 'emp1' } });
+        fireEvent.change(screen.getByLabelText('Folha'), { target: { value: 'ferias' } });
+        fireEvent.change(screen.getByLabelText('Competência'), { target: { value: '2025-06' } });
+        await waitFor(() => expect(screen.getByLabelText('Funcionário das férias')).toBeTruthy());
+        fireEvent.change(screen.getByLabelText('Funcionário das férias'), { target: { value: 'f1' } });
+        fireEvent.change(screen.getByLabelText('Início das férias programadas'), { target: { value: '2025-07-01' } });
+        fireEvent.change(screen.getByLabelText('Dias de gozo'), { target: { value: '20' } });
+        fireEvent.click(screen.getByText('Calcular'));
+        const rec = await screen.findByRole('region', { name: 'Holerite de ANA' });
+        // Mesmo gozo do teste anterior (20 dias a partir de 01/07/2025): 1.955,56.
+        expect(screen.getByRole('cell', { name: 'ANA' }).closest('tr')!.textContent).toContain('1.955,56');
+        expect(within(rec).getByText(/ainda não gravadas em Afastamentos/)).toBeTruthy();
+        fireEvent.click(within(rec).getByText('Gravar em Afastamentos'));
+        await waitFor(() => expect(gravar).toHaveBeenCalledTimes(1));
+        expect(gravar.mock.calls[0][0]).toBeNull();
+        expect(gravar.mock.calls[0][1]).toMatchObject({ id: 'f1_2025-07-01', fichaId: 'f1', motivo: '15', dtInicio: '2025-07-01', dtFim: '2025-07-20' });
+        confirmar.mockRestore();
     });
 
     it('rescisão: simula a de um ativo, com aviso, multa do FGTS e prazo', async () => {

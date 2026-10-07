@@ -146,11 +146,11 @@ describe('leiautes antigos guardados pelo IOB (só na importação pelo backup)'
         expect(sem.avisos.join(' ')).toContain('veio "http://www.esocial.gov.br/schema/evt/evtAdmissao/v02_05_00"');
     });
 
-    it('XML sem namespace: aceito com aviso', () => {
+    it('XML sem namespace (cópia do IOB, com recibo): aceito sem pendência na ficha', () => {
         const x = admissao(ID_ADM).replace(/ xmlns="[^"]+"/, '');
         const p = prepararImportacao([{ nome: 'a.xml', xml: x, hash: 'a' }], empresa, '2026-10-06', [], { recibos, leiautesAntigos: true });
         expect(p.resultados).toHaveLength(1);
-        expect(p.resultados[0].ficha.pendenciasImportacao.join(' ')).toMatch(/sem namespace/);
+        expect(p.resultados[0].ficha.pendenciasImportacao.join(' ')).not.toMatch(/sem namespace/);
     });
 
     it('avisos repetidos viram uma linha com a quantidade', () => {
