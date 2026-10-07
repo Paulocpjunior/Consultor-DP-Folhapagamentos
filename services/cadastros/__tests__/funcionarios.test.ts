@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     ABAS, ROTULO, aplicarEdicao, diffFicha, fichaVazia, idFuncionario, linhasPlanilha, mesclarComEsocial,
-    depNoEsocial, normalizarFicha, ratearPensao, validarFicha, type FichaFuncionario,
+    depNoEsocial, fichaNaCompetencia, normalizarFicha, ratearPensao, validarFicha, type FichaFuncionario,
 } from '../funcionarios';
 import { cnpjValido, centavosDeTexto, pisValido } from '../documentos';
 import { paraGravar, prepararImportacao } from '../importacaoEsocial';
@@ -194,5 +194,55 @@ describe('pensão alimentícia na ficha', () => {
         expect(n.dependentes.map(x => [x.noEsocial, x.pensao, x.cotaPensao])).toEqual([['S', 'N', ''], ['S', 'N', '']]);
         // A marca de pensão entra no histórico.
         expect(diffFicha(n, { ...n, dependentes: [n.dependentes[0], { ...n.dependentes[1], pensao: 'S' }] }).map(a => a.campo)).toEqual(['dependentes']);
+    });
+});
+
+describe('histórico de salário pelos S-2200/S-2206', () => {
+    const ID_ALT = 'ID1112223330000002026080100000000003';
+    const alteracao = (id: string, data: string, salario: string, recibo: string) => envelope(`<eSocial xmlns="http://www.esocial.gov.br/schema/evt/evtAltContratual/v_S_01_03_00"><evtAltContratual Id="${id}"><ideEvento><indRetif>1</indRetif><tpAmb>1</tpAmb></ideEvento><ideEmpregador><tpInsc>1</tpInsc><nrInsc>11222333</nrInsc></ideEmpregador><ideVinculo><cpfTrab>${CPF}</cpfTrab><matricula>E-77</matricula></ideVinculo><altContratual><dtAlteracao>${data}</dtAlteracao><vinculo><tpRegPrev>1</tpRegPrev></vinculo><infoRegimeTrab><infoCeletista><cnpjSindCategProf>11222333000181</cnpjSindCategProf></infoCeletista></infoRegimeTrab><infoContrato><nmCargo>AUXILIAR</nmCargo><CBOCargo>411005</CBOCargo><codCateg>101</codCateg><remuneracao><vrSalFx>${salario}</vrSalFx><undSalFixo>5</undSalFixo></remuneracao><duracao><tpContr>1</tpContr></duracao></infoContrato></altContratual></evtAltContratual></eSocial>`, id, recibo);
+
+    it('a importação monta as faixas (admissão e reajustes) e a reimportação grava o histórico novo', () => {
+        const p = prepararImportacao([fonte('adm.xml', admissao), fonte('alt.xml', alteracao(ID_ALT, '2026-08-01', '2200.00', '1.1.0000000000000000003'))], empresa, '2026-10-04', []);
+        const f = p.resultados[0].ficha;
+        expect(f.dados.salario).toBe('2200.00');
+        expect(f.historicoSalario).toEqual([
+            { desde: '2026-01-05', salario: '2000.00', unidade: '5', origem: 'S-2200 · 1.1.0000000000000000001' },
+            { desde: '2026-08-01', salario: '2200.00', unidade: '5', origem: 'S-2206 · 1.1.0000000000000000003' },
+        ]);
+        // Ficha gravada antes do histórico: a reimportação traz o histórico e conta como alteração (para gravar).
+        const semHist = { ...f, historicoSalario: undefined };
+        const r = prepararImportacao([fonte('adm.xml', admissao), fonte('alt.xml', alteracao(ID_ALT, '2026-08-01', '2200.00', '1.1.0000000000000000003'))], empresa, '2026-10-04', [semHist]).resultados[0];
+        expect([r.ficha.historicoSalario?.length, r.alteracoes.map(a => a.campo)]).toEqual([2, ['historicoSalario']]);
+    });
+
+    it('o salário da competência: antes do reajuste o do histórico; depois, o atual da ficha', () => {
+        const f = { ...fichaVazia(empresa), dados: { salario: '2300.00', unidadeSalario: '5' }, historicoSalario: [
+            { desde: '2026-01-05', salario: '2000.00', unidade: '5', origem: 'S-2200 · x' }, { desde: '2026-08-15', salario: '2200.00', unidade: '5', origem: 'S-2206 · y' },
+        ] };
+        expect(fichaNaCompetencia(f, '2026-07').ficha.dados.salario).toBe('2000.00');
+        expect(fichaNaCompetencia(f, '2026-07').faixa?.desde).toBe('2026-01-05');
+        // Reajuste no meio do mês: vale o do fim do mês, com aviso; da última faixa em diante, o atual (corrigido à mão para 2.300).
+        expect([fichaNaCompetencia(f, '2026-08').ficha.dados.salario, fichaNaCompetencia(f, '2026-08').alteradoNoMes]).toEqual(['2300.00', '2026-08-15']);
+        expect(fichaNaCompetencia(f, '2026-09').ficha).toBe(f);
+        expect(fichaNaCompetencia({ ...f, historicoSalario: [] }, '2026-07').ficha).toEqual({ ...f, historicoSalario: [] });
+        // Admissão no meio do mês não é "alteração".
+        expect(fichaNaCompetencia(f, '2026-01').alteradoNoMes).toBe('');
+    });
+
+    it('unidade e horas da época: não herda as de um contrato posterior; sem nenhuma no histórico, ficam as atuais; a diferença de unidade conta', () => {
+        const base = { ...fichaVazia(empresa), dados: { salario: '20.00', unidadeSalario: '1', horasSemanais: '40' } };
+        const f = { ...base, historicoSalario: [
+            { desde: '2026-01-05', salario: '2000.00', horasSemanais: '44', origem: 'S-2200 · x' },
+            { desde: '2026-08-01', salario: '20.00', unidade: '1', horasSemanais: '40', origem: 'S-2206 · y' },
+        ] };
+        const julho = fichaNaCompetencia(f, '2026-07').ficha.dados;
+        expect([julho.salario, julho.unidadeSalario, julho.horasSemanais]).toEqual(['2000.00', undefined, '44']);
+        // Histórico sem unidade nem horas: as atuais da ficha continuam.
+        const semCampos = { ...base, historicoSalario: [{ desde: '2026-01-05', salario: '2000.00', origem: 'a' }, { desde: '2026-08-01', salario: '2200.00', origem: 'b' }] };
+        const d = fichaNaCompetencia(semCampos, '2026-07').ficha.dados;
+        expect([d.salario, d.unidadeSalario, d.horasSemanais]).toEqual(['2000.00', '1', '40']);
+        // Só a unidade de uma faixa antiga mudou: é alteração (a ficha é regravada).
+        const outra = { ...f, historicoSalario: [{ ...f.historicoSalario[0], unidade: '5' }, f.historicoSalario[1]] };
+        expect(diffFicha(f, outra).map(x => x.campo)).toEqual(['historicoSalario']);
     });
 });

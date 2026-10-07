@@ -14,7 +14,7 @@
 // Fica de fora (aviso e situação "incompleto"): férias, 13º, rescisão,
 // adicionais e médias de variáveis.
 
-import type { FichaFuncionario } from '../cadastros/funcionarios';
+import { fichaNaCompetencia, type FichaFuncionario } from '../cadastros/funcionarios';
 import type { Afastamento } from '../cadastros/afastamentos';
 import { inicioBeneficio, rotuloMotivo } from '../cadastros/afastamentos';
 import { centavosDeTexto, dataValida, reais } from '../cadastros/documentos';
@@ -130,7 +130,10 @@ export function salarioContratual(d: FichaFuncionario['dados']): SalarioContratu
 type Dia = 'pago' | 'maternidade' | 'ferias' | 'naoPago';
 
 export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
-    const { competencia, ficha } = e;
+    const { competencia } = e;
+    // Competência anterior a um reajuste: o salário vigente naquele mês, pelo histórico dos S-2200/S-2206.
+    const naCompetencia = fichaNaCompetencia(e.ficha, competencia);
+    const ficha = naCompetencia.ficha;
     const pagamento = e.pagamento || (competenciaValida(competencia) ? competenciaSeguinte(competencia) : '');
     const mov = e.movimento ?? {};
     const r: ResultadoCalculo = {
@@ -162,6 +165,8 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     if ('erro' in sc) return erro(sc.erro);
     const { mensal, horasMes } = sc;
     r.memoria.push(sc.memoria);
+    if (naCompetencia.faixa) r.memoria.push(`Salário de ${brData(naCompetencia.faixa.desde)} (${naCompetencia.faixa.origem.split(' · ')[0]}), vigente na competência; o atual da ficha vale depois do último reajuste.`);
+    if (naCompetencia.alteradoNoMes) r.avisos.push(`Salário alterado em ${brData(naCompetencia.alteradoNoMes)}, no meio do mês: o motor usa o vigente no fim do mês; confira se o IOB pagou proporcional.`);
     const salarioHora = mensal / horasMes;
     const diaria = mensal / 30;
 

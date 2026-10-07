@@ -28,6 +28,16 @@ const calc = (p: Partial<EntradaCalculo> & { ficha: FichaFuncionario }) => calcu
 const valor = (r: ReturnType<typeof calcularMensal>, codigo: string) => r.verbas.find(v => v.codigo === codigo)?.valor ?? 0;
 
 describe('motor do cálculo mensal', () => {
+    it('competência antes do reajuste: salário do histórico dos S-2200/S-2206, com a memória', () => {
+        const f = { ...ficha({ salario: '3300.00' }), historicoSalario: [{ desde: '2024-01-02', salario: '3000.00', unidade: '5', origem: 'S-2200 · 1' }, { desde: '2026-03-01', salario: '3300.00', unidade: '5', origem: 'S-2206 · 2' }] };
+        const antes = calc({ ficha: f, competencia: '2026-02' });
+        expect(valor(antes, 'SAL')).toBe(300000);
+        expect(antes.memoria.join('\n')).toContain('Salário de 02/01/2024 (S-2200), vigente na competência');
+        const depois = calc({ ficha: f, competencia: '2026-03' });
+        expect(valor(depois, 'SAL')).toBe(330000);
+        expect(depois.memoria.join('\n')).not.toContain('vigente na competência');
+    });
+
     it('mês inteiro: INSS progressivo e IRRF zerado pelo desconto simplificado', () => {
         const r = calc({ ficha: ficha({}), competencia: '2026-01' });
         expect(r.situacao).toBe('calculado');
