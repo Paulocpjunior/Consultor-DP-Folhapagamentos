@@ -124,7 +124,8 @@ export function lerXml(fonte: FonteXml, opcoes: OpcoesLeitura = {}): { eventos: 
         const localAvisos: string[] = [];
         if (!NS_S1.test(ns)) {
             if (opcoes.leiautesAntigos && NS_2X.test(ns)) localAvisos.push(`Leiaute ${ns.slice(ns.lastIndexOf('/') + 1)} (anterior ao S-1.0): conferir cargo e CBO.`);
-            else if (opcoes.leiautesAntigos && !ns) localAvisos.push('XML sem namespace do eSocial (cópia guardada pelo IOB): conferir.');
+            // Sem namespace: é como o IOB guarda a cópia do XML enviado (com recibo); o conteúdo é o mesmo, nada a conferir na ficha.
+            else if (opcoes.leiautesAntigos && !ns) { /* aceito sem pendência */ }
             else throw new Error(`Versão/namespace eSocial não suportado (esperado S-1.0 a S-1.3; veio "${ns || 'sem namespace'}").`);
         }
         const empregador = value(el, 'ideEmpregador/nrInsc');

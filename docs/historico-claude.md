@@ -1719,3 +1719,26 @@ guias sindicais".
 - **Mudança:** com o código repetido, o seletor mostra uma opção por empresa,
   com o CNPJ e a marca "código repetido no Consultor", além de um aviso para
   escolher a do CNPJ que o IOB transmite e corrigir o código da outra.
+
+## 07/10/2026 — Programar férias no Cálculo e fim da pendência "XML sem namespace"
+
+- **Paulo** (prints da Juliana, depois da restauração da 1200 na "SP": 428
+  fichas, 1 enquadramento, 292 afastamentos/férias, 227 meses): *"restando a
+  opção de Férias, segue erros"*.
+  - Cálculo › Férias: "Nenhum gozo de férias começando em 11/2026. Lance as
+    férias em Cadastros › Afastamentos (motivo 15)".
+  - Ficha do José Venancio: três pendências "S-2200/S-2205/S-2206: XML sem
+    namespace do eSocial (cópia guardada pelo IOB): conferir".
+- **Leitura:** não era erro do motor. O recibo de férias sai de um gozo
+  lançado, e para calcular era preciso ir antes a Cadastros. As pendências
+  não pediam nada: o IOB guarda o XML enviado sem namespace, e só entra o que
+  tem recibo.
+- **Mudança:**
+  - **"Programar férias"** em Cálculo › Férias, como o "Simular rescisão":
+    funcionário ativo, início, dias de gozo (5 a 30) e abono (até 10). Calcula
+    o recibo na hora, com o período aquisitivo mais antigo com saldo (pela
+    admissão e pelas férias já gozadas). O detalhe mostra "Simulação" com
+    **"Gravar em Afastamentos"** (motivo 15, com o período aquisitivo usado e
+    o abono) e "Remover simulação".
+  - A importação pelo backup não grava mais a pendência "XML sem namespace".
+    As fichas perdem essas pendências na próxima restauração ou importação.

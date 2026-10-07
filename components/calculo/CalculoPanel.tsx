@@ -16,7 +16,7 @@ import { listarAfastamentos, listarEnquadramentos, listarFuncionarios, listarTab
 import { enquadramentoVigente, type Enquadramento } from '../../services/cadastros/enquadramento';
 import type { User } from '../../types';
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
-import type { Afastamento } from '../../services/cadastros/afastamentos';
+import { afastamentoVazio, idAfastamento, type Afastamento } from '../../services/cadastros/afastamentos';
 import type { TabelaLegal } from '../../services/cadastros/tabelasLegais';
 import { centavosDeTexto, reais } from '../../services/cadastros/documentos';
 import { calcularMensal, competenciaSeguinte, noMes, type Lancamento, type Movimento, type ResultadoCalculo } from '../../services/calculo/motorMensal';
@@ -85,6 +85,10 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const [paramsResc, setParamsResc] = useState<Record<string, ParamRescisao>>({});
     const [simular, setSimular] = useState<{ fichaId: string; data: string; tipo: TipoRescisao; aviso: AvisoPrevio }>({ fichaId: '', data: '', tipo: '02', aviso: 'indenizado' });
     const [abonos, setAbonos] = useState<Record<string, number>>({});
+    // Férias programadas na tela (simulação): gozo motivo 15 ainda não gravado em Afastamentos.
+    const [progFerias, setProgFerias] = useState({ fichaId: '', inicio: '', dias: '30', abono: '' });
+    const [feriasSimuladas, setFeriasSimuladas] = useState<Afastamento[]>([]);
+    const [gravandoGozo, setGravandoGozo] = useState(false);
     const [opcoesFerias, setOpcoesFerias] = useState<OpcoesFerias>(OPCOES_FERIAS_PADRAO);
     const [recarga, setRecarga] = useState(0);
     // Folha mensal: movimentos de todos os meses, para os recibos de férias que tocam o mês (médias e faltas).
@@ -179,7 +183,9 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         if (ferias) {
             if (!movsAno || !/^\d{4}-\d{2}$/.test(competencia)) return [];
             const fichas = new Map(dados.fichas.map(f => [f.id, f]));
-            return gozosNoMes(dados.afastamentos, new Set(fichas.keys()), competencia).map(g => calcularFerias({
+            const gravados = new Set(dados.afastamentos.map(a => a.id));
+            const simulados = feriasSimuladas.filter(g => !gravados.has(g.id));
+            return gozosNoMes([...dados.afastamentos, ...simulados], new Set(fichas.keys()), competencia).map(g => calcularFerias({
                 ficha: fichas.get(g.fichaId)!, gozo: g, afastamentos: dados.afastamentos.filter(a => a.fichaId === g.fichaId), tabelas: dados.tabelas,
                 movimentos: movsAno[g.fichaId] ?? {}, abonoDias: abonos[g.id], opcoes: opcoesFerias,
             }));
@@ -200,7 +206,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 feriasDoMes: movsEmpresa ? feriasDaCompetencia(f, afs, dados.tabelas, movsEmpresa[f.id] ?? {}, competencia) : undefined,
             });
         });
-    }, [dados, competencia, pagamento, movs, movsEmpresa, mensal, ferias, rescisao, paramsResc, movsAno, ano, folha, opcoes13, primeiras, abonos, opcoesFerias]);
+    }, [dados, competencia, pagamento, movs, movsEmpresa, mensal, ferias, rescisao, paramsResc, movsAno, ano, folha, opcoes13, primeiras, abonos, opcoesFerias, feriasSimuladas]);
     const total = (f: (r: ResultadoCalculo) => number) => resultados.reduce((s, r) => s + f(r), 0);
     const sel = resultados.find(r => chave(r) === aberto);
     const nomeDe = (id: string) => dados?.fichas.find(f => f.id === id)?.dados.nome || id;
@@ -345,9 +351,38 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                     </div>
                 </div>
             )}
+            {ferias && dados && (() => {
+                const diasN = Number(progFerias.dias); const abonoN = Number(progFerias.abono || 0);
+                const valido = !!progFerias.fichaId && /^\d{4}-\d{2}-\d{2}$/.test(progFerias.inicio) && Number.isInteger(diasN) && diasN >= 5 && diasN <= 30 && Number.isInteger(abonoN) && abonoN >= 0 && abonoN <= 10;
+                function programar() {
+                    const f = dados!.fichas.find(x => x.id === progFerias.fichaId);
+                    if (!f || !valido) return;
+                    const fim = new Date(Date.parse(`${progFerias.inicio}T00:00:00Z`) + (diasN - 1) * 86400000).toISOString().slice(0, 10);
+                    const g: Afastamento = { ...afastamentoVazio(), id: idAfastamento(f.id, progFerias.inicio), empresaId: f.empresaId, fichaId: f.id, cpf: f.cpf, matriculaEsocial: f.matriculaEsocial,
+                        dtInicio: progFerias.inicio, dtFim: fim, motivo: '15', abonoDias: abonoN ? String(abonoN) : '', observacao: 'Programado no Cálculo › Férias' };
+                    setFeriasSimuladas(xs => [...xs.filter(x => x.fichaId !== f.id), g]);
+                    setCompetencia(progFerias.inicio.slice(0, 7)); setAberto(g.id);
+                }
+                return (
+                    <div className="space-y-2 rounded border border-slate-200 p-2 text-xs text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                        <div className="flex flex-wrap items-end gap-2">
+                            <span className="font-medium">Programar férias:</span>
+                            <select aria-label="Funcionário das férias" className={inp} value={progFerias.fichaId} onChange={e => setProgFerias(x => ({ ...x, fichaId: e.target.value }))}>
+                                <option value="">— funcionário ativo —</option>
+                                {dados.fichas.filter(f => f.situacao !== 'desligado' && !f.dados.dataDesligamento).sort((a, b) => (a.dados.nome ?? '').localeCompare(b.dados.nome ?? '', 'pt-BR')).map(f => <option key={f.id} value={f.id}>{f.dados.nome || f.cpf}</option>)}
+                            </select>
+                            <label>Início<input aria-label="Início das férias programadas" type="date" className={`ml-1 ${inp}`} value={progFerias.inicio} onChange={e => setProgFerias(x => ({ ...x, inicio: e.target.value }))} /></label>
+                            <label>Dias de gozo<input aria-label="Dias de gozo" inputMode="numeric" className={`ml-1 w-14 ${inp}`} value={progFerias.dias} onChange={e => setProgFerias(x => ({ ...x, dias: e.target.value.replace(/\D/g, '').slice(0, 2) }))} /></label>
+                            <label>Abono (dias)<input aria-label="Dias de abono programados" inputMode="numeric" className={`ml-1 w-14 ${inp}`} value={progFerias.abono} onChange={e => setProgFerias(x => ({ ...x, abono: e.target.value.replace(/\D/g, '').slice(0, 2) }))} /></label>
+                            <button className="rounded bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={!valido} onClick={programar}>Calcular</button>
+                        </div>
+                        <p className="text-slate-500 dark:text-slate-400">O período aquisitivo é o mais antigo com saldo, pela admissão e pelas férias já gozadas (Cadastros › Afastamentos). A programação é uma simulação até você gravar no detalhe do recibo.</p>
+                    </div>
+                );
+            })()}
             {ferias && (
                 <div className="flex flex-wrap items-center gap-4 rounded border border-slate-200 p-2 text-xs text-slate-700 dark:border-slate-700 dark:text-slate-200">
-                    <span>Recibo de cada gozo lançado em Cadastros › Afastamentos (motivo 15). Pagamento até 2 dias antes do início; o IRRF usa a tabela desse mês.</span>
+                    <span>Recibo de cada gozo lançado em Cadastros › Afastamentos (motivo 15) ou programado acima. Pagamento até 2 dias antes do início; o IRRF usa a tabela desse mês.</span>
                     <span className="font-medium">IRRF das férias (confirme com o IOB):</span>
                     <label className="flex items-center gap-1"><input type="checkbox" checked={opcoesFerias.simplificado} onChange={e => setOpcoesFerias(o => ({ ...o, simplificado: e.target.checked }))} />desconto simplificado</label>
                     <label className="flex items-center gap-1"><input type="checkbox" checked={opcoesFerias.redutor} onChange={e => setOpcoesFerias(o => ({ ...o, redutor: e.target.checked }))} />redutor de 2026</label>
@@ -366,7 +401,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             {erro && <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
             {empresaId && !dados && <p className="text-sm text-slate-500">Carregando…</p>}
             {dados && !mensal && !movsAno && !erro && <p className="text-sm text-slate-500">Carregando os movimentos gravados…</p>}
-            {dados && !resultados.length && (mensal || movsAno) && <p className="rounded border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-600">{mensal ? 'Nenhum funcionário com vínculo nesta competência. Confira o cadastro em Cadastros › Funcionários.' : rescisao ? `Nenhum desligamento em ${br(competencia)}. Use "Simular rescisão" para calcular a de um funcionário ativo.` : ferias ? `Nenhum gozo de férias começando em ${br(competencia).slice(0, 7)}. Lance as férias em Cadastros › Afastamentos (motivo 15 — gozo de férias).` : `Nenhum funcionário com 13º em ${ano} (desligados recebem na rescisão). Confira o cadastro em Cadastros › Funcionários.`}</p>}
+            {dados && !resultados.length && (mensal || movsAno) && <p className="rounded border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-600">{mensal ? 'Nenhum funcionário com vínculo nesta competência. Confira o cadastro em Cadastros › Funcionários.' : rescisao ? `Nenhum desligamento em ${br(competencia)}. Use "Simular rescisão" para calcular a de um funcionário ativo.` : ferias ? `Nenhum gozo de férias começando em ${br(competencia).slice(0, 7)}. Use "Programar férias" acima ou lance em Cadastros › Afastamentos (motivo 15 — gozo de férias).` : `Nenhum funcionário com 13º em ${ano} (desligados recebem na rescisão). Confira o cadastro em Cadastros › Funcionários.`}</p>}
 
             {resultados.length > 0 && (
                 <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
@@ -503,6 +538,32 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                                     <tbody>{f.porCompetencia.map(c => <tr key={c.competencia}><td>{br(c.competencia)}</td><td className="text-right">{c.dias}</td><td className="text-right">{reais(c.ferias + c.terco)}</td><td className="text-right">{reais(c.inss)}</td><td className="text-right">{reais(c.fgts)}</td></tr>)}</tbody></table>
                             )}
                             {(() => {
+                                const simulado = !dados?.afastamentos.some(a => a.id === f.gozoId) ? feriasSimuladas.find(a => a.id === f.gozoId) : undefined;
+                                if (!simulado) return null;
+                                async function gravarGozo() {
+                                    if (!simulado) return;
+                                    const abono = abonos[simulado.id] ?? Number(simulado.abonoDias || 0);
+                                    const g: Afastamento = { ...simulado, abonoDias: abono ? String(abono) : '', perAquisInicio: f.periodo?.inicio ?? '', perAquisFim: f.periodo?.fim ?? '' };
+                                    if (!window.confirm(`Gravar as férias de ${br(g.dtInicio)} a ${br(g.dtFim)} em Cadastros › Afastamentos (motivo 15)?`)) return;
+                                    setGravandoGozo(true); setErro('');
+                                    try {
+                                        await salvarAfastamento(null, g, usuario);
+                                        setFeriasSimuladas(xs => xs.filter(x => x.id !== g.id));
+                                        setRecarga(n => n + 1);
+                                    } catch (e) { setErro(mensagemErro(e)); }
+                                    finally { setGravandoGozo(false); }
+                                }
+                                return (
+                                    <div className="rounded bg-amber-50 p-2 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">
+                                        <p><strong>Simulação:</strong> férias programadas aqui, ainda não gravadas em Afastamentos.</p>
+                                        <div className="mt-1 flex flex-wrap gap-2">
+                                            <button type="button" className="rounded bg-green-700 px-2 py-1 text-white disabled:opacity-50" disabled={gravandoGozo || !!f.erros?.length} onClick={gravarGozo}>{gravandoGozo ? 'Gravando…' : 'Gravar em Afastamentos'}</button>
+                                            <button type="button" className="rounded border border-slate-300 px-2 py-1 dark:border-slate-600" onClick={() => { setFeriasSimuladas(xs => xs.filter(x => x.id !== simulado.id)); setAberto(''); }}>Remover simulação</button>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+                            {(() => {
                                 const gozo = dados?.afastamentos.find(a => a.id === f.gozoId);
                                 const gravado = Number(gozo?.abonoDias || 0);
                                 const mudou = abonos[f.gozoId] !== undefined && abonos[f.gozoId] !== gravado;
@@ -521,7 +582,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                                         <input aria-label="Dias de abono" className={`mt-0.5 block w-20 ${inp}`} defaultValue={String(abonos[f.gozoId] ?? (gravado || ''))}
                                             onChange={e => { const t = e.target.value.trim(); const n = Number(t || 0); setAbonos(x => { const y = { ...x }; if (t && Number.isInteger(n) && n >= 0) y[f.gozoId] = n; else if (!t) y[f.gozoId] = 0; else delete y[f.gozoId]; return y; }); }} />
                                         <span className="text-slate-500">Até 1/3 dos dias de direito. {gravado ? `Gravado no afastamento: ${gravado} dia(s).` : 'Nada gravado no afastamento.'} O abono gravado desconta do saldo do período nas próximas férias.</span>
-                                        {mudou && <button type="button" className="mt-1 block rounded border border-slate-300 px-2 py-1 dark:border-slate-600" disabled={gravandoAbono} onClick={gravarAbono}>{gravandoAbono ? 'Gravando…' : 'Gravar abono no afastamento'}</button>}
+                                        {mudou && gozo && <button type="button" className="mt-1 block rounded border border-slate-300 px-2 py-1 dark:border-slate-600" disabled={gravandoAbono} onClick={gravarAbono}>{gravandoAbono ? 'Gravando…' : 'Gravar abono no afastamento'}</button>}
                                     </label>
                                 );
                             })()}
