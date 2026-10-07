@@ -1859,3 +1859,53 @@ guias sindicais".
     domingo).
 - **Observação:** o motor ainda mostra "pagar até 07/11/2026" sem antecipar o
   fim de semana. Só o convite antecipa. Fica para alinhar.
+
+## 07/10/2026 — Arquivo Bancário (remessa CNAB 240 de salários)
+
+- **Paulo:** *"vamos trabalhar na criação do modal 'Arquivo Bancário', como já
+  existente na SAGE; ele deve conter os dados necessários conforme layout do
+  banco cadastrado na empresa e conforme tabela disponível na FEBRABAN; o
+  arquivo também fará parte do pacote de arquivos enviados aos clientes para
+  importação no banco correspondente"*.
+- **Respostas do Paulo:**
+  - bancos: Itaú (341), Bradesco (237), Santander (033) e BB (001);
+  - formas: conta corrente/salário, TED, PIX e poupança;
+  - folhas: mensal, férias, 13º e rescisão;
+  - vai mandar um arquivo de remessa da SAGE por banco, para conferir
+    posição a posição.
+- **Fontes:** padrão FEBRABAN 240 (v10.11) e o manual CNAB 240 Pagamentos do
+  Banco Inter (v1.9, que segue o padrão). Os manuais da FEBRABAN e dos quatro
+  bancos não abriram daqui (bloqueados pelo proxy).
+- **Mudança:**
+  - `services/bancario/cnab240.ts`: remessa de pagamento de salários
+    (serviço 30), com header de arquivo, um lote por forma, segmentos A e B
+    por funcionário, trailers e linhas de 240 posições com CRLF.
+    - **Formas:** 01 crédito em conta no banco da empresa, 05 poupança, 41
+      TED (câmara 018, finalidade e CC/PP) e 45 PIX (câmara 009; o segmento B
+      leva a forma de iniciação e a chave: telefone, e-mail, CPF ou
+      aleatória).
+    - **Classificação:** mesmo banco → crédito; outro banco → TED; sem conta
+      e com chave → PIX; opção de preferir PIX.
+    - **Fora do arquivo, com o motivo:** sem dados bancários, conta sem
+      dígito, chave PIX inválida, CPF inválido ou sem líquido.
+    - **`PERFIS_BANCO`:** guarda o que varia entre os bancos (versões 107/046,
+      densidade, finalidade da TED 00004). Fica `conferido: false` até a
+      comparação com a SAGE. O Itaú (SISPAG) tem posições próprias.
+  - Contas da empresa em `empresas.contasPagamento`: banco, agência, conta
+    com dígito, convênio, próximo NSA e endereço opcional. A função é
+    `salvarContasPagamento`, e as regras atuais já permitem a gravação.
+  - Modal **Arquivo Bancário** no Cálculo, botão "Arquivo bancário" ao lado
+    de "Holerites (PDF)":
+    - cadastra e edita a conta;
+    - data de pagamento sugerida: 5º dia útil na mensal, 30/11 e 20/12 no
+      13º, data de cada recibo nas férias;
+    - prévia por forma e lista de quem fica de fora;
+    - "Gerar arquivo (.REM)", que avança o NSA;
+    - aviso de layout ainda não conferido com a SAGE.
+  - Carga do IOB: o dígito da conta e da agência (`dvcc`/`dvag`) entra junto
+    ("55555-0"). A conta gravada sem dígito por carga anterior é completada,
+    menos a digitada à mão.
+- **Pendente:**
+  - conferir com os arquivos da SAGE (versões, convênio do BB, finalidade da
+    TED, SISPAG do Itaú) e marcar `conferido`;
+  - incluir o .REM no pacote de arquivos do cliente.

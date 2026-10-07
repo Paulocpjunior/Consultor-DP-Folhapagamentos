@@ -1,5 +1,5 @@
 import {
-    collection, doc, getDocs, getDoc, setDoc, writeBatch,
+    collection, doc, getDocs, getDoc, setDoc, updateDoc, writeBatch,
     query, where, orderBy, serverTimestamp,
 } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
@@ -176,6 +176,11 @@ export async function protegerEmpresasExistentes(empresas: Empresa[], aoProgress
         aoProgresso?.(i + 1);
     }
     return { reservadas, normalizadas, repetidas: repetidas(empresas), falhas };
+}
+
+/** Contas da empresa para o arquivo bancário (lista inteira; conta, convênio e próximo NSA). */
+export async function salvarContasPagamento(empresaId: string, contas: import('../bancario/cnab240').ContaPagamento[]): Promise<void> {
+    await updateDoc(doc(db, 'empresas', empresaId), { contasPagamento: contas.map(c => JSON.parse(JSON.stringify(c))), atualizadoEm: serverTimestamp() });
 }
 
 export async function excluirEmpresa(id: string): Promise<void> {

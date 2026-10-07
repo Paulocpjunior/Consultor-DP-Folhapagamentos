@@ -20,7 +20,8 @@ import { afastamentoVazio, idAfastamento, type Afastamento } from '../../service
 import type { TabelaLegal } from '../../services/cadastros/tabelasLegais';
 import { centavosDeTexto, reais } from '../../services/cadastros/documentos';
 import { calcularMensal, competenciaSeguinte, noMes, type Lancamento, type Movimento, type ResultadoCalculo } from '../../services/calculo/motorMensal';
-import { somarMeses } from '../../services/prazos/calendario';
+import { diaUtilAnterior, diaUtilSeguinte, quintoDiaUtilSalario, somarMeses } from '../../services/prazos/calendario';
+import ArquivoBancarioModal from '../bancario/ArquivoBancarioModal';
 import { limparMovimento, mesmoMovimento, movimentoVazio, validarMovimento, type MovimentoGravado } from '../../services/calculo/movimento';
 import { listarMovimentos, listarMovimentosDaEmpresa, listarMovimentosDoAno, salvarMovimentos } from '../../services/calculo/movimentosService';
 import { calcularFerias, feriasDaCompetencia, gozosNoMes, OPCOES_FERIAS_PADRAO, type OpcoesFerias, type ResultadoFerias } from '../../services/calculo/motorFerias';
@@ -96,6 +97,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     // Lotes do eSocial da empresa: situação do S-2230 de cada gozo gravado.
     const [enviosEsocial, setEnviosEsocial] = useState<Envio[] | null>(null);
     const [recargaEnvios, setRecargaEnvios] = useState(0);
+    const [arquivoBancario, setArquivoBancario] = useState(false);
     useEffect(() => { setEnviosEsocial(null); if (!empresaId || folha !== 'ferias') return; listarEnvios(empresaId).then(setEnviosEsocial).catch(() => setEnviosEsocial([])); }, [empresaId, folha, recargaEnvios]);
     const [opcoesFerias, setOpcoesFerias] = useState<OpcoesFerias>(OPCOES_FERIAS_PADRAO);
     const [recarga, setRecarga] = useState(0);
@@ -331,6 +333,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 {mensal && <button className={btn} disabled={!resultados.length} aria-pressed={conferir} onClick={() => setConferir(c => !c)}>Conferir com holerites do IOB</button>}
                 <button className={`${mensal ? '' : 'ml-auto '}${btn}`} disabled={!resultados.length} aria-pressed={verResumo} onClick={() => setVerResumo(x => !x)}>Resumo da folha</button>
                 <button className={btn} disabled={!resultados.some(r => r.situacao !== 'erro')} onClick={() => pdfHolerites(resultados, `holerites-${empresa?.codigoSage ?? 'empresa'}-${sufixoArquivo}.pdf`)}>Holerites (PDF)</button>
+                <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado')} onClick={() => setArquivoBancario(true)}>Arquivo bancário</button>
                 <button className={btn} disabled={!resultados.length} onClick={exportar}>Exportar Excel</button>
             </div>
             {rescisao && dados && (
@@ -531,6 +534,17 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                             {p.simulada && <button className="rounded border border-slate-300 px-2 py-1 dark:border-slate-600" onClick={() => { setParamsResc(x => { const y = { ...x }; delete y[t.fichaId]; return y; }); setAberto(''); }}>Remover simulação</button>}
                         </div>
                     </Holerite>
+                );
+            })()}
+            {arquivoBancario && empresa && dados && (() => {
+                const hoje = new Date().toISOString().slice(0, 10);
+                const [pa, pm] = (/^\d{4}-\d{2}$/.test(pagamento) ? pagamento : competenciaSeguinte(competencia)).split('-').map(Number);
+                const sugerida = mensal ? quintoDiaUtilSalario(pa, pm) : folha === '13-1a' ? diaUtilAnterior(`${ano}-11-30`) : folha === '13-2a' ? diaUtilAnterior(`${ano}-12-20`) : diaUtilSeguinte(hoje);
+                return (
+                    <ArquivoBancarioModal empresa={empresa} resultados={resultados} fichas={dados.fichas} titulo={tituloFolha} dataSugerida={sugerida}
+                        dataPorResultado={ferias ? (r => { const p = (r as ResultadoFerias).pagarAte; return p ? diaUtilAnterior(p) : undefined; }) : undefined}
+                        onFechar={() => setArquivoBancario(false)}
+                        onContasSalvas={contas => setEmpresas(l => l?.map(e => (e.id === empresa.id ? { ...e, contasPagamento: contas } : e)) ?? l)} />
                 );
             })()}
             {sel && ferias && (() => {
