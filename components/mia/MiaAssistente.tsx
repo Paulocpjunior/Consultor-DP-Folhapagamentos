@@ -6,7 +6,7 @@
 // A conversa fica só nesta aba do navegador; nada é gravado.
 
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { contextoMiaAtual, ouvirContextoMia, perguntarMia, MAX_MENSAGENS, type MensagemMia } from '../../services/mia/mia';
+import { contextoMiaAtual, ouvirContextoMia, perguntarMia, type MensagemMia } from '../../services/mia/mia';
 
 const SUGESTOES = [
     'Qual o prazo para pagar as férias?',
@@ -31,21 +31,27 @@ const MiaAssistente: React.FC<{ aba: string }> = ({ aba }) => {
     const [usarTela, setUsarTela] = useState(true);
     const contexto = useSyncExternalStore(ouvirContextoMia, contextoMiaAtual);
     const fim = useRef<HTMLDivElement>(null);
+    // Cada conversa tem um número: resposta pedida antes de "Nova conversa" é descartada.
+    const geracao = useRef(0);
     useEffect(() => { fim.current?.scrollIntoView?.({ behavior: 'smooth' }); }, [conversa, pensando, aberta]);
 
     async function enviar(pergunta = texto) {
         const p = pergunta.trim();
         if (!p || pensando) return;
-        const nova = [...conversa, { papel: 'usuaria' as const, texto: p }].slice(-MAX_MENSAGENS);
+        // A tela guarda a conversa inteira; o pedido leva só as últimas trocas completas (perguntarMia).
+        const nova = [...conversa, { papel: 'usuaria' as const, texto: p }];
+        const minha = geracao.current;
         setConversa(nova); setTexto(''); setErro(''); setPensando(true);
-        try { const r = await perguntarMia(nova, usarTela ? contexto : null, aba); setConversa(c => [...c, r]); }
+        try { const r = await perguntarMia(nova, usarTela ? contexto : null, aba); if (minha === geracao.current) setConversa(c => [...c, r]); }
         catch (e) {
+            if (minha !== geracao.current) return;
             const m = (e as Error).message;
             // Rota ainda não publicada no CFI: o Express devolve 404 sem corpo JSON.
             setErro(/HTTP 404/.test(m) ? 'A MiA ainda não está no ar: falta publicar a rota dela no CFI.' : `A MiA não respondeu: ${m}`);
         }
-        finally { setPensando(false); }
+        finally { if (minha === geracao.current) setPensando(false); }
     }
+    function novaConversa() { geracao.current++; setConversa([]); setErro(''); setPensando(false); }
 
     return (
         <>
@@ -61,7 +67,7 @@ const MiaAssistente: React.FC<{ aba: string }> = ({ aba }) => {
                             <p className="font-semibold">MiA</p>
                             <p className="text-xs text-white/85">Agente de IA do DP · legislação, cálculo, conferência e o app</p>
                         </div>
-                        {conversa.length > 0 && <button type="button" className="rounded bg-white/15 px-2 py-1 text-xs hover:bg-white/25" onClick={() => { setConversa([]); setErro(''); }}>Nova conversa</button>}
+                        {conversa.length > 0 && <button type="button" className="rounded bg-white/15 px-2 py-1 text-xs hover:bg-white/25" onClick={novaConversa}>Nova conversa</button>}
                     </header>
                     <div className="flex-1 space-y-3 overflow-y-auto bg-violet-50/40 p-3 text-sm dark:bg-slate-900/40">
                         {!conversa.length && (

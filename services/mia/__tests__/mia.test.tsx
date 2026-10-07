@@ -66,6 +66,29 @@ describe('MiA', () => {
         expect(screen.queryByText('E o 13º?')).toBeNull();
     });
 
+    it('"Nova conversa" com resposta a caminho: a resposta antiga é descartada', async () => {
+        let responder: (v: unknown) => void = () => {};
+        sv.chamar.mockImplementationOnce(() => new Promise(res => { responder = res; }) as never);
+        render(<MiaAssistente aba="Cálculo" />);
+        fireEvent.click(screen.getByLabelText('Falar com a MiA'));
+        fireEvent.click(screen.getByText('Onde gero o arquivo bancário?'));
+        await waitFor(() => expect(screen.getByText('MiA está pensando…')).toBeTruthy());
+        fireEvent.click(screen.getByText('Nova conversa'));
+        responder({ texto: 'Resposta antiga', fontes: [] });
+        await new Promise(r => setTimeout(r, 0));
+        expect(screen.queryByText('Resposta antiga')).toBeNull();
+        expect(screen.queryByText('MiA está pensando…')).toBeNull();
+    });
+
+    it('conversa longa: a tela guarda tudo e o pedido começa sempre por uma pergunta', async () => {
+        const conversa: MensagemMia[] = Array.from({ length: 21 }, (_, i) => ({ papel: i % 2 ? 'mia' : 'usuaria', texto: `m${i}` }));
+        await perguntarMia(conversa, null, 'Cálculo');
+        const enviadas = (sv.chamar.mock.calls[0][1] as { mensagens: MensagemMia[] }).mensagens;
+        expect(enviadas[0].papel).toBe('usuaria');
+        expect(enviadas.length % 2).toBe(1);
+        expect(enviadas[enviadas.length - 1].texto).toBe('m20');
+    });
+
     it('antes da publicação no CFI (404), avisa que a MiA ainda não está no ar', async () => {
         sv.chamar.mockRejectedValueOnce(new Error('HTTP 404'));
         render(<MiaAssistente aba="Cálculo" />);

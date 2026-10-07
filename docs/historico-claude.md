@@ -2238,3 +2238,9 @@ guias sindicais".
   - **P2:** o `ideDmDev` não se repete entre contratos do mesmo CPF.
     Matrículas longas que coincidem no início ganham sufixo, sempre com até
     30 caracteres.
+- **Revisão do Codex no #98 (MiA):**
+  - **P2:** a tela guarda a conversa inteira, e o pedido ao CFI leva só as
+    últimas trocas, começando sempre por uma pergunta. Antes, depois de 10
+    trocas, a conversa começava por uma resposta solta.
+  - **P2:** "Nova conversa" com resposta a caminho: a resposta antiga é
+    descartada (número da conversa) e o "pensando" some.
