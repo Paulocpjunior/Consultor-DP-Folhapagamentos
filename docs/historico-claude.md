@@ -2466,3 +2466,22 @@ guias sindicais".
 - **Com isso,** o histórico de salário vale na folha, nas férias, no 13º e
   na rescisão.
 - **Testes:** 86 arquivos, 664 testes.
+
+## 07/10/2026 — Revisões do Codex nos PRs #103 e #105 (chegaram depois do merge)
+
+- **#103 (P1): importação parcial do eSocial.** Um lote só com um S-2206,
+  sem o S-2200, gera histórico de uma faixa. Esse histórico era tratado
+  como "só a admissão": o do SAGE ficava, e o salário novo valia para trás.
+  - **Critério de reajuste:** agora é ter S-2206 no histórico
+    (`temReajusteEsocial`), e não o número de faixas. Vale para a
+    reimportação e para a carga do SAGE (`usaHistoricoDoSage`).
+  - **Mescla:** o histórico do eSocial entra por cima do anterior a partir
+    da primeira data que traz. As faixas anteriores ficam, sejam do SAGE ou
+    de uma importação anterior do eSocial.
+- **#105 (P2): rescisão.** A ficha com o salário do desligamento levava o
+  histórico inteiro para a folha do mês. Um reajuste no próprio mês, depois
+  do desligamento, voltava no saldo de salário. Agora `fichaNaData` devolve
+  a ficha com o histórico só até a data, e nenhum cálculo feito depois
+  avança além dela.
+- **#104:** o Codex não fez apontamentos.
+- **Testes:** 86 arquivos, 666 testes.

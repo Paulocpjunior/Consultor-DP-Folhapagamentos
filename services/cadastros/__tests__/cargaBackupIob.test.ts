@@ -302,6 +302,20 @@ describe('conta e agência com o dígito do IOB (arquivo bancário)', () => {
 });
 
 describe('histórico de salário do SAGE (rsalfunc/salarios)', () => {
+    it('importação parcial do eSocial (só um S-2206): entra por cima a partir da data, sem apagar o passado; o SAGE não volta', () => {
+        const sage = { ...ficha(CPF_A, 'M7', { codigoIob: '7', salario: '2100.00' }), historicoSalario: [
+            { desde: '2024-01-02', salario: '1800.00', origem: 'IOB: rsalfunc · 2024-01-02' }, { desde: '2025-03-01', salario: '2100.00', origem: 'IOB: rsalfunc · 2025-03-01' },
+        ] };
+        const soS2206 = { ...sage, historicoSalario: [{ desde: '2026-05-01', salario: '2300.00', origem: 'S-2206 · 9' }] };
+        const m = mesclarComEsocial(sage, soS2206).ficha.historicoSalario!;
+        expect(m.map(x => [x.desde, x.salario])).toEqual([['2024-01-02', '1800.00'], ['2025-03-01', '2100.00'], ['2026-05-01', '2300.00']]);
+        // Com S-2206 no histórico, a carga do SAGE não o substitui.
+        expect(compararComFichas([{ linha: 1, valores: { cpf: CPF_A, codigoIob: '7' } }], [{ ...sage, historicoSalario: m }], EMP, 'IOB: f', false, historicoSalarialSage(null, rsalfunc)).completar).toEqual([]);
+        // eSocial incremental sobre eSocial: as faixas anteriores ficam.
+        const esocial = { ...sage, historicoSalario: [{ desde: '2024-01-02', salario: '1800.00', origem: 'S-2200 · 1' }, { desde: '2025-03-01', salario: '2100.00', origem: 'S-2206 · 2' }] };
+        expect(mesclarComEsocial(esocial, soS2206).ficha.historicoSalario!.map(x => x.origem)).toEqual(['S-2200 · 1', 'S-2206 · 2', 'S-2206 · 9']);
+    });
+
     const rsalfunc = { colunas: ['codfun', 'data', 'salario', 'codcargo'], linhas: [
         ['0007', '2024-01-02', '1800,00', ''], ['7', '2024-06-01', '1800,00', ''], ['7', '2025-03-01', '2100,00', ''], ['8', '2025-03-01', '3000,00', ''],
     ] };

@@ -143,6 +143,9 @@ export function fichaDoEsocial(c: Cadastro, empresa: { id: string; cnpj: string 
     };
 }
 
+/** O histórico traz reajuste transmitido (S-2206), e não só a admissão. */
+export const temReajusteEsocial = (h: FaixaSalarial[]) => h.some(x => x.origem.startsWith('S-2206'));
+
 /** Salário, unidade e horas da faixa: o que muda o cálculo (a origem não entra). */
 const textoFaixa = (x: FaixaSalarial) => `${x.salario}|${x.unidade ?? ''}|${x.horasSemanais ?? ''}`;
 
@@ -194,7 +197,9 @@ export function fichaNaData(f: FichaFuncionario, data: string): { ficha: FichaFu
         if (!h.some(x => x[chave])) continue;
         if (faixa[chave]) dados[campo] = faixa[chave]; else delete dados[campo];
     }
-    return { ficha: { ...f, dados }, faixa };
+    // O histórico da ficha devolvida para na data: um cálculo feito com ela depois (a folha do mês da
+    // rescisão, por exemplo) não volta a escolher um reajuste posterior.
+    return { ficha: { ...f, dados, historicoSalario: h.filter(x => x.desde <= data) }, faixa };
 }
 
 /** Linha da memória quando o salário veio do histórico. */
@@ -359,11 +364,13 @@ export function mesclarComEsocial(existente: FichaFuncionario | undefined, impor
         if (novo) { ficha.dados[k] = novo; ficha.origens[k] = importada.origens[k]; }
         else if (origem?.startsWith('eSocial')) { delete ficha.dados[k]; ficha.origens[k] = importada.origens[k] ?? 'eSocial: campo ausente na última importação'; }
     }
-    // O histórico de salário do eSocial substitui o anterior, salvo quando não traz reajuste (só a
-    // admissão) e a ficha tem o do SAGE (rsalfunc/salarios), que entrou justamente por isso.
+    // O histórico do eSocial entra por cima do anterior a partir da primeira data que traz: as faixas
+    // anteriores ficam (importação parcial, só com um S-2206, não apaga o passado). Sem S-2206 (só a
+    // admissão), o histórico do SAGE (rsalfunc/salarios), que entrou justamente por isso, fica como está.
     const hImp = importada.historicoSalario ?? [];
-    const temDoSage = (existente.historicoSalario ?? []).some(x => x.origem.startsWith('IOB'));
-    if (hImp.length && (hImp.length >= 2 || !temDoSage)) ficha.historicoSalario = hImp;
+    const anterior = existente.historicoSalario ?? [];
+    const temDoSage = anterior.some(x => x.origem.startsWith('IOB'));
+    if (hImp.length && (temReajusteEsocial(hImp) || !temDoSage)) ficha.historicoSalario = [...anterior.filter(x => x.desde < hImp[0].desde), ...hImp];
     if (depsTexto(existente.dependentes) !== depsTexto(importada.dependentes)) {
         if (ehManual(existente.origens.dependentes)) {
             if (importada.dependentes.length) preservados.push({ campo: 'dependentes', manual: depsTexto(existente.dependentes), esocial: depsTexto(importada.dependentes) });

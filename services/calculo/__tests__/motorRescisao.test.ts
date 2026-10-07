@@ -17,6 +17,14 @@ const calc = (p: Partial<EntradaRescisao>) => calcularRescisao({ ficha: ficha(),
 const v = (r: ReturnType<typeof calcularRescisao>, c: string) => r.verbas.filter(x => x.codigo === c || x.codigo.startsWith(`${c}2`)).reduce((s, x) => s + x.valor, 0);
 
 describe('rescisão', () => {
+    it('reajuste no próprio mês, depois do desligamento: o saldo de salário não o pega', () => {
+        const comHist = { ...ficha({ salario: '3600.00' }), historicoSalario: [
+            { desde: '2024-01-02', salario: '3000.00', origem: 'S-2200 · 1' }, { desde: '2026-03-20', salario: '3300.00', origem: 'S-2206 · 2' }, { desde: '2026-06-01', salario: '3600.00', origem: 'S-2206 · 3' },
+        ] };
+        const r = calc({ ficha: comHist });
+        expect([v(r, 'SAL'), v(r, 'AVISO')]).toEqual([100000, 360000]);
+    });
+
     it('salário do desligamento pelo histórico: reajuste posterior não entra no saldo, no aviso, no 13º nem nas férias', () => {
         const comHist = { ...ficha({ salario: '3300.00' }), historicoSalario: [{ desde: '2024-01-02', salario: '3000.00', origem: 'S-2200 · 1' }, { desde: '2026-06-01', salario: '3300.00', origem: 'S-2206 · 2' }] };
         const r = calc({ ficha: comHist });
