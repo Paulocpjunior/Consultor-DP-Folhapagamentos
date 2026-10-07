@@ -1769,3 +1769,61 @@ guias sindicais".
     sozinho.
   - Conferido contra o IOB, em teste: INSS de 280,60 sobre 3.266,67, IRRF
     zero pelo redutor e líquido de 4.619,40, iguais ao recibo do IOB.
+
+## 07/10/2026 — IRRF das férias sempre informado, com aviso quando não há retenção
+
+- **Paulo:** confronto feito com o IOB e cálculos ok (José Venancio, 1200,
+  11/2026: proventos 4.900,00, INSS 280,60, líquido 4.619,40). Pediu: *"quanto
+  ao IR sobre férias, de acordo com a tabela cadastrada o mesmo deve ser
+  informado e gerado pelo consultor; quando não houver a incidência de acordo
+  com a tabela de cálculo, um aviso deve ser gerado para notificação"*.
+- **Mudança:**
+  - `ResultadoFerias.irrf` é sempre preenchido: rendimento tributável,
+    deduções (INSS e dependentes, ou simplificado), base, alíquota, parcela a
+    deduzir, imposto pela tabela, redutor de 2026, dispensa até R$ 10,00 e
+    IRRF devido.
+  - Sem retenção, o motivo vai para o aviso do recibo: faixa isenta, zerado
+    pelo redutor ou abaixo do mínimo.
+  - O recibo mostra o quadro "IRRF sobre férias". Na lista, o IRRF aparece
+    como R$ 0,00, com o motivo no título da célula, e não mais como "—".
+- **Também pedido (não feito ainda):** enviar o recibo de férias e a guia ou
+  DARF ao cliente por e-mail ou WhatsApp com convite de agenda (vencimento).
+  O envio fica na Central de Comunicação do CFI (templates e agendamentos).
+  Proposta enviada ao Paulo, aguardando a decisão.
+
+## 07/10/2026 — S-2230 gerado pelo Consultor e retorno visual do evento
+
+- **Paulo** (print do portal do eSocial, José Venancio: "Nenhum registro
+  encontrado" em Afastamento Temporário): *"não consta o envio das férias
+  calculadas; devemos criar um visual para os colaboradores que tenha um
+  retorno visual do evento"*. O IOB mostrava "Status eSocial: S-2230 · Não
+  Gerado".
+- **Antes:** o DP só gerava o S-1299 e o S-1298. O S-2230 só ia como XML
+  pronto na tela de transmissão.
+- **Mudança:**
+  - `gerarS2230` (leiaute S-1.3, sem assinatura; o CFI assina com o A1 do
+    cofre):
+    - vai no mesmo evento: início, término (quando conhecido), motivo,
+      infoMesmoMtv, tpAcidTransito e observação (fora das férias);
+    - férias (motivo 15) levam o perAquis, obrigatório para CLT desde
+      19/07/2021;
+    - conferido no XSD oficial com xmllint: válido, só falta a assinatura.
+  - O lote registra em `esocial_envios` a ligação de cada evento ao
+    afastamento (`ref`). As regras não mudam.
+  - `statusS2230`: Não enviado, Enviado pelo IOB (recibo importado),
+    Enviado · aguardando retorno, Aceito (recibo) ou Rejeitado (ocorrências).
+    Vale o envio mais recente e o histórico de protocolos fica guardado.
+  - Componente **StatusEsocialAfastamento**:
+    - selo colorido;
+    - recibo ou ocorrências;
+    - "Transmitir S-2230" (ambiente, certificado e confirmação de produção);
+    - "Consultar retorno";
+    - "Histórico de protocolos".
+  - Onde aparece:
+    - no recibo de férias gravado (Cálculo › Férias);
+    - na coluna "eSocial (S-2230)" de Cadastros › Afastamentos;
+    - no afastamento aberto para edição.
+- **Revisão do Codex (#91, P2):** o PDF do recibo saía sem o IRRF quando o
+  imposto zerava, porque o desconto zerado não vira verba. Corrigido:
+  `linhasIrrfFerias` imprime no PDF a conta do IRRF e o motivo da não
+  retenção, e a declaração e a assinatura descem quando precisa.

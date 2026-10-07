@@ -28,6 +28,8 @@ import { calcularRescisao, ROTULO_AVISO, TIPOS_RESCISAO, type AvisoPrevio, type 
 import { calcular13, com13, OPCOES_13_PADRAO, ultimoDiaDoMes, type Opcoes13 } from '../../services/calculo/motor13';
 import ConferenciaHolerites, { conferirTodos, type LeituraHolerites } from './ConferenciaHolerites';
 import { resumirFolha } from '../../services/relatorios/resumoFolha';
+import { listarEnvios, type Envio } from '../../services/esocial/transmissaoService';
+import StatusEsocialAfastamento from '../esocial/StatusEsocialAfastamento';
 import { holeritesPdf, resumoPdf } from '../../services/relatorios/holeritePdf';
 
 const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
@@ -89,6 +91,10 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const [progFerias, setProgFerias] = useState({ fichaId: '', inicio: '', dias: '30', abono: '' });
     const [feriasSimuladas, setFeriasSimuladas] = useState<Afastamento[]>([]);
     const [gravandoGozo, setGravandoGozo] = useState(false);
+    // Lotes do eSocial da empresa: situação do S-2230 de cada gozo gravado.
+    const [enviosEsocial, setEnviosEsocial] = useState<Envio[] | null>(null);
+    const [recargaEnvios, setRecargaEnvios] = useState(0);
+    useEffect(() => { setEnviosEsocial(null); if (!empresaId || folha !== 'ferias') return; listarEnvios(empresaId).then(setEnviosEsocial).catch(() => setEnviosEsocial([])); }, [empresaId, folha, recargaEnvios]);
     const [opcoesFerias, setOpcoesFerias] = useState<OpcoesFerias>(OPCOES_FERIAS_PADRAO);
     const [recarga, setRecarga] = useState(0);
     // Folha mensal: movimentos de todos os meses, para os recibos de férias que tocam o mês (médias e faltas).
@@ -415,7 +421,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                                     <td className="p-2 font-medium">{r.nome}{!mensal ? null : pendentes.includes(r.fichaId) ? <span className="ml-1 text-xs text-amber-700 dark:text-amber-300">(não salvo)</span> : !movimentoVazio(movs[r.fichaId]) && <span className="ml-1 text-xs text-blue-700 dark:text-blue-300">(com movimento)</span>}</td>
                                     <td className="p-2 text-right">{real(r.totais.proventos)}</td>
                                     <td className="p-2 text-right">{real(inssDe(r))}</td>
-                                    <td className="p-2 text-right">{real(irrfDe(r))}</td>
+                                    <td className="p-2 text-right" title={(r as Partial<ResultadoFerias>).irrf?.semRetencao ? `Sem retenção: ${(r as ResultadoFerias).irrf!.semRetencao}` : undefined}>{(r as Partial<ResultadoFerias>).irrf && !irrfDe(r) ? 'R$ 0,00' : real(irrfDe(r))}</td>
                                     <td className="p-2 text-right">{real(v(r, 'SF'))}</td>
                                     <td className="p-2 text-right font-medium">{r.situacao === 'erro' ? '—' : reais(r.totais.liquido)}</td>
                                     <td className="p-2 text-right">{real(r.fgts)}</td>
@@ -537,6 +543,20 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                                 <table className="w-full max-w-sm"><thead className="text-left text-slate-500"><tr><th>Competência</th><th className="text-right">Dias</th><th className="text-right">Férias + 1/3</th><th className="text-right">INSS</th><th className="text-right">FGTS</th></tr></thead>
                                     <tbody>{f.porCompetencia.map(c => <tr key={c.competencia}><td>{br(c.competencia)}</td><td className="text-right">{c.dias}</td><td className="text-right">{reais(c.ferias + c.terco)}</td><td className="text-right">{reais(c.inss)}</td><td className="text-right">{reais(c.fgts)}</td></tr>)}</tbody></table>
                             )}
+                            {f.irrf && (
+                                <div aria-label="IRRF sobre férias" className="rounded border border-slate-200 p-2 dark:border-slate-700">
+                                    <p className="font-medium">IRRF sobre férias (em separado)</p>
+                                    <p>Rendimento tributável {reais(f.irrf.tributavel)} − {f.irrf.usouSimplificado ? 'desconto simplificado' : `INSS${f.irrf.dependentes ? ` e ${f.irrf.dependentes} dependente(s)` : ''}`} {reais(f.irrf.deducoes)} = base <strong>{reais(f.irrf.base)}</strong></p>
+                                    <p>Tabela: {f.irrf.aliquota.toLocaleString('pt-BR')}%{f.irrf.parcelaDeduzir ? ` − ${reais(f.irrf.parcelaDeduzir)}` : ''} = {reais(f.irrf.calculado)}{f.irrf.redutor ? ` · redutor 2026 −${reais(f.irrf.redutor)}` : ''}{f.irrf.dispensado ? ` · dispensado (até R$ 10,00) −${reais(f.irrf.dispensado)}` : ''} · <strong>IRRF devido {reais(f.irrf.devido)}</strong></p>
+                                    {f.irrf.semRetencao && <p role="note" className="mt-1 rounded bg-amber-50 p-1 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">Sem retenção: {f.irrf.semRetencao}.</p>}
+                                </div>
+                            )}
+                            {(() => {
+                                const gravado = dados?.afastamentos.find(a => a.id === f.gozoId);
+                                const emp = empresas?.find(e => e.id === empresaId);
+                                if (!gravado || !emp) return null;
+                                return <StatusEsocialAfastamento afastamento={gravado} empresa={{ id: emp.id, cnpj: emp.cnpj, nome: emp.nomeFantasia || emp.razaoSocial }} usuario={usuario} envios={enviosEsocial} onAtualizado={() => setRecargaEnvios(n => n + 1)} />;
+                            })()}
                             {(() => {
                                 const simulado = !dados?.afastamentos.some(a => a.id === f.gozoId) ? feriasSimuladas.find(a => a.id === f.gozoId) : undefined;
                                 if (!simulado) return null;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { resumirFolha } from '../resumoFolha';
-import { holeritesPdf, resumoPdf, textoPdf } from '../holeritePdf';
+import { holeritesPdf, linhasIrrfFerias, resumoPdf, textoPdf } from '../holeritePdf';
 import { calcularMensal } from '../../calculo/motorMensal';
 import { fichaVazia, type FichaFuncionario } from '../../cadastros/funcionarios';
 import type { TabelaLegal } from '../../cadastros/tabelasLegais';
@@ -86,5 +86,22 @@ describe('relatórios da folha', () => {
         expect(simples.encargos.totalPrevidenciario).toBe(simples.encargos.inssSegurados - simples.encargos.salarioFamilia);
         expect(resumirFolha(resultados).encargos.patronal).toBeUndefined();
         expect(resumoPdf(r, o, '').output()).toContain('Contribui');
+    });
+
+    it('recibo de férias em PDF traz o IRRF mesmo sem retenção (revisão do PR #91)', async () => {
+        const { calcularFerias } = await import('../../calculo/motorFerias');
+        const { TABELAS_OFICIAIS_2026 } = await import('../../cadastros/tabelasOficiais');
+        const { afastamentoVazio } = await import('../../cadastros/afastamentos');
+        const jose = ficha('f9', 'JOSE', '3675.00');
+        const g = { ...afastamentoVazio(), id: 'g1', fichaId: 'f9', motivo: '15', dtInicio: '2026-11-09', dtFim: '2026-11-28', abonoDias: '10' };
+        const r = calcularFerias({ ficha: { ...jose, dados: { ...jose.dados, admissao: '2025-10-30' } }, gozo: g, afastamentos: [g], tabelas: TABELAS_OFICIAIS_2026, movimentos: {} });
+        expect(r.verbas.some(v => v.codigo === 'IRRFFER')).toBe(false);
+        const [conta, motivo] = linhasIrrfFerias(r);
+        expect(conta).toBe('IRRF sobre férias: rendimento 3.266,67 - desconto simplificado 607,20 = base 2.659,47 · 7,5% - 182,16 = 17,30 · redutor 2026 -17,30 · devido 0,00');
+        expect(motivo).toMatch(/^Sem retenção de IRRF: imposto de R\$\s17,30 zerado pelo redutor de 2026/);
+        const bruto = holeritesPdf([r], [jose], { ...o, titulo: 'Recibos de férias 11/2026' }).output();
+        expect(bruto).toContain('IRRF sobre f');
+        expect(bruto).toContain('Sem reten');
+        expect(linhasIrrfFerias(resultados[0])).toEqual([]);
     });
 });

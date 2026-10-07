@@ -142,5 +142,21 @@ describe('férias com as tabelas oficiais de 2026 (conferido com o IOB)', () => 
         expect([v(r, 'FER'), v(r, 'FER13'), v(r, 'ABONO'), v(r, 'ABONO13')]).toEqual([245000, 81667, 122500, 40833]);
         expect(r.bases.inss).toBe(326667);
         expect(r.totais).toEqual({ proventos: 490000, descontos: 28060, liquido: 461940 });
+        // IRRF informado mesmo sem retenção: 3.266,67 − simplificado 607,20 (maior que o INSS) = 2.659,47 × 7,5% − 182,16 = 17,30, zerado pelo redutor.
+        expect(r.irrf).toMatchObject({ tributavel: 326667, usouSimplificado: true, base: 265947, aliquota: 7.5, calculado: 1730, redutor: 1730, devido: 0 });
+        expect(r.irrf!.semRetencao).toMatch(/zerado pelo redutor de 2026/);
+        expect(r.avisos.join(' ')).toMatch(/IRRF sobre férias sem retenção: imposto de R\$\s17,30 zerado pelo redutor/);
+    });
+
+    it('IRRF sem retenção: faixa isenta e dispensa até R$ 10,00 também geram aviso; com retenção, nenhum', async () => {
+        const { TABELAS_OFICIAIS_2026 } = await import('../../cadastros/tabelasOficiais');
+        const ferias = (salario: string, redutor = true) => {
+            const g = af({ dtInicio: '2026-11-09', dtFim: '2026-12-08' });
+            return calcularFerias({ ficha: ficha({ admissao: '2025-10-30', salario }), gozo: g, afastamentos: [g], tabelas: TABELAS_OFICIAIS_2026, movimentos: {}, opcoes: { simplificado: true, redutor } });
+        };
+        expect(ferias('1700.00').irrf!.semRetencao).toMatch(/faixa isenta/);
+        expect(ferias('9000.00').irrf).toMatchObject({ semRetencao: '' });
+        expect(ferias('9000.00').avisos.join(' ')).not.toMatch(/sem retenção/);
+        expect(ferias('9000.00').irrf!.devido).toBeGreaterThan(0);
     });
 });

@@ -86,6 +86,48 @@ export function gerarS1298(p: { cnpj: string; perApur: string; tpAmb: TpAmb; id?
     return { id, xml: `<eSocial xmlns="${NS}/evtReabreEvPer/${VERSAO_LEIAUTE}"><evtReabreEvPer Id="${id}">${ideEvento(p.perApur, p.tpAmb)}${ideEmpregador(p.cnpj)}</evtReabreEvPer></eSocial>` };
 }
 
+/** Texto livre para o XML (observação). */
+const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+export interface AfastamentoS2230 {
+    cpf: string; matriculaEsocial: string; dtInicio: string; dtFim: string; motivo: string;
+    infoMesmoMtv?: string; tpAcidTransito?: string; observacao?: string; perAquisInicio?: string; perAquisFim?: string;
+}
+
+/**
+ * S-2230: afastamento temporário (sem assinatura; o CFI assina), leiaute
+ * S-1.3. Início e término no mesmo evento quando o término é conhecido
+ * (férias). Férias (motivo 15) exigem o período aquisitivo (perAquis).
+ */
+export function gerarS2230(p: { cnpj: string; tpAmb: TpAmb; afastamento: AfastamentoS2230; id?: string }): { id: string; xml: string } {
+    const a = p.afastamento;
+    const cpf = a.cpf.replace(/\D/g, '');
+    const data = /^\d{4}-\d{2}-\d{2}$/;
+    if (cpf.length !== 11) throw new Error('S-2230: CPF do trabalhador inválido.');
+    if (!a.matriculaEsocial.trim()) throw new Error('S-2230: informe a matrícula do eSocial na ficha.');
+    if (!data.test(a.dtInicio)) throw new Error('S-2230: data de início inválida.');
+    if (a.dtFim && (!data.test(a.dtFim) || a.dtFim < a.dtInicio)) throw new Error('S-2230: data de término inválida.');
+    if (!/^\d{2}$/.test(a.motivo)) throw new Error('S-2230: motivo do afastamento (Tabela 18) com 2 dígitos.');
+    if (a.motivo === '15' && (!a.perAquisInicio || !data.test(a.perAquisInicio))) throw new Error('S-2230: férias exigem o início do período aquisitivo.');
+    const id = p.id ?? idEvento(p.cnpj);
+    const perAquis = a.motivo === '15' && a.perAquisInicio
+        ? `<perAquis><dtInicio>${a.perAquisInicio}</dtInicio>${a.perAquisFim && data.test(a.perAquisFim) ? `<dtFim>${a.perAquisFim}</dtFim>` : ''}</perAquis>` : '';
+    const xml = `<eSocial xmlns="${NS}/evtAfastTemp/${VERSAO_LEIAUTE}"><evtAfastTemp Id="${id}">`
+        + `<ideEvento><indRetif>1</indRetif><tpAmb>${p.tpAmb}</tpAmb><procEmi>1</procEmi><verProc>${VER_PROC}</verProc></ideEvento>`
+        + ideEmpregador(p.cnpj)
+        + `<ideVinculo><cpfTrab>${cpf}</cpfTrab><matricula>${esc(a.matriculaEsocial.trim())}</matricula></ideVinculo>`
+        + '<infoAfastamento><iniAfastamento>'
+        + `<dtIniAfast>${a.dtInicio}</dtIniAfast><codMotAfast>${a.motivo}</codMotAfast>`
+        + (a.infoMesmoMtv === 'S' || a.infoMesmoMtv === 'N' ? `<infoMesmoMtv>${a.infoMesmoMtv}</infoMesmoMtv>` : '')
+        + (a.tpAcidTransito && /^[123]$/.test(a.tpAcidTransito) ? `<tpAcidTransito>${a.tpAcidTransito}</tpAcidTransito>` : '')
+        + (a.observacao?.trim() && a.motivo !== '15' ? `<observacao>${esc(a.observacao.trim().slice(0, 255))}</observacao>` : '')
+        + perAquis
+        + '</iniAfastamento>'
+        + (a.dtFim ? `<fimAfastamento><dtTermAfast>${a.dtFim}</dtTermAfast></fimAfastamento>` : '')
+        + '</infoAfastamento></evtAfastTemp></eSocial>';
+    return { id, xml };
+}
+
 // ─── XML pronto ─────────────────────────────────────────────────────────────
 
 const TIPO: Record<string, string> = {
