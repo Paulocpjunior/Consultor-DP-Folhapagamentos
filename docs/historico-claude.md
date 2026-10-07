@@ -1984,3 +1984,54 @@ guias sindicais".
   original entre parênteses, por exemplo "27/06/2025 (29/06/2025 não é dia
   útil)". A data é a mesma do arquivo bancário e da agenda. O motor continua
   guardando o prazo legal.
+
+## 07/10/2026 — Envio do pacote pelo próprio app e e-mail verificado para o CFI
+
+- **Paulo:** *"pode seguir com o envio do pacote! mas porque usar o
+  consultor? porque cada módulo não usa um túnel para acesso mas envia do
+  seu próprio app"*.
+- **Decisão:** o envio sai do próprio Consultor DP, sem passar pela Central
+  de Comunicação do CFI.
+  - O DP é um site estático. Senha de e-mail ou token de WhatsApp não podem
+    ficar nele, porque tudo o que está no navegador é público. Por isso o
+    envio usa o WhatsApp e o e-mail de quem está usando o app.
+  - Um envio automático pelo número ou e-mail oficial do escritório
+    precisaria de um servidor com essas credenciais: uma Cloud Function do
+    DP ou a Central do CFI. Fica para quando houver necessidade.
+- **Feito (pacote do cliente):**
+  - O pacote é montado uma vez e o número do arquivo bancário avança só uma
+    vez. Depois aparece **"Enviar ao cliente"**, com:
+    - contato no cliente (nome, e-mail e WhatsApp), que pode ser gravado na
+      empresa (`empresas.contatoEnvio`, `salvarContatoEnvio`);
+    - mensagem pronta e editável: o que vai no pacote, total e data do
+      crédito do arquivo bancário, quem pagar por fora e as datas da agenda;
+    - **"Compartilhar com o .zip"**: o compartilhamento do aparelho ou do
+      navegador, que já anexa o arquivo. Só aparece onde o navegador permite
+      compartilhar arquivo;
+    - **"Abrir WhatsApp"** (wa.me) e **"Abrir e-mail"** (mailto), com a
+      mensagem preenchida. O .zip baixado é anexado à mão;
+    - "Copiar mensagem", "Baixar o .zip de novo" e "Refazer pacote" (este
+      avisa que gera um novo arquivo bancário).
+  - `services/pacoteCliente/envio.ts`: `numeroWhatsApp` (DDI 55),
+    `emailValido`, `mensagemEnvio`, `linkWhatsApp`, `linkEmail`.
+- **Paulo (com prints):** *"ajuste para acesso válido com referência ao
+  certificado digital"*. A Juliana (gestora) recebia "Token inválido: Email
+  não verificado" na transmissão do S-2230 e "O cofre recusou o acesso" na
+  aba Certificados.
+  - **Causa:** o CFI só aceita token com e-mail verificado, e a conta dela
+    no Firebase do DP não estava verificada. Só o e-mail master tinha o
+    aviso para verificar.
+  - **Correção:**
+    - **Aviso para qualquer usuário sem verificação:** "Verificar meu
+      e-mail" (`VerificarEmail`) no topo da tela, com "Enviar link de
+      verificação" e "Já verifiquei".
+    - **`services/auth/tokenCfi.ts`:** `tokenParaCfi` recarrega a conta e
+      renova o token quando o e-mail acabou de ser verificado, porque o
+      "verificado" só entra num token novo. `comTokenCfi` tenta de novo uma
+      vez com token novo; sem verificação, troca o erro pela orientação.
+    - **Onde é usado:** SERPRO e transmissão do eSocial (`callFiscal`),
+      cofre de certificados e conferência do cadastro central.
+  - **O que a Juliana precisa fazer:** clicar em "Enviar link de
+    verificação", abrir o e-mail, clicar no link e voltar em "Já
+    verifiquei". O CFI não foi alterado: a exigência de e-mail verificado
+    continua.

@@ -183,6 +183,11 @@ export async function salvarContasPagamento(empresaId: string, contas: import('.
     await updateDoc(doc(db, 'empresas', empresaId), { contasPagamento: contas.map(c => JSON.parse(JSON.stringify(c))), atualizadoEm: serverTimestamp() });
 }
 
+export async function salvarContatoEnvio(empresaId: string, contato: import('../pacoteCliente/envio').ContatoEnvio): Promise<void> {
+    const limpo = Object.fromEntries(Object.entries(contato).map(([k, v]) => [k, (v ?? '').trim()]).filter(([, v]) => v));
+    await updateDoc(doc(db, 'empresas', empresaId), { contatoEnvio: limpo, atualizadoEm: serverTimestamp() });
+}
+
 export async function excluirEmpresa(id: string): Promise<void> {
     const atual = await buscarEmpresa(id);
     const lote = writeBatch(db);

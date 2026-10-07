@@ -25,6 +25,8 @@ export interface Empresa {
     certificado?: CertificadoDigital;
     /** Contas da empresa para o arquivo bancário (remessa CNAB 240 de salários). */
     contasPagamento?: import('../bancario/cnab240').ContaPagamento[];
+    /** Para quem vai o pacote da folha (e-mail e WhatsApp do contato no cliente). */
+    contatoEnvio?: import('../pacoteCliente/envio').ContatoEnvio;
 }
 
 export interface EmpresaInput {

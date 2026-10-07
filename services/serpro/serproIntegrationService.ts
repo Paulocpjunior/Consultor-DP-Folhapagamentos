@@ -11,18 +11,15 @@
  * IMPORTANTE: usuário precisa existir tanto no DP quanto no Fiscal
  * com mesmo email para que o token seja aceito.
  */
-import { getAuth } from 'firebase/auth';
+import { comTokenCfi } from '../auth/tokenCfi';
 
 const FISCAL_API_BASE = 'https://consultor-fiscal-inteligente-631239634290.us-west1.run.app/api/dp-integration';
 
-async function getToken(): Promise<string> {
-    const u = getAuth().currentUser;
-    if (!u) throw new Error('Usuário não autenticado');
-    return u.getIdToken();
+export async function callFiscal<T>(path: string, body: object): Promise<T> {
+    return comTokenCfi(token => chamarFiscal<T>(path, body, token));
 }
 
-export async function callFiscal<T>(path: string, body: object): Promise<T> {
-    const token = await getToken();
+async function chamarFiscal<T>(path: string, body: object, token: string): Promise<T> {
     const resp = await fetch(`${FISCAL_API_BASE}${path}`, {
         method: 'POST',
         headers: {

@@ -9,7 +9,7 @@ import type { User } from '../../types';
 import EmpresaForm from './EmpresaForm';
 import { ROTULO_SITUACAO, cofreDaMinhaCarteira, diasDaLinha, precisaAtencao, type LinhaCofre } from '../../services/certificados/cofreCertificados';
 import { buscarCadastroCentral, conferirEmpresas, type ConferenciaCadastroCentral } from '../../services/cadastroCentralConferencia';
-import { getAuth } from 'firebase/auth';
+import { tokenParaCfi } from '../../services/auth/tokenCfi';
 
 interface Props { currentUser: User; }
 
@@ -56,11 +56,7 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser }) => {
     useEffect(() => {
         if (!empresas.length) { setConfCentral(null); return; }
         let vivo = true;
-        buscarCadastroCentral(async () => {
-            const u = getAuth().currentUser;
-            if (!u) throw new Error('sem sessão');
-            return await u.getIdToken();
-        }).then((central) => {
+        buscarCadastroCentral(() => tokenParaCfi()).then((central) => {
             if (!vivo || !central) return;
             setConfCentral(conferirEmpresas(empresas as any, central));
         });

@@ -571,6 +571,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 return (
                     <PacoteClienteModal empresa={empresa} resultados={resultados} fichas={dados.fichas} titulo={tituloFolha} sufixo={sufixoArquivo}
                         dataSugerida={sugerida} dataPorResultado={dataDoRecibo} eventos={eventos} onFechar={() => setPacote(false)} onContasSalvas={contasSalvas}
+                        onContatoSalvo={contatoEnvio => setEmpresas(l => l?.map(e => (e.id === empresa.id ? { ...e, contatoEnvio } : e)) ?? l)}
                         documentos={[
                             { id: 'holerites', rotulo: `${recibos} (PDF)`, nome: `holerites-${cod}-${sufixoArquivo}.pdf`, descricao: `${recibos.toLowerCase()} para assinatura dos funcionários`,
                                 gerar: () => holeritesPdf(resultados, dados.fichas, opcoesPdf()).output('arraybuffer') },
