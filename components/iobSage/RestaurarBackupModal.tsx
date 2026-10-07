@@ -4,12 +4,15 @@
 // o "Backup SQL" da linha Office tem duas partes: um .zip com o cadastro das
 // empresas (DBF) e um .backup com os dados da folha (PostgreSQL). O modal
 // aceita as duas juntas. Tudo é lido no navegador: nada é enviado ao servidor
-// nem gravado no Consultor DP. A gravação vem depois do de/para (fase 2).
+// nem gravado no Consultor DP até a equipe usar "Restaurar a empresa no
+// Consultor", que grava só o que o Consultor usa, depois do resumo de cada etapa.
 
 import React, { useMemo, useState } from 'react';
 import { fonteDeBlob, type Valor } from '../../services/iobSage/backupPostgres';
 import { abrirRestauracao, exportarCsv, type Restauracao, type TabelaRestauracao, type TipoArquivo } from '../../services/iobSage/restauracao';
 import type { Codificacao } from '../../services/iobSage/dbf';
+import type { Usuario } from '../../services/cadastros/cadastrosService';
+import RestaurarEmpresaNoConsultor from './RestaurarEmpresaNoConsultor';
 
 const botao = 'rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-40';
 const botaoSec = 'rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:text-slate-200 disabled:opacity-40';
@@ -33,9 +36,9 @@ function baixar(nome: string, blob: Blob) {
 }
 const nomeSeguro = (s: string) => s.replace(/[^\w.-]+/g, '_');
 
-interface Props { aberto: boolean; onFechar: () => void }
+interface Props { aberto: boolean; onFechar: () => void; usuario?: Usuario; podeRestaurar?: boolean }
 
-const RestaurarBackupModal: React.FC<Props> = ({ aberto, onFechar }) => {
+const RestaurarBackupModal: React.FC<Props> = ({ aberto, onFechar, usuario, podeRestaurar = false }) => {
     const [arquivos, setArquivos] = useState<File[]>([]);
     const [restauracao, setRestauracao] = useState<Restauracao | null>(null);
     const [lendo, setLendo] = useState(false);
@@ -102,7 +105,7 @@ const RestaurarBackupModal: React.FC<Props> = ({ aberto, onFechar }) => {
                         <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
                             No modo SQL, o Backup SQL do IOB Office tem duas partes: o <b>.zip</b> com o cadastro das empresas (tabelas DBF) e o <b>.backup</b> com os dados da folha (PostgreSQL). Escolha as duas juntas. Também abre .tar, .sql, .sql.gz e DBF soltos. Zip de mais de 1 GB abre direto, sem extrair: o navegador lê só o índice e as partes de que precisa.
                         </p>
-                        <p className="mt-1 text-xs font-medium text-green-700 dark:text-green-300">Os arquivos são lidos no seu computador. Nada é enviado ao servidor nem gravado no Consultor DP.</p>
+                        <p className="mt-1 text-xs font-medium text-green-700 dark:text-green-300">Os arquivos são lidos no seu computador e não são enviados a lugar nenhum. O Consultor só grava o que você confirmar em "Restaurar a empresa no Consultor".</p>
                     </div>
                     <button aria-label="Fechar" className="rounded px-2 text-xl text-slate-500 hover:text-slate-800 dark:hover:text-white" onClick={onFechar}>×</button>
                 </div>
@@ -124,6 +127,10 @@ const RestaurarBackupModal: React.FC<Props> = ({ aberto, onFechar }) => {
                     )}
                 </div>
                 {erro && <p className="mt-3 text-sm text-red-700 dark:text-red-300">{erro}</p>}
+
+                {r && r.backups.length > 0 && (
+                    <div className="mt-4"><RestaurarEmpresaNoConsultor restauracao={r} arquivos={arquivos.map(f => f.name)} usuario={usuario} podeRestaurar={podeRestaurar} /></div>
+                )}
 
                 {r && (
                     <>
