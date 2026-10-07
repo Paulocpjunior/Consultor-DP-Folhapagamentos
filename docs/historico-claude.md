@@ -1666,3 +1666,17 @@ guias sindicais".
   regime quanto para a conferência do CNPJ. As de outra raiz viram pendência
   ("ignorada; conferir") e não impedem gravar. Sem nenhuma linha da empresa,
   continua o erro de CNPJ (código SAGE trocado).
+
+## 07/10/2026 — 1200 com o CNPJ 44.388.152: fichas passam para o CNPJ atual
+
+- **Diagnóstico pelo backup:** 1984 dos 2106 XMLs da 1200 (e 504 de
+  afastamento) foram transmitidos pela raiz **44388152**. O S-1000 da 1200 é
+  todo dessa raiz, desde 11/2021. O Consultor tinha a 1200 com a raiz
+  04896300, que só aparece nos envios antigos.
+- **Paulo:** *"o correto é a empresa 1200 com CNPJ 44388152"*. Ele corrige o
+  CNPJ no cadastro da empresa.
+- **Mudança:** as fichas guardam o CNPJ do empregador. Na restauração, as
+  fichas da empresa com outro CNPJ passam para o CNPJ atual. A troca aparece
+  como alteração ("CNPJ do empregador") e como aviso na etapa 1. A edição
+  manual da ficha não marca o CNPJ como "Manual". Afastamentos, movimentos e
+  enquadramento não guardam CNPJ.

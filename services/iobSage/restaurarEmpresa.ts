@@ -96,7 +96,10 @@ export async function planejarRestauracao(rest: Leitor, empresa: Empresa, existe
     const etapas: Etapa[] = [];
     const origem: string[] = [];
     const originais = new Map(existentes.fichas.map(f => [f.id, f]));
-    const atuais = new Map(existentes.fichas.map(f => [f.id, f]));
+    // Empresa que mudou de CNPJ (cadastro corrigido): as fichas passam para o CNPJ atual.
+    const cnpjEmpresa = empresa.cnpj.replace(/\D/g, '');
+    const atuais = new Map(existentes.fichas.map(f => [f.id, cnpjEmpresa && f.cnpj !== cnpjEmpresa ? { ...f, cnpj: cnpjEmpresa } : f]));
+    const cnpjAntigo = existentes.fichas.filter(f => cnpjEmpresa && f.cnpj !== cnpjEmpresa);
     const fichas = () => [...atuais.values()];
 
     // 1. Vínculos pelo eSocial transmitido.
@@ -105,7 +108,10 @@ export async function planejarRestauracao(rest: Leitor, empresa: Empresa, existe
     const prev = prepararImportacao(b.fontes, empresa, hoje, fichas(), { recibos: b.recibos, leiautesAntigos: true });
     const doEsocial = paraGravar(prev);
     for (const r of doEsocial) atuais.set(r.ficha.id, r.ficha);
-    etapas.push({ titulo: 'Vínculos pelo eSocial', resumo: `${b.fontes.length} XML(s) · ${doEsocial.filter(r => r.novo).length} ficha(s) nova(s), ${doEsocial.filter(r => !r.novo).length} atualizada(s)`, avisos: agruparAvisos([...b.avisos, ...prev.avisos]) });
+    etapas.push({ titulo: 'Vínculos pelo eSocial', resumo: `${b.fontes.length} XML(s) · ${doEsocial.filter(r => r.novo).length} ficha(s) nova(s), ${doEsocial.filter(r => !r.novo).length} atualizada(s)`, avisos: [
+        ...(cnpjAntigo.length ? [`${cnpjAntigo.length} ficha(s) com outro CNPJ (${[...new Set(cnpjAntigo.map(f => f.cnpj))].join(', ')}): passam para o CNPJ atual da empresa (${cnpjEmpresa}).`] : []),
+        ...agruparAvisos([...b.avisos, ...prev.avisos]),
+    ] });
     if (b.fontes.length) origem.push(`${b.grupos.join(', ')}.arquivoeventotransmissaoesocial`);
 
     // 2. Fichas pela func e complementares.
