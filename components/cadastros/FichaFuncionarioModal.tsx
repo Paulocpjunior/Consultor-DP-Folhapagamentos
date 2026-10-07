@@ -160,7 +160,7 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                                     <tr key={h.desde}><td className="p-1">{h.desde.split('-').reverse().join('/')}</td><td className="p-1">{Number(h.salario).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}{h.unidade && h.unidade !== '5' ? ` (unidade ${h.unidade})` : ''}</td><td className="p-1">{h.origem}</td></tr>
                                 ))}</tbody>
                             </table>
-                            <p className="text-[11px] text-slate-500 dark:text-slate-400">Antes do último reajuste, o cálculo usa o salário da época: na folha, o do mês; nas férias, o do início do gozo; no 13º, o de dezembro (e, no adiantamento, o do mês anterior ao pagamento). Vem do eSocial (ou do backup do SAGE: rsalfunc/salarios) a cada importação; não se edita aqui.</p>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400">Antes do último reajuste, o cálculo usa o salário da época: na folha, o do mês; nas férias, o do início do gozo; no 13º, o de dezembro (e, no adiantamento, o do mês anterior ao pagamento); na rescisão, o do desligamento. Vem do eSocial (ou do backup do SAGE: rsalfunc/salarios) a cada importação; não se edita aqui.</p>
                         </div>
                     )}
 

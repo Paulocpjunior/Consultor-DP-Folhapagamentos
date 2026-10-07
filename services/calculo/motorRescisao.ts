@@ -20,7 +20,7 @@
 //   art. 479) ou 20% (acordo) sobre o saldo informado — paga por guia, fora
 //   do líquido. Pagamento em até 10 dias do término (art. 477, § 6º).
 
-import type { FichaFuncionario } from '../cadastros/funcionarios';
+import { fichaNaData, memoriaDoHistorico, type FichaFuncionario } from '../cadastros/funcionarios';
 import type { Afastamento } from '../cadastros/afastamentos';
 import { dataValida, reais } from '../cadastros/documentos';
 import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros/tabelasLegais';
@@ -94,7 +94,10 @@ export function diasDeAviso(admissao: string, data: string): number {
 }
 
 export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
-    const { ficha, data, tipo } = e;
+    const { data, tipo } = e;
+    // Salário vigente no desligamento, pelo histórico (aviso, 13º e férias saem da remuneração da extinção).
+    const naExtincao = fichaNaData(e.ficha, data);
+    const ficha = naExtincao.ficha;
     const d = ficha.dados;
     const opcoes = e.opcoes ?? { simplificado: true, redutor: true };
     const pagarAte = dataValida(data) ? somarDias(data, 10) : '';
@@ -123,10 +126,11 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
     if (!e.pagamento && pagamento !== data.slice(0, 7)) r.avisos.push(`O prazo de pagamento cai em ${rotuloCompetencia(pagamento)}: o IRRF usa a tabela desse mês. Se a rescisão for paga antes, informe o mês do pagamento.`);
     r.memoria.push(`${TIPOS_RESCISAO[tipo]}; admissão ${br(d.admissao)}, desligamento ${br(data)}; pagamento até ${br(pagarAte)} (art. 477, § 6º).`);
 
-    // Remuneração para aviso, 13º e férias: salário atual + média de horas extras dos 12 meses anteriores.
+    // Remuneração para aviso, 13º e férias: salário do desligamento + média de horas extras dos 12 meses anteriores.
     const sc = salarioContratual(d);
     r.avisos.push(...sc.avisos);
     if ('erro' in sc) return erro(sc.erro);
+    if (naExtincao.faixa) r.memoria.push(memoriaDoHistorico(naExtincao.faixa, `no desligamento (${br(data)})`));
     const salarioHora = sc.mensal / sc.horasMes;
     const ultimos12 = Array.from({ length: 12 }, (_, i) => somarMeses(`${data.slice(0, 7)}-01`, -(i + 1)).slice(0, 7));
     let somaVar = 0;
