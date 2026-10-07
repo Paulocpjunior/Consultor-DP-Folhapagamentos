@@ -34,7 +34,8 @@ export function classificarEvento(natRubr: string, descricao: string): Classe | 
         if (/reflexo|media|dsr|banco/.test(d)) return null;
         return /100/.test(d) ? 'horasExtras100' : 'horasExtras50';
     }
-    if (natRubr === '9207') return 'faltasDias';
+    // Falta junto com atraso, ou em horas ("(T/H)"), não é contagem de dias.
+    if (natRubr === '9207') return /atras|t\/h|\bhoras?\b/.test(d) ? null : 'faltasDias';
     if (natRubr === '9211' || !natRubr) return falta && !/atras/.test(d) ? 'faltasDias' : null;
     return null;
 }
@@ -89,16 +90,34 @@ export function quantidade(v: string | null, sexagesimal = false): number {
 const competenciaDe = (v: string | null) => { const d = (v ?? '').replace(/\D/g, ''); return /^\d{6}$/.test(d) ? `${d.slice(0, 4)}-${d.slice(4)}` : ''; };
 const fimDoMes = (c: string) => { const [y, m] = c.split('-').map(Number); return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10); };
 
-export interface EventoResumo { codeven: string; descricao: string; natRubr: string; classe: Classe | null; linhas: number; total: number }
+export interface EventoResumo {
+    codeven: string; descricao: string; natRubr: string;
+    /** Classe usada (a manual, quando a equipe acertou; senão a automática). */
+    classe: Classe | null;
+    /** Classe pela natureza e descrição, sem a manual. */
+    automatica: Classe | null;
+    manual: boolean;
+    linhas: number; total: number;
+}
 export interface MovimentoImportado { fichaId: string; competencia: string; movimento: Movimento }
-export interface HistoricoDaFolha { movimentos: MovimentoImportado[]; eventos: EventoResumo[]; avisos: string[]; linhas: number }
+export interface HistoricoDaFolha {
+    movimentos: MovimentoImportado[];
+    /** Eventos que entraram no movimento. */
+    eventos: EventoResumo[];
+    /** Todos os eventos do período, para a equipe ajustar a classificação. */
+    todos: EventoResumo[];
+    avisos: string[]; linhas: number;
+}
+
+/** Classificação acertada pela equipe para um evento do IOB (vale sobre a automática). */
+export type ClasseManual = Classe | 'ignorar';
 
 /**
  * Soma, por funcionário e competência, as quantidades dos eventos que entram
  * no movimento. Liga pelo código IOB, no vínculo em vigor na competência.
  */
-export function movimentosDoHolerith(holerith: TabelaLida, naturezas: NaturezasEventos, fichas: FichaFuncionario[], opcoes: { desde?: string; sexagesimal?: boolean } = {}): HistoricoDaFolha {
-    const r: HistoricoDaFolha = { movimentos: [], eventos: [], avisos: [], linhas: 0 };
+export function movimentosDoHolerith(holerith: TabelaLida, naturezas: NaturezasEventos, fichas: FichaFuncionario[], opcoes: { desde?: string; sexagesimal?: boolean; eventos?: Record<string, ClasseManual> } = {}): HistoricoDaFolha {
+    const r: HistoricoDaFolha = { movimentos: [], eventos: [], todos: [], avisos: [], linhas: 0 };
     const i = (n: string) => holerith.colunas.findIndex(c => chaveColuna(c) === n);
     const [iCod, iAno, iEv, iRef, iDesc] = ['codfun', 'anomes', 'codeven', 'ref', 'descricao'].map(i);
     if ([iCod, iAno, iEv, iRef].some(x => x < 0)) { r.avisos.push('holerith sem as colunas codfun, anomes, codeven e ref.'); return r; }
@@ -114,13 +133,16 @@ export function movimentosDoHolerith(holerith: TabelaLida, naturezas: NaturezasE
         const ev = chaveCodfun(l[iEv]);
         const descricao = iDesc >= 0 ? (l[iDesc] ?? '').trim() : '';
         const natRubr = naturezaEm(naturezas, ev, competencia);
-        const classe = classificarEvento(natRubr, descricao);
+        const manual = opcoes.eventos?.[ev];
+        const automatica = classificarEvento(natRubr, descricao);
+        const classe = manual ? (manual === 'ignorar' ? null : manual) : automatica;
         const q = Math.abs(quantidade(l[iRef], opcoes.sexagesimal && (classe === 'horasExtras50' || classe === 'horasExtras100')));
         const chaveResumo = `${ev}|${natRubr}`;
-        const res = resumo.get(chaveResumo) ?? { codeven: ev, descricao, natRubr, classe, linhas: 0, total: 0 };
+        const res = resumo.get(chaveResumo) ?? { codeven: ev, descricao, natRubr, classe, automatica, manual: !!manual, linhas: 0, total: 0 };
         res.linhas++; res.total += q; resumo.set(chaveResumo, res);
         if (!classe || !q) continue;
-        if ((classe === 'faltasDias' || classe === 'dsrDescontadoDias') && (q > 31 || /hora/.test(semAcento(descricao)))) { faltaEmHoras++; continue; }
+        // Falta em horas fica de fora; pela descrição só quando a classe não foi acertada pela equipe.
+        if ((classe === 'faltasDias' || classe === 'dsrDescontadoDias') && (q > 31 || (!manual && /hora/.test(semAcento(descricao))))) { faltaEmHoras++; continue; }
         const vinculos = (porCodigo.get(chaveCodfun(l[iCod])) ?? []).filter(f =>
             (!f.dados.admissao || f.dados.admissao <= fimDoMes(competencia)) && (!f.dados.dataDesligamento || `${competencia}-01` <= f.dados.dataDesligamento));
         if (vinculos.length !== 1) { semFicha++; continue; }
@@ -130,7 +152,8 @@ export function movimentosDoHolerith(holerith: TabelaLida, naturezas: NaturezasE
         soma.set(chave, m);
     }
     r.movimentos = [...soma.values()].sort((a, b) => a.fichaId.localeCompare(b.fichaId) || a.competencia.localeCompare(b.competencia));
-    r.eventos = [...resumo.values()].filter(e => e.classe).sort((a, b) => a.codeven.localeCompare(b.codeven) || a.natRubr.localeCompare(b.natRubr));
+    r.todos = [...resumo.values()].sort((a, b) => a.codeven.localeCompare(b.codeven, 'pt-BR', { numeric: true }) || a.natRubr.localeCompare(b.natRubr));
+    r.eventos = r.todos.filter(e => e.classe);
     if (semFicha) r.avisos.push(`${semFicha} lançamento(s) de funcionário sem ficha (ou com mais de um vínculo) na competência: ficaram de fora.`);
     if (faltaEmHoras) r.avisos.push(`${faltaEmHoras} lançamento(s) de falta em horas: ficaram de fora (o movimento conta faltas em dias).`);
     return r;

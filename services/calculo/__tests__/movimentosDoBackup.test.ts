@@ -12,6 +12,8 @@ describe('o que cada evento do IOB é no movimento', () => {
         expect(classificarEvento('1003', 'H.EXTRAS 100%')).toBe('horasExtras100');
         expect(classificarEvento('1003', 'REFLEXO H.E. NO DSR')).toBeNull();
         expect(classificarEvento('9207', 'FALTAS')).toBe('faltasDias');
+        expect(classificarEvento('9207', 'FALTAS E ATRASOS (T/H)')).toBeNull();
+        expect(classificarEvento('9207', 'FALTAS EM HORAS')).toBeNull();
         expect(classificarEvento('9211', 'FALTAS/ATRASOS')).toBeNull();
         expect(classificarEvento('9211', 'FALTAS NO MES')).toBe('faltasDias');
         expect(classificarEvento('9207', 'DSR S/ FALTAS')).toBe('dsrDescontadoDias');
@@ -61,14 +63,14 @@ describe('movimento mensal pelo holerith', () => {
             l('52', '202502', '1', '30', 'SALARIO'), l('52', '202312', '50', '8', 'HORAS EXTRAS 50%'),
             l('52', '202201', '50', '8', 'HORAS EXTRAS 50%'), // antes da admissão
             l('999', '202501', '50', '5', 'HORAS EXTRAS 50%'), // sem ficha
-            l('52', '202502', '120', '16', 'FALTAS EM HORAS'),
+            l('52', '202502', '120', '40', 'FALTAS'), // mais de 31: está em horas
         ] };
         const r = movimentosDoHolerith(holerith, naturezas, [ana], { desde: '2024-01' });
         expect(r.movimentos).toEqual([
             { fichaId: ana.id, competencia: '2025-01', movimento: { horasExtras50: 12.5, horasExtras100: 4 } },
             { fichaId: ana.id, competencia: '2025-02', movimento: { faltasDias: 2 } },
         ]);
-        expect(r.eventos.map(e => [e.codeven, e.classe, e.linhas])).toEqual([['120', 'faltasDias', 2], ['50', 'horasExtras50', 3], ['51', 'horasExtras100', 1]]);
+        expect(r.eventos.map(e => [e.codeven, e.classe, e.linhas])).toEqual([['50', 'horasExtras50', 3], ['51', 'horasExtras100', 1], ['120', 'faltasDias', 2]]);
         expect(r.avisos.join(' ')).toMatch(/1 lançamento\(s\) de funcionário sem ficha/);
         expect(r.avisos.join(' ')).toMatch(/falta em horas/);
         expect(movimentosDoHolerith(holerith, naturezas, [ana], { desde: '2022-01' }).movimentos.map(m => m.competencia)).toEqual(['2023-12', '2025-01', '2025-02']);
@@ -84,5 +86,23 @@ describe('movimento mensal pelo holerith', () => {
         // Fora dos limites do mês (mesma validação do movimento digitado): com erro, não grava.
         const [ruim] = mesclarMovimentos([{ fichaId: 'f1', competencia: '2025-02', movimento: { faltasDias: 40, horasExtras50: 320 } }], {});
         expect(ruim.erros).toEqual(['Horas extras 50%: no máximo 300.', 'Faltas (dias): no máximo 28.']);
+    });
+
+    it('classificação acertada pela equipe vale sobre a automática; todos os eventos ficam listados', () => {
+        const holerith = { colunas: COLS, linhas: [
+            l('52', '202501', '130', '10,30', 'TRABALHO EM DOMINGO'), l('52', '202501', '50', '2', 'HORAS EXTRAS 50%'),
+            l('52', '202501', '1', '30', 'SALARIO'), l('52', '202502', '5850', '3', 'FALTAS E ATRASOS (T/H)'),
+        ] };
+        const auto = movimentosDoHolerith(holerith, naturezas, [ana], { desde: '2024-01' });
+        expect(auto.movimentos).toEqual([{ fichaId: ana.id, competencia: '2025-01', movimento: { horasExtras50: 2 } }]);
+        expect(auto.todos.map(e => [e.codeven, e.classe, e.manual])).toEqual([['1', null, false], ['50', 'horasExtras50', false], ['130', null, false], ['5850', null, false]]);
+
+        const r = movimentosDoHolerith(holerith, naturezas, [ana], { desde: '2024-01', sexagesimal: true, eventos: { 130: 'horasExtras100', 50: 'ignorar', 5850: 'faltasDias' } });
+        expect(r.movimentos).toEqual([
+            { fichaId: ana.id, competencia: '2025-01', movimento: { horasExtras100: 10.5 } },
+            { fichaId: ana.id, competencia: '2025-02', movimento: { faltasDias: 3 } },
+        ]);
+        expect(r.todos.find(e => e.codeven === '50')).toMatchObject({ classe: null, automatica: 'horasExtras50', manual: true });
+        expect(r.eventos.map(e => e.codeven)).toEqual(['130', '5850']);
     });
 });

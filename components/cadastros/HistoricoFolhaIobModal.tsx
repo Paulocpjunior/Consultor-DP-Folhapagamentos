@@ -15,6 +15,7 @@ import { abrirRestauracao } from '../../services/iobSage/restauracao';
 import { fonteDeBlob } from '../../services/iobSage/backupPostgres';
 import { listarMovimentosDaEmpresa, salvarMovimentos } from '../../services/calculo/movimentosService';
 import { ROTULO_MOVIMENTO } from '../../services/calculo/movimento';
+import { lerParametros } from '../../services/iobSage/restaurarEmpresaService';
 import {
     CAMPOS_HISTORICO, TABELAS_HISTORICO, mesclarMovimentos, movimentosDoHolerith, naturezasDosEventos,
     type EventoResumo, type MesclaMovimento,
@@ -54,7 +55,7 @@ const HistoricoFolhaIobModal: React.FC<Props> = ({ empresa, usuario, fichas, onF
             }
             if (!lidas.holerith) { setErro(`O backup não tem a tabela holerith do schema f${codigo} (empresa ${empresa.codigoSage}).`); return; }
             const naturezas = naturezasDosEventos(lidas.eventos_esocial ?? null, lidas.esocialdadosficha_s1010 ?? null);
-            const h = movimentosDoHolerith(lidas.holerith, naturezas, fichas, { desde, sexagesimal });
+            const h = movimentosDoHolerith(lidas.holerith, naturezas, fichas, { desde, sexagesimal, eventos: lerParametros().eventos });
             setOcupado('Comparando com os movimentos gravados…');
             const existentes = await listarMovimentosDaEmpresa(empresa.id, c => c >= desde);
             const avisos = [...h.avisos];
@@ -115,7 +116,7 @@ const HistoricoFolhaIobModal: React.FC<Props> = ({ empresa, usuario, fichas, onF
                                 <tbody>{previa.eventos.map(e => (
                                     <tr key={`${e.codeven}|${e.natRubr}`} className="border-t border-slate-100 dark:border-slate-700">
                                         <td className="p-1 font-mono">{e.codeven}</td><td className="p-1">{e.descricao}</td><td className="p-1">{e.natRubr || 'pela descrição'}</td>
-                                        <td className="p-1">{e.classe ? ROTULO_MOVIMENTO[e.classe] : ''}</td><td className="p-1 text-right">{e.linhas}</td><td className="p-1 text-right">{num(e.total)}</td>
+                                        <td className="p-1">{e.classe ? ROTULO_MOVIMENTO[e.classe] : ''}{e.manual ? ' (acertado)' : ''}</td><td className="p-1 text-right">{e.linhas}</td><td className="p-1 text-right">{num(e.total)}</td>
                                     </tr>
                                 ))}</tbody>
                             </table>

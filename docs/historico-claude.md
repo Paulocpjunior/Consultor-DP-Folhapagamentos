@@ -1599,3 +1599,26 @@ guias sindicais".
   - Só completa o que falta. O que já está gravado, inclusive o digitado à
     mão, é mantido; rodar de novo não repete nada.
   - Só o gestor restaura.
+
+## 07/10/2026 — Classificação dos eventos do histórico como parâmetro
+
+- **Paulo:** enviou o print do resumo da restauração da 1200 (preparada, ainda
+  não gravada).
+- **O que o print mostrou:**
+  - o evento 5850 "FALTAS E ATRASOS (T/H)" (natureza 9207) era somado como
+    dias de falta;
+  - nenhuma hora extra foi reconhecida.
+- **Mudança:**
+  - Natureza 9207 com "atraso", "T/H" ou "horas" na descrição não entra mais
+    como dias de falta.
+  - Na seção "Restaurar a empresa no Consultor", depois de preparar, aparece a
+    tabela **"Eventos do histórico"**: todos os eventos do `holerith` no
+    período, com natureza, lançamentos e quantidade. Para cada um, a equipe
+    escolhe automático, HE 50%, HE 100%, faltas (dias), DSR descontado (dias)
+    ou "não entra".
+  - O acerto fica salvo nos parâmetros (`eventos`, por código do evento), vale
+    para as próximas empresas e também para Funcionários › "Histórico da folha
+    (IOB)". Mudar um evento descarta o plano; a tabela continua aberta para
+    acertar os outros, e depois é só preparar de novo.
+  - Evento acertado como falta não é descartado pela palavra "hora" na
+    descrição; o limite de 31 dias continua.

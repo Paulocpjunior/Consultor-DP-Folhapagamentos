@@ -12,11 +12,14 @@ import type { Restauracao } from '../../services/iobSage/restauracao';
 import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
 import { mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
 import { empresasDoBackup, planejarRestauracao, type Existentes, type ParametrosRestauracao, type PlanoRestauracao } from '../../services/iobSage/restaurarEmpresa';
+import { CAMPOS_HISTORICO, type ClasseManual, type EventoResumo } from '../../services/calculo/movimentosDoBackup';
+import { ROTULO_MOVIMENTO } from '../../services/calculo/movimento';
 import { carregarExistentes, gravarRestauracao, lerParametros, salvarParametros } from '../../services/iobSage/restaurarEmpresaService';
 
 interface Props { restauracao: Restauracao; arquivos: string[]; usuario?: Usuario; podeRestaurar: boolean }
 
 const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const num = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
 const botao = 'rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-40';
 
 const RestaurarEmpresaNoConsultor: React.FC<Props> = ({ restauracao, arquivos, usuario, podeRestaurar }) => {
@@ -24,6 +27,8 @@ const RestaurarEmpresaNoConsultor: React.FC<Props> = ({ restauracao, arquivos, u
     const [codigo, setCodigo] = useState('');
     const [param, setParam] = useState<ParametrosRestauracao>(lerParametros);
     const [plano, setPlano] = useState<{ empresa: Empresa; existentes: Existentes; plano: PlanoRestauracao } | null>(null);
+    // Eventos do último preparo: a tabela continua aberta enquanto a equipe acerta vários eventos.
+    const [eventos, setEventos] = useState<EventoResumo[]>([]);
     const [ocupado, setOcupado] = useState('');
     const [erro, setErro] = useState('');
     const [feito, setFeito] = useState('');
@@ -34,10 +39,16 @@ const RestaurarEmpresaNoConsultor: React.FC<Props> = ({ restauracao, arquivos, u
 
     useEffect(() => { listarEmpresasVisiveis().then(setEmpresas).catch(e => { setErro(mensagemErro(e)); setEmpresas([]); }); }, []);
     // Outro backup aberto: o plano do anterior não vale mais.
-    useEffect(() => { descartarPlano(); setFeito(''); setOcupado(''); }, [restauracao, arquivos.join('|')]);
+    useEffect(() => { descartarPlano(); setEventos([]); setFeito(''); setOcupado(''); }, [restauracao, arquivos.join('|')]);
     const doBackup = useMemo(() => (empresas ? empresasDoBackup(restauracao, empresas) : []), [restauracao, empresas]);
     const escolhida = doBackup.find(x => x.codigo === codigo);
     const mudar = (p: Partial<ParametrosRestauracao>) => { setParam(x => ({ ...x, ...p })); descartarPlano(); };
+    // "" = automático (tira o acerto); o plano é refeito em "Preparar".
+    const classificar = (codeven: string, valor: ClasseManual | '') => {
+        const eventos = { ...param.eventos };
+        if (valor) eventos[codeven] = valor; else delete eventos[codeven];
+        mudar({ eventos });
+    };
 
     async function preparar() {
         if (!escolhida?.empresa) return;
@@ -49,7 +60,7 @@ const RestaurarEmpresaNoConsultor: React.FC<Props> = ({ restauracao, arquivos, u
             setOcupado('Lendo o que já está gravado no Consultor…');
             const existentes = await carregarExistentes(escolhida.empresa.id);
             const p = await planejarRestauracao(restauracao, escolhida.empresa, existentes, param, m => { if (atual()) setOcupado(m); });
-            if (atual()) setPlano({ empresa: escolhida.empresa, existentes, plano: p });
+            if (atual()) { setPlano({ empresa: escolhida.empresa, existentes, plano: p }); setEventos(p.eventosHistorico); }
         } catch (e) { if (atual()) setErro((e as Error).message); }
         finally { if (atual()) setOcupado(''); }
     }
@@ -80,7 +91,7 @@ const RestaurarEmpresaNoConsultor: React.FC<Props> = ({ restauracao, arquivos, u
             {!podeRestaurar && <p className="text-xs text-amber-700 dark:text-amber-300">Só o gestor restaura empresas.</p>}
             <div className="flex flex-wrap items-end gap-3 text-sm dark:text-slate-100">
                 <label>Empresa do backup
-                    <select aria-label="Empresa do backup" className={`ml-2 ${inp}`} value={codigo} onChange={e => { setCodigo(e.target.value); descartarPlano(); setFeito(''); setOcupado(''); }}>
+                    <select aria-label="Empresa do backup" className={`ml-2 ${inp}`} value={codigo} onChange={e => { setCodigo(e.target.value); descartarPlano(); setEventos([]); setFeito(''); setOcupado(''); }}>
                         <option value="">— escolha —</option>
                         {doBackup.map(x => <option key={x.grupo} value={x.codigo} disabled={!x.empresa}>{x.codigo} · {x.empresa ? x.empresa.nomeFantasia || x.empresa.razaoSocial : 'sem empresa no Consultor (cadastre com este código SAGE)'}</option>)}
                     </select>
@@ -117,6 +128,31 @@ const RestaurarEmpresaNoConsultor: React.FC<Props> = ({ restauracao, arquivos, u
                         </li>
                     ))}
                 </ol>
+            )}
+            {eventos.length > 0 && (
+                // A classe mostrada é a do último preparo; o select mostra o acerto atual.
+                <details open className="rounded border border-slate-200 p-2 text-xs dark:border-slate-700 dark:text-slate-200">
+                    <summary className="cursor-pointer text-sm font-medium">Eventos do histórico ({eventos.length}) — confira com o IOB e acerte o que for preciso</summary>
+                    <p className="mt-1 text-slate-600 dark:text-slate-300">A classificação automática vem da natureza da rubrica (S-1010) e da descrição. Ao mudar um evento, o acerto fica salvo nos parâmetros; clique em "Preparar a restauração" de novo antes de gravar.</p>
+                    <div className="mt-1 max-h-96 overflow-auto">
+                        <table className="w-full">
+                            <thead className="text-left text-slate-500"><tr><th className="p-1">Evento</th><th className="p-1">Descrição</th><th className="p-1">Natureza</th><th className="p-1 text-right">Lançamentos</th><th className="p-1 text-right">Quantidade</th><th className="p-1">Vai para</th></tr></thead>
+                            <tbody>{eventos.map(e => (
+                                <tr key={`${e.codeven}|${e.natRubr}`} className={`border-t border-slate-100 dark:border-slate-700 ${e.classe ? 'font-medium' : ''}`}>
+                                    <td className="p-1 font-mono">{e.codeven}</td><td className="p-1">{e.descricao}</td><td className="p-1">{e.natRubr || '—'}</td>
+                                    <td className="p-1 text-right">{e.linhas}</td><td className="p-1 text-right">{num(e.total)}</td>
+                                    <td className="p-1">
+                                        <select aria-label={`Classificação do evento ${e.codeven}`} className={inp} disabled={!!ocupado} value={param.eventos[e.codeven] ?? ''} onChange={ev => classificar(e.codeven, ev.target.value as ClasseManual | '')}>
+                                            <option value="">Automático: {e.automatica ? ROTULO_MOVIMENTO[e.automatica] : 'não entra'}</option>
+                                            {CAMPOS_HISTORICO.map(c => <option key={c} value={c}>{ROTULO_MOVIMENTO[c]}</option>)}
+                                            <option value="ignorar">Não entra (ignorar)</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                            ))}</tbody>
+                        </table>
+                    </div>
+                </details>
             )}
         </section>
     );
