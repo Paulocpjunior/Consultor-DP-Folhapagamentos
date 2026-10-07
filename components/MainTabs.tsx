@@ -21,6 +21,7 @@ import ESocialMonitorPanel from './esocial/ESocialMonitorPanel';
 import AlertaPendenciasPopup from './AlertaPendenciasPopup';
 import Logo from './Logo';
 import UpdateBanner from './UpdateBanner';
+import MiaAssistente from './mia/MiaAssistente';
 import { listarEmpresasVisiveis } from '../services/empresas/empresasService';
 import { esquecerEscopo } from '../services/carteira/carteiraService';
 import type { Empresa } from '../services/empresas/empresasTypes';
@@ -435,6 +436,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                 )}
                 {activeTab === 'admin' && isAdmin && <AdminUsersPanel currentUser={currentUser as any} />}
             </main>
+            <MiaAssistente aba={tabs.find(t => t.id === activeTab)?.label ?? activeTab} />
             </EmpresaAtivaProvider>
         </div>
     );

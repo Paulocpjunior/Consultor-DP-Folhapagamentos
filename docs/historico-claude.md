@@ -2181,3 +2181,52 @@ guias sindicais".
   - comece pela produção restrita;
   - em produção, se o IOB já transmitiu a competência, o S-1200 repetido é
     recusado; retificação (`indRetif` 2) ainda não está no gerador.
+
+## 07/10/2026 — MiA, a agente de IA do DP
+
+- **Paulo:** *"vamos também implementar nossa agente de IA dentro do app
+  (digo agente mulher), porque este depto é composto só de mulheres"*. O nome
+  escolhido foi **MiA**.
+- **Funções da MiA:**
+  - legislação trabalhista e previdenciária;
+  - dúvidas de legislação;
+  - explicar o cálculo;
+  - explicar as divergências com o IOB;
+  - guiar pelo app.
+- **Desenho:**
+  - A MiA roda no CFI (Gemini da conta do escritório, com a busca do Google
+    ligada para citar a base legal e as fontes), pelo túnel
+    `POST /api/dp-integration/assistente/mia`.
+  - Mantém a regra da casa: a MiA explica, e o motor (código) calcula. Ela
+    não refaz a folha, não grava, não transmite e não altera nada.
+- **Feito no DP:**
+  - **`services/mia/mia.ts`:**
+    - mapa do app (`GUIA_DO_APP`);
+    - holerite como contexto (`contextoDoHolerite`, sem CPF);
+    - contexto da tela em camadas (`definirContextoMia`): vale o publicado
+      por último;
+    - pedido ao CFI com as últimas 20 mensagens.
+  - **`components/mia/MiaAssistente.tsx`:** botão flutuante "MiA" em todas
+    as abas. O painel tem:
+    - sugestões de pergunta;
+    - respostas com negrito e as fontes;
+    - "Usar a tela aberta" (marcado por padrão);
+    - "Nova conversa".
+    A conversa fica só na aba do navegador. Antes de a rota estar publicada
+    no CFI (404), a MiA avisa que ainda não está no ar.
+  - **O que vai como contexto:**
+    - **Cálculo:** a lista da folha, ou o holerite aberto com as verbas, os
+      totais, a memória e os avisos;
+    - **Conferência com o eSocial do IOB:** a linha aberta, com os itens
+      motor × IOB, as rubricas e as observações.
+- **No CFI** (branch `claude/dp-assistente-mia`, aguardando o OK do Paulo
+  para commit, PR e deploy, pela regra do CFI):
+  - `sefaz-backend/dp-assistente-mia.js`: instrução da MiA, validação da
+    conversa (até 20 mensagens de 4.000 caracteres e contexto de 24.000) e
+    leitura das fontes;
+  - a rota no `dp-integration-routes.js`;
+  - a declaração em `rotaTemChamada`;
+  - os testes;
+  - a nota no histórico do CFI.
+  - **Portas:** build, lint, lint:strict e jest (636 suítes, 9.259 testes)
+    passando.

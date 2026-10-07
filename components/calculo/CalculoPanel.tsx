@@ -33,6 +33,7 @@ import { calcular13, com13, OPCOES_13_PADRAO, ultimoDiaDoMes, type Opcoes13 } fr
 import ConferenciaHolerites, { conferirTodos, type LeituraHolerites } from './ConferenciaHolerites';
 import ConferenciaEsocialIob from './ConferenciaEsocialIob';
 import EventosFolhaModal from '../esocial/EventosFolhaModal';
+import { contextoDoHolerite, definirContextoMia } from '../../services/mia/mia';
 import { resumirFolha } from '../../services/relatorios/resumoFolha';
 import { listarEnvios, type Envio } from '../../services/esocial/transmissaoService';
 import StatusEsocialAfastamento from '../esocial/StatusEsocialAfastamento';
@@ -256,6 +257,12 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const resumo = useMemo(() => resumirFolha(resultados, enqVigente), [resultados, enqVigente]);
     const tituloFolha = mensal ? `Folha mensal ${br(competencia)}` : ferias ? `Recibos de férias ${br(competencia)}` : rescisao ? `Rescisões ${br(competencia)}` : `13º salário ${ano} — ${folha === '13-1a' ? '1ª' : '2ª'} parcela`;
     const sufixoArquivo = mensal ? competencia : ferias ? `ferias-${competencia}` : rescisao ? `rescisao-${competencia}` : `${ano}-13-${folha === '13-1a' ? '1a' : '2a'}-parcela`;
+    // MiA: o holerite aberto (ou a lista da folha) vai como contexto da pergunta.
+    useEffect(() => {
+        if (sel) definirContextoMia('calculo', { tela: `Cálculo · ${tituloFolha} · ${sel.nome}`, texto: contextoDoHolerite(sel, tituloFolha) });
+        else definirContextoMia('calculo', resultados.length ? { tela: `Cálculo · ${tituloFolha}`, texto: [`${tituloFolha}: ${resultados.length} cálculo(s).`, ...resultados.map(r => `- ${r.nome}: ${r.situacao}, líquido ${reais(r.totais.liquido)}${r.avisos.length ? `; avisos: ${r.avisos.join(' | ')}` : ''}${r.erros.length ? `; erros: ${r.erros.join(' | ')}` : ''}`)].join('\n') } : null);
+    }, [sel, resultados, tituloFolha]);
+    useEffect(() => () => definirContextoMia('calculo', null), []);
     const avisoEnq = erroEnq && !ferias ? ` ATENÇÃO: enquadramento não carregado (${erroEnq}); a parte patronal está fora do quadro.` : '';
     const observacaoResumo = avisoEnq + (mensal
         ? 'Folha mensal: o INSS dos segurados já soma o retido nos recibos de férias da competência. O IRRF vai à DCTFWeb do mês do pagamento (regime de caixa). Rescisões do mês têm 13º e aviso no TRCT, fora desta folha.'

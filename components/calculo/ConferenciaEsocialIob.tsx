@@ -12,6 +12,7 @@ import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
 import type { ResultadoCalculo } from '../../services/calculo/motorMensal';
 import type { Rubrica } from '../../services/cadastros/rubricas';
 import { listarRubricas, mensagemErro } from '../../services/cadastros/cadastrosService';
+import { definirContextoMia } from '../../services/mia/mia';
 import { reais } from '../../services/cadastros/documentos';
 import {
     conferirMotorComIob, lerEsocialIob, rubricasParaConferencia, ROTULO_SITUACAO,
@@ -92,6 +93,19 @@ const ConferenciaEsocialIob: React.FC<Props> = ({ empresa, fichas, motor, comFer
     }
 
     const atual = conf?.r.competencias.find(c => c.competencia === competencia);
+    // MiA: a linha aberta (motor × IOB, rubricas e observações) vai como contexto da pergunta.
+    const linhaAberta = atual?.linhas.find(l => `${l.cpf}|${l.fichaId}` === aberto);
+    useEffect(() => {
+        if (!linhaAberta) { definirContextoMia('conferencia-iob', null); return; }
+        const l = linhaAberta;
+        definirContextoMia('conferencia-iob', { tela: `Conferência com o eSocial do IOB · ${comp(l.competencia)} · ${l.nome}`, texto: [
+            `Conferência do motor com o S-1200 do IOB, competência ${comp(l.competencia)}, ${l.nome}: ${ROTULO_SITUACAO[l.situacao]}.`,
+            ...l.itens.map(i => `- ${i.item}: motor ${reais(i.motor)}, IOB ${reais(i.iob)}, diferença ${i.ok ? 'nenhuma' : dif(i.diferenca)}`),
+            ...(l.rubricas.length ? ['Rubricas do IOB no S-1200:', ...l.rubricas.map(x => `- ${x.codRubr} ${x.descricao || '(sem S-1010)'} natureza ${x.natRubr || '-'} ${TIPO[x.tpRubr] ?? 'sem tipo'}${x.qtd ? ` qtd ${x.qtd}` : ''}: ${reais(x.valor)}`)] : []),
+            ...(l.observacoes.length ? ['Observações:', ...l.observacoes.map(o => `- ${o}`)] : []),
+        ].join('\n') });
+    }, [linhaAberta]);
+    useEffect(() => () => definirContextoMia('conferencia-iob', null), []);
     return (
         <section aria-label="Conferência com o eSocial do IOB" className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
             <div>
