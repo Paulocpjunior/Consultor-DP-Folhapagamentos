@@ -94,3 +94,37 @@ describe('S-2230 transmitido pelo IOB (no backup, sem o retorno no XML)', () => 
         expect(b.recibos?.get(chaveIdEvento(ID_AF))).toBe('1.1.9');
     });
 });
+
+describe('revisão do Codex no PR #79', () => {
+    it('readmissão: cada gozo vai para o vínculo em vigor na data; sem vínculo na data, fica de fora', () => {
+        const antigo: FichaFuncionario = { ...ficha('52', '000010'), situacao: 'desligado', dados: { codigoIob: '52', admissao: '2018-03-01', dataDesligamento: '2021-12-31' } };
+        const novo = ficha('52', '000052');
+        const t = { colunas: HIST, linhas: [
+            linha({ codfun: '52', daquisiini: '2019-03-01', dgozoini: '2020-07-01', dgozofim: '2020-07-30' }),
+            linha({ codfun: '52', daquisiini: '2022-05-02', dgozoini: '2023-07-03', dgozofim: '2023-07-22' }),
+            linha({ codfun: '52', dgozoini: '2022-02-01', dgozofim: '2022-02-10' }),
+        ] };
+        const r = gozosDoHistorico(t, empresa, [antigo, novo]);
+        expect(r.afastamentos.map(a => [a.fichaId, a.dtInicio])).toEqual([[antigo.id, '2020-07-01'], [novo.id, '2023-07-03']]);
+        expect(r.avisos.join(' ')).toMatch(/2022-02-01 fora do período de todos os vínculos/);
+        // Sem o fim do aquisitivo no histórico: 12 meses desde o início.
+        expect(r.afastamentos[0]).toMatchObject({ perAquisInicio: '2019-03-01', perAquisFim: '2020-02-29' });
+    });
+
+    it('período aquisitivo é um par: início igual sem fim mantém o fim gravado', () => {
+        const atual = { ...afastamentoVazio(), id: 'f1_2023-07-03', fichaId: 'f1', motivo: '15', dtInicio: '2023-07-03', dtFim: '2023-07-22', perAquisInicio: '2022-05-02', perAquisFim: '2023-05-01', origem: 'Backup IOB: hist_ferias' };
+        expect(mesclarAfastamentos([{ ...atual, perAquisFim: '' }], [atual])[0]).toMatchObject({ mudou: false, afastamento: { perAquisFim: '2023-05-01' } });
+        expect(mesclarAfastamentos([{ ...atual, perAquisInicio: '2023-05-02', perAquisFim: '' }], [atual])[0].afastamento).toMatchObject({ perAquisInicio: '2023-05-02', perAquisFim: '' });
+    });
+
+    it('backup sem tabela de recibos, com S-2230 retificador: os eventos entram como não comprovados', async () => {
+        const hex = (s: string) => '\\\\x' + Buffer.from(s, 'utf8').toString('hex');
+        const retificador = afast().replace('<indRetif>1</indRetif>', '<indRetif>2</indRetif><nrRecibo>1.1.7</nrRecibo>');
+        const sql = ['--', 'COPY f1200.arquivoeventotransmissaoesocial (id_protoco, nome_arq, dados_arq) FROM stdin;',
+            ['1', 'S2230.xml', hex(retificador)].join('\t'), '\\.', ''].join('\n');
+        const rest = await abrirRestauracao([{ nome: 'f.backup', fonte: fonteDeBytes(new TextEncoder().encode(sql)) }]);
+        const b = await esocialDoBackup(rest, '1200');
+        expect(b.recibos).toBeNull();
+        expect(lerXmlAfastamentos(b.fontesAfastamento[0].nome, b.fontesAfastamento[0].xml, '11222333', { recibos: b.recibos }).eventos).toHaveLength(1);
+    });
+});

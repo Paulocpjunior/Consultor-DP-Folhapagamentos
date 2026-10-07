@@ -30,7 +30,9 @@ const EVENTO_CADASTRAL = /<(?:[\w-]+:)?evt(?:Admissao|AltCadastral|AltContratual
 /** Afastamento temporário (S-2230). As exclusões (S-3000) de S-2230 vão para a lista dos afastamentos. */
 const EVENTO_AFASTAMENTO = /<(?:[\w-]+:)?evtAfastTemp[\s>]/;
 const EXCLUI_AFASTAMENTO = /<(?:[\w-]+:)?tpEvento\s*>\s*S-2230\s*</;
-const RETORNO = /<(?:[\w-]+:)?nrRecibo\s*>/;
+// Retorno de processamento (lote ou evento). Não basta achar <nrRecibo>: o
+// evento retificador traz o recibo do original em ideEvento/nrRecibo.
+const RETORNO = /<(?:[\w-]+:)?retorno(?:Evento|ProcessamentoLoteEventos|EventoCompleto)[\s>]/;
 
 type Bruto = { tipo: 'texto'; texto: string } | { tipo: 'bytes'; bytes: Uint8Array };
 

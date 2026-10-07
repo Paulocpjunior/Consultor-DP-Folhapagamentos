@@ -12,8 +12,13 @@
 import { idAfastamento, afastamentoVazio, type Afastamento } from './afastamentos';
 import { chaveCodfun, chaveColuna, dataDoIob, type TabelaLida } from './cargaBackupIob';
 import type { FichaFuncionario } from './funcionarios';
+import { somarDias, somarMeses } from '../prazos/calendario';
 
 export const TABELA_HIST_FERIAS = 'hist_ferias';
+
+/** Período aquisitivo: sem o fim (ou com fim antes do início), 12 meses desde o início (CLT, art. 130). */
+const aquisitivo = (ini: string | null, fim: string | null) => (!ini ? { perAquisInicio: '', perAquisFim: '' }
+    : { perAquisInicio: ini, perAquisFim: fim && fim >= ini ? fim : somarDias(somarMeses(ini, 12), -1) });
 
 const dias = (de: string, ate: string) => Math.round((Date.parse(`${ate}T00:00:00Z`) - Date.parse(`${de}T00:00:00Z`)) / 86400000) + 1;
 
@@ -26,19 +31,28 @@ export function gozosDoHistorico(t: TabelaLida, empresa: { id: string }, fichas:
     const [iCod, iSit, iTipo, iAqIni, iAqFim, iGozIni, iGozFim, iAbono, iAbIni, iAbFim, iDobro] =
         ['codfun', 'cstatus', 'ctipfer', 'daquisiini', 'daquisifim', 'dgozoini', 'dgozofim', 'ntotabono', 'dabonoini', 'dabonofim', 'cferdobro'].map(i);
     if (iCod < 0 || iGozIni < 0 || iGozFim < 0) { r.avisos.push('hist_ferias sem as colunas codfun, dgozoini e dgozofim.'); return r; }
-    // Ficha pelo código IOB; com o mesmo código em mais de uma ficha (vínculos), a ativa.
-    const porCodigo = new Map<string, FichaFuncionario>();
+    // Fichas pelo código IOB. Com o mesmo código em mais de um vínculo (ex.: readmissão),
+    // vale o vínculo em vigor na data do gozo; sem como decidir, a linha fica de fora.
+    const porCodigo = new Map<string, FichaFuncionario[]>();
     for (const f of fichas) {
         const k = f.dados.codigoIob ? chaveCodfun(f.dados.codigoIob) : '';
-        if (k && (!porCodigo.has(k) || f.situacao === 'ativo')) porCodigo.set(k, f);
+        if (k) porCodigo.set(k, [...(porCodigo.get(k) ?? []), f]);
     }
+    const vigente = (lista: FichaFuncionario[], data: string) => lista.filter(f =>
+        (!f.dados.admissao || f.dados.admissao <= data) && (!f.dados.dataDesligamento || data <= f.dados.dataDesligamento));
     const vistos = new Set<string>();
     const v = (l: (string | null)[], k: number) => (k >= 0 ? (l[k] ?? '').trim() : '');
     for (const l of t.linhas) {
         const ini = dataDoIob(v(l, iGozIni)); const fim = dataDoIob(v(l, iGozFim));
         if (!ini || !fim || fim < ini) { r.semGozo++; continue; }
-        const ficha = porCodigo.get(chaveCodfun(v(l, iCod)));
-        if (!ficha) { r.semFicha++; continue; }
+        const candidatas = porCodigo.get(chaveCodfun(v(l, iCod))) ?? [];
+        if (!candidatas.length) { r.semFicha++; continue; }
+        const naData = vigente(candidatas, ini);
+        if (naData.length !== 1) {
+            r.avisos.push(`Código IOB ${v(l, iCod)}: gozo de ${ini} ${naData.length ? 'cabe em mais de um vínculo' : 'fora do período de todos os vínculos'}; ficou de fora (lance à mão).`);
+            continue;
+        }
+        const ficha = naData[0];
         const id = idAfastamento(ficha.id, ini);
         if (vistos.has(id)) { r.avisos.push(`${ficha.dados.nome || ficha.cpf}: gozo de ${ini} repetido no histórico; só o primeiro foi usado.`); continue; }
         vistos.add(id);
@@ -54,7 +68,7 @@ export function gozosDoHistorico(t: TabelaLida, empresa: { id: string }, fichas:
         r.afastamentos.push({
             ...afastamentoVazio(), id, empresaId: empresa.id, fichaId: ficha.id, cpf: ficha.cpf, matriculaEsocial: ficha.matriculaEsocial,
             dtInicio: ini, dtFim: fim, motivo: '15',
-            perAquisInicio: dataDoIob(v(l, iAqIni)) ?? '', perAquisFim: dataDoIob(v(l, iAqFim)) ?? '',
+            ...aquisitivo(dataDoIob(v(l, iAqIni)), dataDoIob(v(l, iAqFim))),
             abonoDias: abono > 0 ? String(abono) : '', observacao: obs, origem,
         });
     }

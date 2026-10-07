@@ -248,12 +248,11 @@ export function mesclarAfastamentos(importados: Afastamento[], existentes: Afast
         if (atual.origem.startsWith('Manual')) return { afastamento: atual, novo: false, mudou: false, preservado: chave(atual) !== chave(imp) };
         // O abono é só do Consultor e o período aquisitivo pode ter vindo do histórico do IOB:
         // a reimportação de um S-2230 que não os traz não os apaga.
-        const final = {
-            ...imp,
-            abonoDias: imp.abonoDias || atual.abonoDias,
-            perAquisInicio: imp.perAquisInicio || atual.perAquisInicio,
-            perAquisFim: imp.perAquisInicio ? imp.perAquisFim : atual.perAquisFim,
-        };
+        // O período aquisitivo é um par: só é trocado com início e fim novos; início igual mantém o fim gravado.
+        const par: [string, string] = imp.perAquisInicio && imp.perAquisFim ? [imp.perAquisInicio, imp.perAquisFim]
+            : imp.perAquisInicio && imp.perAquisInicio !== atual.perAquisInicio ? [imp.perAquisInicio, '']
+                : [atual.perAquisInicio || imp.perAquisInicio, atual.perAquisFim];
+        const final = { ...imp, abonoDias: imp.abonoDias || atual.abonoDias, perAquisInicio: par[0], perAquisFim: par[1] };
         return { afastamento: final, novo: false, mudou: chave(atual) !== chave(final), preservado: false };
     });
 }
