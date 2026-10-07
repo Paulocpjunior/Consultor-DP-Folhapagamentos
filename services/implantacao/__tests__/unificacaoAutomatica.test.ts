@@ -27,7 +27,7 @@ describe('unificação automática XML + PDF', () => {
         expect(f.divergencias).toEqual([{ campo: 'salario', rotulo: 'Salário fixo (decimal com ponto)', xml: '3000.00', pdf: '2000.00' }]);
         expect(f.origens.mae).toContain('ficha.pdf');
         expect(f.pendencias.some(p => p.includes('diverge'))).toBe(true);
-        expect(f.dependentes).toEqual([{ tipo: '03', nome: 'DEP TESTE', nascimento: '2010-01-02', cpf: '11111111111', irrf: 'S', salarioFamilia: 'N' }]);
+        expect(f.dependentes).toEqual([{ tipo: '03', nome: 'DEP TESTE', nascimento: '2010-01-02', cpf: '11111111111', irrf: 'S', salarioFamilia: 'N', noEsocial: 'S' }]);
         expect(r.fichasSemVinculo).toEqual([]);
         const c = complementosDaUnificacao(r.funcionarios, '2026-09-25T00:00:00.000Z');
         expect(c.map(x => x.campo).sort()).toEqual(['mae', 'pis']);

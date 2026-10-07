@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     ABAS, ROTULO, aplicarEdicao, diffFicha, fichaVazia, idFuncionario, linhasPlanilha, mesclarComEsocial,
-    normalizarFicha, validarFicha, type FichaFuncionario,
+    depNoEsocial, normalizarFicha, ratearPensao, validarFicha, type FichaFuncionario,
 } from '../funcionarios';
 import { cnpjValido, centavosDeTexto, pisValido } from '../documentos';
 import { paraGravar, prepararImportacao } from '../importacaoEsocial';
@@ -105,7 +105,7 @@ describe('importação do eSocial', () => {
             dados: { nome: 'PESSOA TESTE', sexo: 'F', raca: '3', estadoCivil: '2', escolaridade: '07', cep: '01001000', admissao: '2026-01-05', cargo: 'AUXILIAR', cbo: '411005', categoria: '101', salario: '2000.00', unidadeSalario: '5', sindicato: '11222333000181' },
         });
         expect(r.ficha.dados).not.toHaveProperty('matriculaIob');
-        expect(r.ficha.dependentes).toEqual([{ tipo: '03', nome: 'FILHO TESTE', nascimento: '2015-05-05', cpf: '', irrf: 'S', salarioFamilia: 'S' }]);
+        expect(r.ficha.dependentes).toEqual([{ tipo: '03', nome: 'FILHO TESTE', nascimento: '2015-05-05', cpf: '', irrf: 'S', salarioFamilia: 'S', noEsocial: 'S' }]);
         expect(r.ficha.origens.nome).toMatch(/^eSocial: S-2200 · 2026-01-05 · adm\.xml/);
         expect(r.ficha.pendenciasImportacao.some(x => /Matrícula|Código IOB/.test(x))).toBe(false);
         expect(paraGravar(p)).toHaveLength(1);
@@ -167,5 +167,32 @@ describe('importação do eSocial', () => {
         const comAviso = desligamento.replace('<mtvDeslig>02</mtvDeslig><dtDeslig>2026-09-01</dtDeslig>', '<mtvDeslig>07</mtvDeslig><dtDeslig>2026-09-01</dtDeslig><dtProjFimAPI>2026-10-06</dtProjFimAPI>');
         const p = prepararImportacao([fonte('adm.xml', admissao), fonte('des.xml', comAviso)], empresa, '2026-10-04', []);
         expect(p.resultados[0].ficha.dados).toMatchObject({ motivoDesligamento: '07', dataProjetadaAviso: '2026-10-06' });
+    });
+});
+
+describe('pensão alimentícia na ficha', () => {
+    const dep = (cpf: string, extra: object = {}) => ({ tipo: '', nome: 'ALIMENTANDO', nascimento: '2012-01-01', cpf, irrf: 'N', salarioFamilia: 'N', pensao: 'S', ...extra });
+    it('divide a pensão pela cota; um só leva tudo; sem alimentando ou cota errada, erro', () => {
+        expect(ratearPensao({ dependentes: [dep('39053344705')] }, 50000).itens.map(i => i.valor)).toEqual([50000]);
+        expect(ratearPensao({ dependentes: [dep('39053344705', { cotaPensao: '33,33' }), dep('12345678909', { cotaPensao: '66.67' })] }, 100000).itens.map(i => i.valor)).toEqual([33330, 66670]);
+        expect(ratearPensao({ dependentes: [dep('39053344705', { cotaPensao: '50' }), dep('12345678909')] }, 100000).erro).toMatch(/somando 100%/);
+        expect(ratearPensao({ dependentes: [] }, 100).erro).toMatch(/sem alimentando/);
+    });
+    it('valida CPF, a dedução dupla e a soma das cotas; "no eSocial" pela origem quando não marcado', () => {
+        const f = { ...fichaVazia(empresa), cpf: CPF, matriculaEsocial: 'M1', dados: { nome: 'X' } };
+        const erros = validarFicha({ ...f, dependentes: [dep(''), dep(CPF, { irrf: 'S' }), dep('39053344705', { cotaPensao: '120' })] }).erros;
+        expect(erros).toEqual(expect.arrayContaining([
+            'Dependente 1: alimentando sem CPF (o S-1210 informa a pensão pelo CPF de quem recebe).', 'Dependente 2: o alimentando não pode ter o CPF do trabalhador.',
+            'Dependente 2: a mesma pessoa não pode ser deduzida no IRRF como dependente e como alimentando; deixe só a pensão.',
+            'Dependente 3: cota da pensão deve ser um percentual entre 0 e 100.', 'Mais de um alimentando: a cota da pensão (%) de cada um deve somar 100%.',
+        ]));
+        expect(validarFicha({ ...f, dependentes: [dep('39053344705', { cotaPensao: '60' }), dep('12345678909', { cotaPensao: '40' })] }).erros).toEqual([]);
+        const d = { tipo: '03', nome: 'F', nascimento: '', cpf: '', irrf: 'S', salarioFamilia: 'N' };
+        expect([depNoEsocial({ origens: { dependentes: 'eSocial: S-2200' } }, d), depNoEsocial({ origens: { dependentes: 'Manual · a · b' } }, d), depNoEsocial({ origens: {} }, { ...d, noEsocial: 'S' })]).toEqual([true, false, true]);
+        // Ao gravar, a marca fica explícita (a origem passa a "Manual" depois da edição) e a cota some de quem não recebe pensão.
+        const n = normalizarFicha({ ...f, origens: { dependentes: 'eSocial: S-2200' }, dependentes: [d, { ...dep('39053344705'), pensao: 'N', cotaPensao: '50' }] });
+        expect(n.dependentes.map(x => [x.noEsocial, x.pensao, x.cotaPensao])).toEqual([['S', 'N', ''], ['S', 'N', '']]);
+        // A marca de pensão entra no histórico.
+        expect(diffFicha(n, { ...n, dependentes: [n.dependentes[0], { ...n.dependentes[1], pensao: 'S' }] }).map(a => a.campo)).toEqual(['dependentes']);
     });
 });

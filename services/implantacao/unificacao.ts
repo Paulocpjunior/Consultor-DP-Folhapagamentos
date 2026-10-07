@@ -10,7 +10,15 @@ import { compararFicha, conferirIdentidade, type FichaExtraida } from './fichaPd
 
 export interface FichaLida { nome: string; hash: string; tamanho: number; ficha: FichaExtraida }
 export interface Divergencia { campo: Campo; rotulo: string; xml: string; pdf: string }
-export interface Dependente { tipo: string; nome: string; nascimento: string; cpf: string; irrf: string; salarioFamilia: string }
+export interface Dependente {
+    tipo: string; nome: string; nascimento: string; cpf: string; irrf: string; salarioFamilia: string;
+    /** 'S' = recebe pensão alimentícia descontada do trabalhador (alimentando, penAlim no S-1210). */
+    pensao?: string;
+    /** Parte da pensão do mês, em %, quando há mais de um alimentando. */
+    cotaPensao?: string;
+    /** 'S' = cadastrado no S-2200/S-2205; 'N' = não, e vai no grupo infoDep do S-1210. Em branco: pela origem dos dependentes da ficha. */
+    noEsocial?: string;
+}
 export interface FuncionarioUnificado {
     chave: string; empregador: string; cpf: string; matricula: string;
     dados: Dados; origens: Partial<Record<Campo, string>>;
@@ -28,7 +36,7 @@ export function lerDependentes(json: string | undefined): Dependente[] {
         if (!Array.isArray(lista)) return [];
         return lista.map((d: Record<string, string>) => ({
             tipo: d.tpDep || '', nome: d.nmDep || '', nascimento: d.dtNascto || '', cpf: d.cpfDep || '',
-            irrf: d.depIRRF || '', salarioFamilia: d.depSF || '',
+            irrf: d.depIRRF || '', salarioFamilia: d.depSF || '', noEsocial: 'S',
         }));
     } catch { return []; }
 }

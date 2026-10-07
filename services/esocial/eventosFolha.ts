@@ -8,7 +8,8 @@
 // O S-1200 só aceita rubricas que a empresa mandou no S-1010. Por isso cada
 // verba do motor (SAL, HE50, INSS…) é ligada a uma rubrica da empresa num
 // de/para gravado na empresa; o app sugere pela natureza (Tabela 03) e pelo
-// tipo, e a equipe confirma. Estrutura conferida com os XSDs do leiaute S-1.3
+// tipo, e a equipe confirma. A pensão alimentícia vai por alimentando (penAlim),
+// com o CPF marcado na ficha. Estrutura conferida com os XSDs do leiaute S-1.3
 // (evtRemun.xsd, evtPgtos.xsd, evtExclusao.xsd e tipos.xsd).
 //
 // Retificação: o S-1210 é um só por beneficiário e mês e aponta para o
@@ -18,7 +19,8 @@
 // desta folha.
 
 import type { ResultadoCalculo, Verba } from '../calculo/motorMensal';
-import type { FichaFuncionario } from '../cadastros/funcionarios';
+import { depNoEsocial, ratearPensao, type FichaFuncionario } from '../cadastros/funcionarios';
+import type { Dependente } from '../implantacao/unificacao';
 import { vigenciaEm, type Rubrica } from '../cadastros/rubricas';
 import { idEvento, VER_PROC, type TpAmb } from './transmissao';
 import type { ReciboEvento } from './recibosEsocial';
@@ -220,19 +222,38 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             t.outrosPagamentos = outros.length;
         }
         else if (t.retifica1200) t.avisos.push(`Nenhum S-1210 de ${mes(perPgto)} carregado: se o pagamento desta folha já foi informado (inclusive em outro mês), carregue o download com ele; o eSocial recusa retificar o S-1200 enquanto um S-1210 aponta para ele.`);
-        if (t.erros.length || !dmDevs.length) continue;
-        // Deduções do IRRF (dependentes) quando o motor não usou o desconto simplificado.
-        const irCR: string[] = [];
-        for (const { r } of contratos) {
+        // IR do mês por CPF: dedução de dependentes (quando o motor não usou o desconto simplificado) e
+        // pensão alimentícia de cada alimentando (penAlim). Quem não está no S-2200/S-2205 vai no infoDep.
+        const dedDep = new Map<string, number>(); const penAlim = new Map<string, number>(); const infoDep = new Map<string, Dependente>();
+        for (const { ficha: f, r } of contratos) {
             const d = r.deducoesIrrf;
-            if (!d || d.simplificado) continue;
-            for (const dep of d.dependentes) {
+            if (d && !d.simplificado && d.porDependente > 0) for (const dep of d.dependentes) {
                 const cpfDep = digitos(dep.cpf);
                 if (cpfDep.length !== 11) { t.avisos.push(`Dependente ${dep.nome || '?'} sem CPF: a dedução não vai no S-1210.`); continue; }
-                if (d.porDependente > 0) irCR.push(`<dedDepen><tpRend>11</tpRend><cpfDep>${cpfDep}</cpfDep><vlrDedDep>${valor(d.porDependente)}</vlrDedDep></dedDepen>`);
+                if (!dedDep.has(cpfDep)) dedDep.set(cpfDep, d.porDependente);
+                const fd = f.dependentes.find(x => digitos(x.cpf) === cpfDep);
+                if (fd && !depNoEsocial(f, fd)) infoDep.set(cpfDep, fd);
             }
-            if (d.pensao > 0) t.avisos.push('Pensão alimentícia deduzida no IRRF: o CPF do alimentando (penAlim) não está na ficha e não vai no S-1210; confira antes de transmitir.');
+            const pensao = r.verbas.filter(v => v.codigo === 'PENSAO').reduce((soma, v) => soma + v.valor, 0);
+            if (pensao <= 0) continue;
+            const rateio = ratearPensao(f, pensao);
+            if (rateio.erro) { t.erros.push(rateio.erro); continue; }
+            for (const { dependente: dep, valor: v } of rateio.itens) {
+                const cpfDep = digitos(dep.cpf);
+                if (cpfDep.length !== 11 || cpfDep === cpf) { t.erros.push(`Alimentando ${dep.nome || '?'} sem CPF válido na ficha.`); continue; }
+                if (v > 0) penAlim.set(cpfDep, (penAlim.get(cpfDep) ?? 0) + v);
+                if (!depNoEsocial(f, dep)) infoDep.set(cpfDep, dep);
+            }
         }
+        for (const [c, dep] of infoDep) if (dedDep.has(c) && (!/^\d{2}$/.test(dep.tipo) || dep.tipo === '99'))
+            t.erros.push(`Dependente ${dep.nome || c} não está no eSocial e o tipo (Tabela 07) ${dep.tipo === '99' ? 'é 99 (agregado/outros)' : 'está em branco'}: informe o tipo na ficha ou cadastre pelo S-2205.`);
+        if (t.erros.length || !dmDevs.length) continue;
+        const irCR: string[] = [
+            ...[...dedDep].map(([c, v]) => `<dedDepen><tpRend>11</tpRend><cpfDep>${c}</cpfDep><vlrDedDep>${valor(v)}</vlrDedDep></dedDepen>`),
+            ...[...penAlim].map(([c, v]) => `<penAlim><tpRend>11</tpRend><cpfDep>${c}</cpfDep><vlrDedPenAlim>${valor(v)}</vlrDedPenAlim></penAlim>`),
+        ];
+        const infoDepXml = [...infoDep].map(([c, dep]) => `<infoDep><cpfDep>${c}</cpfDep>${/^\d{4}-\d{2}-\d{2}$/.test(dep.nascimento) ? `<dtNascto>${dep.nascimento}</dtNascto>` : ''}`
+            + `${dep.nome ? `<nome>${esc(dep.nome.slice(0, 70))}</nome>` : ''}${dedDep.has(c) ? `<depIRRF>S</depIRRF><tpDep>${dep.tipo}</tpDep>` : ''}</infoDep>`);
         const raiz = digitos(e.cnpj).slice(0, 8);
         const ideEmpregador = `<ideEmpregador><tpInsc>1</tpInsc><nrInsc>${raiz}</nrInsc></ideEmpregador>`;
         const id1200 = idEvento(e.cnpj, agora, ++seq);
@@ -247,8 +268,9 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                 + '</evtExclusao></eSocial>' };
         }
         // As informações de IR do S-1210 aceito (dependentes, pensão, plano de saúde…) voltam como estavam.
-        const ir = ex?.irComplem?.length ? ex.irComplem.join('') : irCR.length ? `<infoIRComplem><infoIRCR><tpCR>056107</tpCR>${irCR.join('')}</infoIRCR></infoIRComplem>` : '';
-        if (ex?.irComplem?.length && irCR.length) t.avisos.push('As deduções do IRRF voltam como estavam no S-1210 aceito; confira se os dependentes mudaram.');
+        const ir = ex?.irComplem?.length ? ex.irComplem.join('')
+            : irCR.length ? `<infoIRComplem>${infoDepXml.join('')}<infoIRCR><tpCR>056107</tpCR>${irCR.join('')}</infoIRCR></infoIRComplem>` : '';
+        if (ex?.irComplem?.length && irCR.length) t.avisos.push('As deduções do IRRF (dependentes e pensão) voltam como estavam no S-1210 aceito; confira se mudaram.');
         const id1210 = idEvento(e.cnpj, agora, ++seq);
         t.s1210 = { id: id1210, xml: `<eSocial xmlns="${NS}/evtPgtos/${VERSAO}"><evtPgtos Id="${id1210}">`
             + `<ideEvento><indRetif>1</indRetif><perApur>${perPgto}</perApur><tpAmb>${e.tpAmb}</tpAmb><procEmi>1</procEmi><verProc>${VER_PROC}</verProc></ideEvento>`

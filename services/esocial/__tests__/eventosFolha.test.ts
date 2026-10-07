@@ -63,6 +63,38 @@ describe('S-1200 e S-1210', () => {
         expect(gerarEventosFolha({ ...base, fichas: [ficha('f1', '52998224725', 'ANA', 'M001')], resultados: [simpl] }).trabalhadores[0].s1210!.xml).not.toContain('infoIRComplem');
     });
 
+    it('pensão alimentícia: penAlim por alimentando (rateio pela cota) e infoDep de quem não está no eSocial', () => {
+        const comPensao = resultado('f1', 'ANA', [verba('SAL', 'Salário', 'provento', 300000), verba('PENSAO', 'Pensão alimentícia', 'desconto', 100001)],
+            { deducoesIrrf: { simplificado: false, dependentes: [{ cpf: '11144477735', nome: 'FILHO' }], porDependente: 18959, pensao: 100001 } });
+        const f = { ...ficha('f1', '52998224725', 'ANA', 'M001'), origens: { dependentes: 'eSocial: S-2200' }, dependentes: [
+            { tipo: '03', nome: 'FILHO', nascimento: '2015-01-01', cpf: '11144477735', irrf: 'S', salarioFamilia: 'N' },
+            { tipo: '', nome: 'ALIMENTANDA UM', nascimento: '2012-02-03', cpf: '39053344705', irrf: 'N', salarioFamilia: 'N', pensao: 'S', cotaPensao: '60', noEsocial: 'N' },
+            { tipo: '03', nome: 'ALIMENTANDO DOIS', nascimento: '2014-04-05', cpf: '12345678909', irrf: 'N', salarioFamilia: 'N', pensao: 'S', cotaPensao: '40' },
+        ] };
+        const p = { ...params, rubricas: { ...params.rubricas, PENSAO: { codRubr: '0800', ideTabRubr: 'T1' } } };
+        const t = gerarEventosFolha({ ...base, parametros: p, rubricas: [...RUBRICAS, rub('0800', 'PENSAO ALIMENTICIA', '9213', '2')], fichas: [f], resultados: [comPensao] }).trabalhadores[0];
+        expect(t.erros).toEqual([]);
+        const d = doc(t.s1210!.xml);
+        const ir = d.getElementsByTagName('infoIRComplem')[0];
+        // Só a alimentanda marcada "não" no eSocial vai no infoDep, antes do infoIRCR; dependentes, depois pensões.
+        expect(Array.from(ir.children).map(e => e.localName)).toEqual(['infoDep', 'infoIRCR']);
+        expect(Array.from(ir.getElementsByTagName('infoDep')[0].children).map(e => `${e.localName}=${e.textContent}`)).toEqual(['cpfDep=39053344705', 'dtNascto=2012-02-03', 'nome=ALIMENTANDA UM']);
+        expect(Array.from(d.getElementsByTagName('infoIRCR')[0].children).map(e => e.localName)).toEqual(['tpCR', 'dedDepen', 'penAlim', 'penAlim']);
+        const pen = Array.from(d.getElementsByTagName('penAlim')).map(e => Array.from(e.children).map(c => c.textContent));
+        expect(pen).toEqual([['11', '39053344705', '600.01'], ['11', '12345678909', '400.00']]);
+        // Sem alimentando marcado, ou com o desconto simplificado: a pensão vai do mesmo jeito; sem alimentando, não gera.
+        const semAlim = gerarEventosFolha({ ...base, parametros: p, rubricas: [...RUBRICAS, rub('0800', 'PENSAO ALIMENTICIA', '9213', '2')], fichas: [ficha('f1', '52998224725', 'ANA', 'M001')], resultados: [comPensao] }).trabalhadores[0];
+        expect([semAlim.s1210, semAlim.erros[0]]).toEqual([null, expect.stringMatching(/^Pensão alimentícia sem alimentando na ficha/)]);
+        const simpl = gerarEventosFolha({ ...base, parametros: p, rubricas: [...RUBRICAS, rub('0800', 'PENSAO ALIMENTICIA', '9213', '2')], fichas: [f], resultados: [{ ...comPensao, deducoesIrrf: { ...comPensao.deducoesIrrf!, simplificado: true } }] }).trabalhadores[0];
+        expect([txt(doc(simpl.s1210!.xml), 'dedDepen').length, txt(doc(simpl.s1210!.xml), 'penAlim').length]).toEqual([0, 2]);
+        // Dependente do IRRF fora do eSocial vai no infoDep com depIRRF e tipo; sem tipo, não gera.
+        const fora = { ...f, dependentes: f.dependentes.map((x, i) => (i === 0 ? { ...x, noEsocial: 'N' } : x)) };
+        const tf = gerarEventosFolha({ ...base, parametros: p, rubricas: [...RUBRICAS, rub('0800', 'PENSAO ALIMENTICIA', '9213', '2')], fichas: [fora], resultados: [comPensao] }).trabalhadores[0];
+        expect(Array.from(doc(tf.s1210!.xml).getElementsByTagName('infoDep')).map(e => Array.from(e.children).map(c => c.localName).join(','))).toEqual(['cpfDep,dtNascto,nome,depIRRF,tpDep', 'cpfDep,dtNascto,nome']);
+        const semTipo = { ...fora, dependentes: fora.dependentes.map((x, i) => (i === 0 ? { ...x, tipo: '' } : x)) };
+        expect(gerarEventosFolha({ ...base, parametros: p, rubricas: [...RUBRICAS, rub('0800', 'PENSAO ALIMENTICIA', '9213', '2')], fichas: [semTipo], resultados: [comPensao] }).trabalhadores[0].erros[0]).toMatch(/FILHO não está no eSocial e o tipo \(Tabela 07\) está em branco/);
+    });
+
     it('dois contratos do mesmo CPF: um evento com dois demonstrativos e dois pagamentos', () => {
         const b = resultado('f2', 'ANA', [verba('SAL', 'Salário', 'provento', 100000, '30 dias'), verba('INSS', 'INSS', 'desconto', 7500)]);
         const { trabalhadores } = gerarEventosFolha({ ...base, fichas: [ficha('f1', '52998224725', 'ANA', 'M001'), ficha('f2', '52998224725', 'ANA', 'M002')], resultados: [ANA, b] });
@@ -75,7 +107,7 @@ describe('S-1200 e S-1210', () => {
         const semRub = resultado('f1', 'ANA', [verba('SAL', 'Salário', 'provento', 300000), verba('PENSAO', 'Pensão', 'desconto', 1000)]);
         const t1 = gerarEventosFolha({ ...base, fichas: [{ ...ficha('f1', '52998224725', 'ANA', ''), dados: { nome: 'ANA' } }], resultados: [semRub] }).trabalhadores[0];
         expect(t1.s1200).toBeNull();
-        expect(t1.erros).toEqual(['Sem matrícula do eSocial na ficha.', 'Categoria do eSocial (3 dígitos) em branco na ficha.', '"Pensão" sem rubrica no de/para.']);
+        expect(t1.erros).toEqual(['Sem matrícula do eSocial na ficha.', 'Categoria do eSocial (3 dígitos) em branco na ficha.', '"Pensão" sem rubrica no de/para.', expect.stringMatching(/^Pensão alimentícia sem alimentando na ficha/)]);
         const trocado = { ...params, rubricas: { ...params.rubricas, SAL: { codRubr: '0901', ideTabRubr: 'T1' } } };
         expect(gerarEventosFolha({ ...base, parametros: trocado, fichas: [ficha('f1', '52998224725', 'ANA', 'M001')], resultados: [ANA] }).trabalhadores[0].erros[0]).toMatch(/0901 é desconto no S-1010, e "Salário" é provento/);
         const inc = gerarEventosFolha({ ...base, fichas: [ficha('f1', '52998224725', 'ANA', 'M001')], resultados: [{ ...ANA, situacao: 'incompleto', avisos: ['Sem tabela.'] }] }).trabalhadores[0];

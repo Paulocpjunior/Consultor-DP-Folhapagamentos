@@ -30,6 +30,7 @@ export const GUIA_DO_APP = [
     '- eSocial: monitor, transmissão (lotes enviados e "Consultar resultado"), download de eventos pelo CFI.',
     '- IOB SAGE: restauração do backup do SAGE (empresa piloto e as demais), registro de guarda dos backups.',
     '- Usuários (só admin): papéis e carteira de empresas. O vínculo com o módulo DP/Folha é no Gerenciar Usuários do CFI.',
+    '- Pensão alimentícia: o valor do mês entra no movimento do Cálculo; quem recebe (alimentando) se marca na ficha, aba Dependentes (colunas Pensão, Cota % e No eSocial). O S-1210 informa a pensão pelo CPF de cada alimentando; com mais de um, a cota divide o valor.',
     'Antes de qualquer ação o app pede a empresa e o período ativos ("Trocar empresa ou período" no topo).',
 ].join('\n');
 
