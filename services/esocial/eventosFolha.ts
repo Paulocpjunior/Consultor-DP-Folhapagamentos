@@ -140,7 +140,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
         const t: EventosDoTrabalhador = { cpf, nome: contratos[0].r.nome, fichaIds: contratos.map(c => c.ficha.id), s1200: null, s1210: null, liquido: 0, erros: [], avisos: [] };
         trabalhadores.push(t);
         if (cpf.length !== 11) t.erros.push('CPF inválido na ficha.');
-        const dmDevs: string[] = []; const pagamentos: string[] = [];
+        const dmDevs: string[] = []; const pagamentos: string[] = []; const ides = new Set<string>();
         for (const { ficha: f, r } of contratos) {
             const quem = contratos.length > 1 ? ` (matrícula ${f.matriculaEsocial || '?'})` : '';
             if (r.situacao !== 'calculado') { t.erros.push(`Cálculo ${r.situacao === 'erro' ? 'com erro' : 'incompleto'}${quem}: ${[...r.erros, ...r.avisos].join(' ') || 'confira o holerite'}.`); continue; }
@@ -156,13 +156,18 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                 if (!rub) { t.erros.push(`"${v.descricao}" sem rubrica no de/para.`); continue; }
                 const dados = tipoDa.get(`${rub.ideTabRubr}|${rub.codRubr}`);
                 if (!dados) { t.erros.push(`Rubrica ${rub.codRubr} (de "${v.descricao}") sem S-1010 vigente em ${e.competencia}.`); continue; }
-                if ((v.tipo === 'provento') !== (dados.tpRubr === '1')) t.erros.push(`Rubrica ${rub.codRubr} é ${dados.tpRubr === '1' ? 'provento' : 'desconto ou informativa'} no S-1010, e "${v.descricao}" é ${v.tipo}.`);
+                // Provento só em rubrica de vencimento (1) e desconto só em rubrica de desconto (2); informativa (3, 4) não entra no líquido.
+                const esperado = v.tipo === 'provento' ? '1' : '2';
+                if (dados.tpRubr !== esperado) t.erros.push(`Rubrica ${rub.codRubr} é ${({ '1': 'provento', '2': 'desconto', '3': 'informativa', '4': 'informativa dedutora' } as Record<string, string>)[dados.tpRubr] ?? `tipo ${dados.tpRubr}`} no S-1010, e "${v.descricao}" é ${v.tipo}.`);
                 const k = `${rub.ideTabRubr}|${rub.codRubr}`;
                 const atual = itens.get(k) ?? { rub, valor: 0, qtd: 0 };
                 atual.valor += v.valor; atual.qtd += Number(quantidade(v.referencia) || 0);
                 itens.set(k, atual);
             }
-            const ide = ideDmDev(e.competencia, f.matriculaEsocial.trim());
+            // Único por trabalhador: matrículas longas que coincidem nos primeiros caracteres ganham um sufixo.
+            let ide = ideDmDev(e.competencia, f.matriculaEsocial.trim());
+            for (let n = 2; ides.has(ide); n++) ide = `${ide.slice(0, 30 - String(n).length - 1)}-${n}`;
+            ides.add(ide);
             dmDevs.push(`<dmDev><ideDmDev>${esc(ide)}</ideDmDev><codCateg>${categ}</codCateg><infoPerApur><ideEstabLot><tpInsc>1</tpInsc><nrInsc>${estab}</nrInsc><codLotacao>${esc(p.codLotacao.trim())}</codLotacao>`
                 + `<remunPerApur><matricula>${esc(f.matriculaEsocial.trim())}</matricula>`
                 + [...itens.values()].map(i => `<itensRemun><codRubr>${esc(i.rub.codRubr)}</codRubr><ideTabRubr>${esc(i.rub.ideTabRubr)}</ideTabRubr>${i.qtd > 0 ? `<qtdRubr>${i.qtd.toFixed(2)}</qtdRubr>` : ''}<vrRubr>${valor(i.valor)}</vrRubr></itensRemun>`).join('')
