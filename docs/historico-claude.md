@@ -2035,3 +2035,57 @@ guias sindicais".
     verificação", abrir o e-mail, clicar no link e voltar em "Já
     verifiquei". O CFI não foi alterado: a exigência de e-mail verificado
     continua.
+
+## 07/10/2026 — Conferência do motor com o eSocial do IOB (critério da Fase 3)
+
+- **Paulo:** *"pode seguir com a conferência de cálculo IOB"*.
+- **Decisão:** a fonte do IOB é o **S-1200** que ele transmitiu ao eSocial,
+  não o PDF do holerite.
+  - O S-1200 traz as rubricas e os valores de cada trabalhador no mês. O
+    tipo (provento, desconto ou informativa) e a natureza de cada rubrica
+    vêm do S-1010.
+  - É o padrão do eSocial e dispensa leitura por IA. Vale para o .zip do
+    eSocial › Download de eventos e para XMLs soltos.
+  - Confere várias competências de uma vez, que é o critério da Fase 3:
+    diferença zero contra o IOB por 3 competências seguidas.
+  - A conferência pelos holerites em PDF (Gemini) continua disponível.
+- **Feito:**
+  - **`services/conferencia/conferenciaMotorIob.ts`:**
+    - `lerS1200Xml`: lê só os S-1200 mensais, do empregador e de produção.
+      Recusados ficam fora. Remuneração de períodos anteriores
+      (`infoPerAnt`) fica fora, com observação.
+    - `ultimaRemuneracao`: quando há retificador ou mais de um
+      processamento, vale o último.
+    - `lerEsocialIob` lê .xml e .zip com S-1200, S-1010, S-5001 e S-5003.
+    - `rubricasParaConferencia` usa as rubricas gravadas em Cadastros ›
+      Incidências, completadas pelas do arquivo.
+    - `conferirMotorComIob` confere por competência e funcionário. Liga
+      pelo CPF e, sem ele, pela matrícula. Itens comparados:
+      - proventos, descontos e líquido, pelo tipo da rubrica;
+      - salário (natureza 1000), INSS (9201), IRRF (9203) e salário-família
+        (1409);
+      - INSS descontado do S-5001 e base e depósito do FGTS do S-5003,
+        quando esses eventos vêm no arquivo.
+    - **Pendências por funcionário:** S-1200 sem ficha, motor sem S-1200,
+      cálculo incompleto e rubrica sem S-1010. Mês com férias é comparado
+      normalmente, com observação.
+    - Uma competência só conta como sem diferença com tudo conferindo e
+      nada pendente. Na sequência, mês que falta no arquivo quebra a
+      contagem.
+  - **Tela:** aba Cálculo (mensal), botão **"Conferir com o eSocial do IOB"**
+    (`components/calculo/ConferenciaEsocialIob.tsx`):
+    - quadro do critério ("atingido" ou "ainda não"), com a maior
+      sequência;
+    - tabela por competência;
+    - por funcionário: itens motor × IOB e as rubricas do IOB no S-1200
+      (código, descrição, natureza, tipo, quantidade e valor);
+    - Excel com as abas Resumo, Funcionários e Rubricas do IOB.
+  - O motor de cada competência usa os movimentos gravados daquele mês, que
+    a restauração traz do `holerith`.
+- **Para usar na empresa piloto:**
+  1. eSocial › Download de eventos: empregador S-1200 dos meses, tabelas
+     S-1010 e, se quiser, trabalhador S-5001 e S-5003.
+  2. Cálculo › mensal › "Conferir com o eSocial do IOB" e escolher o .zip.
+- **Limite conhecido:** o motor usa o salário atual da ficha. Em meses
+  antes de um reajuste, o item "Salário" diverge. Por isso a conferência
+  vale mais para os meses recentes.
