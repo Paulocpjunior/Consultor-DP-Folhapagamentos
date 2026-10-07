@@ -6,7 +6,7 @@
 // o que foi digitado e ainda não salvo fica marcado. O resultado do cálculo
 // não é gravado: serve para conferir o motor contra o holerite do IOB.
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
@@ -31,6 +31,7 @@ import { calcularFerias, feriasDaCompetencia, gozosNoMes, OPCOES_FERIAS_PADRAO, 
 import { calcularRescisao, ROTULO_AVISO, TIPOS_RESCISAO, type AvisoPrevio, type ResultadoRescisao, type TipoRescisao } from '../../services/calculo/motorRescisao';
 import { calcular13, com13, OPCOES_13_PADRAO, ultimoDiaDoMes, type Opcoes13 } from '../../services/calculo/motor13';
 import ConferenciaHolerites, { conferirTodos, type LeituraHolerites } from './ConferenciaHolerites';
+import ConferenciaEsocialIob from './ConferenciaEsocialIob';
 import { resumirFolha } from '../../services/relatorios/resumoFolha';
 import { listarEnvios, type Envio } from '../../services/esocial/transmissaoService';
 import StatusEsocialAfastamento from '../esocial/StatusEsocialAfastamento';
@@ -88,6 +89,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const [salvando, setSalvando] = useState(false);
     const [aviso, setAviso] = useState('');
     const [conferir, setConferir] = useState(false);
+    const [conferirEsocial, setConferirEsocial] = useState(false);
     const [leitura, setLeitura] = useState<LeituraHolerites | null>(null);
     const [folha, setFolha] = useState<Folha>('mensal');
     const [ano, setAno] = useState(new Date().getFullYear());
@@ -228,6 +230,19 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             });
         });
     }, [dados, competencia, pagamento, movs, movsEmpresa, mensal, ferias, rescisao, paramsResc, movsAno, ano, folha, opcoes13, primeiras, abonos, opcoesFerias, feriasSimuladas]);
+    // Conferência com o eSocial do IOB: a folha mensal de qualquer competência, com os movimentos gravados dela.
+    const motorDaCompetencia = useCallback((c: string): ResultadoCalculo[] => {
+        if (!dados || !movsEmpresa) return [];
+        return noMes(dados.fichas, c).map(f => {
+            const afs = dados.afastamentos.filter(a => a.fichaId === f.id);
+            return calcularMensal({ competencia: c, pagamento: competenciaSeguinte(c), ficha: f, tabelas: dados.tabelas, movimento: movsEmpresa[f.id]?.[c], afastamentos: afs,
+                feriasDoMes: feriasDaCompetencia(f, afs, dados.tabelas, movsEmpresa[f.id] ?? {}, c) });
+        });
+    }, [dados, movsEmpresa]);
+    const comFeriasNaCompetencia = useCallback((c: string): Set<string> => {
+        if (!dados || !movsEmpresa) return new Set();
+        return new Set(noMes(dados.fichas, c).filter(f => feriasDaCompetencia(f, dados.afastamentos.filter(a => a.fichaId === f.id), dados.tabelas, movsEmpresa[f.id] ?? {}, c)).map(f => f.id));
+    }, [dados, movsEmpresa]);
     const total = (f: (r: ResultadoCalculo) => number) => resultados.reduce((s, r) => s + f(r), 0);
     const sel = resultados.find(r => chave(r) === aberto);
     const nomeDe = (id: string) => dados?.fichas.find(f => f.id === id)?.dados.nome || id;
@@ -342,6 +357,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                     {salvando ? 'Salvando…' : `Salvar movimento${pendentes.length ? ` (${pendentes.length})` : ''}`}
                 </button>}
                 {mensal && <button className={btn} disabled={!resultados.length} aria-pressed={conferir} onClick={() => setConferir(c => !c)}>Conferir com holerites do IOB</button>}
+                {mensal && <button className={btn} disabled={!empresa || !dados || !movsEmpresa} title={movsEmpresa ? '' : 'Carregando os movimentos gravados…'} aria-pressed={conferirEsocial} onClick={() => setConferirEsocial(c => !c)}>Conferir com o eSocial do IOB</button>}
                 <button className={`${mensal ? '' : 'ml-auto '}${btn}`} disabled={!resultados.length} aria-pressed={verResumo} onClick={() => setVerResumo(x => !x)}>Resumo da folha</button>
                 <button className={btn} disabled={!resultados.some(r => r.situacao !== 'erro')} onClick={() => pdfHolerites(resultados, `holerites-${empresa?.codigoSage ?? 'empresa'}-${sufixoArquivo}.pdf`)}>Holerites (PDF)</button>
                 <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado')} onClick={() => setArquivoBancario(true)}>Arquivo bancário</button>
@@ -501,6 +517,9 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 </section>
             )}
 
+            {mensal && conferirEsocial && empresa && dados && movsEmpresa && (
+                <ConferenciaEsocialIob empresa={empresa} fichas={dados.fichas} motor={motorDaCompetencia} comFerias={comFeriasNaCompetencia} />
+            )}
             {conferir && dados && resultados.length > 0 && (
                 <ConferenciaHolerites empresaId={empresaId} competencia={competencia} fichas={dados.fichas} resultados={resultados} usuario={usuario}
                     leitura={leitura} onLeitura={setLeitura} movimentos={movs}
