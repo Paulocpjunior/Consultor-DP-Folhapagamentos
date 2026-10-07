@@ -33,6 +33,13 @@ describe('restaurar a empresa pelo backup', () => {
         expect(empresasDoBackup(rest, [empresa]).map(x => [x.codigo, x.empresa?.id ?? null])).toEqual([['300', null], ['1200', 'emp1']]);
     });
 
+    it('código SAGE repetido no Consultor: uma opção por empresa, marcada (não fica só com a última)', async () => {
+        const rest = await abrirRestauracao([{ nome: 'folha.backup', fonte: fonteDeBytes(backup()) }]);
+        const antiga = { ...empresa, id: 'emp0', cnpj: '04896300000100', nomeFantasia: 'SP ASSESSORIA CONTABIL' } as Empresa;
+        const r = empresasDoBackup(rest, [empresa, antiga]).filter(x => x.codigo === '1200');
+        expect(r.map(x => [x.empresa?.id, x.repetido])).toEqual([['emp0', true], ['emp1', true]]);
+    });
+
     it('encadeia eSocial → func → férias → histórico, sobre as fichas da etapa anterior', async () => {
         const rest = await abrirRestauracao([{ nome: 'folha.backup', fonte: fonteDeBytes(backup()) }]);
         const p = await planejarRestauracao(rest, empresa, { fichas: [], afastamentos: [], enquadramentos: [], movimentos: {} }, { ...parametrosPadrao(), historicoDesde: '2024-01' });

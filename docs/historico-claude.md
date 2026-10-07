@@ -1704,3 +1704,18 @@ guias sindicais".
     motivo. Cadastro repetido continua para a equipe corrigir.
   - `atualizarEmpresa`: editar uma empresa antiga que só muda o formato
     ("93" → "0093") reserva a chave, em vez de ser recusado.
+
+## 07/10/2026 — Restauração com código SAGE repetido: escolha pelo CNPJ
+
+- **Paulo:** *"o CNPJ está correto, mas não habilita para importação"*. Pelos
+  prints, a empresa "SP" (S&P ASSESSORIA CONTABIL S/S) já tem o CNPJ
+  44.388.152/0001-89, mas a restauração seguia com "raiz 04896300". O
+  seletor mostrava "1200 · SP ASSESSORIA CONTABIL".
+- **Causa:** há **duas** empresas com o código SAGE 1200 no Consultor (o
+  quadro "Cadastro repetido" lista "Código SAGE 1200: SP · SP ASSESSORIA
+  CONTABIL"). `empresasDoBackup` fazia um mapa por código e ficava com a
+  última, a do CNPJ antigo. As restaurações anteriores da 1200 gravaram
+  nessa outra empresa.
+- **Mudança:** com o código repetido, o seletor mostra uma opção por empresa,
+  com o CNPJ e a marca "código repetido no Consultor", além de um aviso para
+  escolher a do CNPJ que o IOB transmite e corrigir o código da outra.
