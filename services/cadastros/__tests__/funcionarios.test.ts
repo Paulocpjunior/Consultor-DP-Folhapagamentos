@@ -228,4 +228,21 @@ describe('histórico de salário pelos S-2200/S-2206', () => {
         // Admissão no meio do mês não é "alteração".
         expect(fichaNaCompetencia(f, '2026-01').alteradoNoMes).toBe('');
     });
+
+    it('unidade e horas da época: não herda as de um contrato posterior; sem nenhuma no histórico, ficam as atuais; a diferença de unidade conta', () => {
+        const base = { ...fichaVazia(empresa), dados: { salario: '20.00', unidadeSalario: '1', horasSemanais: '40' } };
+        const f = { ...base, historicoSalario: [
+            { desde: '2026-01-05', salario: '2000.00', horasSemanais: '44', origem: 'S-2200 · x' },
+            { desde: '2026-08-01', salario: '20.00', unidade: '1', horasSemanais: '40', origem: 'S-2206 · y' },
+        ] };
+        const julho = fichaNaCompetencia(f, '2026-07').ficha.dados;
+        expect([julho.salario, julho.unidadeSalario, julho.horasSemanais]).toEqual(['2000.00', undefined, '44']);
+        // Histórico sem unidade nem horas: as atuais da ficha continuam.
+        const semCampos = { ...base, historicoSalario: [{ desde: '2026-01-05', salario: '2000.00', origem: 'a' }, { desde: '2026-08-01', salario: '2200.00', origem: 'b' }] };
+        const d = fichaNaCompetencia(semCampos, '2026-07').ficha.dados;
+        expect([d.salario, d.unidadeSalario, d.horasSemanais]).toEqual(['2000.00', '1', '40']);
+        // Só a unidade de uma faixa antiga mudou: é alteração (a ficha é regravada).
+        const outra = { ...f, historicoSalario: [{ ...f.historicoSalario[0], unidade: '5' }, f.historicoSalario[1]] };
+        expect(diffFicha(f, outra).map(x => x.campo)).toEqual(['historicoSalario']);
+    });
 });

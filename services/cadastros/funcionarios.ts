@@ -44,6 +44,8 @@ export interface FaixaSalarial {
     /** Salário fixo em decimal com ponto, como em dados.salario. */
     salario: string;
     unidade?: string;
+    /** Horas semanais do contrato na época (divisor do salário-hora e das horas extras). */
+    horasSemanais?: string;
     origem: string;
 }
 
@@ -141,16 +143,20 @@ export function fichaDoEsocial(c: Cadastro, empresa: { id: string; cnpj: string 
     };
 }
 
+/** Salário, unidade e horas da faixa: o que muda o cálculo (a origem não entra). */
+const textoFaixa = (x: FaixaSalarial) => `${x.salario}|${x.unidade ?? ''}|${x.horasSemanais ?? ''}`;
+
 /** Salário de cada S-2200/S-2206 do vínculo, por data; o mesmo valor seguido vira uma faixa só. */
 export function historicoDosEventos(c: Pick<Cadastro, 'eventos'>): FaixaSalarial[] {
     const r: FaixaSalarial[] = [];
     const eventos = c.eventos.filter(e => (e.tipo === 'S-2200' || e.tipo === 'S-2206') && /^\d+(\.\d{1,2})?$/.test(e.dados.salario ?? '') && dataValida(e.data))
         .sort((a, b) => a.data.localeCompare(b.data) || (a.tipo === 'S-2200' ? -1 : b.tipo === 'S-2200' ? 1 : 0));
     for (const e of eventos) {
-        const faixa: FaixaSalarial = { desde: e.data, salario: e.dados.salario!, ...(e.dados.unidadeSalario ? { unidade: e.dados.unidadeSalario } : {}), origem: `${e.tipo} · ${e.recibo || e.id}` };
+        const faixa: FaixaSalarial = { desde: e.data, salario: e.dados.salario!, ...(e.dados.unidadeSalario ? { unidade: e.dados.unidadeSalario } : {}),
+            ...(e.dados.horasSemanais ? { horasSemanais: e.dados.horasSemanais } : {}), origem: `${e.tipo} · ${e.recibo || e.id}` };
         const ultima = r[r.length - 1];
         if (ultima && ultima.desde === faixa.desde) r[r.length - 1] = faixa;
-        else if (!ultima || ultima.salario !== faixa.salario || ultima.unidade !== faixa.unidade) r.push(faixa);
+        else if (!ultima || textoFaixa(ultima) !== textoFaixa(faixa)) r.push(faixa);
     }
     return r;
 }
@@ -171,7 +177,15 @@ export function fichaNaCompetencia(f: FichaFuncionario, competencia: string): { 
     if (h[h.length - 1].desde <= fim) return { ficha: f, faixa: null, alteradoNoMes };
     const faixa = [...h].reverse().find(x => x.desde <= fim);
     if (!faixa) return { ficha: f, faixa: null, alteradoNoMes };
-    return { ficha: { ...f, dados: { ...f.dados, salario: faixa.salario, ...(faixa.unidade ? { unidadeSalario: faixa.unidade } : {}) } }, faixa, alteradoNoMes };
+    // Unidade e horas da época. Se o histórico nunca as trouxe, ficam as atuais da ficha; se trouxe e
+    // esta faixa não tem, saem (o motor usa o padrão com aviso) em vez de herdar as de um contrato posterior.
+    const dados = { ...f.dados, salario: faixa.salario };
+    const campos = [['unidadeSalario', 'unidade'], ['horasSemanais', 'horasSemanais']] as const;
+    for (const [campo, chave] of campos) {
+        if (!h.some(x => x[chave])) continue;
+        if (faixa[chave]) dados[campo] = faixa[chave]; else delete dados[campo];
+    }
+    return { ficha: { ...f, dados }, faixa, alteradoNoMes };
 }
 
 /** Limpa espaços, deixa só dígitos onde o campo é numérico e padroniza o salário com ponto decimal. */
@@ -293,7 +307,7 @@ export function diffFicha(antes: FichaFuncionario | null, depois: FichaFuncionar
     // Pendências da importação também contam: senão um aviso novo (ou a limpeza de repetidos) nunca é gravado.
     const pend = (f: FichaFuncionario) => (f.pendenciasImportacao ?? []).join('\n');
     if (antes && pend(antes) !== pend(depois)) r.push({ campo: 'pendencias', de: `${antes.pendenciasImportacao?.length ?? 0}`, para: `${depois.pendenciasImportacao?.length ?? 0}` });
-    const hist = (f: Pick<FichaFuncionario, 'historicoSalario'> | null) => (f?.historicoSalario ?? []).map(x => `${x.desde}: ${x.salario}`).join('; ');
+    const hist = (f: Pick<FichaFuncionario, 'historicoSalario'> | null) => (f?.historicoSalario ?? []).map(x => `${x.desde}: ${textoFaixa(x)}`).join('; ');
     if (hist(antes) !== hist(depois)) r.push({ campo: 'historicoSalario', de: hist(antes), para: hist(depois) });
     return r;
 }

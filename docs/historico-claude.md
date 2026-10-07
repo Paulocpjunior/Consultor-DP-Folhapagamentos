@@ -2389,3 +2389,13 @@ guias sindicais".
 - **Para valer na empresa piloto:** rodar de novo a restauração do SAGE, ou a
   importação do eSocial em Cadastros, para as fichas receberem o histórico.
 - **Testes:** 86 arquivos, 658 testes.
+- **Revisão do Codex no PR #102 (dois P1 e um P2):**
+  - **Horas semanais da época:** cada faixa guarda também as horas
+    semanais, e uma mudança só de horas abre uma faixa nova. As horas são o
+    divisor do salário-hora e das horas extras, e o motor usa as da
+    competência.
+  - **Unidade e horas:** a faixa sem unidade ou sem horas não herda as de
+    um contrato posterior; o campo sai e o motor usa o padrão, com aviso.
+    Se o histórico nunca trouxe o campo, ficam os da ficha.
+  - **Diferença do histórico:** a comparação inclui a unidade e as horas.
+    Com isso, a correção só da unidade numa reimportação também é gravada.
