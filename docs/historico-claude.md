@@ -1506,3 +1506,35 @@ guias sindicais".
   que abrem logo depois (Empresas, Certificados) já leem o papel e a carteira
   novos. A revisão do Codex no PR #78 apontou que, num efeito que roda depois
   da tela aparecer, essas telas ainda leriam o perfil antigo.
+
+## 07/10/2026 — Férias e afastamentos pelo backup do IOB
+
+- **Paulo:** *"preciso testar e gerar férias de um funcionário real"* e *"pode
+  seguir com o PR de férias e afastamentos"*.
+- **Problema:**
+  - O motor de férias escolhe o período aquisitivo pelos gozos anteriores e
+    aplica a perda do direito (art. 133) pelos afastamentos.
+  - Nada disso vinha do backup.
+  - Desde o leiaute S-1.0, as férias não vão mais ao eSocial (S-2230), então
+    o histórico de férias do IOB é a fonte.
+- **Mudanças:**
+  - **`hist_ferias` → férias anteriores:** cada gozo com datas válidas vira um
+    afastamento de motivo 15, com o período aquisitivo (`daquisiini`/`fim`) e
+    o abono (`ntotabono`, ou os dias de `dabonoini`/`fim`). A ligação com a
+    ficha é pelo código IOB.
+  - **S-2230 transmitidos pelo IOB:** saem de
+    `arquivoeventotransmissaoesocial` com os recibos de
+    `eventotransmissaoesocial`. O evento recusado fica de fora. São aceitos o
+    leiaute 2.x e o XML sem namespace.
+  - **Junção:** com o mesmo início no mesmo vínculo, fica o S-2230, completado
+    com o período aquisitivo e o abono do histórico.
+  - **Reimportação:** um S-2230 que não traz o abono ou o período aquisitivo
+    não apaga esses dados. O abono entra na comparação, para ser gravado.
+  - **Tela:** Cadastros › Afastamentos › "Importar S-2230 (XML) ou backup do
+    IOB" aceita o `.backup`, com a prévia de sempre.
+- **Pergunta do Paulo sobre o restore completo da 1200:**
+  - O Consultor não guarda as tabelas do FolhaWin. Ele traz do backup, com
+    prévia, os dados que usa: fichas, eSocial, enquadramento, férias e
+    afastamentos. O próximo passo é o `holerith`, para as médias.
+  - Copiar as cerca de 200 tabelas do schema para o Firebase guardaria dados
+    pessoais sem uso. Isso fere a regra de não gravar o backup no Firebase.

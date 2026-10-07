@@ -27,7 +27,12 @@ export const TABELA_EVENTOS = 'eventotransmissaoesocial';
 
 /** Eventos de vínculo que o importador consolida. */
 const EVENTO_CADASTRAL = /<(?:[\w-]+:)?evt(?:Admissao|AltCadastral|AltContratual|Deslig|Exclusao)[\s>]/;
-const RETORNO = /<(?:[\w-]+:)?nrRecibo\s*>/;
+/** Afastamento temporário (S-2230). As exclusões (S-3000) de S-2230 vão para a lista dos afastamentos. */
+const EVENTO_AFASTAMENTO = /<(?:[\w-]+:)?evtAfastTemp[\s>]/;
+const EXCLUI_AFASTAMENTO = /<(?:[\w-]+:)?tpEvento\s*>\s*S-2230\s*</;
+// Retorno de processamento (lote ou evento). Não basta achar <nrRecibo>: o
+// evento retificador traz o recibo do original em ideEvento/nrRecibo.
+const RETORNO = /<(?:[\w-]+:)?retorno(?:Evento|ProcessamentoLoteEventos|EventoCompleto)[\s>]/;
 
 type Bruto = { tipo: 'texto'; texto: string } | { tipo: 'bytes'; bytes: Uint8Array };
 
@@ -89,7 +94,10 @@ export function recibosDoRetorno(xml: string): Map<string, string> {
 }
 
 export interface EsocialDoBackup {
+    /** Eventos de vínculo (S-2200, S-2205, S-2206, S-2299 e as exclusões deles). */
     fontes: FonteXml[];
+    /** Afastamentos (S-2230 e as exclusões deles). */
+    fontesAfastamento: FonteXml[];
     /**
      * Id do evento (chaveIdEvento) → número do recibo, como o IOB registrou.
      * `null` quando o backup não traz informação de recibo (sem a tabela de
@@ -115,7 +123,7 @@ export async function esocialDoBackup(rest: Pick<Restauracao, 'tabelas' | 'lerTa
     const avisos: string[] = [];
     const daqui = (t: TabelaRestauracao) => t.origem === 'postgres' && [...TABELAS_ARQUIVO, TABELA_EVENTOS].includes(t.tabela.toLowerCase());
     let tabelas = rest.tabelas.filter(daqui);
-    if (!tabelas.length) return { fontes: [], recibos: null, grupos: [], linhas: 0, avisos: ['O backup não tem as tabelas de transmissão do eSocial do IOB (arquivoeventotransmissaoesocial).'] };
+    if (!tabelas.length) return { fontes: [], fontesAfastamento: [], recibos: null, grupos: [], linhas: 0, avisos: ['O backup não tem as tabelas de transmissão do eSocial do IOB (arquivoeventotransmissaoesocial).'] };
     const codigo = codigoSage ? codigoIob(codigoSage) : '';
     if (codigo) {
         const daEmpresa = tabelas.filter(t => codigoDoSchema(t.grupo) === codigo);
@@ -148,13 +156,14 @@ export async function esocialDoBackup(rest: Pick<Restauracao, 'tabelas' | 'lerTa
             // Texto já legível é filtrado aqui, para não guardar na memória os S-1200 e afins.
             const bruto = brutoDoValor(valor);
             if (!bruto) { ilegiveis++; return; }
-            if (bruto.tipo === 'texto' && !EVENTO_CADASTRAL.test(bruto.texto) && !RETORNO.test(bruto.texto)) return;
+            if (bruto.tipo === 'texto' && !EVENTO_CADASTRAL.test(bruto.texto) && !EVENTO_AFASTAMENTO.test(bruto.texto) && !RETORNO.test(bruto.texto)) return;
             const nome = `${nomeTabela(t)}/${(iNome >= 0 && v[iNome]?.trim()) || (iProt >= 0 && v[iProt]?.trim()) || `linha ${linhas}`}`;
             candidatos.push({ nome, valor });
         });
     }
     aoProgresso?.(`Abrindo ${candidatos.length} arquivo(s) do eSocial…`);
     const fontes: FonteXml[] = [];
+    const fontesAfastamento: FonteXml[] = [];
     const vistos = new Set<string>();
     for (const c of candidatos) {
         let xmls: string[];
@@ -163,15 +172,16 @@ export async function esocialDoBackup(rest: Pick<Restauracao, 'tabelas' | 'lerTa
         for (const [n, xml] of xmls.entries()) {
             if (RETORNO.test(xml)) comRecibos = true;
             if (RETORNO.test(xml)) for (const [id, rec] of recibosDoRetorno(xml)) if (!recibos.has(chaveIdEvento(id))) recibos.set(chaveIdEvento(id), rec);
-            if (!EVENTO_CADASTRAL.test(xml)) continue;
+            const afastamento = EVENTO_AFASTAMENTO.test(xml) || (/evtExclusao/.test(xml) && EXCLUI_AFASTAMENTO.test(xml));
+            if (!afastamento && !EVENTO_CADASTRAL.test(xml)) continue;
             const hash = await hashArquivo(new TextEncoder().encode(xml).buffer as ArrayBuffer);
             if (vistos.has(hash)) continue;
             vistos.add(hash);
-            fontes.push({ nome: xmls.length > 1 ? `${c.nome}#${n + 1}` : c.nome, xml, hash });
+            (afastamento ? fontesAfastamento : fontes).push({ nome: xmls.length > 1 ? `${c.nome}#${n + 1}` : c.nome, xml, hash });
         }
     }
     if (ilegiveis) avisos.push(`${ilegiveis} arquivo(s) do eSocial no backup em formato não reconhecido; ficaram de fora.`);
-    if (linhas && !fontes.length) avisos.push('O backup tem arquivos do eSocial, mas nenhum S-2200, S-2205, S-2206, S-2299 ou S-3000.');
-    if (!comRecibos && fontes.length) avisos.push('O backup não traz os recibos do eSocial: os eventos entram como não comprovados.');
-    return { fontes, recibos: comRecibos ? recibos : null, grupos: [...new Set(tabelas.map(t => t.grupo))].sort(), linhas, avisos };
+    if (linhas && !fontes.length && !fontesAfastamento.length) avisos.push('O backup tem arquivos do eSocial, mas nenhum S-2200, S-2205, S-2206, S-2230, S-2299 ou S-3000.');
+    if (!comRecibos && (fontes.length || fontesAfastamento.length)) avisos.push('O backup não traz os recibos do eSocial: os eventos entram como não comprovados.');
+    return { fontes, fontesAfastamento, recibos: comRecibos ? recibos : null, grupos: [...new Set(tabelas.map(t => t.grupo))].sort(), linhas, avisos };
 }
