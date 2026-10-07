@@ -32,6 +32,7 @@ import { calcularRescisao, ROTULO_AVISO, TIPOS_RESCISAO, type AvisoPrevio, type 
 import { calcular13, com13, OPCOES_13_PADRAO, ultimoDiaDoMes, type Opcoes13 } from '../../services/calculo/motor13';
 import ConferenciaHolerites, { conferirTodos, type LeituraHolerites } from './ConferenciaHolerites';
 import ConferenciaEsocialIob from './ConferenciaEsocialIob';
+import EventosFolhaModal from '../esocial/EventosFolhaModal';
 import { resumirFolha } from '../../services/relatorios/resumoFolha';
 import { listarEnvios, type Envio } from '../../services/esocial/transmissaoService';
 import StatusEsocialAfastamento from '../esocial/StatusEsocialAfastamento';
@@ -111,6 +112,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const [recargaEnvios, setRecargaEnvios] = useState(0);
     const [arquivoBancario, setArquivoBancario] = useState(false);
     const [pacote, setPacote] = useState(false);
+    const [eventosFolha, setEventosFolha] = useState(false);
     useEffect(() => { setEnviosEsocial(null); if (!empresaId || folha !== 'ferias') return; listarEnvios(empresaId).then(setEnviosEsocial).catch(() => setEnviosEsocial([])); }, [empresaId, folha, recargaEnvios]);
     const [opcoesFerias, setOpcoesFerias] = useState<OpcoesFerias>(OPCOES_FERIAS_PADRAO);
     const [recarga, setRecarga] = useState(0);
@@ -362,6 +364,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 <button className={btn} disabled={!resultados.some(r => r.situacao !== 'erro')} onClick={() => pdfHolerites(resultados, `holerites-${empresa?.codigoSage ?? 'empresa'}-${sufixoArquivo}.pdf`)}>Holerites (PDF)</button>
                 <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado')} onClick={() => setArquivoBancario(true)}>Arquivo bancário</button>
                 <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado')} onClick={() => setPacote(true)}>Pacote do cliente</button>
+                {mensal && <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado')} onClick={() => setEventosFolha(true)}>S-1200 e S-1210</button>}
                 <button className={btn} disabled={!resultados.length} onClick={exportar}>Exportar Excel</button>
             </div>
             {rescisao && dados && (
@@ -517,6 +520,11 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 </section>
             )}
 
+            {mensal && eventosFolha && empresa && dados && (() => {
+                const [pa, pm] = (/^\d{4}-\d{2}$/.test(pagamento) ? pagamento : competenciaSeguinte(competencia)).split('-').map(Number);
+                return <EventosFolhaModal empresa={empresa} competencia={competencia} fichas={dados.fichas} resultados={resultados} dataSugerida={quintoDiaUtilSalario(pa, pm)} usuario={usuario}
+                    onFechar={() => setEventosFolha(false)} onParametrosSalvos={esocialFolha => setEmpresas(l => l?.map(e => (e.id === empresa.id ? { ...e, esocialFolha } : e)) ?? l)} />;
+            })()}
             {mensal && conferirEsocial && empresa && dados && movsEmpresa && (
                 <ConferenciaEsocialIob empresa={empresa} fichas={dados.fichas} motor={motorDaCompetencia} comFerias={comFeriasNaCompetencia} />
             )}

@@ -68,6 +68,8 @@ export interface ResultadoCalculo {
     memoria: string[];
     avisos: string[];
     erros: string[];
+    /** Como o IRRF do mês foi deduzido (o S-1210 informa as deduções de dependentes). */
+    deducoesIrrf?: { simplificado: boolean; dependentes: { cpf: string; nome: string }[]; porDependente: number; pensao: number };
 }
 
 /** FGTS: 8% (Lei 8.036/1990, art. 15); aprendiz 2% (§ 7º). */
@@ -334,6 +336,7 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
         const simplificado = t.valores.descontoSimplificado ?? 0;
         const usaSimpl = simplificado > legais;
         const deducao = usaSimpl ? simplificado : legais;
+        r.deducoesIrrf = { simplificado: usaSimpl, dependentes: ficha.dependentes.filter(x => x.irrf === 'S').map(x => ({ cpf: x.cpf, nome: x.nome })), porDependente: t.valores.deducaoDependente ?? 0, pensao };
         const base = Math.max(0, r.bases.irrf - deducao);
         const faixa = t.faixas.find(f => f.ate === null || base <= f.ate) ?? t.faixas[t.faixas.length - 1];
         let ir = Math.max(0, Math.round(base * faixa.aliquota / 100) - faixa.deducao);
