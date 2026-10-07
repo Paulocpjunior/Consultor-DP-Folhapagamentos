@@ -11,6 +11,7 @@ import type { ResultadoCalculo } from '../calculo/motorMensal';
 import type { FichaFuncionario } from '../cadastros/funcionarios';
 import type { ResumoFolha } from './resumoFolha';
 import { centavosDeTexto } from '../cadastros/documentos';
+import type { InfoIrrfFerias } from '../calculo/motorFerias';
 
 export interface CabecalhoEmpresa { razaoSocial: string; cnpj: string; codigoSage?: string }
 export interface OpcoesPdf { empresa: CabecalhoEmpresa; titulo: string; previa: boolean }
@@ -55,6 +56,17 @@ function cabecalho(doc: jsPDF, o: OpcoesPdf, subtitulo: string) {
 }
 
 /** Uma página por funcionário (os resultados com erro ficam de fora). */
+/** IRRF das férias no recibo em PDF, também quando não há retenção (o desconto zerado não vira verba). */
+export function linhasIrrfFerias(r: ResultadoCalculo): string[] {
+    const i = (r as ResultadoCalculo & { irrf?: InfoIrrfFerias | null }).irrf;
+    if (!i) return [];
+    const pct = `${i.aliquota.toLocaleString('pt-BR')}%`;
+    return [
+        `IRRF sobre férias: rendimento ${brl(i.tributavel)} - ${i.usouSimplificado ? 'desconto simplificado' : `INSS${i.dependentes ? ` e ${i.dependentes} dependente(s)` : ''}`} ${brl(i.deducoes)} = base ${brl(i.base)} · ${pct}${i.parcelaDeduzir ? ` - ${brl(i.parcelaDeduzir)}` : ''} = ${brl(i.calculado)}${i.redutor ? ` · redutor 2026 -${brl(i.redutor)}` : ''}${i.dispensado ? ` · dispensado -${brl(i.dispensado)}` : ''} · devido ${brl(i.devido)}`,
+        ...(i.semRetencao ? [`Sem retenção de IRRF: ${i.semRetencao}.`] : []),
+    ];
+}
+
 export function holeritesPdf(resultados: ResultadoCalculo[], fichas: FichaFuncionario[], o: OpcoesPdf): jsPDF {
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     const validos = resultados.filter(r => r.situacao !== 'erro');
@@ -82,10 +94,14 @@ export function holeritesPdf(resultados: ResultadoCalculo[], fichas: FichaFuncio
             margin: { left: 14, right: 14 },
         });
         let y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
-        // Bases + declaração + assinatura ocupam ~40 mm: se não couber, vão para a página seguinte.
-        if (y + 40 > doc.internal.pageSize.height - 10) { doc.addPage(); y = 20; }
         doc.setFontSize(8.5);
+        const irrf: string[] = linhasIrrfFerias(r).flatMap(t => doc.splitTextToSize(textoPdf(t), 182) as string[]);
+        const extra = irrf.length * 4;
+        // Bases + IRRF + declaração + assinatura: se não couber, vão para a página seguinte.
+        if (y + 40 + extra > doc.internal.pageSize.height - 10) { doc.addPage(); y = 20; }
         doc.text(textoPdf(`Salário-base ${brl(centavosDeTexto(d.salario ?? '') ?? 0)} · Base INSS ${brl(r.bases.inss)} · Base FGTS ${brl(r.bases.fgts)} · FGTS do mês ${brl(r.fgts)} · Base IRRF ${brl(r.bases.irrf)}`), 14, y);
+        irrf.forEach((t, j) => doc.text(t, 14, y + 4.5 + j * 4));
+        y += extra;
         doc.text(textoPdf('Declaro ter recebido a importância líquida discriminada neste recibo.'), 14, y + 14);
         doc.line(14, y + 30, 100, y + 30);
         doc.text(textoPdf(`Data: ____/____/______`), 120, y + 30);

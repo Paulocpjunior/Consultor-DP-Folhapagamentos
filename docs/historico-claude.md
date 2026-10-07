@@ -1823,3 +1823,7 @@ guias sindicais".
     - no recibo de férias gravado (Cálculo › Férias);
     - na coluna "eSocial (S-2230)" de Cadastros › Afastamentos;
     - no afastamento aberto para edição.
+- **Revisão do Codex (#91, P2):** o PDF do recibo saía sem o IRRF quando o
+  imposto zerava, porque o desconto zerado não vira verba. Corrigido:
+  `linhasIrrfFerias` imprime no PDF a conta do IRRF e o motivo da não
+  retenção, e a declaração e a assinatura descem quando precisa.
