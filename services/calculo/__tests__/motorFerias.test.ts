@@ -20,6 +20,16 @@ const calc = (gozo: Partial<Afastamento>, p: Partial<EntradaFerias> = {}) => {
 const v = (r: ReturnType<typeof calcularFerias>, c: string) => r.verbas.find(x => x.codigo === c)?.valor ?? 0;
 
 describe('férias', () => {
+    it('salário da concessão pelo histórico: férias antes do reajuste usam o salário do início do gozo', () => {
+        const comHist = { ...ficha({ salario: '3300.00' }), historicoSalario: [{ desde: '2024-01-02', salario: '3000.00', origem: 'S-2200 · 1' }, { desde: '2025-09-01', salario: '3300.00', origem: 'S-2206 · 2' }] };
+        const r = calc({ dtInicio: '2025-07-01', dtFim: '2025-07-30' }, { ficha: comHist });
+        expect([v(r, 'FER'), v(r, 'FER13')]).toEqual([300000, 100000]);
+        expect(r.memoria.join('\n')).toContain('Salário de 02/01/2024 (S-2200), vigente no início das férias (01/07/2025)');
+        // Gozo depois do reajuste: o salário atual da ficha.
+        const depois = calc({ dtInicio: '2025-10-01', dtFim: '2025-10-30' }, { ficha: comHist });
+        expect(v(depois, 'FER')).toBe(330000);
+    });
+
     it('30 dias: férias + 1/3, INSS da competência, IRRF em separado, FGTS', () => {
         const r = calc({ dtInicio: '2025-07-01', dtFim: '2025-07-30' });
         expect(r.situacao).toBe('calculado');

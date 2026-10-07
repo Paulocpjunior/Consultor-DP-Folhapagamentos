@@ -18,7 +18,7 @@
 // tabela do mês do pagamento; desconto simplificado e redutor como opções.
 // A dobra não entra no INSS nem no FGTS (Lei 8.212, art. 28, § 9º, "d").
 
-import type { FichaFuncionario } from '../cadastros/funcionarios';
+import { fichaNaData, memoriaDoHistorico, type FichaFuncionario } from '../cadastros/funcionarios';
 import type { Afastamento } from '../cadastros/afastamentos';
 import { inicioBeneficio } from '../cadastros/afastamentos';
 import { dataValida, reais } from '../cadastros/documentos';
@@ -159,7 +159,10 @@ function inssDaTabela(base: number, t: TabelaLegal): { valor: number; partes: st
 }
 
 export function calcularFerias(e: EntradaFerias): ResultadoFerias {
-    const { ficha, gozo } = e;
+    const { gozo } = e;
+    // Remuneração das férias pelo salário da concessão (CLT, art. 142): o do início do gozo, pelo histórico.
+    const naConcessao = fichaNaData(e.ficha, gozo.dtInicio);
+    const ficha = naConcessao.ficha;
     const d = ficha.dados;
     const opcoes = e.opcoes ?? OPCOES_FERIAS_PADRAO;
     const pagarAte = dataValida(gozo.dtInicio) ? somarDias(gozo.dtInicio, -2) : '';
@@ -214,11 +217,12 @@ export function calcularFerias(e: EntradaFerias): ResultadoFerias {
     if (diasGozo + abono > r.saldo) return erro(`Gozo de ${diasGozo} dias${abono ? ` + abono de ${abono}` : ''} passa do saldo do período (${r.saldo} de ${r.direito} dias${jaUsados ? `; ${jaUsados} já usados em gozos e abonos anteriores` : ''}).`);
     if (jaUsados) r.memoria.push(`Saldo do período: ${r.direito} − ${jaUsados} já usados (gozos e abonos anteriores) = ${r.saldo} dias.`);
 
-    // Remuneração: salário atual + média das horas extras do período aquisitivo (÷ 12).
+    // Remuneração: salário da concessão + média das horas extras do período aquisitivo (÷ 12).
     const sc = salarioContratual(d);
     r.avisos.push(...sc.avisos);
     if ('erro' in sc) return erro(sc.erro);
     r.memoria.push(sc.memoria);
+    if (naConcessao.faixa) r.memoria.push(memoriaDoHistorico(naConcessao.faixa, `no início das férias (${br(gozo.dtInicio)})`));
     const salarioHora = sc.mensal / sc.horasMes;
     let somaVar = 0; let comMov = 0;
     for (const c of meses) {

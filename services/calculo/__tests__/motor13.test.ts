@@ -18,6 +18,19 @@ const calc = (p: Partial<Entrada13>) => calcular13({ ano: 2026, parcela: '2a', f
 const v = (r: ReturnType<typeof calcular13>, c: string) => r.verbas.find(x => x.codigo === c)?.valor ?? 0;
 
 describe('13º salário', () => {
+    it('salário pelo histórico: 2ª parcela pelo de dezembro; adiantamento pelo do mês anterior ao pagamento', () => {
+        const hist = (desde: string) => ({ ...ficha({ salario: '3300.00' }), historicoSalario: [{ desde: '2024-01-02', salario: '3000.00', origem: 'S-2200 · 1' }, { desde, salario: '3300.00', origem: 'S-2206 · 2' }] });
+        // Reajuste em 2027: o 13º de 2026 é pelo salário anterior.
+        const r = calc({ ficha: hist('2027-01-01') });
+        expect(v(r, '13')).toBe(300000);
+        expect(r.memoria.join('\n')).toContain('vigente em dezembro de 2026');
+        // Reajuste em novembro: a 1ª parcela (paga em novembro) usa o de outubro; a 2ª, o de dezembro (atual).
+        expect(v(calc({ parcela: '1a', ficha: hist('2026-11-01') }), '13A')).toBe(150000);
+        const segunda = calc({ ficha: hist('2026-11-01') });
+        // A 2ª desconta o adiantamento como foi pago (pelo salário de outubro), não a metade do novo.
+        expect([v(segunda, '13'), v(segunda, '13ADT')]).toEqual([330000, 150000]);
+    });
+
     it('1ª parcela: metade, sem INSS e IRRF, com FGTS', () => {
         const r = calc({ parcela: '1a' });
         expect(r.pagamento).toBe('2026-11');
