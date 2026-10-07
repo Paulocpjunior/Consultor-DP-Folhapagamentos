@@ -1909,3 +1909,57 @@ guias sindicais".
   - conferir com os arquivos da SAGE (versões, convênio do BB, finalidade da
     TED, SISPAG do Itaú) e marcar `conferido`;
   - incluir o .REM no pacote de arquivos do cliente.
+
+## 07/10/2026 — Itaú SISPAG conferido com a SAGE e pacote do cliente
+
+- **Paulo** enviou o arquivo do Itaú gerado pela SAGE (ITAU_10.TXT) e pediu:
+  *"pode seguir com pacote de arquivos do cliente, tbm arquivo bancario"*.
+  O arquivo dele tem nome, CPF e conta reais. Foi analisado só na sessão e
+  **não vai para o repositório**. Os testes usam dados fictícios.
+- **Feito:**
+  - **Itaú SISPAG** (`services/bancario/cnab240.ts`, `layout: 'sispag'`).
+    Gerado com os mesmos dados, o arquivo ficou **idêntico byte a byte** ao da
+    SAGE (crédito em conta Itaú, 5 registros). Diferenças em relação ao
+    FEBRABAN:
+    - **Header de arquivo:** versão 080, sem convênio e sem NSA.
+    - **Header de lote:** versão 040, finalidade "01" e CEP com 8 dígitos.
+    - **Agência e conta:** agência (5), branco, conta (12), branco, DAC.
+    - **Segmento A:** moeda "REA"; "seu número" é o código IOB com zeros à
+      esquerda; CPF nas posições 204-217.
+    - **Segmento B:** não vai no crédito em conta, só no PIX.
+    - **Trailers:** sem os campos do FEBRABAN.
+  - **Conferência por forma:** o campo `conferido` saiu do perfil; no lugar
+    entrou `formasConferidas`. No Itaú, só o crédito em conta está conferido.
+    A remessa devolve `naoConferidas`, e o modal avisa e pede confirmação
+    apenas quando o arquivo tem uma forma não conferida. Bradesco, Santander
+    e BB continuam como FEBRABAN não conferido.
+  - **Nome do .REM** passou a usar a data local, não a UTC.
+  - **`services/bancario/favorecidos.ts`:** reúne quem recebe e o líquido de
+    cada um, a partir das fichas. O Arquivo Bancário e o pacote usam o mesmo
+    código.
+  - **Pacote do cliente:** botão "Pacote do cliente" no Cálculo, com o modal
+    `components/pacoteCliente/PacoteClienteModal.tsx`. Gera um .zip com:
+    - `LEIA-ME.txt`: o que é cada arquivo; como importar o .REM no banco;
+      total por forma e data do crédito; aviso de homologação; quem pagar por
+      fora; lista da agenda;
+    - holerites, recibos ou TRCT (PDF);
+    - resumo da folha (PDF);
+    - arquivo bancário (.REM), com a mesma conta e numeração do "Arquivo
+      bancário", avançando o NSA;
+    - `agenda-<código>-<folha>.ics`.
+    Cada item pode ser desmarcado. O modal mostra a prévia da agenda, com
+    "Copiar texto para WhatsApp".
+  - **Eventos da agenda por folha** (`services/pacoteCliente/pacote.ts`,
+    `eventosDaFolha`):
+    - **Mensal:** salário na data do arquivo; DARF do INSS da competência;
+      IRRF no DARF do mês do pagamento (regime de caixa; vai junto quando é o
+      mesmo mês); FGTS.
+    - **13º:** 1ª parcela com o FGTS de novembro; 2ª com o DARF do 13º, o
+      IRRF de dezembro e o FGTS de dezembro.
+    - **Rescisão:** pagamento e FGTS rescisório por funcionário, no dia útil
+      até o prazo, e o DARF da competência.
+    - **Férias:** eventos de cada recibo (`eventosDoReciboFerias`).
+- **Pendente:**
+  - conferir as outras formas do Itaú (poupança, TED, PIX) quando houver
+    arquivo da SAGE;
+  - conferir Bradesco, Santander e BB com os arquivos da SAGE.

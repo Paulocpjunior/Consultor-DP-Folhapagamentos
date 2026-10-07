@@ -14,6 +14,8 @@
 // dos bancos não abriram daqui; os códigos que variam entre os bancos ficam em
 // PERFIS_BANCO (versões, finalidade da TED, forma de iniciação do PIX) e são
 // conferidos posição a posição com o arquivo gerado pela SAGE antes de usar.
+// O Itaú usa o SISPAG, com posições próprias: o crédito em conta Itaú foi
+// conferido byte a byte com o arquivo da SAGE (ITAU_10.TXT, 10/2026).
 
 import type { Data } from '../prazos/calendario';
 
@@ -24,25 +26,36 @@ const CAMARA: Record<FormaCredito, string> = { conta: '000', poupanca: '000', te
 
 export interface PerfilBanco {
     codigo: string; nome: string;
+    /** 'febraban' = padrão 240; 'sispag' = Itaú SISPAG (posições próprias). */
+    layout: 'febraban' | 'sispag';
+    /** Código da moeda no Segmento A ("BRL" no padrão; "REA" no Itaú). */
+    moeda: string;
+    /** Formas já conferidas com o arquivo gerado pela SAGE. */
+    formasConferidas: FormaCredito[];
     versaoArquivo: string; versaoLote: string; densidade: string;
     /** Código finalidade da TED (Segmento A, 220-224) para salários. */
     finalidadeTedSalario: string;
-    /** Conferido com o arquivo da SAGE (até lá, o arquivo sai como prévia). */
-    conferido: boolean;
     observacao: string;
 }
 
 export const PERFIS_BANCO: Record<string, PerfilBanco> = {
-    '001': { codigo: '001', nome: 'BANCO DO BRASIL S.A.', versaoArquivo: '107', versaoLote: '046', densidade: '01600', finalidadeTedSalario: '00004', conferido: false,
+    '001': { codigo: '001', nome: 'BANCO DO BRASIL S.A.', layout: 'febraban', moeda: 'BRL', formasConferidas: [], versaoArquivo: '107', versaoLote: '046', densidade: '01600', finalidadeTedSalario: '00004',
         observacao: 'Convênio do BB (9 dígitos) + "0126" + reservado: informe os 20 caracteres como o banco passou.' },
-    '033': { codigo: '033', nome: 'BANCO SANTANDER', versaoArquivo: '107', versaoLote: '046', densidade: '01600', finalidadeTedSalario: '00004', conferido: false,
+    '033': { codigo: '033', nome: 'BANCO SANTANDER', layout: 'febraban', moeda: 'BRL', formasConferidas: [], versaoArquivo: '107', versaoLote: '046', densidade: '01600', finalidadeTedSalario: '00004',
         observacao: 'Código do convênio de pagamentos do Santander nas posições 33-52.' },
-    '237': { codigo: '237', nome: 'BANCO BRADESCO', versaoArquivo: '107', versaoLote: '046', densidade: '01600', finalidadeTedSalario: '00004', conferido: false,
+    '237': { codigo: '237', nome: 'BANCO BRADESCO', layout: 'febraban', moeda: 'BRL', formasConferidas: [], versaoArquivo: '107', versaoLote: '046', densidade: '01600', finalidadeTedSalario: '00004',
         observacao: 'Código do convênio Multipag nas posições 33-52.' },
-    '341': { codigo: '341', nome: 'BANCO ITAU SA', versaoArquivo: '107', versaoLote: '046', densidade: '01600', finalidadeTedSalario: '00004', conferido: false,
-        observacao: 'O Itaú usa o SISPAG, com posições próprias em alguns campos: só enviar depois da conferência com o arquivo da SAGE.' },
+    // SISPAG conferido posição a posição com o arquivo da SAGE (ITAU_10.TXT, crédito em conta Itaú, 10/2026).
+    '341': { codigo: '341', nome: 'BANCO ITAU', layout: 'sispag', moeda: 'REA', formasConferidas: ['conta'], versaoArquivo: '080', versaoLote: '040', densidade: '00000', finalidadeTedSalario: '00004',
+        observacao: 'Itaú SISPAG: crédito em conta Itaú conferido com o arquivo da SAGE; poupança, TED e PIX ainda sem arquivo modelo. O convênio não vai no arquivo.' },
 };
 export const BANCOS_SUPORTADOS = Object.keys(PERFIS_BANCO);
+
+/** Aviso das formas do arquivo que ainda não foram conferidas com o arquivo da SAGE. */
+export function avisoConferencia(p: PerfilBanco, formas: FormaCredito[]): string {
+    if (!p.formasConferidas.length) return `O layout do ${p.nome} ainda não foi conferido com o arquivo da SAGE.`;
+    return `No ${p.nome}, ${formas.map(f => ROTULO_FORMA[f]).join(', ')} ainda não ${formas.length > 1 ? 'foram conferidos' : 'foi conferido'} com o arquivo da SAGE.`;
+}
 
 /** Conta da empresa para débito dos pagamentos (cadastrada no "Arquivo Bancário"). */
 export interface ContaPagamento {
@@ -155,7 +168,7 @@ function segmentoA(x: Ctx, lote: number, seq: number, f: Favorecido, forma: Form
         : num(codBanco(f.banco), 3) + num(ag.numero, 5, `Agência de ${f.nome}`) + alfa(ag.dv, 1) + num(ct.numero, 12, `Conta de ${f.nome}`) + alfa(ct.dv, 1) + brancos(1);
     const ted = forma === 'ted';
     return x.perfil.codigo + num(lote, 4) + '3' + num(seq, 5) + 'A' + '0' + '00' + CAMARA[forma] + favConta + alfa(f.nome, 30)
-        + alfa(f.ref, 20) + dataCnab(f.dataPagamento) + 'BRL' + '0'.repeat(15) + num(f.valor, 15, `Valor de ${f.nome}`)
+        + alfa(f.ref, 20) + dataCnab(f.dataPagamento) + x.perfil.moeda + '0'.repeat(15) + num(f.valor, 15, `Valor de ${f.nome}`)
         + brancos(20) + '0'.repeat(8) + '0'.repeat(15) + brancos(40) + brancos(2)
         + (ted ? alfa(x.perfil.finalidadeTedSalario, 5) : brancos(5)) + (ted ? (f.tipoConta === 'poupanca' ? 'PP' : 'CC') : brancos(2))
         + brancos(3) + '0' + brancos(10);
@@ -183,6 +196,49 @@ const trailerLote = (x: Ctx, lote: number, registros: number, soma: number) =>
 const trailerArquivo = (x: Ctx, lotes: number, registros: number) =>
     x.perfil.codigo + '9999' + '9' + brancos(9) + num(lotes, 6) + num(registros, 6) + '0'.repeat(6) + brancos(205);
 
+// ─── Itaú SISPAG ────────────────────────────────────────────────────────────
+// Posições conferidas com o arquivo da SAGE: agência (5) + branco + conta (12)
+// + branco + DAC; sem convênio nem NSA no header; moeda "REA"; CPF no
+// Segmento A (204-217); sem Segmento B no crédito em conta.
+
+function agContaSispag(agencia: string, conta: string, dv: string, quem: string): string {
+    return num(separarDv(agencia).numero, 5, `Agência de ${quem}`) + brancos(1) + num(separarDv(conta).numero, 12, `Conta de ${quem}`) + brancos(1) + alfa(dv, 1);
+}
+const agContaEmpresaSispag = (c: ContaPagamento) => agContaSispag(c.agencia, c.conta, c.contaDv || separarDv(c.conta).dv, 'empresa');
+
+function headerArquivoSispag(x: Ctx, agora: Date): string {
+    const hh = agora.toTimeString().slice(0, 8).replace(/:/g, '');
+    const hoje = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}-${String(agora.getDate()).padStart(2, '0')}`;
+    return '341' + '0000' + '0' + brancos(6) + x.perfil.versaoArquivo + '2' + num(x.cnpj, 14, 'CNPJ') + brancos(20) + agContaEmpresaSispag(x.conta)
+        + alfa(x.razaoSocial, 30) + alfa(x.perfil.nome, 30) + brancos(10) + '1' + dataCnab(hoje) + hh + '0'.repeat(9) + x.perfil.densidade + brancos(69);
+}
+
+function headerLoteSispag(x: Ctx, lote: number, forma: FormaCredito): string {
+    const c = x.conta;
+    return '341' + num(lote, 4) + '1' + 'C' + '30' + FORMA_LANCAMENTO[forma] + x.perfil.versaoLote + brancos(1) + '2' + num(x.cnpj, 14, 'CNPJ') + brancos(20)
+        + agContaEmpresaSispag(c) + alfa(x.razaoSocial, 30) + alfa('01', 30) + brancos(10)
+        + alfa(c.logradouro, 30) + num((c.numero ?? '').replace(/\D/g, '').slice(0, 5), 5) + alfa(c.complemento, 15) + alfa(c.cidade, 20)
+        + num((c.cep ?? '').replace(/\D/g, '').slice(0, 8), 8) + alfa(c.uf, 2) + brancos(8) + brancos(10);
+}
+
+/** "Seu número" do Itaú: o código do funcionário com zeros à esquerda (como a SAGE). */
+const seuNumeroSispag = (ref: string) => (/^\d+$/.test(ref.trim()) ? num(ref, 20) : alfa(ref, 20));
+
+function segmentoASispag(x: Ctx, lote: number, seq: number, f: Favorecido, forma: FormaCredito): string {
+    const pix = forma === 'pix';
+    const favConta = pix ? '000' + '0'.repeat(5) + brancos(1) + '0'.repeat(12) + brancos(2)
+        : num(codBanco(f.banco), 3) + agContaSispag(f.agencia, f.conta, separarDv(f.conta).dv, f.nome);
+    const ted = forma === 'ted';
+    return '341' + num(lote, 4) + '3' + num(seq, 5) + 'A' + '000' + CAMARA[forma] + favConta + alfa(f.nome, 30) + seuNumeroSispag(f.ref)
+        + dataCnab(f.dataPagamento) + x.perfil.moeda + '0'.repeat(15) + num(f.valor, 15, `Valor de ${f.nome}`)
+        + brancos(15) + brancos(5) + '0'.repeat(8) + '0'.repeat(15) + '0'.repeat(14) + brancos(4) + brancos(2) + '0'.repeat(6)
+        + num(f.cpf, 14, `CPF de ${f.nome}`) + brancos(2) + (ted ? alfa(x.perfil.finalidadeTedSalario, 5) : brancos(5)) + brancos(5) + brancos(1) + brancos(10);
+}
+
+const trailerLoteSispag = (lote: number, registros: number, soma: number) =>
+    '341' + num(lote, 4) + '5' + brancos(9) + num(registros, 6) + num(soma, 18) + '0'.repeat(18) + brancos(171) + brancos(10);
+const trailerArquivoSispag = (lotes: number, registros: number) => '341' + '9999' + '9' + brancos(9) + num(lotes, 6) + num(registros, 6) + brancos(211);
+
 // ─── remessa ────────────────────────────────────────────────────────────────
 
 export interface ResultadoRemessa {
@@ -194,6 +250,8 @@ export interface ResultadoRemessa {
     excluidos: { favorecido: Favorecido; motivo: string }[];
     total: number;
     perfil: PerfilBanco;
+    /** Formas do arquivo ainda não conferidas com o arquivo da SAGE (o arquivo é prévia). */
+    naoConferidas: FormaCredito[];
 }
 
 /** Remessa CNAB 240 de salários. Linhas de 240 posições separadas por CRLF. */
@@ -213,7 +271,8 @@ export function gerarRemessa(p: { conta: ContaPagamento; cnpj: string; razaoSoci
         if (f.cpf.replace(/\D/g, '').length !== 11) { excluidos.push({ favorecido: f, motivo: 'CPF inválido na ficha' }); continue; }
         incluidos.push({ favorecido: f, forma: c.forma });
     }
-    const linhas = [headerArquivo(x, nsa, agora)];
+    const sispag = perfil.layout === 'sispag';
+    const linhas = [sispag ? headerArquivoSispag(x, agora) : headerArquivo(x, nsa, agora)];
     const lotes: ResultadoRemessa['lotes'] = [];
     let nLote = 0;
     for (const forma of ['conta', 'poupanca', 'ted', 'pix'] as FormaCredito[]) {
@@ -223,18 +282,24 @@ export function gerarRemessa(p: { conta: ContaPagamento; cnpj: string; razaoSoci
         const corpo: string[] = [];
         let seq = 0;
         for (const { favorecido: f } of doLote) {
-            corpo.push(segmentoA(x, nLote, ++seq, f, forma, '03'), segmentoB(x, nLote, ++seq, f, forma));
+            if (sispag) {
+                // SISPAG: CPF no Segmento A; Segmento B só no PIX (a chave).
+                corpo.push(segmentoASispag(x, nLote, ++seq, f, forma));
+                if (forma === 'pix') corpo.push(segmentoB(x, nLote, ++seq, f, forma));
+            } else corpo.push(segmentoA(x, nLote, ++seq, f, forma, '03'), segmentoB(x, nLote, ++seq, f, forma));
         }
         const soma = doLote.reduce((s, i) => s + i.favorecido.valor, 0);
-        linhas.push(headerLote(x, nLote, forma), ...corpo, trailerLote(x, nLote, corpo.length + 2, soma));
+        linhas.push(sispag ? headerLoteSispag(x, nLote, forma) : headerLote(x, nLote, forma), ...corpo,
+            sispag ? trailerLoteSispag(nLote, corpo.length + 2, soma) : trailerLote(x, nLote, corpo.length + 2, soma));
         lotes.push({ forma, quantidade: doLote.length, total: soma });
     }
-    linhas.push(trailerArquivo(x, nLote, linhas.length + 1));
+    linhas.push(sispag ? trailerArquivoSispag(nLote, linhas.length + 1) : trailerArquivo(x, nLote, linhas.length + 1));
     const ruim = linhas.findIndex(l => l.length !== 240);
     if (ruim >= 0) throw new Error(`Registro ${ruim + 1} com ${linhas[ruim].length} posições (esperado 240).`);
-    const d = agora.toISOString().slice(0, 10).replace(/-/g, '');
+    const d = `${agora.getFullYear()}${String(agora.getMonth() + 1).padStart(2, '0')}${String(agora.getDate()).padStart(2, '0')}`;
     return {
         conteudo: linhas.join('\r\n') + '\r\n', nomeArquivo: `CNAB240_${perfil.codigo}_${d}_${String(nsa).padStart(6, '0')}.REM`, nsa,
         lotes, incluidos, excluidos, total: lotes.reduce((s, l) => s + l.total, 0), perfil,
+        naoConferidas: lotes.map(l => l.forma).filter(f => !perfil.formasConferidas.includes(f)),
     };
 }
