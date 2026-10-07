@@ -288,7 +288,8 @@ export interface Alteracao { campo: ChaveOrigem | 'codigoIob' | 'matriculaEsocia
 /** Rótulo de uma alteração na prévia e no histórico. */
 export const rotuloAlteracao = (campo: string) => (campo === 'pendencias' ? 'Pendências da importação' : campo === 'historicoSalario' ? 'Histórico de salário' : campo === 'cnpj' ? 'CNPJ do empregador' : ROTULO[campo as CampoFicha] ?? campo);
 
-const depsTexto = (l: Dependente[]) => l.map(d => `${d.nome} (${d.nascimento || 's/ nasc.'}${d.cpf ? `, CPF ${d.cpf}` : ''}${d.pensao === 'S' ? `, pensão${d.cotaPensao ? ` ${d.cotaPensao}%` : ''}` : ''})`).join('; ');
+// A marca "fora do eSocial" entra (a do XML é "S" e não muda o texto): trocada à mão, vira alteração e a origem passa a "Manual".
+const depsTexto = (l: Dependente[]) => l.map(d => `${d.nome} (${d.nascimento || 's/ nasc.'}${d.cpf ? `, CPF ${d.cpf}` : ''}${d.pensao === 'S' ? `, pensão${d.cotaPensao ? ` ${d.cotaPensao}%` : ''}` : ''}${d.noEsocial === 'N' ? ', fora do eSocial' : ''})`).join('; ');
 
 /** Diferença campo a campo entre duas versões, para a trilha de auditoria. */
 export function diffFicha(antes: FichaFuncionario | null, depois: FichaFuncionario): Alteracao[] {

@@ -2424,3 +2424,8 @@ guias sindicais".
   substitui.
 - **Ficha:** o quadro "Histórico de salário" mostra a origem de cada faixa.
 - **Testes:** 86 arquivos, 661 testes.
+- **Revisão do Codex no PR #101, chegou depois do merge (P2), corrigida
+  aqui:** a coluna "No eSocial" trocada à mão para "Não" não contava como
+  alteração dos dependentes. A origem continuava "eSocial", e uma
+  reimportação podia desfazer a marca. Agora a marca "fora do eSocial"
+  entra na comparação, e a origem passa a "Manual".

@@ -194,6 +194,10 @@ describe('pensão alimentícia na ficha', () => {
         expect(n.dependentes.map(x => [x.noEsocial, x.pensao, x.cotaPensao])).toEqual([['S', 'N', ''], ['S', 'N', '']]);
         // A marca de pensão entra no histórico.
         expect(diffFicha(n, { ...n, dependentes: [n.dependentes[0], { ...n.dependentes[1], pensao: 'S' }] }).map(a => a.campo)).toEqual(['dependentes']);
+        // "No eSocial" trocado à mão para "Não" também (a origem passa a Manual e a reimportação não desfaz).
+        const trocado = { ...n, dependentes: [{ ...n.dependentes[0], noEsocial: 'N' }, n.dependentes[1]] };
+        expect(diffFicha(n, trocado).map(a => a.campo)).toEqual(['dependentes']);
+        expect(aplicarEdicao(n, trocado, 'u@x', '2026-10-07').origens.dependentes).toMatch(/^Manual/);
     });
 });
 
