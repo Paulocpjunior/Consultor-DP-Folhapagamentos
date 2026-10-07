@@ -64,7 +64,8 @@ const HistoricoFolhaIobModal: React.FC<Props> = ({ empresa, usuario, fichas, onF
         finally { setOcupado(''); }
     }
 
-    const gravar = previa?.itens.filter(i => i.mudou) ?? [];
+    const gravar = previa?.itens.filter(i => i.mudou && !i.erros.length) ?? [];
+    const comErro = previa?.itens.filter(i => i.mudou && i.erros.length) ?? [];
     async function confirmar() {
         if (!previa) return;
         const porComp = new Map<string, MesclaMovimento[]>();
@@ -112,13 +113,19 @@ const HistoricoFolhaIobModal: React.FC<Props> = ({ empresa, usuario, fichas, onF
                             <table className="mt-1 w-full">
                                 <thead className="text-left text-slate-500"><tr><th className="p-1">Evento</th><th className="p-1">Descrição</th><th className="p-1">Natureza</th><th className="p-1">Vai para</th><th className="p-1 text-right">Lançamentos</th><th className="p-1 text-right">Quantidade</th></tr></thead>
                                 <tbody>{previa.eventos.map(e => (
-                                    <tr key={e.codeven} className="border-t border-slate-100 dark:border-slate-700">
+                                    <tr key={`${e.codeven}|${e.natRubr}`} className="border-t border-slate-100 dark:border-slate-700">
                                         <td className="p-1 font-mono">{e.codeven}</td><td className="p-1">{e.descricao}</td><td className="p-1">{e.natRubr || 'pela descrição'}</td>
                                         <td className="p-1">{e.classe ? ROTULO_MOVIMENTO[e.classe] : ''}</td><td className="p-1 text-right">{e.linhas}</td><td className="p-1 text-right">{num(e.total)}</td>
                                     </tr>
                                 ))}</tbody>
                             </table>
                         </details>
+                        {comErro.length > 0 && (
+                            <details open className="rounded border border-red-300 p-2 text-xs text-red-800 dark:border-red-800 dark:text-red-200">
+                                <summary className="cursor-pointer font-medium">{comErro.length} mês(es) fora dos limites do movimento: não serão gravados (confira no IOB)</summary>
+                                <ul className="mt-1">{comErro.map(i => <li key={`${i.fichaId}_${i.competencia}`}>{nome.get(i.fichaId)} · {comp(i.competencia)} · {i.erros.join(' ')}</li>)}</ul>
+                            </details>
+                        )}
                         {preservados.length > 0 && (
                             <details className="rounded border border-amber-300 p-2 text-xs dark:border-amber-700 dark:text-amber-100">
                                 <summary className="cursor-pointer font-medium">{preservados.length} mês(es) já lançado(s) com outro valor: mantido o lançado</summary>

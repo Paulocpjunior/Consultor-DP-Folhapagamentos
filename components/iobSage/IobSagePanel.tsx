@@ -37,9 +37,9 @@ const ROTULO_DESTINO: Record<Destino, string> = {
     'iobsage:restaurar': 'Abrir a restauração do backup',
 };
 
-interface Props { onNavegar?: (destino: Destino) => void; usuario?: Usuario; ehGestor?: boolean }
+interface Props { onNavegar?: (destino: Destino) => void; usuario?: Usuario; ehGestor?: boolean; ehAdmin?: boolean }
 
-const IobSagePanel: React.FC<Props> = ({ onNavegar, usuario, ehGestor = false }) => {
+const IobSagePanel: React.FC<Props> = ({ onNavegar, usuario, ehGestor = false, ehAdmin = false }) => {
     const [menuId, setMenuId] = useState(MENUS_IOB[0].id);
     const [filtro, setFiltro] = useState<Situacao | ''>('');
     const [item, setItem] = useState<ItemMenu | null>(null);
@@ -66,7 +66,8 @@ const IobSagePanel: React.FC<Props> = ({ onNavegar, usuario, ehGestor = false })
                 <button className="rounded bg-blue-700 px-4 py-2 text-sm font-medium text-white" onClick={() => setRestaurar(true)}>Restaurar backup do IOB SAGE</button>
             </header>
 
-            <GuardaBackups usuario={usuario} podeRegistrar={ehGestor && !!usuario} />
+            {/* O registro de guarda é só de admin e gestor (as regras não deixam o colaborador ler). */}
+            {(ehAdmin || ehGestor) && <GuardaBackups usuario={usuario} podeRegistrar={ehGestor && !!usuario} />}
 
             <div className="flex flex-wrap gap-2 text-sm">
                 {(Object.keys(resumo) as Situacao[]).map(s => (

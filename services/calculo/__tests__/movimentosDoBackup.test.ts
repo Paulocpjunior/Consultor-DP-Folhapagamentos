@@ -1,6 +1,6 @@
 // Histórico da folha do IOB (holerith) → movimento mensal (dados fictícios).
 import { describe, expect, it } from 'vitest';
-import { classificarEvento, mesclarMovimentos, movimentosDoHolerith, naturezasDosEventos, quantidade } from '../movimentosDoBackup';
+import { classificarEvento, mesclarMovimentos, movimentosDoHolerith, naturezaEm, naturezasDosEventos, quantidade, type NaturezasEventos } from '../movimentosDoBackup';
 import { fichaVazia, idFuncionario, type FichaFuncionario } from '../../cadastros/funcionarios';
 
 const empresa = { id: 'emp1', cnpj: '11222333000181' };
@@ -26,8 +26,16 @@ describe('o que cada evento do IOB é no movimento', () => {
     it('natureza pela rubrica do S-1010 ligada ao evento', () => {
         const eventos = { colunas: ['pk_padrao', 'codeven', 'codesocial', 'rubesocial'], linhas: [['1', '0050', '', '50'], ['2', '120', '', 'R120'], ['3', '9', '', '']] };
         const s1010 = { colunas: ['codrubr', 'natrubr', 'dscrubr'], linhas: [['50', '1003', 'HE 50'], ['R120', '9207', 'FALTAS'], ['9', '1000', 'SAL']] };
-        expect([...naturezasDosEventos(eventos, s1010)]).toEqual([['50', '1003'], ['120', '9207'], ['9', '1000']]);
+        const n = naturezasDosEventos(eventos, s1010);
+        expect(['50', '120', '9'].map(e => naturezaEm(n, e, '2025-01'))).toEqual(['1003', '9207', '1000']);
         expect(naturezasDosEventos(null, s1010).size).toBe(0);
+    });
+
+    it('natureza na vigência da rubrica de cada mês', () => {
+        const eventos = { colunas: ['codeven', 'rubesocial'], linhas: [['70', '70']] };
+        const s1010 = { colunas: ['codrubr', 'natrubr', 'inivalid', 'fimvalid'], linhas: [['70', '1003', '2024-01', '2024-12'], ['70', '9207', '202501', '']] };
+        const n = naturezasDosEventos(eventos, s1010);
+        expect([naturezaEm(n, '70', '2023-12'), naturezaEm(n, '70', '2024-06'), naturezaEm(n, '70', '2025-03')]).toEqual(['', '1003', '9207']);
     });
 
     it('quantidades: decimal com vírgula ou ponto; hh,mm quando pedido', () => {
@@ -44,7 +52,7 @@ describe('movimento mensal pelo holerith', () => {
     const COLS = ['final', 'proced', 'composto', 'codfun', 'anomes', 'codeven', 'ref', 'valor', 'everef', 'tabsal', 'vl_des', 'vl_ven', 'status', 'descricao'];
     const l = (codfun: string, anomes: string, codeven: string, ref: string, descricao: string) => COLS.map(c => ({ codfun, anomes, codeven, ref, descricao } as Record<string, string>)[c] ?? null);
     const ana = ficha('52998224725', '000052', { codigoIob: '52', admissao: '2022-05-02' });
-    const naturezas = new Map([['50', '1003'], ['51', '1003'], ['120', '9207']]);
+    const naturezas: NaturezasEventos = new Map([['50', '1003'], ['51', '1003'], ['120', '9207']].map(([e, n]) => [e, [{ iniValid: '', fimValid: '', natRubr: n }]]));
 
     it('soma por funcionário e mês, respeita o "a partir de" e o vínculo', () => {
         const holerith = { colunas: COLS, linhas: [
@@ -72,6 +80,9 @@ describe('movimento mensal pelo holerith', () => {
         const [jan, fev] = mesclarMovimentos(imp, existentes);
         expect(jan).toMatchObject({ mudou: true, preservados: ['horasExtras50'], depois: { horasExtras50: 10, faltasDias: 1, pensaoAlimenticia: 50000 } });
         expect(fev.mudou).toBe(false);
-        expect(mesclarMovimentos(imp, {})[0]).toMatchObject({ antes: null, mudou: true, depois: { horasExtras50: 12.5, faltasDias: 1 } });
+        expect(mesclarMovimentos(imp, {})[0]).toMatchObject({ antes: null, mudou: true, depois: { horasExtras50: 12.5, faltasDias: 1 }, erros: [] });
+        // Fora dos limites do mês (mesma validação do movimento digitado): com erro, não grava.
+        const [ruim] = mesclarMovimentos([{ fichaId: 'f1', competencia: '2025-02', movimento: { faltasDias: 40, horasExtras50: 320 } }], {});
+        expect(ruim.erros).toEqual(['Horas extras 50%: no máximo 300.', 'Faltas (dias): no máximo 28.']);
     });
 });
