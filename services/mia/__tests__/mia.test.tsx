@@ -80,6 +80,13 @@ describe('MiA', () => {
         expect(screen.queryByText('MiA está pensando…')).toBeNull();
     });
 
+    it('perguntas seguidas (repetida depois de um erro) viram uma só: o pedido alterna usuária e MiA', async () => {
+        const conversa: MensagemMia[] = [{ papel: 'usuaria', texto: 'a' }, { papel: 'mia', texto: 'b' }, { papel: 'usuaria', texto: 'c' }, { papel: 'usuaria', texto: 'c de novo' }];
+        await perguntarMia(conversa, null, 'Cálculo');
+        const enviadas = (sv.chamar.mock.calls[0][1] as { mensagens: MensagemMia[] }).mensagens;
+        expect(enviadas).toEqual([{ papel: 'usuaria', texto: 'a' }, { papel: 'mia', texto: 'b' }, { papel: 'usuaria', texto: 'c\n\nc de novo' }]);
+    });
+
     it('conversa longa: a tela guarda tudo e o pedido começa sempre por uma pergunta', async () => {
         const conversa: MensagemMia[] = Array.from({ length: 21 }, (_, i) => ({ papel: i % 2 ? 'mia' : 'usuaria', texto: `m${i}` }));
         await perguntarMia(conversa, null, 'Cálculo');
