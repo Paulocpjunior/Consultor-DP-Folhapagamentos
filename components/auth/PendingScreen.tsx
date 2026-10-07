@@ -3,8 +3,12 @@ import * as authService from '../../services/auth/authService';
 import { ehMaster } from '../../services/auth/papeis';
 import type { User } from '../../types';
 
-/** Para o e-mail master ainda sem verificação: envia o link e reavalia o papel (vira gestor). */
-export const VerificarMaster: React.FC<{ email: string }> = ({ email }) => {
+/**
+ * E-mail ainda não verificado: envia o link e, depois do clique, renova o
+ * token. O master vira gestor; os demais passam a ser aceitos pelo CFI
+ * (cofre de certificados e transmissão ao eSocial).
+ */
+export const VerificarEmail: React.FC<{ email: string; master?: boolean }> = ({ email, master = false }) => {
     const [msg, setMsg] = useState('');
     const [ocupado, setOcupado] = useState(false);
     async function enviar() {
@@ -23,7 +27,9 @@ export const VerificarMaster: React.FC<{ email: string }> = ({ email }) => {
     }
     return (
         <div className="mb-4 rounded-lg border border-purple-200 bg-purple-50 p-3 text-sm text-purple-900 dark:border-purple-800 dark:bg-purple-900/20 dark:text-purple-100">
-            <p className="mb-2">Este é o e-mail master: ele vira <strong>gestor</strong> assim que o e-mail for verificado.</p>
+            {master
+                ? <p className="mb-2">Este é o e-mail master: ele vira <strong>gestor</strong> assim que o e-mail for verificado.</p>
+                : <p className="mb-2">Seu e-mail <strong>{email}</strong> ainda não foi verificado. O cofre de certificados e a transmissão ao eSocial (pelo CFI) só aceitam e-mail verificado.</p>}
             <div className="flex flex-wrap gap-2">
                 <button disabled={ocupado} onClick={enviar} className="px-3 py-1.5 text-sm bg-purple-700 hover:bg-purple-800 text-white rounded-lg disabled:opacity-50">Enviar link de verificação</button>
                 <button disabled={ocupado} onClick={confirmar} className="px-3 py-1.5 text-sm border border-purple-400 rounded-lg disabled:opacity-50">Já verifiquei</button>
@@ -32,6 +38,9 @@ export const VerificarMaster: React.FC<{ email: string }> = ({ email }) => {
         </div>
     );
 };
+
+/** Para o e-mail master ainda sem verificação: envia o link e reavalia o papel (vira gestor). */
+export const VerificarMaster: React.FC<{ email: string }> = ({ email }) => <VerificarEmail email={email} master />;
 
 const PendingScreen: React.FC<{ user: User }> = ({ user }) => {
     const master = ehMaster(user.email);

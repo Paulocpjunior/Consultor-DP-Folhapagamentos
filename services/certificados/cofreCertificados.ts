@@ -7,6 +7,8 @@
 // Assim, quando um certificado é renovado ou vence, o DP vê o mesmo que o
 // CFI e o Legal. Quem assina continua sendo o CFI.
 
+import { comTokenCfi, ehErroEmailNaoVerificado } from '../auth/tokenCfi';
+
 const CFI_URL = 'https://consultor-fiscal-inteligente-zricstsjqa-uw.a.run.app';
 const soDigitos = (v: unknown) => String(v ?? '').replace(/\D/g, '');
 
@@ -125,18 +127,15 @@ export async function buscarCofre(getToken: () => Promise<string>, deps: { fetch
         throw new Error('Não foi possível falar com o cofre de certificados (Consultor Fiscal). Verifique a conexão e tente de novo.');
     }
     const corpo = await resp.json().catch(() => ({}));
-    if (resp.status === 401 || resp.status === 403) throw new Error('O cofre recusou o acesso: entre de novo com o e-mail do escritório (verificado).');
+    if (resp.status === 401 || resp.status === 403) {
+        const motivo = String(corpo?.error ?? '');
+        // "e-mail não verificado" vai com o texto do CFI, para comTokenCfi renovar o token ou orientar a verificação.
+        throw new Error(ehErroEmailNaoVerificado(motivo) ? motivo : 'O cofre recusou o acesso: entre de novo com o e-mail do escritório (verificado).');
+    }
     if (!resp.ok || corpo?.ok !== true || !Array.isArray(corpo.linhas)) throw new Error(corpo?.error ? `Cofre de certificados: ${corpo.error}` : 'Resposta inesperada do cofre de certificados.');
     return { linhas: corpo.linhas as LinhaCofre[], avisos: Array.isArray(corpo.avisos) ? corpo.avisos : [] };
 }
 
-/** Token do usuário logado para o túnel do CFI. */
-export async function tokenDoUsuario(): Promise<string> {
-    const { getAuth } = await import('firebase/auth');
-    const u = getAuth().currentUser;
-    if (!u) throw new Error('Sessão expirada: entre de novo.');
-    return u.getIdToken();
-}
 
 /** Panorama do cofre só da carteira do usuário logado (o gestor vê todas). */
 export async function cofreDaMinhaCarteira(): Promise<PanoramaCofre & { foraDoCfi: string[]; nomes: Map<string, string> }> {
@@ -144,7 +143,7 @@ export async function cofreDaMinhaCarteira(): Promise<PanoramaCofre & { foraDoCf
     const [escopo, empresas] = await Promise.all([escopoAtual(), listarEmpresasVisiveis()]);
     // Fora do gestor, o CFI devolve só a carteira (o filtro abaixo é só a segunda trava).
     const cnpjs = escopo.todas ? null : empresas.map(e => e.cnpj);
-    const cofre = await buscarCofre(tokenDoUsuario, { cnpjs });
+    const cofre = await comTokenCfi(token => buscarCofre(async () => token, { cnpjs }));
     const r = cofreDaCarteira(cofre.linhas, cnpjs);
     const nomes = new Map(empresas.map(e => [soDigitos(e.cnpj), `${e.codigoSage} · ${e.nomeFantasia || e.razaoSocial}`]));
     return { ...r, avisos: cofre.avisos, nomes };

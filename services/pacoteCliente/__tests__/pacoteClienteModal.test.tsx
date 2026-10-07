@@ -4,8 +4,8 @@ import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
-const sv = vi.hoisted(() => ({ salvar: vi.fn(async (..._a: unknown[]) => undefined), baixados: [] as { nome: string; bytes: Uint8Array }[] }));
-vi.mock('../../empresas/empresasService', () => ({ salvarContasPagamento: (...a: unknown[]) => sv.salvar(...a) }));
+const sv = vi.hoisted(() => ({ salvar: vi.fn(async (..._a: unknown[]) => undefined), contato: vi.fn(async (..._a: unknown[]) => undefined), baixados: [] as { nome: string; bytes: Uint8Array }[] }));
+vi.mock('../../empresas/empresasService', () => ({ salvarContasPagamento: (...a: unknown[]) => sv.salvar(...a), salvarContatoEnvio: (...a: unknown[]) => sv.contato(...a) }));
 vi.mock('../../implantacao/zip', async orig => ({ ...(await orig<typeof import('../../implantacao/zip')>()), baixarBytes: (nome: string, bytes: Uint8Array) => { sv.baixados.push({ nome, bytes }); } }));
 import PacoteClienteModal from '../../../components/pacoteCliente/PacoteClienteModal';
 import { lerZip } from '../../implantacao/zip';
@@ -52,6 +52,41 @@ describe('modal Pacote do cliente', () => {
         expect(leia).toContain('- BRUNO: sem banco/agência/conta nem chave PIX na ficha');
         expect(leia).not.toContain('resumo-1200');
         expect(screen.getByRole('status').textContent).toMatch(/pacote-1200-2026-09\.zip baixado com 4 arquivo\(s\)\. Próximo arquivo bancário: nº 10\./);
+    });
+
+    it('depois de montado: mensagem pronta, WhatsApp e e-mail com o texto, contato gravado; refazer avisa do novo arquivo bancário', async () => {
+        const abertos: string[] = [];
+        vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) { abertos.push(this.href); });
+        const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(false);
+        const onContato = vi.fn();
+        render(<PacoteClienteModal empresa={{ ...empresa, contatoEnvio: { nome: 'Marta' } }} resultados={[res('f1', 'ANA', 65432)]} fichas={fichas} titulo="Folha mensal 09/2026" sufixo="2026-09"
+            dataSugerida="2026-10-06" eventos={eventos} onFechar={() => {}} onContatoSalvo={onContato}
+            documentos={[{ id: 'holerites', rotulo: 'Holerites (PDF)', nome: 'h.pdf', descricao: 'holerites para assinatura', gerar: () => pdf }]} />);
+        fireEvent.click(screen.getByText('Baixar pacote (.zip)'));
+        await waitFor(() => expect(screen.getByRole('region', { name: 'Enviar ao cliente' })).toBeTruthy());
+        const texto = (screen.getByLabelText('Mensagem ao cliente') as HTMLTextAreaElement).value;
+        expect(texto).toMatch(/^Olá, Marta!/);
+        expect(texto).toContain('Segue o pacote da Folha mensal 09/2026 da Exemplo (pacote-1200-2026-09.zip)');
+        expect(texto).toContain('• holerites para assinatura');
+        expect(texto).toMatch(/Arquivo bancário \(BANCO ITAU\): 1 pagamento\(s\), total R\$ 654,32, crédito em 06\/10\/2026/);
+        expect(texto).toContain('• 06/10/2026: Pagar os salários');
+        // Sem WhatsApp e sem e-mail os botões ficam desligados.
+        expect((screen.getByText('Abrir WhatsApp') as HTMLButtonElement).disabled).toBe(true);
+        expect((screen.getByText('Abrir e-mail') as HTMLButtonElement).disabled).toBe(true);
+        fireEvent.change(screen.getByLabelText('WhatsApp do contato'), { target: { value: '(11) 98888-7777' } });
+        fireEvent.change(screen.getByLabelText('E-mail do contato'), { target: { value: 'marta@cliente.com.br' } });
+        fireEvent.click(screen.getByText('Abrir WhatsApp'));
+        fireEvent.click(screen.getByText('Abrir e-mail'));
+        expect(abertos[0]).toMatch(/^https:\/\/wa\.me\/5511988887777\?text=Ol%C3%A1%2C%20Marta!/);
+        expect(abertos[1]).toMatch(/^mailto:marta@cliente\.com\.br\?subject=Folha%20mensal%2009%2F2026%20%C2%B7%20Exemplo&body=Ol%C3%A1/);
+        fireEvent.click(screen.getByText('Gravar contato na empresa'));
+        await waitFor(() => expect(sv.contato).toHaveBeenCalledWith('E1', { nome: 'Marta', whatsapp: '(11) 98888-7777', email: 'marta@cliente.com.br' }));
+        expect(onContato).toHaveBeenCalled();
+        // Refazer com arquivo bancário pede confirmação (gera o nº seguinte); recusado, o pacote fica.
+        fireEvent.click(screen.getByText('Refazer pacote'));
+        expect(confirmar.mock.calls[0][0]).toMatch(/novo arquivo bancário \(nº 10\)/);
+        expect(screen.getByRole('region', { name: 'Enviar ao cliente' })).toBeTruthy();
+        expect(sv.baixados).toHaveLength(1);
     });
 
     it('sem conta cadastrada: o arquivo bancário fica de fora e o pacote sai sem gravar nada', async () => {
