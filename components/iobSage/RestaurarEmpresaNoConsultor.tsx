@@ -15,11 +15,14 @@ import { empresasDoBackup, planejarRestauracao, type Existentes, type Parametros
 import { CAMPOS_HISTORICO, type ClasseManual, type EventoResumo } from '../../services/calculo/movimentosDoBackup';
 import { ROTULO_MOVIMENTO } from '../../services/calculo/movimento';
 import { REGIMES, type RegimePatronal } from '../../services/cadastros/enquadramento';
+import { formatCnpj } from '../../services/brasilApiService';
 import { carregarExistentes, gravarRestauracao, lerParametros, salvarParametros } from '../../services/iobSage/restaurarEmpresaService';
 
 interface Props { restauracao: Restauracao; arquivos: string[]; usuario?: Usuario; podeRestaurar: boolean }
 
 const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+// Opção do seletor: o schema e a empresa (o código SAGE pode estar repetido no Consultor).
+const chaveOpcao = (x: { grupo: string; empresa: Empresa | null }) => `${x.grupo}|${x.empresa?.id ?? ''}`;
 const num = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
 const botao = 'rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-40';
 
@@ -44,7 +47,7 @@ const RestaurarEmpresaNoConsultor: React.FC<Props> = ({ restauracao, arquivos, u
     // Outro backup aberto: o plano do anterior não vale mais.
     useEffect(() => { descartarPlano(); setEventos([]); setFeito(''); setOcupado(''); }, [restauracao, arquivos.join('|')]);
     const doBackup = useMemo(() => (empresas ? empresasDoBackup(restauracao, empresas) : []), [restauracao, empresas]);
-    const escolhida = doBackup.find(x => x.codigo === codigo);
+    const escolhida = doBackup.find(x => chaveOpcao(x) === codigo);
     const mudar = (p: Partial<ParametrosRestauracao>) => { setParam(x => ({ ...x, ...p })); descartarPlano(); };
     // "" = automático (tira o acerto); o plano é refeito em "Preparar".
     const classificar = (codeven: string, valor: ClasseManual | '') => {
@@ -91,12 +94,17 @@ const RestaurarEmpresaNoConsultor: React.FC<Props> = ({ restauracao, arquivos, u
                     Só completa o que falta: o que já está no Consultor (inclusive o digitado à mão) é mantido. Acerte os parâmetros na empresa piloto; eles ficam salvos para as próximas.
                 </p>
             </div>
+            {escolhida?.repetido && (
+                <p role="alert" className="rounded bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
+                    Há mais de uma empresa com o código SAGE {escolhida.codigo} no Consultor. Escolha a do CNPJ que o IOB transmite (a etapa 1 avisa "empregador diferente" quando não é) e corrija o código da outra em Empresas.
+                </p>
+            )}
             {!podeRestaurar && <p className="text-xs text-amber-700 dark:text-amber-300">Só o gestor restaura empresas.</p>}
             <div className="flex flex-wrap items-end gap-3 text-sm dark:text-slate-100">
                 <label>Empresa do backup
                     <select aria-label="Empresa do backup" className={`ml-2 ${inp}`} value={codigo} onChange={e => { setCodigo(e.target.value); descartarPlano(); setEventos([]); setFeito(''); setOcupado(''); }}>
                         <option value="">— escolha —</option>
-                        {doBackup.map(x => <option key={x.grupo} value={x.codigo} disabled={!x.empresa}>{x.codigo} · {x.empresa ? x.empresa.nomeFantasia || x.empresa.razaoSocial : 'sem empresa no Consultor (cadastre com este código SAGE)'}</option>)}
+                        {doBackup.map(x => <option key={chaveOpcao(x)} value={chaveOpcao(x)} disabled={!x.empresa}>{x.codigo} · {x.empresa ? `${x.empresa.nomeFantasia || x.empresa.razaoSocial} · CNPJ ${formatCnpj(x.empresa.cnpj)}${x.repetido ? ' · código repetido no Consultor' : ''}` : 'sem empresa no Consultor (cadastre com este código SAGE)'}</option>)}
                     </select>
                 </label>
                 {escolhida?.empresa && (

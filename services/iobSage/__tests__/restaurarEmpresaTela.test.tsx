@@ -31,7 +31,7 @@ describe('restaurar empresa: plano antigo', () => {
         const u = { id: 'u', email: 'e' };
         const { rerender } = render(<RestaurarEmpresaNoConsultor restauracao={rest('a')} arquivos={['a.backup']} usuario={u} podeRestaurar />);
         await waitFor(() => expect(screen.getByRole('option', { name: /1200 · SP/ })).toBeTruthy());
-        fireEvent.change(screen.getByLabelText('Empresa do backup'), { target: { value: '1200' } });
+        fireEvent.change(screen.getByLabelText('Empresa do backup'), { target: { value: 'f1200|emp1' } });
         fireEvent.click(screen.getByRole('button', { name: 'Preparar a restauração' }));
         await waitFor(() => expect(m.resolver).not.toBeNull());
         rerender(<RestaurarEmpresaNoConsultor restauracao={rest('b')} arquivos={['b.backup']} usuario={u} podeRestaurar />);
@@ -52,7 +52,7 @@ describe('restaurar empresa: classificação dos eventos', () => {
         const u = { id: 'u', email: 'e' };
         render(<RestaurarEmpresaNoConsultor restauracao={rest('c')} arquivos={['c.backup']} usuario={u} podeRestaurar />);
         await waitFor(() => expect(screen.getByRole('option', { name: /1200 · SP/ })).toBeTruthy());
-        fireEvent.change(screen.getByLabelText('Empresa do backup'), { target: { value: '1200' } });
+        fireEvent.change(screen.getByLabelText('Empresa do backup'), { target: { value: 'f1200|emp1' } });
         m.resolver = null;
         fireEvent.click(screen.getByRole('button', { name: 'Preparar a restauração' }));
         await waitFor(() => expect(m.resolver).not.toBeNull());
@@ -78,7 +78,7 @@ describe('restaurar empresa: terceiros (%)', () => {
     it('aceita decimal com vírgula (5,8 e 0,0) sem perder o que foi digitado', async () => {
         render(<RestaurarEmpresaNoConsultor restauracao={rest('d')} arquivos={['d.backup']} usuario={{ id: 'u', email: 'e' }} podeRestaurar />);
         await waitFor(() => expect(screen.getByRole('option', { name: /1200 · SP/ })).toBeTruthy());
-        fireEvent.change(screen.getByLabelText('Empresa do backup'), { target: { value: '1200' } });
+        fireEvent.change(screen.getByLabelText('Empresa do backup'), { target: { value: 'f1200|emp1' } });
         const campo = screen.getByLabelText('Terceiros (%)') as HTMLInputElement;
         for (const t of ['5', '5,', '5,8']) fireEvent.change(campo, { target: { value: t } });
         expect(campo.value).toBe('5,8');

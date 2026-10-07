@@ -56,12 +56,20 @@ export const parametrosPadrao = (): ParametrosRestauracao => ({
     sexagesimal: false, criarFichas: true, mapeamento: {}, eventos: {}, regimes: {},
 });
 
-/** Empresas do backup (schemas fNNNN) com a empresa do Consultor de mesmo código SAGE. */
-export function empresasDoBackup(rest: Pick<Restauracao, 'grupos'>, empresas: Empresa[]): { codigo: string; grupo: string; empresa: Empresa | null }[] {
-    const porCodigo = new Map(empresas.map(e => [codigoIob(e.codigoSage), e]));
+/**
+ * Empresas do backup (schemas fNNNN) com a empresa do Consultor de mesmo
+ * código SAGE. Código repetido no Consultor (cadastro de antes da trava) dá
+ * uma opção por empresa, marcada: a equipe escolhe pelo CNPJ.
+ */
+export function empresasDoBackup(rest: Pick<Restauracao, 'grupos'>, empresas: Empresa[]): { codigo: string; grupo: string; empresa: Empresa | null; repetido: boolean }[] {
+    const porCodigo = new Map<string, Empresa[]>();
+    for (const e of empresas) { const c = codigoIob(e.codigoSage); if (c) porCodigo.set(c, [...(porCodigo.get(c) ?? []), e]); }
     return rest.grupos.map(g => ({ codigo: codigoDoSchema(g), grupo: g })).filter(x => x.codigo)
-        .map(x => ({ ...x, empresa: porCodigo.get(x.codigo) ?? null }))
-        .sort((a, b) => Number(a.codigo) - Number(b.codigo) || a.codigo.localeCompare(b.codigo));
+        .flatMap(x => {
+            const l = porCodigo.get(x.codigo) ?? [];
+            return l.length ? l.map(e => ({ ...x, empresa: e, repetido: l.length > 1 })) : [{ ...x, empresa: null, repetido: false }];
+        })
+        .sort((a, b) => Number(a.codigo) - Number(b.codigo) || a.codigo.localeCompare(b.codigo) || (a.empresa?.cnpj ?? '').localeCompare(b.empresa?.cnpj ?? ''));
 }
 
 export interface Existentes { fichas: FichaFuncionario[]; afastamentos: Afastamento[]; enquadramentos: Enquadramento[]; movimentos: Record<string, Record<string, Movimento>> }
