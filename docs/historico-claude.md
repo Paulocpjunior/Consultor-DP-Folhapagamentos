@@ -2089,3 +2089,38 @@ guias sindicais".
 - **Limite conhecido:** o motor usa o salário atual da ficha. Em meses
   antes de um reajuste, o item "Salário" diverge. Por isso a conferência
   vale mais para os meses recentes.
+
+## 07/10/2026 — Revisão do Codex no #96 e envio do link de verificação
+
+- **Revisão do Codex (#96), corrigida antes do merge:**
+  - **P1:** funcionário sem S-1200 e com cálculo em erro sumia da lista.
+    Agora fica pendente ("cálculo incompleto ou com erro"), e a competência
+    não conta como sem diferença.
+  - **P1:** em mês com férias, o INSS e o IRRF retidos no recibo
+    (`INSSFERRET`, `IRRFFERRET`) passam a entrar no total comparado com o
+    S-1200 e com o S-5001.
+  - **P2:** o S-5001 deixa de somar o CR 160601 (eConsignado).
+    `CR_NAO_INSS` agora é exportado da conferência pós-folha.
+  - **P2:** S-5001/S-5003 repetido (original e retificador): vale o que tem
+    `nrRecArqBase` igual ao recibo do S-1200 usado. Sem essa ligação, o item
+    não é somado e a linha fica pendente ("S-5001/S-5003 repetido").
+  - **P2:** o S-1200 é ligado a todas as fichas do mesmo CPF (contratos
+    simultâneos ou readmissão), e os resultados do motor são somados, com
+    observação.
+- **Paulo (print da Juliana):** *"existe um erro de validação nos e-mails"*.
+  - **O que o print mostrava:** "Muitos envios seguidos". É o bloqueio do
+    Firebase (`auth/too-many-requests`) quando o link é pedido várias vezes
+    seguidas, em geral porque o e-mail não aparece na caixa de entrada.
+  - **Mudança no aviso de verificação (`VerificarEmail`):**
+    - o e-mail sai em português (`auth.languageCode = 'pt-BR'`);
+    - depois de um envio, o botão espera 2 minutos ("Novo envio em N min"),
+      mesmo recarregando a tela (guardado no navegador);
+    - depois do bloqueio do Firebase, espera 15 minutos e explica que o
+      link já enviado continua valendo;
+    - mostra o remetente (`noreply@<projeto>.firebaseapp.com`) e orienta a
+      procurar no lixo eletrônico e nas abas Outros/Promoções;
+    - "Já verifiquei" continua sempre disponível.
+  - **Fora do código:** se o e-mail do escritório bloquear o remetente do
+    Firebase, dá para liberar `noreply@consultor-dp-folha.firebaseapp.com`
+    no servidor de e-mail ou configurar domínio próprio nos modelos de
+    e-mail do Firebase Authentication (console).

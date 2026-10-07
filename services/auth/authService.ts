@@ -128,10 +128,18 @@ export async function setRole(uid: string, role: AuthRole): Promise<void> {
 
 // ─── Verificação do e-mail (destrava o primeiro gestor) ─────────────
 
-/** O e-mail master só vira gestor depois de verificado: envia o link de verificação. */
+/** Remetente do link de verificação (modelo padrão do Firebase Auth do projeto). */
+export const remetenteVerificacao = () => `noreply@${auth.app.options.projectId ?? 'consultor-dp-folha'}.firebaseapp.com`;
+
+/**
+ * Envia o link de verificação do e-mail, em português. O master vira gestor
+ * depois de verificado; os demais passam a ser aceitos pelo CFI. O Firebase
+ * limita os envios por conta: quem chama segura o botão entre um envio e outro.
+ */
 export async function enviarVerificacaoEmail(): Promise<void> {
     const u = auth.currentUser;
     if (!u) throw new Error('Usuário não autenticado.');
+    auth.languageCode = 'pt-BR';
     await sendEmailVerification(u);
 }
 
