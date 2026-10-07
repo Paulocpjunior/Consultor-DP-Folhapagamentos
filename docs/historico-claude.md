@@ -2452,3 +2452,17 @@ guias sindicais".
 - **Fora desta etapa:** a rescisão continua com o salário atual da ficha,
   que é o vigente no desligamento.
 - **Testes:** 86 arquivos, 663 testes.
+
+## 07/10/2026 — Histórico de salário na rescisão
+
+- **Paulo:** *"pode seguir com histórico de salários na rescisão"*.
+- **Motor de rescisão:** usa o salário vigente na data do desligamento
+  (`fichaNaData`), com a unidade e as horas da época, no saldo de salário,
+  no aviso, no 13º, nas férias e na média das horas extras.
+  - **Por quê:** um reajuste registrado depois do desligamento (por
+    exemplo, um S-2206 de dissídio, ou a simulação de um desligamento
+    passado) não entra na rescisão.
+  - **Memória de cálculo:** diz de qual faixa veio o salário.
+- **Com isso,** o histórico de salário vale na folha, nas férias, no 13º e
+  na rescisão.
+- **Testes:** 86 arquivos, 664 testes.

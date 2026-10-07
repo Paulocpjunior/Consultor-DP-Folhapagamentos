@@ -17,6 +17,15 @@ const calc = (p: Partial<EntradaRescisao>) => calcularRescisao({ ficha: ficha(),
 const v = (r: ReturnType<typeof calcularRescisao>, c: string) => r.verbas.filter(x => x.codigo === c || x.codigo.startsWith(`${c}2`)).reduce((s, x) => s + x.valor, 0);
 
 describe('rescisão', () => {
+    it('salário do desligamento pelo histórico: reajuste posterior não entra no saldo, no aviso, no 13º nem nas férias', () => {
+        const comHist = { ...ficha({ salario: '3300.00' }), historicoSalario: [{ desde: '2024-01-02', salario: '3000.00', origem: 'S-2200 · 1' }, { desde: '2026-06-01', salario: '3300.00', origem: 'S-2206 · 2' }] };
+        const r = calc({ ficha: comHist });
+        expect([v(r, 'SAL'), v(r, 'AVISO'), v(r, '13PROP'), v(r, 'FV')]).toEqual([100000, 360000, 50000, 300000]);
+        expect(r.memoria.join('\n')).toContain('Salário de 02/01/2024 (S-2200), vigente no desligamento (10/03/2026)');
+        // Desligamento depois do reajuste: o salário atual.
+        expect(v(calc({ ficha: comHist, data: '2026-06-10' }), 'AVISO')).toBeGreaterThan(360000);
+    });
+
     it('aviso prévio proporcional (Lei 12.506/2011)', () => {
         expect(diasDeAviso('2024-01-02', '2024-12-31')).toBe(30);
         expect(diasDeAviso('2024-01-02', '2025-01-01')).toBe(33);
