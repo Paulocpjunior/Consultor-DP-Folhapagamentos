@@ -9,7 +9,13 @@
 // verba do motor (SAL, HE50, INSS…) é ligada a uma rubrica da empresa num
 // de/para gravado na empresa; o app sugere pela natureza (Tabela 03) e pelo
 // tipo, e a equipe confirma. Estrutura conferida com os XSDs do leiaute S-1.3
-// (evtRemun.xsd, evtPgtos.xsd e tipos.xsd).
+// (evtRemun.xsd, evtPgtos.xsd, evtExclusao.xsd e tipos.xsd).
+//
+// Retificação: o S-1210 é um só por beneficiário e mês e aponta para o
+// demonstrativo do S-1200. Quando já há S-1210 aceito no mês, ele é excluído
+// (S-3000), o S-1200 vai como retificação e o S-1210 volta como original com
+// todos os pagamentos do mês: os do baixado que não são desta folha, mais os
+// desta folha.
 
 import type { ResultadoCalculo, Verba } from '../calculo/motorMensal';
 import type { FichaFuncionario } from '../cadastros/funcionarios';
@@ -94,13 +100,18 @@ export interface EventoGerado { id: string; xml: string }
 export interface EventosDoTrabalhador {
     cpf: string; nome: string; fichaIds: string[];
     s1200: EventoGerado | null; s1210: EventoGerado | null;
+    /** S-3000 do S-1210 aceito no mês: vai antes do S-1200 e do S-1210. */
+    exclusao1210: EventoGerado | null;
     liquido: number; erros: string[]; avisos: string[];
-    /** Retificação: o recibo e a origem do evento que está valendo no eSocial. */
-    retifica1200?: ReciboEvento; retifica1210?: ReciboEvento;
+    /** O S-1200 que está valendo (vai como retificação) e o S-1210 aceito no mês do pagamento (excluído e reenviado). */
+    retifica1200?: ReciboEvento; existente1210?: ReciboEvento;
+    /** Pagamentos do S-1210 aceito que voltam no reenvio (não são desta folha). */
+    outrosPagamentos: number;
 }
 
 /** indRetif 1 (original) ou 2 com o nrRecibo do evento que está valendo. */
 const retif = (r?: ReciboEvento) => (r ? `<indRetif>2</indRetif><nrRecibo>${r.nrRecibo}</nrRecibo>` : '<indRetif>1</indRetif>');
+const mes = (c: string) => `${c.slice(5)}/${c.slice(0, 4)}`;
 
 export interface EntradaEventosFolha {
     cnpj: string; tpAmb: TpAmb;
@@ -113,8 +124,9 @@ export interface EntradaEventosFolha {
     rubricas: Rubrica[];
     parametros: ParametrosEsocialFolha;
     /**
-     * Eventos já aceitos (por CPF): quem tem recibo vai como retificação
-     * (indRetif 2), repetindo o demonstrativo do original.
+     * Eventos já aceitos (por CPF): o S-1200 com recibo vai como retificação
+     * (indRetif 2), repetindo o demonstrativo do original; o S-1210 aceito no
+     * mês do pagamento é excluído e volta com todos os pagamentos.
      */
     retificacao?: { s1200: Map<string, ReciboEvento>; s1210: Map<string, ReciboEvento> };
     agora?: Date;
@@ -148,8 +160,8 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
     const agora = e.agora ?? new Date();
     const trabalhadores: EventosDoTrabalhador[] = [];
     for (const [cpf, contratos] of grupos) {
-        const t: EventosDoTrabalhador = { cpf, nome: contratos[0].r.nome, fichaIds: contratos.map(c => c.ficha.id), s1200: null, s1210: null, liquido: 0, erros: [], avisos: [],
-            retifica1200: e.retificacao?.s1200.get(cpf), retifica1210: e.retificacao?.s1210.get(cpf) };
+        const t: EventosDoTrabalhador = { cpf, nome: contratos[0].r.nome, fichaIds: contratos.map(c => c.ficha.id), s1200: null, s1210: null, exclusao1210: null, liquido: 0, erros: [], avisos: [],
+            retifica1200: e.retificacao?.s1200.get(cpf), existente1210: e.retificacao?.s1210.get(cpf), outrosPagamentos: 0 };
         trabalhadores.push(t);
         if (cpf.length !== 11) t.erros.push('CPF inválido na ficha.');
         const dmDevs: string[] = []; const pagamentos: string[] = []; const ides = new Set<string>();
@@ -191,8 +203,23 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             t.liquido += r.totais.liquido;
         }
         // O retificador substitui o S-1200 inteiro: demonstrativo do original que não está no cálculo some do eSocial.
-        const faltando = Object.values(t.retifica1200?.demonstrativos ?? {}).filter(d => !ides.has(d));
-        if (faltando.length) t.avisos.push(`O S-1200 original tem demonstrativo(s) que este cálculo não gera (${[...new Set(faltando)].join(', ')}, por exemplo férias ou outro contrato): a retificação os retira. Confira antes de transmitir.`);
+        const faltando = new Set(Object.values(t.retifica1200?.demonstrativos ?? {}).filter(d => !ides.has(d)));
+        if (faltando.size) t.avisos.push(`O S-1200 original tem demonstrativo(s) que este cálculo não gera (${[...faltando].join(', ')}, por exemplo férias ou outro contrato): a retificação os retira. Confira antes de transmitir.`);
+        // S-1210 já aceito no mês: volta com os pagamentos que não são desta folha (os desta folha são substituídos).
+        const ex = t.existente1210;
+        const outros: string[] = [];
+        if (ex && !ex.pagamentos) {
+            t.erros.push(`Já há S-1210 de ${mes(perPgto)} aceito (recibo ${ex.nrRecibo}, ${ex.origem}): ele ${ex.excluidoEm ? 'foi excluído e volta' : 'é excluído e volta'} com todos os pagamentos do mês. Carregue o download do eSocial com esse S-1210 (ou a cópia salva na exclusão).`);
+        } else if (ex) {
+            for (const pg of ex.pagamentos!) {
+                const desta = pg.tpPgto === '1' && pg.perRef === e.competencia;
+                if (desta && ides.has(pg.ideDmDev)) continue;
+                if (desta && faltando.has(pg.ideDmDev)) { t.erros.push(`O S-1210 aceito paga o demonstrativo ${pg.ideDmDev}, que a retificação do S-1200 retira: o reenvio seria recusado. Inclua esse pagamento no cálculo ou acerte pelo IOB.`); continue; }
+                outros.push(pg.xml);
+            }
+            t.outrosPagamentos = outros.length;
+        }
+        else if (t.retifica1200) t.avisos.push(`Nenhum S-1210 de ${mes(perPgto)} carregado: se o pagamento desta folha já foi informado (inclusive em outro mês), carregue o download com ele; o eSocial recusa retificar o S-1200 enquanto um S-1210 aponta para ele.`);
         if (t.erros.length || !dmDevs.length) continue;
         // Deduções do IRRF (dependentes) quando o motor não usou o desconto simplificado.
         const irCR: string[] = [];
@@ -212,11 +239,20 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
         t.s1200 = { id: id1200, xml: `<eSocial xmlns="${NS}/evtRemun/${VERSAO}"><evtRemun Id="${id1200}">`
             + `<ideEvento>${retif(t.retifica1200)}<indApuracao>1</indApuracao><perApur>${e.competencia}</perApur><tpAmb>${e.tpAmb}</tpAmb><procEmi>1</procEmi><verProc>${VER_PROC}</verProc></ideEvento>`
             + ideEmpregador + `<ideTrabalhador><cpfTrab>${cpf}</cpfTrab></ideTrabalhador>` + dmDevs.join('') + '</evtRemun></eSocial>' };
+        if (ex && !ex.excluidoEm) {
+            const id3000 = idEvento(e.cnpj, agora, ++seq);
+            t.exclusao1210 = { id: id3000, xml: `<eSocial xmlns="${NS}/evtExclusao/${VERSAO}"><evtExclusao Id="${id3000}">`
+                + `<ideEvento><tpAmb>${e.tpAmb}</tpAmb><procEmi>1</procEmi><verProc>${VER_PROC}</verProc></ideEvento>` + ideEmpregador
+                + `<infoExclusao><tpEvento>S-1210</tpEvento><nrRecEvt>${ex.nrRecibo}</nrRecEvt><ideTrabalhador><cpfTrab>${cpf}</cpfTrab></ideTrabalhador><ideFolhaPagto><perApur>${perPgto}</perApur></ideFolhaPagto></infoExclusao>`
+                + '</evtExclusao></eSocial>' };
+        }
+        // As informações de IR do S-1210 aceito (dependentes, pensão, plano de saúde…) voltam como estavam.
+        const ir = ex?.irComplem?.length ? ex.irComplem.join('') : irCR.length ? `<infoIRComplem><infoIRCR><tpCR>056107</tpCR>${irCR.join('')}</infoIRCR></infoIRComplem>` : '';
+        if (ex?.irComplem?.length && irCR.length) t.avisos.push('As deduções do IRRF voltam como estavam no S-1210 aceito; confira se os dependentes mudaram.');
         const id1210 = idEvento(e.cnpj, agora, ++seq);
         t.s1210 = { id: id1210, xml: `<eSocial xmlns="${NS}/evtPgtos/${VERSAO}"><evtPgtos Id="${id1210}">`
-            + `<ideEvento>${retif(t.retifica1210)}<perApur>${perPgto}</perApur><tpAmb>${e.tpAmb}</tpAmb><procEmi>1</procEmi><verProc>${VER_PROC}</verProc></ideEvento>`
-            + ideEmpregador + `<ideBenef><cpfBenef>${cpf}</cpfBenef>` + pagamentos.join('')
-            + (irCR.length ? `<infoIRComplem><infoIRCR><tpCR>056107</tpCR>${irCR.join('')}</infoIRCR></infoIRComplem>` : '')
+            + `<ideEvento><indRetif>1</indRetif><perApur>${perPgto}</perApur><tpAmb>${e.tpAmb}</tpAmb><procEmi>1</procEmi><verProc>${VER_PROC}</verProc></ideEvento>`
+            + ideEmpregador + `<ideBenef><cpfBenef>${cpf}</cpfBenef>` + outros.join('') + pagamentos.join('') + ir
             + '</ideBenef></evtPgtos></eSocial>' };
     }
     trabalhadores.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));

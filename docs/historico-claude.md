@@ -2284,3 +2284,40 @@ guias sindicais".
 - **Paulo:** não achava o botão "Pacote do cliente" (ele fica na barra do
   topo do Cálculo). Ganhou um atalho no recibo de férias, ao lado da agenda
   do cliente.
+- **Revisão do Codex no PR #100 (dois P1):**
+  - **O problema:**
+    - o S-1210 é um só por trabalhador e mês, e retificá-lo só com o
+      pagamento desta folha apagaria os outros pagamentos e o IR do mês;
+    - o eSocial recusa retificar o S-1200 enquanto um S-1210 aponta para o
+      demonstrativo dele.
+  - **Fluxo em 3 etapas (produção):**
+    1. **Excluir o S-1210 aceito** do mês do pagamento (S-3000, com o
+       `nrRecEvt`, o CPF e o `perApur`). Antes do envio, a tela baixa uma
+       cópia dos S-1210 excluídos, que pode ser carregada de volta se a tela
+       for fechada antes da etapa 3.
+    2. **S-1200 retificador** (`indRetif` 2, recibo e demonstrativo do
+       original).
+    3. **S-1210 como original**, com todos os pagamentos do mês:
+       - os do S-1210 baixado que não são desta folha (copiados como
+         estavam, inclusive pagamento ao exterior);
+       - os desta folha;
+       - as informações de IR (`infoIRComplem`) do S-1210 aceito, como
+         estavam; sem elas, as deduções do cálculo.
+  - **Ordem na tela:**
+    - os botões ficam "1. Excluir S-1210 aceito", "2. Transmitir S-1200" e
+      "3. Transmitir S-1210";
+    - o 2 e o 3 só liberam depois que a exclusão for aceita;
+    - o botão "Consultar resultado" consulta os lotes da própria tela e
+      relê os recibos e as exclusões.
+  - **Exclusões aceitas:** gravadas no envio com a referência
+    `exclui:<recibo>`. `recibosVigentes` marca o S-1210 excluído
+    (`excluidoEm`), junta o mesmo recibo vindo do download e dos envios, e
+    usa o conteúdo do último S-1210 baixado quando o vigente é um reenvio do
+    Consultor.
+  - **Bloqueios (sem evento, com o motivo):**
+    - S-1210 aceito sem o conteúdo (falta o download);
+    - pagamento de um demonstrativo que a retificação do S-1200 retira.
+  - **Aviso:** S-1200 retificado sem nenhum S-1210 carregado.
+  - **Conferência:** S-3000, S-1200 e S-1210 validados no `evtExclusao.xsd`,
+    no `evtRemun.xsd` e no `evtPgtos.xsd` (só falta a assinatura, que é do
+    CFI). Testes: 86 arquivos, 652 testes.
