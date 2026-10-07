@@ -30,7 +30,7 @@ import {
 import type { Enquadramento } from '../cadastros/enquadramento';
 import { consolidarAfastamentos, lerXmlAfastamentos, mesclarAfastamentos, type Afastamento, type MesclaAfastamento } from '../cadastros/afastamentos';
 import { TABELA_HIST_FERIAS, gozosDoHistorico, juntarComHistorico } from '../cadastros/feriasDoBackup';
-import { mesclarMovimentos, movimentosDoHolerith, naturezasDosEventos, type MesclaMovimento } from '../calculo/movimentosDoBackup';
+import { mesclarMovimentos, movimentosDoHolerith, naturezasDosEventos, type ClasseManual, type EventoResumo, type MesclaMovimento } from '../calculo/movimentosDoBackup';
 import type { Movimento } from '../calculo/motorMensal';
 
 export interface ParametrosRestauracao {
@@ -44,12 +44,14 @@ export interface ParametrosRestauracao {
     criarFichas: boolean;
     /** De/para da func acertado na empresa piloto; vazio = proposto pelos nomes das colunas. */
     mapeamento: Mapeamento;
+    /** Classificação dos eventos do IOB acertada pela equipe (código do evento → classe ou "ignorar"). */
+    eventos: Record<string, ClasseManual>;
 }
 
 const mesAtras = (meses: number) => { const d = new Date(); d.setMonth(d.getMonth() - meses); return d.toISOString().slice(0, 7); };
 export const parametrosPadrao = (): ParametrosRestauracao => ({
     fpas: '', codigoTerceiros: '', terceiros: 0, historicoDesde: mesAtras(36), fapDesde: `${new Date().getFullYear() - 1}-01`,
-    sexagesimal: false, criarFichas: true, mapeamento: {},
+    sexagesimal: false, criarFichas: true, mapeamento: {}, eventos: {},
 });
 
 /** Empresas do backup (schemas fNNNN) com a empresa do Consultor de mesmo código SAGE. */
@@ -69,6 +71,8 @@ export interface PlanoRestauracao {
     enquadramentos: PropostaEnquadramento[];
     afastamentos: MesclaAfastamento[];
     movimentos: MesclaMovimento[];
+    /** Todos os eventos do holerith no período (para acertar a classificação). */
+    eventosHistorico: EventoResumo[];
     /** Arquivos/tabelas de origem, para a auditoria. */
     origem: string[];
 }
@@ -167,10 +171,12 @@ export async function planejarRestauracao(rest: Leitor, empresa: Empresa, existe
     aoProgresso('5/5 · Histórico da folha…');
     const holerith = await ler(rest, doSchema('holerith'));
     let movimentos: MesclaMovimento[] = [];
+    let eventosHistorico: EventoResumo[] = [];
     if (!holerith) etapas.push({ titulo: 'Histórico da folha', resumo: 'tabela holerith não encontrada', avisos: [] });
     else {
         const nat = naturezasDosEventos(await ler(rest, doSchema('eventos_esocial')), await ler(rest, doSchema('esocialdadosficha_s1010')));
-        const h = movimentosDoHolerith(holerith, nat, fichas(), { desde: p.historicoDesde, sexagesimal: p.sexagesimal });
+        const h = movimentosDoHolerith(holerith, nat, fichas(), { desde: p.historicoDesde, sexagesimal: p.sexagesimal, eventos: p.eventos });
+        eventosHistorico = h.todos;
         const todos = mesclarMovimentos(h.movimentos, existentes.movimentos).filter(i => i.mudou);
         movimentos = todos.filter(i => !i.erros.length);
         etapas.push({
@@ -182,5 +188,5 @@ export async function planejarRestauracao(rest: Leitor, empresa: Empresa, existe
         origem.push(`f${codigo}.holerith`);
     }
 
-    return { etapas, fichas: fichasPlano, enquadramentos: enqGravaveis, afastamentos, movimentos, origem };
+    return { etapas, fichas: fichasPlano, enquadramentos: enqGravaveis, afastamentos, movimentos, eventosHistorico, origem };
 }
