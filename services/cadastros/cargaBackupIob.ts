@@ -16,7 +16,7 @@
 
 import type { Valor } from '../iobSage/backupPostgres';
 import { centavosDeTexto, cpfValido, dataValida } from './documentos';
-import { ROTULO, ehManual, idFuncionario, fichaVazia, diffFicha, type CampoFicha, type FichaFuncionario, type ResultadoMescla } from './funcionarios';
+import { ROTULO, ehManual, idFuncionario, fichaVazia, diffFicha, type CampoFicha, type FaixaSalarial, type FichaFuncionario, type ResultadoMescla } from './funcionarios';
 
 export type CampoCarga = 'cpf' | 'matriculaEsocial' | CampoFicha;
 
@@ -183,8 +183,65 @@ export interface Comparacao {
     avisos: string[];
 }
 
+/**
+ * O histórico do SAGE só entra quando o do eSocial (S-2200/S-2206) não traz
+ * nenhum reajuste: o transmitido vale mais que o guardado no sistema.
+ */
+export const usaHistoricoDoSage = (f: Pick<FichaFuncionario, 'historicoSalario'>) => (f.historicoSalario ?? []).filter(x => !x.origem.startsWith('IOB')).length < 2;
+
+/**
+ * Histórico de salário do SAGE por codfun, para quem não tem reajuste no
+ * eSocial: o `rsalfunc` (alteração com data); sem ele, o `salarios` mês a mês
+ * (`anomes`, só o evento do salário atual e até o registro marcado em
+ * `ultimo`). Só volta quem tem pelo menos duas faixas.
+ */
+export function historicoSalarialSage(salarios: TabelaLida | null, rsalfunc: TabelaLida | null): Map<string, FaixaSalarial[]> {
+    const brutos = new Map<string, FaixaSalarial[]>();
+    const juntar = (k: string, f: FaixaSalarial) => brutos.set(k, [...(brutos.get(k) ?? []), f]);
+    const porRsal = new Set<string>();
+    if (rsalfunc) {
+        const [iCod, iData, iSal] = ['codfun', 'data', 'salario'].map(n => col(rsalfunc, n));
+        if (iCod >= 0 && iData >= 0 && iSal >= 0) for (const l of rsalfunc.linhas) {
+            const k = chaveCodfun(l[iCod]); const data = dataDoIob(l[iData] ?? ''); const valor = normalizarValor('salario', l[iSal] ?? null);
+            if (k && data && valor) juntar(k, { desde: data, salario: valor, origem: `IOB: rsalfunc · ${data}` });
+        }
+        for (const [k, l] of brutos) if (faixas(l).length >= 2) porRsal.add(k);
+    }
+    if (salarios) {
+        const [iCod, iVal, iUlt, iAno, iEv] = ['codfun', 'valor', 'ultimo', 'anomes', 'codeven'].map(n => col(salarios, n));
+        if (iCod >= 0 && iVal >= 0 && iAno >= 0) {
+            const linhas = salarios.linhas.map(l => ({ k: chaveCodfun(l[iCod]), anomes: (l[iAno] ?? '').replace(/\D/g, ''), valor: normalizarValor('salario', l[iVal] ?? null),
+                ultimo: iUlt >= 0 && sim(l[iUlt]), ev: iEv >= 0 ? (l[iEv] ?? '').trim() : '' })).filter(x => x.k && /^\d{6}$/.test(x.anomes) && x.valor);
+            const porFunc = new Map<string, typeof linhas>();
+            for (const x of linhas) if (!porRsal.has(x.k)) porFunc.set(x.k, [...(porFunc.get(x.k) ?? []), x]);
+            for (const [k, l] of porFunc) {
+                // O registro atual (marcado em "ultimo"; senão o mais recente) define o evento do salário e o fim do histórico.
+                const atual = l.find(x => x.ultimo) ?? [...l].sort((a, b) => a.anomes.localeCompare(b.anomes)).pop()!;
+                brutos.set(k, l.filter(x => x.ev === atual.ev && x.anomes <= atual.anomes)
+                    .map(x => ({ desde: `${x.anomes.slice(0, 4)}-${x.anomes.slice(4)}-01`, salario: x.valor, origem: `IOB: salarios · ${x.anomes.slice(4)}/${x.anomes.slice(0, 4)}` })));
+            }
+        }
+    }
+    const r = new Map<string, FaixaSalarial[]>();
+    for (const [k, l] of brutos) { const f = faixas(l); if (f.length >= 2) r.set(k, f); }
+    return r;
+}
+
+/** Por data; o mesmo valor seguido vira uma faixa só; na mesma data, vale o último registro. */
+function faixas(l: FaixaSalarial[]): FaixaSalarial[] {
+    const r: FaixaSalarial[] = [];
+    for (const f of [...l].sort((a, b) => a.desde.localeCompare(b.desde))) {
+        const ultima = r[r.length - 1];
+        if (ultima && ultima.desde === f.desde) r[r.length - 1] = f;
+        else if (!ultima || ultima.salario !== f.salario) r.push(f);
+    }
+    // Duas faixas seguidas com o mesmo valor depois da troca na mesma data: junta de novo.
+    return r.filter((f, i) => i === 0 || f.salario !== r[i - 1].salario);
+}
+
 /** Compara as linhas do IOB com as fichas da empresa e monta a carga. */
-export function compararComFichas(linhas: LinhaIob[], fichas: FichaFuncionario[], empresa: { id: string; cnpj: string }, origem: string, criarNovas: boolean): Comparacao {
+export function compararComFichas(linhas: LinhaIob[], fichas: FichaFuncionario[], empresa: { id: string; cnpj: string }, origem: string, criarNovas: boolean, historicos?: Map<string, FaixaSalarial[]>): Comparacao {
+    const historicoDe = (v: LinhaIob['valores']) => (v.codigoIob ? historicos?.get(chaveCodfun(v.codigoIob)) : undefined);
     const porCpf = new Map<string, FichaFuncionario[]>();
     for (const f of fichas) porCpf.set(f.cpf, [...(porCpf.get(f.cpf) ?? []), f]);
     const porMatricula = new Map(fichas.map(f => [f.matriculaEsocial, f]));
@@ -206,6 +263,8 @@ export function compararComFichas(linhas: LinhaIob[], fichas: FichaFuncionario[]
             if (tocadas.has(ficha.id)) { r.avisos.push(`Linha ${l.linha}: segundo registro para ${ficha.dados.nome || ficha.cpf}; só o primeiro foi usado.`); continue; }
             tocadas.add(ficha.id);
             const depois: FichaFuncionario = { ...ficha, dados: { ...ficha.dados }, origens: { ...ficha.origens } };
+            const hs = historicoDe(v);
+            if (hs && usaHistoricoDoSage(ficha)) depois.historicoSalario = hs;
             const divergencias: Divergencia[] = [];
             for (const [campo, valor] of Object.entries(v) as [CampoCarga, string][]) {
                 if (campo === 'cpf' || campo === 'matriculaEsocial') continue;
@@ -230,7 +289,8 @@ export function compararComFichas(linhas: LinhaIob[], fichas: FichaFuncionario[]
             : !v.matriculaEsocial ? 'Sem matrícula do eSocial no IOB: importe o S-2200 ou cadastre a ficha.'
             : !criarNovas ? 'Sem ficha no Consultor (criação de fichas novas desligada).' : '';
         if (motivo) { r.semFicha.push({ linha: l.linha, nome: v.nome ?? '', cpf: v.cpf ?? '', motivo }); continue; }
-        const nova: FichaFuncionario = { ...fichaVazia(empresa), id: idFuncionario(empresa.id, v.cpf!, v.matriculaEsocial!), cpf: v.cpf!, matriculaEsocial: v.matriculaEsocial!, situacao: v.dataDesligamento ? 'desligado' : 'ativo' };
+        const nova: FichaFuncionario = { ...fichaVazia(empresa), id: idFuncionario(empresa.id, v.cpf!, v.matriculaEsocial!), cpf: v.cpf!, matriculaEsocial: v.matriculaEsocial!, situacao: v.dataDesligamento ? 'desligado' : 'ativo',
+            ...(historicoDe(v) ? { historicoSalario: historicoDe(v) } : {}) };
         for (const [campo, valor] of Object.entries(v) as [CampoCarga, string][]) {
             if (campo === 'cpf' || campo === 'matriculaEsocial') continue;
             nova.dados[campo] = valor; nova.origens[campo] = origem;
@@ -265,9 +325,9 @@ export interface ComplementosEsocial { dmdev?: TabelaLida | null; contribSind?: 
 
 /** Tabelas que a carga do FolhaWin lê no mesmo schema da `func`, com o que cada uma traz. */
 export const TABELAS_COMPLEMENTARES: [string, string][] = [
-    ['salarios', 'o salário atual (salarios)'], ['funcdoc', 'a chave PIX (funcdoc)'],
+    ['salarios', 'o salário atual e o histórico mês a mês (salarios)'], ['funcdoc', 'a chave PIX (funcdoc)'],
     ['esocialdadosficha_s1200_remunperapur', 'a matrícula do eSocial (S-1200)'],
-    ['rsalfunc', 'o cargo, o CBO e o salário do histórico (rsalfunc)'], ['cargos', 'o nome do cargo (cargos)'],
+    ['rsalfunc', 'o cargo, o CBO e o histórico de salário com data (rsalfunc)'], ['cargos', 'o nome do cargo (cargos)'],
     ['esocialdadosficha_s1200_dmdev', 'a categoria e o CBO do S-1200'], ['esocialdadosficha_s1300_contribsind', 'o CNPJ do sindicato (S-1300)'],
     ['hist_horarios', 'o horário (hist_horarios)'], ['cad_horarios', 'as horas semanais (cad_horarios)'],
 ];

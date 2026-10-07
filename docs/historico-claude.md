@@ -2399,3 +2399,33 @@ guias sindicais".
     Se o histórico nunca trouxe o campo, ficam os da ficha.
   - **Diferença do histórico:** a comparação inclui a unidade e as horas.
     Com isso, a correção só da unidade numa reimportação também é gravada.
+
+## 07/10/2026 — Histórico de salário pela tabela de salários do SAGE
+
+- **Paulo:** *"pode seguir com a tabela de salários da SAGE"*.
+- **Segunda fonte do histórico** (`historicoSalarialSage`, em
+  `cargaBackupIob.ts`):
+  - **`rsalfunc`:** cada alteração de salário com data;
+  - **`salarios`:** sem reajuste no `rsalfunc`, o salário mês a mês
+    (`anomes`, a faixa começa no dia 1). Entra só o evento (`codeven`) do
+    salário atual e até o registro marcado em `ultimo`;
+  - o mesmo valor seguido vira uma faixa só, e só volta quem tem pelo menos
+    duas faixas;
+  - a origem de cada faixa fica como "IOB: rsalfunc · data" ou
+    "IOB: salarios · MM/AAAA".
+- **Quando entra:** só quando o histórico do eSocial (S-2200/S-2206) não
+  traz nenhum reajuste. O transmitido vale mais que o guardado no SAGE.
+- **Onde entra:**
+  - na restauração do SAGE (etapa "Funcionários");
+  - no "Completar pelo backup do IOB", com as tabelas complementares;
+  - a ficha recebe o histórico como alteração, e ele é gravado.
+- **Reimportação do eSocial:** se o eSocial vier de novo só com a
+  admissão, o histórico do SAGE fica. Se vier com reajuste, o do eSocial
+  substitui.
+- **Ficha:** o quadro "Histórico de salário" mostra a origem de cada faixa.
+- **Testes:** 86 arquivos, 661 testes.
+- **Revisão do Codex no PR #101, chegou depois do merge (P2), corrigida
+  aqui:** a coluna "No eSocial" trocada à mão para "Não" não contava como
+  alteração dos dependentes. A origem continuava "eSocial", e uma
+  reimportação podia desfazer a marca. Agora a marca "fora do eSocial"
+  entra na comparação, e a origem passa a "Manual".

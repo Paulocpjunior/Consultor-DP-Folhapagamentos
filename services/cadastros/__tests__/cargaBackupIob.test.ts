@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { aplicarComplementos, chaveColuna, compararComFichas, complementosFolhaWin, dataDoIob, derivarContrato, linhaParaCampos, normalizarValor, proporMapeamento } from '../cargaBackupIob';
+import { aplicarComplementos, chaveColuna, compararComFichas, complementosFolhaWin, dataDoIob, derivarContrato, historicoSalarialSage, linhaParaCampos, normalizarValor, proporMapeamento } from '../cargaBackupIob';
+import { mesclarComEsocial } from '../funcionarios';
 import { fichaVazia, idFuncionario, type FichaFuncionario } from '../funcionarios';
 
 const EMP = { id: 'emp1', cnpj: '11222333000181' };
@@ -297,5 +298,38 @@ describe('conta e agência com o dígito do IOB (arquivo bancário)', () => {
         const m = compararComFichas([l], [manual], EMP, 'IOB: backup', false).completar[0];
         expect(m.ficha.dados.conta).toBe('55555');
         expect(m.divergencias).toEqual([{ campo: 'conta', consultor: '55555', iob: '55555-0' }]);
+    });
+});
+
+describe('histórico de salário do SAGE (rsalfunc/salarios)', () => {
+    const rsalfunc = { colunas: ['codfun', 'data', 'salario', 'codcargo'], linhas: [
+        ['0007', '2024-01-02', '1800,00', ''], ['7', '2024-06-01', '1800,00', ''], ['7', '2025-03-01', '2100,00', ''], ['8', '2025-03-01', '3000,00', ''],
+    ] };
+    const salarios = { colunas: ['codfun', 'codeven', 'anomes', 'valor', 'ultimo'], linhas: [
+        ['8', '1', '202401', '2800,00', 'N'], ['8', '1', '202402', '2800,00', 'N'], ['8', '1', '202503', '3000,00', 'S'], ['8', '1', '202504', '9999,00', 'N'], ['8', '5', '202402', '150,00', 'N'],
+        ['7', '1', '202401', '1700,00', 'N'], ['9', '1', '202503', '1500,00', 'S'],
+    ] };
+    it('rsalfunc com data; sem reajuste nele, o salarios mês a mês (evento do salário atual, até o "ultimo"); só quem tem 2 faixas', () => {
+        const h = historicoSalarialSage(salarios, rsalfunc);
+        expect(h.get('7')).toEqual([
+            { desde: '2024-01-02', salario: '1800.00', origem: 'IOB: rsalfunc · 2024-01-02' }, { desde: '2025-03-01', salario: '2100.00', origem: 'IOB: rsalfunc · 2025-03-01' },
+        ]);
+        expect(h.get('8')).toEqual([
+            { desde: '2024-01-01', salario: '2800.00', origem: 'IOB: salarios · 01/2024' }, { desde: '2025-03-01', salario: '3000.00', origem: 'IOB: salarios · 03/2025' },
+        ]);
+        expect(h.has('9')).toBe(false);
+        expect(historicoSalarialSage(null, null).size).toBe(0);
+    });
+    it('entra na ficha sem reajuste no eSocial; com reajuste no eSocial, fica o do eSocial; a reimportação só com a admissão não apaga', () => {
+        const h = historicoSalarialSage(salarios, rsalfunc);
+        const soAdmissao = { ...ficha(CPF_A, 'M7', { codigoIob: '7', salario: '2100.00' }), historicoSalario: [{ desde: '2024-01-02', salario: '1800.00', origem: 'S-2200 · 1' }] };
+        const r = compararComFichas([{ linha: 1, valores: { cpf: CPF_A, codigoIob: '7' } }], [soAdmissao], EMP, 'IOB: f', false, h);
+        expect([r.completar.length, r.completar[0].ficha.historicoSalario?.length, r.completar[0].alteracoes.map(a => a.campo)]).toEqual([1, 2, ['historicoSalario']]);
+        const comReajuste = { ...soAdmissao, historicoSalario: [...soAdmissao.historicoSalario, { desde: '2025-01-01', salario: '2000.00', origem: 'S-2206 · 2' }] };
+        expect(compararComFichas([{ linha: 1, valores: { cpf: CPF_A, codigoIob: '7' } }], [comReajuste], EMP, 'IOB: f', false, h).completar).toEqual([]);
+        // eSocial reimportado só com a admissão: o do SAGE fica; com reajuste, o do eSocial substitui.
+        const doSage = r.completar[0].ficha;
+        expect(mesclarComEsocial(doSage, soAdmissao).ficha.historicoSalario).toEqual(doSage.historicoSalario);
+        expect(mesclarComEsocial(doSage, comReajuste).ficha.historicoSalario).toEqual(comReajuste.historicoSalario);
     });
 });

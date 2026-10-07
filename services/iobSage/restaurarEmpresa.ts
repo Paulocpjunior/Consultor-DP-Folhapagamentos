@@ -21,7 +21,7 @@ import { diffFicha, type FichaFuncionario, type ResultadoMescla } from '../cadas
 import { esocialDoBackup } from '../cadastros/esocialDoBackup';
 import { agruparAvisos, paraGravar, prepararImportacao } from '../cadastros/importacaoEsocial';
 import {
-    TABELAS_COMPLEMENTARES, aplicarComplementos, compararComFichas, complementosFolhaWin, derivarContrato, linhaParaCampos, proporMapeamento,
+    TABELAS_COMPLEMENTARES, aplicarComplementos, compararComFichas, complementosFolhaWin, historicoSalarialSage, derivarContrato, linhaParaCampos, proporMapeamento,
     type LinhaIob, type Mapeamento, type TabelaLida,
 } from '../cadastros/cargaBackupIob';
 import {
@@ -137,7 +137,8 @@ export async function planejarRestauracao(rest: Leitor, empresa: Empresa, existe
             dmdev: lidas.esocialdadosficha_s1200_dmdev, contribSind: lidas.esocialdadosficha_s1300_contribsind, histHorarios: lidas.hist_horarios, cadHorarios: lidas.cad_horarios,
         });
         const finais = derivarContrato(mapa.codigoIob ? aplicarComplementos(linhas, comp) : linhas, hoje);
-        const c = compararComFichas(finais, fichas(), empresa, `IOB: ${func.grupo}.func`, p.criarFichas);
+        // Histórico de salário do SAGE (rsalfunc/salarios) para quem não tem reajuste no eSocial.
+        const c = compararComFichas(finais, fichas(), empresa, `IOB: ${func.grupo}.func`, p.criarFichas, mapa.codigoIob ? historicoSalarialSage(lidas.salarios, lidas.rsalfunc) : undefined);
         for (const r of [...c.completar, ...c.novas]) atuais.set(r.ficha.id, r.ficha);
         etapas.push({
             titulo: 'Funcionários (func)',

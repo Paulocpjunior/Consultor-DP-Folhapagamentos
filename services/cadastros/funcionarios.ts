@@ -288,7 +288,8 @@ export interface Alteracao { campo: ChaveOrigem | 'codigoIob' | 'matriculaEsocia
 /** Rótulo de uma alteração na prévia e no histórico. */
 export const rotuloAlteracao = (campo: string) => (campo === 'pendencias' ? 'Pendências da importação' : campo === 'historicoSalario' ? 'Histórico de salário' : campo === 'cnpj' ? 'CNPJ do empregador' : ROTULO[campo as CampoFicha] ?? campo);
 
-const depsTexto = (l: Dependente[]) => l.map(d => `${d.nome} (${d.nascimento || 's/ nasc.'}${d.cpf ? `, CPF ${d.cpf}` : ''}${d.pensao === 'S' ? `, pensão${d.cotaPensao ? ` ${d.cotaPensao}%` : ''}` : ''})`).join('; ');
+// A marca "fora do eSocial" entra (a do XML é "S" e não muda o texto): trocada à mão, vira alteração e a origem passa a "Manual".
+const depsTexto = (l: Dependente[]) => l.map(d => `${d.nome} (${d.nascimento || 's/ nasc.'}${d.cpf ? `, CPF ${d.cpf}` : ''}${d.pensao === 'S' ? `, pensão${d.cotaPensao ? ` ${d.cotaPensao}%` : ''}` : ''}${d.noEsocial === 'N' ? ', fora do eSocial' : ''})`).join('; ');
 
 /** Diferença campo a campo entre duas versões, para a trilha de auditoria. */
 export function diffFicha(antes: FichaFuncionario | null, depois: FichaFuncionario): Alteracao[] {
@@ -345,8 +346,11 @@ export function mesclarComEsocial(existente: FichaFuncionario | undefined, impor
         if (novo) { ficha.dados[k] = novo; ficha.origens[k] = importada.origens[k]; }
         else if (origem?.startsWith('eSocial')) { delete ficha.dados[k]; ficha.origens[k] = importada.origens[k] ?? 'eSocial: campo ausente na última importação'; }
     }
-    // O histórico de salário é do eSocial: a importação nova substitui o anterior.
-    if (importada.historicoSalario?.length) ficha.historicoSalario = importada.historicoSalario;
+    // O histórico de salário do eSocial substitui o anterior, salvo quando não traz reajuste (só a
+    // admissão) e a ficha tem o do SAGE (rsalfunc/salarios), que entrou justamente por isso.
+    const hImp = importada.historicoSalario ?? [];
+    const temDoSage = (existente.historicoSalario ?? []).some(x => x.origem.startsWith('IOB'));
+    if (hImp.length && (hImp.length >= 2 || !temDoSage)) ficha.historicoSalario = hImp;
     if (depsTexto(existente.dependentes) !== depsTexto(importada.dependentes)) {
         if (ehManual(existente.origens.dependentes)) {
             if (importada.dependentes.length) preservados.push({ campo: 'dependentes', manual: depsTexto(existente.dependentes), esocial: depsTexto(importada.dependentes) });
