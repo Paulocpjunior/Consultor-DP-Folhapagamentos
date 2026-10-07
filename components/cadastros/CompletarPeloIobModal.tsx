@@ -11,8 +11,8 @@ import type { Empresa } from '../../services/empresas/empresasTypes';
 import { fonteDeBlob } from '../../services/iobSage/backupPostgres';
 import { abrirRestauracao, type Restauracao, type TabelaRestauracao } from '../../services/iobSage/restauracao';
 import type { Codificacao } from '../../services/iobSage/dbf';
-import { CAMPOS_CARGA, TABELAS_COMPLEMENTARES, aplicarComplementos, complementosFolhaWin, compararComFichas, derivarContrato, linhaParaCampos, proporMapeamento, rotuloCarga, type CampoCarga, type Comparacao, type LinhaIob, type Mapeamento, type TabelaLida } from '../../services/cadastros/cargaBackupIob';
-import { ROTULO, rotuloAlteracao, type CampoFicha, type FichaFuncionario } from '../../services/cadastros/funcionarios';
+import { CAMPOS_CARGA, TABELAS_COMPLEMENTARES, aplicarComplementos, complementosFolhaWin, compararComFichas, derivarContrato, historicoSalarialSage, linhaParaCampos, proporMapeamento, rotuloCarga, type CampoCarga, type Comparacao, type LinhaIob, type Mapeamento, type TabelaLida } from '../../services/cadastros/cargaBackupIob';
+import { ROTULO, rotuloAlteracao, type CampoFicha, type FaixaSalarial, type FichaFuncionario } from '../../services/cadastros/funcionarios';
 import { gravarImportacao, mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
 import { CODIFICACOES } from '../iobSage/RestaurarBackupModal';
 
@@ -83,6 +83,7 @@ const CompletarPeloIobModal: React.FC<Props> = ({ empresa, usuario, existentes, 
                 linhas.push(linhaParaCampos(tabela.colunas, v, mapa, n));
             });
             let finais = linhas;
+            let historicos: Map<string, FaixaSalarial[]> | undefined;
             if (usarComplementares && mapa.codigoIob && complementares.length) {
                 const lidas: Record<string, TabelaLida> = {};
                 for (const t of complementares) {
@@ -91,12 +92,13 @@ const CompletarPeloIobModal: React.FC<Props> = ({ empresa, usuario, existentes, 
                     await rest.lerTabela(t, v => { l.linhas.push(v); });
                     lidas[t.tabela.toLowerCase()] = l;
                 }
+                historicos = historicoSalarialSage(lidas.salarios ?? null, lidas.rsalfunc ?? null);
                 finais = aplicarComplementos(linhas, complementosFolhaWin(lidas.salarios ?? null, lidas.funcdoc ?? null, lidas.esocialdadosficha_s1200_remunperapur ?? null, lidas.rsalfunc ?? null, lidas.cargos ?? null, {
                     dmdev: lidas.esocialdadosficha_s1200_dmdev, contribSind: lidas.esocialdadosficha_s1300_contribsind, histHorarios: lidas.hist_horarios, cadHorarios: lidas.cad_horarios,
                 }));
             }
             finais = derivarContrato(finais, new Date().toISOString().slice(0, 10));
-            const c = compararComFichas(finais, existentes, empresa, `IOB: ${nomeTabela(tabela)}`, criarNovas);
+            const c = compararComFichas(finais, existentes, empresa, `IOB: ${nomeTabela(tabela)}`, criarNovas, historicos);
             setComp(c); setLidas(linhas.length);
             setMarcados(new Set([...c.completar, ...c.novas].map(r => r.ficha.id)));
         } catch (e) { setErro(`${nomeTabela(tabela)}: ${(e as Error).message}`); }

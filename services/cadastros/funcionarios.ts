@@ -345,8 +345,11 @@ export function mesclarComEsocial(existente: FichaFuncionario | undefined, impor
         if (novo) { ficha.dados[k] = novo; ficha.origens[k] = importada.origens[k]; }
         else if (origem?.startsWith('eSocial')) { delete ficha.dados[k]; ficha.origens[k] = importada.origens[k] ?? 'eSocial: campo ausente na última importação'; }
     }
-    // O histórico de salário é do eSocial: a importação nova substitui o anterior.
-    if (importada.historicoSalario?.length) ficha.historicoSalario = importada.historicoSalario;
+    // O histórico de salário do eSocial substitui o anterior, salvo quando não traz reajuste (só a
+    // admissão) e a ficha tem o do SAGE (rsalfunc/salarios), que entrou justamente por isso.
+    const hImp = importada.historicoSalario ?? [];
+    const temDoSage = (existente.historicoSalario ?? []).some(x => x.origem.startsWith('IOB'));
+    if (hImp.length && (hImp.length >= 2 || !temDoSage)) ficha.historicoSalario = hImp;
     if (depsTexto(existente.dependentes) !== depsTexto(importada.dependentes)) {
         if (ehManual(existente.origens.dependentes)) {
             if (importada.dependentes.length) preservados.push({ campo: 'dependentes', manual: depsTexto(existente.dependentes), esocial: depsTexto(importada.dependentes) });
