@@ -95,13 +95,51 @@ describe('conferência motor × IOB', () => {
         const r = conferirMotorComIob({ leitura: { remuneracoes, s5001: [], s5003: [] }, rubricas: RUBRICAS, fichas: [...FICHAS, ficha('f3', '22233344405', 'CAIO')],
             motor: () => [motor('f1', 300000, 0, 0), motor('f2', 200000, 0, 16000), motor('f3', 0, 0, 0, 0, 'incompleto')] });
         const s = Object.fromEntries(r.competencias[0].linhas.map(l => [l.nome, l.situacao]));
-        expect(s).toEqual({ ANA: 'rubrica-sem-tipo', BRUNO: 'sem-s1200', CAIO: 'sem-s1200', '39053344705': 'sem-ficha' });
+        expect(s).toEqual({ ANA: 'rubrica-sem-tipo', BRUNO: 'sem-s1200', CAIO: 'motor-incompleto', '39053344705': 'sem-ficha' });
         expect(r.competencias[0].zerada).toBe(false);
         expect(r.avisos[0]).toMatch(/0777 \(tabela T1\)/);
         const f = conferirMotorComIob({ leitura: { remuneracoes: rems('2026-07'), s5001: [], s5003: [] }, rubricas: RUBRICAS, fichas: FICHAS, motor: motorDe, comFerias: () => new Set(['f1']) });
         const ana = f.competencias[0].linhas.find(l => l.nome === 'ANA')!;
         expect(ana.situacao).toBe('confere');
         expect(ana.observacoes.join(' ')).toMatch(/Férias no mês/);
+    });
+
+    it('cálculo com erro e sem S-1200 fica pendente: o mês não conta como sem diferença', () => {
+        const r = conferirMotorComIob({ leitura: { remuneracoes: rems('2026-07'), s5001: [], s5003: [] }, rubricas: RUBRICAS, fichas: [...FICHAS, ficha('f3', '22233344405', 'CAIO')],
+            motor: c => [...motorDe(c), { ...motor('f3', 0, 0, 0), situacao: 'erro', erros: ['Sem salário na ficha.'] } as ResultadoCalculo] });
+        const caio = r.competencias[0].linhas.find(l => l.nome === 'CAIO')!;
+        expect([caio.situacao, caio.observacoes.includes('Sem salário na ficha.')]).toEqual(['motor-incompleto', true]);
+        expect(r.competencias[0].zerada).toBe(false);
+    });
+
+    it('férias no mês: INSS e IRRF retidos no recibo entram no total comparado', () => {
+        const comFerias = { ...motor('f1', 300000, 15000, 15341), verbas: [...motor('f1', 300000, 15000, 15341).verbas, { codigo: 'INSSFERRET', valor: 10000, tipo: 'desconto' }] } as ResultadoCalculo;
+        const r = conferirMotorComIob({ leitura: { remuneracoes: rems('2026-07'), s5001: [], s5003: [] }, rubricas: RUBRICAS, fichas: FICHAS, motor: () => [comFerias, motorDe('2026-07')[1]] });
+        expect(r.competencias[0].linhas.find(l => l.nome === 'ANA')!.itens.find(i => i.item === 'INSS')).toMatchObject({ motor: 25341, iob: 25341, ok: true });
+    });
+
+    it('dois contratos no mesmo CPF: o motor dos dois é somado contra o S-1200 único', () => {
+        const fichas = [ficha('f1', '52998224725', 'ANA'), { ...ficha('f4', '52998224725', 'ANA'), matriculaEsocial: 'M2' }, ficha('f2', '11144477735', 'BRUNO')];
+        const r = conferirMotorComIob({ leitura: { remuneracoes: rems('2026-07'), s5001: [], s5003: [] }, rubricas: RUBRICAS, fichas,
+            motor: () => [motor('f1', 200000, 15000, 15341), motor('f4', 100000, 0, 10000), motorDe('2026-07')[1]] });
+        const linhas = r.competencias[0].linhas;
+        expect(linhas.map(l => [l.nome, l.situacao])).toEqual([['ANA', 'confere'], ['BRUNO', 'confere']]);
+        expect(linhas[0].observacoes[0]).toMatch(/2 contratos do mesmo CPF somados/);
+    });
+
+    it('S-5001 sem o eConsignado (CR 160601) e totalizador repetido fica pendente', () => {
+        const t = (id: string, rec: string, calculos: unknown[]) => ({ tipo: 'S-5001', id, perApur: '2026-07', cpf: '52998224725', nrRecArqBase: rec, calculos, vinculos: [] });
+        const consignado = conferirMotorComIob({ leitura: { remuneracoes: rems('2026-07'), s5001: [t('a', '', [{ tpCR: '108201', calculado: 25341, descontado: 25341 }, { tpCR: '160601', calculado: 0, descontado: 50000 }])] as never, s5003: [] }, rubricas: RUBRICAS, fichas: FICHAS, motor: motorDe });
+        expect(consignado.competencias[0].linhas.find(l => l.nome === 'ANA')!.itens.find(i => i.item === 'INSS (S-5001)')).toMatchObject({ iob: 25341, ok: true });
+        const dois = [t('a', '1.1', [{ tpCR: '108201', calculado: 25341, descontado: 25341 }]), t('b', '1.2', [{ tpCR: '108201', calculado: 25341, descontado: 25341 }])] as never;
+        const rep = conferirMotorComIob({ leitura: { remuneracoes: rems('2026-07'), s5001: dois, s5003: [] }, rubricas: RUBRICAS, fichas: FICHAS, motor: motorDe });
+        const ana = rep.competencias[0].linhas.find(l => l.nome === 'ANA')!;
+        expect([ana.situacao, ana.itens.some(i => i.item === 'INSS (S-5001)')]).toEqual(['totalizador-repetido', false]);
+        expect(rep.competencias[0].zerada).toBe(false);
+        // Com o recibo do S-1200 usado, vale o totalizador dele.
+        const comRecibo = rems('2026-07').map(r => (r.cpf === '52998224725' ? { ...r, recibo: '1.2' } : r));
+        const ok = conferirMotorComIob({ leitura: { remuneracoes: comRecibo, s5001: dois, s5003: [] }, rubricas: RUBRICAS, fichas: FICHAS, motor: motorDe });
+        expect(ok.competencias[0].linhas.find(l => l.nome === 'ANA')!.situacao).toBe('confere');
     });
 
     it('S-5001 e S-5003, quando vierem: INSS descontado e FGTS do eSocial', () => {

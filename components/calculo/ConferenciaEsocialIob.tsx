@@ -33,6 +33,7 @@ const COR: Record<SituacaoLinha, string> = {
     'sem-s1200': 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
     'motor-incompleto': 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200',
     'rubrica-sem-tipo': 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
+    'totalizador-repetido': 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
 };
 const comp = (c: string) => `${c.slice(5)}/${c.slice(0, 4)}`;
 const dif = (c: number) => `${c > 0 ? '+' : c < 0 ? '−' : ''}${reais(Math.abs(c))}`;

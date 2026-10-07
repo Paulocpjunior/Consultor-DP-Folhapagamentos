@@ -98,7 +98,7 @@ export interface OpcoesConferencia {
 }
 
 /** CR de empréstimo consignado: vem em infoCpCalc, mas não é INSS. */
-const CR_NAO_INSS = new Set(['160601']);
+export const CR_NAO_INSS = new Set(['160601']);
 
 /** tpValor de FGTS que são rescisórios (guia própria no FGTS Digital). XSD S-1.3, evtBasesFGTS. */
 const FGTS_RESCISORIO = new Set(['21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31', '32', '45', '46', '47', '48', '49', '50']);

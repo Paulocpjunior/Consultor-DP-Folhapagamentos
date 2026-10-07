@@ -18,6 +18,7 @@ import type { FichaFuncionario } from '../cadastros/funcionarios';
 import { consolidarRubricas, lerXmlRubricas, vigenciaEm, type EventoRubrica, type Rubrica } from '../cadastros/rubricas';
 import { centavos, lerTotalizadoresXml, type S5001, type S5003 } from './totalizadores';
 import { lerZip } from '../implantacao/zip';
+import { CR_NAO_INSS } from './conferenciaPosFolha';
 
 // ─── leitura do S-1200 ──────────────────────────────────────────────────────
 
@@ -145,10 +146,10 @@ export interface LinhaItem { item: ItemComparado; motor: number; iob: number; di
 /** Rubrica do IOB no mês, com o que o S-1010 diz dela. */
 export interface RubricaDoMes { codRubr: string; ideTabRubr: string; descricao: string; tpRubr: string; natRubr: string; qtd: string; valor: number }
 
-export type SituacaoLinha = 'confere' | 'diverge' | 'sem-ficha' | 'sem-s1200' | 'motor-incompleto' | 'rubrica-sem-tipo';
+export type SituacaoLinha = 'confere' | 'diverge' | 'sem-ficha' | 'sem-s1200' | 'motor-incompleto' | 'rubrica-sem-tipo' | 'totalizador-repetido';
 export const ROTULO_SITUACAO: Record<SituacaoLinha, string> = {
     confere: 'confere', diverge: 'diverge', 'sem-ficha': 'S-1200 sem ficha', 'sem-s1200': 'sem S-1200 do IOB',
-    'motor-incompleto': 'cálculo incompleto ou com erro', 'rubrica-sem-tipo': 'rubrica sem S-1010',
+    'motor-incompleto': 'cálculo incompleto ou com erro', 'rubrica-sem-tipo': 'rubrica sem S-1010', 'totalizador-repetido': 'S-5001/S-5003 repetido',
 };
 
 export interface LinhaFuncionario {
@@ -170,6 +171,15 @@ export interface ResultadoConferenciaIob {
     sequencia: { inicio: string; fim: string; meses: number };
     criterioAtingido: boolean;
     avisos: string[];
+}
+
+/** Soma os contratos do mesmo CPF (o S-1200 é um por trabalhador, com todas as matrículas). */
+function somarResultados(rs: ResultadoCalculo[]): ResultadoCalculo {
+    if (rs.length === 1) return rs[0];
+    const s = (f: (r: ResultadoCalculo) => number) => rs.reduce((t, r) => t + f(r), 0);
+    return { ...rs[0], verbas: rs.flatMap(r => r.verbas), fgts: s(r => r.fgts),
+        totais: { proventos: s(r => r.totais.proventos), descontos: s(r => r.totais.descontos), liquido: s(r => r.totais.liquido) },
+        bases: { inss: s(r => r.bases.inss), fgts: s(r => r.bases.fgts), irrf: s(r => r.bases.irrf) } };
 }
 
 const v = (r: ResultadoCalculo, ...codigos: string[]) => r.verbas.filter(x => codigos.includes(x.codigo)).reduce((s, x) => s + x.valor, 0);
@@ -201,7 +211,6 @@ export function conferirMotorComIob(e: EntradaConferenciaIob): ResultadoConferen
     const tol = e.tolerancia ?? 0;
     const avisos: string[] = [];
     const rubrica = new Map(e.rubricas.map(r => [`${r.ideTabRubr}|${r.codRubr}`, r]));
-    const porCpf = new Map(e.fichas.map(f => [digitos(f.cpf), f]));
     const porMatricula = new Map(e.fichas.filter(f => f.matriculaEsocial).map(f => [f.matriculaEsocial, f]));
     const competencias = [...new Set(e.leitura.remuneracoes.map(r => r.perApur))].sort();
     const semRubrica = new Set<string>();
@@ -216,7 +225,11 @@ export function conferirMotorComIob(e: EntradaConferenciaIob): ResultadoConferen
         const linhas: LinhaFuncionario[] = [];
         const vistos = new Set<string>();
         for (const rem of e.leitura.remuneracoes.filter(r => r.perApur === c)) {
-            const ficha = porCpf.get(digitos(rem.cpf)) ?? rem.matriculas.map(m => porMatricula.get(m)).find(Boolean);
+            // Todas as fichas do CPF (contratos simultâneos ou readmissão); sem CPF, pelas matrículas do S-1200.
+            const doCpf = e.fichas.filter(f => digitos(f.cpf) === digitos(rem.cpf));
+            const ligadas = doCpf.length ? doCpf : [...new Set(rem.matriculas.map(mt => porMatricula.get(mt)).filter((f): f is FichaFuncionario => !!f))];
+            const comMotor = ligadas.filter(f => motorPorFicha.has(f.id));
+            const ficha = comMotor[0] ?? ligadas[0];
             const observacoes: string[] = [];
             const rubricas: RubricaDoMes[] = rem.itens.map(it => {
                 const r = rubrica.get(`${it.ideTabRubr}|${it.codRubr}`);
@@ -227,12 +240,15 @@ export function conferirMotorComIob(e: EntradaConferenciaIob): ResultadoConferen
             if (rem.periodoAnterior) observacoes.push('O S-1200 tem remuneração de períodos anteriores (infoPerAnt), fora desta conferência.');
             const base = { competencia: c, cpf: rem.cpf, nome: ficha?.dados.nome || rem.cpf, fichaId: ficha?.id ?? '', rubricas, observacoes };
             if (!ficha) { linhas.push({ ...base, situacao: 'sem-ficha', itens: [] }); continue; }
-            vistos.add(ficha.id);
-            const m = motorPorFicha.get(ficha.id);
-            if (!m || m.situacao !== 'calculado') {
-                if (m) observacoes.push(...m.erros, ...m.avisos);
+            ligadas.forEach(f => vistos.add(f.id));
+            const resultados = comMotor.map(f => motorPorFicha.get(f.id)!);
+            if (!resultados.length || resultados.some(r => r.situacao !== 'calculado')) {
+                if (!resultados.length) observacoes.push('A ficha não tem cálculo nesta competência (fora do período do vínculo).');
+                resultados.forEach(r => observacoes.push(...r.erros, ...r.avisos));
                 linhas.push({ ...base, situacao: 'motor-incompleto', itens: [] }); continue;
             }
+            if (resultados.length > 1) observacoes.push(`${resultados.length} contratos do mesmo CPF somados: o S-1200 é um por trabalhador, com todas as matrículas.`);
+            const m = somarResultados(resultados);
             const soma = (f: (x: RubricaDoMes) => boolean) => rubricas.filter(f).reduce((s, x) => s + x.valor, 0);
             const semTipo = rubricas.some(x => !x.tpRubr);
             const itens: LinhaItem[] = [];
@@ -248,26 +264,41 @@ export function conferirMotorComIob(e: EntradaConferenciaIob): ResultadoConferen
             }
             const porNatureza = (n: string) => soma(x => x.natRubr === n);
             comparar('Salário', v(m, 'SAL'), porNatureza(NATUREZA.salario));
-            comparar('INSS', v(m, 'INSS'), porNatureza(NATUREZA.inss));
-            comparar('IRRF', v(m, 'IRRF'), porNatureza(NATUREZA.irrf));
+            // Com férias no mês, o motor separa o INSS e o IRRF já retidos no recibo; o IOB informa o total.
+            const inssMotor = v(m, 'INSS', 'INSSFERRET');
+            comparar('INSS', inssMotor, porNatureza(NATUREZA.inss));
+            comparar('IRRF', v(m, 'IRRF', 'IRRFFERRET'), porNatureza(NATUREZA.irrf));
             comparar('Salário-família', v(m, 'SF'), porNatureza(NATUREZA.salarioFamilia));
-            const t1 = s5001.filter(t => digitos(t.cpf) === digitos(rem.cpf));
-            if (t1.length) comparar('INSS (S-5001)', v(m, 'INSS'), t1.flatMap(t => t.calculos).reduce((s, x) => s + x.descontado, 0));
-            const t3 = s5003.filter(t => digitos(t.cpf) === digitos(rem.cpf)).flatMap(t => t.itens).filter(i => !i.periodoAnterior);
+            // Um totalizador por S-1200: repetido (original e retificador) só vale o ligado ao recibo do S-1200 usado.
+            let repetido = false;
+            const doTrabalhador = <T extends { cpf: string; nrRecArqBase: string }>(lista: T[], nome: string): T[] => {
+                const l = lista.filter(t => digitos(t.cpf) === digitos(rem.cpf));
+                if (l.length <= 1) return l;
+                const doRecibo = rem.recibo ? l.filter(t => t.nrRecArqBase === rem.recibo) : [];
+                if (doRecibo.length === 1) return doRecibo;
+                repetido = true;
+                observacoes.push(`${nome} repetido no arquivo (original e retificador?) sem ligação ao recibo do S-1200 usado: não comparado.`);
+                return [];
+            };
+            const t1 = doTrabalhador(s5001, 'S-5001');
+            if (t1.length) comparar('INSS (S-5001)', inssMotor, t1.flatMap(t => t.calculos).filter(x => !CR_NAO_INSS.has(x.tpCR)).reduce((s, x) => s + x.descontado, 0));
+            const t3 = doTrabalhador(s5003, 'S-5003').flatMap(t => t.itens).filter(i => !i.periodoAnterior);
             if (t3.length) {
                 comparar('Base FGTS (S-5003)', m.bases.fgts, t3.reduce((s, i) => s + i.remuneracao, 0));
                 comparar('FGTS (S-5003)', m.fgts, t3.reduce((s, i) => s + i.deposito, 0));
             }
             if (semTipo) observacoes.push('Há rubrica sem o S-1010 (tipo e natureza): proventos, descontos e líquido não foram comparados.');
-            const situacao: SituacaoLinha = semTipo ? 'rubrica-sem-tipo' : itens.every(i => i.ok) ? 'confere' : 'diverge';
+            const situacao: SituacaoLinha = semTipo ? 'rubrica-sem-tipo' : !itens.every(i => i.ok) ? 'diverge' : repetido ? 'totalizador-repetido' : 'confere';
             if (ferias.has(ficha.id)) observacoes.push('Férias no mês: o S-1200 do IOB traz as rubricas do recibo; o motor soma as férias do mês e abate o que o recibo já pagou e reteve. Se divergir, confira também a folha de férias.');
             linhas.push({ ...base, nome: m.nome, situacao, itens });
         }
         for (const m of motor) {
-            if (vistos.has(m.fichaId) || m.situacao === 'erro') continue;
+            if (vistos.has(m.fichaId)) continue;
             const f = e.fichas.find(x => x.id === m.fichaId);
-            linhas.push({ competencia: c, cpf: f?.cpf ?? '', nome: m.nome, fichaId: m.fichaId, situacao: 'sem-s1200', itens: [], rubricas: [],
-                observacoes: ['O motor calculou e o arquivo não tem o S-1200 do IOB para este funcionário.'] });
+            // Sem S-1200 e com cálculo em erro também fica pendente: a competência não pode contar como sem diferença.
+            const calculou = m.situacao === 'calculado';
+            linhas.push({ competencia: c, cpf: f?.cpf ?? '', nome: m.nome, fichaId: m.fichaId, situacao: calculou ? 'sem-s1200' : 'motor-incompleto', itens: [], rubricas: [],
+                observacoes: [calculou ? 'O motor calculou e o arquivo não tem o S-1200 do IOB para este funcionário.' : 'Sem S-1200 do IOB e o cálculo não fechou.', ...(calculou ? [] : [...m.erros, ...m.avisos])] });
         }
         linhas.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
         const confere = linhas.filter(l => l.situacao === 'confere').length;
