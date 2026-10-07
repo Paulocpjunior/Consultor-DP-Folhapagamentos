@@ -28,6 +28,8 @@ import { calcularRescisao, ROTULO_AVISO, TIPOS_RESCISAO, type AvisoPrevio, type 
 import { calcular13, com13, OPCOES_13_PADRAO, ultimoDiaDoMes, type Opcoes13 } from '../../services/calculo/motor13';
 import ConferenciaHolerites, { conferirTodos, type LeituraHolerites } from './ConferenciaHolerites';
 import { resumirFolha } from '../../services/relatorios/resumoFolha';
+import { listarEnvios, type Envio } from '../../services/esocial/transmissaoService';
+import StatusEsocialAfastamento from '../esocial/StatusEsocialAfastamento';
 import { holeritesPdf, resumoPdf } from '../../services/relatorios/holeritePdf';
 
 const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
@@ -89,6 +91,10 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const [progFerias, setProgFerias] = useState({ fichaId: '', inicio: '', dias: '30', abono: '' });
     const [feriasSimuladas, setFeriasSimuladas] = useState<Afastamento[]>([]);
     const [gravandoGozo, setGravandoGozo] = useState(false);
+    // Lotes do eSocial da empresa: situação do S-2230 de cada gozo gravado.
+    const [enviosEsocial, setEnviosEsocial] = useState<Envio[] | null>(null);
+    const [recargaEnvios, setRecargaEnvios] = useState(0);
+    useEffect(() => { setEnviosEsocial(null); if (!empresaId || folha !== 'ferias') return; listarEnvios(empresaId).then(setEnviosEsocial).catch(() => setEnviosEsocial([])); }, [empresaId, folha, recargaEnvios]);
     const [opcoesFerias, setOpcoesFerias] = useState<OpcoesFerias>(OPCOES_FERIAS_PADRAO);
     const [recarga, setRecarga] = useState(0);
     // Folha mensal: movimentos de todos os meses, para os recibos de férias que tocam o mês (médias e faltas).
@@ -545,6 +551,12 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                                     {f.irrf.semRetencao && <p role="note" className="mt-1 rounded bg-amber-50 p-1 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">Sem retenção: {f.irrf.semRetencao}.</p>}
                                 </div>
                             )}
+                            {(() => {
+                                const gravado = dados?.afastamentos.find(a => a.id === f.gozoId);
+                                const emp = empresas?.find(e => e.id === empresaId);
+                                if (!gravado || !emp) return null;
+                                return <StatusEsocialAfastamento afastamento={gravado} empresa={{ id: emp.id, cnpj: emp.cnpj, nome: emp.nomeFantasia || emp.razaoSocial }} usuario={usuario} envios={enviosEsocial} onAtualizado={() => setRecargaEnvios(n => n + 1)} />;
+                            })()}
                             {(() => {
                                 const simulado = !dados?.afastamentos.some(a => a.id === f.gozoId) ? feriasSimuladas.find(a => a.id === f.gozoId) : undefined;
                                 if (!simulado) return null;

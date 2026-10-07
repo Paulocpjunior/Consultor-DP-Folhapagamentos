@@ -19,6 +19,8 @@ import type { TabelaLida } from '../../services/cadastros/cargaBackupIob';
 import { abrirRestauracao } from '../../services/iobSage/restauracao';
 import { agruparAvisos } from '../../services/cadastros/importacaoEsocial';
 import { fonteDeBlob } from '../../services/iobSage/backupPostgres';
+import { listarEnvios, type Envio } from '../../services/esocial/transmissaoService';
+import StatusEsocialAfastamento, { SeloEsocial } from '../esocial/StatusEsocialAfastamento';
 
 interface Props { empresa: Empresa; afastamentos: Afastamento[] | null; erroLista: string; usuario: Usuario; isAdmin: boolean; onRecarregar: () => void }
 
@@ -35,6 +37,10 @@ const AfastamentosCadastro: React.FC<Props> = ({ empresa, afastamentos, erroList
     const [importar, setImportar] = useState(false);
 
     useEffect(() => { listarFuncionarios(empresa.id).then(setFichas).catch(() => setFichas([])); }, [empresa.id]);
+    // Situação do S-2230 de cada afastamento (lotes transmitidos pelo cofre).
+    const [envios, setEnvios] = useState<Envio[] | null>(null);
+    const carregarEnvios = () => { listarEnvios(empresa.id).then(setEnvios).catch(() => setEnvios([])); };
+    useEffect(carregarEnvios, [empresa.id]); // eslint-disable-line react-hooks/exhaustive-deps
     const nome = useMemo(() => new Map(fichas.map(f => [f.id, f.dados.nome || f.cpf])), [fichas]);
 
     const lista = (afastamentos ?? []).filter(a => filtro === 'todos' || (filtro === 'abertos' ? emAberto(a, hoje()) : diasNaCompetencia(a, competencia) > 0));
@@ -56,7 +62,7 @@ const AfastamentosCadastro: React.FC<Props> = ({ empresa, afastamentos, erroList
             {lista.length > 0 && (
                 <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
                     <table className="w-full text-sm">
-                        <thead className="bg-slate-50 text-left text-xs text-slate-500 dark:bg-slate-900 dark:text-slate-400"><tr><th className="p-2">Funcionário</th><th className="p-2">Motivo</th><th className="p-2">Início</th><th className="p-2">Término</th><th className="p-2">Dias</th>{filtro === 'competencia' && <th className="p-2">Na competência</th>}<th className="p-2">Origem</th></tr></thead>
+                        <thead className="bg-slate-50 text-left text-xs text-slate-500 dark:bg-slate-900 dark:text-slate-400"><tr><th className="p-2">Funcionário</th><th className="p-2">Motivo</th><th className="p-2">Início</th><th className="p-2">Término</th><th className="p-2">Dias</th>{filtro === 'competencia' && <th className="p-2">Na competência</th>}<th className="p-2">Origem</th><th className="p-2">eSocial (S-2230)</th></tr></thead>
                         <tbody>
                             {lista.map(a => (
                                 <tr key={a.id} className="cursor-pointer border-t border-slate-100 align-top hover:bg-blue-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-700" onClick={() => setEdicao({ antes: a, a: { ...a } })}>
@@ -67,6 +73,7 @@ const AfastamentosCadastro: React.FC<Props> = ({ empresa, afastamentos, erroList
                                     <td className="p-2">{duracao(a) ?? '—'}</td>
                                     {filtro === 'competencia' && <td className="p-2">{diasNaCompetencia(a, competencia)}</td>}
                                     <td className="p-2 text-xs text-slate-500">{a.origem.startsWith('Manual') ? 'Manual' : 'eSocial'}</td>
+                                    <td className="p-2"><SeloEsocial afastamento={a} envios={envios} /></td>
                                 </tr>
                             ))}
                         </tbody>
@@ -75,13 +82,15 @@ const AfastamentosCadastro: React.FC<Props> = ({ empresa, afastamentos, erroList
             )}
 
             {edicao && <AfastamentoModal key={edicao.antes?.id ?? 'novo'} antes={edicao.antes} inicial={edicao.a} fichas={fichas} todos={afastamentos ?? []} usuario={usuario} isAdmin={isAdmin}
+                empresa={empresa} envios={envios} onEnviado={carregarEnvios}
                 onFechar={() => setEdicao(null)} onSalvo={() => { setEdicao(null); onRecarregar(); }} />}
             {importar && afastamentos && <ImportarS2230Modal empresa={empresa} fichas={fichas} existentes={afastamentos} usuario={usuario} onFechar={() => setImportar(false)} onGravado={() => { setImportar(false); onRecarregar(); }} />}
         </div>
     );
 };
 
-const AfastamentoModal: React.FC<{ antes: Afastamento | null; inicial: Afastamento; fichas: FichaFuncionario[]; todos: Afastamento[]; usuario: Usuario; isAdmin: boolean; onFechar: () => void; onSalvo: () => void }> = ({ antes, inicial, fichas, todos, usuario, isAdmin, onFechar, onSalvo }) => {
+const AfastamentoModal: React.FC<{ antes: Afastamento | null; inicial: Afastamento; fichas: FichaFuncionario[]; todos: Afastamento[]; usuario: Usuario; isAdmin: boolean;
+    empresa?: Empresa; envios?: Envio[] | null; onEnviado?: () => void; onFechar: () => void; onSalvo: () => void }> = ({ antes, inicial, fichas, todos, usuario, isAdmin, empresa, envios, onEnviado, onFechar, onSalvo }) => {
     const [a, setA] = useState<Afastamento>(inicial);
     const [erros, setErros] = useState<string[]>([]);
     const [salvando, setSalvando] = useState(false);
@@ -169,6 +178,9 @@ const AfastamentoModal: React.FC<{ antes: Afastamento | null; inicial: Afastamen
                     {doencaOuAcidente && a.infoMesmoMtv === 'S' && <p>Mesma doença em 60 dias: a contagem dos 15 dias soma o afastamento anterior; confira.</p>}
                 </div>
                 {v.avisos.length > 0 && <p className="text-xs text-amber-700 dark:text-amber-300">{v.avisos.join(' ')}</p>}
+                {antes && empresa && envios !== undefined && (
+                    <StatusEsocialAfastamento afastamento={antes} empresa={{ id: empresa.id, cnpj: empresa.cnpj, nome: empresa.nomeFantasia || empresa.razaoSocial }} usuario={usuario} envios={envios} onAtualizado={() => onEnviado?.()} />
+                )}
                 {erros.length > 0 && <ul role="alert" className="list-disc rounded bg-red-50 p-2 pl-6 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erros.map(e => <li key={e}>{e}</li>)}</ul>}
                 <div className="flex justify-between gap-2">
                     <div>{antes && isAdmin && <button className="rounded border border-red-300 px-3 py-2 text-sm text-red-700 dark:text-red-300" disabled={salvando} onClick={excluir}>Excluir</button>}</div>

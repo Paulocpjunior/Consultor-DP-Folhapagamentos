@@ -15,7 +15,7 @@ import { aceito, type Certificado, type Ocorrencia, type RetornoConsulta, type R
 const COL = 'esocial_envios';
 
 export type SituacaoEnvio = 'enviado' | 'em-processamento' | 'processado' | 'recusado';
-export interface EventoEnviado { id: string; tipo: string; perApur: string | null; cdResposta?: number | null; descResposta?: string; nrRecibo?: string; ocorrencias?: Ocorrencia[]; totalizadores?: string[] }
+export interface EventoEnviado { id: string; tipo: string; perApur: string | null; /** Registro do Consultor que gerou o evento (ex.: id do afastamento). */ ref?: string; cdResposta?: number | null; descResposta?: string; nrRecibo?: string; ocorrencias?: Ocorrencia[]; totalizadores?: string[] }
 export interface Envio {
     id: string; empresaId: string; cnpj: string; tpAmb: TpAmb; grupo: number; protocolo: string; dhRecepcao: string; transmissor: string;
     certificado: Certificado; situacao: SituacaoEnvio; cdResposta: number | null; descResposta: string; ocorrencias: Ocorrencia[];
@@ -33,13 +33,13 @@ export async function listarEnvios(empresaId: string): Promise<Envio[]> {
 }
 
 /** Grava o lote logo depois da resposta do envio (recebido ou não). */
-export async function registrarEnvio(p: { empresaId: string; cnpj: string; certificado: Certificado; retorno: RetornoEnvio }, u: Usuario): Promise<string> {
+export async function registrarEnvio(p: { empresaId: string; cnpj: string; certificado: Certificado; retorno: RetornoEnvio; refs?: Record<string, string> }, u: Usuario): Promise<string> {
     const r = p.retorno;
     const ref = await addDoc(collection(db, COL), {
         empresaId: p.empresaId, cnpj: p.cnpj, tpAmb: r.tpAmb, grupo: r.grupo, protocolo: r.protocolo || '', dhRecepcao: r.dhRecepcao || '',
         transmissor: r.transmissor || '', certificado: p.certificado, situacao: r.recebido ? 'enviado' : 'recusado',
         cdResposta: r.cdResposta, descResposta: r.descResposta || '', ocorrencias: r.ocorrencias ?? [],
-        eventos: r.eventos.map(e => ({ id: e.id, tipo: e.tipo, perApur: e.perApur ?? null })),
+        eventos: r.eventos.map(e => ({ id: e.id, tipo: e.tipo, perApur: e.perApur ?? null, ...(p.refs?.[e.id] ? { ref: p.refs[e.id] } : {}) })),
         enviadoPor: u.id, enviadoPorEmail: u.email, enviadoEm: serverTimestamp(),
     });
     return ref.id;
