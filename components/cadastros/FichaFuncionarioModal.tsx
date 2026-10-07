@@ -151,6 +151,18 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
 
                 <div className="min-h-[18rem] p-4">
                     {atual && <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{atual.campos.filter(c => c !== 'codigoIob').map(campo)}</div>}
+                    {aba === 'identAdm' && !!f.historicoSalario?.length && (
+                        <div className="mt-4 space-y-1 text-sm">
+                            <p className="font-medium dark:text-white">Histórico de salário (S-2200/S-2206 aceitos)</p>
+                            <table className="text-xs dark:text-slate-200">
+                                <thead><tr className="text-left text-slate-500 dark:text-slate-400"><th className="p-1">Desde</th><th className="p-1">Salário</th><th className="p-1">Evento</th></tr></thead>
+                                <tbody>{f.historicoSalario.map(h => (
+                                    <tr key={h.desde}><td className="p-1">{h.desde.split('-').reverse().join('/')}</td><td className="p-1">{Number(h.salario).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}{h.unidade && h.unidade !== '5' ? ` (unidade ${h.unidade})` : ''}</td><td className="p-1">{h.origem.split(' · ')[0]}</td></tr>
+                                ))}</tbody>
+                            </table>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400">O cálculo de uma competência anterior ao último reajuste usa o salário vigente naquele mês. Vem do eSocial a cada importação; não se edita aqui.</p>
+                        </div>
+                    )}
 
                     {aba === 'dependentes' && (
                         <div className="space-y-2">

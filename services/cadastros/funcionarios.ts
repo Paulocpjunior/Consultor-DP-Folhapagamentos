@@ -8,6 +8,10 @@
 // A carga vem do XML do eSocial, pela mesma consolidação da implantação. Campo
 // editado à mão fica marcado como "Manual" e não é sobrescrito por uma nova
 // importação: a divergência aparece para alguém decidir.
+//
+// O histórico de salário vem dos S-2200 e S-2206 aceitos (data de alteração e
+// vrSalFx): o motor usa o salário vigente em cada competência, para recalcular
+// e conferir meses anteriores a um reajuste (Paulo, 07/10/2026).
 
 import { CAMPOS, type Cadastro, type Campo } from '../implantacao/implantacao';
 import { lerDependentes, type Dependente } from '../implantacao/unificacao';
@@ -30,6 +34,17 @@ export interface FichaFuncionario {
     dependentes: Dependente[];
     origens: Partial<Record<ChaveOrigem, string>>;
     pendenciasImportacao: string[];
+    /** Salário por vigência, dos S-2200/S-2206 aceitos (mais antigo primeiro). */
+    historicoSalario?: FaixaSalarial[];
+}
+
+export interface FaixaSalarial {
+    /** Data da admissão (S-2200) ou da alteração contratual (S-2206), AAAA-MM-DD. */
+    desde: string;
+    /** Salário fixo em decimal com ponto, como em dados.salario. */
+    salario: string;
+    unidade?: string;
+    origem: string;
 }
 
 export const ROTULO: Record<CampoFicha, string> = {
@@ -107,6 +122,7 @@ export function fichaDoEsocial(c: Cadastro, empresa: { id: string; cnpj: string 
         if (c.origens[k]) origens[k] = `eSocial: ${c.origens[k]}`;
     }
     const dependentes = lerDependentes(c.dados.dependentes);
+    const historicoSalario = historicoDosEventos(c);
     if (c.origens.dependentes) origens.dependentes = `eSocial: ${c.origens.dependentes}`;
     const s2299 = c.eventos.filter(e => e.tipo === 'S-2299').sort((a, b) => a.data.localeCompare(b.data)).pop();
     if (s2299?.data) { dados.dataDesligamento = s2299.data; origens.dataDesligamento = 'eSocial: S-2299'; }
@@ -119,10 +135,43 @@ export function fichaDoEsocial(c: Cadastro, empresa: { id: string; cnpj: string 
     return {
         id: idFuncionario(empresa.id, c.cpf, c.matricula), empresaId: empresa.id, cnpj: empresa.cnpj,
         cpf: c.cpf, matriculaEsocial: c.matricula, situacao: c.desligado ? 'desligado' : 'ativo',
-        dados, dependentes, origens,
+        dados, dependentes, origens, ...(historicoSalario.length ? { historicoSalario } : {}),
         // A mesma pendência em vários eventos (ex.: leiaute antigo em cada S-2206) aparece uma vez.
         pendenciasImportacao: [...new Set(c.pendencias.filter(p => !/Matrícula para IOB|Código IOB repetido|campo de 6 dígitos/.test(p)))],
     };
+}
+
+/** Salário de cada S-2200/S-2206 do vínculo, por data; o mesmo valor seguido vira uma faixa só. */
+export function historicoDosEventos(c: Pick<Cadastro, 'eventos'>): FaixaSalarial[] {
+    const r: FaixaSalarial[] = [];
+    const eventos = c.eventos.filter(e => (e.tipo === 'S-2200' || e.tipo === 'S-2206') && /^\d+(\.\d{1,2})?$/.test(e.dados.salario ?? '') && dataValida(e.data))
+        .sort((a, b) => a.data.localeCompare(b.data) || (a.tipo === 'S-2200' ? -1 : b.tipo === 'S-2200' ? 1 : 0));
+    for (const e of eventos) {
+        const faixa: FaixaSalarial = { desde: e.data, salario: e.dados.salario!, ...(e.dados.unidadeSalario ? { unidade: e.dados.unidadeSalario } : {}), origem: `${e.tipo} · ${e.recibo || e.id}` };
+        const ultima = r[r.length - 1];
+        if (ultima && ultima.desde === faixa.desde) r[r.length - 1] = faixa;
+        else if (!ultima || ultima.salario !== faixa.salario || ultima.unidade !== faixa.unidade) r.push(faixa);
+    }
+    return r;
+}
+
+const fimDoMes = (competencia: string) => { const [a, m] = competencia.split('-').map(Number); return `${competencia}-${String(new Date(Date.UTC(a, m, 0)).getUTCDate()).padStart(2, '0')}`; };
+
+/**
+ * A ficha como estava na competência: antes da última alteração do histórico,
+ * o salário (e a unidade) vigente no fim do mês; da última alteração em
+ * diante, o salário atual da ficha (que pode ter sido corrigido à mão).
+ */
+export function fichaNaCompetencia(f: FichaFuncionario, competencia: string): { ficha: FichaFuncionario; faixa: FaixaSalarial | null; alteradoNoMes: string } {
+    const h = f.historicoSalario ?? [];
+    if (!h.length || !/^\d{4}-\d{2}$/.test(competencia)) return { ficha: f, faixa: null, alteradoNoMes: '' };
+    const fim = fimDoMes(competencia);
+    // A primeira faixa é a admissão: proporcional pelos dias, não é alteração.
+    const alteradoNoMes = h.slice(1).find(x => x.desde.slice(0, 7) === competencia && x.desde.slice(8) !== '01')?.desde ?? '';
+    if (h[h.length - 1].desde <= fim) return { ficha: f, faixa: null, alteradoNoMes };
+    const faixa = [...h].reverse().find(x => x.desde <= fim);
+    if (!faixa) return { ficha: f, faixa: null, alteradoNoMes };
+    return { ficha: { ...f, dados: { ...f.dados, salario: faixa.salario, ...(faixa.unidade ? { unidadeSalario: faixa.unidade } : {}) } }, faixa, alteradoNoMes };
 }
 
 /** Limpa espaços, deixa só dígitos onde o campo é numérico e padroniza o salário com ponto decimal. */
@@ -220,10 +269,10 @@ export function validarFicha(f: FichaFuncionario): Validacao {
     return { erros, avisos };
 }
 
-export interface Alteracao { campo: ChaveOrigem | 'codigoIob' | 'matriculaEsocial' | 'cpf' | 'cnpj' | 'pendencias'; de: string; para: string }
+export interface Alteracao { campo: ChaveOrigem | 'codigoIob' | 'matriculaEsocial' | 'cpf' | 'cnpj' | 'pendencias' | 'historicoSalario'; de: string; para: string }
 
 /** Rótulo de uma alteração na prévia e no histórico. */
-export const rotuloAlteracao = (campo: string) => (campo === 'pendencias' ? 'Pendências da importação' : campo === 'cnpj' ? 'CNPJ do empregador' : ROTULO[campo as CampoFicha] ?? campo);
+export const rotuloAlteracao = (campo: string) => (campo === 'pendencias' ? 'Pendências da importação' : campo === 'historicoSalario' ? 'Histórico de salário' : campo === 'cnpj' ? 'CNPJ do empregador' : ROTULO[campo as CampoFicha] ?? campo);
 
 const depsTexto = (l: Dependente[]) => l.map(d => `${d.nome} (${d.nascimento || 's/ nasc.'}${d.cpf ? `, CPF ${d.cpf}` : ''}${d.pensao === 'S' ? `, pensão${d.cotaPensao ? ` ${d.cotaPensao}%` : ''}` : ''})`).join('; ');
 
@@ -244,6 +293,8 @@ export function diffFicha(antes: FichaFuncionario | null, depois: FichaFuncionar
     // Pendências da importação também contam: senão um aviso novo (ou a limpeza de repetidos) nunca é gravado.
     const pend = (f: FichaFuncionario) => (f.pendenciasImportacao ?? []).join('\n');
     if (antes && pend(antes) !== pend(depois)) r.push({ campo: 'pendencias', de: `${antes.pendenciasImportacao?.length ?? 0}`, para: `${depois.pendenciasImportacao?.length ?? 0}` });
+    const hist = (f: Pick<FichaFuncionario, 'historicoSalario'> | null) => (f?.historicoSalario ?? []).map(x => `${x.desde}: ${x.salario}`).join('; ');
+    if (hist(antes) !== hist(depois)) r.push({ campo: 'historicoSalario', de: hist(antes), para: hist(depois) });
     return r;
 }
 
@@ -251,7 +302,7 @@ export function diffFicha(antes: FichaFuncionario | null, depois: FichaFuncionar
 export function aplicarEdicao(antes: FichaFuncionario | null, depois: FichaFuncionario, autor: string, quando: string): FichaFuncionario {
     const origens = { ...depois.origens };
     for (const alt of diffFicha(antes, depois)) {
-        if (alt.campo === 'cpf' || alt.campo === 'matriculaEsocial' || alt.campo === 'cnpj') continue;
+        if (alt.campo === 'cpf' || alt.campo === 'matriculaEsocial' || alt.campo === 'cnpj' || alt.campo === 'historicoSalario') continue;
         origens[alt.campo] = `Manual · ${autor} · ${quando}`;
     }
     return { ...depois, origens };
@@ -280,6 +331,8 @@ export function mesclarComEsocial(existente: FichaFuncionario | undefined, impor
         if (novo) { ficha.dados[k] = novo; ficha.origens[k] = importada.origens[k]; }
         else if (origem?.startsWith('eSocial')) { delete ficha.dados[k]; ficha.origens[k] = importada.origens[k] ?? 'eSocial: campo ausente na última importação'; }
     }
+    // O histórico de salário é do eSocial: a importação nova substitui o anterior.
+    if (importada.historicoSalario?.length) ficha.historicoSalario = importada.historicoSalario;
     if (depsTexto(existente.dependentes) !== depsTexto(importada.dependentes)) {
         if (ehManual(existente.origens.dependentes)) {
             if (importada.dependentes.length) preservados.push({ campo: 'dependentes', manual: depsTexto(existente.dependentes), esocial: depsTexto(importada.dependentes) });

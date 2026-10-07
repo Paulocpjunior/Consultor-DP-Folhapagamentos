@@ -2359,3 +2359,33 @@ guias sindicais".
 - **Conferência:** S-1210 com dedDepen, dois penAlim e infoDep validado no
   `evtPgtos.xsd` (só falta a assinatura, que é do CFI). Testes: 86 arquivos,
   655 testes.
+
+## 07/10/2026 — Histórico de salário pelos S-2200/S-2206
+
+- **Paulo:** *"pode seguir com o histórico do salário do S-2206"*. O
+  objetivo é tirar o limite da conferência com o IOB: o motor usava o
+  salário atual da ficha, e os meses anteriores a um reajuste divergiam no
+  item "Salário".
+- **Ficha (`historicoSalario`):**
+  - uma faixa por S-2200/S-2206 aceito: data da admissão ou da alteração
+    (`dtAlteracao`), `vrSalFx`, unidade e o recibo;
+  - o mesmo valor seguido vira uma faixa só;
+  - montado em `fichaDoEsocial` (`historicoDosEventos`) a partir dos eventos
+    já consolidados, inclusive com retificações e exclusões aplicadas;
+  - na reimportação (inclusive na restauração do SAGE), o histórico novo
+    substitui o anterior e conta como alteração, para a ficha já gravada
+    receber o histórico;
+  - gravado no Firestore junto com a ficha;
+  - aparece só para leitura na aba "Ident. Adm." da ficha.
+- **Motor mensal (`fichaNaCompetencia`):**
+  - em competência anterior à última faixa, usa o salário (e a unidade)
+    vigente no fim do mês, com uma linha na memória de cálculo;
+  - da última faixa em diante, vale o salário atual da ficha, que pode ter
+    sido corrigido à mão;
+  - reajuste no meio do mês gera aviso: o motor usa o vigente no fim do mês,
+    e o IOB pode ter pago proporcional.
+- **Fora desta etapa:** férias, 13º e rescisão continuam com o salário atual
+  da ficha.
+- **Para valer na empresa piloto:** rodar de novo a restauração do SAGE, ou a
+  importação do eSocial em Cadastros, para as fichas receberem o histórico.
+- **Testes:** 86 arquivos, 658 testes.
