@@ -2124,3 +2124,60 @@ guias sindicais".
     Firebase, dá para liberar `noreply@consultor-dp-folha.firebaseapp.com`
     no servidor de e-mail ou configurar domínio próprio nos modelos de
     e-mail do Firebase Authentication (console).
+
+## 07/10/2026 — S-1200 e S-1210 gerados pelo Consultor (Fase 4)
+
+- **Paulo:** *"pode seguir com o S-1200 e S-1210"*.
+- **Feito:**
+  - **`services/esocial/eventosFolha.ts`** gera o S-1200 (remuneração) e o
+    S-1210 (pagamento) da folha mensal do motor, no leiaute S-1.3 e sem
+    assinatura: o CFI assina com o A1 do cofre e transmite, como no S-2230.
+    - **XSD:** conferido com o `evtRemun.xsd` e o `evtPgtos.xsd`. O
+      xmllint só acusa a falta da assinatura.
+    - **Eventos por trabalhador:** um S-1200 e um S-1210 por CPF, com um
+      demonstrativo (`ideDmDev = FOLHAAAAAMM-matrícula`) por contrato.
+    - **S-1200:**
+      - estabelecimento (CNPJ), lotação (S-1020), matrícula e categoria da
+        ficha;
+      - itens agrupados por rubrica, com a quantidade (horas ou dias, pela
+        referência) e o valor.
+    - **S-1210:**
+      - vai no mês da data do pagamento: `tpPgto` 1, `perRef` = competência,
+        mesmo `ideDmDev` do S-1200 e o líquido;
+      - quando o motor deduziu dependentes no IRRF (e não usou o desconto
+        simplificado), leva `infoIRComplem/infoIRCR` (CR 056107) com
+        `dedDepen` de cada dependente com CPF;
+      - pensão alimentícia gera aviso, porque o CPF do alimentando (`penAlim`)
+        não está na ficha.
+    - **Sem evento, com o motivo:** cálculo incompleto, sem matrícula, sem
+      categoria, verba sem rubrica, rubrica sem S-1010 vigente, tipo
+      trocado (provento × desconto) e líquido negativo.
+    - **Envio:** lotes de 50 eventos.
+  - **De/para das verbas com as rubricas do S-1010:**
+    - **Sugestão:** pela natureza (Tabela 03) e pelo tipo. Exemplos:
+      salário 1000; horas extras 1003, separando 50% e 100% pela descrição;
+      DSR 1002; faltas 9207; INSS 9201; IRRF 9203; salário-família 1409;
+      pensão 9213; salário-maternidade 4050. Lançamento avulso é sugerido
+      pela descrição igual.
+    - **Gravação:** fica na empresa (`empresas.esocialFolha`), junto com o
+      CNPJ do estabelecimento e o código da lotação
+      (`salvarParametrosEsocialFolha`).
+  - **Motor mensal:** passa a registrar como deduziu o IRRF
+    (`deducoesIrrf`: simplificado ou não, dependentes, valor por dependente
+    e pensão).
+  - **Tela:** Cálculo (mensal) › **"S-1200 e S-1210"** (`EventosFolhaModal`):
+    - parâmetros e data do pagamento (padrão: 5º dia útil);
+    - de/para com a marca "sugerida";
+    - pendências por trabalhador;
+    - "Baixar XMLs (.zip)";
+    - "Transmitir S-1200" e "Transmitir S-1210" pelo CFI.
+    - **Antes de transmitir:**
+      - o padrão é a produção restrita; produção pede confirmação;
+      - o de/para precisa estar gravado.
+    - **Depois do envio:** cada lote fica em `esocial_envios`, com o
+      resultado em eSocial › Transmissão. A tela lembra de transmitir o
+      S-1210 depois que o S-1200 for aceito.
+- **Atenção na piloto:**
+  - comece pela produção restrita;
+  - em produção, se o IOB já transmitiu a competência, o S-1200 repetido é
+    recusado; retificação (`indRetif` 2) ainda não está no gerador.

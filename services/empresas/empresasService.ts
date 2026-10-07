@@ -188,6 +188,10 @@ export async function salvarContatoEnvio(empresaId: string, contato: import('../
     await updateDoc(doc(db, 'empresas', empresaId), { contatoEnvio: limpo, atualizadoEm: serverTimestamp() });
 }
 
+export async function salvarParametrosEsocialFolha(empresaId: string, p: import('../esocial/eventosFolha').ParametrosEsocialFolha): Promise<void> {
+    await updateDoc(doc(db, 'empresas', empresaId), { esocialFolha: JSON.parse(JSON.stringify(p)), atualizadoEm: serverTimestamp() });
+}
+
 export async function excluirEmpresa(id: string): Promise<void> {
     const atual = await buscarEmpresa(id);
     const lote = writeBatch(db);
