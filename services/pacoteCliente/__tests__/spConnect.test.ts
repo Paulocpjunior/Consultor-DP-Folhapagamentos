@@ -34,5 +34,8 @@ describe('SP Connect', () => {
         expect(paraBase64(grande)).toBe(Buffer.from(grande).toString('base64'));
         expect(valoresSugeridos(['cliente', 'Empresa', 'competência', 'titulo', 'outra'], { contato: 'Marta', empresa: 'Exemplo', titulo: 'Folha mensal 09/2026', competencia: '09/2026' }))
             .toEqual({ cliente: 'Marta', Empresa: 'Exemplo', 'competência': '09/2026', titulo: 'Folha mensal 09/2026', outra: '' });
+        // O específico vence o genérico "nome" (Codex #112).
+        expect(valoresSugeridos(['nome_empresa', 'nome_documento', 'nome_cliente', 'nome'], { contato: 'Marta', empresa: 'Exemplo', titulo: 'Folha', competencia: '09/2026' }))
+            .toEqual({ nome_empresa: 'Exemplo', nome_documento: 'Folha', nome_cliente: 'Marta', nome: 'Marta' });
     });
 });

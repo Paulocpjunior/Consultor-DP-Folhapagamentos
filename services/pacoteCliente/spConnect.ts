@@ -74,10 +74,11 @@ export function valoresSugeridos(chaves: string[], d: { contato?: string; empres
     const norm = (k: string) => k.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
     return Object.fromEntries(chaves.map(k => {
         const n = norm(k);
-        const v = /cliente|contato|nome/.test(n) ? (d.contato?.trim() || d.empresa)
-            : /empresa|razao/.test(n) ? d.empresa
+        // Do mais específico ao genérico: "nome_empresa" é a empresa, não o contato (Codex #112).
+        const v = /empresa|razao/.test(n) ? d.empresa
             : /compet|mes|periodo/.test(n) ? d.competencia
-            : /titulo|folha|documento|assunto/.test(n) ? d.titulo : '';
+            : /titulo|folha|documento|assunto/.test(n) ? d.titulo
+            : /cliente|contato|nome/.test(n) ? (d.contato?.trim() || d.empresa) : '';
         return [k, v];
     }));
 }

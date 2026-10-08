@@ -2719,3 +2719,4 @@ guias sindicais".
   - **Download como binário (`application/octet-stream`):** como texto, o
     Safari acrescentava `.txt` ao nome.
   - Vale também para o .REM de dentro do pacote do cliente.
+- **Revisão do Codex no PR #112 (P2):** a sugestão das variáveis testa primeiro empresa, competência e documento, e só depois o genérico "nome". Assim `nome_empresa` recebe a empresa, e não o contato.
