@@ -161,6 +161,19 @@ describe('férias no S-1200 e no S-1210', () => {
         expect(outra.avisos).toEqual([expect.stringMatching(/Rubrica FERMES13 \(natureza 1020\) para .*o MOS \(S-1010, item 23\) indica 1017/)]);
     });
 
+    it('opções do IRRF do recibo (sem desconto simplificado) chegam à folha e ao eSocial (Codex #111)', () => {
+        const g = [gozo('2025-08-01', '2025-08-20')];
+        const op = { simplificado: false, redutor: true };
+        const [padrao] = recibosFeriasDaCompetencia([FICHA], g, TABELAS, {}, '2025-07');
+        const [sem] = recibosFeriasDaCompetencia([FICHA], g, TABELAS, {}, '2025-07', op);
+        const ir = (x: typeof padrao) => x.r.verbas.find(v => v.codigo === 'IRRFFER')?.valor ?? 0;
+        expect([padrao.r.irrf?.usouSimplificado, sem.r.irrf?.usouSimplificado]).toEqual([true, false]);
+        expect(ir(sem)).toBeGreaterThan(ir(padrao));
+        // A folha do gozo abate o IRRF que o recibo entregue reteve.
+        expect(feriasDaCompetencia(FICHA, g, TABELAS, {}, '2025-08', op)?.irrf).toBe(ir(sem));
+        expect(feriasDaCompetencia(FICHA, g, TABELAS, {}, '2025-08')?.irrf).toBe(ir(padrao));
+    });
+
     it('de/para: as verbas do recibo entram com a natureza sugerida; folha com férias sem o recibo não gera', () => {
         const g = [gozo('2025-08-01', '2025-08-20')];
         const { r, recibosFerias } = eventos('2025-07', g, '2025-08-05');

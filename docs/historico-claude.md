@@ -2901,3 +2901,5 @@ guias sindicais".
 - **Revisão do Codex no #111 (P2, de/para antigo):** antes do #111, `FERMES` era férias + 1/3 e a sugestão era a natureza 1020. Um de/para gravado assim passaria sem aviso com o sentido novo (só férias, 1016).
   - O gerador recusa `FERMES` em rubrica de natureza 1020 e pede para refazer o de/para (férias em 1016, 1/3 em 1017).
   - Nas outras verbas de férias com natureza diferente da do MOS (S-1010, item 23), só avisa, porque a tabela de cada empresa vem do IOB.
+- **Revisão do Codex no #111 (P1, opções do IRRF):** quem calculasse o recibo de férias sem o desconto simplificado ou sem o redutor de 2026 e depois fosse para a folha mensal teria o recibo recalculado com as opções padrão. A folha abateria e o eSocial informaria um IRRF diferente do recibo entregue.
+  - `feriasDaCompetencia` e `recibosFeriasDaCompetencia` passam a receber as opções. A tela de cálculo repassa as que estão marcadas na aba Férias para a folha, a conferência e o S-1200/S-1210.

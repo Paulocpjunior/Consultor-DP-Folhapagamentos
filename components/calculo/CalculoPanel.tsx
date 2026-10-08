@@ -231,7 +231,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             const afs = dados.afastamentos.filter(a => a.fichaId === f.id);
             return calcularMensal({
                 competencia, pagamento, ficha: f, tabelas: dados.tabelas, movimento: movs[f.id], afastamentos: afs,
-                feriasDoMes: movsEmpresa ? feriasDaCompetencia(f, afs, dados.tabelas, movsEmpresa[f.id] ?? {}, competencia) : undefined,
+                feriasDoMes: movsEmpresa ? feriasDaCompetencia(f, afs, dados.tabelas, movsEmpresa[f.id] ?? {}, competencia, opcoesFerias) : undefined,
             });
         });
     }, [dados, competencia, pagamento, movs, movsEmpresa, mensal, ferias, rescisao, paramsResc, movsAno, ano, folha, opcoes13, primeiras, abonos, opcoesFerias, feriasSimuladas]);
@@ -241,13 +241,13 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         return noMes(dados.fichas, c).map(f => {
             const afs = dados.afastamentos.filter(a => a.fichaId === f.id);
             return calcularMensal({ competencia: c, pagamento: competenciaSeguinte(c), ficha: f, tabelas: dados.tabelas, movimento: movsEmpresa[f.id]?.[c], afastamentos: afs,
-                feriasDoMes: feriasDaCompetencia(f, afs, dados.tabelas, movsEmpresa[f.id] ?? {}, c) });
+                feriasDoMes: feriasDaCompetencia(f, afs, dados.tabelas, movsEmpresa[f.id] ?? {}, c, opcoesFerias) });
         });
-    }, [dados, movsEmpresa]);
+    }, [dados, movsEmpresa, opcoesFerias]);
     const comFeriasNaCompetencia = useCallback((c: string): Set<string> => {
         if (!dados || !movsEmpresa) return new Set();
-        return new Set(noMes(dados.fichas, c).filter(f => feriasDaCompetencia(f, dados.afastamentos.filter(a => a.fichaId === f.id), dados.tabelas, movsEmpresa[f.id] ?? {}, c)).map(f => f.id));
-    }, [dados, movsEmpresa]);
+        return new Set(noMes(dados.fichas, c).filter(f => feriasDaCompetencia(f, dados.afastamentos.filter(a => a.fichaId === f.id), dados.tabelas, movsEmpresa[f.id] ?? {}, c, opcoesFerias)).map(f => f.id));
+    }, [dados, movsEmpresa, opcoesFerias]);
     const total = (f: (r: ResultadoCalculo) => number) => resultados.reduce((s, r) => s + f(r), 0);
     const sel = resultados.find(r => chave(r) === aberto);
     const nomeDe = (id: string) => dados?.fichas.find(f => f.id === id)?.dados.nome || id;
@@ -259,7 +259,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const resumo = useMemo(() => resumirFolha(resultados, enqVigente), [resultados, enqVigente]);
     // S-1200/S-1210: recibos de férias pagos na competência ou com gozo nela (as mesmas contas da folha do mês).
     const recibosFeriasEsocial = useMemo(() => (mensal && eventosFolha && dados && movsEmpresa && /^\d{4}-\d{2}$/.test(competencia)
-        ? recibosFeriasDaCompetencia(dados.fichas, dados.afastamentos, dados.tabelas, movsEmpresa, competencia) : undefined), [mensal, eventosFolha, dados, movsEmpresa, competencia]);
+        ? recibosFeriasDaCompetencia(dados.fichas, dados.afastamentos, dados.tabelas, movsEmpresa, competencia, opcoesFerias) : undefined), [mensal, eventosFolha, dados, movsEmpresa, competencia, opcoesFerias]);
     const tituloFolha = mensal ? `Folha mensal ${br(competencia)}` : ferias ? `Recibos de férias ${br(competencia)}` : rescisao ? `Rescisões ${br(competencia)}` : `13º salário ${ano} — ${folha === '13-1a' ? '1ª' : '2ª'} parcela`;
     const sufixoArquivo = mensal ? competencia : ferias ? `ferias-${competencia}` : rescisao ? `rescisao-${competencia}` : `${ano}-13-${folha === '13-1a' ? '1a' : '2a'}-parcela`;
     // MiA: o holerite aberto (ou a lista da folha) vai como contexto da pergunta.
