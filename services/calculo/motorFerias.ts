@@ -23,7 +23,7 @@ import type { Afastamento } from '../cadastros/afastamentos';
 import { inicioBeneficio } from '../cadastros/afastamentos';
 import { dataValida, reais } from '../cadastros/documentos';
 import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros/tabelasLegais';
-import { diasEntre, somarDias, somarMeses } from '../prazos/calendario';
+import { diaUtilAnterior, diasEntre, somarDias, somarMeses } from '../prazos/calendario';
 import { diasDsr, salarioContratual, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
 
 export interface OpcoesFerias { simplificado: boolean; redutor: boolean }
@@ -166,7 +166,8 @@ export function calcularFerias(e: EntradaFerias): ResultadoFerias {
     const d = ficha.dados;
     const opcoes = e.opcoes ?? OPCOES_FERIAS_PADRAO;
     const pagarAte = dataValida(gozo.dtInicio) ? somarDias(gozo.dtInicio, -2) : '';
-    const pagamento = e.pagamento || pagarAte.slice(0, 7);
+    // Mês do pagamento: o do dia útil até 2 dias antes (fim de semana no início do mês volta ao mês anterior), como no arquivo bancário e no S-1210.
+    const pagamento = e.pagamento || (pagarAte ? diaUtilAnterior(pagarAte).slice(0, 7) : '');
     const r: ResultadoFerias = {
         fichaId: ficha.id, nome: d.nome || ficha.cpf, competencia: gozo.dtInicio.slice(0, 7), pagamento, situacao: 'calculado',
         verbas: [], bases: { inss: 0, fgts: 0, irrf: 0 }, totais: { proventos: 0, descontos: 0, liquido: 0 }, fgts: 0,

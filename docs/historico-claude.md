@@ -2749,3 +2749,24 @@ guias sindicais".
   - A validação da ficha continua, e a mensagem agora cita a norma e diz o
     que fazer: IRRF = Não e Pensão = Sim, porque a pensão deduz o valor
     pago, sem limite.
+- **Revisão do Codex no PR #111 (dois P1, corrigidos):**
+  - **Mês do IRRF das férias:** o motor de férias passa a usar o mês do dia
+    útil até 2 dias antes do gozo. Antes usava o mês dos 2 dias corridos:
+    um gozo em 03/03/2026 era pago em 27/02, mas o IRRF saía pela tabela de
+    março.
+  - **Dependentes no IRRF das férias:** quando o recibo usou as deduções
+    legais, cada dependente vai no S-1210 do mês do recibo, com tipo de
+    rendimento 13 (Férias), e no `infoDep` se não estiver no eSocial. A
+    folha continua com o tipo 11 no mês dela.
+  - Os dois casos têm teste e passam no XSD (exceto a assinatura). São 688
+    testes.
+- **Paulo:** *"não continua sem informação, me diga o que precisa que eu
+  baixo"*. O PR #111 ficou em rascunho, sem merge, até a conferência com:
+  - o MOS S-1.3 (PDF, 412 páginas);
+  - a NT 04/2025;
+  - a Tabela 03;
+  - S-1200, S-1210, S-1010, S-5001 e S-5002 reais do IOB de um mês com
+    férias, mandados pela conversa e nunca commitados.
+  - Os sites do Adobe, do Google Drive e do Dropbox estão bloqueados na
+    rede da sessão; o GitHub funciona (release em rascunho para o PDF
+    público).

@@ -291,6 +291,8 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
         trabalhadores.push(t);
         if (cpf.length !== 11) t.erros.push('CPF inválido na ficha.');
         const dmDevs: string[] = []; const pagamentos: { mes: string; xml: string }[] = []; const ides = new Set<string>();
+        // Dedução de dependentes no IRRF das férias (tpRend 13), no S-1210 do mês de cada recibo.
+        const dedFerias = new Map<string, Map<string, number>>(); const infoDepFerias = new Map<string, Map<string, Dependente>>();
         const unico = (base: string) => { let ide = base; for (let n = 2; ides.has(ide); n++) ide = `${base.slice(0, 30 - String(n).length - 1)}-${n}`; ides.add(ide); return ide; };
         /** Itens por rubrica (a mesma rubrica não se repete no demonstrativo). */
         const itensDe = (verbas: Verba[]) => {
@@ -372,8 +374,20 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                 dmDevs.push(dmDev(ideF, categ, f, itensDe(verbasDoReciboFerias(rf, e.competencia))));
                 pagamentos.push({ mes: dataPagamento.slice(0, 7), xml: infoPgto(dataPagamento, ideF, rf.totais.liquido) });
                 t.liquido += rf.totais.liquido; t.recibosFerias++;
-                if (rf.irrf && !rf.irrf.usouSimplificado && rf.irrf.dependentes > 0)
-                    t.avisos.push(`O IRRF das férias pagas em ${br(dataPagamento)} deduziu ${rf.irrf.dependentes} dependente(s): confira a dedução no S-1210 de ${mes(dataPagamento.slice(0, 7))}.`);
+                if (rf.irrf && !rf.irrf.usouSimplificado && rf.irrf.dependentes > 0) {
+                    // Por dependente: as deduções legais menos o INSS do recibo, divididas pelos dependentes.
+                    const inssRec = rf.verbas.find(v => v.codigo === 'INSSFER')?.valor ?? 0;
+                    const porDep = Math.round((rf.irrf.deducoes - inssRec) / rf.irrf.dependentes);
+                    const m = dataPagamento.slice(0, 7);
+                    const ded = dedFerias.get(m) ?? new Map<string, number>(); const inf = infoDepFerias.get(m) ?? new Map<string, Dependente>();
+                    for (const dep of f.dependentes.filter(x => x.irrf === 'S')) {
+                        const cpfDep = digitos(dep.cpf);
+                        if (cpfDep.length !== 11) { t.avisos.push(`Dependente ${dep.nome || '?'} sem CPF: a dedução do IRRF das férias não vai no S-1210.`); continue; }
+                        if (porDep > 0 && !ded.has(cpfDep)) ded.set(cpfDep, porDep);
+                        if (!depNoEsocial(f, dep)) inf.set(cpfDep, dep);
+                    }
+                    dedFerias.set(m, ded); infoDepFerias.set(m, inf);
+                }
             }
         }
         // O retificador substitui o S-1200 inteiro: demonstrativo do original que não está no cálculo sumiria do eSocial.
@@ -421,15 +435,30 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                 if (!depNoEsocial(f, dep)) infoDep.set(cpfDep, dep);
             }
         }
-        for (const [c, dep] of infoDep) if (dedDep.has(c) && (!/^\d{2}$/.test(dep.tipo) || dep.tipo === '99'))
+        const semTipo = new Set<string>();
+        const conferirTipo = (c: string, dep: Dependente) => {
+            if (semTipo.has(c) || (/^\d{2}$/.test(dep.tipo) && dep.tipo !== '99')) return;
+            semTipo.add(c);
             t.erros.push(`Dependente ${dep.nome || c} não está no eSocial e o tipo (Tabela 07) ${dep.tipo === '99' ? 'é 99 (agregado/outros)' : 'está em branco'}: informe o tipo na ficha ou cadastre pelo S-2205.`);
+        };
+        for (const [c, dep] of infoDep) if (dedDep.has(c)) conferirTipo(c, dep);
+        for (const [m, inf] of infoDepFerias) for (const [c, dep] of inf) if (dedFerias.get(m)?.has(c)) conferirTipo(c, dep);
         if (t.erros.length || !dmDevs.length) continue;
-        const irCR: string[] = [
-            ...[...dedDep].map(([c, v]) => `<dedDepen><tpRend>11</tpRend><cpfDep>${c}</cpfDep><vlrDedDep>${valor(v)}</vlrDedDep></dedDepen>`),
-            ...[...penAlim].map(([c, v]) => `<penAlim><tpRend>11</tpRend><cpfDep>${c}</cpfDep><vlrDedPenAlim>${valor(v)}</vlrDedPenAlim></penAlim>`),
-        ];
-        const infoDepXml = [...infoDep].map(([c, dep]) => `<infoDep><cpfDep>${c}</cpfDep>${/^\d{4}-\d{2}-\d{2}$/.test(dep.nascimento) ? `<dtNascto>${dep.nascimento}</dtNascto>` : ''}`
-            + `${dep.nome ? `<nome>${esc(dep.nome.slice(0, 70))}</nome>` : ''}${dedDep.has(c) ? `<depIRRF>S</depIRRF><tpDep>${dep.tipo}</tpDep>` : ''}</infoDep>`);
+        /** Informações de IR do mês: as da folha (tpRend 11) no mês do pagamento dela e as dos recibos de férias (tpRend 13) no mês de cada um. */
+        const irDoMes = (m: string) => {
+            const daFolha = m === perPgto;
+            const dedF = dedFerias.get(m) ?? new Map<string, number>();
+            const irCR = [
+                ...(daFolha ? [...dedDep].map(([c, v]) => `<dedDepen><tpRend>11</tpRend><cpfDep>${c}</cpfDep><vlrDedDep>${valor(v)}</vlrDedDep></dedDepen>`) : []),
+                ...[...dedF].map(([c, v]) => `<dedDepen><tpRend>13</tpRend><cpfDep>${c}</cpfDep><vlrDedDep>${valor(v)}</vlrDedDep></dedDepen>`),
+                ...(daFolha ? [...penAlim].map(([c, v]) => `<penAlim><tpRend>11</tpRend><cpfDep>${c}</cpfDep><vlrDedPenAlim>${valor(v)}</vlrDedPenAlim></penAlim>`) : []),
+            ];
+            const deps = new Map<string, Dependente>([...(daFolha ? infoDep : []), ...(infoDepFerias.get(m) ?? [])]);
+            const deduz = (c: string) => (daFolha && dedDep.has(c)) || dedF.has(c);
+            const infoDepXml = [...deps].map(([c, dep]) => `<infoDep><cpfDep>${c}</cpfDep>${/^\d{4}-\d{2}-\d{2}$/.test(dep.nascimento) ? `<dtNascto>${dep.nascimento}</dtNascto>` : ''}`
+                + `${dep.nome ? `<nome>${esc(dep.nome.slice(0, 70))}</nome>` : ''}${deduz(c) ? `<depIRRF>S</depIRRF><tpDep>${dep.tipo}</tpDep>` : ''}</infoDep>`);
+            return irCR.length ? `<infoIRComplem>${infoDepXml.join('')}<infoIRCR><tpCR>056107</tpCR>${irCR.join('')}</infoIRCR></infoIRComplem>` : '';
+        };
         const id1200 = idEvento(e.cnpj, agora, ++seq);
         t.s1200 = { id: id1200, xml: `<eSocial xmlns="${NS}/evtRemun/${VERSAO}"><evtRemun Id="${id1200}">`
             + `<ideEvento>${retif(t.retifica1200)}<indApuracao>1</indApuracao><perApur>${e.competencia}</perApur><tpAmb>${e.tpAmb}</tpAmb><procEmi>1</procEmi><verProc>${VER_PROC}</verProc></ideEvento>`
@@ -443,11 +472,10 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                     + `<infoExclusao><tpEvento>S-1210</tpEvento><nrRecEvt>${ex.nrRecibo}</nrRecEvt><ideTrabalhador><cpfTrab>${cpf}</cpfTrab></ideTrabalhador><ideFolhaPagto><perApur>${pm.perApur}</perApur></ideFolhaPagto></infoExclusao>`
                     + '</evtExclusao></eSocial>' };
             }
-            // As informações de IR do S-1210 aceito (dependentes, pensão, plano de saúde…) voltam como estavam; as da folha vão no mês do pagamento dela.
-            const daFolha = pm.perApur === perPgto;
-            const ir = ex?.irComplem?.length ? ex.irComplem.join('')
-                : daFolha && irCR.length ? `<infoIRComplem>${infoDepXml.join('')}<infoIRCR><tpCR>056107</tpCR>${irCR.join('')}</infoIRCR></infoIRComplem>` : '';
-            if (daFolha && ex?.irComplem?.length && irCR.length) t.avisos.push('As deduções do IRRF (dependentes e pensão) voltam como estavam no S-1210 aceito; confira se mudaram.');
+            // As informações de IR do S-1210 aceito (dependentes, pensão, plano de saúde…) voltam como estavam.
+            const novo = irDoMes(pm.perApur);
+            const ir = ex?.irComplem?.length ? ex.irComplem.join('') : novo;
+            if (ex?.irComplem?.length && novo) t.avisos.push(`As deduções do IRRF (dependentes e pensão) voltam como estavam no S-1210 de ${mes(pm.perApur)} aceito; confira se mudaram.`);
             const id1210 = idEvento(e.cnpj, agora, ++seq);
             pm.s1210 = { id: id1210, xml: `<eSocial xmlns="${NS}/evtPgtos/${VERSAO}"><evtPgtos Id="${id1210}">`
                 + `<ideEvento><indRetif>1</indRetif><perApur>${pm.perApur}</perApur><tpAmb>${e.tpAmb}</tpAmb><procEmi>1</procEmi><verProc>${VER_PROC}</verProc></ideEvento>`

@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { gerarEventosFolha, recibosFeriasDaCompetencia, sugerirDePara, verbasDosRecibosParaDePara, type ParametrosEsocialFolha } from '../eventosFolha';
 import { calcularMensal } from '../../calculo/motorMensal';
-import { feriasDaCompetencia } from '../../calculo/motorFerias';
+import { calcularFerias, feriasDaCompetencia } from '../../calculo/motorFerias';
 import { fichaVazia, type FichaFuncionario } from '../../cadastros/funcionarios';
 import { afastamentoVazio, type Afastamento } from '../../cadastros/afastamentos';
 import type { TabelaLegal } from '../../cadastros/tabelasLegais';
@@ -104,6 +104,31 @@ describe('férias no S-1200 e no S-1210', () => {
         expect([t.perApur, t.outrosMeses.length]).toEqual(['2025-07', 0]);
         expect(txt(doc(t.s1210!.xml), 'ideDmDev')).toEqual(['FOLHA202507-M1', 'FER20250711-M1']);
         expect(txt(doc(t.s1210!.xml), 'dtPgto')).toEqual(['2025-07-31', '2025-07-11']);
+    });
+
+    it('fim de semana no início do mês: o recibo é pago no mês anterior e o IRRF usa a tabela desse mês (Codex #111)', () => {
+        // Início em 03/03/2026 (terça): 2 dias antes é domingo 01/03 → pago na sexta 27/02.
+        const rf = calcularFerias({ ficha: FICHA, gozo: gozo('2026-03-03', '2026-03-22'), afastamentos: [], tabelas: TABELAS, movimentos: {} });
+        expect([rf.pagarAte, rf.pagamento]).toEqual(['2026-03-01', '2026-02']);
+        const [x] = recibosFeriasDaCompetencia([FICHA], [gozo('2026-03-03', '2026-03-22')], TABELAS, {}, '2026-02');
+        expect([x.dataPagamento, x.r.pagamento]).toEqual(['2026-02-27', '2026-02']);
+    });
+
+    it('IRRF das férias com dependente: dedução no S-1210 do mês do recibo, tpRend 13 (Codex #111)', () => {
+        const comDep: FichaFuncionario = { ...FICHA, dependentes: [{ tipo: '03', nome: 'FILHO', nascimento: '2015-01-01', cpf: '11144477735', irrf: 'S', salarioFamilia: 'N' }] } as FichaFuncionario;
+        const g = [gozo('2025-08-01', '2025-08-20')];
+        const r = calcularMensal({ competencia: '2025-07', pagamento: '2025-08', ficha: comDep, tabelas: TABELAS, afastamentos: g });
+        const recibos = recibosFeriasDaCompetencia([comDep], g, TABELAS, {}, '2025-07');
+        expect(recibos[0].r.irrf).toMatchObject({ usouSimplificado: false, dependentes: 1 });
+        const t = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2025-07', dataPagamento: '2025-08-05', fichas: [comDep], resultados: [r], rubricas: RUBRICAS, parametros: PARAMS, recibosFerias: recibos }).trabalhadores[0];
+        expect(t.erros).toEqual([]);
+        const jul = doc(t.outrosMeses[0].s1210!.xml);
+        const ded = jul.getElementsByTagName('dedDepen')[0];
+        expect(Array.from(ded.children).map(e => e.textContent)).toEqual(['13', '11144477735', '189.59']);
+        // Fora do S-2200/S-2205: vai também no infoDep, com depIRRF.
+        expect(Array.from(jul.getElementsByTagName('infoDep')[0].children).map(e => e.localName)).toEqual(['cpfDep', 'dtNascto', 'nome', 'depIRRF', 'tpDep']);
+        // A folha (agosto) leva só a dela (tpRend 11), quando deduz dependentes.
+        expect(txt(doc(t.s1210!.xml), 'tpRend').every(x => x === '11')).toBe(true);
     });
 
     it('de/para: as verbas do recibo entram com a natureza sugerida; folha com férias sem o recibo não gera', () => {
