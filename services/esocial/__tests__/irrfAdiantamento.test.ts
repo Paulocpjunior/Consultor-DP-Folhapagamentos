@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { calcularMensal, travarAdiantamentoEntreContratos, type Lancamento } from '../../calculo/motorMensal';
 import { arredondar } from '../../calculo/arredondamento';
+import { resumirFolha } from '../../relatorios/resumoFolha';
 import { favorecidosDaFolha, foraDoAdiantamento, valorDoAdiantamento } from '../../bancario/favorecidos';
 import { gerarEventosFolha, mesclarIRFerias, pagoNoAdiantamento, verbasDoAdiantamento, type ParametrosEsocialFolha } from '../eventosFolha';
 import { TABELAS_OFICIAIS_2026 } from '../../cadastros/tabelasOficiais';
@@ -42,6 +43,8 @@ describe('IRRF do adiantamento com a folha paga no mês seguinte', () => {
         expect([pagoNoAdiantamento(agosto), valorDoAdiantamento(agosto)]).toEqual([241257, 241257]);
         // O IRRF do adiantamento não é desconto da folha: o líquido de 04/09 desconta o adiantamento bruto.
         expect(agosto.verbas.filter(x => x.codigo === 'IRRF')).toHaveLength(1);
+        // Resumo da folha: o IRRF do adiantamento à parte (DCTFWeb de agosto), o da folha no de setembro (Codex #118).
+        expect([resumirFolha([agosto]).encargos.irrf, resumirFolha([agosto]).encargos.irrfAdiantamento]).toEqual([6157, 125859]);
         // Arredondando, arredonda-se o que foi pago no adiantamento (2.412,57 → 2.413,00).
         expect([valorDoAdiantamento(arredondar(agosto, 0)), v(arredondar(agosto, 0), 'ARREDADI')]).toEqual([241300, 43]);
     });

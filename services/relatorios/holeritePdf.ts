@@ -140,6 +140,7 @@ export function resumoPdf(resumo: ResumoFolha, o: OpcoesPdf, observacao: string)
                 ['Total previdenciário na DCTFWeb (segurados + patronal + RAT + terceiros − salário-família − salário-maternidade)', brl(e.totalPrevidenciario ?? 0)],
             ] : [['Parte patronal', 'sem enquadramento cadastrado']]),
             ['IRRF retido (DCTFWeb do mês do pagamento)', brl(e.irrf)],
+            ...(e.irrfAdiantamento ? [['IRRF retido no adiantamento (DCTFWeb do mês do adiantamento)', brl(e.irrfAdiantamento)]] : []),
             ['FGTS (FGTS Digital)', brl(e.fgts)],
             ...(e.multaFgts ? [['Multa rescisória do FGTS (FGTS Digital)', brl(e.multaFgts)]] : []),
             ['Base do INSS / do FGTS / rendimentos do IRRF', `${brl(resumo.bases.inss)} / ${brl(resumo.bases.fgts)} / ${brl(resumo.bases.irrf)}`],

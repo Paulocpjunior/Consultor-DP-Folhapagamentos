@@ -26,6 +26,11 @@ export interface ResumoFolha {
         inssSegurados: number;
         /** IRRF retido (todos os IRRF da folha). Regime de caixa: vai à DCTFWeb do mês do pagamento. */
         irrf: number;
+        /**
+         * IRRF retido no adiantamento pago num mês com o saldo da folha em outro: vai à DCTFWeb do mês do adiantamento
+         * (a competência), não do da folha (Codex #118). Fora de `irrf`.
+         */
+        irrfAdiantamento?: number;
         fgts: number;
         /** Multa rescisória do FGTS (40% ou 20%), também recolhida pelo FGTS Digital. */
         multaFgts: number;
@@ -82,6 +87,7 @@ export function resumirFolha(resultados: ResultadoCalculo[], enquadramento?: Enq
         encargos: {
             inssSegurados,
             irrf: somaCodigos(IRRF),
+            irrfAdiantamento: soma(r => r.irrfAdiantamento ?? 0),
             fgts: soma(r => r.fgts),
             multaFgts: soma(r => (r as ResultadoCalculo & { multaFgts?: number }).multaFgts ?? 0),
             salarioFamilia,

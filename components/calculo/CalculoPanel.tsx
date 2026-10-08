@@ -448,6 +448,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 { Item: 'Total previdenciário (DCTFWeb)', Tipo: 'guia', Funcionários: '', Valor: (e.totalPrevidenciario ?? 0) / 100 },
             ] : erroEnq ? [{ Item: `Parte patronal NÃO CARREGADA (${erroEnq}): fora do total`, Tipo: 'guia', Funcionários: '', Valor: '' }] : []),
             { Item: 'IRRF retido', Tipo: 'guia', Funcionários: '', Valor: e.irrf / 100 },
+            ...(e.irrfAdiantamento ? [{ Item: 'IRRF retido no adiantamento (DCTFWeb do mês do adiantamento)', Tipo: 'guia', Funcionários: '', Valor: e.irrfAdiantamento / 100 }] : []),
             { Item: 'FGTS', Tipo: 'guia', Funcionários: '', Valor: e.fgts / 100 },
             { Item: 'Multa rescisória do FGTS', Tipo: 'guia', Funcionários: '', Valor: e.multaFgts / 100 },
         ]), 'Resumo da folha');
@@ -657,6 +658,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                                     </>
                                 )}
                                 <dt>IRRF retido</dt><dd className="text-right">{reais(resumo.encargos.irrf)}</dd>
+                                {(resumo.encargos.irrfAdiantamento ?? 0) > 0 && <><dt title="Pago no adiantamento, no mês da competência: vai à DCTFWeb desse mês.">IRRF retido no adiantamento</dt><dd className="text-right">{reais(resumo.encargos.irrfAdiantamento ?? 0)}</dd></>}
                                 <dt>FGTS</dt><dd className="text-right">{reais(resumo.encargos.fgts)}</dd>
                                 {resumo.encargos.multaFgts > 0 && <><dt>Multa rescisória do FGTS</dt><dd className="text-right">{reais(resumo.encargos.multaFgts)}</dd></>}
                                 <dt className="text-slate-500">Bases INSS / FGTS / IRRF</dt><dd className="text-right text-slate-500">{reais(resumo.bases.inss)} / {reais(resumo.bases.fgts)} / {reais(resumo.bases.irrf)}</dd>

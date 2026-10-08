@@ -3048,3 +3048,4 @@ guias sindicais".
 - **Revisão do Codex no #118 (dois P1):**
   - **S-1210 do mês do adiantamento:** se o IRRF do adiantamento somou a folha anterior, paga nesse mês, o S-1210 do mês precisa levar esse pagamento junto. Sem o S-1210 do mês carregado (download do eSocial) com a folha anterior, o gerador recusa e pede para transmitir o S-1210 da folha anterior antes. Com ele carregado, os dois pagamentos saem no mesmo evento.
   - **Contrato encerrado no mês anterior:** a trava de mais de um contrato no CPF conta também os contratos da competência anterior, cuja folha é paga no mês do adiantamento.
+- **Revisão do Codex no #118 (P1):** o IRRF retido no adiantamento entra no resumo da folha à parte (`encargos.irrfAdiantamento`): na tela, no PDF e no Excel, como "IRRF retido no adiantamento". No pacote do cliente, ele vai no lembrete do DARF da DCTFWeb da competência, o mês do adiantamento. O IRRF da folha continua no lembrete do mês do pagamento.
