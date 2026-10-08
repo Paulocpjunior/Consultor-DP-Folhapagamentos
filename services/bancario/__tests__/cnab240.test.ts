@@ -28,6 +28,8 @@ describe('campos', () => {
         expect(['12345678909', '11.222.333/0001-81', '11222333000182', '52998224726'].map(tipoChavePix)).toEqual(['cpf', 'cpf', null, null]);
         // CPF válido que também parece celular: ambíguo, não entra.
         expect(tipoChavePix('11987654374')).toBeNull();
+        // Com a máscara de CPF, deixa de ser ambíguo (é o que o motivo pede para fazer).
+        expect(tipoChavePix('119.876.543-74')).toBe('cpf');
         expect(classificar(fav({ banco: '', conta: '', pix: '11987654374' }), conta, false)).toEqual({ forma: null, motivo: expect.stringMatching(/pode ser CPF ou celular: informe o celular com \+55/) });
         expect(classificar(fav({ banco: '', conta: '', pix: '52998224726' }), conta, false).motivo).toMatch(/não é CPF\/CNPJ válido nem telefone/);
         // No Segmento B do PIX, o celular sem +55 sai com +55 e iniciação 01.

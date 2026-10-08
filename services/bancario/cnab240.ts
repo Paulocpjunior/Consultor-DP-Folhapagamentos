@@ -124,6 +124,8 @@ export function tipoChavePix(chave: string): TipoChavePix | null {
     // Máscara de telefone: (11) 98765-4321, 11 98765-4321.
     if (/^\(?\d{2}\)?\s+\d{4,5}-?\d{4}$/.test(c) && pareceTelefone(d)) return 'telefone';
     if (d.length === 14) return cnpjValido(d) ? 'cpf' : null;
+    // CPF com a máscara (000.000.000-00) é CPF, mesmo que os dígitos pareçam um celular.
+    if (/^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(c)) return cpfValido(d) ? 'cpf' : null;
     if (d.length === 11) {
         const cpf = cpfValido(d); const tel = pareceTelefone(d);
         if (cpf && !tel) return 'cpf';

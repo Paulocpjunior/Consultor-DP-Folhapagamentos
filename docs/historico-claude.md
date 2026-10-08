@@ -2564,3 +2564,10 @@ guias sindicais".
 - **Convite .ics:** o ponto e vírgula passa a ser escapado (RFC 5545); o
   teste repetia o mesmo erro.
 - **Testes:** 86 arquivos, 673 testes.
+- **Revisão do Codex no PR #108 (P2):** um CPF com máscara cujos dígitos
+  parecem celular (por exemplo, 119.876.543-74) ficava ambíguo. Agora a
+  máscara de CPF decide.
+- **Paulo:** *"pare de me perguntar se pode mergear! você está no modo
+  automático por minha decisão"*. No Consultor DP, o merge passa a ser feito
+  sem pedir OK, quando o CI está verde e a revisão do Codex terminou com os
+  apontamentos tratados. No CFI continua valendo a aprovação explícita.
