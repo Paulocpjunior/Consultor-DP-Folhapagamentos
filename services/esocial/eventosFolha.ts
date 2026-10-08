@@ -343,6 +343,9 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             const categ = digitos(f.dados.categoria);
             if (!/^\d{3}$/.test(categ)) t.erros.push(`Categoria do eSocial (3 dígitos) em branco na ficha${quem}.`);
             if (r.totais.liquido < 0) t.erros.push(`Líquido negativo${quem}.`);
+            // O IRRF do cálculo segue a tabela do mês do pagamento usado nele: com outra data de pagamento na tela, o S-1210
+            // sairia num mês e o imposto, pelo outro (Codex #115).
+            if (/^\d{4}-\d{2}$/.test(r.pagamento) && r.pagamento !== perPgto) t.erros.push(`Cálculo feito com pagamento em ${mes(r.pagamento)}, mas a data do pagamento é ${br(e.dataPagamento)}${quem}: ajuste o "Pagamento em" do cálculo para ${mes(perPgto)} (ou a data) e gere de novo.`);
 
             // Férias: as do mês na folha (que abate o adiantamento) batem com os recibos com gozo no mês.
             const recibos = recibosDa.get(f.id) ?? [];

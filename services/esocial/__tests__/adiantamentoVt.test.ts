@@ -159,6 +159,10 @@ describe('adiantamento salarial e vale-transporte', () => {
         expect(gera(auto).erros).toEqual([expect.stringMatching(/^Adiantamento em 14\/08\/2026, mas o cálculo usou 20\/08\/2026, e a admissão ou o desligamento fica entre as duas datas/)]);
         const zero = calcularMensal({ competencia: '2026-08', pagamento: '2026-08', ficha: admit, tabelas: TAB, afastamentos: [], movimento: { adiantamento: 0 } });
         expect(gera(zero).erros).toEqual([]);
+        // Calculado com pagamento em setembro e gerado com data de agosto: o IRRF seria o da tabela de setembro (Codex #115).
+        const setembro = calcularMensal({ competencia: '2026-08', pagamento: '2026-09', ficha: FICHA, tabelas: TAB, afastamentos: [] });
+        const outroMes = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-08', dataPagamento: '2026-08-31', fichas: [FICHA], resultados: [setembro], rubricas: RUBRICAS, parametros: PARAMS }).trabalhadores[0];
+        expect(outroMes.erros).toContain('Cálculo feito com pagamento em 09/2026, mas a data do pagamento é 31/08/2026: ajuste o "Pagamento em" do cálculo para 08/2026 (ou a data) e gere de novo.');
         // Desligado no próprio dia do cálculo (18/09) e data mudada para 20/09: o motor paga (desligamento não é anterior
         // ao dia), mas no dia novo já não havia vínculo (Codex #115). Hoje o mês do desligamento fica incompleto (rescisão
         // fora do motor); o resultado é tratado como calculado para conferir a regra de quando ela entrar.
