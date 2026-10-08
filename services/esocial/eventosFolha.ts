@@ -98,6 +98,9 @@ const SUGESTAO: Record<string, { naturezas: string[]; dica?: RegExp; evita?: Reg
     IRRFFER: { naturezas: ['9203'], dica: /FERIAS/ },
 };
 
+/** Naturezas que o MOS (S-1010, item 23, opção 1) fixa para as verbas de férias. */
+const NATUREZA_MOS: Record<string, string> = { FERMES: '1016', FERMES13: '1017', FERPAGO: '9221', FERADI: '1015', FERADI13: '1015' };
+
 export interface ItemDePara { chave: string; descricao: string; tipo: 'provento' | 'desconto'; sugestao: RubricaEsocial | null }
 
 /** Verbas dos resultados que precisam de rubrica, com a sugestão pela natureza, pelo tipo e pela descrição. */
@@ -295,6 +298,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
         // Dedução de dependentes no IRRF das férias (tpRend 13), no S-1210 do mês de cada recibo.
         const dedFerias = new Map<string, Map<string, number>>(); const infoDepFerias = new Map<string, Map<string, Dependente>>();
         const unico = (base: string) => { let ide = base; for (let n = 2; ides.has(ide); n++) ide = `${base.slice(0, 30 - String(n).length - 1)}-${n}`; ides.add(ide); return ide; };
+        const avisoNatureza = new Set<string>();
         /** Itens por rubrica (a mesma rubrica não se repete no demonstrativo). */
         const itensDe = (verbas: Verba[]) => {
             const itens = new Map<string, { rub: RubricaEsocial; valor: number; qtd: number }>();
@@ -305,6 +309,13 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                 const dados = tipoDa.get(`${rub.ideTabRubr}|${rub.codRubr}`);
                 if (!dados) { t.erros.push(`Rubrica ${rub.codRubr} (de "${v.descricao}") sem S-1010 vigente em ${e.competencia}.`); continue; }
                 // Provento só em rubrica de vencimento (1) e desconto só em rubrica de desconto (2); informativa (3, 4) não entra no líquido.
+                // Natureza que o MOS fixa para as férias (S-1010, item 23, opção 1). FERMES era férias + 1/3 em 1020
+                // antes do #111: o de/para gravado assim mudou de sentido e precisa ser refeito (Codex #111).
+                const nat = NATUREZA_MOS[v.codigo];
+                if (nat && dados.natRubr !== nat) {
+                    if (v.codigo === 'FERMES' && dados.natRubr === '1020') t.erros.push(`O de/para de "${v.descricao}" é anterior à separação de férias e 1/3: a rubrica ${rub.codRubr} tem natureza 1020. Refaça o de/para das férias do mês (férias em 1016, 1/3 em 1017) e grave.`);
+                    else if (!avisoNatureza.has(v.codigo)) { avisoNatureza.add(v.codigo); t.avisos.push(`Rubrica ${rub.codRubr} (natureza ${dados.natRubr}) para "${v.descricao}": o MOS (S-1010, item 23) indica ${nat}. Confira o de/para.`); }
+                }
                 const esperado = v.tipo === 'provento' ? '1' : '2';
                 if (dados.tpRubr !== esperado) t.erros.push(`Rubrica ${rub.codRubr} é ${({ '1': 'provento', '2': 'desconto', '3': 'informativa', '4': 'informativa dedutora' } as Record<string, string>)[dados.tpRubr] ?? `tipo ${dados.tpRubr}`} no S-1010, e "${v.descricao}" é ${v.tipo}.`);
                 const k = `${rub.ideTabRubr}|${rub.codRubr}`;

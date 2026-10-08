@@ -145,6 +145,22 @@ describe('férias no S-1200 e no S-1210', () => {
         expect(porMes['2025-08']).toEqual(['379.18']);
     });
 
+    it('de/para antigo de FERMES em 1020 (férias + 1/3, antes do #111) é recusado; outra natureza só avisa (Codex #111)', () => {
+        const g = [gozo('2025-08-01', '2025-08-20')];
+        const comNat = (k: string, nat: string) => RUBRICAS.map(r => r.id !== k ? r : { ...r, vigencias: [{ ...r.vigencias[0], dados: { ...r.vigencias[0].dados, natRubr: nat } }] });
+        const gera = (rubricas: Rubrica[]) => {
+            const fm = feriasDaCompetencia(FICHA, g, TABELAS, {}, '2025-08');
+            const r = calcularMensal({ competencia: '2025-08', pagamento: '2025-09', ficha: FICHA, tabelas: TABELAS, afastamentos: g, feriasDoMes: fm });
+            return gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2025-08', dataPagamento: '2025-09-05', fichas: [FICHA], resultados: [r], rubricas, parametros: PARAMS, recibosFerias: recibosFeriasDaCompetencia([FICHA], g, TABELAS, {}, '2025-08') }).trabalhadores[0];
+        };
+        const legado = gera(comNat('FERMES', '1020'));
+        expect(legado.erros).toEqual([expect.stringMatching(/anterior à separação de férias e 1\/3: a rubrica FERMES tem natureza 1020\. Refaça o de\/para/)]);
+        expect(legado.s1200).toBeNull();
+        const outra = gera(comNat('FERMES13', '1020'));
+        expect(outra.erros).toEqual([]);
+        expect(outra.avisos).toEqual([expect.stringMatching(/Rubrica FERMES13 \(natureza 1020\) para .*o MOS \(S-1010, item 23\) indica 1017/)]);
+    });
+
     it('de/para: as verbas do recibo entram com a natureza sugerida; folha com férias sem o recibo não gera', () => {
         const g = [gozo('2025-08-01', '2025-08-20')];
         const { r, recibosFerias } = eventos('2025-07', g, '2025-08-05');

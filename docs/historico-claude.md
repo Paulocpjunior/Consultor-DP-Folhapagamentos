@@ -2898,6 +2898,9 @@ guias sindicais".
 - **Revisão do Codex no #111 (P2):** dois recibos de férias pagos no mesmo mês com o mesmo dependente (férias fracionadas ou dois contratos) só levavam a dedução do primeiro.
   - Agora as deduções somam por CPF no S-1210 do mês.
   - Em `mesclarIRFerias`, o valor calculado (todos os recibos do mês) troca o tpRend 13 do mesmo CPF no S-1210 aceito. O reenvio igual não muda nada, e um recibo novo soma.
+- **Revisão do Codex no #111 (P2, de/para antigo):** antes do #111, `FERMES` era férias + 1/3 e a sugestão era a natureza 1020. Um de/para gravado assim passaria sem aviso com o sentido novo (só férias, 1016).
+  - O gerador recusa `FERMES` em rubrica de natureza 1020 e pede para refazer o de/para (férias em 1016, 1/3 em 1017).
+  - Nas outras verbas de férias com natureza diferente da do MOS (S-1010, item 23), só avisa, porque a tabela de cada empresa vem do IOB.
 
 ## 08/10/2026 — Adiantamento salarial e vale-transporte no motor
 
