@@ -21,7 +21,7 @@ import { afastamentoVazio, idAfastamento, validarAfastamento, type Afastamento }
 import type { TabelaLegal } from '../../services/cadastros/tabelasLegais';
 import { centavosDeTexto, reais } from '../../services/cadastros/documentos';
 import { calcularMensal, competenciaAnterior, competenciaSeguinte, dataSugeridaAdiantamento, noMes, type EntradaCalculo, type Lancamento, type Movimento, type ResultadoCalculo } from '../../services/calculo/motorMensal';
-import { valorDoAdiantamento } from '../../services/bancario/favorecidos';
+import { foraDoAdiantamento, valorDoAdiantamento } from '../../services/bancario/favorecidos';
 import { diaUtilAnterior, diaUtilSeguinte, quintoDiaUtilSalario, somarMeses } from '../../services/prazos/calendario';
 import ArquivoBancarioModal from '../bancario/ArquivoBancarioModal';
 import PacoteClienteModal from '../pacoteCliente/PacoteClienteModal';
@@ -727,7 +727,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 const cod = empresa.codigoSage ?? 'empresa';
                 if (arquivoBancario === 'adiantamento') return (
                     <ArquivoBancarioModal empresa={empresa} resultados={resultados} fichas={dados.fichas} titulo={`Adiantamento salarial ${competencia.slice(5)}/${competencia.slice(0, 4)}`}
-                        dataSugerida={dataSugeridaAdiantamento(competencia)} valorPorResultado={valorDoAdiantamento} rotuloValor="Adiantamento"
+                        dataSugerida={dataSugeridaAdiantamento(competencia)} valorPorResultado={valorDoAdiantamento} rotuloValor="Adiantamento" foraPorData={foraDoAdiantamento}
                         onFechar={() => setArquivoBancario(false)} onContasSalvas={contasSalvas} />
                 );
                 if (arquivoBancario) return (
