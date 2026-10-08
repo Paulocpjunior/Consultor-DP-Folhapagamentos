@@ -131,6 +131,20 @@ describe('férias no S-1200 e no S-1210', () => {
         expect(txt(doc(t.s1210!.xml), 'tpRend').every(x => x === '11')).toBe(true);
     });
 
+    it('dois recibos de férias pagos no mesmo mês com o mesmo dependente: as deduções somam (Codex #111)', () => {
+        // Salário alto: cada recibo de 10 dias usa as deduções legais (INSS + dependente), não o desconto simplificado.
+        const comDep: FichaFuncionario = { ...FICHA, dados: { ...FICHA.dados, salario: '20000.00' }, dependentes: [{ tipo: '03', nome: 'FILHO', nascimento: '2015-01-01', cpf: '11144477735', irrf: 'S', salarioFamilia: 'N' }] } as FichaFuncionario;
+        const g = [gozo('2025-08-04', '2025-08-13'), gozo('2025-08-18', '2025-08-27')]; // férias fracionadas, os dois recibos pagos em agosto
+        const fm = feriasDaCompetencia(comDep, g, TABELAS, {}, '2025-08');
+        const r = calcularMensal({ competencia: '2025-08', pagamento: '2025-09', ficha: comDep, tabelas: TABELAS, afastamentos: g, feriasDoMes: fm });
+        const recibos = recibosFeriasDaCompetencia([comDep], g, TABELAS, {}, '2025-08');
+        expect(recibos.map(x => [x.dataPagamento, x.r.irrf?.usouSimplificado, x.r.irrf?.dependentes])).toEqual([['2025-08-01', false, 1], ['2025-08-15', false, 1]]);
+        const t = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2025-08', dataPagamento: '2025-09-05', fichas: [comDep], resultados: [r], rubricas: RUBRICAS, parametros: PARAMS, recibosFerias: recibos }).trabalhadores[0];
+        expect(t.erros).toEqual([]);
+        const porMes = Object.fromEntries(t.outrosMeses.map(m => [m.perApur, txt(doc(m.s1210!.xml), 'vlrDedDep')]));
+        expect(porMes['2025-08']).toEqual(['379.18']);
+    });
+
     it('de/para: as verbas do recibo entram com a natureza sugerida; folha com férias sem o recibo não gera', () => {
         const g = [gozo('2025-08-01', '2025-08-20')];
         const { r, recibosFerias } = eventos('2025-07', g, '2025-08-05');
@@ -195,6 +209,9 @@ describe('férias no S-1200 e no S-1210', () => {
         // Já está no aceito (reenvio do mesmo recibo) ou não há férias com dependente: volta igual.
         const completo = mesclarIRFerias(aceito, novo);
         expect(mesclarIRFerias(completo, novo)).toBe(completo);
+        // Recibo novo no mês: o valor do cálculo (soma dos recibos do mês) troca o tpRend 13 do aceito.
+        const soma = novo.replace(`${ded('13', '11111111111', '189.59')}`, `${ded('13', '11111111111', '379.18')}`);
+        expect(mesclarIRFerias(completo, soma)).toBe(completo.replace(ded('13', '11111111111', '189.59'), ded('13', '11111111111', '379.18')));
         expect(mesclarIRFerias(aceito, `<infoIRComplem><infoIRCR><tpCR>056107</tpCR>${ded('11', '44444444444', '189.59')}</infoIRCR></infoIRComplem>`)).toBe(aceito);
     });
 });

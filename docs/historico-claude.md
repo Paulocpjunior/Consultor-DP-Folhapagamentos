@@ -2895,6 +2895,9 @@ guias sindicais".
 - **Trava:** `feriasEsocial.test.ts`, "confere com o IOB", reproduz o caso com dados trocados e confere cada valor acima.
 - **Revisão do Codex no #111 (P1):** quando o S-1210 do mês já tinha sido aceito com informações de IR, o reenvio levava só o bloco antigo e perdia as deduções de dependentes das férias (tpRend 13) do recibo novo.
   - `mesclarIRFerias` junta essas deduções ao bloco aceito. O dedDepen entra logo após o `tpCR` 056107, ou num `infoIRCR` novo antes do `planSaude`. O `infoDep` de quem ainda não estava no bloco entra antes do `infoIRCR`. Nada mais muda, e o que já estava lá não se repete.
+- **Revisão do Codex no #111 (P2):** dois recibos de férias pagos no mesmo mês com o mesmo dependente (férias fracionadas ou dois contratos) só levavam a dedução do primeiro.
+  - Agora as deduções somam por CPF no S-1210 do mês.
+  - Em `mesclarIRFerias`, o valor calculado (todos os recibos do mês) troca o tpRend 13 do mesmo CPF no S-1210 aceito. O reenvio igual não muda nada, e um recibo novo soma.
 
 ## 08/10/2026 — Adiantamento salarial e vale-transporte no motor
 
