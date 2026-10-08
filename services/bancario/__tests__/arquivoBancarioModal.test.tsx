@@ -80,4 +80,18 @@ describe('modal Arquivo Bancário', () => {
         await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/Arquivo não gerado: não foi possível reservar o número do arquivo \(Missing or insufficient permissions\.\)/));
         expect(criar).not.toHaveBeenCalled();
     });
+
+    it('arquivo do adiantamento: o valor de cada um vem de fora (não o líquido) e quem não tem fica fora sem aviso', async () => {
+        const contaGravada = { id: 'c1', banco: '237', agencia: '1234-5', agenciaDv: '', conta: '12345-6', contaDv: '', convenio: '123456', proximoNsa: 5 };
+        const fichas2 = [...fichas, ficha('f3', 'CAIO', { banco: '237', agencia: '0987', conta: '44444-0', tipoConta: 'corrente' })];
+        const valor = (r: ResultadoCalculo) => (r.fichaId === 'f1' ? 100000 : 0);
+        render(<ArquivoBancarioModal empresa={{ ...empresa, contasPagamento: [contaGravada] }} resultados={[res('f1', 'ANA', 300000), res('f3', 'CAIO', 200000)]} fichas={fichas2}
+            titulo="Adiantamento salarial 10/2026" dataSugerida="2026-10-20" valorPorResultado={valor} rotuloValor="Adiantamento" onFechar={() => {}} />);
+        await screen.findByText('Gerar arquivo (.REM)');
+        expect(screen.getByRole('columnheader', { name: 'Adiantamento' })).toBeTruthy();
+        const linhas = screen.getAllByRole('row').slice(1).map(l => l.textContent);
+        expect(linhas).toHaveLength(1);
+        expect(linhas[0]).toMatch(/ANA.*20\/10\/2026.*R\$\s?1\.000,00/);
+        expect(screen.queryByText(/Fora do arquivo/)).toBeNull();
+    });
 });

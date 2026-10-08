@@ -3006,3 +3006,21 @@ guias sindicais".
 - **Revisão do Codex no #116 (dois P2):**
   - **Gravação dos parâmetros falhou:** a tela volta aos últimos parâmetros gravados, e as mudanças que estavam na fila atrás da que falhou são descartadas. A folha não segue calculada com parâmetros que não foram gravados.
   - **Conferência com o eSocial do IOB:** o mês salvo com o arredondamento usa o mês do pagamento gravado. Fora isso, vale o mês do regime.
+
+## 08/10/2026 — Arquivo bancário do adiantamento
+
+- **Paulo:** *"pode seguir com arquivo bancario do adiantamento"*.
+- **Cálculo › Mensal:** novo botão **"Arquivo do adiantamento"**. Ele aparece quando algum funcionário calculado tem adiantamento no mês e abre o mesmo "Arquivo Bancário" da folha (mesma conta, convênio e número sequencial do arquivo), com:
+  - **valor de cada um:** o adiantamento do mês e, se a empresa arredonda, o arredondamento dele (`valorDoAdiantamento`: 466,67 + 0,33 = 467,00 no caso do IOB, o mesmo do S-1210 do adiantamento). Sem arredondar, 466,67;
+  - **data sugerida:** dia 20 ou o dia útil anterior (`dataSugeridaAdiantamento`), editável;
+  - **quem não tem adiantamento** fica fora do arquivo, sem aviso. Cálculo com erro ou incompleto aparece em "Fora do arquivo", como na folha.
+- **`favorecidosDaFolha`** recebe opcionalmente o valor de cada recibo. O pacote do cliente e o arquivo da folha continuam com o líquido.
+- **Trava:** `adiantamentoVt.test.ts` (valor igual ao do S-1210, seleção e data) e `arquivoBancarioModal.test.tsx` (coluna "Adiantamento", valor de fora e quem fica fora).
+- **Fica para depois:** holerite (recibo) do adiantamento em PDF.
+- **Revisão do Codex no #117 (P1):** a data do adiantamento mudada no arquivo bancário passa pelas mesmas regras do eSocial (`foraDoAdiantamento`). Fica fora do arquivo, com o motivo:
+  - data fora da competência;
+  - data antes da admissão;
+  - admissão ou desligamento entre a data nova e a do cálculo, a não ser que o adiantamento esteja informado no movimento.
+- **Revisão do Codex no #117 (P1):** o botão "Arquivo do adiantamento" fica desativado até os movimentos gravados do mês carregarem. Um adiantamento informado no movimento (0 ou outro valor) muda o que se paga.
+- **Revisão do Codex no #117 (P1):** com erro na leitura dos movimentos, `gravados` vira `{}`. Por isso o botão "Arquivo do adiantamento" passa a depender de `movsLidos`, que só fica verdadeiro quando a leitura deu certo.
+- **Revisão do Codex no #117 (P1):** cada leitura dos movimentos tem um número. A resposta de uma leitura já trocada (outra empresa ou competência) é descartada, para os movimentos do período anterior não valerem para o novo nem liberarem o arquivo do adiantamento.
