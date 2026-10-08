@@ -72,14 +72,17 @@ export async function enviarPeloSpConnect(e: EnvioSpConnect, fetchImpl: Fetch = 
  * a equipe preencher (o CFI recusa variável faltando).
  */
 export function valoresSugeridos(chaves: string[], d: { contato?: string; empresa: string; titulo: string; competencia: string }): Record<string, string> {
-    const norm = (k: string) => k.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    // Por PALAVRA da chave, não por pedaço: "mensagem" começa com "mes" e não é
+    // competência (Codex #112). nomeEmpresa, nome_empresa e "nome empresa" viram ['nome', 'empresa'].
+    const palavras = (k: string) => k.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+    const tem = (p: string[], ...alvos: (string | RegExp)[]) => p.some(w => alvos.some(a => typeof a === 'string' ? w === a : a.test(w)));
     return Object.fromEntries(chaves.map(k => {
-        const n = norm(k);
+        const p = palavras(k);
         // Do mais específico ao genérico: "nome_empresa" é a empresa, não o contato (Codex #112).
-        const v = /empresa|razao/.test(n) ? d.empresa
-            : /compet|mes|periodo/.test(n) ? d.competencia
-            : /titulo|folha|documento|assunto/.test(n) ? d.titulo
-            : /cliente|contato|nome/.test(n) ? (d.contato?.trim() || d.empresa) : '';
+        const v = tem(p, 'empresa', 'razao', 'razaosocial') ? d.empresa
+            : tem(p, /^compet/, 'mes', 'periodo') ? d.competencia
+            : tem(p, 'titulo', 'folha', 'documento', 'assunto') ? d.titulo
+            : tem(p, 'cliente', 'contato', 'nome') ? (d.contato?.trim() || d.empresa) : '';
         return [k, v];
     }));
 }
@@ -87,8 +90,19 @@ export function valoresSugeridos(chaves: string[], d: { contato?: string; empres
 // ─── E-mail pelo escritório (Graph, no CFI) ──────────────────────────────────
 // POST /api/dp-integration/email/enviar: mesma régua do CFI e do CCI. O
 // remetente é o colaborador logado (caixa do escritório; sem caixa, a
-// institucional, dito na resposta), o .zip vai em anexo (até 3 MB) e o CFI
+// institucional, dito na resposta), o .zip vai em anexo (até LIMITE_EMAIL_BYTES) e o CFI
 // audita quem enviou. Só empresa da carteira de quem envia.
+/**
+ * Teto do anexo no e-mail pelo escritório: o CFI mede em base64 (4.000.000
+ * caracteres, para o pedido caber nos 4 MB do Graph), o que dá 3.000.000
+ * bytes do arquivo (~2,8 MB). Conferir aqui evita codificar e subir o pacote
+ * para ouvir "não" (Codex #112).
+ */
+export const LIMITE_EMAIL_BYTES = 3_000_000;
+/** MB com uma casa, arredondado para baixo no teto e para cima no tamanho: um .zip acima do teto nunca aparece com o mesmo número. */
+export const emMb = (bytes: number, arredonda: 'baixo' | 'cima' = 'cima') => `${((arredonda === 'baixo' ? Math.floor : Math.ceil)(bytes / 104857.6) / 10).toFixed(1).replace('.', ',')} MB`;
+export const LIMITE_EMAIL_TEXTO = emMb(LIMITE_EMAIL_BYTES, 'baixo');
+
 export interface EnvioEmail {
     empresaId: string; cnpj: string; empresaNome: string; titulo: string; competencia: string;
     para: string; assunto: string; mensagem: string; anexos: { nome: string; bytes: Uint8Array; mime: string }[];

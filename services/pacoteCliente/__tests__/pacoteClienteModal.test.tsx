@@ -157,6 +157,19 @@ describe('modal Pacote do cliente', () => {
         expect(await screen.findByText(/Foi junto vencimentos-sp\.ics com 1 vencimento\(s\).*Atenção: h\.pdf: PDF sem texto legível/)).toBeTruthy();
     });
 
+    it('pacote acima do teto do e-mail: o botão do escritório fica desligado e a tela diz o caminho (Codex #112)', async () => {
+        // Bytes pseudo-aleatórios: o .zip não encolhe o PDF e passa dos 3.000.000 bytes.
+        let x = 7; const grande = Uint8Array.from({ length: 3_050_000 }, () => (x = (x * 1103515245 + 12345) >>> 0) >>> 24);
+        render(<PacoteClienteModal empresa={{ ...empresa, contasPagamento: [], contatoEnvio: { email: 'marta@cliente.com.br' } }} resultados={[res('f1', 'ANA', 65432)]} fichas={fichas} titulo="Folha" sufixo="2026-09"
+            dataSugerida="2026-10-06" eventos={() => []} onFechar={() => {}} documentos={[{ id: 'holerites', rotulo: 'Holerites (PDF)', nome: 'h.pdf', descricao: 'h', gerar: () => grande }]} />);
+        fireEvent.click(screen.getByText('Baixar pacote (.zip)'));
+        const botao = await screen.findByText('Enviar e-mail pelo escritório') as HTMLButtonElement;
+        expect(botao.disabled).toBe(true);
+        expect(botao.title).toMatch(/aceita até 2,8 MB\. Use "E-mail deste computador"/);
+        expect(screen.getByText(/Este \.zip tem 3,0 MB: use "E-mail deste computador"/)).toBeTruthy();
+        expect((screen.getByText('E-mail deste computador') as HTMLButtonElement).disabled).toBe(false);
+    });
+
     it('sem conta cadastrada: o arquivo bancário fica de fora e o pacote sai sem gravar nada', async () => {
         render(<PacoteClienteModal empresa={{ ...empresa, contasPagamento: [] }} resultados={[res('f1', 'ANA', 65432)]} fichas={fichas} titulo="Folha" sufixo="2026-09"
             dataSugerida="2026-10-06" eventos={() => []} onFechar={() => {}} documentos={[{ id: 'holerites', rotulo: 'Holerites (PDF)', nome: 'h.pdf', descricao: 'h', gerar: () => pdf }]} />);
