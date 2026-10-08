@@ -85,6 +85,11 @@ const StatusEsocialAfastamento: React.FC<Props> = ({ afastamento, empresa, usuar
             {s.situacao === 'aguardando' && s.envio && (
                 <button type="button" className="rounded border border-slate-300 px-2 py-1 disabled:opacity-50 dark:border-slate-600" disabled={!!ocupado || !usuario} onClick={() => consultar(s.envio!)}>Consultar retorno</button>
             )}
+            {s.teste && (
+                <p className="text-slate-500 dark:text-slate-400">Teste na produção restrita: {s.teste.rotulo.toLowerCase()} · {s.teste.detalhe}
+                    {s.teste.situacao === 'aguardando' && s.teste.envio && <button type="button" className="ml-2 text-blue-700 underline disabled:opacity-50 dark:text-blue-300" disabled={!!ocupado || !usuario} onClick={() => consultar(s.teste!.envio!)}>Consultar retorno do teste</button>}
+                </p>
+            )}
             {(s.situacao === 'nao-enviado' || s.situacao === 'recusado') && (
                 <div className="flex flex-wrap items-center gap-2">
                     <select aria-label="Ambiente do eSocial" className="rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={tpAmb} onChange={e => setTpAmb(Number(e.target.value) as TpAmb)}>

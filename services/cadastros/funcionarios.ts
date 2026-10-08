@@ -18,7 +18,7 @@ import { lerDependentes, type Dependente } from '../implantacao/unificacao';
 import { UFS, cnpjValido, cpfValido, dataValida, centavosDeTexto, pisValido } from './documentos';
 
 export type { Dependente };
-export type CampoExtra = 'codigoIob' | 'horario' | 'banco' | 'agencia' | 'conta' | 'tipoConta' | 'pix' | 'observacoes' | 'dataDesligamento' | 'motivoDesligamento' | 'dataProjetadaAviso';
+export type CampoExtra = 'codigoIob' | 'horario' | 'banco' | 'agencia' | 'conta' | 'tipoConta' | 'pix' | 'observacoes' | 'dataDesligamento' | 'motivoDesligamento' | 'dataProjetadaAviso' | 'grauExp';
 export type CampoFicha = Exclude<Campo, 'dependentes' | 'matriculaIob'> | CampoExtra;
 export type Situacao = 'ativo' | 'desligado';
 export type ChaveOrigem = CampoFicha | 'dependentes' | 'situacao';
@@ -57,6 +57,7 @@ export const ROTULO: Record<CampoFicha, string> = {
     banco: 'Banco (código)', agencia: 'Agência', conta: 'Conta', tipoConta: 'Tipo de conta', pix: 'Chave PIX',
     observacoes: 'Observações', dataDesligamento: 'Data de desligamento',
     motivoDesligamento: 'Motivo do desligamento (eSocial)', dataProjetadaAviso: 'Fim projetado pelo aviso indenizado',
+    grauExp: 'Grau de exposição a agentes nocivos (S-1200)',
 };
 
 /** Motivos de desligamento (Tabela 19 do eSocial) mais usados; outro código fica como está. */
@@ -84,6 +85,8 @@ const OPCOES: Partial<Record<CampoFicha, [string, string][]>> = {
     regimeTrabalhista: [['1', 'CLT'], ['2', 'Estatutário']],
     regimePrevidenciario: [['1', 'RGPS'], ['2', 'RPPS'], ['3', 'Regime de previdência no exterior']],
     motivoDesligamento: MOTIVOS_DESLIGAMENTO,
+    // Tabela 02 do eSocial; em branco o S-1200 vai com 1.
+    grauExp: [['1', '1 · Não ensejador de aposentadoria especial'], ['2', '2 · Aposentadoria especial aos 15 anos (12%)'], ['3', '3 · Aposentadoria especial aos 20 anos (9%)'], ['4', '4 · Aposentadoria especial aos 25 anos (6%)']],
     tipoConta: [['corrente', 'Corrente'], ['poupanca', 'Poupança'], ['salario', 'Salário'], ['pagamento', 'Pagamento']],
     uf: UFS.map(u => [u, u]), ufCtps: UFS.map(u => [u, u]),
 };
@@ -100,7 +103,7 @@ export function defCampo(campo: CampoFicha): DefCampo {
 /** Abas na ordem do IOB Office. Complementos, Lanç. Automático e Holerite dependem dos prints do Office. */
 export const ABAS: { id: string; titulo: string; campos: CampoFicha[] }[] = [
     { id: 'dados', titulo: 'Dados', campos: ['nome', 'nascimento', 'sexo', 'estadoCivil', 'raca', 'escolaridade', 'nacionalidade', 'paisNascimento', 'naturalidade', 'mae', 'pai', 'cep', 'logradouro', 'numero', 'complemento', 'bairro', 'municipio', 'uf', 'telefone', 'email'] },
-    { id: 'identAdm', titulo: 'Ident. Adm.', campos: ['codigoIob', 'admissao', 'categoria', 'tipoContrato', 'fimContrato', 'cargo', 'cbo', 'funcao', 'cargoIob', 'departamentoIob', 'salario', 'unidadeSalario', 'horasSemanais', 'horario', 'jornada', 'horarioTrabalho', 'horarioIntervalo', 'sindicato', 'sindicatoIob', 'estabelecimento', 'regimeTrabalhista', 'regimePrevidenciario', 'opcaoFgts', 'dataDesligamento', 'motivoDesligamento', 'dataProjetadaAviso'] },
+    { id: 'identAdm', titulo: 'Ident. Adm.', campos: ['codigoIob', 'admissao', 'categoria', 'tipoContrato', 'fimContrato', 'cargo', 'cbo', 'funcao', 'cargoIob', 'departamentoIob', 'salario', 'unidadeSalario', 'horasSemanais', 'horario', 'jornada', 'horarioTrabalho', 'horarioIntervalo', 'sindicato', 'sindicatoIob', 'estabelecimento', 'regimeTrabalhista', 'regimePrevidenciario', 'opcaoFgts', 'grauExp', 'dataDesligamento', 'motivoDesligamento', 'dataProjetadaAviso'] },
     { id: 'documentos', titulo: 'Documentos', campos: ['pis', 'cadastroPis', 'ctps', 'serieCtps', 'ufCtps', 'rg', 'orgaoRg', 'emissaoRg', 'tituloEleitor', 'zonaEleitoral', 'secaoEleitoral', 'documentoMilitar'] },
     { id: 'outros', titulo: 'Outros', campos: ['banco', 'agencia', 'conta', 'tipoConta', 'pix', 'deficiencia', 'enderecoExterior', 'observacoes'] },
 ];

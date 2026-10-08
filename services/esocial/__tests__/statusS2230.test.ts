@@ -36,6 +36,14 @@ const envio = (p: Partial<Envio>): Envio => ({ id: 'L1', empresaId: 'E1', cnpj: 
 
 describe('situação do S-2230 de um afastamento', () => {
     const a = { id: 'f1_2026-11-09', recibos: [] as string[] };
+    it('teste na produção restrita fica à parte: não marca aceito nem esconde o envio à produção', () => {
+        const teste = envio({ id: 'T1', tpAmb: 2, situacao: 'processado', eventos: [{ id: 'ID7', tipo: 'S-2230', perApur: null, ref: a.id, cdResposta: 201, nrRecibo: '1.2.0000000000000000007' }] });
+        const s = statusS2230(a, [teste]);
+        expect([s.situacao, s.teste?.situacao, s.envio]).toEqual(['nao-enviado', 'aceito', null]);
+        const prod = envio({ id: 'P1', enviadoEm: '2026-10-06T10:00:00.000Z', eventos: [{ id: 'ID9', tipo: 'S-2230', perApur: null, ref: a.id }] });
+        const s2 = statusS2230(a, [teste, prod]);
+        expect([s2.situacao, s2.envio?.id, s2.teste?.envio?.id, s2.historico.length]).toEqual(['aguardando', 'P1', 'T1', 2]);
+    });
     it('não enviado; enviado pelo IOB (recibo importado)', () => {
         expect(statusS2230(a, []).situacao).toBe('nao-enviado');
         expect(statusS2230({ ...a, recibos: ['1.1.999'] }, [])).toMatchObject({ situacao: 'iob', recibo: '1.1.999' });

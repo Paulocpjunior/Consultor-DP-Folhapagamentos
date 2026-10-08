@@ -33,6 +33,12 @@ const motor = (fichaId: string, sal: number, he: number, inss: number, irrf = 0,
 const ler = (xml: string) => lerS1200Xml(xml, 'a.xml', '44388152').remuneracoes;
 
 describe('leitura do S-1200 do IOB', () => {
+    it('aceito com advertência (202) vale; recusado fica de fora', () => {
+        const env = (cd: string) => `<retornoEventoCompleto><evento>${s1200('2026-09', '52998224725', [['0001', '3000.00']])}</evento><recibo><eSocial><retornoEvento><recibo><nrRecibo>1.1.0000000000000000001</nrRecibo></recibo><processamento><cdResposta>${cd}</cdResposta><dhProcessamento>2026-10-05T10:00:00</dhProcessamento></processamento></retornoEvento></eSocial></recibo></retornoEventoCompleto>`;
+        expect(ler(env('202'))).toHaveLength(1);
+        expect(ler(env('401'))).toEqual([]);
+    });
+
     it('itens em centavos, matrícula e categoria; 13º e outro empregador ficam de fora', () => {
         const [r] = ler(s1200('2026-09', '52998224725', [['0001', '3000.00'], ['0901', '253.41']]));
         expect(r).toMatchObject({ perApur: '2026-09', cpf: '52998224725', matriculas: ['M529'], categorias: ['101'], periodoAnterior: false });

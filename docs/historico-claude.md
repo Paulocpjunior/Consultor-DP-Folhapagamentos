@@ -2485,3 +2485,46 @@ guias sindicais".
   avança além dela.
 - **#104:** o Codex não fez apontamentos.
 - **Testes:** 86 arquivos, 666 testes.
+
+## 08/10/2026 — Auditoria do 1º dia de produção e lote A (eSocial)
+
+- **Paulo:** *"vamos fazer uma auditoria geral do nosso primeiro dia de
+  produção: erros, defeitos, ajustes, sugestões"*.
+- **Auditoria (PRs #79 a #106):** 28 PRs, cerca de 8.100 linhas.
+  - **Codex:** 37 apontamentos, 14 P1. Dos 15 que chegaram depois do merge,
+    9 ficaram sem tratamento: #84 (2), #89 (2), #90, #93 (já corrigido pelo
+    #94), #95 (2) e #99.
+  - **Revisão independente:** mais 15 defeitos.
+  - **CI:** só faz o build, sem testes nem verificação de tipos.
+  - **Dependências:** 13 vulnerabilidades, 4 críticas, entre elas a do
+    `jspdf`.
+  - **Proposta:** 4 lotes de correção.
+- **Paulo:** *"pode seguir com lote A"*. Feito:
+  1. **S-1200: campos obrigatórios pela regra de negócio** (o XSD aceita sem
+     eles, por isso o teste do schema passava):
+     - `indApurIR` 0 em cada `itensRemun`;
+     - `infoAgNocivo/grauExp` para as categorias 1XX, 2XX, 3XX, 731, 734 e
+       738. O grau vem do campo novo da ficha "Grau de exposição a agentes
+       nocivos" (Tabela 02); em branco, vai 1.
+  2. **Férias no mês:** o trabalhador fica sem evento, com o motivo. O
+     eSocial pede um demonstrativo próprio de férias, com o pagamento na data
+     do recibo, que o Consultor ainda não gera. Esse caso segue pelo IOB.
+  3. **Retificação:**
+     - o S-1200 original guarda todos os demonstrativos de cada matrícula;
+     - com mais de um demonstrativo na matrícula, não gera;
+     - um demonstrativo do original que o cálculo não gera vira erro, não
+       mais aviso, porque a retificação o apagaria.
+  4. **S-1210 excluído com a tela reaberta sem o download:** a referência
+     do S-3000 passa a levar o CPF e o mês (`exclui:recibo:cpf:AAAA-MM`). O
+     S-1210 excluído volta marcado, sem os pagamentos, e o reenvio fica
+     bloqueado até carregar o download ou a cópia.
+  5. **Recibo vigente:** os horários passam a ser comparados no mesmo fuso
+     (`instante`): o envio do Consultor vem em UTC e o download, na hora de
+     Brasília. Entre várias versões vale a mais nova que traz os
+     demonstrativos, e não mais a soma delas.
+  6. **Conferência com o IOB:** o S-1200 aceito com advertência (202)
+     passa a valer.
+  7. **S-2230:** a situação é a da produção. O teste na produção restrita
+     aparece à parte e não esconde o botão de envio.
+- **Conferência:** S-1200 validado no `evtRemun.xsd` (só falta a
+  assinatura). Testes: 86 arquivos, 671 testes.
