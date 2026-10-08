@@ -3003,3 +3003,6 @@ guias sindicais".
 - **Revisão do Codex no #116 (dois P2):**
   - **Edição com o arredondamento desligado:** qualquer movimento editado é gravado sem o atual antigo, mesmo num mês sem arredondamento. Religado o arredondamento, o mês é refeito.
   - **"Pagamento em" fora do regime:** o mês do pagamento gravado com o atual é o que foi usado de fato. O encadeamento aceita o atual gravado e, quando precisa refazer o mês (início mudado), usa esse mês do pagamento. Mudar o regime depois não reescreve mês fechado; para isso, é preciso reabrir o mês e salvar de novo. Isso substitui a regra anterior, que descartava o atual quando o regime de hoje dava outro mês.
+- **Revisão do Codex no #116 (dois P2):**
+  - **Gravação dos parâmetros falhou:** a tela volta aos últimos parâmetros gravados, e as mudanças que estavam na fila atrás da que falhou são descartadas. A folha não segue calculada com parâmetros que não foram gravados.
+  - **Conferência com o eSocial do IOB:** o mês salvo com o arredondamento usa o mês do pagamento gravado. Fora isso, vale o mês do regime.

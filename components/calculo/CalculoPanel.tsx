@@ -292,7 +292,8 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         if (!dados || !movsEmpresa) return [];
         return noMes(dados.fichas, c).map(f => {
             const afs = dados.afastamentos.filter(a => a.fichaId === f.id);
-            const r = calcularMensal({ competencia: c, pagamento: mesDoPagamento(parametrosFolha, c), ficha: f, tabelas: dados.tabelas, movimento: movsEmpresa[f.id]?.[c], afastamentos: afs,
+            // Mês salvo com o arredondamento: o mês do pagamento usado de fato (Codex #116); senão, o do regime.
+            const r = calcularMensal({ competencia: c, pagamento: movsEmpresa[f.id]?.[c]?.arredondamentoPagamento ?? mesDoPagamento(parametrosFolha, c), ficha: f, tabelas: dados.tabelas, movimento: movsEmpresa[f.id]?.[c], afastamentos: afs,
                 feriasDoMes: feriasDaCompetencia(f, afs, dados.tabelas, movsEmpresa[f.id] ?? {}, c, opcoesFerias) });
             return arredondarDaEmpresa(r, f, c, movsEmpresa[f.id]?.[c]?.arredondamentoAnterior);
         });
@@ -340,16 +341,33 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
 
     // Parâmetros da folha: cada mudança parte da última (não da que estava na tela quando a anterior ainda gravava) e as
     // gravações vão em fila, para a mais nova ser a última a chegar (Codex #116).
+    // Falhou a gravação: a tela volta aos últimos parâmetros gravados e as mudanças que estavam na fila atrás dela
+    // (feitas sobre o valor que não gravou) são descartadas (Codex #116).
     const ultimosParametros = useRef<Record<string, ParametrosFolha | undefined>>({});
+    const gravadosParametros = useRef<Record<string, ParametrosFolha | undefined>>({});
+    const geracaoParametros = useRef<Record<string, number>>({});
     const filaParametros = useRef<Promise<void>>(Promise.resolve());
     function gravarParametrosFolha(mudar: (p: ParametrosFolha | undefined) => ParametrosFolha) {
         if (!empresa) return;
         const id = empresa.id;
+        if (!(id in gravadosParametros.current)) gravadosParametros.current[id] = empresa.parametrosFolha;
         const novo = mudar(id in ultimosParametros.current ? ultimosParametros.current[id] : empresa.parametrosFolha);
         ultimosParametros.current[id] = novo;
-        setEmpresas(l => l?.map(e => (e.id === id ? { ...e, parametrosFolha: novo } : e)) ?? l);
-        filaParametros.current = filaParametros.current.then(() => salvarParametrosFolha(id, novo))
-            .catch(e => setErro(`Parâmetros da folha não gravados (recarregue a página antes de continuar): ${mensagemErro(e)}`));
+        const geracao = geracaoParametros.current[id] ?? 0;
+        const aplicar = (p: ParametrosFolha | undefined) => setEmpresas(l => l?.map(e => (e.id === id ? { ...e, parametrosFolha: p } : e)) ?? l);
+        aplicar(novo);
+        filaParametros.current = filaParametros.current.then(async () => {
+            if ((geracaoParametros.current[id] ?? 0) !== geracao) return;
+            try {
+                await salvarParametrosFolha(id, novo);
+                gravadosParametros.current[id] = novo;
+            } catch (e) {
+                geracaoParametros.current[id] = geracao + 1;
+                ultimosParametros.current[id] = gravadosParametros.current[id];
+                aplicar(gravadosParametros.current[id]);
+                setErro(`Parâmetros da folha não gravados; a tela voltou aos últimos gravados: ${mensagemErro(e)}`);
+            }
+        });
     }
 
     async function salvar() {
