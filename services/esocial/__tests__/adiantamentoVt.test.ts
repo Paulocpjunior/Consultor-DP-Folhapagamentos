@@ -57,6 +57,10 @@ describe('adiantamento salarial e vale-transporte', () => {
         const comCusto = mensal('2026-08', { ...FICHA, dados: { ...FICHA.dados, valeTransporteCusto: '150.00' } });
         expect(v(comCusto, 'VT')).toBe(15000);
         expect(comCusto.memoria.join(' ')).toContain('que limita o desconto');
+        // Mês parcial (setembro: 10 dias fora das férias): o custo do mês inteiro vale pelos dias pagos (Codex #115).
+        const setCusto = mensal('2026-09', { ...FICHA, dados: { ...FICHA.dados, valeTransporteCusto: '150.00' } });
+        expect(v(setCusto, 'VT')).toBe(5000);
+        expect(setCusto.memoria.join(' ')).toMatch(/custo do benefício R\$\s50,00 \(R\$\s150,00 × 10\/30 dias\), que limita o desconto/);
         const informado = mensal('2026-08', FICHA, { adiantamento: 120000, valeTransporte: 0 });
         expect([v(informado, 'ADIANT'), v(informado, 'VT')]).toEqual([120000, undefined]);
         const sem = mensal('2026-08', { ...FICHA, dados: { ...FICHA.dados, adiantamentoPct: '', valeTransporte: 'N' } });

@@ -271,10 +271,13 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
         if (v) r.memoria.push(`Vale-transporte: ${reais(v)} descontados no mês (informado no movimento).`);
     } else if (d.valeTransporte === 'S') {
         const seis = Math.round(sal * 6 / 100);
-        const custo = centavosDeTexto(d.valeTransporteCusto ?? '') ?? 0;
+        // O custo da ficha é o do mês inteiro: em mês parcial (admissão, férias, afastamento) vale o dos dias pagos,
+        // proporcional ao benefício concedido (Decreto 10.854/2021, art. 115; Codex #115).
+        const custoMes = centavosDeTexto(d.valeTransporteCusto ?? '') ?? 0;
+        const custo = custoMes > 0 && diasPagos < 30 ? Math.round(custoMes * diasPagos / 30) : custoMes;
         const v = custo > 0 ? Math.min(seis, custo) : seis;
         verba({ codigo: 'VT', descricao: 'Vale-transporte', referencia: '6%', tipo: 'desconto', valor: v, inss: false, fgts: false, irrf: false });
-        r.memoria.push(`Vale-transporte: 6% de ${reais(sal)} (salário do mês) = ${reais(seis)}${custo > 0 ? `; custo do benefício ${reais(custo)}${v < seis ? ', que limita o desconto' : ''}` : ' (sem o custo do benefício na ficha: se ele for menor, o desconto é o custo)'}.`);
+        r.memoria.push(`Vale-transporte: 6% de ${reais(sal)} (salário do mês) = ${reais(seis)}${custo > 0 ? `; custo do benefício ${reais(custo)}${custo !== custoMes ? ` (${reais(custoMes)} × ${diasPagos}/30 dias)` : ''}${v < seis ? ', que limita o desconto' : ''}` : ' (sem o custo do benefício na ficha: se ele for menor, o desconto é o custo)'}.`);
     }
 
     // Adiantamento salarial: o percentual da ficha sobre o salário do mês (o IOB calcula assim), ou o valor

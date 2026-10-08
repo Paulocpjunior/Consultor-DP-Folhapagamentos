@@ -2934,3 +2934,4 @@ guias sindicais".
   - Pelo RIR/1999, art. 621, o adiantamento de rendimentos que não são integralmente pagos no próprio mês tem o IRRF calculado de imediato, no mês do pagamento. O motor ainda calcula tudo no mês da folha.
   - Até a regra ser conferida com o IOB, o motor avisa e o gerador do eSocial recusa esse caso para o trabalhador, com o motivo.
   - No caso do IOB (folha paga em 30/08), os dois pagamentos são do mesmo mês, e nada muda.
+- **Revisão do Codex no #115 (P2, VT em mês parcial):** o custo do VT na ficha é o do mês inteiro. Em mês parcial (admissão, férias, afastamento), o teto do desconto passa a ser o custo × dias pagos / 30, proporcional ao benefício concedido (Decreto 10.854/2021, art. 115). Exemplo: setembro, com 10 dias fora das férias e custo de 150,00, limita o desconto a 50,00.
