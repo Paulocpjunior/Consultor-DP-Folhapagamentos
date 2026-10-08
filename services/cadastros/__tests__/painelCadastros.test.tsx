@@ -9,7 +9,7 @@ import type { FichaFuncionario } from '../funcionarios';
 const svc = vi.hoisted(() => ({
     listarFuncionarios: vi.fn(), gravarImportacao: vi.fn(), salvarFuncionario: vi.fn(), excluirFuncionario: vi.fn(), historico: vi.fn(),
     listarSindicatos: vi.fn(), salvarSindicato: vi.fn(), excluirSindicato: vi.fn(),
-    listarTabelas: vi.fn(), salvarTabela: vi.fn(), excluirTabela: vi.fn(),
+    listarTabelas: vi.fn(), salvarTabela: vi.fn(), gravarTabelaOficial: vi.fn(), excluirTabela: vi.fn(),
     listarHorarios: vi.fn(), salvarHorario: vi.fn(), excluirHorario: vi.fn(),
     listarAfastamentos: vi.fn(), salvarAfastamento: vi.fn(), gravarAfastamentosImportados: vi.fn(), excluirAfastamento: vi.fn(),
     listarRubricas: vi.fn(), gravarRubricasImportadas: vi.fn(), salvarVinculoRubrica: vi.fn(), excluirRubrica: vi.fn(),
@@ -112,6 +112,18 @@ describe('Cadastros na interface', () => {
         fireEvent.click(within(dlg).getByText('Gravar'));
         await waitFor(() => expect(svc.salvarTabela).toHaveBeenCalledTimes(1));
         expect(svc.salvarTabela.mock.calls[0][1]).toMatchObject({ tipo: 'salario_minimo', vigencia: '2026-01', valores: { salarioMinimo: 100000 }, norma: 'Decreto fictício de teste' });
+    });
+
+    it('tabelas oficiais: grava pela transação e avisa a que outra pessoa já gravou', async () => {
+        render(<CadastrosPanel currentUser={usuario} subInicial="tabelas" />);
+        const botao = await screen.findByText(/Gravar as tabelas oficiais de 2026/);
+        svc.gravarTabelaOficial.mockResolvedValueOnce(false).mockResolvedValue(true);
+        vi.spyOn(window, 'confirm').mockReturnValue(true);
+        fireEvent.click(botao);
+        await waitFor(() => expect(screen.getByText(/Já gravadas por outra pessoa/)).toBeTruthy());
+        expect(svc.salvarTabela).not.toHaveBeenCalled();
+        expect(svc.gravarTabelaOficial.mock.calls[0][1]).toMatchObject({ id: 'uid1', email: 'ana@sp.com' });
+        expect(screen.getByText(/Gravadas: /)).toBeTruthy();
     });
 
     it('horário: grava com id da empresa e código, mostra total e descrição da jornada', async () => {

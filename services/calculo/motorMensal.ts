@@ -165,7 +165,8 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     if ('erro' in sc) return erro(sc.erro);
     const { mensal, horasMes } = sc;
     r.memoria.push(sc.memoria);
-    if (naCompetencia.faixa) r.memoria.push(memoriaDoHistorico(naCompetencia.faixa, 'na competência'));
+    if (naCompetencia.faixa) r.memoria.push(memoriaDoHistorico(naCompetencia.faixa, 'na competência', !!naCompetencia.antesDoHistorico));
+    if (naCompetencia.antesDoHistorico) r.avisos.push('Data anterior ao histórico de salário da ficha: usado o salário mais antigo conhecido; confira.');
     if (naCompetencia.alteradoNoMes) r.avisos.push(`Salário alterado em ${brData(naCompetencia.alteradoNoMes)}, no meio do mês: o motor usa o vigente no fim do mês; confira se o IOB pagou proporcional.`);
     const salarioHora = mensal / horasMes;
     const diaria = mensal / 30;

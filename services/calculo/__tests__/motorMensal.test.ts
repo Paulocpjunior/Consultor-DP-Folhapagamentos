@@ -36,6 +36,11 @@ describe('motor do cálculo mensal', () => {
         const depois = calc({ ficha: f, competencia: '2026-03' });
         expect(valor(depois, 'SAL')).toBe(330000);
         expect(depois.memoria.join('\n')).not.toContain('vigente na competência');
+        // Competência antes do histórico (o do SAGE pode não começar na admissão): o salário mais antigo conhecido, com aviso.
+        const semInicio = { ...f, historicoSalario: [{ desde: '2025-06-01', salario: '3100.00', origem: 'IOB: salarios · 06/2025' }, { desde: '2026-03-01', salario: '3300.00', origem: 'IOB: salarios · 03/2026' }] };
+        const anterior = calc({ ficha: semInicio, competencia: '2025-02' });
+        expect(valor(anterior, 'SAL')).toBe(310000);
+        expect(anterior.avisos.join(' ')).toMatch(/anterior ao histórico de salário/);
     });
 
     it('mês inteiro: INSS progressivo e IRRF zerado pelo desconto simplificado', () => {

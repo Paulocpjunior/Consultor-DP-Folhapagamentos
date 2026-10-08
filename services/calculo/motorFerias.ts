@@ -222,7 +222,8 @@ export function calcularFerias(e: EntradaFerias): ResultadoFerias {
     r.avisos.push(...sc.avisos);
     if ('erro' in sc) return erro(sc.erro);
     r.memoria.push(sc.memoria);
-    if (naConcessao.faixa) r.memoria.push(memoriaDoHistorico(naConcessao.faixa, `no início das férias (${br(gozo.dtInicio)})`));
+    if (naConcessao.faixa) r.memoria.push(memoriaDoHistorico(naConcessao.faixa, `no início das férias (${br(gozo.dtInicio)})`, !!naConcessao.antesDoHistorico));
+    if (naConcessao.antesDoHistorico) r.avisos.push('Data anterior ao histórico de salário da ficha: usado o salário mais antigo conhecido; confira.');
     const salarioHora = sc.mensal / sc.horasMes;
     let somaVar = 0; let comMov = 0;
     for (const c of meses) {

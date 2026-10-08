@@ -19,6 +19,18 @@ const HIST = ['nchave', 'codfun', 'canomes', 'ctipfer', 'cstatus', 'daquisiini',
 const linha = (o: Partial<Record<string, string>>) => HIST.map(c => o[c] ?? null);
 
 describe('férias anteriores pelo hist_ferias', () => {
+    it('cancelada e programada (futura, sem recibo) ficam de fora; situação desconhecida entra com aviso', () => {
+        const t = { colunas: HIST, linhas: [
+            linha({ codfun: '52', cstatus: 'C', dgozoini: '2025-07-01', dgozofim: '2025-07-30' }),
+            linha({ codfun: '52', cstatus: 'P', dgozoini: '2026-12-01', dgozofim: '2026-12-30' }),
+            linha({ codfun: '52', cstatus: 'P', dgozoini: '2026-11-03', dgozofim: '2026-11-22', drecibo: '2026-10-31' }),
+            linha({ codfun: '52', cstatus: 'X', dgozoini: '2024-07-01', dgozofim: '2024-07-30' }),
+        ] };
+        const r = gozosDoHistorico(t, empresa, [ficha('000052')], 'Backup IOB: hist_ferias', '2026-10-08');
+        expect(r.afastamentos.map(a => a.dtInicio)).toEqual(['2026-11-03', '2024-07-01']);
+        expect(r.avisos.join(' ')).toMatch(/1 férias canceladas.*1 férias programadas.*situação P, X no IOB entraram como gozadas/);
+    });
+
     it('cada gozo vira afastamento de motivo 15 com o período aquisitivo e o abono', () => {
         const t = { colunas: HIST, linhas: [
             linha({ codfun: '000052', cstatus: 'Q', daquisiini: '2022-05-02', daquisifim: '2023-05-01', dgozoini: '2023-07-03', dgozofim: '2023-07-22', ntotabono: '10' }),

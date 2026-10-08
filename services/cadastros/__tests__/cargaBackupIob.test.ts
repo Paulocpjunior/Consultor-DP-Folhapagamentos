@@ -314,6 +314,10 @@ describe('histórico de salário do SAGE (rsalfunc/salarios)', () => {
         // eSocial incremental sobre eSocial: as faixas anteriores ficam.
         const esocial = { ...sage, historicoSalario: [{ desde: '2024-01-02', salario: '1800.00', origem: 'S-2200 · 1' }, { desde: '2025-03-01', salario: '2100.00', origem: 'S-2206 · 2' }] };
         expect(mesclarComEsocial(esocial, soS2206).ficha.historicoSalario!.map(x => x.origem)).toEqual(['S-2200 · 1', 'S-2206 · 2', 'S-2206 · 9']);
+        // Lote parcial de um período antigo (só o S-2206 de 2025-03): as faixas posteriores ficam.
+        const comFuturo = { ...esocial, historicoSalario: [...esocial.historicoSalario, { desde: '2026-05-01', salario: '2300.00', origem: 'S-2206 · 9' }] };
+        const antigo = { ...sage, historicoSalario: [{ desde: '2025-03-01', salario: '2150.00', origem: 'S-2206 · 2r' }] };
+        expect(mesclarComEsocial(comFuturo, antigo).ficha.historicoSalario!.map(x => [x.desde, x.salario])).toEqual([['2024-01-02', '1800.00'], ['2025-03-01', '2150.00'], ['2026-05-01', '2300.00']]);
     });
 
     const rsalfunc = { colunas: ['codfun', 'data', 'salario', 'codcargo'], linhas: [

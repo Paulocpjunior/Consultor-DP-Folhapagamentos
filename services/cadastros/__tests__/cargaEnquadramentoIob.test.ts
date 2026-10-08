@@ -88,6 +88,18 @@ describe('só com o .backup da empresa (schema fNNNN)', () => {
     const DEPTO_MA = ['composto', 'depsetsec', 'anomes', 'codgps', 'percterc', 'percsat', 'percinss', 'meepp', 'percfap', 'fpas', 'codterc'];
     const ma = (dep: string, mes: string, terc: string, rat: string, fap: string, fpas = '515', cod = '0115') => ['', dep, mes, '2100', terc, rat, '20', '', fap, fpas, cod];
     const S1000 = ['pk_padrao', 'codigo', 'tpinsc', 'nrinsc', 'nmrazao', 'classtrib'];
+
+    it('troca de regime no S-1000: cada vigência com o regime da época; a troca abre vigência; FPAS do backup volta ao trocar para Normal', () => {
+        const emp = [{ id: 'A', nome: 'ALFA', cnpj: '11222333000181', codigoSage: '1200' }];
+        // Normal desde 2015; Simples desde 03/2025. O depto_ma tem os mesmos parâmetros de 01/2025 a 06/2025.
+        const s1000 = T([...S1000, 'inivalid'], [['1', '1', '1', '11222333', 'A', '99', '2015-01'], ['2', '1', '1', '11222333', 'A', '01', '2025-03']]);
+        const meses = ['202501', '202502', '202503', '202504', '202505', '202506'].map(m => ma('1', m, '5,8', '2', '1,0000'));
+        const r = proporEnquadramentos({ schemas: [{ grupo: 'f1200', s1000, deptoMa: T(DEPTO_MA, meses) }] }, emp, [], '2025-01');
+        expect(r.propostas.map(p => [p.enquadramento.vigencia, p.enquadramento.regime, p.enquadramento.fpas])).toEqual([['2025-01', 'normal', '515'], ['2025-03', 'simples', '']]);
+        expect(r.propostas[0].pendencias.join(' ')).toMatch(/Regime normal nesta vigência pelo S-1000 do backup \(o atual é simples\)/);
+        // A equipe troca a vigência do Simples para Normal: o FPAS e os terceiros do backup voltam.
+        expect(aplicarRegime(r.propostas[1], 'normal').enquadramento).toMatchObject({ regime: 'normal', fpas: '515', codigoTerceiros: '0115', terceiros: 5.8 });
+    });
     it('períodos do depto_ma: muda o parâmetro, nova vigência; só os que valem a partir do corte; lotação com mais meses', () => {
         const ls = [
             ma('1', '202401', '5,8', '2', '1,0000'), ma('1', '202402', '5,8', '2', '1,0000'), ma('1', '202501', '5,8', '2', '0,9512'),
