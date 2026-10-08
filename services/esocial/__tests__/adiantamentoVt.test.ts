@@ -65,6 +65,11 @@ describe('adiantamento salarial e vale-transporte', () => {
         const r2 = calcularMensal({ competencia: '2026-08', pagamento: '2026-08', ficha: FICHA, tabelas: TAB, afastamentos: [rem] });
         expect([v(r2, 'SAL'), v(r2, 'VT')]).toEqual([350000, 14000]);
         expect(r2.memoria.join(' ')).toContain('de 20 dia(s) com deslocamento');
+        // Faltas do movimento também não têm deslocamento: 6 faltas deixam 24 dias (Codex #115); o mês todo, VT zero.
+        const comFaltas = calcularMensal({ competencia: '2026-08', pagamento: '2026-08', ficha: FICHA, tabelas: TAB, afastamentos: [], movimento: { faltasDias: 6 } });
+        expect(v(comFaltas, 'VT')).toBe(16800);
+        expect(comFaltas.memoria.join(' ')).toContain('de 24 dia(s) com deslocamento; faltas');
+        expect(v(calcularMensal({ competencia: '2026-08', pagamento: '2026-08', ficha: FICHA, tabelas: TAB, afastamentos: [], movimento: { faltasDias: 30 } }), 'VT')).toBeUndefined();
     });
 
     it('motor: o custo do benefício limita o VT; o movimento sobrepõe a ficha (0 = não houve) e o 0 fica gravado', () => {
