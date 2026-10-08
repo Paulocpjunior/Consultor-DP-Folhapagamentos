@@ -19,14 +19,14 @@
 // desta folha.
 //
 // Férias (Paulo, 08/10/2026: "pode seguir com demonstrativo de férias no
-// S-1200"): o recibo vai num demonstrativo próprio no S-1200 do mês em que
-// foi pago, com o pagamento na data do recibo (S-1210 desse mês; o eSocial
-// recusa pagamento antes do período do demonstrativo). A parte do gozo em
-// mês posterior ao pagamento vai como adiantamento (natureza 1015, desde
-// 01/2026); a folha do mês do gozo traz as férias do mês e abate o que o
-// recibo pagou e reteve (9221), como o holerite. Gozo no próprio mês do
-// pagamento: o recibo já leva as férias (1016 e 1017) e o INSS retido, e a
-// folha não repete essa parte.
+// S-1200"), como no MOS S-1.3 (docs/referencias): S-1010, item 23, opção 1,
+// e S-1200, item 29 (exemplo S-1200 × S-1210). O recibo vai num
+// demonstrativo próprio no S-1200 do mês em que foi pago, inteiro como
+// adiantamento (natureza 1015: férias e 1/3), com o INSS e o IRRF retidos,
+// e é pago na data do recibo (S-1210 desse mês). A folha de cada mês do gozo
+// traz as férias e o 1/3 do mês (1016 e 1017) e abate o adiantamento (9221)
+// e o INSS e o IRRF retidos no recibo, como o holerite. Vale também quando o
+// pagamento é no próprio mês do gozo.
 
 import type { Movimento, ResultadoCalculo, Verba } from '../calculo/motorMensal';
 import { calcularFerias, parteDaCompetencia, type ResultadoFerias } from '../calculo/motorFerias';
@@ -82,9 +82,7 @@ const SUGESTAO: Record<string, { naturezas: string[]; dica?: RegExp; evita?: Reg
     FERPAGO: { naturezas: ['9221'] },
     INSSFERRET: { naturezas: ['9201'], dica: /FERIAS/ },
     IRRFFERRET: { naturezas: ['9203'], dica: /FERIAS/ },
-    // Recibo de férias: gozo no mês do pagamento (1016, 1017) ou adiantamento do gozo em mês seguinte (1015, com o 1/3).
-    FER: { naturezas: ['1016'] },
-    FER13: { naturezas: ['1017'] },
+    // Recibo de férias: adiantamento das férias e do 1/3 (1015), INSS e IRRF retidos.
     FERADI: { naturezas: ['1015'] },
     FERADI13: { naturezas: ['1015'] },
     FERDOB: { naturezas: ['1024'] },
@@ -92,7 +90,6 @@ const SUGESTAO: Record<string, { naturezas: string[]; dica?: RegExp; evita?: Reg
     ABONO: { naturezas: ['1023'] },
     ABONO13: { naturezas: ['1023'] },
     INSSFER: { naturezas: ['9201'], dica: /FERIAS/ },
-    INSSFERADI: { naturezas: ['9201'], dica: /FERIAS/ },
     IRRFFER: { naturezas: ['9203'], dica: /FERIAS/ },
 };
 
@@ -153,40 +150,19 @@ export function recibosFeriasDaCompetencia(fichas: FichaFuncionario[], afastamen
 }
 
 /**
- * Verbas do recibo para o S-1200 do mês do pagamento: férias, 1/3 e INSS
- * divididos pela competência do gozo. A do mês do pagamento fica como está
- * (1016, 1017 e o INSS da competência); a de mês seguinte vira adiantamento
- * (FERADI, FERADI13: natureza 1015) e o INSS dela vai à parte (INSSFERADI).
+ * Verbas do recibo para o S-1200 do mês do pagamento: férias e 1/3 inteiros
+ * como adiantamento (FERADI, FERADI13: natureza 1015); o resto como veio
+ * (abono, dobra, INSS e IRRF retidos).
  */
-export function verbasDoReciboFerias(rf: ResultadoFerias, mesPagamento: string): Verba[] {
-    const r: Verba[] = [];
-    const add = (base: Verba, codigo: string, descricao: string, valor: number) => {
-        if (valor <= 0) return;
-        const ja = r.find(x => x.codigo === codigo);
-        if (ja) ja.valor += valor; else r.push({ ...base, codigo, descricao, referencia: codigo === base.codigo ? base.referencia : '', valor });
-    };
-    const divide = (v: Verba, parte: (c: ResultadoFerias['porCompetencia'][number]) => number, adi: string, descAdi: string) => {
-        const total = rf.porCompetencia.reduce((s, c) => s + parte(c), 0);
-        if (total !== v.valor) { add(v, v.codigo, v.descricao, v.valor); return; } // sem divisão por competência: como veio
-        for (const c of rf.porCompetencia) {
-            if (c.competencia <= mesPagamento) add(v, v.codigo, v.descricao, parte(c));
-            else add(v, adi, descAdi, parte(c));
-        }
-    };
-    for (const v of rf.verbas) {
-        if (v.valor <= 0) continue;
-        if (v.codigo === 'FER') divide(v, c => c.ferias, 'FERADI', 'Adiantamento de férias (gozo em mês seguinte)');
-        else if (v.codigo === 'FER13') divide(v, c => c.terco, 'FERADI13', '1/3 do adiantamento de férias');
-        else if (v.codigo === 'INSSFER') divide(v, c => c.inss, 'INSSFERADI', 'INSS do adiantamento de férias');
-        else add(v, v.codigo, v.descricao, v.valor);
-    }
-    return r;
+export function verbasDoReciboFerias(rf: ResultadoFerias): Verba[] {
+    const adiantamento: Record<string, [string, string]> = { FER: ['FERADI', 'Adiantamento de férias'], FER13: ['FERADI13', '1/3 do adiantamento de férias'] };
+    return rf.verbas.filter(v => v.valor > 0).map(v => (adiantamento[v.codigo] ? { ...v, codigo: adiantamento[v.codigo][0], descricao: adiantamento[v.codigo][1] } : v));
 }
 
 /** Verbas que vão ao eSocial além da folha (recibos de férias pagos no mês), para o de/para. */
 export function verbasDosRecibosParaDePara(recibos: ReciboFeriasEsocial[], competencia: string): ResultadoCalculo[] {
     return recibos.filter(x => x.dataPagamento.slice(0, 7) === competencia && x.r.situacao === 'calculado')
-        .map(x => ({ ...x.r, verbas: verbasDoReciboFerias(x.r, competencia) }));
+        .map(x => ({ ...x.r, verbas: verbasDoReciboFerias(x.r) }));
 }
 
 /** Quantidade da verba pela referência do motor ("10,5 h", "30 dias"). */
@@ -222,8 +198,6 @@ export interface EventosDoTrabalhador extends Pagamentos1210 {
 
 /** indRetif 1 (original) ou 2 com o nrRecibo do evento que está valendo. */
 const retif = (r?: ReciboEvento) => (r ? `<indRetif>2</indRetif><nrRecibo>${r.nrRecibo}</nrRecibo>` : '<indRetif>1</indRetif>');
-/** Verbas da folha com as férias do mês pagas no recibo (somam e abatem o recibo). */
-const VERBAS_FERIAS = ['FERMES', 'FERMES13', 'FERPAGO', 'INSSFERRET', 'IRRFFERRET'];
 const mes = (c: string) => `${c.slice(5)}/${c.slice(0, 4)}`;
 const br = (d: string) => d.split('-').reverse().join('/');
 
@@ -330,10 +304,8 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             if (!/^\d{3}$/.test(categ)) t.erros.push(`Categoria do eSocial (3 dígitos) em branco na ficha${quem}.`);
             if (r.totais.liquido < 0) t.erros.push(`Líquido negativo${quem}.`);
 
-            // Férias: as do mês na folha batem com os recibos; a parte de recibo pago no próprio mês sai da folha (vai no recibo).
+            // Férias: as do mês na folha (que abate o adiantamento) batem com os recibos com gozo no mês.
             const recibos = recibosDa.get(f.id) ?? [];
-            const ajuste: Record<string, number> = {};
-            const soma = (c: string, n: number) => { ajuste[c] = (ajuste[c] ?? 0) + n; };
             let ferRecibos = 0;
             for (const { r: rf, dataPagamento } of recibos) {
                 const gozo = `férias com início em ${mes(rf.competencia)}`;
@@ -344,16 +316,10 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                 ferRecibos += parte.ferias + parte.terco;
                 const mesPg = dataPagamento.slice(0, 7);
                 if (mesPg > e.competencia) t.erros.push(`Recibo de ${gozo}${quem} pago em ${br(dataPagamento)}, depois do mês do gozo: o Consultor não gera esse caso. Transmita pelo IOB.`);
-                else if (mesPg === e.competencia) {
-                    soma('FERMES', parte.ferias); soma('FERMES13', parte.terco); soma('INSSFERRET', parte.inss); soma('IRRFFERRET', parte.irrf);
-                    soma('FERPAGO', Math.max(0, parte.ferias + parte.terco - parte.inss - parte.irrf));
-                }
             }
             const ferFolha = r.verbas.filter(v => v.codigo === 'FERMES' || v.codigo === 'FERMES13').reduce((s, v) => s + v.valor, 0);
             if (ferFolha !== ferRecibos) t.erros.push(`Férias do mês na folha (${reais(ferFolha)}) não batem com os recibos de férias com gozo em ${mes(e.competencia)} (${reais(ferRecibos)})${quem}: confira os gozos em Cadastros › Afastamentos e recalcule.`);
-            const verbasFolha = r.verbas.map(v => (ajuste[v.codigo] ? { ...v, valor: v.valor - ajuste[v.codigo] } : v));
-            if (verbasFolha.some(v => VERBAS_FERIAS.includes(v.codigo) && v.valor < 0)) t.erros.push(`Férias do mês na folha menores que as do recibo pago no mês${quem}: recalcule a folha.`);
-            const itens = itensDe(verbasFolha);
+            const itens = itensDe(r.verbas);
             const pagosNoMes = recibos.filter(x => x.r.situacao === 'calculado' && x.dataPagamento.slice(0, 7) === e.competencia);
 
             // Único por trabalhador: matrículas longas que coincidem nos primeiros caracteres ganham um sufixo.
@@ -371,7 +337,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             // Recibos de férias pagos na competência: demonstrativo próprio, pago na data do recibo.
             for (const { r: rf, dataPagamento } of pagosNoMes) {
                 const ideF = unico(ideDmDevFerias(dataPagamento, mat));
-                dmDevs.push(dmDev(ideF, categ, f, itensDe(verbasDoReciboFerias(rf, e.competencia))));
+                dmDevs.push(dmDev(ideF, categ, f, itensDe(verbasDoReciboFerias(rf))));
                 pagamentos.push({ mes: dataPagamento.slice(0, 7), xml: infoPgto(dataPagamento, ideF, rf.totais.liquido) });
                 t.liquido += rf.totais.liquido; t.recibosFerias++;
                 if (rf.irrf && !rf.irrf.usouSimplificado && rf.irrf.dependentes > 0) {

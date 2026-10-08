@@ -2686,24 +2686,18 @@ guias sindicais".
   - **Confirmar no MOS consolidado:** o detalhe de onde vão o INSS e o IRRF
     de cada parte. Até lá, as incidências ficam com o S-1010 da empresa (as
     rubricas do IOB), e o de/para separa cada caso numa verba própria.
-- **Modelo adotado (`services/esocial/eventosFolha.ts`):**
+- **Modelo adotado (`services/esocial/eventosFolha.ts`), conferido com o
+  MOS S-1.3 (veja a revisão abaixo):**
   - **Recibo de férias pago na competência:** demonstrativo próprio no S-1200
-    dela (`FERAAAAMMDD-matrícula`), pago na data do recibo (dia útil até 2
-    dias antes do início, a mesma do arquivo bancário). O pagamento vai no
-    S-1210 do mês do recibo.
-  - **Divisão do recibo pela competência do gozo:**
-    - parte no mês do pagamento: férias e 1/3 (`FER`, `FER13`: 1016 e 1017)
-      e o INSS dela (`INSSFER`);
-    - parte em mês seguinte: adiantamento (`FERADI`, `FERADI13`: 1015) e o
-      INSS dela à parte (`INSSFERADI`);
-    - o IRRF do recibo (regime de caixa) fica inteiro no recibo.
-  - **Folha do mês do gozo:**
-    - férias pagas antes: soma e abate como o holerite. São as férias e o 1/3
-      do mês (`FERMES` e `FERMES13`, agora em linhas próprias), o líquido
-      pago (`FERPAGO`: 9221) e o INSS e o IRRF retidos no recibo;
-    - férias pagas no próprio mês: essa parte sai da folha, porque está no
-      recibo. O líquido da folha não muda, e o INSS do mês fecha com o
-      retido no recibo mais o da folha.
+    dela (`FERAAAAMMDD-matrícula`), com férias e 1/3 inteiros como
+    adiantamento (`FERADI`, `FERADI13`: natureza 1015) e o INSS e o IRRF
+    retidos (`INSSFER`, `IRRFFER`).
+    - É pago na data do recibo (dia útil até 2 dias antes do início, a
+      mesma do arquivo bancário), no S-1210 do mês do recibo.
+  - **Folha de cada mês do gozo:** como o holerite. Traz as férias e o 1/3
+    do mês (`FERMES` e `FERMES13`, agora em linhas próprias: 1016 e 1017) e
+    abate o adiantamento (`FERPAGO`: 9221) e o INSS e o IRRF retidos no
+    recibo.
   - **Conferência:** as férias da folha têm de bater com os recibos do mês.
     Sem o recibo, o trabalhador fica sem evento, com o motivo. Pagamento
     depois do início do gozo não é gerado.
@@ -2729,9 +2723,8 @@ guias sindicais".
 - **Motor:** "Férias do mês" e "1/3 de férias do mês" ficam em linhas
   próprias, como no holerite do IOB. A conferência dos holerites soma as
   duas.
-- **Validação:** os XMLs dos três casos passam no XSD do S-1.3, exceto pela
-  assinatura, que o CFI acrescenta. Os três casos são férias pagas no mês
-  anterior, pagas no próprio mês e com o gozo em dois meses.
+- **Validação:** os XMLs passam no XSD do S-1.3, exceto pela assinatura,
+  que o CFI acrescenta.
 - **Testes:** `feriasEsocial.test.ts` (ponta a ponta com o motor) e a tela
   com dois S-1210.
 - **Antes de usar em produção:** comparar com o S-1200 e o S-1210 que o IOB
@@ -2770,3 +2763,28 @@ guias sindicais".
   - Os sites do Adobe, do Google Drive e do Dropbox estão bloqueados na
     rede da sessão; o GitHub funciona (release em rascunho para o PDF
     público).
+- **MOS S-1.3 consolidado até a NO 07/2026** (Paulo subiu em
+  `docs/referencias/`, como base de conhecimento técnico):
+  - **S-1010, item 23 (págs. 108–111):** a natureza 1015 (adiantamento de
+    férias) entra com CP 00, FGTS 00 e IRRF 13. No mês do gozo entram 1016 e
+    1017 (CP 11, FGTS 11, IRRF 13) e o desconto 9221 (00/00/13). A **opção
+    1** serve para todos os casos: pagamento no mês anterior ao gozo, no
+    próprio mês e com o gozo em dois meses. O recibo vai inteiro em 1015, e
+    a folha de cada mês do gozo traz a sua parte em 1016/1017 e abate em
+    9221.
+  - **S-1200, item 29 (págs. 151–152):** o exemplo S-1200 × S-1210 com
+    valores tem as férias pagas em 06/04 e o gozo de 08/04 a 07/05:
+    - **Demonstrativo "Antecipação de férias" no S-1200 de 04:** férias e
+      1/3 com CP 00 e IRRF 13, a "provisão de CP" (IRRF 43) e o IR das
+      férias (IRRF 33). É pago pelo S-1210 de 04 na data do recibo, no
+      mesmo S-1210 que paga a folha de março.
+    - **Folhas de abril e de maio:** cada uma traz as férias e o 1/3 do mês,
+      o "adiantamento férias (desconto)" pelo líquido da parte, a "provisão
+      CP férias" (CP 31), a "provisão IR" e o INSS da folha.
+    - É exatamente o holerite do motor: `FERMES`, `FERMES13`, `FERPAGO`,
+      `INSSFERRET`, `IRRFFERRET` e `INSS`.
+  - **Mudança no PR #111:** sai a "opção 2", que dividia o recibo pela
+    competência e tirava da folha a parte paga no próprio mês. Fica a opção
+    1, igual ao manual e ao holerite do IOB. O recibo vai inteiro em 1015, e
+    a folha não muda. As incidências (CP, FGTS e IRRF) são as do S-1010 da
+    empresa, e o de/para sugere pelas naturezas do manual.

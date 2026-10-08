@@ -77,11 +77,11 @@ describe('tela S-1200 e S-1210', () => {
                 { codigo: 'INSSFER', descricao: 'INSS sobre férias', referencia: '', tipo: 'desconto', valor: 25000 }],
             totais: { proventos: 266667, descontos: 25000, liquido: 241667 } } as unknown as import('../../calculo/motorFerias').ResultadoFerias;
         const gravado = { nrInscEstab: CNPJ, codLotacao: 'LOT01', rubricas: { SAL: { codRubr: '0001', ideTabRubr: 'T1' }, INSS: { codRubr: '0901', ideTabRubr: 'T1' },
-            FERADI: { codRubr: '0150', ideTabRubr: 'T1' }, FERADI13: { codRubr: '0150', ideTabRubr: 'T1' }, INSSFERADI: { codRubr: '0950', ideTabRubr: 'T1' } } };
+            FERADI: { codRubr: '0150', ideTabRubr: 'T1' }, FERADI13: { codRubr: '0150', ideTabRubr: 'T1' }, INSSFER: { codRubr: '0950', ideTabRubr: 'T1' } } };
         render(<EventosFolhaModal empresa={{ ...empresa, esocialFolha: gravado }} competencia="2026-09" fichas={[ficha]} resultados={[res]} recibosFerias={[{ r: recibo, dataPagamento: '2026-09-29' }]}
             dataSugerida="2026-10-06" usuario={{ id: 'u', email: 'u@x' }} onFechar={() => {}} />);
         await waitFor(() => expect(screen.getByText(/1 com recibo de férias pago no mês/)).toBeTruthy());
-        expect((screen.getByLabelText('Rubrica de Adiantamento de férias (gozo em mês seguinte)') as HTMLSelectElement).value).toBe('T1|0150');
+        expect((screen.getByLabelText('Rubrica de Adiantamento de férias') as HTMLSelectElement).value).toBe('T1|0150');
         expect(screen.getByText(/Recibos de férias pagos em 09\/2026: demonstrativo próprio/)).toBeTruthy();
         const s1210 = screen.getByText('Transmitir S-1210 (2)') as HTMLButtonElement;
         await waitFor(() => expect(s1210.disabled).toBe(false));

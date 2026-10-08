@@ -21,7 +21,7 @@ const gozo = (dtInicio: string, dtFim: string): Afastamento => ({ ...afastamento
 
 // Uma rubrica por verba, com a natureza que o de/para sugere (provento 1, desconto 2).
 const NATUREZAS: [string, string, '1' | '2'][] = [['SAL', '1000', '1'], ['INSS', '9201', '2'], ['IRRF', '9203', '2'], ['FERMES', '1016', '1'], ['FERMES13', '1017', '1'], ['FERPAGO', '9221', '2'],
-    ['INSSFERRET', '9201', '2'], ['IRRFFERRET', '9203', '2'], ['FER', '1016', '1'], ['FER13', '1017', '1'], ['FERADI', '1015', '1'], ['FERADI13', '1015', '1'], ['INSSFER', '9201', '2'], ['INSSFERADI', '9201', '2'], ['IRRFFER', '9203', '2']];
+    ['INSSFERRET', '9201', '2'], ['IRRFFERRET', '9203', '2'], ['FERADI', '1015', '1'], ['FERADI13', '1015', '1'], ['INSSFER', '9201', '2'], ['IRRFFER', '9203', '2']];
 const RUBRICAS: Rubrica[] = NATUREZAS.map(([k, nat, tp]) => ({ id: k, empresaId: 'E1', codRubr: k, ideTabRubr: 'T1', eventoIob: '', origem: '',
     vigencias: [{ iniValid: '2020-01', fimValid: '', recibo: '', dados: { dscRubr: k, natRubr: nat, tpRubr: tp, codIncCP: '00', codIncIRRF: '00', codIncFGTS: '00', codIncCPRP: '', observacao: '' } }] }));
 const PARAMS: ParametrosEsocialFolha = { nrInscEstab: CNPJ, codLotacao: 'LOT01', rubricas: Object.fromEntries(NATUREZAS.map(([k]) => [k, { codRubr: k, ideTabRubr: 'T1' }])) };
@@ -43,7 +43,7 @@ function eventos(competencia: string, gozos: Afastamento[], dataPagamento: strin
 }
 
 describe('férias no S-1200 e no S-1210', () => {
-    it('pagas no mês anterior ao gozo: adiantamento (1015) no S-1200 do pagamento e S-1210 na data do recibo; a folha do gozo abate o líquido (9221)', () => {
+    it('pagas no mês anterior ao gozo (MOS item 23 a): adiantamento 1015 no S-1200 do pagamento, S-1210 na data do recibo; a folha do gozo traz 1016/1017 e abate (9221)', () => {
         const g = [gozo('2025-08-01', '2025-08-20')]; // paga em 30/07 (2 dias antes)
         const jul = eventos('2025-07', g, '2025-08-05');
         expect(jul.recibosFerias.map(x => x.dataPagamento)).toEqual(['2025-07-30']);
@@ -52,8 +52,9 @@ describe('férias no S-1200 e no S-1210', () => {
         expect(Object.keys(dm)).toEqual(['FOLHA202507-M1', 'FER20250730-M1']);
         expect(Object.keys(dm['FOLHA202507-M1'])).toEqual(['SAL', 'INSS', 'IRRF']);
         const rec = jul.recibosFerias[0].r;
-        const v = (c: string) => (rec.verbas.find(x => x.codigo === c)?.valor ?? 0) / 100;
-        expect(dm['FER20250730-M1']).toEqual({ FERADI: v('FER').toFixed(2), FERADI13: v('FER13').toFixed(2), INSSFERADI: v('INSSFER').toFixed(2), IRRFFER: v('IRRFFER').toFixed(2) });
+        const v = (c: string) => ((rec.verbas.find(x => x.codigo === c)?.valor ?? 0) / 100).toFixed(2);
+        // O recibo inteiro como adiantamento, com o INSS e o IRRF retidos (MOS item 29: "Antecipação de férias").
+        expect(dm['FER20250730-M1']).toEqual({ FERADI: v('FER'), FERADI13: v('FER13'), INSSFER: v('INSSFER'), IRRFFER: v('IRRFFER') });
         // Dois S-1210: o do recibo (julho, perRef 07) e o da folha (agosto).
         expect(jul.t.perApur).toBe('2025-08');
         expect(txt(doc(jul.t.s1210!.xml), 'ideDmDev')).toEqual(['FOLHA202507-M1']);
@@ -69,11 +70,11 @@ describe('férias no S-1200 e no S-1210', () => {
         const dmAgo = demonstrativos(ago.t.s1200!.xml);
         expect(Object.keys(dmAgo)).toEqual(['FOLHA202508-M1']);
         expect(Object.keys(dmAgo['FOLHA202508-M1'])).toEqual(expect.arrayContaining(['FERMES', 'FERMES13', 'FERPAGO', 'INSSFERRET', 'IRRFFERRET']));
-        expect(dmAgo['FOLHA202508-M1'].FERMES).toBe(v('FER').toFixed(2));
+        expect([dmAgo['FOLHA202508-M1'].FERMES, dmAgo['FOLHA202508-M1'].FERMES13]).toEqual([v('FER'), v('FER13')]);
         expect(ago.t.outrosMeses).toEqual([]);
     });
 
-    it('pagas no próprio mês do gozo: o recibo leva férias (1016/1017) e o INSS, e a folha não repete essa parte', () => {
+    it('pagas no próprio mês, com gozo em dois meses (MOS item 23 b/c, opção 1): adiantamento inteiro no recibo; a folha de cada mês traz a sua parte e abate', () => {
         const g = [gozo('2025-07-14', '2025-08-02')]; // paga em 11/07; gozo em julho (18 dias) e agosto (2 dias)
         const jul = eventos('2025-07', g, '2025-08-05');
         expect(jul.t.erros).toEqual([]);
@@ -81,17 +82,16 @@ describe('férias no S-1200 e no S-1210', () => {
         const rec = jul.recibosFerias[0].r;
         const [pj, pa] = rec.porCompetencia;
         expect([pj.competencia, pa.competencia]).toEqual(['2025-07', '2025-08']);
-        expect(dm['FER20250711-M1']).toEqual({
-            FER: (pj.ferias / 100).toFixed(2), FERADI: (pa.ferias / 100).toFixed(2), FER13: (pj.terco / 100).toFixed(2), FERADI13: (pa.terco / 100).toFixed(2),
-            INSSFER: (pj.inss / 100).toFixed(2), INSSFERADI: (pa.inss / 100).toFixed(2), IRRFFER: ((rec.verbas.find(x => x.codigo === 'IRRFFER')?.valor ?? 0) / 100).toFixed(2),
-        });
-        // A folha de julho não traz as férias de julho (estão no recibo) e o líquido dela não muda.
+        expect(Object.keys(dm['FER20250711-M1'])).toEqual(['FERADI', 'FERADI13', 'INSSFER', 'IRRFFER']);
+        expect(dm['FER20250711-M1'].FERADI).toBe(((pj.ferias + pa.ferias) / 100).toFixed(2));
+        // A folha de julho traz as férias de julho (1016/1017) e abate a parte de julho do recibo; o líquido dela é o do holerite.
         const folha = dm['FOLHA202507-M1'];
-        expect(['FERMES', 'FERMES13', 'FERPAGO', 'INSSFERRET', 'IRRFFERRET'].filter(k => k in folha)).toEqual([]);
+        expect([folha.FERMES, folha.FERMES13, folha.INSSFERRET]).toEqual([(pj.ferias / 100).toFixed(2), (pj.terco / 100).toFixed(2), (pj.inss / 100).toFixed(2)]);
         expect(txt(doc(jul.t.s1210!.xml), 'vrLiq')).toEqual([(jul.r.totais.liquido / 100).toFixed(2)]);
-        // INSS de julho: o retido no recibo (parte de julho) + o da folha = o INSS sobre salário + férias do mês.
-        expect(Number(dm['FER20250711-M1'].INSSFER) + Number(folha.INSS)).toBeCloseTo((jul.r.verbas.find(x => x.codigo === 'INSS')!.valor + pj.inss) / 100, 2);
-        // Agosto: a parte de agosto foi paga antes (adiantamento): a folha soma e abate.
+        // INSS de julho (descontado na folha): o retido no recibo da parte de julho + o da folha = o INSS sobre salário + férias do mês.
+        const inssMes = jul.r.verbas.find(x => x.codigo === 'INSS')!.valor + pj.inss;
+        expect(Number(folha.INSSFERRET) + Number(folha.INSS)).toBeCloseTo(inssMes / 100, 2);
+        // Agosto: a folha traz a parte de agosto e abate.
         const ago = eventos('2025-08', g, '2025-09-05');
         expect(ago.t.erros).toEqual([]);
         expect(demonstrativos(ago.t.s1200!.xml)['FOLHA202508-M1'].FERMES).toBe((pa.ferias / 100).toFixed(2));
@@ -135,7 +135,7 @@ describe('férias no S-1200 e no S-1210', () => {
         const g = [gozo('2025-08-01', '2025-08-20')];
         const { r, recibosFerias } = eventos('2025-07', g, '2025-08-05');
         const itens = sugerirDePara([r, ...verbasDosRecibosParaDePara(recibosFerias, '2025-07')], RUBRICAS, '2025-07');
-        expect(Object.fromEntries(itens.map(i => [i.chave, i.sugestao?.codRubr ?? null]))).toMatchObject({ FERADI: null, FERADI13: null, INSSFERADI: null, IRRFFER: null });
+        expect(Object.fromEntries(itens.map(i => [i.chave, i.sugestao?.codRubr ?? null]))).toMatchObject({ FERADI: null, FERADI13: null, INSSFER: null, IRRFFER: null });
         // Natureza única: sugere (aqui há duas 1015 e três 9201: a equipe escolhe).
         const so1015 = RUBRICAS.filter(x => x.codRubr !== 'FERADI13');
         expect(sugerirDePara(verbasDosRecibosParaDePara(recibosFerias, '2025-07'), so1015, '2025-07').find(i => i.chave === 'FERADI')!.sugestao).toEqual({ codRubr: 'FERADI', ideTabRubr: 'T1' });
