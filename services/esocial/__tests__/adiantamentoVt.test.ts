@@ -83,11 +83,13 @@ describe('adiantamento salarial e vale-transporte', () => {
         const pg = txt(s1210, 'ideDmDev').map((ide, i) => [ide, txt(s1210, 'dtPgto')[i], txt(s1210, 'vrLiq')[i]]);
         expect(pg).toEqual(expect.arrayContaining([['ADI202608-M1', '2026-08-20', '1400.00'], ['FER20260828-M1', '2026-08-28', '4404.74'], ['FOLHA202608-M1', '2026-08-31', '1581.40']]));
         expect(t.outrosMeses).toEqual([]);
-        // Folha paga no mês seguinte: o adiantamento fica no S-1210 do mês dele.
-        const g2 = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-08', dataPagamento: '2026-09-04', fichas: [FICHA], resultados: [ago], rubricas: RUBRICAS, parametros: PARAMS, agora: new Date('2026-10-01T12:00:00Z') });
-        const t2 = g2.trabalhadores[0];
-        expect(t2.perApur).toBe('2026-09');
-        expect(t2.outrosMeses.map(m => [m.perApur, txt(doc(m.s1210!.xml), 'ideDmDev')])).toEqual([['2026-08', ['ADI202608-M1']]]);
+        // Folha paga no mês seguinte: o IRRF do adiantamento seria do mês dele (RIR/1999, art. 621), e o motor ainda
+        // não separa. O motor avisa e o eSocial não gera (Codex #115).
+        const ago2 = calcularMensal({ competencia: '2026-08', pagamento: '2026-09', ficha: FICHA, tabelas: TAB, afastamentos: GOZO, feriasDoMes: feriasDaCompetencia(FICHA, GOZO, TAB, {}, '2026-08') });
+        expect(ago2.avisos).toEqual(expect.arrayContaining([expect.stringMatching(/o IRRF do adiantamento é do mês em que ele é pago/)]));
+        const t2 = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-08', dataPagamento: '2026-09-04', fichas: [FICHA], resultados: [ago2], rubricas: RUBRICAS, parametros: PARAMS, agora: new Date('2026-10-01T12:00:00Z') }).trabalhadores[0];
+        expect(t2.erros).toEqual([expect.stringMatching(/^Adiantamento pago em 08\/2026 e saldo da folha em 09\/2026: o IRRF do adiantamento é do mês em que ele é pago/)]);
+        expect(t2.s1200).toBeNull();
         // Data do adiantamento depois da folha é recusada.
         expect(gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-08', dataPagamento: '2026-08-10', dataAdiantamento: '2026-08-20', fichas: [FICHA], resultados: [ago], rubricas: RUBRICAS, parametros: PARAMS }).erros)
             .toEqual(['O adiantamento salarial é pago antes da folha: confira as datas.']);

@@ -2925,3 +2925,7 @@ guias sindicais".
 - **Fica para depois:**
   - arredondamento do líquido (o IOB leva os centavos para o mês seguinte);
   - arquivo bancário e holerite do próprio adiantamento.
+- **Revisão do Codex no #115 (P1):** se a folha é paga no mês seguinte, o adiantamento sai num mês e o saldo em outro.
+  - Pelo RIR/1999, art. 621, o adiantamento de rendimentos que não são integralmente pagos no próprio mês tem o IRRF calculado de imediato, no mês do pagamento. O motor ainda calcula tudo no mês da folha.
+  - Até a regra ser conferida com o IOB, o motor avisa e o gerador do eSocial recusa esse caso para o trabalhador, com o motivo.
+  - No caso do IOB (folha paga em 30/08), os dois pagamentos são do mesmo mês, e nada muda.

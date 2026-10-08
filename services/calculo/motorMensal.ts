@@ -284,6 +284,9 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     if (adiant > 0) {
         verba({ codigo: 'ADIANT', descricao: 'Adiantamento salarial', referencia: mov.adiantamento !== undefined ? '' : `${num(pctAd)}%`, tipo: 'desconto', valor: adiant, inss: false, fgts: false, irrf: false });
         r.memoria.push(mov.adiantamento !== undefined ? `Adiantamento salarial: ${reais(adiant)} pagos no mês (informado no movimento).` : `Adiantamento salarial: ${num(pctAd)}% de ${reais(sal)} (salário do mês) = ${reais(adiant)}, descontado aqui.`);
+        // Folha paga em outro mês: o adiantamento não foi "integralmente pago no próprio mês" e o IRRF dele é
+        // calculado de imediato, no mês em que é pago (RIR/1999, art. 621). O motor ainda não separa esse IRRF.
+        if (pagamento !== competencia) r.avisos.push(`Adiantamento pago em ${rotuloCompetencia(competencia)} e saldo da folha em ${rotuloCompetencia(pagamento)}: o IRRF do adiantamento é do mês em que ele é pago, e o motor ainda calcula tudo no mês da folha. Confira o IRRF com o IOB.`);
     }
 
     // Férias do mês pagas no recibo: entram nas bases do INSS e do FGTS (não no IRRF, que foi em separado).
