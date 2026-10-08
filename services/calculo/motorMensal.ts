@@ -9,7 +9,8 @@
 // Cobre: salário mensal, por hora ou por dia, proporcional (admissão,
 // desligamento, afastamentos); primeiros 15 dias de doença/acidente;
 // salário-maternidade; horas extras 50%/100% com reflexo no DSR; faltas e DSR
-// descontado; lançamentos avulsos; INSS progressivo; salário-família; IRRF
+// descontado; lançamentos avulsos; adiantamento salarial e vale-transporte
+// (desconto); INSS progressivo; salário-família; IRRF
 // com desconto simplificado, dependentes, pensão e o redutor de 2026; FGTS.
 // Fica de fora (aviso e situação "incompleto"): férias, 13º, rescisão,
 // adicionais e médias de variáveis.
@@ -19,7 +20,7 @@ import type { Afastamento } from '../cadastros/afastamentos';
 import { inicioBeneficio, rotuloMotivo } from '../cadastros/afastamentos';
 import { centavosDeTexto, dataValida, reais } from '../cadastros/documentos';
 import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros/tabelasLegais';
-import { diaSemana, feriados, somarDias, somarMeses } from '../prazos/calendario';
+import { diaSemana, diaUtilAnterior, feriados, somarDias, somarMeses } from '../prazos/calendario';
 
 export type TipoVerba = 'provento' | 'desconto';
 export interface Incidencias { inss: boolean; fgts: boolean; irrf: boolean }
@@ -35,6 +36,10 @@ export interface Movimento {
     /** Feriados estaduais/municipais no mês (entram como descanso no DSR das horas extras). */
     feriadosLocais?: number;
     pensaoAlimenticia?: number;
+    /** Adiantamento salarial pago no mês (centavos): substitui o calculado pelo percentual da ficha. 0 = não pago. */
+    adiantamento?: number;
+    /** Vale-transporte descontado no mês (centavos): substitui o calculado pela ficha (holerite do IOB). */
+    valeTransporte?: number;
     lancamentos?: Lancamento[];
 }
 
@@ -68,6 +73,8 @@ export interface ResultadoCalculo {
     memoria: string[];
     avisos: string[];
     erros: string[];
+    /** Adiantamento salarial informado no movimento (vale como foi, sem a regra da data). */
+    adiantamentoInformado?: boolean;
     /** Como o IRRF do mês foi deduzido (o S-1210 informa as deduções de dependentes). */
     deducoesIrrf?: { simplificado: boolean; dependentes: { cpf: string; nome: string }[]; porDependente: number; pensao: number };
 }
@@ -181,6 +188,8 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     if (deslig && deslig <= ult) incompleto(`Desligado em ${brData(deslig)}: só o saldo de salário foi calculado; a rescisão não está no motor.`);
 
     let diasAcidenteInss = 0;
+    // Dias pagos sem deslocamento (afastamento remunerado, 15 primeiros dias de doença): sem vale-transporte (Codex #115).
+    const semTransporte = new Set<string>();
     for (const a of e.afastamentos) {
         if (a.fichaId && a.fichaId !== ficha.id) continue;
         const aIni = a.dtInicio > de ? a.dtInicio : de;
@@ -188,11 +197,15 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
         if (aIni > aFim) continue;
         const rotulo = rotuloMotivo(a.motivo);
         let n = 0;
-        if (REMUNERADO.includes(a.motivo)) { r.memoria.push(`Afastamento ${rotulo} de ${brData(aIni)} a ${brData(aFim)}: remunerado pela empresa.`); continue; }
+        if (REMUNERADO.includes(a.motivo)) {
+            for (let x = aIni; x <= aFim; x = somarDias(x, 1)) semTransporte.add(x);
+            r.memoria.push(`Afastamento ${rotulo} de ${brData(aIni)} a ${brData(aFim)}: remunerado pela empresa.`); continue;
+        }
         const beneficio = DOENCA.includes(a.motivo) ? (a.infoMesmoMtv === 'S' ? a.dtInicio : inicioBeneficio(a)) : null;
         for (let x = aIni; x <= aFim; x = somarDias(x, 1)) {
             if (DOENCA.includes(a.motivo)) {
                 if (beneficio && x >= beneficio) { dias.set(x, 'naoPago'); n++; if (a.motivo === '01') diasAcidenteInss++; }
+                else semTransporte.add(x);
             } else if (MATERNIDADE.includes(a.motivo)) { dias.set(x, 'maternidade'); n++; }
             else if (FERIAS.includes(a.motivo)) { dias.set(x, 'ferias'); n++; }
             else { dias.set(x, 'naoPago'); n++; }
@@ -257,6 +270,49 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     if (dsrDesc > 0) verba({ codigo: 'DSRF', descricao: 'DSR descontado (faltas)', referencia: `${num(dsrDesc)} dias`, tipo: 'desconto', valor: Math.round(diaria * dsrDesc), inss: true, fgts: true, irrf: true });
     if (faltas > 0 || dsrDesc > 0) r.memoria.push(`Faltas e DSR: ${reais(Math.round(diaria))} por dia (salário ÷ 30).`);
     (mov.lancamentos ?? []).forEach((l, i) => verba({ ...l, codigo: `LAN${i + 1}`, referencia: '', valor: Math.round(l.valor) }));
+
+    // Vale-transporte: desconto de 6% do salário básico do mês (Lei 7.418/1985, art. 4º, parágrafo único;
+    // Decreto 10.854/2021, art. 114), sem adicionais; nunca acima do custo do benefício, quando informado.
+    if (mov.valeTransporte !== undefined) {
+        const v = Math.max(0, Math.round(mov.valeTransporte));
+        verba({ codigo: 'VT', descricao: 'Vale-transporte', referencia: '', tipo: 'desconto', valor: v, inss: false, fgts: false, irrf: false });
+        if (v) r.memoria.push(`Vale-transporte: ${reais(v)} descontados no mês (informado no movimento).`);
+    } else if (d.valeTransporte === 'S') {
+        // Dias com deslocamento: os pagos, menos os de afastamento remunerado, os 15 primeiros de doença e as faltas
+        // do movimento (Codex #115).
+        // Com dias sem deslocamento, conta o menor entre o mês comercial e os dias de calendário que sobram: em fevereiro,
+        // o afastamento do mês inteiro (28 datas) deixaria 2 dos 30 comerciais (Codex #115).
+        const semDesloc = [...semTransporte].filter(x => dias.get(x) === 'pago').length;
+        const comDesloc = semDesloc ? Math.min(diasPagos - semDesloc, realPago - semDesloc) : diasPagos;
+        const diasVT = Math.max(0, comDesloc - faltas);
+        const base = diasVT === diasPagos ? sal : Math.round(sal * diasVT / Math.max(1, diasPagos));
+        const seis = Math.round(base * 6 / 100);
+        // O custo da ficha é o do mês inteiro: em mês parcial (admissão, férias, afastamento) vale o dos dias com
+        // deslocamento, proporcional ao benefício concedido (Decreto 10.854/2021, art. 115; Codex #115).
+        const custoMes = centavosDeTexto(d.valeTransporteCusto ?? '') ?? 0;
+        const custo = custoMes > 0 && diasVT < 30 ? Math.round(custoMes * diasVT / 30) : custoMes;
+        const v = custo > 0 ? Math.min(seis, custo) : seis;
+        verba({ codigo: 'VT', descricao: 'Vale-transporte', referencia: '6%', tipo: 'desconto', valor: v, inss: false, fgts: false, irrf: false });
+        r.memoria.push(`Vale-transporte: 6% de ${reais(base)} (salário ${diasVT === diasPagos ? 'do mês' : `de ${num(diasVT)} dia(s) com deslocamento; faltas e afastamento remunerado não contam`}) = ${reais(seis)}${custo > 0 ? `; custo do benefício ${reais(custo)}${custo !== custoMes ? ` (${reais(custoMes)} × ${diasVT}/30 dias)` : ''}${v < seis ? ', que limita o desconto' : ''}` : ' (sem o custo do benefício na ficha: se ele for menor, o desconto é o custo)'}.`);
+    }
+
+    // Adiantamento salarial: o percentual da ficha sobre o salário do mês (o IOB calcula assim), ou o valor
+    // efetivamente pago, informado no movimento. Pago antes, num demonstrativo próprio do S-1200; aqui, o desconto.
+    const pctAd = Number((d.adiantamentoPct ?? '').replace(',', '.')) || 0;
+    // Automático só para quem tinha vínculo no dia do adiantamento (dia 20 ou o útil anterior): admitido depois, ou
+    // desligado antes, não recebeu (Codex #115). O valor pago num caso desses vai no movimento.
+    const diaAdiant = dataSugeridaAdiantamento(competencia);
+    const semVinculoNoDia = d.admissao > diaAdiant || (!!deslig && deslig < diaAdiant);
+    const adiant = mov.adiantamento !== undefined ? Math.max(0, Math.round(mov.adiantamento)) : semVinculoNoDia ? 0 : Math.round(sal * pctAd / 100);
+    if (mov.adiantamento !== undefined) r.adiantamentoInformado = true;
+    if (pctAd > 0 && mov.adiantamento === undefined && semVinculoNoDia) r.memoria.push(`Adiantamento salarial: sem vínculo em ${brData(diaAdiant)} (dia do adiantamento), não calculado.`);
+    if (adiant > 0) {
+        verba({ codigo: 'ADIANT', descricao: 'Adiantamento salarial', referencia: mov.adiantamento !== undefined ? '' : `${num(pctAd)}%`, tipo: 'desconto', valor: adiant, inss: false, fgts: false, irrf: false });
+        r.memoria.push(mov.adiantamento !== undefined ? `Adiantamento salarial: ${reais(adiant)} pagos no mês (informado no movimento).` : `Adiantamento salarial: ${num(pctAd)}% de ${reais(sal)} (salário do mês) = ${reais(adiant)}, descontado aqui.`);
+        // Folha paga em outro mês: o adiantamento não foi "integralmente pago no próprio mês" e o IRRF dele é
+        // calculado de imediato, no mês em que é pago (RIR/1999, art. 621). O motor ainda não separa esse IRRF.
+        if (pagamento !== competencia) r.avisos.push(`Adiantamento pago em ${rotuloCompetencia(competencia)} e saldo da folha em ${rotuloCompetencia(pagamento)}: o IRRF do adiantamento é do mês em que ele é pago, e o motor ainda calcula tudo no mês da folha. Confira o IRRF com o IOB.`);
+    }
 
     // Férias do mês pagas no recibo: entram nas bases do INSS e do FGTS (não no IRRF, que foi em separado).
     const fm = e.feriasDoMes;
@@ -378,6 +434,12 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     if (r.totais.liquido < 0) r.avisos.push('Líquido negativo: confira os descontos.');
     return r;
 }
+
+/** Data sugerida do adiantamento: dia 20 da competência, ou o dia útil anterior (20/09/2026 caiu num domingo e o IOB pagou em 18/09). */
+export const dataSugeridaAdiantamento = (competencia: string) => (/^\d{4}-\d{2}$/.test(competencia) ? diaUtilAnterior(`${competencia}-20`) : '');
+
+/** Adiantamento salarial do mês (desconto ADIANT da folha): o que foi pago antes, no demonstrativo próprio. */
+export const adiantamentoDoMes = (r: Pick<ResultadoCalculo, 'verbas'>) => r.verbas.find(v => v.codigo === 'ADIANT')?.valor ?? 0;
 
 /** Funcionários com vínculo em algum dia da competência. */
 export function noMes(fichas: FichaFuncionario[], competencia: string): FichaFuncionario[] {

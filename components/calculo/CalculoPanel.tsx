@@ -799,6 +799,15 @@ const Holerite: React.FC<{ r: ResultadoCalculo; mov?: Movimento; gravado?: Movim
                         <input aria-label="Pensão alimentícia" className={`mt-0.5 block w-28 ${inp}`} defaultValue={mov.pensaoAlimenticia ? (mov.pensaoAlimenticia / 100).toFixed(2).replace('.', ',') : ''}
                             onChange={e => onMov({ ...mov, pensaoAlimenticia: centavosDeTexto(e.target.value) ?? undefined })} />
                     </label>
+                    {/* Em branco, o motor calcula pela ficha (aba "Adiant. e VT"); preenchido, vale o valor (0 = nada no mês). */}
+                    <label className="text-xs dark:text-slate-200" title="Em branco: o percentual da ficha sobre o salário do mês. Preencha com o valor pago (0 se não houve).">Adiantamento pago (R$)
+                        <input aria-label="Adiantamento pago" placeholder="pela ficha" className={`mt-0.5 block w-28 ${inp}`} defaultValue={mov.adiantamento !== undefined ? (mov.adiantamento / 100).toFixed(2).replace('.', ',') : ''}
+                            onChange={e => onMov({ ...mov, adiantamento: centavosDeTexto(e.target.value) ?? undefined })} />
+                    </label>
+                    <label className="text-xs dark:text-slate-200" title="Em branco: 6% do salário do mês, se a ficha marcar vale-transporte. Preencha com o valor descontado (0 se não houve).">Vale-transporte (R$)
+                        <input aria-label="Vale-transporte descontado" placeholder="pela ficha" className={`mt-0.5 block w-28 ${inp}`} defaultValue={mov.valeTransporte !== undefined ? (mov.valeTransporte / 100).toFixed(2).replace('.', ',') : ''}
+                            onChange={e => onMov({ ...mov, valeTransporte: centavosDeTexto(e.target.value) ?? undefined })} />
+                    </label>
                 </div>
                 <div>
                     <p className="text-xs font-medium text-slate-600 dark:text-slate-300">Lançamentos avulsos</p>

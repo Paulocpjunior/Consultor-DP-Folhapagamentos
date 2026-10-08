@@ -30,7 +30,9 @@ describe('conferência com os holerites do IOB', () => {
             [P('DSR S/ COMISSÕES', 1), 'OUTRO'], [P('DSR SOBRE ADICIONAL NOTURNO', 1), 'OUTRO'],
             [P('FÉRIAS NO MÊS', 1), 'FERMES'], [P('1/3 FÉRIAS', 1), 'FERMES'], [D('LÍQUIDO DE FÉRIAS', 1), 'FERPAGO'], [D('INSS S/ FÉRIAS', 1), 'INSS'], [P('ABONO PECUNIÁRIO DE FÉRIAS', 1), 'OUTRO'],
             [D('FALTAS', 1), 'FALTA'], [D('INSS', 1), 'INSS'], [D('I.R.R.F.', 1), 'IRRF'], [D('IMPOSTO DE RENDA', 1), 'IRRF'],
-            [D('PENSAO ALIMENTICIA', 1), 'PENSAO'], [D('VALE TRANSPORTE', 1), 'OUTRO'], [D('ADIANTAMENTO SALARIAL', 1), 'OUTRO'], [P('ADICIONAL NOTURNO', 1), 'OUTRO'],
+            [D('PENSAO ALIMENTICIA', 1), 'PENSAO'], [D('VALE TRANSPORTE', 1), 'VT'], [D('ADIANTAMENTO SALARIAL', 1), 'ADIANT'], [P('ADICIONAL NOTURNO', 1), 'OUTRO'],
+            [D('ADIANTAMENTO (VALE)', 1), 'ADIANT'], [D('ADIANTAMENTO', 1), 'ADIANT'], [D('ADIANTAMENTO COMISSAO', 1), 'OUTRO'], [D('ADIANTAMENTO GORJETA', 1), 'OUTRO'],
+            [D('ADIANTAMENTO 13 SALARIO', 1), 'OUTRO'], [D('DESC. ARREDONDAMENTO ADIANTAME', 1), 'OUTRO'],
         ];
         expect(casos.map(([v]) => classificarVerba(v))).toEqual(casos.map(([, c]) => c));
     });
@@ -56,8 +58,9 @@ describe('conferência com os holerites do IOB', () => {
         const diferente = holerite([P('SALARIO', 220000), P('HORAS EXTRAS 50%', 15000), P('DSR S/ HORAS EXTRAS', 3462), D('INSS', 19185), D('VALE TRANSPORTE', 13200)]);
         const c = conferirHolerite(r, diferente, 'nome', ctx);
         expect(c.situacao).toBe('diverge');
-        expect(c.linhas.filter(l => !l.ok).map(l => [l.item, l.diferenca])).toEqual([['DSR sobre horas extras', -462], ['INSS', -42], ['Total de proventos', -462], ['Total de descontos', -13242], ['Líquido', 12780]]);
-        expect(c.semCorrespondente.map(v => v.descricao)).toEqual(['VALE TRANSPORTE']);
+        // Vale-transporte no IOB e não na ficha: aparece como linha que diverge (marque "Vale-transporte" na ficha).
+        expect(c.linhas.filter(l => !l.ok).map(l => [l.item, l.diferenca])).toEqual([['DSR sobre horas extras', -462], ['Vale-transporte', -13200], ['INSS', -42], ['Total de proventos', -462], ['Total de descontos', -13242], ['Líquido', 12780]]);
+        expect(c.semCorrespondente).toEqual([]);
         expect(c.avisos[0]).toContain('ligado à ficha pelo nome');
 
         expect(podeAplicar(ok)).toBe(true);
@@ -84,15 +87,19 @@ describe('conferência com os holerites do IOB', () => {
         expect(quantidadeDaReferencia('8,04%')).toBe(0);
         const { movimento, avisos } = movimentoDoHolerite(holerite([
             P('SALARIO', 220000, '30,00'), P('HORAS EXTRAS 50%', 15000, '10:00'), P('HORAS EXTRAS 100%', 4000, '2,00'), P('ADICIONAL NOTURNO', 5000, '', '030'),
-            D('FALTAS', 7333, '1,00'), D('DSR S/ FALTAS', 7333, ''), D('PENSAO ALIMENTICIA', 30000), D('VALE TRANSPORTE', 13200, '6%', '410'), D('INSS', 19143),
+            D('FALTAS', 7333, '1,00'), D('DSR S/ FALTAS', 7333, ''), D('PENSAO ALIMENTICIA', 30000), D('VALE TRANSPORTE', 13200, '6%', '410'), D('ADIANTAMENTO (VALE)', 88000, '40,00', '5610'),
+            D('DESC. ARREDONDAMENTO ADIANTAME', 33, '', '8951'), D('INSS', 19143),
         ]));
+        // Adiantamento e vale-transporte do IOB entram como foram (sobrepõem a ficha); arredondamento vira lançamento.
         expect(movimento).toEqual({
-            horasExtras50: 10, horasExtras100: 2, faltasDias: 1, pensaoAlimenticia: 30000,
+            horasExtras50: 10, horasExtras100: 2, faltasDias: 1, pensaoAlimenticia: 30000, valeTransporte: 13200, adiantamento: 88000,
             lancamentos: [
                 { descricao: '030 ADICIONAL NOTURNO', tipo: 'provento', valor: 5000, inss: true, fgts: true, irrf: true },
-                { descricao: '410 VALE TRANSPORTE', tipo: 'desconto', valor: 13200, inss: false, fgts: false, irrf: false },
+                { descricao: '8951 DESC. ARREDONDAMENTO ADIANTAME', tipo: 'desconto', valor: 33, inss: false, fgts: false, irrf: false },
             ],
         });
+        // Holerite sem adiantamento e sem VT: o mês não teve, e o 0 explícito impede o motor de voltar à ficha (Codex #115).
+        expect(movimentoDoHolerite(holerite([P('SALARIO', 220000, '30,00'), D('INSS', 19143)])).movimento).toEqual({ adiantamento: 0, valeTransporte: 0 });
         expect(avisos[0]).toBe('DSR S/ FALTAS: referência "" ilegível; informe a quantidade.');
         expect(avisos[1]).toContain('confira as incidências');
     });

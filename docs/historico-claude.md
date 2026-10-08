@@ -2906,3 +2906,48 @@ guias sindicais".
 - **Revisão do Codex no #111 (P1, deduções que deixaram de valer):** um recibo corrigido que passou ao desconto simplificado, ou deixou de deduzir um dependente, mantinha a dedução antiga no S-1210 reenviado.
   - No mês da competência, onde o cálculo tem todos os recibos pagos no mês, `mesclarIRFerias(…, completo)` tira do bloco aceito o tpRend 13 que não está no cálculo. Também some o `infoIRCR` ou o `infoIRComplem` que ficou vazio.
   - Em outro mês, o S-1210 aceito tem recibos de outra competência, e o tpRend 13 dele fica como está.
+
+## 08/10/2026 — Adiantamento salarial e vale-transporte no motor
+
+- **Paulo:** *"pode seguir com adiantamento e vale transporte"*, depois da comparação do PR #111 com o IOB. Os eventos aceitos do IOB de 08 e 09/2026 mostram o adiantamento em demonstrativo próprio (`…ADIA`, pago em 20/08 e 18/09) e o VT de 6% descontado na folha.
+- **Ficha** (aba nova "Adiant. e VT"):
+  - adiantamento salarial em % do salário do mês;
+  - vale-transporte S/N;
+  - custo mensal do VT, opcional, que limita o desconto.
+- **Motor** (`calcularMensal`):
+  - **VT:** 6% do salário do mês (a verba SAL), sem adicionais, limitado ao custo do benefício (Lei 7.418/1985, art. 4º, parágrafo único; Decreto 10.854/2021, art. 114). Sem INSS, FGTS e IRRF.
+  - **Adiantamento:** o percentual sobre o salário do mês, como o IOB faz (40% de 1.166,67 em setembro, mês com 20 dias de férias), descontado na folha (ADIANT).
+  - **Movimento do mês:** "Adiantamento pago" e "Vale-transporte" sobrepõem a ficha. Em branco, valem os dados da ficha; 0 significa "não houve" e fica gravado.
+- **eSocial:**
+  - O adiantamento ganha demonstrativo próprio no S-1200 (`ADIAAAAMM-matrícula`), com a rubrica de provento do adiantamento (ADIANTPAG). O pagamento vai no S-1210 na data do adiantamento: dia 20 ou o dia útil anterior, editável na tela. Base: MOS, S-1200, item 3.4 ("cada parcela… em demonstrativo de pagamento específico").
+  - Se a folha for paga no mês seguinte, o adiantamento fica no S-1210 do mês dele.
+  - **De/para:** ADIANT em 9200, VT em 9216 e ADIANTPAG pela descrição ("ADIANT"), porque a natureza do provento varia no S-1010 de cada empresa.
+- **Conferência de holerites:** o "ADIANTAMENTO (VALE)" e o "VALE TRANSPORTE" do IOB viram linhas próprias e entram no movimento como valores informados. O arredondamento continua como lançamento avulso.
+- **Conferido com o IOB:**
+  - Agosto: líquido da folha 1.581,40 (o IOB arredonda para 1.581,00).
+  - Setembro: 490,00.
+  - Os demonstrativos do S-1200 de 08 (folha, adiantamento e recibo de férias) e as datas do S-1210 batem.
+- **Fica para depois:**
+  - arredondamento do líquido (o IOB leva os centavos para o mês seguinte);
+  - arquivo bancário e holerite do próprio adiantamento.
+- **Revisão do Codex no #115 (P1):** se a folha é paga no mês seguinte, o adiantamento sai num mês e o saldo em outro.
+  - Pelo RIR/1999, art. 621, o adiantamento de rendimentos que não são integralmente pagos no próprio mês tem o IRRF calculado de imediato, no mês do pagamento. O motor ainda calcula tudo no mês da folha.
+  - Até a regra ser conferida com o IOB, o motor avisa e o gerador do eSocial recusa esse caso para o trabalhador, com o motivo.
+  - No caso do IOB (folha paga em 30/08), os dois pagamentos são do mesmo mês, e nada muda.
+- **Revisão do Codex no #115 (P2, VT em mês parcial):** o custo do VT na ficha é o do mês inteiro. Em mês parcial (admissão, férias, afastamento), o teto do desconto passa a ser o custo × dias pagos / 30, proporcional ao benefício concedido (Decreto 10.854/2021, art. 115). Exemplo: setembro, com 10 dias fora das férias e custo de 150,00, limita o desconto a 50,00.
+- **Revisão do Codex no #115 (dois P1):**
+  - **Sugestão de rubrica:** a sugestão pela descrição (`ADIANTPAG`) não aceita mais rubrica de férias ou de 13º, nem quando é a única com "ADIANT".
+  - **Admissão e desligamento:** o adiantamento automático só vale para quem tinha vínculo no dia do adiantamento (dia 20 ou o dia útil anterior). Admitido depois ou desligado antes fica sem adiantamento, e a memória explica.
+  - **eSocial:** recusa adiantamento informado com data anterior à admissão.
+  - `dataSugeridaAdiantamento` foi para o motor, porque é a mesma data na folha e no eSocial.
+- **Revisão do Codex no #115 (P2):** se o holerite do IOB não traz adiantamento ou VT, o movimento trazido dele grava 0 nos dois. Assim o motor não volta à ficha e não inventa o desconto naquele mês.
+- **Revisão do Codex no #115 (P1):** a sugestão da rubrica do adiantamento salarial agora exige "SAL", "VALE" ou "QUINZ" na descrição e evita férias, 13º, comissão e gorjeta. O catálogo de eventos do IOB tem "adiantamento comissão" e "adiantamento gorjeta".
+- **Revisão do Codex no #115 (dois P2):**
+  - **VT só nos dias com deslocamento:** afastamento remunerado (16) e os 15 primeiros dias de doença, que a empresa paga, não entram. A base e o teto do custo seguem esses dias. Doença o mês inteiro dá VT zero.
+  - **Data do adiantamento alterada na tela:** se ela diverge da usada no cálculo (dia 20 ou o dia útil anterior) e a admissão ou o desligamento fica entre as duas datas, o eSocial recusa e pede o valor no movimento. Com o adiantamento informado no movimento (`adiantamentoInformado`), vale o informado.
+- **Revisão do Codex no #115 (P1 e P2):**
+  - **Conferência de holerites:** só vira "Adiantamento salarial" o desconto com "SAL", "VALE" ou "QUINZ" na descrição, ou "ADIANTAMENTO" sozinho. Adiantamento de férias, 13º, comissão e gorjeta, e o arredondamento, ficam em "outros", como na sugestão da rubrica.
+  - **Data do adiantamento alterada na tela:** a comparação passa a seguir as regras do motor (sem vínculo se admitido depois do dia ou desligado antes dele). Assim, o desligado no próprio dia do cálculo (18/09), com a data mudada para 20/09, também é avisado.
+- **Revisão do Codex no #115 (P2, faltas no VT):** as faltas do movimento também saem dos dias com deslocamento. A base dos 6% e o teto do custo seguem esses dias. Exemplo: 6 faltas deixam 24 dias, com VT de 168,00 sobre 3.500,00. Faltas no mês todo dão VT zero.
+- **Revisão do Codex no #115 (P2, VT em fevereiro):** havendo dias sem deslocamento, conta o menor entre os dias comerciais e os dias de calendário que sobram. Fevereiro inteiro em afastamento remunerado (28 datas e 30 dias comerciais pagos) deixava 2 dias de VT, e agora deixa zero. Com 20 dias afastados, ficam 8 dias. Sem afastamento, fevereiro continua com o mês comercial inteiro.
+- **Revisão do Codex no #115 (P2, mês do pagamento):** o gerador do S-1200/S-1210 recusa o trabalhador quando o cálculo foi feito com um mês de pagamento ("Pagamento em") e a data do pagamento na tela é de outro. O IRRF do cálculo segue a tabela do mês usado nele. Vale para todos, com ou sem adiantamento.

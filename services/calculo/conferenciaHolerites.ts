@@ -21,10 +21,10 @@ export interface HoleriteIob {
     avisos: string[];
 }
 
-export type Classe = 'SAL' | 'MAT' | 'HE50' | 'HE100' | 'DSRHE' | 'FALTA' | 'DSRF' | 'SF' | 'PENSAO' | 'INSS' | 'IRRF' | 'FERMES' | 'FERPAGO' | 'OUTRO';
+export type Classe = 'SAL' | 'MAT' | 'HE50' | 'HE100' | 'DSRHE' | 'FALTA' | 'DSRF' | 'SF' | 'PENSAO' | 'ADIANT' | 'VT' | 'INSS' | 'IRRF' | 'FERMES' | 'FERPAGO' | 'OUTRO';
 export const ROTULO_CLASSE: Record<Classe, string> = {
     SAL: 'Salário', MAT: 'Salário-maternidade', HE50: 'Horas extras 50%', HE100: 'Horas extras 100%', DSRHE: 'DSR sobre horas extras',
-    FALTA: 'Faltas', DSRF: 'DSR descontado', SF: 'Salário-família', PENSAO: 'Pensão alimentícia', INSS: 'INSS', IRRF: 'IRRF',
+    FALTA: 'Faltas', DSRF: 'DSR descontado', SF: 'Salário-família', PENSAO: 'Pensão alimentícia', ADIANT: 'Adiantamento salarial', VT: 'Vale-transporte', INSS: 'INSS', IRRF: 'IRRF',
     FERMES: 'Férias + 1/3 do mês', FERPAGO: 'Férias pagas no recibo', OUTRO: 'Outros',
 };
 
@@ -39,6 +39,10 @@ export function classificarVerba(v: VerbaHolerite): Classe {
     if (/PENS(AO|\.) ?ALIM|^PENSAO/.test(d)) return 'PENSAO';
     if (desconto && /\bI\.?R\.?R\.?F\b|IMPOSTO DE RENDA|^IR\b|I\.R\.? ?FONTE/.test(d)) return 'IRRF';
     if (desconto && /\bINSS\b|PREVIDENCIA|I\.N\.S\.S/.test(d)) return 'INSS';
+    // Desconto do adiantamento salarial ("ADIANTAMENTO (VALE)" no IOB) e do vale-transporte; arredondamentos e outros
+    // adiantamentos (férias, 13º, comissão, gorjeta) ficam em "outros" (Codex #115).
+    if (desconto && /ADIANT/.test(d) && (/\b(SAL|VALE|QUINZ)/.test(d) || /^ADIANT\w*\.?$/.test(d)) && !/FERIAS|13|COMISS|GORJ|ARRED/.test(d)) return 'ADIANT';
+    if (desconto && /VALE[ -]?TRANSP|\bV\.? ?T\.?$|^V\.? ?T\b/.test(d)) return 'VT';
     // Férias no holerite do mês (pagas antes no recibo): provento = férias e 1/3; desconto = o líquido/valor já pago.
     if (/FERIAS/.test(d) && !/ABONO/.test(d)) return desconto ? 'FERPAGO' : 'FERMES';
     const extra = /EXTRA|\bH\.? ?E\b|\bHE\b/.test(d);
@@ -74,7 +78,7 @@ export interface ConferenciaFuncionario {
 }
 
 const TOLERANCIA = 1; // centavo
-const ITENS: Classe[] = ['SAL', 'MAT', 'HE50', 'HE100', 'DSRHE', 'FALTA', 'DSRF', 'SF', 'PENSAO', 'FERMES', 'FERPAGO', 'INSS', 'IRRF'];
+const ITENS: Classe[] = ['SAL', 'MAT', 'HE50', 'HE100', 'DSRHE', 'FALTA', 'DSRF', 'SF', 'PENSAO', 'ADIANT', 'VT', 'FERMES', 'FERPAGO', 'INSS', 'IRRF'];
 
 export function somaPorClasse(h: HoleriteIob): Record<Classe, number> {
     const s = Object.fromEntries([...ITENS, 'OUTRO'].map(c => [c, 0])) as Record<Classe, number>;
@@ -157,11 +161,18 @@ export function movimentoDoHolerite(h: HoleriteIob): { movimento: Movimento; avi
         else if (c === 'FALTA') somar('faltasDias', v);
         else if (c === 'DSRF') somar('dsrDescontadoDias', v);
         else if (c === 'PENSAO') mov.pensaoAlimenticia = (mov.pensaoAlimenticia ?? 0) + (v.desconto || v.provento);
+        // O adiantamento pago e o vale-transporte descontado valem como o IOB fez (sobrepõem a ficha).
+        else if (c === 'ADIANT') mov.adiantamento = (mov.adiantamento ?? 0) + (v.desconto || v.provento);
+        else if (c === 'VT') mov.valeTransporte = (mov.valeTransporte ?? 0) + (v.desconto || v.provento);
         else if (c === 'OUTRO') {
             const provento = v.provento > 0;
             lancamentos.push({ descricao: `${v.codigo ? `${v.codigo} ` : ''}${v.descricao}`.trim(), tipo: provento ? 'provento' : 'desconto', valor: v.provento || v.desconto, inss: provento, fgts: provento, irrf: provento });
         }
     }
+    // Sem adiantamento ou VT no holerite do IOB, o mês não teve: 0 explícito, senão o motor volta à ficha e
+    // inventa o desconto (Codex #115).
+    if (mov.adiantamento === undefined) mov.adiantamento = 0;
+    if (mov.valeTransporte === undefined) mov.valeTransporte = 0;
     if (lancamentos.length) { mov.lancamentos = lancamentos; avisos.push('Lançamentos trazidos do holerite: confira as incidências de cada um (provento entrou incidindo em tudo; desconto, em nada).'); }
     return { movimento: mov, avisos };
 }
