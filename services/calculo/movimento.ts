@@ -18,16 +18,16 @@ export interface MovimentoGravado {
 
 export const idMovimento = (fichaId: string, competencia: string) => `${fichaId}_${competencia}`;
 
-const NUMERICOS = ['horasExtras50', 'horasExtras100', 'faltasDias', 'dsrDescontadoDias', 'feriadosLocais', 'pensaoAlimenticia', 'adiantamento', 'valeTransporte'] as const;
+const NUMERICOS = ['horasExtras50', 'horasExtras100', 'faltasDias', 'dsrDescontadoDias', 'feriadosLocais', 'pensaoAlimenticia', 'adiantamento', 'valeTransporte', 'arredondamentoAnterior'] as const;
 /** Valores em centavos que sobrepõem a ficha: 0 é informação ("não houve no mês") e fica gravado. */
-const SOBREPOEM_FICHA: readonly CampoNumerico[] = ['adiantamento', 'valeTransporte'];
-const EM_CENTAVOS: readonly CampoNumerico[] = ['pensaoAlimenticia', 'adiantamento', 'valeTransporte'];
+const SOBREPOEM_FICHA: readonly CampoNumerico[] = ['adiantamento', 'valeTransporte', 'arredondamentoAnterior'];
+const EM_CENTAVOS: readonly CampoNumerico[] = ['pensaoAlimenticia', 'adiantamento', 'valeTransporte', 'arredondamentoAnterior'];
 export type CampoNumerico = typeof NUMERICOS[number];
 
 export const ROTULO_MOVIMENTO: Record<CampoNumerico | 'lancamentos', string> = {
     horasExtras50: 'Horas extras 50%', horasExtras100: 'Horas extras 100%', faltasDias: 'Faltas (dias)',
     dsrDescontadoDias: 'DSR descontado (dias)', feriadosLocais: 'Feriados locais no mês', pensaoAlimenticia: 'Pensão alimentícia',
-    adiantamento: 'Adiantamento pago', valeTransporte: 'Vale-transporte descontado',
+    adiantamento: 'Adiantamento pago', valeTransporte: 'Vale-transporte descontado', arredondamentoAnterior: 'Arredondamento anterior',
     lancamentos: 'Lançamentos avulsos',
 };
 

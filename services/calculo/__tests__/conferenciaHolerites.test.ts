@@ -86,14 +86,14 @@ describe('conferência com os holerites do IOB', () => {
         const { movimento, avisos } = movimentoDoHolerite(holerite([
             P('SALARIO', 220000, '30,00'), P('HORAS EXTRAS 50%', 15000, '10:00'), P('HORAS EXTRAS 100%', 4000, '2,00'), P('ADICIONAL NOTURNO', 5000, '', '030'),
             D('FALTAS', 7333, '1,00'), D('DSR S/ FALTAS', 7333, ''), D('PENSAO ALIMENTICIA', 30000), D('VALE TRANSPORTE', 13200, '6%', '410'), D('ADIANTAMENTO (VALE)', 88000, '40,00', '5610'),
-            D('DESC. ARREDONDAMENTO ADIANTAME', 33, '', '8951'), D('INSS', 19143),
+            D('DESC. ARREDONDAMENTO ADIANTAME', 33, '', '8951'), D('ARREDONDAMENTO ANTERIOR', 56, '', '5660'), P('ARREDONDAMENTO ATUAL', 89, '', '1480'), D('INSS', 19143),
         ]));
-        // Adiantamento e vale-transporte do IOB entram como foram (sobrepõem a ficha); arredondamento vira lançamento.
+        // Adiantamento, vale-transporte e arredondamento anterior do IOB entram como foram (sobrepõem a ficha e o
+        // encadeamento); o arredondamento atual e o do adiantamento o motor refaz, e não viram lançamento.
         expect(movimento).toEqual({
-            horasExtras50: 10, horasExtras100: 2, faltasDias: 1, pensaoAlimenticia: 30000, valeTransporte: 13200, adiantamento: 88000,
+            horasExtras50: 10, horasExtras100: 2, faltasDias: 1, pensaoAlimenticia: 30000, valeTransporte: 13200, adiantamento: 88000, arredondamentoAnterior: 56,
             lancamentos: [
                 { descricao: '030 ADICIONAL NOTURNO', tipo: 'provento', valor: 5000, inss: true, fgts: true, irrf: true },
-                { descricao: '8951 DESC. ARREDONDAMENTO ADIANTAME', tipo: 'desconto', valor: 33, inss: false, fgts: false, irrf: false },
             ],
         });
         expect(avisos[0]).toBe('DSR S/ FALTAS: referência "" ilegível; informe a quantidade.');

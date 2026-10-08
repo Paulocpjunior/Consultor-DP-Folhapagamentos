@@ -6,6 +6,7 @@ import { dataSugeridaAdiantamento, gerarEventosFolha, recibosFeriasDaCompetencia
 import { adiantamentoDoMes, calcularMensal } from '../../calculo/motorMensal';
 import { feriasDaCompetencia } from '../../calculo/motorFerias';
 import { limparMovimento } from '../../calculo/movimento';
+import { anteriorEncadeado, aoRealSeguinte, arredondar } from '../../calculo/arredondamento';
 import { fichaVazia, validarFicha, type FichaFuncionario } from '../../cadastros/funcionarios';
 import { afastamentoVazio, type Afastamento } from '../../cadastros/afastamentos';
 import type { TabelaLegal } from '../../cadastros/tabelasLegais';
@@ -25,11 +26,12 @@ const v = (r: { verbas: { codigo: string; valor: number }[] }, c: string) => r.v
 // Rubricas como no S-1010 do IOB: o adiantamento sem natureza fixa (vai pela descrição); desconto 9200; VT 9216.
 const RUB: [string, string, string, '1' | '2'][] = [['SAL', 'SALARIO', '1000', '1'], ['INSS', 'INSS', '9201', '2'], ['ADIPG', 'ADIANTAMENTO DE SALARIO', '1099', '1'], ['ADIDESC', 'ADIANTAMENTO (VALE)', '9200', '2'],
     ['VTD', 'VALE TRANSPORTE', '9216', '2'], ['FERMES', 'FERIAS', '1016', '1'], ['FERMES13', '1/3 FERIAS', '1017', '1'], ['FERPAGO', 'DESC FERIAS', '9221', '2'], ['INSSFERRET', 'INSS S/FERIAS', '9201', '2'],
-    ['FERADI', 'FERIAS REC', '1015', '1'], ['FERADI13', '1/3 FERIAS REC', '1015', '1'], ['ABONO', 'ABONO PECUNIARIO', '1023', '1'], ['ABONO13', '1/3 ABONO', '1023', '1'], ['INSSFER', 'INSS FERIAS REC', '9201', '2']];
+    ['FERADI', 'FERIAS REC', '1015', '1'], ['FERADI13', '1/3 FERIAS REC', '1015', '1'], ['ABONO', 'ABONO PECUNIARIO', '1023', '1'], ['ABONO13', '1/3 ABONO', '1023', '1'], ['INSSFER', 'INSS FERIAS REC', '9201', '2'],
+    ['ARRA', 'ARREDONDAMENTO ATUAL', '1099', '1'], ['ARRN', 'ARREDONDAMENTO ANTERIOR', '9299', '2'], ['ARRD', 'DESC. ARREDONDAMENTO ADIANTAMENTO', '9299', '2']];
 const RUBRICAS: Rubrica[] = RUB.map(([k, dsc, nat, tp]) => ({ id: k, empresaId: 'E1', codRubr: k, ideTabRubr: 'T1', eventoIob: '', origem: '',
     vigencias: [{ iniValid: '2020-01', fimValid: '', recibo: '', dados: { dscRubr: dsc, natRubr: nat, tpRubr: tp, codIncCP: '00', codIncIRRF: '00', codIncFGTS: '00', codIncCPRP: '', observacao: '' } }] }));
 const DEPARA: Record<string, string> = { SAL: 'SAL', INSS: 'INSS', ADIANTPAG: 'ADIPG', ADIANT: 'ADIDESC', VT: 'VTD', FERMES: 'FERMES', FERMES13: 'FERMES13', FERPAGO: 'FERPAGO', INSSFERRET: 'INSSFERRET',
-    FERADI: 'FERADI', FERADI13: 'FERADI13', ABONO: 'ABONO', ABONO13: 'ABONO13', INSSFER: 'INSSFER' };
+    FERADI: 'FERADI', FERADI13: 'FERADI13', ABONO: 'ABONO', ABONO13: 'ABONO13', INSSFER: 'INSSFER', ARREDATU: 'ARRA', ARREDANT: 'ARRN', ARREDADI: 'ARRD' };
 const PARAMS: ParametrosEsocialFolha = { nrInscEstab: CNPJ, codLotacao: 'LOT01', rubricas: Object.fromEntries(Object.entries(DEPARA).map(([k, c]) => [k, { codRubr: c, ideTabRubr: 'T1' }])) };
 const doc = (xml: string) => new DOMParser().parseFromString(xml, 'application/xml');
 const txt = (d: Document, tag: string) => Array.from(d.getElementsByTagName(tag)).map(e => e.textContent);
@@ -104,5 +106,35 @@ describe('adiantamento salarial e vale-transporte', () => {
         const itens = sugerirDePara([ago, ...verbasDoAdiantamentoParaDePara([ago])], RUBRICAS, '2026-08');
         const s = Object.fromEntries(itens.map(i => [i.chave, i.sugestao?.codRubr ?? null]));
         expect([s.ADIANTPAG, s.ADIANT, s.VT]).toEqual(['ADIPG', 'ADIDESC', 'VTD']);
+    });
+
+    it('arredondamento do líquido como o IOB: agosto 1.581,40 − 0,96 + 0,56 = 1.581,00; setembro 490,00 − 0,33 − 0,56 + 0,89, adiantamento pago 467,00', () => {
+        expect([aoRealSeguinte(158040), aoRealSeguinte(46667), aoRealSeguinte(49000), aoRealSeguinte(-50)]).toEqual([60, 33, 0, 0]);
+        // Agosto: o anterior do IOB (julho) era 0,96, informado no movimento.
+        const ago = arredondar(mensal('2026-08'), 96);
+        expect([v(ago, 'ARREDANT'), v(ago, 'ARREDATU'), v(ago, 'ARREDADI'), ago.totais.liquido]).toEqual([96, 56, undefined, 158100]);
+        // Setembro: o anterior é o atual de agosto (0,56), encadeado a partir do informado em agosto.
+        const ant = anteriorEncadeado('2026-08', '2026-09', c => mensal(c), c => (c === '2026-08' ? 96 : undefined));
+        expect(ant).toBe(56);
+        const set = arredondar(mensal('2026-09'), ant);
+        expect([v(set, 'ARREDADI'), v(set, 'ARREDANT'), v(set, 'ARREDATU'), set.totais.liquido]).toEqual([33, 56, 89, 49000]);
+        expect(set.verbas.filter(x => /^ARRED/.test(x.codigo)).every(x => !x.inss && !x.fgts && !x.irrf)).toBe(true);
+        // Reaplicar não duplica as linhas.
+        expect(arredondar(set, ant).verbas.filter(x => /^ARRED/.test(x.codigo))).toHaveLength(3);
+        // eSocial de 09: adiantamento 466,67 + 0,33 = 467,00 em 18/09; folha 490,00 com as três linhas, como no IOB.
+        const recibosFerias = recibosFeriasDaCompetencia([FICHA], GOZO, TAB, {}, '2026-09');
+        const t = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-09', dataPagamento: '2026-09-30', fichas: [FICHA], resultados: [set], rubricas: RUBRICAS, parametros: PARAMS, recibosFerias, agora: new Date('2026-10-01T12:00:00Z') }).trabalhadores[0];
+        expect(t.erros).toEqual([]);
+        const dm = demonstrativos(t.s1200!.xml);
+        expect(dm['ADI202609-M1']).toEqual({ ADIPG: '466.67', ARRA: '0.33' });
+        expect(dm['FOLHA202609-M1']).toMatchObject({ ADIDESC: '466.67', ARRD: '0.33', ARRN: '0.56', ARRA: '0.89', VTD: '70.00' });
+        const s1210 = doc(t.s1210!.xml);
+        const pg = Object.fromEntries(txt(s1210, 'ideDmDev').map((ide, i) => [ide, [txt(s1210, 'dtPgto')[i], txt(s1210, 'vrLiq')[i]]]));
+        expect(pg).toEqual({ 'ADI202609-M1': ['2026-09-18', '467.00'], 'FOLHA202609-M1': ['2026-09-30', '490.00'] });
+        // De/para das linhas do arredondamento pela descrição.
+        const s = Object.fromEntries(sugerirDePara([set, ...verbasDoAdiantamentoParaDePara([set])], RUBRICAS, '2026-09').map(i => [i.chave, i.sugestao?.codRubr ?? null]));
+        expect([s.ARREDATU, s.ARREDANT, s.ARREDADI]).toEqual(['ARRA', 'ARRN', 'ARRD']);
+        // Sem o mês de início: anterior 0; antes de começar a arredondar, nada encadeia.
+        expect(anteriorEncadeado('2026-09', '2026-09', c => mensal(c), () => undefined)).toBe(0);
     });
 });

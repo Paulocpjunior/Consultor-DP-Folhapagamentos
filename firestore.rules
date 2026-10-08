@@ -69,10 +69,11 @@ service cloud.firestore {
                        ))
                     // Quem tem a empresa na carteira (colaborador incluído) grava só o que a operação da folha
                     // usa: contas e número do arquivo bancário, contato de envio do pacote e parâmetros do
-                    // eSocial da folha. Os dados cadastrais continuam com o gestor, quem cadastrou e o admin.
+                    // eSocial da folha e do cálculo (arredondamento). Os dados cadastrais continuam com o gestor,
+                    // quem cadastrou e o admin.
                     || (podeEmpresa(empresaId)
                         && request.resource.data.diff(resource.data).affectedKeys()
-                             .hasOnly(['contasPagamento', 'contatoEnvio', 'esocialFolha', 'atualizadoEm'])))
+                             .hasOnly(['contasPagamento', 'contatoEnvio', 'esocialFolha', 'parametrosFolha', 'atualizadoEm'])))
                     // Trocar o código SAGE ou o CNPJ exige reservar a chave nova.
                     && (request.resource.data.codigoSage == resource.data.codigoSage
                         || chaveDaEmpresa('sage_' + request.resource.data.codigoSage, empresaId))

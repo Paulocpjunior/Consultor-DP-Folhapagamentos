@@ -2935,3 +2935,24 @@ guias sindicais".
   - Até a regra ser conferida com o IOB, o motor avisa e o gerador do eSocial recusa esse caso para o trabalhador, com o motivo.
   - No caso do IOB (folha paga em 30/08), os dois pagamentos são do mesmo mês, e nada muda.
 - **Revisão do Codex no #115 (P2, VT em mês parcial):** o custo do VT na ficha é o do mês inteiro. Em mês parcial (admissão, férias, afastamento), o teto do desconto passa a ser o custo × dias pagos / 30, proporcional ao benefício concedido (Decreto 10.854/2021, art. 115). Exemplo: setembro, com 10 dias fora das férias e custo de 150,00, limita o desconto a 50,00.
+
+## 08/10/2026 — Arredondamento do líquido
+
+- **Paulo:** *"pode seguir com arredondamento liquido"*. Os clientes do escritório pagam a folha no próprio mês, no 5º dia útil ou no dia 5 do mês seguinte.
+- **Como o IOB faz** (eventos de 08 e 09/2026): o pagamento sobe ao real seguinte, e os centavos pagos a mais voltam como desconto no mês seguinte.
+  - **Agosto:** 1.581,40 − 0,96 (anterior) + 0,56 (atual) = 1.581,00.
+  - **Setembro:**
+    - adiantamento de 466,67 pago como 467,00 (+ 0,33 no demonstrativo dele);
+    - folha: 490,00 − 0,33 (desc. arredondamento adiantamento) − 0,56 (anterior) + 0,89 (atual) = 490,00.
+- **`services/calculo/arredondamento.ts`:**
+  - `arredondar(r, anterior)` cria ARREDADI, ARREDANT e ARREDATU, sem INSS, FGTS e IRRF, e refaz os totais;
+  - `anteriorEncadeado` calcula o anterior mês a mês, desde o mês de início (no máximo 36 meses), usando o anterior informado no movimento quando houver.
+- **Parâmetro da empresa** (`empresas/{id}.parametrosFolha`): "Arredondar o líquido" e "desde", na tela do cálculo mensal.
+  - As regras do Firestore liberam essa chave para quem tem a empresa na carteira; o gestor já pode gravar.
+  - **Movimento:** novo campo "Arredondamento anterior", para informar o do holerite do IOB no primeiro mês.
+- **eSocial:**
+  - O demonstrativo do adiantamento leva o arredondamento dele, e o S-1210 paga 467,00.
+  - A folha leva as três linhas.
+  - **De/para:** pela descrição ("ARRED… ATUAL / ANTERIOR / ADIANT").
+- **Conferência de holerites:** as linhas de arredondamento do IOB não viram lançamento avulso. O "anterior" entra no movimento, e o motor refaz o resto.
+- **Trava:** `adiantamentoVt.test.ts`, com os valores de agosto e setembro do IOB.

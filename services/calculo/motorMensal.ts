@@ -40,6 +40,8 @@ export interface Movimento {
     adiantamento?: number;
     /** Vale-transporte descontado no mês (centavos): substitui o calculado pela ficha (holerite do IOB). */
     valeTransporte?: number;
+    /** Arredondamento do mês anterior (centavos) a descontar, quando a empresa arredonda o líquido: vale no lugar do encadeado. */
+    arredondamentoAnterior?: number;
     lancamentos?: Lancamento[];
 }
 

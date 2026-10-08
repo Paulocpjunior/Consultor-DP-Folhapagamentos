@@ -29,6 +29,7 @@
 // pagamento é no próprio mês do gozo.
 
 import { adiantamentoDoMes, type Movimento, type ResultadoCalculo, type Verba } from '../calculo/motorMensal';
+import { arredondamentoDoAdiantamento } from '../calculo/arredondamento';
 import { calcularFerias, parteDaCompetencia, type OpcoesFerias, type ResultadoFerias } from '../calculo/motorFerias';
 import { depNoEsocial, ratearPensao, type FichaFuncionario } from '../cadastros/funcionarios';
 import type { Afastamento } from '../cadastros/afastamentos';
@@ -81,6 +82,11 @@ const SUGESTAO: Record<string, { naturezas: string[]; dica?: RegExp; evita?: Reg
     ADIANTPAG: { naturezas: [], dica: /ADIANT/, evita: /FERIAS|13/ },
     ADIANT: { naturezas: ['9200'] },
     VT: { naturezas: ['9216'] },
+    // Arredondamento do líquido: a natureza varia no S-1010 de cada empresa; vai pela descrição, como no IOB
+    // ("ARREDONDAMENTO ATUAL", "ARREDONDAMENTO ANTERIOR", "DESC. ARREDONDAMENTO ADIANTAMENTO").
+    ARREDATU: { naturezas: [], dica: /ARRED.*ATUAL/ },
+    ARREDANT: { naturezas: [], dica: /ARRED.*ANTERIOR/ },
+    ARREDADI: { naturezas: [], dica: /ARRED.*ADIANT/ },
     // Folha do mês com férias pagas antes: férias e 1/3 da competência, o desconto do líquido pago (9221) e o retido no recibo.
     FERMES: { naturezas: ['1016'] },
     FERMES13: { naturezas: ['1017'] },
@@ -130,12 +136,16 @@ export const ideDmDev = (perApur: string, matricula: string) => `FOLHA${perApur.
 export const ideDmDevAdiantamento = (perApur: string, matricula: string) => `ADI${perApur.replace('-', '')}-${matricula}`.slice(0, 30);
 /** Data sugerida do adiantamento: dia 20 da competência, ou o dia útil anterior (20/09/2026 caiu num domingo e o IOB pagou em 18/09). */
 export const dataSugeridaAdiantamento = (competencia: string) => (/^\d{4}-\d{2}$/.test(competencia) ? diaUtilAnterior(`${competencia}-20`) : '');
-/** Verbas do demonstrativo do adiantamento: o valor pago, como provento (sem INSS, FGTS e IRRF; o IRRF é na folha). */
+/** Verbas do demonstrativo do adiantamento: o valor, como provento, e o arredondamento dele (sem INSS, FGTS e IRRF; o IRRF é na folha). */
 export const verbasDoAdiantamento = (r: Pick<ResultadoCalculo, 'verbas'>): Verba[] => {
     const v = adiantamentoDoMes(r);
     const ref = r.verbas.find(x => x.codigo === 'ADIANT')?.referencia ?? '';
-    return v > 0 ? [{ codigo: 'ADIANTPAG', descricao: 'Adiantamento salarial (pagamento)', referencia: ref, tipo: 'provento', valor: v, inss: false, fgts: false, irrf: false }] : [];
+    const arred = arredondamentoDoAdiantamento(r);
+    return v > 0 ? [{ codigo: 'ADIANTPAG', descricao: 'Adiantamento salarial (pagamento)', referencia: ref, tipo: 'provento', valor: v, inss: false, fgts: false, irrf: false },
+        ...(arred ? [{ codigo: 'ARREDATU', descricao: 'Arredondamento atual', referencia: '', tipo: 'provento' as const, valor: arred, inss: false, fgts: false, irrf: false }] : [])] : [];
 };
+/** O que o demonstrativo do adiantamento paga: o adiantamento e o arredondamento dele. */
+export const pagoNoAdiantamento = (r: Pick<ResultadoCalculo, 'verbas'>) => verbasDoAdiantamento(r).reduce((s, v) => s + v.valor, 0);
 /** Para o de/para: a rubrica de provento do adiantamento, que não está nas verbas da folha. */
 export const verbasDoAdiantamentoParaDePara = (resultados: ResultadoCalculo[]): ResultadoCalculo[] =>
     resultados.filter(r => r.situacao === 'calculado' && adiantamentoDoMes(r) > 0).map(r => ({ ...r, verbas: verbasDoAdiantamento(r) }));
@@ -380,8 +390,9 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             else if (adiant > 0) {
                 const ideA = unico(ideDmDevAdiantamento(e.competencia, mat));
                 dmDevs.push(dmDev(ideA, categ, f, itensDe(verbasDoAdiantamento(r))));
-                pagamentos.push({ mes: dataAdiant.slice(0, 7), xml: infoPgto(dataAdiant, ideA, adiant) });
-                t.liquido += adiant;
+                const pago = pagoNoAdiantamento(r);
+                pagamentos.push({ mes: dataAdiant.slice(0, 7), xml: infoPgto(dataAdiant, ideA, pago) });
+                t.liquido += pago;
             }
 
             // Recibos de férias pagos na competência: demonstrativo próprio, pago na data do recibo.
