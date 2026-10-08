@@ -16,7 +16,7 @@
 
 import type { Valor } from '../iobSage/backupPostgres';
 import { centavosDeTexto, cpfValido, dataValida } from './documentos';
-import { ROTULO, ehManual, idFuncionario, fichaVazia, diffFicha, type CampoFicha, type FaixaSalarial, type FichaFuncionario, type ResultadoMescla } from './funcionarios';
+import { ROTULO, ehManual, idFuncionario, fichaVazia, diffFicha, temReajusteEsocial, type CampoFicha, type FaixaSalarial, type FichaFuncionario, type ResultadoMescla } from './funcionarios';
 
 export type CampoCarga = 'cpf' | 'matriculaEsocial' | CampoFicha;
 
@@ -187,7 +187,7 @@ export interface Comparacao {
  * O histórico do SAGE só entra quando o do eSocial (S-2200/S-2206) não traz
  * nenhum reajuste: o transmitido vale mais que o guardado no sistema.
  */
-export const usaHistoricoDoSage = (f: Pick<FichaFuncionario, 'historicoSalario'>) => (f.historicoSalario ?? []).filter(x => !x.origem.startsWith('IOB')).length < 2;
+export const usaHistoricoDoSage = (f: Pick<FichaFuncionario, 'historicoSalario'>) => !temReajusteEsocial(f.historicoSalario ?? []);
 
 /**
  * Histórico de salário do SAGE por codfun, para quem não tem reajuste no
