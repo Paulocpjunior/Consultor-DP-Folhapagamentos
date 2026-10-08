@@ -2903,3 +2903,6 @@ guias sindicais".
   - Nas outras verbas de férias com natureza diferente da do MOS (S-1010, item 23), só avisa, porque a tabela de cada empresa vem do IOB.
 - **Revisão do Codex no #111 (P1, opções do IRRF):** quem calculasse o recibo de férias sem o desconto simplificado ou sem o redutor de 2026 e depois fosse para a folha mensal teria o recibo recalculado com as opções padrão. A folha abateria e o eSocial informaria um IRRF diferente do recibo entregue.
   - `feriasDaCompetencia` e `recibosFeriasDaCompetencia` passam a receber as opções. A tela de cálculo repassa as que estão marcadas na aba Férias para a folha, a conferência e o S-1200/S-1210.
+- **Revisão do Codex no #111 (P1, deduções que deixaram de valer):** um recibo corrigido que passou ao desconto simplificado, ou deixou de deduzir um dependente, mantinha a dedução antiga no S-1210 reenviado.
+  - No mês da competência, onde o cálculo tem todos os recibos pagos no mês, `mesclarIRFerias(…, completo)` tira do bloco aceito o tpRend 13 que não está no cálculo. Também some o `infoIRCR` ou o `infoIRComplem` que ficou vazio.
+  - Em outro mês, o S-1210 aceito tem recibos de outra competência, e o tpRend 13 dele fica como está.

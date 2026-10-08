@@ -241,6 +241,15 @@ describe('férias no S-1200 e no S-1210', () => {
         // Recibo novo no mês: o valor do cálculo (soma dos recibos do mês) troca o tpRend 13 do aceito.
         const soma = novo.replace(`${ded('13', '11111111111', '189.59')}`, `${ded('13', '11111111111', '379.18')}`);
         expect(mesclarIRFerias(completo, soma)).toBe(completo.replace(ded('13', '11111111111', '189.59'), ded('13', '11111111111', '379.18')));
+        // Recibo corrigido no mês da competência sem dedução (simplificado) ou sem um dos dependentes: o que não vale mais sai
+        // (o tpRend 11 da folha e o resto ficam). Fora do mês da competência, o aceito fica como está (Codex #111).
+        const so1 = `<infoIRComplem>${dep('11111111111')}<infoIRCR><tpCR>056107</tpCR>${ded('13', '11111111111', '189.59')}</infoIRCR></infoIRComplem>`;
+        expect(mesclarIRFerias(completo, so1, true)).toBe(completo.replace(ded('13', '22222222222', '189.59'), ''));
+        expect(mesclarIRFerias(completo, '', true)).toBe(completo.replace(ded('13', '11111111111', '189.59'), '').replace(ded('13', '22222222222', '189.59'), ''));
+        expect(mesclarIRFerias(completo, '', false)).toBe(completo);
+        const soFerias = `<infoIRComplem><infoIRCR><tpCR>056107</tpCR>${ded('13', '11111111111', '189.59')}</infoIRCR><planSaude><cnpjOper>12345678000190</cnpjOper><vlrSaudeTit>100.00</vlrSaudeTit></planSaude></infoIRComplem>`;
+        expect(mesclarIRFerias(soFerias, '', true)).toBe('<infoIRComplem><planSaude><cnpjOper>12345678000190</cnpjOper><vlrSaudeTit>100.00</vlrSaudeTit></planSaude></infoIRComplem>');
+        expect(mesclarIRFerias(`<infoIRComplem><infoIRCR><tpCR>056107</tpCR>${ded('13', '11111111111', '189.59')}</infoIRCR></infoIRComplem>`, '', true)).toBe('');
         expect(mesclarIRFerias(aceito, `<infoIRComplem><infoIRCR><tpCR>056107</tpCR>${ded('11', '44444444444', '189.59')}</infoIRCR></infoIRComplem>`)).toBe(aceito);
     });
 });
