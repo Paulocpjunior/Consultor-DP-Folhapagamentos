@@ -2747,3 +2747,9 @@ guias sindicais".
 - **Revisão do Codex depois do merge do #112, duas P2:**
   - **Variáveis sugeridas por palavra da chave, não por pedaço.** A chave `mensagem` começava com "mes" e recebia a competência. Agora a chave é quebrada em palavras (`nomeEmpresa` vira ["nome", "empresa"]) e comparada palavra por palavra.
   - **Teto do e-mail conferido na tela.** `LIMITE_EMAIL_BYTES` = 3.000.000, o mesmo base64 de 4.000.000 do CFI. A tela mostra "até 2,8 MB", com o teto arredondado para baixo e o tamanho do .zip para cima. Um .zip acima do teto desliga "Enviar e-mail pelo escritório" e diz para usar "E-mail deste computador".
+- **Itaú recusou `PG081010.REM.txt` (Paulo, 08/10/2026, novo print):**
+  - O nome 8.3 estava certo, mas o Safari do Mac acrescenta ".txt" a qualquer download com conteúdo de texto, mesmo como `application/octet-stream`.
+  - **Correção (`services/bancario/download.ts`):** no Safari, o .REM vai dentro de `PG081010.zip`. O Safari abre o .zip sozinho, e o Utilitário de Compressão extrai `PG081010.REM` com o nome exato. Nos outros navegadores, o .REM continua saindo direto.
+  - A tela diz por que o arquivo veio compactado e qual arquivo enviar ao banco.
+  - `ehSafari` exclui Chrome, Edge, Opera e Chrome/Firefox do iPhone, que também trazem "Safari" no user agent.
+  - **Testes:** `download.test.ts` e o modal com o user agent do Safari.
