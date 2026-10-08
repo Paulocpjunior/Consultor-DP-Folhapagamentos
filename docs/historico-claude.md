@@ -3023,3 +3023,4 @@ guias sindicais".
   - admissão ou desligamento entre a data nova e a do cálculo, a não ser que o adiantamento esteja informado no movimento.
 - **Revisão do Codex no #117 (P1):** o botão "Arquivo do adiantamento" fica desativado até os movimentos gravados do mês carregarem. Um adiantamento informado no movimento (0 ou outro valor) muda o que se paga.
 - **Revisão do Codex no #117 (P1):** com erro na leitura dos movimentos, `gravados` vira `{}`. Por isso o botão "Arquivo do adiantamento" passa a depender de `movsLidos`, que só fica verdadeiro quando a leitura deu certo.
+- **Revisão do Codex no #117 (P1):** cada leitura dos movimentos tem um número. A resposta de uma leitura já trocada (outra empresa ou competência) é descartada, para os movimentos do período anterior não valerem para o novo nem liberarem o arquivo do adiantamento.
