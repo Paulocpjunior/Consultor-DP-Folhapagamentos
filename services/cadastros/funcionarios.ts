@@ -174,7 +174,7 @@ const fimDoMes = (competencia: string) => { const [a, m] = competencia.split('-'
  * o salário (e a unidade) vigente no fim do mês; da última alteração em
  * diante, o salário atual da ficha (que pode ter sido corrigido à mão).
  */
-export function fichaNaCompetencia(f: FichaFuncionario, competencia: string): { ficha: FichaFuncionario; faixa: FaixaSalarial | null; alteradoNoMes: string } {
+export function fichaNaCompetencia(f: FichaFuncionario, competencia: string): { ficha: FichaFuncionario; faixa: FaixaSalarial | null; alteradoNoMes: string; antesDoHistorico?: boolean } {
     const h = f.historicoSalario ?? [];
     if (!h.length || !/^\d{4}-\d{2}$/.test(competencia)) return { ficha: f, faixa: null, alteradoNoMes: '' };
     // A primeira faixa é a admissão: proporcional pelos dias, não é alteração.
@@ -187,11 +187,13 @@ export function fichaNaCompetencia(f: FichaFuncionario, competencia: string): { 
  * mês anterior ao adiantamento). Mesma regra da competência: antes da última
  * faixa do histórico, o salário da faixa vigente; dali em diante, o da ficha.
  */
-export function fichaNaData(f: FichaFuncionario, data: string): { ficha: FichaFuncionario; faixa: FaixaSalarial | null } {
+export function fichaNaData(f: FichaFuncionario, data: string): { ficha: FichaFuncionario; faixa: FaixaSalarial | null; antesDoHistorico?: boolean } {
     const h = f.historicoSalario ?? [];
     if (!h.length || !dataValida(data) || h[h.length - 1].desde <= data) return { ficha: f, faixa: null };
-    const faixa = [...h].reverse().find(x => x.desde <= data);
-    if (!faixa) return { ficha: f, faixa: null };
+    // Data antes da primeira faixa (histórico do SAGE que não começa na admissão): o salário mais antigo
+    // conhecido fica mais perto do real que o atual; quem chama avisa.
+    const faixa = [...h].reverse().find(x => x.desde <= data) ?? h[0];
+    const antesDoHistorico = faixa.desde > data;
     // Unidade e horas da época. Se o histórico nunca as trouxe, ficam as atuais da ficha; se trouxe e
     // esta faixa não tem, saem (o motor usa o padrão com aviso) em vez de herdar as de um contrato posterior.
     const dados = { ...f.dados, salario: faixa.salario };
@@ -202,12 +204,13 @@ export function fichaNaData(f: FichaFuncionario, data: string): { ficha: FichaFu
     }
     // O histórico da ficha devolvida para na data: um cálculo feito com ela depois (a folha do mês da
     // rescisão, por exemplo) não volta a escolher um reajuste posterior.
-    return { ficha: { ...f, dados, historicoSalario: h.filter(x => x.desde <= data) }, faixa };
+    return { ficha: { ...f, dados, historicoSalario: h.filter(x => x.desde <= data) }, faixa, ...(antesDoHistorico ? { antesDoHistorico } : {}) };
 }
 
 /** Linha da memória quando o salário veio do histórico. */
-export const memoriaDoHistorico = (faixa: FaixaSalarial, quando: string) =>
-    `Salário de ${faixa.desde.split('-').reverse().join('/')} (${faixa.origem.split(' · ')[0]}), vigente ${quando}; o atual da ficha vale depois do último reajuste.`;
+export const memoriaDoHistorico = (faixa: FaixaSalarial, quando: string, antesDoHistorico = false) => antesDoHistorico
+    ? `Salário de ${faixa.desde.split('-').reverse().join('/')} (${faixa.origem.split(' · ')[0]}), o mais antigo do histórico, usado ${quando}, antes do histórico: confira o salário da época.`
+    : `Salário de ${faixa.desde.split('-').reverse().join('/')} (${faixa.origem.split(' · ')[0]}), vigente ${quando}; o atual da ficha vale depois do último reajuste.`;
 
 /** Limpa espaços, deixa só dígitos onde o campo é numérico e padroniza o salário com ponto decimal. */
 export function normalizarFicha(f: FichaFuncionario): FichaFuncionario {
@@ -373,7 +376,11 @@ export function mesclarComEsocial(existente: FichaFuncionario | undefined, impor
     const hImp = importada.historicoSalario ?? [];
     const anterior = existente.historicoSalario ?? [];
     const temDoSage = anterior.some(x => x.origem.startsWith('IOB'));
-    if (hImp.length && (temReajusteEsocial(hImp) || !temDoSage)) ficha.historicoSalario = [...anterior.filter(x => x.desde < hImp[0].desde), ...hImp];
+    // Lote parcial (sem o S-2200) de um período antigo também não apaga as faixas posteriores já importadas.
+    const parcial = !hImp.some(x => x.origem.startsWith('S-2200'));
+    if (hImp.length && (temReajusteEsocial(hImp) || !temDoSage)) ficha.historicoSalario = [
+        ...anterior.filter(x => x.desde < hImp[0].desde), ...hImp, ...(parcial ? anterior.filter(x => x.desde > hImp[hImp.length - 1].desde) : []),
+    ];
     if (depsTexto(existente.dependentes) !== depsTexto(importada.dependentes)) {
         if (ehManual(existente.origens.dependentes)) {
             if (importada.dependentes.length) preservados.push({ campo: 'dependentes', manual: depsTexto(existente.dependentes), esocial: depsTexto(importada.dependentes) });

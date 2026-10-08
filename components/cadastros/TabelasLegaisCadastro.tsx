@@ -9,7 +9,7 @@ import {
     DEF_TABELAS, TIPOS_TABELA, coeficienteDeTexto, inssProgressivo, rotuloCompetencia, tabelaVazia, tabelaVigente, tetoInss, textoCoeficiente, validarTabela,
     type ChaveValor, type DefValor, type TabelaLegal, type TipoTabela,
 } from '../../services/cadastros/tabelasLegais';
-import { excluirTabela, mensagemErro, salvarTabela, type Usuario } from '../../services/cadastros/cadastrosService';
+import { excluirTabela, gravarTabelaOficial, mensagemErro, salvarTabela, type Usuario } from '../../services/cadastros/cadastrosService';
 import { centavosDeTexto, reais } from '../../services/cadastros/documentos';
 import { oficiaisQueFaltam } from '../../services/cadastros/tabelasOficiais';
 
@@ -66,14 +66,14 @@ const TabelasLegaisCadastro: React.FC<Props> = ({ tabelas, erroLista, usuario, i
         if (!tabelas || !faltam.length) return;
         if (!window.confirm(`Gravar ${faltam.length} tabela(s) oficial(is) de 2026?\n\n${faltam.map(t => `${DEF_TABELAS[t.tipo].titulo} — ${t.norma}`).join('\n')}`)) return;
         setSalvando(true); setMsgOficiais('');
-        const feitas: string[] = []; const falhas: string[] = [];
+        const feitas: string[] = []; const jaHavia: string[] = []; const falhas: string[] = [];
         for (const t of faltam) {
             const v = validarTabela(t, tabelas);
             if (v.length) { falhas.push(`${DEF_TABELAS[t.tipo].titulo}: ${v.join(' ')}`); continue; }
-            try { await salvarTabela(null, t, usuario); feitas.push(DEF_TABELAS[t.tipo].titulo); }
+            try { (await gravarTabelaOficial(t, usuario) ? feitas : jaHavia).push(DEF_TABELAS[t.tipo].titulo); }
             catch (e) { falhas.push(`${DEF_TABELAS[t.tipo].titulo}: ${mensagemErro(e)}`); }
         }
-        setMsgOficiais(`${feitas.length ? `Gravadas: ${feitas.join(', ')}.` : ''}${falhas.length ? ` Não gravadas: ${falhas.join(' | ')}` : ''}`.trim());
+        setMsgOficiais(`${feitas.length ? `Gravadas: ${feitas.join(', ')}.` : ''}${jaHavia.length ? ` Já gravadas por outra pessoa: ${jaHavia.join(', ')}.` : ''}${falhas.length ? ` Não gravadas: ${falhas.join(' | ')}` : ''}`.trim());
         setSalvando(false);
         onRecarregar();
     }

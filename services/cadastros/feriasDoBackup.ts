@@ -22,14 +22,24 @@ const aquisitivo = (ini: string | null, fim: string | null) => (!ini ? { perAqui
 
 const dias = (de: string, ate: string) => Math.round((Date.parse(`${ate}T00:00:00Z`) - Date.parse(`${de}T00:00:00Z`)) / 86400000) + 1;
 
+// Data local (toISOString é UTC: depois das 21h de Brasília já seria o dia seguinte).
+const hojeLocal = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
 export interface GozosDoHistorico { afastamentos: Afastamento[]; avisos: string[]; semFicha: number; semGozo: number }
 
-/** Gozos de férias do `hist_ferias` como afastamentos de motivo 15. */
-export function gozosDoHistorico(t: TabelaLida, empresa: { id: string }, fichas: FichaFuncionario[], origem = 'Backup IOB: hist_ferias'): GozosDoHistorico {
+/**
+ * Gozos de férias do `hist_ferias` como afastamentos de motivo 15. Só entra o
+ * que foi gozado de fato: cancelada (situação "C…") fica de fora, e férias
+ * programadas (início depois de hoje, sem data de recibo) também, porque
+ * contariam como período usado no saldo (auditoria de 08/10/2026).
+ */
+export function gozosDoHistorico(t: TabelaLida, empresa: { id: string }, fichas: FichaFuncionario[], origem = 'Backup IOB: hist_ferias', hoje = hojeLocal()): GozosDoHistorico {
     const r: GozosDoHistorico = { afastamentos: [], avisos: [], semFicha: 0, semGozo: 0 };
     const i = (n: string) => t.colunas.findIndex(c => chaveColuna(c) === n);
-    const [iCod, iSit, iTipo, iAqIni, iAqFim, iGozIni, iGozFim, iAbono, iAbIni, iAbFim, iDobro] =
-        ['codfun', 'cstatus', 'ctipfer', 'daquisiini', 'daquisifim', 'dgozoini', 'dgozofim', 'ntotabono', 'dabonoini', 'dabonofim', 'cferdobro'].map(i);
+    const [iCod, iSit, iTipo, iAqIni, iAqFim, iGozIni, iGozFim, iAbono, iAbIni, iAbFim, iDobro, iRecibo] =
+        ['codfun', 'cstatus', 'ctipfer', 'daquisiini', 'daquisifim', 'dgozoini', 'dgozofim', 'ntotabono', 'dabonoini', 'dabonofim', 'cferdobro', 'drecibo'].map(i);
+    let canceladas = 0; let programadas = 0;
+    const outrasSituacoes = new Set<string>();
     if (iCod < 0 || iGozIni < 0 || iGozFim < 0) { r.avisos.push('hist_ferias sem as colunas codfun, dgozoini e dgozofim.'); return r; }
     // Fichas pelo código IOB. Com o mesmo código em mais de um vínculo (ex.: readmissão),
     // vale o vínculo em vigor na data do gozo; sem como decidir, a linha fica de fora.
@@ -45,6 +55,10 @@ export function gozosDoHistorico(t: TabelaLida, empresa: { id: string }, fichas:
     for (const l of t.linhas) {
         const ini = dataDoIob(v(l, iGozIni)); const fim = dataDoIob(v(l, iGozFim));
         if (!ini || !fim || fim < ini) { r.semGozo++; continue; }
+        const sit = v(l, iSit).toUpperCase();
+        if (/^C/.test(sit)) { canceladas++; continue; }
+        if (ini > hoje && !dataDoIob(v(l, iRecibo)) && sit !== 'Q') { programadas++; continue; }
+        if (sit && sit !== 'Q') outrasSituacoes.add(sit);
         const candidatas = porCodigo.get(chaveCodfun(v(l, iCod))) ?? [];
         if (!candidatas.length) { r.semFicha++; continue; }
         const naData = vigente(candidatas, ini);
@@ -72,6 +86,9 @@ export function gozosDoHistorico(t: TabelaLida, empresa: { id: string }, fichas:
             abonoDias: abono > 0 ? String(abono) : '', observacao: obs, origem,
         });
     }
+    if (canceladas) r.avisos.push(`${canceladas} férias canceladas no IOB ficaram de fora.`);
+    if (programadas) r.avisos.push(`${programadas} férias programadas no IOB (começam depois de hoje, sem recibo) ficaram de fora: programe pelo Cálculo quando confirmar.`);
+    if (outrasSituacoes.size) r.avisos.push(`Férias com situação ${[...outrasSituacoes].join(', ')} no IOB entraram como gozadas: confira na ficha de férias do IOB.`);
     if (r.semFicha) r.avisos.push(`${r.semFicha} gozo(s) de funcionário sem ficha com o código IOB nesta empresa (rode "Completar pelo backup do IOB" antes).`);
     return r;
 }

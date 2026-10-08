@@ -3,13 +3,13 @@
 // Persistência dos cadastros no Firestore (projeto consultor-dp-folha):
 //   cadastro_funcionarios/{empresaId_cpf_matrícula}
 //   cadastro_sindicatos/{cnpj}
-//   cadastro_tabelas_legais/{auto}
+//   cadastro_tabelas_legais/{auto}  (oficiais: oficial_{tipo}_{vigência})
 //   cadastro_audit/{auto}   (só inclusão; ninguém altera nem apaga)
 // Toda gravação vai num lote junto com o registro de auditoria: ou grava os
 // dois, ou nenhum. As regras estão em firestore.rules.
 
 import {
-    collection, doc, getDoc, getDocs, query, serverTimestamp, where, writeBatch, type WriteBatch,
+    collection, doc, getDoc, getDocs, query, runTransaction, serverTimestamp, where, writeBatch, type WriteBatch,
 } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { diffFicha, type Alteracao, type FichaFuncionario, type ResultadoMescla } from './funcionarios';
@@ -45,11 +45,13 @@ export function mensagemErro(e: unknown): string {
 // O Firestore recusa undefined; JSON elimina e mantém null.
 export const limpo = <T,>(o: T): T => JSON.parse(JSON.stringify(o));
 
+const registroAuditoria = (u: Usuario, colecao: string, docId: string, acao: string, alteracoes: Alteracao[], extra: Record<string, string>) => ({
+    ...limpo({ colecao, docId, acao, alteracoes: alteracoes.slice(0, 300), totalAlteracoes: alteracoes.length, autor: u.id, autorEmail: u.email, ...extra }),
+    quando: serverTimestamp(),
+});
+
 export function auditar(lote: WriteBatch, u: Usuario, colecao: string, docId: string, acao: string, alteracoes: Alteracao[], extra: Record<string, string> = {}) {
-    lote.set(doc(collection(db, AUDIT)), {
-        ...limpo({ colecao, docId, acao, alteracoes: alteracoes.slice(0, 300), totalAlteracoes: alteracoes.length, autor: u.id, autorEmail: u.email, ...extra }),
-        quando: serverTimestamp(),
-    });
+    lote.set(doc(collection(db, AUDIT)), registroAuditoria(u, colecao, docId, acao, alteracoes, extra));
 }
 
 /** Mantém só as chaves do modelo (descarta carimbos lidos do documento). */
@@ -160,6 +162,23 @@ export async function salvarTabela(antes: TabelaLegal | null, t: TabelaLegal, u:
     auditar(lote, u, TAB, ref.id, antes ? 'editar' : 'criar', diffObjeto(antes && soCampos(antes, tabelaVazia(t.tipo)), soCampos(t, tabelaVazia(t.tipo))));
     await lote.commit();
     return ref.id;
+}
+
+export const idTabelaOficial = (t: TabelaLegal) => `oficial_${t.tipo}_${t.vigencia}`;
+
+/**
+ * Tabela oficial com id fixo por tipo e vigência, numa transação: dois cliques
+ * ao mesmo tempo (ou duas pessoas) não criam duplicata; quem chega depois
+ * recebe false e nada é gravado.
+ */
+export async function gravarTabelaOficial(t: TabelaLegal, u: Usuario): Promise<boolean> {
+    const ref = doc(db, TAB, idTabelaOficial(t));
+    return runTransaction(db, async tx => {
+        if ((await tx.get(ref)).exists()) return false;
+        tx.set(ref, { ...limpo(semId(soCampos(t, tabelaVazia(t.tipo)))), atualizadoPor: u.id, atualizadoPorEmail: u.email, atualizadoEm: serverTimestamp() });
+        tx.set(doc(collection(db, AUDIT)), registroAuditoria(u, TAB, ref.id, 'criar', diffObjeto(null, soCampos(t, tabelaVazia(t.tipo))), {}));
+        return true;
+    });
 }
 
 export async function excluirTabela(t: TabelaLegal, u: Usuario): Promise<void> {

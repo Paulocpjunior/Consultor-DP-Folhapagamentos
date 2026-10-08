@@ -54,6 +54,8 @@ export interface PropostaEnquadramento {
     /** Enquadramento já cadastrado na mesma vigência (não é trocado). */
     existente: Enquadramento | null;
     diferencas: string[];
+    /** FPAS e terceiros lidos do backup, guardados mesmo fora do regime normal (para a troca de regime na tela). */
+    fonte?: { fpas: string; codigoTerceiros: string; terceiros: number };
 }
 
 export interface ResultadoCargaEnq {
@@ -150,7 +152,10 @@ export function s1000Vigente(ls: Record<string, string>[]): Record<string, strin
 export function aplicarRegime(p: PropostaEnquadramento, regime: RegimePatronal): PropostaEnquadramento {
     if (p.enquadramento.regime === regime) return p;
     const normal = regime === 'normal';
-    const novo: Enquadramento = { ...p.enquadramento, regime, ...(normal ? {} : { fpas: '', codigoTerceiros: '', terceiros: 0 }) };
+    // Para o regime normal, voltam o FPAS e os terceiros do backup (a proposta do Simples não os leva).
+    const doBackup = normal && !p.enquadramento.fpas && p.fonte?.fpas
+        ? { fpas: p.fonte.fpas, codigoTerceiros: p.fonte.codigoTerceiros, terceiros: Number.isFinite(p.fonte.terceiros) ? p.fonte.terceiros : 0 } : {};
+    const novo: Enquadramento = { ...p.enquadramento, regime, ...(normal ? doBackup : { fpas: '', codigoTerceiros: '', terceiros: 0 }) };
     const outros = p.erros.filter(x => x.startsWith('CNPJ no IOB'));
     return {
         ...p, enquadramento: novo,
@@ -226,8 +231,16 @@ export function proporEnquadramentos(t: TabelasEnquadramento, empresas: EmpresaC
         const ratAjus = estab.map(e => numero(e.ratajus ?? '')).find(n => n > 0) ?? NaN;
 
         // O classtrib do schema é o código do eSocial; o FKCLASTRIB do sistema pode ser índice interno.
+        // Cada linha do S-1000 vale a partir da sua vigência: a empresa que entrou no Simples tem o regime
+        // normal antes disso (a carga dos meses anteriores não pode sair sem a parte patronal).
         const cls = regimeDaClassTrib(s1000Vigente(s1000Usadas)?.classtrib ?? emp[0]?.fkclastrib ?? '');
         if (cls.pendencia) comum.push(cls.pendencia);
+        const mudancas = s1000Usadas.filter(l => l.classtrib).map(l => ({ ini: anomes(l.inivalid ?? l.inivalidade ?? l.iniValid ?? ''), classtrib: l.classtrib }))
+            .filter(x => x.ini).sort((a, b) => a.ini.localeCompare(b.ini));
+        const regimeEm = (mes: string) => {
+            const l = [...mudancas].reverse().find(x => x.ini <= mes);
+            return l ? regimeDaClassTrib(l.classtrib) : cls;
+        };
 
         // FPAS e terceiros: só no depto da folha da empresa.
         const dep = (sch?.depto ?? []).find(d => /^\d{3}$/.test((d.fpas ?? '').replace(/\D/g, '')));
@@ -254,16 +267,28 @@ export function proporEnquadramentos(t: TabelasEnquadramento, empresas: EmpresaC
             comum.push(Number.isFinite(fapAjus) ? 'FAP sem período no backup: calculado pelo RAT ajustado ÷ RAT, a partir de ' + corte.split('-').reverse().join('/') + '.' : 'FAP sem período no backup: vigência a partir de ' + corte.split('-').reverse().join('/') + '; conferir.');
         }
 
+        // A troca de regime abre uma vigência nova, mesmo sem mudança no depto (mesmos parâmetros do período em curso).
+        for (const m of mudancas) {
+            if (!periodos.length || m.ini <= periodos[0].ini || periodos.some(p => p.ini === m.ini)) continue;
+            const anterior = [...periodos].reverse().find(p => p.ini < m.ini);
+            if (anterior && regimeEm(anterior.ini).regime !== regimeDaClassTrib(m.classtrib).regime) {
+                periodos.push({ ...anterior, ini: m.ini });
+                // Em ordem a cada inclusão: a próxima troca copia o período imediatamente anterior a ela (Codex #109).
+                periodos.sort((a, b) => a.ini.localeCompare(b.ini));
+            }
+        }
         for (const p of periodos) {
             const pend = [...comum];
+            const clsP = regimeEm(p.ini);
+            if (clsP.regime !== cls.regime) pend.push(`Regime ${clsP.regime} nesta vigência pelo S-1000 do backup (o atual é ${cls.regime}).`);
             let fap = p.fap;
             if (!Number.isFinite(fap)) { fap = 1; pend.push('FAP não informado neste período: 1,0000 provisório; conferir o FAP publicado.'); }
             const fpas = p.fpas || base.fpas;
             const codigoTerceiros = p.fpas ? p.codigoTerceiros ?? '' : base.codigoTerceiros;
             const terceiros = p.terceiros !== undefined && Number.isFinite(p.terceiros) ? p.terceiros : base.terceiros;
-            const normal = cls.regime === 'normal';
+            const normal = clsP.regime === 'normal';
             const e: Enquadramento = {
-                ...enquadramentoVazio(empresa.id), id: idEnquadramento(empresa.id, p.ini), vigencia: p.ini, regime: cls.regime,
+                ...enquadramentoVazio(empresa.id), id: idEnquadramento(empresa.id, p.ini), vigencia: p.ini, regime: clsP.regime,
                 fpas: normal ? fpas : '', codigoTerceiros: normal ? codigoTerceiros : '',
                 patronal: 20, rat: p.rat || rat, fap, terceiros: normal && Number.isFinite(terceiros) ? terceiros : 0,
                 observacao: [`Carga do backup do IOB (código ${cod}${doMes.periodos.length ? ', depto_ma' : ''})`, cnae && `CNAE ${cnae}`, Number.isFinite(ratAjus) && `RAT ajustado no IOB ${fmt(ratAjus)}%`].filter(Boolean).join(' · '),
@@ -274,7 +299,7 @@ export function proporEnquadramentos(t: TabelasEnquadramento, empresas: EmpresaC
                 ['regime', existente.regime, e.regime], ['RAT', existente.rat, e.rat], ['FAP', existente.fap, e.fap], ['FPAS', existente.fpas, e.fpas],
             ] as [string, unknown, unknown][]).filter(([, a, b]) => b !== '' && b !== 0 && a !== b).map(([k, a, b]) => `${k}: cadastrado ${String(a) || '—'} × IOB ${String(b)}`) : [];
             const erros = [...(cnpjErrado ? [cnpjErrado] : []), ...validarEnquadramento(e)];
-            propostas.push({ empresa, enquadramento: e, pendencias: pend, erros, existente, diferencas });
+            propostas.push({ empresa, enquadramento: e, pendencias: pend, erros, existente, diferencas, fonte: { fpas, codigoTerceiros, terceiros } });
         }
     }
     propostas.sort((a, b) => a.empresa.nome.localeCompare(b.empresa.nome, 'pt-BR') || a.enquadramento.vigencia.localeCompare(b.enquadramento.vigencia));

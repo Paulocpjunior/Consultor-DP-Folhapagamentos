@@ -130,7 +130,8 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
     const sc = salarioContratual(d);
     r.avisos.push(...sc.avisos);
     if ('erro' in sc) return erro(sc.erro);
-    if (naExtincao.faixa) r.memoria.push(memoriaDoHistorico(naExtincao.faixa, `no desligamento (${br(data)})`));
+    if (naExtincao.faixa) r.memoria.push(memoriaDoHistorico(naExtincao.faixa, `no desligamento (${br(data)})`, !!naExtincao.antesDoHistorico));
+    if (naExtincao.antesDoHistorico) r.avisos.push('Data anterior ao histórico de salário da ficha: usado o salário mais antigo conhecido; confira.');
     const salarioHora = sc.mensal / sc.horasMes;
     const ultimos12 = Array.from({ length: 12 }, (_, i) => somarMeses(`${data.slice(0, 7)}-01`, -(i + 1)).slice(0, 7));
     let somaVar = 0;

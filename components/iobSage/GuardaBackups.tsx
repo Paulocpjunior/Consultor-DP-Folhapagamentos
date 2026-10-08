@@ -49,7 +49,10 @@ const GuardaBackups: React.FC<Props> = ({ usuario, podeRegistrar }) => {
             const sha256 = await assinar(f);
             setOcupado('Lendo as empresas do backup…');
             const empresas = await empresasDoArquivo(f);
-            setNovo({ sha256, arquivo: f.name, tamanho: f.size, dataBackup: new Date(f.lastModified).toISOString().slice(0, 10), empresas, localGuarda: LOCAL_PADRAO, observacao: '' });
+            // Data local do arquivo (toISOString é UTC: depois das 21h de Brasília virava o dia seguinte).
+            const d = new Date(f.lastModified);
+            const dataBackup = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            setNovo({ sha256, arquivo: f.name, tamanho: f.size, dataBackup, empresas, localGuarda: LOCAL_PADRAO, observacao: '' });
         } catch (e) { setErro((e as Error).message); }
         finally { setOcupado(''); }
     }

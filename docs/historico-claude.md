@@ -2571,3 +2571,47 @@ guias sindicais".
   automático por minha decisão"*. No Consultor DP, o merge passa a ser feito
   sem pedir OK, quando o CI está verde e a revisão do Codex terminou com os
   apontamentos tratados. No CFI continua valendo a aprovação explícita.
+
+## 08/10/2026 — Lote C da auditoria (dados e backup)
+
+- **Férias do backup (`gozosDoHistorico`):** o campo `cstatus` passa a ser
+  lido.
+  - **Canceladas (C…):** não viram gozo.
+  - **Programadas e ainda não pagas:** início no futuro, sem recibo e sem
+    situação Q. Não viram gozo; antes bloqueavam o cálculo como se tivessem
+    sido gozadas.
+  - **Situação desconhecida:** gera um aviso para conferir.
+- **Regime do S-1000 por vigência (Codex #84):** a carga do enquadramento
+  respeita a troca de regime no meio do período, criando um período novo a
+  partir da transição.
+  - A classificação tributária é avaliada em cada período, com pendência
+    quando falta.
+  - Ao voltar para o regime Normal, o FPAS e os terceiros anteriores são
+    restaurados (`fonte` da proposta).
+- **Férias programadas no Cálculo (Codex #89):** passam pelas mesmas
+  validações do cadastro de afastamentos e gravam a origem
+  `Manual · e-mail · data (Cálculo › Férias)`.
+- **Guarda dos backups:** a data do backup passa a ser a data local. Antes
+  era em UTC, e um backup feito depois das 21h ficava com o dia seguinte.
+- **Histórico de salário:**
+  - **Mescla parcial:** um backup só com S-2206, sem o S-2200, não apaga
+    mais as faixas posteriores já gravadas.
+  - **Data anterior à primeira faixa:** usa o salário mais antigo conhecido,
+    e a memória de cálculo avisa para conferir. Vale para a folha mensal,
+    as férias, o 13º e a rescisão.
+- **Tabelas oficiais (#90):** a gravação usa id fixo por tipo e vigência
+  (`oficial_{tipo}_{vigência}`), numa transação. Assim, dois cliques ou duas
+  pessoas ao mesmo tempo não criam duplicata, e quem chega depois vê "Já
+  gravadas por outra pessoa".
+  - Testado no emulador. Não precisa publicar regra nova.
+- **Ficou para conferir com backup real:** o `Math.abs` do estorno no
+  holerith. Provavelmente é proposital, então não foi alterado.
+- **Testes:** 86 arquivos, 678 testes; 46 testes de regras no emulador.
+- **Revisão do Codex no PR #109:**
+  - **P1:** com duas trocas de regime e dois períodos do depto_ma, a segunda
+    troca copiava o FAP e o FPAS da primeira troca, e não do período
+    imediatamente anterior. Agora a lista fica em ordem a cada inclusão.
+  - **P2:** o "hoje" das férias programadas era calculado em UTC, então
+    depois das 21h férias que começavam no dia seguinte entravam como
+    gozadas. Agora usa a data local.
+  - Cada correção tem um teste que reprova o código antigo.

@@ -16,7 +16,7 @@ import { listarAfastamentos, listarEnquadramentos, listarFuncionarios, listarTab
 import { enquadramentoVigente, type Enquadramento } from '../../services/cadastros/enquadramento';
 import type { User } from '../../types';
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
-import { afastamentoVazio, idAfastamento, type Afastamento } from '../../services/cadastros/afastamentos';
+import { afastamentoVazio, idAfastamento, validarAfastamento, type Afastamento } from '../../services/cadastros/afastamentos';
 import type { TabelaLegal } from '../../services/cadastros/tabelasLegais';
 import { centavosDeTexto, reais } from '../../services/cadastros/documentos';
 import { calcularMensal, competenciaSeguinte, noMes, type Lancamento, type Movimento, type ResultadoCalculo } from '../../services/calculo/motorMensal';
@@ -662,7 +662,12 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                                 async function gravarGozo() {
                                     if (!simulado) return;
                                     const abono = abonos[simulado.id] ?? Number(simulado.abonoDias || 0);
-                                    const g: Afastamento = { ...simulado, abonoDias: abono ? String(abono) : '', perAquisInicio: f.periodo?.inicio ?? '', perAquisFim: f.periodo?.fim ?? '' };
+                                    // Criado à mão: origem "Manual" (a importação do backup/S-2230 preserva e aponta a divergência).
+                                    const g: Afastamento = { ...simulado, abonoDias: abono ? String(abono) : '', perAquisInicio: f.periodo?.inicio ?? '', perAquisFim: f.periodo?.fim ?? '',
+                                        origem: `Manual · ${usuario.email} · ${new Date().toISOString().slice(0, 10)} (Cálculo › Férias)` };
+                                    // As mesmas conferências do cadastro de afastamentos (sobreposição com férias, doença…).
+                                    const v = validarAfastamento(g, dados?.fichas.find(x => x.id === g.fichaId), (dados?.afastamentos ?? []).filter(a => a.fichaId === g.fichaId));
+                                    if (v.erros.length) { setErro(`Férias não gravadas: ${v.erros.join(' ')}`); return; }
                                     if (!window.confirm(`Gravar as férias de ${br(g.dtInicio)} a ${br(g.dtFim)} em Cadastros › Afastamentos (motivo 15)?`)) return;
                                     setGravandoGozo(true); setErro('');
                                     try {

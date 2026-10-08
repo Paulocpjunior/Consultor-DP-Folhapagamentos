@@ -124,7 +124,8 @@ export function calcular13(e: Entrada13): ResultadoCalculo {
     r.avisos.push(...sc.avisos);
     if ('erro' in sc) return erro(sc.erro);
     r.memoria.push(sc.memoria);
-    if (naData.faixa) r.memoria.push(memoriaDoHistorico(naData.faixa, parcela === '2a' ? `em dezembro de ${ano}` : `no mês anterior ao adiantamento (${brData(dataSalario).slice(3)})`));
+    if (naData.faixa) r.memoria.push(memoriaDoHistorico(naData.faixa, parcela === '2a' ? `em dezembro de ${ano}` : `no mês anterior ao adiantamento (${brData(dataSalario).slice(3)})`, !!naData.antesDoHistorico));
+    if (naData.antesDoHistorico) r.avisos.push('Data anterior ao histórico de salário da ficha: usado o salário mais antigo conhecido; confira.');
     const salarioHora = sc.mensal / sc.horasMes;
 
     // Avos: na 1ª parcela, os meses depois do pagamento são projetados como trabalhados.
