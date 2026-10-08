@@ -3052,3 +3052,4 @@ guias sindicais".
 - **Revisão do Codex no #118 (dois P2):**
   - **Trava de contratos:** só conta os contratos da competência anterior cuja folha foi paga no mês do adiantamento, pelo mês gravado ou pelo regime. Uma empresa que mudou de "no próprio mês" para "no mês seguinte" não trava à toa.
   - **infoDep do S-1210 aceito:** se o aceito já informa o dependente (por plano de saúde, por exemplo) sem `depIRRF`, a marca e o tipo de agora entram no `infoDep` dele, antes da descrição. Assim a dedução não fica sem o dependente marcado para o IRRF.
+- **Revisão do Codex no #118 (P1):** o resultado travado por mais de um contrato no CPF perde o IRRF do adiantamento calculado por contrato. Ele não vai ao resumo (PDF e Excel) nem ao lembrete do DARF.

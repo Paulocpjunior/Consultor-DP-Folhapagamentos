@@ -505,7 +505,8 @@ export function travarAdiantamentoEntreContratos<R extends ResultadoCalculo>(res
     return resultados.map(r => {
         const c = cpfDe.get(r.fichaId);
         if (!c || (porCpf.get(c) ?? 0) < 2 || r.irrfAdiantamento === undefined || r.situacao === 'erro') return r;
-        return { ...r, situacao: 'incompleto', avisos: [...r.avisos, 'IRRF do adiantamento com mais de um contrato no CPF: o imposto do mês é de tudo o que foi pago ao CPF, e o Consultor ainda calcula cada contrato sozinho. Confira pelo IOB.'] };
+        // O IRRF por contrato está errado: sai do resultado, para não ir ao resumo nem ao lembrete do DARF (Codex #118).
+        return { ...r, situacao: 'incompleto', irrfAdiantamento: undefined, irrfAdiantamentoFolha: undefined, deducoesAdiantamento: undefined, avisos: [...r.avisos, 'IRRF do adiantamento com mais de um contrato no CPF: o imposto do mês é de tudo o que foi pago ao CPF, e o Consultor ainda calcula cada contrato sozinho. Confira pelo IOB.'] };
     });
 }
 

@@ -84,6 +84,8 @@ describe('IRRF do adiantamento com a folha paga no mês seguinte', () => {
         const f2 = { ...FICHA, id: 'f2', matriculaEsocial: 'M2' };
         const dois = travarAdiantamentoEntreContratos([agosto, { ...agosto, fichaId: 'f2' }], [FICHA, f2]);
         expect(dois.map(x => x.situacao)).toEqual(['incompleto', 'incompleto']);
+        // Sem o IRRF por contrato no resultado: não vai ao resumo nem ao DARF (Codex #118).
+        expect([dois[0].irrfAdiantamento, resumirFolha(dois).encargos.irrfAdiantamento]).toEqual([undefined, 0]);
         expect(travarAdiantamentoEntreContratos([agosto], [FICHA])[0]).toBe(agosto);
         // Outro contrato do CPF encerrado em julho, com a folha paga em agosto: também conta (Codex #118).
         expect(travarAdiantamentoEntreContratos([agosto], [FICHA], [FICHA, f2])[0].situacao).toBe('incompleto');
