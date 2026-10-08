@@ -132,6 +132,19 @@ export const semFechado = (m: Movimento | undefined): Movimento => ({ ...m, arre
     irrfRendimentos: undefined, irrfDeducoes: undefined, irrfRetido: undefined, irrfPagamento: undefined });
 
 /**
+ * Movimento com o mês do pagamento usado de fato (`mesPagamento`), ou undefined sem nada a mudar. Diferente do regime,
+ * fica gravado; igual, sai. Exceção: o mês do arredondamento gravado antes (`arredondamentoPagamento`), diferente do
+ * de agora, com o arredondamento desligado no mês (ligado, ele é regravado): o de agora fica gravado, senão o velho
+ * valeria no lugar do regime (Codex #118).
+ */
+export function movimentoComMesPagamento(mov: Movimento | undefined, pagamento: string, regime: string, arredonda: boolean): Movimento | undefined {
+    const valido = /^\d{4}-\d{2}$/.test(pagamento);
+    const legado = valido && !arredonda && mov?.arredondamentoPagamento !== undefined && mov.arredondamentoPagamento !== pagamento;
+    const mesPagamento = valido && (pagamento !== regime || legado) ? pagamento : undefined;
+    return mesPagamento || mov?.mesPagamento !== undefined ? { ...mov, mesPagamento } : undefined;
+}
+
+/**
  * Folha paga no mês seguinte: o IRRF apurado nela vai gravado com o movimento, para o adiantamento daquele mês somar
  * o que foi pago de fato. Vale para todo funcionário, porque o adiantamento pode ser lançado à mão no mês seguinte,
  * e a ficha de lá (com outros dependentes) não refaz esta folha (Codex #118). Sem cálculo completo, nada muda aqui.

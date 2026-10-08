@@ -3065,3 +3065,6 @@ guias sindicais".
 - **Revisão do Codex no #118 (P1 e P2), trava de contratos:**
   - **Desligado no mês:** da competência, conta também o contrato desligado no mês, cuja rescisão foi paga antes do adiantamento do outro. Nesse caso, o adiantamento não é o primeiro pagamento do CPF no mês.
   - **Contrato anterior sem pagamento:** da competência anterior, só conta o contrato cuja folha paga no mês teve rendimentos (pelo IRRF gravado ou refeito). Um contrato afastado o mês todo, sem nada pago, não trava o outro. Enquanto não dá para saber, ele conta.
+- **Revisão do Codex no #118 (dois P2):**
+  - **Mês do arredondamento velho:** se o movimento gravou o mês do pagamento pelo arredondamento (`arredondamentoPagamento`) e depois o arredondamento foi desligado, voltar o "Pagamento em" ao regime grava esse mês em `mesPagamento`. Sem isso, o mês velho valeria no lugar do regime (`movimentoComMesPagamento`).
+  - **Desligado no mês:** só conta na trava se o desligamento foi até a data sugerida do adiantamento (dia 20 ou o dia útil anterior). Desligado depois, a rescisão não foi paga antes do adiantamento. O Consultor não grava a data em que a rescisão foi paga, então desligado antes conta, e o aviso manda conferir.

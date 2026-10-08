@@ -4,7 +4,7 @@
 // trocados: os eventos do IOB não vão ao repositório; ficam os valores.
 import { describe, expect, it } from 'vitest';
 import { calcularMensal, travarAdiantamentoEntreContratos, type Lancamento } from '../../calculo/motorMensal';
-import { arredondar, movimentoComIrrf, semFechado } from '../../calculo/arredondamento';
+import { arredondar, movimentoComIrrf, movimentoComMesPagamento, semFechado } from '../../calculo/arredondamento';
 import { limparMovimento } from '../../calculo/movimento';
 import { resumirFolha } from '../../relatorios/resumoFolha';
 import { favorecidosDaFolha, foraDoAdiantamento, valorDoAdiantamento } from '../../bancario/favorecidos';
@@ -35,6 +35,17 @@ describe('IRRF do adiantamento com a folha paga no mês seguinte', () => {
         expect(movimentoComIrrf({}, { ...julho, situacao: 'incompleto' })).toBeUndefined();
         expect(limparMovimento(movimentoComIrrf({}, julho)!)).toEqual({ irrfRendimentos: 537555, irrfDeducoes: 98809, irrfRetido: 4880, irrfPagamento: '2026-08' });
         expect(semFechado(movimentoComIrrf({}, julho)).irrfRetido).toBeUndefined();
+    });
+
+    it('mês do pagamento gravado quando difere do regime, e por cima do mês do arredondamento velho (Codex #118)', () => {
+        expect(movimentoComMesPagamento({ horasExtras50: 1 }, '2026-08', '2026-09', false)).toEqual({ horasExtras50: 1, mesPagamento: '2026-08' });
+        expect(movimentoComMesPagamento({}, '2026-09', '2026-09', false)).toBeUndefined();
+        expect(movimentoComMesPagamento({ mesPagamento: '2026-08' }, '2026-09', '2026-09', false)).toEqual({ mesPagamento: undefined });
+        // Arredondamento desligado depois de gravar 08: de volta ao regime (09), o 09 fica gravado, e fica estável.
+        expect(movimentoComMesPagamento({ arredondamentoPagamento: '2026-08' }, '2026-09', '2026-09', false)).toEqual({ arredondamentoPagamento: '2026-08', mesPagamento: '2026-09' });
+        expect(movimentoComMesPagamento({ arredondamentoPagamento: '2026-08', mesPagamento: '2026-09' }, '2026-09', '2026-09', false)).toEqual({ arredondamentoPagamento: '2026-08', mesPagamento: '2026-09' });
+        // Ligado no mês: o mês do arredondamento é regravado com o de agora.
+        expect(movimentoComMesPagamento({ arredondamentoPagamento: '2026-08' }, '2026-09', '2026-09', true)).toBeUndefined();
     });
 
     it('folha de agosto (paga em 04/09): o adiantamento sai da base; IRRF 61,57 com o redutor, como no IOB', () => {
@@ -112,6 +123,9 @@ describe('IRRF do adiantamento com a folha paga no mês seguinte', () => {
         // Desligado em agosto, com a rescisão paga no mês: o pagamento dele também é do CPF (Codex #118).
         const desligado = { ...f2, dados: { ...f2.dados, dataDesligamento: '2026-08-10' } };
         expect(travarAdiantamentoEntreContratos([agosto, semAdiant], [FICHA, desligado])[0].situacao).toBe('incompleto');
+        // Desligado depois da data sugerida do adiantamento (20/08): a rescisão não foi paga antes dele (Codex #118).
+        const depois = { ...f2, dados: { ...f2.dados, dataDesligamento: '2026-08-25' } };
+        expect(travarAdiantamentoEntreContratos([agosto, semAdiant], [FICHA, depois])[0]).toBe(agosto);
         // Outro contrato do CPF encerrado em julho, com a folha paga em agosto: também conta (Codex #118).
         expect(travarAdiantamentoEntreContratos([agosto], [FICHA], [FICHA, f2])[0].situacao).toBe('incompleto');
         expect(travarAdiantamentoEntreContratos([agosto], [FICHA], [FICHA])[0]).toBe(agosto);

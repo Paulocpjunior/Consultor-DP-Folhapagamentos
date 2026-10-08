@@ -10,7 +10,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as XLSX from 'xlsx';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { listarEmpresasVisiveis, salvarParametrosFolha } from '../../services/empresas/empresasService';
-import { anteriorEncadeado, arredondaNoMes, arredondar, mesDoPagamento, movimentoComFechado, movimentoComIrrf, semFechado, mudarRegime, regimeNoMes, type ParametrosFolha, type RegimePagamento } from '../../services/calculo/arredondamento';
+import { anteriorEncadeado, arredondaNoMes, arredondar, mesDoPagamento, movimentoComFechado, movimentoComIrrf, movimentoComMesPagamento, semFechado, mudarRegime, regimeNoMes, type ParametrosFolha, type RegimePagamento } from '../../services/calculo/arredondamento';
 import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
 import EmpresaAtivaFixa from '../empresaAtiva/EmpresaAtivaFixa';
 import { listarAfastamentos, listarEnquadramentos, listarFuncionarios, listarTabelas, mensagemErro, salvarAfastamento, type Usuario } from '../../services/cadastros/cadastrosService';
@@ -315,14 +315,18 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         for (const id of Object.keys(movs)) if (!mesmoMovimento(semFechado(movs[id]), semFechado(gravados?.[id]?.movimento))) out[id] = semFechado(movs[id]);
         // "Pagamento em" diferente do regime: o mês usado de fato fica gravado, com ou sem arredondamento; igual ao
         // regime, nada a gravar (o regime já diz). Os meses seguintes o usam (IRRF do adiantamento; Codex #118).
-        const mesPagamento = /^\d{4}-\d{2}$/.test(pagamento) && pagamento !== mesDoPagamento(parametrosFolha, competencia) ? pagamento : undefined;
-        for (const r of resultados) if (mesPagamento || out[r.fichaId]?.mesPagamento !== undefined) out[r.fichaId] = { ...out[r.fichaId], mesPagamento };
+        const arredonda = arredondaNoMes(parametrosFolha, competencia);
+        const regime = mesDoPagamento(parametrosFolha, competencia);
+        for (const r of resultados) {
+            const m = movimentoComMesPagamento(out[r.fichaId], pagamento, regime, arredonda);
+            if (m) out[r.fichaId] = m;
+        }
         // IRRF apurado da folha paga no mês seguinte, para o adiantamento de lá, mesmo lançado à mão (Codex #118).
         for (const r of resultados) {
             const m = movimentoComIrrf(out[r.fichaId], r);
             if (m) out[r.fichaId] = m;
         }
-        if (!arredondaNoMes(parametrosFolha, competencia)) return out;
+        if (!arredonda) return out;
         const desde = parametrosFolha?.arredondarDesde || competencia;
         for (const r of resultados) {
             const m = movimentoComFechado(out[r.fichaId], gravados?.[r.fichaId]?.movimento, r, desde);

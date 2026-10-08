@@ -507,8 +507,9 @@ export const adiantamentoDoMes = (r: Pick<ResultadoCalculo, 'verbas'>) => r.verb
  * Mais de um contrato no mesmo CPF com IRRF do adiantamento: o imposto do mês é do CPF (a tabela e as deduções
  * valem uma vez para tudo o que foi pago), e cada contrato é calculado sozinho. Até o motor somar os contratos,
  * esses ficam incompletos, com aviso (Codex #118). Da competência, conta o contrato com pagamento no mês: o
- * adiantamento ou a rescisão de um desligamento no mês (um contrato admitido depois do adiantamento não muda o
- * imposto). `pagosNoMes`: contratos da competência anterior com folha paga no mês do adiantamento (um contrato
+ * adiantamento ou a rescisão de um desligamento no mês até a data sugerida do adiantamento (um contrato admitido ou
+ * desligado depois dela não paga nada antes do adiantamento). A data em que a rescisão foi paga não fica gravada no
+ * Consultor: desligado antes do adiantamento, conta, e o aviso manda conferir. `pagosNoMes`: contratos da competência anterior com folha paga no mês do adiantamento (um contrato
  * encerrado no mês passado também entra na conta do CPF); quem filtra é a tela, pelo valor pago (Codex #118).
  */
 export function travarAdiantamentoEntreContratos<R extends ResultadoCalculo>(resultados: R[], fichas: Pick<FichaFuncionario, 'id' | 'cpf' | 'dados'>[], pagosNoMes: Pick<FichaFuncionario, 'id' | 'cpf'>[] = []): R[] {
@@ -516,14 +517,17 @@ export function travarAdiantamentoEntreContratos<R extends ResultadoCalculo>(res
     const desligadoNoMes = new Map(fichas.map(f => [f.id, f.dados.dataDesligamento ?? '']));
     const contratosDoCpf = new Map<string, Set<string>>();
     const somar = (id: string, cpf: string | undefined) => { if (cpf) contratosDoCpf.set(cpf, (contratosDoCpf.get(cpf) ?? new Set()).add(id)); };
-    for (const r of resultados) if (adiantamentoDoMes(r) > 0 || (desligadoNoMes.get(r.fichaId) ?? '').startsWith(r.competencia)) somar(r.fichaId, cpfDe.get(r.fichaId));
+    for (const r of resultados) {
+        const deslig = desligadoNoMes.get(r.fichaId) ?? '';
+        if (adiantamentoDoMes(r) > 0 || (deslig.startsWith(r.competencia) && deslig <= dataSugeridaAdiantamento(r.competencia))) somar(r.fichaId, cpfDe.get(r.fichaId));
+    }
     for (const f of pagosNoMes) somar(f.id, f.cpf.replace(/\D/g, ''));
     const porCpf = new Map([...contratosDoCpf].map(([c, ids]) => [c, ids.size]));
     return resultados.map(r => {
         const c = cpfDe.get(r.fichaId);
         if (!c || (porCpf.get(c) ?? 0) < 2 || r.irrfAdiantamento === undefined || r.situacao === 'erro') return r;
         // O IRRF por contrato está errado: sai do resultado, para não ir ao resumo nem ao lembrete do DARF (Codex #118).
-        return { ...r, situacao: 'incompleto', irrfAdiantamento: undefined, irrfAdiantamentoFolha: undefined, deducoesAdiantamento: undefined, avisos: [...r.avisos, 'IRRF do adiantamento com mais de um contrato no CPF: o imposto do mês é de tudo o que foi pago ao CPF, e o Consultor ainda calcula cada contrato sozinho. Confira pelo IOB.'] };
+        return { ...r, situacao: 'incompleto', irrfAdiantamento: undefined, irrfAdiantamentoFolha: undefined, deducoesAdiantamento: undefined, avisos: [...r.avisos, 'IRRF do adiantamento com mais de um contrato no CPF: o imposto do mês é de tudo o que foi pago ao CPF, e o Consultor ainda calcula cada contrato sozinho. Confira pelo IOB (um contrato desligado no mês conta pela rescisão, que pode ter sido paga antes do adiantamento).'] };
     });
 }
 
