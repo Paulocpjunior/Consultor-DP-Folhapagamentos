@@ -2664,3 +2664,47 @@ guias sindicais".
   - **README (P2):** o passo do proxy do Gemini passa a dizer como recuperar
     pelo git o modelo removido (`geminiService.proxy.ts`).
 - **Testes:** 86 arquivos, 681 testes.
+
+## 08/10/2026 — Pacote do cliente pelo SP Connect (WhatsApp do escritório)
+
+- **Paulo:** *"ao usar o consultor DP, e envio para WhatsApp, não está
+  assumindo que deve sair pelo WhatsApp, SP Connect"* e *"pode seguir no
+  Consultor DP, com a mesma regra criada no CFI e no CCI, onde podemos enviar
+  arquivos em anexo aos clientes"*.
+- **Antes:** o botão montava um link `wa.me`, que abre o WhatsApp de quem
+  está no computador, e não o número do escritório.
+- **Regra do CFI e do CCI (SP Connect, Cloud API da Meta):**
+  - o envio ao cliente sai pelo gateway dos apps irmãos (`POST
+    /api/admin/whatsapp/enviar`, que aceita o token do DP), com o template
+    do departamento;
+  - fora da janela de 24h, a Meta só aceita template, e o template só leva
+    arquivo com cabeçalho de documento (um PDF por envio);
+  - o token da Meta nunca sai do CFI, e o CFI audita o envio em
+    `whatsapp_envios`, com quem enviou.
+- **Feito (só no Consultor DP, sem mudança no CFI):**
+  - **`services/pacoteCliente/spConnect.ts`:**
+    - `templatesDoDp`: templates ativos do `dp-folha` com documento;
+    - `enviarPeloSpConnect`: template, variáveis e PDF em base64, com o
+      token do usuário (`comTokenCfi`). A recusa do CFI chega com o que
+      fazer (`acao`);
+    - `valoresSugeridos`: preenche cliente, empresa e competência pela
+      chave da variável.
+  - **Pacote do cliente, bloco "SP Connect: WhatsApp do escritório":**
+    - escolha do template e do PDF do pacote (holerites ou resumo), com as
+      variáveis já sugeridas e editáveis;
+    - confirmação antes de enviar e o resultado na tela (número e template).
+  - **Sem template `dp-folha` com documento**, a tela explica o que fazer: um
+    admin cria na Meta um modelo de utilidade com cabeçalho de DOCUMENTO e
+    cadastra no CFI (⚙️ Config Admin › WhatsApp, departamento dp-folha, "tem
+    documento").
+  - O botão antigo passa a se chamar "WhatsApp deste computador" e fica como
+    alternativa.
+  - O .zip completo (arquivo bancário, agenda, LEIA-ME) segue pelo e-mail.
+- **Para o CFI, só com a aprovação do Paulo:**
+  - `/enviar` grava `projetoOrigem` a partir de `req.user.projeto`, mas o
+    token dos irmãos preenche `projectId`. Por isso o envio do DP fica sem
+    origem na auditoria;
+  - não há rota de e-mail (Graph) aberta ao DP: o e-mail continua saindo do
+    programa de e-mail de quem usa.
+- **Testes:** `spConnect.test.ts` e o modal com o envio e com a falta de
+  template.

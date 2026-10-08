@@ -8,7 +8,9 @@ const sv = vi.hoisted(() => ({
     // Reserva do número do arquivo em transação: devolve o gravado (9) e grava o seguinte.
     salvar: vi.fn(async (_empresaId: string, contaId: string) => ({ nsa: 9, contas: [{ id: contaId, banco: '341', proximoNsa: 10 }] })),
     contato: vi.fn(async (..._a: unknown[]) => undefined), baixados: [] as { nome: string; bytes: Uint8Array }[],
+    templates: vi.fn(async () => [] as unknown[]), enviarSp: vi.fn(async (..._a: unknown[]) => ({ messageId: 'wamid.1', numeroEnviado: '5511988887777', template: 'dp_pacote_folha' })),
 }));
+vi.mock('../spConnect', async orig => ({ ...(await orig<typeof import('../spConnect')>()), templatesDoDp: () => sv.templates(), enviarPeloSpConnect: (...a: unknown[]) => sv.enviarSp(...a) }));
 vi.mock('../../empresas/empresasService', () => ({ reservarNsa: (e: string, c: string) => sv.salvar(e, c), salvarContatoEnvio: (...a: unknown[]) => sv.contato(...a) }));
 vi.mock('../../implantacao/zip', async orig => ({ ...(await orig<typeof import('../../implantacao/zip')>()), baixarBytes: (nome: string, bytes: Uint8Array) => { sv.baixados.push({ nome, bytes }); } }));
 import PacoteClienteModal from '../../../components/pacoteCliente/PacoteClienteModal';
@@ -82,11 +84,11 @@ describe('modal Pacote do cliente', () => {
         expect(texto).toMatch(/Arquivo bancário \(BANCO ITAU\): 1 pagamento\(s\), total R\$ 654,32, crédito em 06\/10\/2026/);
         expect(texto).toContain('• 06/10/2026: Pagar os salários');
         // Sem WhatsApp e sem e-mail os botões ficam desligados.
-        expect((screen.getByText('Abrir WhatsApp') as HTMLButtonElement).disabled).toBe(true);
+        expect((screen.getByText('WhatsApp deste computador') as HTMLButtonElement).disabled).toBe(true);
         expect((screen.getByText('Abrir e-mail') as HTMLButtonElement).disabled).toBe(true);
         fireEvent.change(screen.getByLabelText('WhatsApp do contato'), { target: { value: '(11) 98888-7777' } });
         fireEvent.change(screen.getByLabelText('E-mail do contato'), { target: { value: 'marta@cliente.com.br' } });
-        fireEvent.click(screen.getByText('Abrir WhatsApp'));
+        fireEvent.click(screen.getByText('WhatsApp deste computador'));
         fireEvent.click(screen.getByText('Abrir e-mail'));
         expect(abertos[0]).toMatch(/^https:\/\/wa\.me\/5511988887777\?text=Ol%C3%A1%2C%20Marta!/);
         expect(abertos[1]).toMatch(/^mailto:marta@cliente\.com\.br\?subject=Folha%20mensal%2009%2F2026%20%C2%B7%20Exemplo&body=Ol%C3%A1/);
@@ -98,6 +100,35 @@ describe('modal Pacote do cliente', () => {
         expect(confirmar.mock.calls[0][0]).toMatch(/novo arquivo bancário \(nº 10\)/);
         expect(screen.getByRole('region', { name: 'Enviar ao cliente' })).toBeTruthy();
         expect(sv.baixados).toHaveLength(1);
+    });
+
+    it('SP Connect: template do DP com o PDF escolhido e as variáveis sugeridas; sem template, explica como cadastrar', async () => {
+        sv.templates.mockResolvedValueOnce([{ nome: 'dp_pacote_folha', ativo: true, temDocumento: true, variaveis: [{ chave: 'cliente', rotulo: 'Cliente' }, { chave: 'competencia', rotulo: 'Competência' }, { chave: 'obs', rotulo: 'Observação' }] }]);
+        vi.spyOn(window, 'confirm').mockReturnValue(true);
+        render(<PacoteClienteModal empresa={{ ...empresa, contasPagamento: [], contatoEnvio: { nome: 'Marta', whatsapp: '(11) 98888-7777' } }} resultados={[res('f1', 'ANA', 65432)]} fichas={fichas} titulo="Folha mensal 09/2026" sufixo="2026-09"
+            dataSugerida="2026-10-06" eventos={() => []} onFechar={() => {}}
+            documentos={[{ id: 'holerites', rotulo: 'Holerites (PDF)', nome: 'holerites.pdf', descricao: 'h', gerar: () => pdf }, { id: 'resumo', rotulo: 'Resumo da folha (PDF)', nome: 'resumo.pdf', descricao: 'r', gerar: () => pdf }]} />);
+        fireEvent.click(screen.getByText('Baixar pacote (.zip)'));
+        const enviar = await screen.findByText('Enviar pelo SP Connect') as HTMLButtonElement;
+        expect((screen.getByLabelText('Variável Cliente') as HTMLInputElement).value).toBe('Marta');
+        expect((screen.getByLabelText('Variável Competência') as HTMLInputElement).value).toBe('09/2026');
+        // Variável sem sugestão: o botão espera a equipe preencher.
+        expect(enviar.disabled).toBe(true);
+        fireEvent.change(screen.getByLabelText('Variável Observação'), { target: { value: 'Conferir até sexta' } });
+        fireEvent.change(screen.getByLabelText('PDF do SP Connect'), { target: { value: 'resumo.pdf' } });
+        expect(enviar.disabled).toBe(false);
+        fireEvent.click(enviar);
+        await waitFor(() => expect(sv.enviarSp).toHaveBeenCalled());
+        const e = sv.enviarSp.mock.calls[0][0] as { para: string; template: string; variaveis: Record<string, string>; pdf: { nome: string }; referencia: string };
+        expect([e.para, e.template, e.variaveis, e.pdf.nome, e.referencia]).toEqual(['5511988887777', 'dp_pacote_folha', { cliente: 'Marta', competencia: '09/2026', obs: 'Conferir até sexta' }, 'resumo.pdf', '1200 · pacote-1200-2026-09.zip']);
+        expect(await screen.findByText(/Enviado pelo SP Connect para 5511988887777/)).toBeTruthy();
+        cleanup();
+        // Sem template dp-folha com documento: a tela diz o que cadastrar; o WhatsApp deste computador continua.
+        render(<PacoteClienteModal empresa={{ ...empresa, contasPagamento: [] }} resultados={[res('f1', 'ANA', 65432)]} fichas={fichas} titulo="Folha" sufixo="2026-09"
+            dataSugerida="2026-10-06" eventos={() => []} onFechar={() => {}} documentos={[{ id: 'holerites', rotulo: 'Holerites (PDF)', nome: 'h.pdf', descricao: 'h', gerar: () => pdf }]} />);
+        fireEvent.click(screen.getByText('Baixar pacote (.zip)'));
+        expect(await screen.findByText(/Nenhum template do Departamento Pessoal \(dp-folha\) com documento/)).toBeTruthy();
+        expect(screen.getByText('WhatsApp deste computador')).toBeTruthy();
     });
 
     it('sem conta cadastrada: o arquivo bancário fica de fora e o pacote sai sem gravar nada', async () => {
