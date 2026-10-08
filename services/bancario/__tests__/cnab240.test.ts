@@ -65,7 +65,9 @@ describe('remessa CNAB 240 de salários', () => {
         expect(r.lotes).toEqual([{ forma: 'conta', quantidade: 1, total: 461940 }, { forma: 'ted', quantidade: 1, total: 100000 }, { forma: 'pix', quantidade: 1, total: 50000 }]);
         expect(r.excluidos.map(e => [e.favorecido.ref, e.motivo])).toEqual([['f4', 'sem banco/agência/conta nem chave PIX na ficha']]);
         expect(r.total).toBe(611940);
-        expect(r.nomeArquivo).toMatch(/^CNAB240_237_\d{8}_000007\.REM$/);
+        // 8.3, como o Itaú exige: PG + dia + mês + 2 últimos dígitos do número do arquivo.
+        expect(r.nomeArquivo).toMatch(/^PG\d{4}07\.REM$/);
+        expect(r.nomeArquivo.split('.').map(x => x.length)).toEqual([8, 3]);
     });
 
     it('header de arquivo', () => {

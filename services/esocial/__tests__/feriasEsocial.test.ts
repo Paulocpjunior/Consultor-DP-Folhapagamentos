@@ -145,4 +145,40 @@ describe('férias no S-1200 e no S-1210', () => {
         const t = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2025-08', dataPagamento: '2025-09-05', fichas: [FICHA], resultados: [ago], rubricas: RUBRICAS, parametros: PARAMS }).trabalhadores[0];
         expect([t.s1200, t.erros.join(' ')]).toEqual([null, expect.stringMatching(/Férias do mês na folha .* não batem com os recibos de férias com gozo em 08\/2025/)]);
     });
+
+    it('confere com o IOB (caso real, 08 e 09/2026, dados trocados): 20 dias de gozo + 10 de abono pagos na sexta antes do domingo', () => {
+        // Eventos aceitos do IOB: salário 3.500, gozo 01 a 20/09/2026, abono de 10 dias, recibo pago em 28/08 (o prazo
+        // caía no domingo, 30/08). Tabela do INSS de 2026; IRRF zero nos dois meses (isenção de 2026).
+        const INSS26: TabelaLegal = { ...INSS, vigencia: '2026-01', faixas: [{ ate: 162100, aliquota: 7.5, deducao: 0 }, { ate: 290284, aliquota: 9, deducao: 0 }, { ate: 435427, aliquota: 12, deducao: 0 }, { ate: 847555, aliquota: 14, deducao: 0 }] };
+        const IR26: TabelaLegal = { ...IR, vigencia: '2026-01', faixas: [{ ate: 500000, aliquota: 0, deducao: 0 }, { ate: null, aliquota: 27.5, deducao: 90873 }] };
+        const tab = [INSS26, IR26];
+        const ficha: FichaFuncionario = { ...FICHA, dados: { ...FICHA.dados, admissao: '2024-03-01', salario: '3500.00' } };
+        const g = [{ ...gozo('2026-09-01', '2026-09-20'), perAquisInicio: '2025-03-01', abonoDias: '10' }];
+        const cods = ['SAL', 'INSS', 'FERMES', 'FERMES13', 'FERPAGO', 'INSSFERRET', 'FERADI', 'FERADI13', 'INSSFER', 'ABONO', 'ABONO13'];
+        const rub: Rubrica[] = cods.map(k => ({ ...RUBRICAS[0], id: k, codRubr: k, vigencias: [{ ...RUBRICAS[0].vigencias[0], dados: { ...RUBRICAS[0].vigencias[0].dados, dscRubr: k, tpRubr: ['INSS', 'FERPAGO', 'INSSFERRET', 'INSSFER'].includes(k) ? '2' : '1' } }] }));
+        const par: ParametrosEsocialFolha = { ...PARAMS, rubricas: Object.fromEntries(cods.map(k => [k, { codRubr: k, ideTabRubr: 'T1' }])) };
+        const ev = (competencia: string, dataPagamento: string) => {
+            const r = calcularMensal({ competencia, pagamento: dataPagamento.slice(0, 7), ficha, tabelas: tab, afastamentos: g, feriasDoMes: feriasDaCompetencia(ficha, g, tab, {}, competencia) });
+            const recibosFerias = recibosFeriasDaCompetencia([ficha], g, tab, {}, competencia);
+            const t = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia, dataPagamento, fichas: [ficha], resultados: [r], rubricas: rub, parametros: par, recibosFerias, agora: new Date('2026-10-01T12:00:00Z') }).trabalhadores[0];
+            return { t, dm: demonstrativos(t.s1200!.xml) };
+        };
+        // Agosto: o recibo vai como demonstrativo próprio no S-1200 de 08, com os valores do S_RECIFER_* do IOB
+        // (1180 férias 2.333,33; 1440 1/3 777,78; 1330 abono 1.166,67; 1210 1/3 do abono 388,89; 9850 INSS 261,93).
+        const ago = ev('2026-08', '2026-08-30');
+        expect(ago.t.erros).toEqual([]);
+        expect(ago.dm['FER20260828-M1']).toEqual({ FERADI: '2333.33', FERADI13: '777.78', ABONO: '1166.67', ABONO13: '388.89', INSSFER: '261.93' });
+        expect(ago.dm['FOLHA202608-M1']).toEqual({ SAL: '3500.00', INSS: '308.60' });
+        // S-1210 de 08: o recibo em 28/08 com o líquido do IOB (4.404,74), perRef 08.
+        const s1210 = doc(ago.t.s1210!.xml);
+        expect(txt(s1210, 'ideDmDev')).toContain('FER20260828-M1');
+        const i = txt(s1210, 'ideDmDev').indexOf('FER20260828-M1');
+        expect([txt(s1210, 'dtPgto')[i], txt(s1210, 'perRef')[i], txt(s1210, 'vrLiq')[i]]).toEqual(['2026-08-28', '2026-08', '4404.74']);
+        // Setembro (gozo): os S_HOLEFER_* do IOB (1180 2.333,33; 1440 777,78; 5600 desconto 2.849,18; 9850 INSS 261,93),
+        // o saldo de 10 dias de salário (1.166,67) e o INSS complementar (140,00). Sem S-1210 do recibo neste mês.
+        const set = ev('2026-09', '2026-09-30');
+        expect(set.t.erros).toEqual([]);
+        expect(set.dm['FOLHA202609-M1']).toEqual({ SAL: '1166.67', FERMES: '2333.33', FERMES13: '777.78', FERPAGO: '2849.18', INSSFERRET: '261.93', INSS: '140.00' });
+        expect(set.t.outrosMeses).toEqual([]);
+    });
 });

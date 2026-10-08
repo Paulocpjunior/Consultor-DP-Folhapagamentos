@@ -50,7 +50,23 @@ describe('modal Arquivo Bancário', () => {
         await waitFor(() => expect(sv.reservar).toHaveBeenCalledTimes(1));
         await waitFor(() => expect(criar).toHaveBeenCalledTimes(1));
         expect((await sv.reservar.mock.results[0].value).contas[0].proximoNsa).toBe(2);
-        expect(screen.getByRole('status').textContent).toMatch(/CNAB240_237_\d{8}_000001\.REM baixado: 1 pagamento/);
+        expect(screen.getByRole('status').textContent).toMatch(/PG\d{4}01\.REM baixado: 1 pagamento/);
+    });
+
+    it('no Safari o .REM vai dentro de um .zip e a tela diz por quê (Itaú recusou "PG081010.REM.txt")', async () => {
+        const blobs: Blob[] = [];
+        Object.assign(URL, { createObjectURL: vi.fn((b: Blob) => { blobs.push(b); return 'blob:x'; }), revokeObjectURL: vi.fn() });
+        vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15');
+        const baixados: string[] = [];
+        vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) { baixados.push(this.download); });
+        vi.spyOn(window, 'confirm').mockReturnValue(true);
+        const contaGravada = { id: 'c1', banco: '237', agencia: '1234-5', agenciaDv: '', conta: '12345-6', contaDv: '', convenio: '123456', proximoNsa: 5 };
+        render(<ArquivoBancarioModal empresa={{ ...empresa, contasPagamento: [contaGravada] }} resultados={[res('f1', 'ANA', 300000)]} fichas={fichas} titulo="Folha mensal 10/2026" dataSugerida="2026-11-06" onFechar={() => {}} />);
+        fireEvent.click(await screen.findByText('Gerar arquivo (.REM)'));
+        await waitFor(() => expect(baixados).toHaveLength(1));
+        expect(baixados[0]).toMatch(/^PG\d{4}\d{2}\.zip$/);
+        expect(blobs[0].type).toBe('application/zip');
+        expect(screen.getByRole('status').textContent).toMatch(/PG\d{6}\.REM baixado dentro de PG\d{6}\.zip: .*acrescentaria "\.txt"/);
     });
 
     it('sem conseguir reservar o número do arquivo (permissão ou rede), não baixa: o próximo sairia repetido', async () => {

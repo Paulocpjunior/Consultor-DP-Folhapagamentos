@@ -2788,3 +2788,108 @@ guias sindicais".
     1, igual ao manual e ao holerite do IOB. O recibo vai inteiro em 1015, e
     a folha não muda. As incidências (CP, FGTS e IRRF) são as do S-1010 da
     empresa, e o de/para sugere pelas naturezas do manual.
+
+## 08/10/2026 — Pacote do cliente pelo SP Connect (WhatsApp do escritório)
+
+- **Paulo:** *"ao usar o consultor DP, e envio para WhatsApp, não está
+  assumindo que deve sair pelo WhatsApp, SP Connect"* e *"pode seguir no
+  Consultor DP, com a mesma regra criada no CFI e no CCI, onde podemos enviar
+  arquivos em anexo aos clientes"*.
+- **Antes:** o botão montava um link `wa.me`, que abre o WhatsApp de quem
+  está no computador, e não o número do escritório.
+- **Regra do CFI e do CCI (SP Connect, Cloud API da Meta):**
+  - o envio ao cliente sai pelo gateway dos apps irmãos (`POST
+    /api/admin/whatsapp/enviar`, que aceita o token do DP), com o template
+    do departamento;
+  - fora da janela de 24h, a Meta só aceita template, e o template só leva
+    arquivo com cabeçalho de documento (um PDF por envio);
+  - o token da Meta nunca sai do CFI, e o CFI audita o envio em
+    `whatsapp_envios`, com quem enviou.
+- **Feito (só no Consultor DP, sem mudança no CFI):**
+  - **`services/pacoteCliente/spConnect.ts`:**
+    - `templatesDoDp`: templates ativos do `dp-folha` com documento;
+    - `enviarPeloSpConnect`: template, variáveis e PDF em base64, com o
+      token do usuário (`comTokenCfi`). A recusa do CFI chega com o que
+      fazer (`acao`);
+    - `valoresSugeridos`: preenche cliente, empresa e competência pela
+      chave da variável.
+  - **Pacote do cliente, bloco "SP Connect: WhatsApp do escritório":**
+    - escolha do template e do PDF do pacote (holerites ou resumo), com as
+      variáveis já sugeridas e editáveis;
+    - confirmação antes de enviar e o resultado na tela (número e template).
+  - **Sem template `dp-folha` com documento**, a tela explica o que fazer: um
+    admin cria na Meta um modelo de utilidade com cabeçalho de DOCUMENTO e
+    cadastra no CFI (⚙️ Config Admin › WhatsApp, departamento dp-folha, "tem
+    documento").
+  - O botão antigo passa a se chamar "WhatsApp deste computador" e fica como
+    alternativa.
+  - O .zip completo (arquivo bancário, agenda, LEIA-ME) segue pelo e-mail.
+- **Para o CFI, só com a aprovação do Paulo:**
+  - `/enviar` grava `projetoOrigem` a partir de `req.user.projeto`, mas o
+    token dos irmãos preenche `projectId`. Por isso o envio do DP fica sem
+    origem na auditoria;
+  - não há rota de e-mail (Graph) aberta ao DP: o e-mail continua saindo do
+    programa de e-mail de quem usa.
+- **Testes:** `spConnect.test.ts` e o modal com o envio e com a falta de
+  template.
+- **Arquivo bancário recusado pelo Itaú (Paulo, 08/10/2026, print do app
+  Itaú):** *"Nome do arquivo recebido [CNAB240_341_20261008_000005.REM.txt]
+  fora da especificação (8 caracteres para nome e 3 para extensão)"*.
+  - O conteúdo estava certo (registros de 240 posições com CRLF); a recusa
+    era só do nome.
+  - **Nome 8.3:** `PG` + dia + mês + os 2 últimos dígitos do número do
+    arquivo, por exemplo `PG081005.REM`. O número muda a cada remessa, então
+    dois arquivos do mesmo dia não se repetem até o 100º.
+  - **Download como binário (`application/octet-stream`):** como texto, o
+    Safari acrescentava `.txt` ao nome.
+  - Vale também para o .REM de dentro do pacote do cliente.
+- **Revisão do Codex no PR #112 (P2):** a sugestão das variáveis testa primeiro empresa, competência e documento, e só depois o genérico "nome". Assim `nome_empresa` recebe a empresa, e não o contato.
+- **E-mail pelo escritório (Paulo, 08/10/2026: "Commit, PR e deploy", depois
+  das correções no CFI #1391):**
+  - O modal ganha o botão "Enviar e-mail pelo escritório". Ele chama a nova
+    rota do CFI, `POST /api/dp-integration/email/enviar`, que é a mesma régua
+    do CFI e do CCI:
+    - Graph sendMail, com a caixa do colaborador logado como remetente;
+    - casca da marca, com o Departamento Pessoal;
+    - .zip em anexo, até 3 MB;
+    - cópia oculta por `DP_EMAIL_BCC`;
+    - auditoria em `dp_email_envio_log`.
+  - A tela confirma antes de enviar e mostra de quem saiu, o aviso de
+    remetente (quando caiu na caixa institucional) e quem ficou em cópia.
+  - O botão antigo passa a se chamar "E-mail deste computador" e continua
+    como alternativa.
+  - Antes da publicação no CFI, a rota responde 404, e a tela diz para usar o
+    e-mail deste computador.
+  - No CFI, a auditoria do WhatsApp volta a gravar `projetoOrigem` a partir
+    do `projectId` dos irmãos (CFI #1391 e sp-connect #4).
+  - **Testes:**
+    - `spConnect.test.ts`: corpo do pedido, 404 e recusa;
+    - o modal com o envio.
+- **Revisão do Codex no CFI #1391:**
+  - O teto dos anexos do e-mail caiu para ~2,8 MB de arquivo. Ele agora é medido no base64, para caber no pedido de 4 MB do Graph.
+  - A resposta passou a trazer `convites` e `avisosConvites`, e a tela do pacote mostra os dois: o `vencimentos-sp.ics` que foi junto e os PDFs que o CFI não leu.
+- **Revisão do Codex depois do merge do #112, duas P2:**
+  - **Variáveis sugeridas por palavra da chave, não por pedaço.** A chave `mensagem` começava com "mes" e recebia a competência. Agora a chave é quebrada em palavras (`nomeEmpresa` vira ["nome", "empresa"]) e comparada palavra por palavra.
+  - **Teto do e-mail conferido na tela.** `LIMITE_EMAIL_BYTES` = 3.000.000, o mesmo base64 de 4.000.000 do CFI. A tela mostra "até 2,8 MB", com o teto arredondado para baixo e o tamanho do .zip para cima. Um .zip acima do teto desliga "Enviar e-mail pelo escritório" e diz para usar "E-mail deste computador".
+- **Itaú recusou `PG081010.REM.txt` (Paulo, 08/10/2026, novo print):**
+  - O nome 8.3 estava certo, mas o Safari do Mac acrescenta ".txt" a qualquer download com conteúdo de texto, mesmo como `application/octet-stream`.
+  - **Correção (`services/bancario/download.ts`):** no Safari, o .REM vai dentro de `PG081010.zip`. O Safari abre o .zip sozinho, e o Utilitário de Compressão extrai `PG081010.REM` com o nome exato. Nos outros navegadores, o .REM continua saindo direto.
+  - A tela diz por que o arquivo veio compactado e qual arquivo enviar ao banco.
+  - `ehSafari` exclui Chrome, Edge, Opera e Chrome/Firefox do iPhone, que também trazem "Safari" no user agent.
+  - **Testes:** `download.test.ts` e o modal com o user agent do Safari.
+
+## 08/10/2026 — PR #111 conferido com o IOB (férias com abono, 08 e 09/2026)
+
+- **Paulo mandou pela conversa**, sem commit, porque têm nome e CPF:
+  - S-1200 de 08/2026;
+  - S-1210 de 08 e de 09/2026;
+  - relatórios "conferência dos periódicos" de 08 e 09, com rubricas, incidências e totais.
+  - **Caso:** salário 3.500,00; gozo de 01 a 20/09/2026; abono de 10 dias; recibo pago em 28/08 (o prazo caía no domingo, 30/08).
+- **O IOB faz igual ao PR #111 (opção 1 do MOS):**
+  - **S-1200 de 08:** o recibo vai em demonstrativo próprio (`…FERI`), com as rubricas `S_RECIFER_*`. Os valores batem com o motor: férias 2.333,33 (20 dias); 1/3 777,78; abono 1.166,67 (10 dias); 1/3 do abono 388,89; INSS 261,93. As incidências são CP 00, IRRF 13 nas férias e no 1/3 e IRRF 43 no INSS.
+  - **S-1210 de 08:** o recibo é pago em 28/08, perRef 08, com líquido de 4.404,74, igual ao do motor. O S-1210 de 09 não traz o recibo.
+  - **S-1200 de 09 (gozo):** as rubricas `S_HOLEFER_*` batem com o motor (`FERMES`, `FERMES13`, `FERPAGO`, `INSSFERRET`, `SAL`, `INSS`): férias 2.333,33 (CP 11, IRRF 09); 1/3 777,78; "desc. de férias recebidas" 2.849,18; INSS das férias 261,93 (CP 31); salário de 10 dias 1.166,67; INSS complementar 140,00. Os 401,93 de CP do mês são 261,93 + 140,00, na faixa de 2026.
+- **Diferenças que ficam como estão:**
+  - O IOB repete o abono e o 1/3 do abono na folha do gozo (1330 e 1210, com CP 00 e IRRF 09) e desconta os dois em 5590 (1.555,56). A soma é zero e nenhuma base muda. O MOS não pede isso, então o motor mantém o abono só no recibo.
+  - O IOB lança o adiantamento quinzenal em demonstrativo próprio (`…ADIA`, pago em 20/08) e o vale-transporte (6%). O motor ainda não calcula nenhum dos dois. É assunto separado do PR #111.
+- **Trava:** `feriasEsocial.test.ts`, "confere com o IOB", reproduz o caso com dados trocados e confere cada valor acima.
