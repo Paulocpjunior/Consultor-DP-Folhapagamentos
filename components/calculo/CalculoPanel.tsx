@@ -33,6 +33,7 @@ import { calcular13, com13, OPCOES_13_PADRAO, ultimoDiaDoMes, type Opcoes13 } fr
 import ConferenciaHolerites, { conferirTodos, type LeituraHolerites } from './ConferenciaHolerites';
 import ConferenciaEsocialIob from './ConferenciaEsocialIob';
 import EventosFolhaModal from '../esocial/EventosFolhaModal';
+import { recibosFeriasDaCompetencia } from '../../services/esocial/eventosFolha';
 import { contextoDoHolerite, definirContextoMia } from '../../services/mia/mia';
 import { resumirFolha } from '../../services/relatorios/resumoFolha';
 import { listarEnvios, type Envio } from '../../services/esocial/transmissaoService';
@@ -230,7 +231,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             const afs = dados.afastamentos.filter(a => a.fichaId === f.id);
             return calcularMensal({
                 competencia, pagamento, ficha: f, tabelas: dados.tabelas, movimento: movs[f.id], afastamentos: afs,
-                feriasDoMes: movsEmpresa ? feriasDaCompetencia(f, afs, dados.tabelas, movsEmpresa[f.id] ?? {}, competencia) : undefined,
+                feriasDoMes: movsEmpresa ? feriasDaCompetencia(f, afs, dados.tabelas, movsEmpresa[f.id] ?? {}, competencia, opcoesFerias) : undefined,
             });
         });
     }, [dados, competencia, pagamento, movs, movsEmpresa, mensal, ferias, rescisao, paramsResc, movsAno, ano, folha, opcoes13, primeiras, abonos, opcoesFerias, feriasSimuladas]);
@@ -240,13 +241,13 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         return noMes(dados.fichas, c).map(f => {
             const afs = dados.afastamentos.filter(a => a.fichaId === f.id);
             return calcularMensal({ competencia: c, pagamento: competenciaSeguinte(c), ficha: f, tabelas: dados.tabelas, movimento: movsEmpresa[f.id]?.[c], afastamentos: afs,
-                feriasDoMes: feriasDaCompetencia(f, afs, dados.tabelas, movsEmpresa[f.id] ?? {}, c) });
+                feriasDoMes: feriasDaCompetencia(f, afs, dados.tabelas, movsEmpresa[f.id] ?? {}, c, opcoesFerias) });
         });
-    }, [dados, movsEmpresa]);
+    }, [dados, movsEmpresa, opcoesFerias]);
     const comFeriasNaCompetencia = useCallback((c: string): Set<string> => {
         if (!dados || !movsEmpresa) return new Set();
-        return new Set(noMes(dados.fichas, c).filter(f => feriasDaCompetencia(f, dados.afastamentos.filter(a => a.fichaId === f.id), dados.tabelas, movsEmpresa[f.id] ?? {}, c)).map(f => f.id));
-    }, [dados, movsEmpresa]);
+        return new Set(noMes(dados.fichas, c).filter(f => feriasDaCompetencia(f, dados.afastamentos.filter(a => a.fichaId === f.id), dados.tabelas, movsEmpresa[f.id] ?? {}, c, opcoesFerias)).map(f => f.id));
+    }, [dados, movsEmpresa, opcoesFerias]);
     const total = (f: (r: ResultadoCalculo) => number) => resultados.reduce((s, r) => s + f(r), 0);
     const sel = resultados.find(r => chave(r) === aberto);
     const nomeDe = (id: string) => dados?.fichas.find(f => f.id === id)?.dados.nome || id;
@@ -256,6 +257,9 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const vigente = competenciaPatronal && empresaId ? enquadramentoVigente(enquadramentos, empresaId, competenciaPatronal) : null;
     const enqVigente = vigente && 'enquadramento' in vigente ? vigente.enquadramento : undefined;
     const resumo = useMemo(() => resumirFolha(resultados, enqVigente), [resultados, enqVigente]);
+    // S-1200/S-1210: recibos de férias pagos na competência ou com gozo nela (as mesmas contas da folha do mês).
+    const recibosFeriasEsocial = useMemo(() => (mensal && eventosFolha && dados && movsEmpresa && /^\d{4}-\d{2}$/.test(competencia)
+        ? recibosFeriasDaCompetencia(dados.fichas, dados.afastamentos, dados.tabelas, movsEmpresa, competencia, opcoesFerias) : undefined), [mensal, eventosFolha, dados, movsEmpresa, competencia, opcoesFerias]);
     const tituloFolha = mensal ? `Folha mensal ${br(competencia)}` : ferias ? `Recibos de férias ${br(competencia)}` : rescisao ? `Rescisões ${br(competencia)}` : `13º salário ${ano} — ${folha === '13-1a' ? '1ª' : '2ª'} parcela`;
     const sufixoArquivo = mensal ? competencia : ferias ? `ferias-${competencia}` : rescisao ? `rescisao-${competencia}` : `${ano}-13-${folha === '13-1a' ? '1a' : '2a'}-parcela`;
     // MiA: o holerite aberto (ou a lista da folha) vai como contexto da pergunta.
@@ -420,6 +424,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 }
                 return (
                     <div className="space-y-2 rounded border border-slate-200 p-2 text-xs text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                        <p className="text-slate-500 dark:text-slate-400">eSocial: o recibo vai no S-1200 do mês em que é pago, em demonstrativo próprio (Cálculo › Mensal dessa competência › "S-1200 e S-1210"), com o gozo gravado em Cadastros › Afastamentos.</p>
                         <div className="flex flex-wrap items-end gap-2">
                             <span className="font-medium">Programar férias:</span>
                             <select aria-label="Funcionário das férias" className={inp} value={progFerias.fichaId} onChange={e => setProgFerias(x => ({ ...x, fichaId: e.target.value }))}>
@@ -535,7 +540,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
 
             {mensal && eventosFolha && empresa && dados && (() => {
                 const [pa, pm] = (/^\d{4}-\d{2}$/.test(pagamento) ? pagamento : competenciaSeguinte(competencia)).split('-').map(Number);
-                return <EventosFolhaModal empresa={empresa} competencia={competencia} fichas={dados.fichas} resultados={resultados} dataSugerida={quintoDiaUtilSalario(pa, pm)} usuario={usuario}
+                return <EventosFolhaModal empresa={empresa} competencia={competencia} fichas={dados.fichas} resultados={resultados} recibosFerias={recibosFeriasEsocial} dataSugerida={quintoDiaUtilSalario(pa, pm)} usuario={usuario}
                     onFechar={() => setEventosFolha(false)} onParametrosSalvos={esocialFolha => setEmpresas(l => l?.map(e => (e.id === empresa.id ? { ...e, esocialFolha } : e)) ?? l)} />;
             })()}
             {mensal && conferirEsocial && empresa && dados && movsEmpresa && (

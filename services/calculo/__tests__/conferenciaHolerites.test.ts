@@ -101,7 +101,8 @@ describe('conferência com os holerites do IOB', () => {
         const r = { fichaId: 'f1', nome: 'ANA', competencia: '2025-07', pagamento: '2025-08', situacao: 'calculado' as const, bases: { inss: 0, fgts: 0, irrf: 0 }, totais: { proventos: 366667, descontos: 0, liquido: 0 }, fgts: 0, memoria: [], avisos: [], erros: [],
             verbas: [
                 { codigo: 'SAL', descricao: 'Salário', referencia: '', tipo: 'provento' as const, valor: 100000, inss: true, fgts: true, irrf: true },
-                { codigo: 'FERMES', descricao: '', referencia: '', tipo: 'provento' as const, valor: 266667, inss: true, fgts: true, irrf: false },
+                { codigo: 'FERMES', descricao: '', referencia: '', tipo: 'provento' as const, valor: 200000, inss: true, fgts: true, irrf: false },
+                { codigo: 'FERMES13', descricao: '', referencia: '', tipo: 'provento' as const, valor: 66667, inss: true, fgts: true, irrf: false },
                 { codigo: 'FERPAGO', descricao: '', referencia: '', tipo: 'desconto' as const, valor: 236000, inss: false, fgts: false, irrf: false },
                 { codigo: 'INSSFERRET', descricao: '', referencia: '', tipo: 'desconto' as const, valor: 21723, inss: false, fgts: false, irrf: false },
                 { codigo: 'IRRFFERRET', descricao: '', referencia: '', tipo: 'desconto' as const, valor: 8944, inss: false, fgts: false, irrf: false },

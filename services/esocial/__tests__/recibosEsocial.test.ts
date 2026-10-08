@@ -116,7 +116,7 @@ describe('evento retificador', () => {
         expect(gerar(comFer).erros.join(' ')).toMatch(/demonstrativo\(s\) que este cálculo não gera \(IOB-FER.*a retificação os apagaria/);
         // Dois demonstrativos na mesma matrícula (folha e férias do IOB): não escolhe um e apaga o outro.
         const doisNaMatricula = gerar({ ...s1200, demonstrativos: { M001: ['FOL1', 'FER1'] } });
-        expect([doisNaMatricula.s1200, doisNaMatricula.erros.join(' ')]).toEqual([null, expect.stringMatching(/2 demonstrativos da matrícula M001 \(FOL1, FER1\).*Retifique pelo IOB/)]);
+        expect([doisNaMatricula.s1200, doisNaMatricula.erros.join(' ')]).toEqual([null, expect.stringMatching(/demonstrativo\(s\) que este cálculo não gera \(FOL1, FER1.*retifique pelo IOB/)]);
     });
 
     it('sem recibo: originais; S-1200 retificado sem S-1210 carregado avisa', () => {
@@ -156,7 +156,7 @@ describe('lote A da auditoria', () => {
         expect(exclusoesDosEnvios([env([{ id: 'y', tipo: 'S-3000', perApur: null, ref: `exclui:${REC1}`, cdResposta: 202, nrRecibo: REC3 }])]).get(REC1)!.cpf).toBe('');
     });
 
-    it('S-1200 com indApurIR em cada rubrica e grau de exposição (padrão 1; o da ficha quando informado); férias no mês não geram', () => {
+    it('S-1200 com indApurIR em cada rubrica e grau de exposição (padrão 1; o da ficha quando informado); férias sem recibo não geram', () => {
         const gerar = (f = ficha, r = ANA) => gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-09', dataPagamento: '2026-10-06', fichas: [f], resultados: [r], rubricas: [rub('0001', '1000', '1'), rub('0020', '1020', '1')], parametros: { ...params, rubricas: { ...params.rubricas, FERMES: { codRubr: '0020', ideTabRubr: 'T1' } } } }).trabalhadores[0];
         const d = doc(gerar().s1200!.xml);
         expect(Array.from(d.getElementsByTagName('itensRemun')[0].children).map(e => e.localName)).toEqual(['codRubr', 'ideTabRubr', 'qtdRubr', 'vrRubr', 'indApurIR']);
@@ -164,6 +164,7 @@ describe('lote A da auditoria', () => {
         expect(Array.from(d.getElementsByTagName('remunPerApur')[0].children).map(e => e.localName)).toEqual(['matricula', 'itensRemun', 'infoAgNocivo']);
         expect(txt(doc(gerar({ ...ficha, dados: { ...ficha.dados, grauExp: '4' } } as unknown as typeof ficha).s1200!.xml), 'grauExp')).toEqual(['4']);
         const comFerias = gerar(ficha, { ...ANA, verbas: [...ANA.verbas, { codigo: 'FERMES', descricao: 'Férias', referencia: '', tipo: 'provento', valor: 100000, inss: true, fgts: true, irrf: false }] } as ResultadoCalculo);
-        expect([comFerias.s1200, comFerias.erros.join(' ')]).toEqual([null, expect.stringMatching(/Férias no mês: o demonstrativo de férias .* Transmita a competência deste trabalhador pelo IOB/)]);
+        // Férias na folha sem o recibo correspondente: não gera (o recibo é que leva o pagamento).
+        expect([comFerias.s1200, comFerias.erros.join(' ')]).toEqual([null, expect.stringMatching(/Férias do mês na folha \(R\$\s1\.000,00\) não batem com os recibos de férias/)]);
     });
 });

@@ -287,7 +287,7 @@ export function validarFicha(f: FichaFuncionario): Validacao {
         if (dep.pensao === 'S') {
             if (!dep.cpf) erros.push(`${n}: alimentando sem CPF (o S-1210 informa a pensão pelo CPF de quem recebe).`);
             else if (dep.cpf === f.cpf) erros.push(`${n}: o alimentando não pode ter o CPF do trabalhador.`);
-            if (dep.irrf === 'S') erros.push(`${n}: a mesma pessoa não pode ser deduzida no IRRF como dependente e como alimentando; deixe só a pensão.`);
+            if (dep.irrf === 'S') erros.push(`${n}: quem recebe pensão não é deduzido também como dependente no IRRF do mesmo mês (Lei 9.250/1995, art. 35, § 4º; IN RFB 1.500/2014, art. 90, § 4º): marque IRRF = Não e deixe a pensão, que deduz o valor pago.`);
             const c = (dep.cotaPensao ?? '').trim();
             if (c && !(Number(c.replace(',', '.')) > 0 && Number(c.replace(',', '.')) <= 100)) erros.push(`${n}: cota da pensão deve ser um percentual entre 0 e 100.`);
         }

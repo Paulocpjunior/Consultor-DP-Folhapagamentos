@@ -303,7 +303,8 @@ describe('aba Cálculo', () => {
         expect(movs.listarMovimentosDaEmpresa).toHaveBeenCalledWith('emp1');
         fireEvent.click(screen.getByText('ANA'));
         const hol = screen.getByRole('region', { name: 'Holerite de ANA' });
-        expect(within(hol).getByText('Férias + 1/3 do mês (pagas no recibo)')).toBeTruthy();
+        expect(within(hol).getByText('Férias do mês (pagas no recibo)')).toBeTruthy();
+        expect(within(hol).getByText('1/3 de férias do mês (pago no recibo)')).toBeTruthy();
         expect(within(hol).getByText('Líquido das férias pago no recibo')).toBeTruthy();
         expect(within(hol).getByText('INSS das férias (retido no recibo)')).toBeTruthy();
     });
