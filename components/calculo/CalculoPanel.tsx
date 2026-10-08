@@ -88,6 +88,8 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const [dados, setDados] = useState<Dados | null>(null);
     const [movs, setMovs] = useState<Record<string, Movimento>>({});
     const [gravados, setGravados] = useState<Record<string, MovimentoGravado> | null>(null);
+    // Movimentos do mês lidos de fato (com erro na leitura, `gravados` vira {} e não diz se havia adiantamento informado).
+    const [movsLidos, setMovsLidos] = useState(false);
     const [versao, setVersao] = useState(0);
     const [aberto, setAberto] = useState('');
     const [erro, setErro] = useState('');
@@ -150,12 +152,12 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
 
     const compOk = /^\d{4}-(0[1-9]|1[0-2])$/.test(competencia);
     const carregarMovimentos = () => {
-        setGravados(null); setErrosMov([]);
+        setGravados(null); setErrosMov([]); setMovsLidos(false);
         if (!empresaId || !compOk) { setMovs({}); return; }
         listarMovimentos(empresaId, competencia)
             .then(lista => {
                 const mapa = Object.fromEntries(lista.map(g => [g.fichaId, g]));
-                setGravados(mapa); setMovs(Object.fromEntries(lista.map(g => [g.fichaId, g.movimento]))); setVersao(n => n + 1);
+                setGravados(mapa); setMovs(Object.fromEntries(lista.map(g => [g.fichaId, g.movimento]))); setVersao(n => n + 1); setMovsLidos(true);
             })
             .catch(e => { setErro(mensagemErro(e)); setGravados({}); setMovs({}); });
     };
@@ -504,7 +506,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 <button className={`${mensal ? '' : 'ml-auto '}${btn}`} disabled={!resultados.length} aria-pressed={verResumo} onClick={() => setVerResumo(x => !x)}>Resumo da folha</button>
                 <button className={btn} disabled={!resultados.some(r => r.situacao !== 'erro')} onClick={() => pdfHolerites(resultados, `holerites-${empresa?.codigoSage ?? 'empresa'}-${sufixoArquivo}.pdf`)}>Holerites (PDF)</button>
                 <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado')} onClick={() => setArquivoBancario('folha')}>Arquivo bancário</button>
-                {mensal && resultados.some(r => r.situacao === 'calculado' && valorDoAdiantamento(r) > 0) && <button className={btn} disabled={!empresa || !gravados} title={gravados ? 'Remessa do adiantamento salarial do mês (dia 20 ou o dia útil anterior), com o valor de cada um.' : 'Aguardando os movimentos gravados (um adiantamento informado no movimento muda o valor).'} onClick={() => setArquivoBancario('adiantamento')}>Arquivo do adiantamento</button>}
+                {mensal && resultados.some(r => r.situacao === 'calculado' && valorDoAdiantamento(r) > 0) && <button className={btn} disabled={!empresa || !movsLidos} title={movsLidos ? 'Remessa do adiantamento salarial do mês (dia 20 ou o dia útil anterior), com o valor de cada um.' : 'Sem os movimentos gravados do mês (carregando ou com erro na leitura): um adiantamento informado no movimento muda o valor.'} onClick={() => setArquivoBancario('adiantamento')}>Arquivo do adiantamento</button>}
                 <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado')} onClick={() => setPacote(true)}>Pacote do cliente</button>
                 {mensal && <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado') || pendentes.length > 0} title={pendentes.length ? 'Salve o movimento antes: o S-1200 sai do movimento gravado.' : undefined} onClick={() => setEventosFolha(true)}>S-1200 e S-1210</button>}
                 <button className={btn} disabled={!resultados.length} onClick={exportar}>Exportar Excel</button>
