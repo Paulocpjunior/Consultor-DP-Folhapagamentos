@@ -12,7 +12,7 @@
 //   0,56 = 1.581,00; setembro: 490,00 − 0,33 − 0,56 + 0,89 = 490,00).
 // Nenhuma das verbas tem INSS, FGTS ou IRRF.
 
-import { competenciaSeguinte, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
+import { competenciaAnterior, competenciaSeguinte, type IrrfApurado, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
 import { mesmoMovimento } from './movimento';
 import { reais } from '../cadastros/documentos';
 
@@ -132,6 +132,26 @@ export const semFechado = (m: Movimento | undefined): Movimento => ({ ...m, arre
     irrfRendimentos: undefined, irrfDeducoes: undefined, irrfRetido: undefined, irrfPagamento: undefined });
 
 /**
+ * Folha paga no mês `c` antes do adiantamento: a da competência anterior, se foi paga em `c` (pelo mês gravado ou pelo
+ * regime), com o IRRF gravado com o movimento dela; `null` se não houve. `{ pendente }` sem o IRRF gravado (a folha
+ * já paga não é refeita com a ficha de hoje) ou com outra folha mais antiga paga no mesmo mês, que o Consultor ainda
+ * não soma (Codex #118).
+ */
+export function folhaPagaAntes(salvos: Record<string, Movimento>, c: string, ativoEm: (m: string) => boolean, regime: (m: string) => string):
+    (IrrfApurado & { competencia: string }) | { pendente: string } | null {
+    const m1 = competenciaAnterior(c);
+    const pagoEm = (m: string) => salvos[m]?.mesPagamento ?? salvos[m]?.arredondamentoPagamento ?? regime(m);
+    const br = (m: string) => `${m.slice(5)}/${m.slice(0, 4)}`;
+    const antiga = Object.keys(salvos).filter(m => m < m1 && pagoEm(m) === c).sort()[0];
+    if (antiga) return { pendente: `a folha de ${br(antiga)} também foi paga em ${br(c)}, e o Consultor ainda soma só a folha do mês anterior` };
+    if (!ativoEm(m1) || pagoEm(m1) !== c) return null;
+    const g = salvos[m1];
+    if (g?.irrfPagamento === c && g.irrfRendimentos !== undefined && g.irrfDeducoes !== undefined && g.irrfRetido !== undefined)
+        return { rendimentos: g.irrfRendimentos, deducoesLegais: g.irrfDeducoes, valor: g.irrfRetido, competencia: m1 };
+    return { pendente: `a folha de ${br(m1)}, paga em ${br(c)}, não tem o IRRF gravado: abra ${br(m1)}, confira o cálculo e clique em "Salvar movimento"` };
+}
+
+/**
  * Movimento com o mês do pagamento usado de fato (`mesPagamento`), ou undefined sem nada a mudar. Diferente do regime,
  * fica gravado; igual, sai. Exceção: o mês do arredondamento gravado antes (`arredondamentoPagamento`), diferente do
  * de agora, com o arredondamento desligado no mês (ligado, ele é regravado): o de agora fica gravado, senão o velho
@@ -150,7 +170,10 @@ export function movimentoComMesPagamento(mov: Movimento | undefined, pagamento: 
  * e a ficha de lá (com outros dependentes) não refaz esta folha (Codex #118). Sem cálculo completo, nada muda aqui.
  */
 export function movimentoComIrrf(mov: Movimento | undefined, r: ResultadoCalculo): Movimento | undefined {
-    if (r.situacao !== 'calculado' || r.pagamento === r.competencia || !r.irrfApurado) return undefined;
+    // Incompleto só pelo IRRF do adiantamento: o da folha está completo e é o que o mês seguinte precisa (sem isso,
+    // cada mês esperaria o anterior até a admissão; Codex #118).
+    const completo = r.situacao === 'calculado' || (r.situacao === 'incompleto' && !!r.soFaltaFolhaDoAdiantamento);
+    if (!completo || r.pagamento === r.competencia || !r.irrfApurado) return undefined;
     return { ...mov, irrfRendimentos: r.irrfApurado.rendimentos, irrfDeducoes: r.irrfApurado.deducoesLegais, irrfRetido: r.irrfApurado.valor, irrfPagamento: r.pagamento };
 }
 /**

@@ -86,9 +86,10 @@ export interface EntradaCalculo {
      * Folha paga no mês do adiantamento, antes dele (a da competência anterior, quando a empresa paga no mês seguinte),
      * com o IRRF apurado nela; `null` se não houve. Só é usada quando o adiantamento é pago num mês e o saldo da folha
      * em outro: o IRRF do adiantamento é o do mês dele (regime de caixa), sobre tudo o que foi pago no mês, menos o
-     * que a folha anterior já reteve (RIR/1999, art. 621; conferido com o IOB, 08/2026).
+     * que a folha anterior já reteve (RIR/1999, art. 621; conferido com o IOB, 08/2026). `{ pendente }`: a folha paga
+     * antes não é conhecida (sem o IRRF gravado dela, por exemplo), com o que falta para o aviso.
      */
-    folhaPagaNoAdiantamento?: IrrfApurado & { competencia: string } | null;
+    folhaPagaNoAdiantamento?: IrrfApurado & { competencia: string } | { pendente: string } | null;
 }
 
 /** O IRRF de um pagamento da folha: rendimentos tributáveis, deduções legais (INSS, dependentes, pensão) e o retido. */
@@ -118,6 +119,8 @@ export interface ResultadoCalculo {
     irrfAdiantamento?: number;
     /** Competência da folha anterior somada no IRRF do adiantamento (paga antes dele, até o 5º dia útil). */
     irrfAdiantamentoFolha?: string;
+    /** Incompleto só pelo IRRF do adiantamento (falta a folha paga antes dele): o IRRF da folha em si está completo e pode ser gravado. */
+    soFaltaFolhaDoAdiantamento?: boolean;
     /** Sem folha anterior no mês: dependentes deduzidos no IRRF do adiantamento (vão no S-1210 do mês dele; Codex #118). */
     deducoesAdiantamento?: { dependentes: { cpf: string; nome: string }[]; porDependente: number };
 }
@@ -462,11 +465,13 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     // sobre tudo o que foi pago no mês (a folha anterior, paga nele, e o adiantamento), menos o que a folha anterior
     // já reteve (RIR/1999, art. 621). Conferido com o IOB (08/2026). Sai do valor pago no adiantamento, não da folha.
     if (adiantSeparado) {
-        const ant = e.folhaPagaNoAdiantamento;
+        const entrada = e.folhaPagaNoAdiantamento;
+        const pendente = entrada === undefined ? 'movimentos gravados ainda não carregados' : entrada && 'pendente' in entrada ? entrada.pendente : '';
+        const ant = entrada && !('pendente' in entrada) ? entrada : null;
         const tA = tabelaVigente(e.tabelas, 'irrf', competencia);
-        if (ant === undefined) {
-            r.avisos.push(`IRRF do adiantamento (pago em ${rotuloCompetencia(competencia)}, saldo em ${rotuloCompetencia(pagamento)}): falta a folha paga em ${rotuloCompetencia(competencia)}, antes dele, para calcular (movimentos gravados ainda não carregados, ou a folha anterior com erro). Confira o IRRF.`);
-            if (r.situacao === 'calculado') r.situacao = 'incompleto';
+        if (pendente) {
+            r.avisos.push(`IRRF do adiantamento (pago em ${rotuloCompetencia(competencia)}, saldo em ${rotuloCompetencia(pagamento)}): falta a folha paga em ${rotuloCompetencia(competencia)}, antes dele, para calcular (${pendente}). Confira o IRRF.`);
+            if (r.situacao === 'calculado') { r.situacao = 'incompleto'; r.soFaltaFolhaDoAdiantamento = true; }
         } else if ('erro' in tA) erro(`IRRF do adiantamento: ${tA.erro}`);
         else {
             // Sem folha paga antes no mês (admissão, mudança de regime): o adiantamento é o primeiro pagamento, e os

@@ -4,7 +4,7 @@
 // trocados: os eventos do IOB não vão ao repositório; ficam os valores.
 import { describe, expect, it } from 'vitest';
 import { calcularMensal, travarAdiantamentoEntreContratos, type Lancamento } from '../../calculo/motorMensal';
-import { arredondar, movimentoComIrrf, movimentoComMesPagamento, semFechado } from '../../calculo/arredondamento';
+import { arredondar, folhaPagaAntes, movimentoComIrrf, movimentoComMesPagamento, semFechado } from '../../calculo/arredondamento';
 import { limparMovimento } from '../../calculo/movimento';
 import { resumirFolha } from '../../relatorios/resumoFolha';
 import { favorecidosDaFolha, foraDoAdiantamento, valorDoAdiantamento } from '../../bancario/favorecidos';
@@ -46,6 +46,24 @@ describe('IRRF do adiantamento com a folha paga no mês seguinte', () => {
         expect(movimentoComMesPagamento({ arredondamentoPagamento: '2026-08', mesPagamento: '2026-09' }, '2026-09', '2026-09', false)).toEqual({ arredondamentoPagamento: '2026-08', mesPagamento: '2026-09' });
         // Ligado no mês: o mês do arredondamento é regravado com o de agora.
         expect(movimentoComMesPagamento({ arredondamentoPagamento: '2026-08' }, '2026-09', '2026-09', true)).toBeUndefined();
+    });
+
+    it('folha paga antes do adiantamento: só a gravada; sem o IRRF gravado ou com outra folha no mês, pendente (Codex #118)', () => {
+        const ativo = () => true; const seguinte = (m: string) => (m === '2026-07' ? '2026-08' : m === '2026-06' ? '2026-07' : '');
+        const gravado = movimentoComIrrf({}, julho)!;
+        expect(folhaPagaAntes({ '2026-07': gravado }, '2026-08', ativo, seguinte)).toEqual({ ...julho.irrfApurado, competencia: '2026-07' });
+        // Sem o IRRF gravado: não refaz julho com a ficha de hoje.
+        expect(folhaPagaAntes({ '2026-07': { horasExtras50: 1 } }, '2026-08', ativo, seguinte)).toEqual({ pendente: expect.stringMatching(/07\/2026, paga em 08\/2026, não tem o IRRF gravado/) });
+        expect(folhaPagaAntes({}, '2026-08', () => false, seguinte)).toBeNull();
+        expect(folhaPagaAntes({ '2026-07': { mesPagamento: '2026-07' } }, '2026-08', ativo, seguinte)).toBeNull();
+        // Junho com o pagamento trocado para agosto: duas folhas pagas antes do adiantamento.
+        expect(folhaPagaAntes({ '2026-06': { mesPagamento: '2026-08' }, '2026-07': gravado }, '2026-08', ativo, seguinte)).toEqual({ pendente: expect.stringMatching(/06\/2026 também foi paga em 08\/2026/) });
+        // Pendente: agosto fica incompleto só pelo adiantamento, e o IRRF da folha de agosto ainda é gravado (sem cascata).
+        const pend = calcularMensal({ competencia: '2026-08', pagamento: '2026-09', ficha: FICHA, tabelas: TAB, afastamentos: [], movimento: { lancamentos: [atraso(9553)] }, folhaPagaNoAdiantamento: { pendente: 'teste' } });
+        expect([pend.situacao, pend.soFaltaFolhaDoAdiantamento, pend.irrfAdiantamento]).toEqual(['incompleto', true, undefined]);
+        expect(pend.avisos.join(' ')).toMatch(/\(teste\)/);
+        expect(movimentoComIrrf({}, pend)?.irrfRetido).toBe(agosto.irrfApurado!.valor);
+        expect(movimentoComIrrf({}, { ...pend, soFaltaFolhaDoAdiantamento: undefined })).toBeUndefined();
     });
 
     it('folha de agosto (paga em 04/09): o adiantamento sai da base; IRRF 61,57 com o redutor, como no IOB', () => {
