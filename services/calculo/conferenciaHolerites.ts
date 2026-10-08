@@ -41,8 +41,9 @@ export function classificarVerba(v: VerbaHolerite): Classe {
     if (desconto && /\bINSS\b|PREVIDENCIA|I\.N\.S\.S/.test(d)) return 'INSS';
     // Arredondamento do líquido (atual, anterior e o do adiantamento): o motor refaz quando a empresa arredonda.
     if (/ARREDOND/.test(d)) return 'ARRED';
-    // Desconto do adiantamento salarial ("ADIANTAMENTO (VALE)" no IOB) e do vale-transporte.
-    if (desconto && /ADIANT/.test(d) && !/FERIAS|13/.test(d)) return 'ADIANT';
+    // Desconto do adiantamento salarial ("ADIANTAMENTO (VALE)" no IOB) e do vale-transporte; outros adiantamentos
+    // (férias, 13º, comissão, gorjeta) ficam em "outros" (Codex #115).
+    if (desconto && /ADIANT/.test(d) && (/\b(SAL|VALE|QUINZ)/.test(d) || /^ADIANT\w*\.?$/.test(d)) && !/FERIAS|13|COMISS|GORJ/.test(d)) return 'ADIANT';
     if (desconto && /VALE[ -]?TRANSP|\bV\.? ?T\.?$|^V\.? ?T\b/.test(d)) return 'VT';
     // Férias no holerite do mês (pagas antes no recibo): provento = férias e 1/3; desconto = o líquido/valor já pago.
     if (/FERIAS/.test(d) && !/ABONO/.test(d)) return desconto ? 'FERPAGO' : 'FERMES';

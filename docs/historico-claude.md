@@ -2945,6 +2945,9 @@ guias sindicais".
 - **Revisão do Codex no #115 (dois P2):**
   - **VT só nos dias com deslocamento:** afastamento remunerado (16) e os 15 primeiros dias de doença, que a empresa paga, não entram. A base e o teto do custo seguem esses dias. Doença o mês inteiro dá VT zero.
   - **Data do adiantamento alterada na tela:** se ela diverge da usada no cálculo (dia 20 ou o dia útil anterior) e a admissão ou o desligamento fica entre as duas datas, o eSocial recusa e pede o valor no movimento. Com o adiantamento informado no movimento (`adiantamentoInformado`), vale o informado.
+- **Revisão do Codex no #115 (P1 e P2):**
+  - **Conferência de holerites:** só vira "Adiantamento salarial" o desconto com "SAL", "VALE" ou "QUINZ" na descrição, ou "ADIANTAMENTO" sozinho. Adiantamento de férias, 13º, comissão e gorjeta, e o arredondamento, ficam em "outros", como na sugestão da rubrica.
+  - **Data do adiantamento alterada na tela:** a comparação passa a seguir as regras do motor (sem vínculo se admitido depois do dia ou desligado antes dele). Assim, o desligado no próprio dia do cálculo (18/09), com a data mudada para 20/09, também é avisado.
 
 ## 08/10/2026 — Arredondamento do líquido
 

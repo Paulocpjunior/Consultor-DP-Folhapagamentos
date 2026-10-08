@@ -147,6 +147,15 @@ describe('adiantamento salarial e vale-transporte', () => {
         expect(gera(auto).erros).toEqual([expect.stringMatching(/^Adiantamento em 14\/08\/2026, mas o cálculo usou 20\/08\/2026, e a admissão ou o desligamento fica entre as duas datas/)]);
         const zero = calcularMensal({ competencia: '2026-08', pagamento: '2026-08', ficha: admit, tabelas: TAB, afastamentos: [], movimento: { adiantamento: 0 } });
         expect(gera(zero).erros).toEqual([]);
+        // Desligado no próprio dia do cálculo (18/09) e data mudada para 20/09: o motor paga (desligamento não é anterior
+        // ao dia), mas no dia novo já não havia vínculo (Codex #115). Hoje o mês do desligamento fica incompleto (rescisão
+        // fora do motor); o resultado é tratado como calculado para conferir a regra de quando ela entrar.
+        const sai = { ...FICHA, dados: { ...FICHA.dados, dataDesligamento: '2026-09-18' } };
+        const set = { ...calcularMensal({ competencia: '2026-09', pagamento: '2026-09', ficha: sai, tabelas: TAB, afastamentos: [] }), situacao: 'calculado' as const };
+        expect(set.verbas.some(x => x.codigo === 'ADIANT')).toBe(true);
+        const geraSet = (data: string) => gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-09', dataPagamento: '2026-09-30', dataAdiantamento: data, fichas: [sai], resultados: [set], rubricas: RUBRICAS, parametros: PARAMS }).trabalhadores[0];
+        expect(geraSet('2026-09-20').erros).toEqual([expect.stringMatching(/^Adiantamento em 20\/09\/2026, mas o cálculo usou 18\/09\/2026/)]);
+        expect(geraSet('2026-09-17').erros.filter(x => x.startsWith('Adiantamento em'))).toEqual([]);
     });
 
     it('arredondamento do líquido como o IOB: agosto 1.581,40 − 0,96 + 0,56 = 1.581,00; setembro 490,00 − 0,33 − 0,56 + 0,89, adiantamento pago 467,00', () => {

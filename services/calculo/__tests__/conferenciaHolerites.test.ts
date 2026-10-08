@@ -31,6 +31,8 @@ describe('conferência com os holerites do IOB', () => {
             [P('FÉRIAS NO MÊS', 1), 'FERMES'], [P('1/3 FÉRIAS', 1), 'FERMES'], [D('LÍQUIDO DE FÉRIAS', 1), 'FERPAGO'], [D('INSS S/ FÉRIAS', 1), 'INSS'], [P('ABONO PECUNIÁRIO DE FÉRIAS', 1), 'OUTRO'],
             [D('FALTAS', 1), 'FALTA'], [D('INSS', 1), 'INSS'], [D('I.R.R.F.', 1), 'IRRF'], [D('IMPOSTO DE RENDA', 1), 'IRRF'],
             [D('PENSAO ALIMENTICIA', 1), 'PENSAO'], [D('VALE TRANSPORTE', 1), 'VT'], [D('ADIANTAMENTO SALARIAL', 1), 'ADIANT'], [P('ADICIONAL NOTURNO', 1), 'OUTRO'],
+            [D('ADIANTAMENTO (VALE)', 1), 'ADIANT'], [D('ADIANTAMENTO', 1), 'ADIANT'], [D('ADIANTAMENTO COMISSAO', 1), 'OUTRO'], [D('ADIANTAMENTO GORJETA', 1), 'OUTRO'],
+            [D('ADIANTAMENTO 13 SALARIO', 1), 'OUTRO'], [D('DESC. ARREDONDAMENTO ADIANTAME', 1), 'ARRED'],
         ];
         expect(casos.map(([v]) => classificarVerba(v))).toEqual(casos.map(([, c]) => c));
     });

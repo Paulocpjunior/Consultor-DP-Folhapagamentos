@@ -391,8 +391,9 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             // O cálculo decide quem recebe o adiantamento automático pela data sugerida; com outra data na tela, quem foi
             // admitido ou desligado entre as duas teria o adiantamento errado (Codex #115).
             const sugerida = dataSugeridaAdiantamento(e.competencia);
-            const entre = (d: string | undefined) => !!d && d > (dataAdiant < sugerida ? dataAdiant : sugerida) && d <= (dataAdiant < sugerida ? sugerida : dataAdiant);
-            if (!r.adiantamentoInformado && dataAdiant !== sugerida && Number((f.dados.adiantamentoPct ?? '').replace(',', '.')) > 0 && (entre(f.dados.admissao) || entre(f.dados.dataDesligamento)))
+            // Mesmas regras do motor: sem vínculo no dia se admitido depois dele ou desligado antes dele.
+            const comVinculo = (dia: string) => (f.dados.admissao ?? '') <= dia && !(f.dados.dataDesligamento && f.dados.dataDesligamento < dia);
+            if (!r.adiantamentoInformado && dataAdiant !== sugerida && Number((f.dados.adiantamentoPct ?? '').replace(',', '.')) > 0 && comVinculo(dataAdiant) !== comVinculo(sugerida))
                 t.erros.push(`Adiantamento em ${br(dataAdiant)}, mas o cálculo usou ${br(sugerida)}, e a admissão ou o desligamento${quem} fica entre as duas datas: informe no movimento o adiantamento pago (ou 0) e recalcule.`);
             else if (adiant > 0 && (f.dados.admissao ?? '') > dataAdiant) t.erros.push(`Adiantamento salarial em ${br(dataAdiant)}, antes da admissão (${br(f.dados.admissao ?? '')})${quem}: informe adiantamento 0 no movimento ou corrija a data.`);
             else if (adiant > 0 && dataAdiant.slice(0, 7) !== perPgto) t.erros.push(`Adiantamento pago em ${mes(dataAdiant.slice(0, 7))} e saldo da folha em ${mes(perPgto)}${quem}: o IRRF do adiantamento é do mês em que ele é pago, e o Consultor ainda não separa esse cálculo. Transmita pelo IOB, ou informe adiantamento 0 no movimento se não houve.`);
