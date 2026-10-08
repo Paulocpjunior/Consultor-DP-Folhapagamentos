@@ -271,9 +271,12 @@ export function proporEnquadramentos(t: TabelasEnquadramento, empresas: EmpresaC
         for (const m of mudancas) {
             if (!periodos.length || m.ini <= periodos[0].ini || periodos.some(p => p.ini === m.ini)) continue;
             const anterior = [...periodos].reverse().find(p => p.ini < m.ini);
-            if (anterior && regimeEm(anterior.ini).regime !== regimeDaClassTrib(m.classtrib).regime) periodos.push({ ...anterior, ini: m.ini });
+            if (anterior && regimeEm(anterior.ini).regime !== regimeDaClassTrib(m.classtrib).regime) {
+                periodos.push({ ...anterior, ini: m.ini });
+                // Em ordem a cada inclusão: a próxima troca copia o período imediatamente anterior a ela (Codex #109).
+                periodos.sort((a, b) => a.ini.localeCompare(b.ini));
+            }
         }
-        periodos.sort((a, b) => a.ini.localeCompare(b.ini));
         for (const p of periodos) {
             const pend = [...comum];
             const clsP = regimeEm(p.ini);

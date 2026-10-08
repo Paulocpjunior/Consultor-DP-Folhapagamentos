@@ -2606,4 +2606,12 @@ guias sindicais".
   - Testado no emulador. Não precisa publicar regra nova.
 - **Ficou para conferir com backup real:** o `Math.abs` do estorno no
   holerith. Provavelmente é proposital, então não foi alterado.
-- **Testes:** 86 arquivos, 676 testes; 46 testes de regras no emulador.
+- **Testes:** 86 arquivos, 678 testes; 46 testes de regras no emulador.
+- **Revisão do Codex no PR #109:**
+  - **P1:** com duas trocas de regime e dois períodos do depto_ma, a segunda
+    troca copiava o FAP e o FPAS da primeira troca, e não do período
+    imediatamente anterior. Agora a lista fica em ordem a cada inclusão.
+  - **P2:** o "hoje" das férias programadas era calculado em UTC, então
+    depois das 21h férias que começavam no dia seguinte entravam como
+    gozadas. Agora usa a data local.
+  - Cada correção tem um teste que reprova o código antigo.

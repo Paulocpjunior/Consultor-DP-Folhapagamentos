@@ -116,6 +116,16 @@ describe('só com o .backup da empresa (schema fNNNN)', () => {
         expect(codigoDoSchema('backup.f0012')).toBe('12');
         expect(codigoDoSchema('empresa')).toBe('');
     });
+    it('duas trocas de regime com dois períodos do depto_ma: cada troca copia o período imediatamente anterior', () => {
+        const emp = [{ id: 'A', nome: 'ALFA', cnpj: '11222333000181', codigoSage: '1200' }];
+        // FAP 0,98 em 2025 e 1,01 em 2026; Simples em 03/2025 e volta ao Normal em 03/2026.
+        const s1000 = T([...S1000, 'inivalid'], [['1', '1', '1', '11222333', 'A', '99', '2015-01'], ['2', '1', '1', '11222333', 'A', '01', '2025-03'], ['3', '1', '1', '11222333', 'A', '99', '2026-03']]);
+        const meses = [ma('1', '202501', '5,8', '2', '0,9800'), ma('1', '202601', '5,8', '2', '1,0100')];
+        const r = proporEnquadramentos({ schemas: [{ grupo: 'f1200', s1000, deptoMa: T(DEPTO_MA, meses) }] }, emp, [], '2025-01');
+        expect(r.propostas.map(p => [p.enquadramento.vigencia, p.enquadramento.regime, p.enquadramento.fap])).toEqual([
+            ['2025-01', 'normal', 0.98], ['2025-03', 'simples', 0.98], ['2026-01', 'simples', 1.01], ['2026-03', 'normal', 1.01],
+        ]);
+    });
     it('sem tabelas de sistema: regime pelo classtrib do S-1000 do schema, FPAS/RAT/FAP do depto_ma, CNPJ conferido', () => {
         const r = proporEnquadramentos({
             schemas: [{

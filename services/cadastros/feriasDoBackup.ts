@@ -22,6 +22,9 @@ const aquisitivo = (ini: string | null, fim: string | null) => (!ini ? { perAqui
 
 const dias = (de: string, ate: string) => Math.round((Date.parse(`${ate}T00:00:00Z`) - Date.parse(`${de}T00:00:00Z`)) / 86400000) + 1;
 
+// Data local (toISOString é UTC: depois das 21h de Brasília já seria o dia seguinte).
+const hojeLocal = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
 export interface GozosDoHistorico { afastamentos: Afastamento[]; avisos: string[]; semFicha: number; semGozo: number }
 
 /**
@@ -30,7 +33,7 @@ export interface GozosDoHistorico { afastamentos: Afastamento[]; avisos: string[
  * programadas (início depois de hoje, sem data de recibo) também, porque
  * contariam como período usado no saldo (auditoria de 08/10/2026).
  */
-export function gozosDoHistorico(t: TabelaLida, empresa: { id: string }, fichas: FichaFuncionario[], origem = 'Backup IOB: hist_ferias', hoje = new Date().toISOString().slice(0, 10)): GozosDoHistorico {
+export function gozosDoHistorico(t: TabelaLida, empresa: { id: string }, fichas: FichaFuncionario[], origem = 'Backup IOB: hist_ferias', hoje = hojeLocal()): GozosDoHistorico {
     const r: GozosDoHistorico = { afastamentos: [], avisos: [], semFicha: 0, semGozo: 0 };
     const i = (n: string) => t.colunas.findIndex(c => chaveColuna(c) === n);
     const [iCod, iSit, iTipo, iAqIni, iAqFim, iGozIni, iGozFim, iAbono, iAbIni, iAbFim, iDobro, iRecibo] =

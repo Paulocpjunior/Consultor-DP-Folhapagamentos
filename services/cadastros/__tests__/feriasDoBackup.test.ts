@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 // Férias e afastamentos pelo Backup SQL do IOB (dados fictícios).
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { fonteDeBytes } from '../../iobSage/backupPostgres';
 import { abrirRestauracao } from '../../iobSage/restauracao';
 import { periodosAquisitivos } from '../../calculo/motorFerias';
@@ -29,6 +29,20 @@ describe('férias anteriores pelo hist_ferias', () => {
         const r = gozosDoHistorico(t, empresa, [ficha('000052')], 'Backup IOB: hist_ferias', '2026-10-08');
         expect(r.afastamentos.map(a => a.dtInicio)).toEqual(['2026-11-03', '2024-07-01']);
         expect(r.avisos.join(' ')).toMatch(/1 férias canceladas.*1 férias programadas.*situação P, X no IOB entraram como gozadas/);
+    });
+
+    it('o "hoje" padrão é a data local: 22h em Brasília não conta o dia seguinte como já iniciado', () => {
+        const tz = process.env.TZ;
+        process.env.TZ = 'America/Sao_Paulo';
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date('2026-10-09T01:00:00Z')); // 08/10, 22h em Brasília
+        try {
+            const t = { colunas: HIST, linhas: [linha({ codfun: '52', cstatus: 'P', dgozoini: '2026-10-09', dgozofim: '2026-10-28' })] };
+            expect(gozosDoHistorico(t, empresa, [ficha('000052')]).afastamentos).toEqual([]);
+        } finally {
+            vi.useRealTimers();
+            process.env.TZ = tz;
+        }
     });
 
     it('cada gozo vira afastamento de motivo 15 com o período aquisitivo e o abono', () => {
