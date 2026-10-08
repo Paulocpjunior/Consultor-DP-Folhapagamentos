@@ -196,6 +196,12 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
 
     const empresa = empresas?.find(e => e.id === empresaId);
     const parametrosFolha = empresa?.parametrosFolha;
+    // Empresa carregada ou trocada (ou regime alterado): o mês do pagamento da folha mensal segue o regime salvo dela,
+    // senão o IRRF sairia pela tabela do mês errado até alguém mexer na competência (Codex #116).
+    const regimePagamento = parametrosFolha?.pagamentoFolha;
+    useEffect(() => {
+        if (folha === 'mensal' && /^\d{4}-\d{2}$/.test(competencia)) setPagamento(regimePagamento === 'mes' ? competencia : competenciaSeguinte(competencia));
+    }, [empresaId, regimePagamento]); // eslint-disable-line react-hooks/exhaustive-deps -- a competência já ajusta o pagamento
     /**
      * Arredondamento do líquido da empresa (parâmetro): o anterior é o do movimento do mês (o do holerite do IOB,
      * por exemplo) ou o atual do mês passado, encadeado desde o mês em que o arredondamento começou no Consultor.
@@ -406,17 +412,17 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 {!ferias && !rescisao && <label className="text-sm dark:text-white" title="O IRRF segue o mês do pagamento (regime de caixa).">Pagamento em
                     <input aria-label="Mês do pagamento" type="month" className={`ml-2 ${inp}`} value={pagamento} onChange={e => setPagamento(e.target.value)} />
                 </label>}
-                {mensal && empresa && <span className="flex items-center gap-2 text-sm dark:text-white" title="Como o IOB: o líquido sobe ao real seguinte e os centavos voltam como desconto no mês seguinte (parâmetro da empresa).">
-                    <label className="flex items-center gap-1"><input type="checkbox" aria-label="Arredondar o líquido" checked={!!parametrosFolha?.arredondarLiquido}
+                {mensal && empresa && <span className="flex items-center gap-2 text-sm dark:text-white">
+                    <label className="flex items-center gap-1" title="Como o IOB: o líquido sobe ao real seguinte e os centavos voltam como desconto no mês seguinte (parâmetro da empresa)."><input type="checkbox" aria-label="Arredondar o líquido" checked={!!parametrosFolha?.arredondarLiquido}
                         onChange={e => gravarParametrosFolha({ ...parametrosFolha, arredondarLiquido: e.target.checked, arredondarDesde: parametrosFolha?.arredondarDesde || competencia })} />Arredondar o líquido</label>
                     {parametrosFolha?.arredondarLiquido && <label>desde<input aria-label="Arredondamento desde" type="month" className={`ml-1 ${inp}`} value={parametrosFolha.arredondarDesde ?? ''}
                         onChange={e => /^\d{4}-\d{2}$/.test(e.target.value) && gravarParametrosFolha({ ...parametrosFolha, arredondarDesde: e.target.value })} /></label>}
                     {/* Regime da empresa: os meses passados do encadeamento são calculados com ele (o da tela vale só para a competência). */}
-                    {parametrosFolha?.arredondarLiquido && <label title="Mês em que a empresa paga a folha. Vale para os meses anteriores no encadeamento do arredondamento e para o mês do pagamento sugerido.">folha paga
-                        <select aria-label="Folha paga" className={`ml-1 ${inp}`} value={parametrosFolha.pagamentoFolha ?? 'seguinte'}
+                    <label title="Mês em que a empresa paga a folha. Vale para o mês do pagamento sugerido e para os meses anteriores no encadeamento do arredondamento.">folha paga
+                        <select aria-label="Folha paga" className={`ml-1 ${inp}`} value={parametrosFolha?.pagamentoFolha ?? 'seguinte'}
                             onChange={e => { const p = e.target.value as 'mes' | 'seguinte'; gravarParametrosFolha({ ...parametrosFolha, pagamentoFolha: p }); setPagamento(p === 'mes' ? competencia : competenciaSeguinte(competencia)); }}>
                             <option value="mes">no próprio mês</option><option value="seguinte">no mês seguinte</option>
-                        </select></label>}
+                        </select></label>
                 </span>}
                 {mensal && <button className="ml-auto rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={!pendentes.length || salvando || !gravados} onClick={salvar}>
                     {salvando ? 'Salvando…' : `Salvar movimento${pendentes.length ? ` (${pendentes.length})` : ''}`}
