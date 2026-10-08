@@ -282,7 +282,11 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     } else if (d.valeTransporte === 'S') {
         // Dias com deslocamento: os pagos, menos os de afastamento remunerado, os 15 primeiros de doença e as faltas
         // do movimento (Codex #115).
-        const diasVT = Math.max(0, diasPagos - [...semTransporte].filter(x => dias.get(x) === 'pago').length - faltas);
+        // Com dias sem deslocamento, conta o menor entre o mês comercial e os dias de calendário que sobram: em fevereiro,
+        // o afastamento do mês inteiro (28 datas) deixaria 2 dos 30 comerciais (Codex #115).
+        const semDesloc = [...semTransporte].filter(x => dias.get(x) === 'pago').length;
+        const comDesloc = semDesloc ? Math.min(diasPagos - semDesloc, realPago - semDesloc) : diasPagos;
+        const diasVT = Math.max(0, comDesloc - faltas);
         const base = diasVT === diasPagos ? sal : Math.round(sal * diasVT / Math.max(1, diasPagos));
         const seis = Math.round(base * 6 / 100);
         // O custo da ficha é o do mês inteiro: em mês parcial (admissão, férias, afastamento) vale o dos dias com

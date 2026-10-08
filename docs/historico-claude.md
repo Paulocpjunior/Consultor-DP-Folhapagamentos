@@ -2949,6 +2949,7 @@ guias sindicais".
   - **Conferência de holerites:** só vira "Adiantamento salarial" o desconto com "SAL", "VALE" ou "QUINZ" na descrição, ou "ADIANTAMENTO" sozinho. Adiantamento de férias, 13º, comissão e gorjeta, e o arredondamento, ficam em "outros", como na sugestão da rubrica.
   - **Data do adiantamento alterada na tela:** a comparação passa a seguir as regras do motor (sem vínculo se admitido depois do dia ou desligado antes dele). Assim, o desligado no próprio dia do cálculo (18/09), com a data mudada para 20/09, também é avisado.
 - **Revisão do Codex no #115 (P2, faltas no VT):** as faltas do movimento também saem dos dias com deslocamento. A base dos 6% e o teto do custo seguem esses dias. Exemplo: 6 faltas deixam 24 dias, com VT de 168,00 sobre 3.500,00. Faltas no mês todo dão VT zero.
+- **Revisão do Codex no #115 (P2, VT em fevereiro):** havendo dias sem deslocamento, conta o menor entre os dias comerciais e os dias de calendário que sobram. Fevereiro inteiro em afastamento remunerado (28 datas e 30 dias comerciais pagos) deixava 2 dias de VT, e agora deixa zero. Com 20 dias afastados, ficam 8 dias. Sem afastamento, fevereiro continua com o mês comercial inteiro.
 
 ## 08/10/2026 — Arredondamento do líquido
 
