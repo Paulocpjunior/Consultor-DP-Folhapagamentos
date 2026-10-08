@@ -63,6 +63,15 @@ describe('adiantamento salarial e vale-transporte', () => {
         const r2 = calcularMensal({ competencia: '2026-08', pagamento: '2026-08', ficha: FICHA, tabelas: TAB, afastamentos: [rem] });
         expect([v(r2, 'SAL'), v(r2, 'VT')]).toEqual([350000, 14000]);
         expect(r2.memoria.join(' ')).toContain('de 20 dia(s) com deslocamento');
+        // Fevereiro inteiro em afastamento remunerado: 28 datas, 30 dias comerciais pagos, nenhum com deslocamento (Codex #115).
+        const fev: Afastamento = { ...afastamentoVazio(), id: 'r2', fichaId: 'f1', motivo: '16', dtInicio: '2026-02-01', dtFim: '2026-02-28' };
+        const rf = calcularMensal({ competencia: '2026-02', pagamento: '2026-02', ficha: FICHA, tabelas: TAB, afastamentos: [fev] });
+        expect([v(rf, 'SAL'), v(rf, 'VT')]).toEqual([350000, undefined]);
+        // Fevereiro com 20 dias de afastamento: 8 dias de calendário com deslocamento (e não 10 dos 30 comerciais).
+        const fev20 = calcularMensal({ competencia: '2026-02', pagamento: '2026-02', ficha: FICHA, tabelas: TAB, afastamentos: [{ ...fev, dtFim: '2026-02-20' }] });
+        expect(fev20.memoria.join(' ')).toContain('de 8 dia(s) com deslocamento');
+        // Fevereiro sem afastamento: o mês comercial inteiro.
+        expect(v(calcularMensal({ competencia: '2026-02', pagamento: '2026-02', ficha: FICHA, tabelas: TAB, afastamentos: [] }), 'VT')).toBe(21000);
         // Faltas do movimento também não têm deslocamento: 6 faltas deixam 24 dias (Codex #115); o mês todo, VT zero.
         const comFaltas = calcularMensal({ competencia: '2026-08', pagamento: '2026-08', ficha: FICHA, tabelas: TAB, afastamentos: [], movimento: { faltasDias: 6 } });
         expect(v(comFaltas, 'VT')).toBe(16800);
