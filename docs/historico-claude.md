@@ -3006,3 +3006,14 @@ guias sindicais".
 - **Revisão do Codex no #116 (dois P2):**
   - **Gravação dos parâmetros falhou:** a tela volta aos últimos parâmetros gravados, e as mudanças que estavam na fila atrás da que falhou são descartadas. A folha não segue calculada com parâmetros que não foram gravados.
   - **Conferência com o eSocial do IOB:** o mês salvo com o arredondamento usa o mês do pagamento gravado. Fora isso, vale o mês do regime.
+
+## 08/10/2026 — Arquivo bancário do adiantamento
+
+- **Paulo:** *"pode seguir com arquivo bancario do adiantamento"*.
+- **Cálculo › Mensal:** novo botão **"Arquivo do adiantamento"**. Ele aparece quando algum funcionário calculado tem adiantamento no mês e abre o mesmo "Arquivo Bancário" da folha (mesma conta, convênio e número sequencial do arquivo), com:
+  - **valor de cada um:** o adiantamento do mês e, se a empresa arredonda, o arredondamento dele (`valorDoAdiantamento`: 466,67 + 0,33 = 467,00 no caso do IOB, o mesmo do S-1210 do adiantamento). Sem arredondar, 466,67;
+  - **data sugerida:** dia 20 ou o dia útil anterior (`dataSugeridaAdiantamento`), editável;
+  - **quem não tem adiantamento** fica fora do arquivo, sem aviso. Cálculo com erro ou incompleto aparece em "Fora do arquivo", como na folha.
+- **`favorecidosDaFolha`** recebe opcionalmente o valor de cada recibo. O pacote do cliente e o arquivo da folha continuam com o líquido.
+- **Trava:** `adiantamentoVt.test.ts` (valor igual ao do S-1210, seleção e data) e `arquivoBancarioModal.test.tsx` (coluna "Adiantamento", valor de fora e quem fica fora).
+- **Fica para depois:** holerite (recibo) do adiantamento em PDF.

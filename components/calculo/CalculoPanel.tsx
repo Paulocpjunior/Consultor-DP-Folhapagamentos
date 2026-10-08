@@ -20,7 +20,8 @@ import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
 import { afastamentoVazio, idAfastamento, validarAfastamento, type Afastamento } from '../../services/cadastros/afastamentos';
 import type { TabelaLegal } from '../../services/cadastros/tabelasLegais';
 import { centavosDeTexto, reais } from '../../services/cadastros/documentos';
-import { calcularMensal, competenciaSeguinte, noMes, type Lancamento, type Movimento, type ResultadoCalculo } from '../../services/calculo/motorMensal';
+import { calcularMensal, competenciaSeguinte, dataSugeridaAdiantamento, noMes, type Lancamento, type Movimento, type ResultadoCalculo } from '../../services/calculo/motorMensal';
+import { valorDoAdiantamento } from '../../services/bancario/favorecidos';
 import { diaUtilAnterior, diaUtilSeguinte, quintoDiaUtilSalario, somarMeses } from '../../services/prazos/calendario';
 import ArquivoBancarioModal from '../bancario/ArquivoBancarioModal';
 import PacoteClienteModal from '../pacoteCliente/PacoteClienteModal';
@@ -114,7 +115,8 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     // Lotes do eSocial da empresa: situação do S-2230 de cada gozo gravado.
     const [enviosEsocial, setEnviosEsocial] = useState<Envio[] | null>(null);
     const [recargaEnvios, setRecargaEnvios] = useState(0);
-    const [arquivoBancario, setArquivoBancario] = useState(false);
+    // Arquivo bancário da folha ou do adiantamento do mês (dia 20).
+    const [arquivoBancario, setArquivoBancario] = useState<false | 'folha' | 'adiantamento'>(false);
     const [pacote, setPacote] = useState(false);
     const [eventosFolha, setEventosFolha] = useState(false);
     useEffect(() => { setEnviosEsocial(null); if (!empresaId || folha !== 'ferias') return; listarEnvios(empresaId).then(setEnviosEsocial).catch(() => setEnviosEsocial([])); }, [empresaId, folha, recargaEnvios]);
@@ -476,7 +478,8 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 {mensal && <button className={btn} disabled={!empresa || !dados || !movsEmpresa} title={movsEmpresa ? '' : 'Carregando os movimentos gravados…'} aria-pressed={conferirEsocial} onClick={() => setConferirEsocial(c => !c)}>Conferir com o eSocial do IOB</button>}
                 <button className={`${mensal ? '' : 'ml-auto '}${btn}`} disabled={!resultados.length} aria-pressed={verResumo} onClick={() => setVerResumo(x => !x)}>Resumo da folha</button>
                 <button className={btn} disabled={!resultados.some(r => r.situacao !== 'erro')} onClick={() => pdfHolerites(resultados, `holerites-${empresa?.codigoSage ?? 'empresa'}-${sufixoArquivo}.pdf`)}>Holerites (PDF)</button>
-                <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado')} onClick={() => setArquivoBancario(true)}>Arquivo bancário</button>
+                <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado')} onClick={() => setArquivoBancario('folha')}>Arquivo bancário</button>
+                {mensal && resultados.some(r => r.situacao === 'calculado' && valorDoAdiantamento(r) > 0) && <button className={btn} disabled={!empresa} title="Remessa do adiantamento salarial do mês (dia 20 ou o dia útil anterior), com o valor de cada um." onClick={() => setArquivoBancario('adiantamento')}>Arquivo do adiantamento</button>}
                 <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado')} onClick={() => setPacote(true)}>Pacote do cliente</button>
                 {mensal && <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado') || pendentes.length > 0} title={pendentes.length ? 'Salve o movimento antes: o S-1200 sai do movimento gravado.' : undefined} onClick={() => setEventosFolha(true)}>S-1200 e S-1210</button>}
                 <button className={btn} disabled={!resultados.length} onClick={exportar}>Exportar Excel</button>
@@ -698,6 +701,11 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 const contasSalvas = (contas: ContaPagamento[]) => setEmpresas(l => l?.map(e => (e.id === empresa.id ? { ...e, contasPagamento: contas } : e)) ?? l);
                 const nomeEmp = empresa.nomeFantasia || empresa.razaoSocial;
                 const cod = empresa.codigoSage ?? 'empresa';
+                if (arquivoBancario === 'adiantamento') return (
+                    <ArquivoBancarioModal empresa={empresa} resultados={resultados} fichas={dados.fichas} titulo={`Adiantamento salarial ${competencia.slice(5)}/${competencia.slice(0, 4)}`}
+                        dataSugerida={dataSugeridaAdiantamento(competencia)} valorPorResultado={valorDoAdiantamento} rotuloValor="Adiantamento"
+                        onFechar={() => setArquivoBancario(false)} onContasSalvas={contasSalvas} />
+                );
                 if (arquivoBancario) return (
                     <ArquivoBancarioModal empresa={empresa} resultados={resultados} fichas={dados.fichas} titulo={tituloFolha} dataSugerida={sugerida}
                         dataPorResultado={dataDoRecibo} onFechar={() => setArquivoBancario(false)} onContasSalvas={contasSalvas} />

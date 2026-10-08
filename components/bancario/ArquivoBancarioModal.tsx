@@ -30,11 +30,14 @@ interface Props {
     dataSugerida: string;
     /** Data própria de cada recibo (férias: até 2 dias antes do gozo), por chave do resultado. */
     dataPorResultado?: (r: ResultadoCalculo) => string | undefined;
+    /** Valor a pagar de cada recibo, no lugar do líquido (arquivo do adiantamento), e o nome da coluna. */
+    valorPorResultado?: (r: ResultadoCalculo) => number;
+    rotuloValor?: string;
     onFechar: () => void;
     onContasSalvas?: (contas: ContaPagamento[]) => void;
 }
 
-const ArquivoBancarioModal: React.FC<Props> = ({ empresa, resultados, fichas, titulo, dataSugerida, dataPorResultado, onFechar, onContasSalvas }) => {
+const ArquivoBancarioModal: React.FC<Props> = ({ empresa, resultados, fichas, titulo, dataSugerida, dataPorResultado, valorPorResultado, rotuloValor = 'Líquido', onFechar, onContasSalvas }) => {
     const [contas, setContas] = useState<ContaPagamento[]>(empresa.contasPagamento ?? []);
     const [contaId, setContaId] = useState(contas[0]?.id ?? '');
     const [edicao, setEdicao] = useState<ContaPagamento | null>(contas.length ? null : { ...contaPagamentoVazia(), id: `c${Date.now()}` });
@@ -46,8 +49,8 @@ const ArquivoBancarioModal: React.FC<Props> = ({ empresa, resultados, fichas, ti
     const perfil = conta ? PERFIS_BANCO[conta.banco] : undefined;
 
     const { favorecidos, foraDoCalculo } = useMemo(
-        () => favorecidosDaFolha(resultados, fichas, data, usarDataDoRecibo ? dataPorResultado : undefined),
-        [resultados, fichas, data, usarDataDoRecibo, dataPorResultado]);
+        () => favorecidosDaFolha(resultados, fichas, data, usarDataDoRecibo ? dataPorResultado : undefined, valorPorResultado),
+        [resultados, fichas, data, usarDataDoRecibo, dataPorResultado, valorPorResultado]);
 
     const previa = useMemo(() => {
         if (!conta) return null;
@@ -159,7 +162,7 @@ const ArquivoBancarioModal: React.FC<Props> = ({ empresa, resultados, fichas, ti
                                 <p>{previa.r.lotes.map(l => `${ROTULO_FORMA[l.forma]}: ${l.quantidade} · ${reais(l.total)}`).join(' | ') || 'Nenhum pagamento no arquivo.'} · <strong>Total {reais(previa.r.total)}</strong> · arquivo nº {previa.r.nsa}</p>
                                 <div className="max-h-72 overflow-auto rounded border border-slate-200 dark:border-slate-700">
                                     <table className="w-full text-xs">
-                                        <thead className="bg-slate-50 text-left dark:bg-slate-900"><tr><th className="p-1">Funcionário</th><th className="p-1">Forma</th><th className="p-1">Destino</th><th className="p-1">Data</th><th className="p-1 text-right">Líquido</th></tr></thead>
+                                        <thead className="bg-slate-50 text-left dark:bg-slate-900"><tr><th className="p-1">Funcionário</th><th className="p-1">Forma</th><th className="p-1">Destino</th><th className="p-1">Data</th><th className="p-1 text-right">{rotuloValor}</th></tr></thead>
                                         <tbody>
                                             {previa.r.incluidos.map(({ favorecido: f, forma }) => (
                                                 <tr key={`${f.ref}-${f.nome}-${f.dataPagamento}`} className="border-t border-slate-100 dark:border-slate-700">
