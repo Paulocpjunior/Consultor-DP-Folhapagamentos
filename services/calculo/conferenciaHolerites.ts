@@ -177,6 +177,8 @@ export function movimentoDoHolerite(h: HoleriteIob): { movimento: Movimento; avi
     // inventa o desconto (Codex #115).
     if (mov.adiantamento === undefined) mov.adiantamento = 0;
     if (mov.valeTransporte === undefined) mov.valeTransporte = 0;
+    // Holerite que arredonda (tem linha de arredondamento) sem "anterior": o anterior do mês foi 0.
+    if (mov.arredondamentoAnterior === undefined && h.verbas.some(v => classificarVerba(v) === 'ARRED')) mov.arredondamentoAnterior = 0;
     if (lancamentos.length) { mov.lancamentos = lancamentos; avisos.push('Lançamentos trazidos do holerite: confira as incidências de cada um (provento entrou incidindo em tudo; desconto, em nada).'); }
     return { movimento: mov, avisos };
 }

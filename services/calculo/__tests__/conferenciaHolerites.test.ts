@@ -98,6 +98,8 @@ describe('conferência com os holerites do IOB', () => {
         });
         // Holerite sem adiantamento e sem VT: o mês não teve, e o 0 explícito impede o motor de voltar à ficha (Codex #115).
         expect(movimentoDoHolerite(holerite([P('SALARIO', 220000, '30,00'), D('INSS', 19143)])).movimento).toEqual({ adiantamento: 0, valeTransporte: 0 });
+        // Arredonda (arredondamento atual) sem "anterior": anterior 0 no mês; sem linha de arredondamento, fica para o encadeamento.
+        expect(movimentoDoHolerite(holerite([P('SALARIO', 220000, '30,00'), P('ARREDONDAMENTO ATUAL', 57), D('INSS', 19143)])).movimento).toEqual({ adiantamento: 0, valeTransporte: 0, arredondamentoAnterior: 0 });
         expect(avisos[0]).toBe('DSR S/ FALTAS: referência "" ilegível; informe a quantidade.');
         expect(avisos[1]).toContain('confira as incidências');
     });
