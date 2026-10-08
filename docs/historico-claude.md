@@ -3021,3 +3021,4 @@ guias sindicais".
   - data fora da competência;
   - data antes da admissão;
   - admissão ou desligamento entre a data nova e a do cálculo, a não ser que o adiantamento esteja informado no movimento.
+- **Revisão do Codex no #117 (P1):** o botão "Arquivo do adiantamento" fica desativado até os movimentos gravados do mês carregarem. Um adiantamento informado no movimento (0 ou outro valor) muda o que se paga.
