@@ -492,7 +492,9 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             // As informações de IR do S-1210 aceito (dependentes, pensão, plano de saúde…) voltam como estavam,
             // e as deduções dos recibos de férias deste envio (tpRend 13) entram nelas (Codex #111).
             const novo = irDoMes(pm.perApur);
-            const ir = ex?.irComplem?.length ? mesclarIRFerias(ex.irComplem.join(''), novo) : novo;
+            // No mês da competência o cálculo tem todos os recibos pagos nele: o tpRend 13 do aceito é conciliado (sai o
+            // que não vale mais). Em outro mês, o aceito tem recibos de outra competência e o tpRend 13 dele fica.
+            const ir = ex?.irComplem?.length ? mesclarIRFerias(ex.irComplem.join(''), novo, pm.perApur === e.competencia) : novo;
             if (ex?.irComplem?.length && novo) t.avisos.push(`As deduções do IRRF (dependentes e pensão) voltam como estavam no S-1210 de ${mes(pm.perApur)} aceito, com as das férias deste envio; confira se mudaram.`);
             const id1210 = idEvento(e.cnpj, agora, ++seq);
             pm.s1210 = { id: id1210, xml: `<eSocial xmlns="${NS}/evtPgtos/${VERSAO}"><evtPgtos Id="${id1210}">`
@@ -513,22 +515,26 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
  * Junta ao infoIRComplem do S-1210 aceito as deduções de dependentes dos recibos de férias (dedDepen tpRend 13)
  * calculadas agora, com o infoDep de quem ainda não está nele. O cálculo traz todos os recibos pagos no mês,
  * então o valor dele vale: o tpRend 13 do mesmo CPF no aceito é trocado (reenvio igual não muda; recibo novo
- * soma). Nada mais do aceito muda. Ordem do leiaute: infoDep antes de infoIRCR; dedDepen logo após tpCR.
+ * soma). Com `completo` (o cálculo tem todos os recibos pagos no mês), o tpRend 13 do aceito que não está no
+ * cálculo sai: recibo corrigido que passou ao desconto simplificado ou deixou de deduzir alguém (Codex #111).
+ * Nada mais do aceito muda. Ordem do leiaute: infoDep antes de infoIRCR; dedDepen logo após tpCR.
  */
-export function mesclarIRFerias(aceito: string, novo: string): string {
+export function mesclarIRFerias(aceito: string, novo: string, completo = false): string {
     const blocos = (xml: string, tag: string) => xml.match(new RegExp(`<${tag}>[\\s\\S]*?</${tag}>`, 'g')) ?? [];
     const campo = (xml: string, tag: string) => new RegExp(`<${tag}>([^<]*)</${tag}>`).exec(xml)?.[1] ?? '';
     const novos = blocos(novo, 'dedDepen').filter(d => campo(d, 'tpRend') === '13');
-    if (!novos.length) return aceito;
+    if (!novos.length && !completo) return aceito;
     const porCpf = new Map(novos.map(d => [campo(d, 'cpfDep'), d]));
     let r = aceito;
-    // Troca o que já está no aceito (mesmo CPF, tpRend 13) pelo valor de agora.
+    // Troca o que já está no aceito (mesmo CPF, tpRend 13) pelo valor de agora; sem valor agora, sai (só se completo).
     for (const d of blocos(aceito, 'dedDepen')) {
         const c = campo(d, 'cpfDep');
-        if (campo(d, 'tpRend') !== '13' || !porCpf.has(c)) continue;
-        r = r.replace(d, porCpf.get(c)!);
-        porCpf.delete(c);
+        if (campo(d, 'tpRend') !== '13') continue;
+        if (porCpf.has(c)) { r = r.replace(d, porCpf.get(c)!); porCpf.delete(c); }
+        else if (completo) r = r.replace(d, '');
     }
+    // infoIRCR que ficou só com o código da receita não informa nada.
+    r = r.replace(/<infoIRCR><tpCR>\d+<\/tpCR><\/infoIRCR>/g, '').replace(/<infoIRComplem><\/infoIRComplem>/g, '');
     const ded = [...porCpf.values()];
     if (ded.length) {
         const cr = '<tpCR>056107</tpCR>';
