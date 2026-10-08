@@ -29,7 +29,7 @@
 // pagamento é no próprio mês do gozo.
 
 import { adiantamentoDoMes, type Movimento, type ResultadoCalculo, type Verba } from '../calculo/motorMensal';
-import { calcularFerias, parteDaCompetencia, type ResultadoFerias } from '../calculo/motorFerias';
+import { calcularFerias, parteDaCompetencia, type OpcoesFerias, type ResultadoFerias } from '../calculo/motorFerias';
 import { depNoEsocial, ratearPensao, type FichaFuncionario } from '../cadastros/funcionarios';
 import type { Afastamento } from '../cadastros/afastamentos';
 import type { TabelaLegal } from '../cadastros/tabelasLegais';
@@ -154,9 +154,9 @@ const mesSeguinte = (c: string) => { const [a, m] = c.split('-').map(Number); re
 /**
  * Recibos de férias que a folha da competência precisa: os pagos no mês (vão
  * no S-1200 dele) e os que têm gozo no mês (a folha soma e abate a parte do
- * mês). Mesmas opções do cálculo da folha (padrão), com o abono gravado.
+ * mês). Com as opções do IRRF do recibo entregue (as da tela; padrão sem elas) e o abono gravado.
  */
-export function recibosFeriasDaCompetencia(fichas: FichaFuncionario[], afastamentos: Afastamento[], tabelas: TabelaLegal[], movimentos: Record<string, Record<string, Movimento>>, competencia: string): ReciboFeriasEsocial[] {
+export function recibosFeriasDaCompetencia(fichas: FichaFuncionario[], afastamentos: Afastamento[], tabelas: TabelaLegal[], movimentos: Record<string, Record<string, Movimento>>, competencia: string, opcoes?: OpcoesFerias): ReciboFeriasEsocial[] {
     const porFicha = new Map(fichas.map(f => [f.id, f]));
     const ini = `${competencia}-01`; const ate = mesSeguinte(competencia);
     const r: ReciboFeriasEsocial[] = [];
@@ -166,7 +166,7 @@ export function recibosFeriasDaCompetencia(fichas: FichaFuncionario[], afastamen
         const toca = g.dtInicio.slice(0, 7) <= competencia && (!g.dtFim || g.dtFim >= ini);
         if (!toca && g.dtInicio.slice(0, 7) > ate) continue;
         if (!toca && g.dtInicio.slice(0, 7) < competencia) continue;
-        const rf = calcularFerias({ ficha: f, gozo: g, afastamentos: afastamentos.filter(a => a.fichaId === f.id), tabelas, movimentos: movimentos[f.id] ?? {}, abonoDias: Number(g.abonoDias || 0) });
+        const rf = calcularFerias({ ficha: f, gozo: g, afastamentos: afastamentos.filter(a => a.fichaId === f.id), tabelas, movimentos: movimentos[f.id] ?? {}, abonoDias: Number(g.abonoDias || 0), opcoes });
         const data = dataDoReciboFerias(rf);
         if (toca || data.slice(0, 7) === competencia) r.push({ r: rf, dataPagamento: data });
     }

@@ -354,13 +354,14 @@ export function parteDaCompetencia(r: ResultadoFerias, competencia: string): Par
     return { dias: c.dias, ferias: c.ferias, terco: c.terco, inss: c.inss, irrf: irrf && total ? Math.round(irrf * (c.ferias + c.terco) / total) : 0 };
 }
 
-export function feriasDaCompetencia(ficha: FichaFuncionario, afastamentos: Afastamento[], tabelas: TabelaLegal[], movimentos: Record<string, Movimento>, competencia: string): ParteDaCompetencia | undefined {
+/** `opcoes`: as mesmas do recibo entregue (desconto simplificado, redutor), para a folha abater o que ele de fato reteve. */
+export function feriasDaCompetencia(ficha: FichaFuncionario, afastamentos: Afastamento[], tabelas: TabelaLegal[], movimentos: Record<string, Movimento>, competencia: string, opcoes?: OpcoesFerias): ParteDaCompetencia | undefined {
     const ini = `${competencia}-01`;
     const gozos = afastamentos.filter(a => a.fichaId === ficha.id && a.motivo === '15' && a.dtInicio.slice(0, 7) <= competencia && (!a.dtFim || a.dtFim >= ini));
     if (!gozos.length) return undefined;
     const soma = { dias: 0, ferias: 0, terco: 0, inss: 0, irrf: 0 };
     for (const gozo of gozos) {
-        const r = calcularFerias({ ficha, gozo, afastamentos, tabelas, movimentos });
+        const r = calcularFerias({ ficha, gozo, afastamentos, tabelas, movimentos, opcoes });
         if (r.situacao === 'erro') return undefined;
         const c = parteDaCompetencia(r, competencia);
         if (!c) continue;
