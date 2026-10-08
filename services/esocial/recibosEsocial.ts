@@ -29,8 +29,8 @@ export interface ReciboEvento {
     nrRecibo: string;
     processadoEm: string;
     origem: string;
-    /** Só no S-1200: matrícula → ideDmDev do demonstrativo. */
-    demonstrativos?: Record<string, string>;
+    /** Só no S-1200: matrícula → ideDmDev de cada demonstrativo dela (folha, férias…), na ordem do evento. */
+    demonstrativos?: Record<string, string[]>;
     /** Só no S-1210 baixado: os pagamentos (infoPgto) e as informações de IR (infoIRComplem), em XML sem namespace. */
     pagamentos?: PagamentoS1210[];
     irComplem?: string[];
@@ -70,7 +70,7 @@ export function lerRecibosXml(xml: string, arquivo: string, raizCnpj: string): R
         const nrRecibo = ret ? val(ret, 'recibo/nrRecibo') : '';
         if (!ret || !['201', '202'].includes(val(ret, 'processamento/cdResposta')) || !reciboValido(nrRecibo)) continue;
         const tipo: TipoPeriodico = el.localName === 'evtRemun' ? 'S-1200' : 'S-1210';
-        const demonstrativos: Record<string, string> = {};
+        const demonstrativos: Record<string, string[]> = {};
         const extra: Partial<ReciboEvento> = {};
         if (tipo === 'S-1210') {
             const benef = no(el, 'ideBenef');
@@ -81,7 +81,10 @@ export function lerRecibosXml(xml: string, arquivo: string, raizCnpj: string): R
         if (tipo === 'S-1200') {
             for (const dm of filhos(el, 'dmDev')) {
                 const ide = val(dm, 'ideDmDev');
-                for (const est of filhos(no(dm, 'infoPerApur') ?? dm, 'ideEstabLot')) for (const rem of filhos(est, 'remunPerApur')) if (val(rem, 'matricula') && ide) demonstrativos[val(rem, 'matricula')] = ide;
+                for (const est of filhos(no(dm, 'infoPerApur') ?? dm, 'ideEstabLot')) for (const rem of filhos(est, 'remunPerApur')) {
+                    const mat = val(rem, 'matricula');
+                    if (mat && ide && !demonstrativos[mat]?.includes(ide)) demonstrativos[mat] = [...(demonstrativos[mat] ?? []), ide];
+                }
             }
         }
         r.push({
@@ -132,14 +135,29 @@ export function recibosDosEnvios(envios: Envio[], fichas: FichaFuncionario[]): R
     return r;
 }
 
-/** Exclusões (S-3000) que o Consultor transmitiu e o eSocial aceitou: recibo excluído → quando. */
-export function exclusoesDosEnvios(envios: Envio[]): Map<string, string> {
-    const m = new Map<string, string>();
+/**
+ * Instante para comparar recibos: o envio do Consultor vem em UTC ("Z") e o
+ * dhProcessamento do download, na hora de Brasília sem fuso (sem horário de
+ * verão desde 2019, -03:00).
+ */
+export function instante(t: string): number {
+    if (!t) return 0;
+    const s = /^\d{4}-\d{2}-\d{2}$/.test(t) ? `${t}T00:00:00` : t;
+    const ms = Date.parse(/([zZ]|[+-]\d{2}:?\d{2})$/.test(s) ? s : `${s}-03:00`);
+    return Number.isFinite(ms) ? ms : 0;
+}
+
+/** Exclusão (S-3000) aceita: quando e, nos envios novos, de quem e de que mês (ref "exclui:recibo:cpf:AAAA-MM"). */
+export interface Exclusao { em: string; cpf: string; perApur: string }
+
+/** Exclusões (S-3000) que o Consultor transmitiu e o eSocial aceitou, por recibo excluído. */
+export function exclusoesDosEnvios(envios: Envio[]): Map<string, Exclusao> {
+    const m = new Map<string, Exclusao>();
     for (const e of envios) {
         if (e.tpAmb !== 1) continue;
         for (const ev of e.eventos) {
-            const alvo = ev.ref?.startsWith('exclui:') ? ev.ref.slice(7) : '';
-            if (ev.tipo === 'S-3000' && reciboValido(alvo) && ev.nrRecibo && (ev.cdResposta === 201 || ev.cdResposta === 202)) m.set(alvo, e.consultadoEm ?? e.enviadoEm ?? '');
+            const [alvo = '', cpf = '', perApur = ''] = ev.ref?.startsWith('exclui:') ? ev.ref.slice(7).split(':') : [];
+            if (ev.tipo === 'S-3000' && reciboValido(alvo) && ev.nrRecibo && (ev.cdResposta === 201 || ev.cdResposta === 202)) m.set(alvo, { em: e.consultadoEm ?? e.enviadoEm ?? '', cpf, perApur });
         }
     }
     return m;
@@ -149,33 +167,48 @@ export function exclusoesDosEnvios(envios: Envio[]): Map<string, string> {
  * O recibo que vale (processado por último) de cada CPF, por tipo e período.
  * O mesmo recibo lido do download e dos envios vira um só. Excluído pelo
  * Consultor, volta marcado (excluidoEm): o S-1210 vai de novo como original.
+ * Um S-1210 excluído cujo recibo não foi carregado (tela reaberta sem o
+ * download) volta só com a marca, sem os pagamentos: o reenvio fica bloqueado.
  */
-export function recibosVigentes(recibos: ReciboEvento[], tipo: TipoPeriodico, perApur: string, exclusoes = new Map<string, string>()): Map<string, ReciboEvento> {
+export function recibosVigentes(recibos: ReciboEvento[], tipo: TipoPeriodico, perApur: string, exclusoes = new Map<string, Exclusao>()): Map<string, ReciboEvento> {
+    const depois = (a: string, b: string) => instante(a) > instante(b);
     const porRecibo = new Map<string, ReciboEvento>();
     for (const r of recibos) {
         if (r.tipo !== tipo || r.perApur !== perApur || !r.cpf) continue;
         const a = porRecibo.get(r.nrRecibo);
         porRecibo.set(r.nrRecibo, a ? { ...a, ...r, ...(a.pagamentos && !r.pagamentos ? { pagamentos: a.pagamentos, irComplem: a.irComplem, xmlOrigem: a.xmlOrigem } : {}),
-            demonstrativos: a.demonstrativos ?? r.demonstrativos, processadoEm: a.processadoEm > r.processadoEm ? a.processadoEm : r.processadoEm,
+            demonstrativos: a.demonstrativos ?? r.demonstrativos, processadoEm: depois(a.processadoEm, r.processadoEm) ? a.processadoEm : r.processadoEm,
             origem: a.origem === r.origem ? a.origem : `${a.origem}; ${r.origem}` } : r);
     }
     const m = new Map<string, ReciboEvento>();
-    const demonstrativos = new Map<string, Record<string, string>>();
+    const comDemonstrativos = new Map<string, ReciboEvento>();
     const conteudo = new Map<string, ReciboEvento>();
     for (const r of porRecibo.values()) {
-        if (r.demonstrativos && Object.keys(r.demonstrativos).length) demonstrativos.set(r.cpf, { ...demonstrativos.get(r.cpf), ...r.demonstrativos });
-        if (r.pagamentos && (!conteudo.has(r.cpf) || r.processadoEm > conteudo.get(r.cpf)!.processadoEm)) conteudo.set(r.cpf, r);
+        if (r.demonstrativos && Object.keys(r.demonstrativos).length && (!comDemonstrativos.has(r.cpf) || depois(r.processadoEm, comDemonstrativos.get(r.cpf)!.processadoEm))) comDemonstrativos.set(r.cpf, r);
+        if (r.pagamentos && (!conteudo.has(r.cpf) || depois(r.processadoEm, conteudo.get(r.cpf)!.processadoEm))) conteudo.set(r.cpf, r);
         const a = m.get(r.cpf);
-        if (!a || r.processadoEm > a.processadoEm) m.set(r.cpf, r);
+        if (!a || depois(r.processadoEm, a.processadoEm)) m.set(r.cpf, r);
+    }
+    // Marca de exclusão sem o recibo excluído carregado: só leva pagamentos do próprio recibo excluído, nunca os
+    // de uma versão mais antiga do mesmo mês (o reenvio sairia com um conjunto de pagamentos desatualizado).
+    const soMarca = new Set<string>();
+    if (tipo === 'S-1210') for (const [nrRecibo, ex] of exclusoes) {
+        if (!ex.cpf || ex.perApur !== perApur) continue;
+        const a = m.get(ex.cpf);
+        if (!a || (a.nrRecibo !== nrRecibo && depois(ex.em, a.processadoEm))) {
+            m.set(ex.cpf, { tipo, cpf: ex.cpf, perApur, nrRecibo, processadoEm: ex.em, origem: 'excluído pelo Consultor (S-3000)' });
+            soMarca.add(ex.cpf);
+        }
     }
     for (const [cpf, r] of m) {
         let v = r;
-        // O retificador do Consultor repete o demonstrativo do original do IOB: o recibo mais novo pode não trazê-lo.
-        if (!v.demonstrativos && demonstrativos.has(cpf)) v = { ...v, demonstrativos: demonstrativos.get(cpf) };
+        // O retificador do Consultor repete os demonstrativos do original do IOB: o recibo mais novo pode não trazê-los.
+        // Vale o recibo mais novo que os traz (não a soma de versões: uma retificação do IOB pode ter tirado algum).
+        if (!v.demonstrativos && comDemonstrativos.has(cpf)) v = { ...v, demonstrativos: comDemonstrativos.get(cpf)!.demonstrativos };
         // O S-1210 que o Consultor reenviou leva os pagamentos do baixado mais os desta folha: o baixado serve de base.
-        const c = conteudo.get(cpf);
-        if (!v.pagamentos && c) v = { ...v, pagamentos: c.pagamentos, irComplem: c.irComplem, xmlOrigem: c.xmlOrigem };
-        if (exclusoes.has(v.nrRecibo)) v = { ...v, excluidoEm: exclusoes.get(v.nrRecibo) || 'excluído' };
+        const c = soMarca.has(cpf) ? porRecibo.get(v.nrRecibo) : conteudo.get(cpf);
+        if (!v.pagamentos && c?.pagamentos) v = { ...v, pagamentos: c.pagamentos, irComplem: c.irComplem, xmlOrigem: c.xmlOrigem };
+        if (exclusoes.has(v.nrRecibo)) v = { ...v, excluidoEm: exclusoes.get(v.nrRecibo)!.em || 'excluído' };
         m.set(cpf, v);
     }
     return m;

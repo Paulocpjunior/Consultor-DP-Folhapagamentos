@@ -50,7 +50,8 @@ export function lerS1200Xml(xml: string, arquivo: string, raizCnpj: string): { r
         let env: Element | null = el.parentElement;
         while (env && env.localName !== 'retornoEventoCompleto') env = env.parentElement;
         const ret = env ? no(env, 'recibo/eSocial/retornoEvento') : undefined;
-        if (ret && val(ret, 'processamento/cdResposta') && val(ret, 'processamento/cdResposta') !== '201') { avisos.push(`${arquivo}: S-1200 recusado pelo eSocial; ignorado.`); continue; }
+        // 201 = aceito; 202 = aceito com advertência (também vale).
+        if (ret && val(ret, 'processamento/cdResposta') && !['201', '202'].includes(val(ret, 'processamento/cdResposta'))) { avisos.push(`${arquivo}: S-1200 recusado pelo eSocial; ignorado.`); continue; }
         const itens: ItemRemun[] = []; const matriculas = new Set<string>(); const categorias = new Set<string>();
         let periodoAnterior = false;
         for (const dm of filhos(el, 'dmDev')) {

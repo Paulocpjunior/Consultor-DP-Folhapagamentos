@@ -111,7 +111,8 @@ const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resu
 
     async function transmitir(tipo: 'S-3000' | 'S-1200' | 'S-1210') {
         const eventos = tipo === 'S-3000'
-            ? aExcluir.map(t => ({ ev: t.exclusao1210!, fichaId: `exclui:${t.existente1210!.nrRecibo}` }))
+            // A referência leva o CPF e o mês: reaberta a tela sem o download, o S-1210 excluído continua bloqueado.
+            ? aExcluir.map(t => ({ ev: t.exclusao1210!, fichaId: `exclui:${t.existente1210!.nrRecibo}:${t.cpf}:${data.slice(0, 7)}` }))
             : prontos.map(t => ({ ev: tipo === 'S-1200' ? t.s1200! : t.s1210!, fichaId: t.fichaIds[0] }));
         const aviso = tipo === 'S-3000'
             ? `\n\nO S-1210 de ${comp(data.slice(0, 7))} desses trabalhadores sai do eSocial e volta no passo 3 com todos os pagamentos do mês. Antes do envio, baixa uma cópia dos S-1210 excluídos: guarde-a até o passo 3.`

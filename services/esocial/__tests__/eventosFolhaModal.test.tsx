@@ -89,12 +89,12 @@ describe('tela S-1200 e S-1210', () => {
         const p = sv.enviar.mock.calls[0][0];
         expect([p.tpAmb, p.eventos[0]]).toEqual([1, expect.stringContaining(`<nrRecEvt>${REC}</nrRecEvt>`)]);
         const refs = (sv.registrar.mock.calls[0][0] as { refs: Record<string, string> }).refs;
-        expect(Object.values(refs)).toEqual([`exclui:${REC}`]);
+        expect(Object.values(refs)).toEqual([`exclui:${REC}:52998224725:2026-10`]);
         // Consulta: o S-3000 aceito libera os passos 2 e 3; o S-1210 volta com o adiantamento.
         const idEv = Object.keys(refs)[0];
-        sv.envios = [{ id: 'x', tpAmb: 1, protocolo: 'P1', situacao: 'enviado', certificado: 'escritorio', consultadoEm: null, enviadoEm: '2026-10-08', eventos: [{ id: idEv, tipo: 'S-3000', perApur: null, ref: `exclui:${REC}` }] }];
+        sv.envios = [{ id: 'x', tpAmb: 1, protocolo: 'P1', situacao: 'enviado', certificado: 'escritorio', consultadoEm: null, enviadoEm: '2026-10-08', eventos: [{ id: idEv, tipo: 'S-3000', perApur: null, ref: `exclui:${REC}:52998224725:2026-10` }] }];
         sv.consultar.mockImplementation(async () => {
-            sv.envios = [{ ...(sv.envios[0] as object), situacao: 'processado', consultadoEm: '2026-10-08T10:00:00', eventos: [{ id: idEv, tipo: 'S-3000', perApur: null, ref: `exclui:${REC}`, cdResposta: 201, nrRecibo: '1.1.0000000000000000009' }] }];
+            sv.envios = [{ ...(sv.envios[0] as object), situacao: 'processado', consultadoEm: '2026-10-08T10:00:00', eventos: [{ id: idEv, tipo: 'S-3000', perApur: null, ref: `exclui:${REC}:52998224725:2026-10`, cdResposta: 201, nrRecibo: '1.1.0000000000000000009' }] }];
             return { situacao: 'processado', eventos: [{ id: idEv, cdResposta: 201, descResposta: '', ocorrencias: [], nrRecibo: '1.1.0000000000000000009', totalizadores: [] }] };
         });
         fireEvent.click(screen.getByText('Consultar resultado'));

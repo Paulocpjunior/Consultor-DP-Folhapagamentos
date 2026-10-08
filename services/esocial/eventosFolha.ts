@@ -113,6 +113,8 @@ export interface EventosDoTrabalhador {
 
 /** indRetif 1 (original) ou 2 com o nrRecibo do evento que está valendo. */
 const retif = (r?: ReciboEvento) => (r ? `<indRetif>2</indRetif><nrRecibo>${r.nrRecibo}</nrRecibo>` : '<indRetif>1</indRetif>');
+/** Verbas do motor que são férias pagas em recibo: vão num demonstrativo próprio, que o Consultor ainda não gera. */
+const VERBAS_FERIAS = ['FERMES', 'FERPAGO', 'INSSFERRET', 'IRRFFERRET'];
 const mes = (c: string) => `${c.slice(5)}/${c.slice(0, 4)}`;
 
 export interface EntradaEventosFolha {
@@ -174,6 +176,10 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             const categ = digitos(f.dados.categoria);
             if (!/^\d{3}$/.test(categ)) t.erros.push(`Categoria do eSocial (3 dígitos) em branco na ficha${quem}.`);
             if (r.totais.liquido < 0) t.erros.push(`Líquido negativo${quem}.`);
+            // Férias no mês: o eSocial pede um demonstrativo próprio de férias, com o pagamento na data do recibo
+            // (e o IRRF no mês desse pagamento). O Consultor ainda não gera esse demonstrativo: não manda a folha misturada.
+            if (r.verbas.some(v => VERBAS_FERIAS.includes(v.codigo) && v.valor > 0))
+                t.erros.push(`Férias no mês${quem}: o demonstrativo de férias (com o pagamento na data do recibo) ainda não é gerado pelo Consultor. Transmita a competência deste trabalhador pelo IOB.`);
             // Itens por rubrica (a mesma rubrica não se repete no demonstrativo).
             const itens = new Map<string, { rub: RubricaEsocial; valor: number; qtd: number }>();
             for (const v of r.verbas) {
@@ -191,22 +197,29 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                 itens.set(k, atual);
             }
             // Único por trabalhador: matrículas longas que coincidem nos primeiros caracteres ganham um sufixo.
-            // Na retificação, o demonstrativo do original (o S-1210 aponta para ele).
-            let ide = t.retifica1200?.demonstrativos?.[f.matriculaEsocial.trim()] ?? ideDmDev(e.competencia, f.matriculaEsocial.trim());
-            if (t.retifica1200 && !t.retifica1200.demonstrativos?.[f.matriculaEsocial.trim()] && t.retifica1200.demonstrativos && Object.keys(t.retifica1200.demonstrativos).length)
-                t.avisos.push(`A matrícula ${f.matriculaEsocial.trim()} não está no S-1200 original: vai num demonstrativo novo.`);
+            // Na retificação, o demonstrativo do original (o S-1210 aponta para ele). Com mais de um demonstrativo
+            // na matrícula (folha e férias, por exemplo), o retificador só com a folha apagaria os outros: não gera.
+            const mat = f.matriculaEsocial.trim();
+            const doOriginal = t.retifica1200?.demonstrativos?.[mat] ?? [];
+            if (doOriginal.length > 1) t.erros.push(`O S-1200 original tem ${doOriginal.length} demonstrativos da matrícula ${mat} (${doOriginal.join(', ')}): a retificação só com a folha apagaria os demais. Retifique pelo IOB.`);
+            let ide = doOriginal[0] ?? ideDmDev(e.competencia, mat);
+            if (t.retifica1200 && !doOriginal.length && t.retifica1200.demonstrativos && Object.keys(t.retifica1200.demonstrativos).length)
+                t.avisos.push(`A matrícula ${mat} não está no S-1200 original: vai num demonstrativo novo.`);
             for (let n = 2; ides.has(ide); n++) ide = `${ide.slice(0, 30 - String(n).length - 1)}-${n}`;
             ides.add(ide);
             dmDevs.push(`<dmDev><ideDmDev>${esc(ide)}</ideDmDev><codCateg>${categ}</codCateg><infoPerApur><ideEstabLot><tpInsc>1</tpInsc><nrInsc>${estab}</nrInsc><codLotacao>${esc(p.codLotacao.trim())}</codLotacao>`
                 + `<remunPerApur><matricula>${esc(f.matriculaEsocial.trim())}</matricula>`
-                + [...itens.values()].map(i => `<itensRemun><codRubr>${esc(i.rub.codRubr)}</codRubr><ideTabRubr>${esc(i.rub.ideTabRubr)}</ideTabRubr>${i.qtd > 0 ? `<qtdRubr>${i.qtd.toFixed(2)}</qtdRubr>` : ''}<vrRubr>${valor(i.valor)}</vrRubr></itensRemun>`).join('')
+                // indApurIR 0 (apuração normal): obrigatório desde 07/2021 na folha mensal.
+                + [...itens.values()].map(i => `<itensRemun><codRubr>${esc(i.rub.codRubr)}</codRubr><ideTabRubr>${esc(i.rub.ideTabRubr)}</ideTabRubr>${i.qtd > 0 ? `<qtdRubr>${i.qtd.toFixed(2)}</qtdRubr>` : ''}<vrRubr>${valor(i.valor)}</vrRubr><indApurIR>0</indApurIR></itensRemun>`).join('')
+                // Grau de exposição (Tabela 02): obrigatório para empregados (1XX, 2XX, 3XX) e 731/734/738; padrão 1.
+                + (/^[123]\d\d$|^73[148]$/.test(categ) ? `<infoAgNocivo><grauExp>${/^[1-4]$/.test(f.dados.grauExp ?? '') ? f.dados.grauExp : '1'}</grauExp></infoAgNocivo>` : '')
                 + '</remunPerApur></ideEstabLot></infoPerApur></dmDev>');
             pagamentos.push(`<infoPgto><dtPgto>${e.dataPagamento}</dtPgto><tpPgto>1</tpPgto><perRef>${e.competencia}</perRef><ideDmDev>${esc(ide)}</ideDmDev><vrLiq>${valor(Math.max(0, r.totais.liquido))}</vrLiq></infoPgto>`);
             t.liquido += r.totais.liquido;
         }
-        // O retificador substitui o S-1200 inteiro: demonstrativo do original que não está no cálculo some do eSocial.
-        const faltando = new Set(Object.values(t.retifica1200?.demonstrativos ?? {}).filter(d => !ides.has(d)));
-        if (faltando.size) t.avisos.push(`O S-1200 original tem demonstrativo(s) que este cálculo não gera (${[...faltando].join(', ')}, por exemplo férias ou outro contrato): a retificação os retira. Confira antes de transmitir.`);
+        // O retificador substitui o S-1200 inteiro: demonstrativo do original que não está no cálculo sumiria do eSocial.
+        const faltando = new Set(Object.values(t.retifica1200?.demonstrativos ?? {}).flat().filter(d => !ides.has(d)));
+        if (faltando.size) t.erros.push(`O S-1200 original tem demonstrativo(s) que este cálculo não gera (${[...faltando].join(', ')}, por exemplo férias ou outro contrato): a retificação os apagaria. Calcule todos os contratos do CPF ou retifique pelo IOB.`);
         // S-1210 já aceito no mês: volta com os pagamentos que não são desta folha (os desta folha são substituídos).
         const ex = t.existente1210;
         const outros: string[] = [];
