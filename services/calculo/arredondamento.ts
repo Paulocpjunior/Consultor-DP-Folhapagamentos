@@ -26,11 +26,36 @@ export interface ParametrosFolha {
      * Decide o mês do pagamento (e a tabela do IRRF) dos meses passados no encadeamento do arredondamento (Codex #116).
      */
     pagamentoFolha?: 'mes' | 'seguinte';
+    /**
+     * Mudanças de regime: a partir de `desde`, vale `para`; antes da primeira, o `de` dela. Os meses passados do
+     * encadeamento são recalculados com o regime que valia neles (Codex #116).
+     */
+    mudancasPagamento?: { desde: string; de: RegimePagamento; para: RegimePagamento }[];
+}
+export type RegimePagamento = NonNullable<ParametrosFolha['pagamentoFolha']>;
+
+/** Regime de pagamento da folha que valia na competência. */
+export function regimeNoMes(p: ParametrosFolha | undefined, competencia: string): RegimePagamento {
+    const m = [...(p?.mudancasPagamento ?? [])].sort((a, b) => a.desde.localeCompare(b.desde));
+    if (!m.length) return p?.pagamentoFolha ?? 'seguinte';
+    const ultima = m.filter(x => x.desde <= competencia).pop();
+    return ultima ? ultima.para : m[0].de;
 }
 
-/** Mês do pagamento da folha da competência, pelo regime da empresa. */
+/** Mês do pagamento da folha da competência, pelo regime da empresa naquele mês. */
 export const mesDoPagamento = (p: ParametrosFolha | undefined, competencia: string) =>
-    p?.pagamentoFolha === 'mes' ? competencia : competenciaSeguinte(competencia);
+    regimeNoMes(p, competencia) === 'mes' ? competencia : competenciaSeguinte(competencia);
+
+/**
+ * Muda o regime a partir da competência: os meses anteriores ficam com o que valia neles; mudanças posteriores a ela
+ * são substituídas (o novo regime vale daqui em diante).
+ */
+export function mudarRegime(p: ParametrosFolha | undefined, desde: string, para: RegimePagamento): ParametrosFolha {
+    const todas = [...(p?.mudancasPagamento ?? [])].sort((a, b) => a.desde.localeCompare(b.desde));
+    const antes = todas.filter(x => x.desde < desde);
+    const de = antes.length ? antes[antes.length - 1].para : todas.length ? todas[0].de : (p?.pagamentoFolha ?? 'seguinte');
+    return { ...p, pagamentoFolha: para, mudancasPagamento: de === para ? antes : [...antes, { desde, de, para }] };
+}
 
 /** A empresa arredonda nesta competência? Só a partir do mês de início (antes dele a folha fica como era; Codex #116). */
 export const arredondaNoMes = (p: ParametrosFolha | undefined, competencia: string) =>

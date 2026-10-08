@@ -65,7 +65,7 @@ const normalizar = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toU
 export const chaveVerba = (v: Pick<Verba, 'codigo' | 'descricao'>) => (/^LAN\d+$/.test(v.codigo) ? `LAN:${normalizar(v.descricao)}` : v.codigo);
 
 /** Natureza (Tabela 03) e tipo (1 = provento, 2 = desconto) que cada verba do motor deve ter no S-1010. */
-const SUGESTAO: Record<string, { naturezas: string[]; dica?: RegExp; evita?: RegExp }> = {
+const SUGESTAO: Record<string, { naturezas: string[]; dica?: RegExp; evita?: RegExp; codigos?: string[] }> = {
     SAL: { naturezas: ['1000'] },
     MAT: { naturezas: ['4050'] },
     HE50: { naturezas: ['1003'], evita: /100/ },
@@ -84,10 +84,12 @@ const SUGESTAO: Record<string, { naturezas: string[]; dica?: RegExp; evita?: Reg
     ADIANT: { naturezas: ['9200'] },
     VT: { naturezas: ['9216'] },
     // Arredondamento do líquido: a natureza varia no S-1010 de cada empresa; vai pela descrição, como no IOB
-    // ("ARREDONDAMENTO ATUAL", "ARREDONDAMENTO ANTERIOR", "DESC. ARREDONDAMENTO ADIANTAMENTO").
-    ARREDATU: { naturezas: [], dica: /ARRED.*ATUAL/ },
-    ARREDANT: { naturezas: [], dica: /ARRED.*ANTERIOR/ },
-    ARREDADI: { naturezas: [], dica: /ARRED.*ADIANT/ },
+    // ("ARREDONDAMENTO ATUAL", "ARREDONDAMENTO ANTERIOR", "DESC. ARREDONDAMENTO ADIANTAMENTO"), também truncada como
+    // no catálogo ("ARREDONDAMENTO ATUA", "ARREDONDAMENTO ANTE", "DESC. ARREDONDAMENT"), ou pelo código do evento do IOB
+    // como código da rubrica (1480, 5660 e 8951; Codex #116).
+    ARREDATU: { naturezas: [], dica: /ARRED.*\bATU/, codigos: ['1480'] },
+    ARREDANT: { naturezas: [], dica: /ARRED.*\bANT/, codigos: ['5660'] },
+    ARREDADI: { naturezas: [], dica: /ARRED.*ADIANT/, codigos: ['8951'] },
     // Folha do mês com férias pagas antes: férias e 1/3 da competência, o desconto do líquido pago (9221) e o retido no recibo.
     FERMES: { naturezas: ['1016'] },
     FERMES13: { naturezas: ['1017'] },
@@ -124,7 +126,7 @@ export function sugerirDePara(resultados: ResultadoCalculo[], rubricas: Rubrica[
         let cand = !s ? doTipo.filter(x => normalizar(x.v!.dados.dscRubr) === normalizar(v.descricao))
             : s.naturezas.length ? doTipo.filter(x => s.naturezas.includes(x.v!.dados.natRubr))
                 // Só pela descrição: a dica precisa casar e o que se evita (férias, 13º) nunca entra, nem sozinho (Codex #115).
-                : doTipo.filter(x => s.dica!.test(normalizar(x.v!.dados.dscRubr)) && !s.evita?.test(normalizar(x.v!.dados.dscRubr)));
+                : doTipo.filter(x => (s.dica!.test(normalizar(x.v!.dados.dscRubr)) || !!s.codigos?.includes(x.r.codRubr.replace(/^0+/, ''))) && !s.evita?.test(normalizar(x.v!.dados.dscRubr)));
         if (s?.dica && cand.some(x => s.dica!.test(normalizar(x.v!.dados.dscRubr)))) cand = cand.filter(x => s.dica!.test(normalizar(x.v!.dados.dscRubr)));
         if (s?.evita && cand.some(x => !s.evita!.test(normalizar(x.v!.dados.dscRubr)))) cand = cand.filter(x => !s.evita!.test(normalizar(x.v!.dados.dscRubr)));
         const r = cand.length === 1 ? cand[0].r : null;

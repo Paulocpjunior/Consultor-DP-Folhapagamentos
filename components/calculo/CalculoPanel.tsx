@@ -10,7 +10,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { listarEmpresasVisiveis, salvarParametrosFolha } from '../../services/empresas/empresasService';
-import { anteriorEncadeado, arredondaNoMes, arredondar, mesDoPagamento, type ParametrosFolha } from '../../services/calculo/arredondamento';
+import { anteriorEncadeado, arredondaNoMes, arredondar, mesDoPagamento, mudarRegime, regimeNoMes, type ParametrosFolha, type RegimePagamento } from '../../services/calculo/arredondamento';
 import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
 import EmpresaAtivaFixa from '../empresaAtiva/EmpresaAtivaFixa';
 import { listarAfastamentos, listarEnquadramentos, listarFuncionarios, listarTabelas, mensagemErro, salvarAfastamento, type Usuario } from '../../services/cadastros/cadastrosService';
@@ -198,9 +198,9 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const parametrosFolha = empresa?.parametrosFolha;
     // Empresa carregada ou trocada (ou regime alterado): o mês do pagamento da folha mensal segue o regime salvo dela,
     // senão o IRRF sairia pela tabela do mês errado até alguém mexer na competência (Codex #116).
-    const regimePagamento = parametrosFolha?.pagamentoFolha;
+    const regimePagamento = /^\d{4}-\d{2}$/.test(competencia) ? regimeNoMes(parametrosFolha, competencia) : undefined;
     useEffect(() => {
-        if (folha === 'mensal' && /^\d{4}-\d{2}$/.test(competencia)) setPagamento(regimePagamento === 'mes' ? competencia : competenciaSeguinte(competencia));
+        if (folha === 'mensal' && regimePagamento) setPagamento(regimePagamento === 'mes' ? competencia : competenciaSeguinte(competencia));
     }, [empresaId, regimePagamento]); // eslint-disable-line react-hooks/exhaustive-deps -- a competência já ajusta o pagamento
     /**
      * Arredondamento do líquido da empresa (parâmetro): o anterior é o do movimento do mês (o do holerite do IOB,
@@ -418,9 +418,9 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                     {parametrosFolha?.arredondarLiquido && <label>desde<input aria-label="Arredondamento desde" type="month" className={`ml-1 ${inp}`} value={parametrosFolha.arredondarDesde ?? ''}
                         onChange={e => /^\d{4}-\d{2}$/.test(e.target.value) && gravarParametrosFolha({ ...parametrosFolha, arredondarDesde: e.target.value })} /></label>}
                     {/* Regime da empresa: os meses passados do encadeamento são calculados com ele (o da tela vale só para a competência). */}
-                    <label title="Mês em que a empresa paga a folha. Vale para o mês do pagamento sugerido e para os meses anteriores no encadeamento do arredondamento.">folha paga
-                        <select aria-label="Folha paga" className={`ml-1 ${inp}`} value={parametrosFolha?.pagamentoFolha ?? 'seguinte'}
-                            onChange={e => { const p = e.target.value as 'mes' | 'seguinte'; gravarParametrosFolha({ ...parametrosFolha, pagamentoFolha: p }); setPagamento(p === 'mes' ? competencia : competenciaSeguinte(competencia)); }}>
+                    <label title="Mês em que a empresa paga a folha, a partir desta competência (os meses anteriores ficam com o regime que valia neles). Vale para o mês do pagamento sugerido e para o encadeamento do arredondamento.">folha paga
+                        <select aria-label="Folha paga" className={`ml-1 ${inp}`} value={regimePagamento ?? 'seguinte'} disabled={!regimePagamento}
+                            onChange={e => { const p = e.target.value as RegimePagamento; gravarParametrosFolha(mudarRegime(parametrosFolha, competencia, p)); setPagamento(p === 'mes' ? competencia : competenciaSeguinte(competencia)); }}>
                             <option value="mes">no próprio mês</option><option value="seguinte">no mês seguinte</option>
                         </select></label>
                 </span>}
