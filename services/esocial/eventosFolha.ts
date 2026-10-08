@@ -465,6 +465,11 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                 }
             }
             else if (t.retifica1200) t.avisos.push(`Nenhum S-1210 de ${mes(m)} carregado: se o pagamento desta folha já foi informado (inclusive em outro mês), carregue o download com ele; o eSocial recusa retificar o S-1200 enquanto um S-1210 aponta para ele.`);
+            // O IRRF do adiantamento somou a folha anterior, paga neste mês: o S-1210 dele tem de levar esse pagamento junto,
+            // senão substituiria o aceito sem ele (ou o omitiria). Sem o S-1210 do mês com a folha anterior, não sai (Codex #118).
+            const anterior = m === e.competencia && m !== perPgto ? contratos.find(c => c.r.irrfAdiantamentoFolha)?.r.irrfAdiantamentoFolha : undefined;
+            if (anterior && !(ex?.pagamentos ?? []).some(pg => pg.perRef === anterior))
+                t.erros.push(`S-1210 de ${mes(m)}: o IRRF do adiantamento somou a folha de ${mes(anterior)}, paga em ${mes(m)}. Transmita o S-1210 dessa folha antes e carregue o download do eSocial com ele: o do adiantamento sai junto, no mesmo evento.`);
             return { perApur: m, s1210: null, exclusao1210: null, existente1210: ex, outrosPagamentos: outros.length, outros };
         });
         // IR do mês por CPF: dedução de dependentes (quando o motor não usou o desconto simplificado) e

@@ -10,6 +10,7 @@ import { gerarEventosFolha, mesclarIRFerias, pagoNoAdiantamento, verbasDoAdianta
 import { TABELAS_OFICIAIS_2026 } from '../../cadastros/tabelasOficiais';
 import { fichaVazia, type FichaFuncionario } from '../../cadastros/funcionarios';
 import type { Rubrica } from '../../cadastros/rubricas';
+import type { ReciboEvento } from '../recibosEsocial';
 
 const TAB = TABELAS_OFICIAIS_2026.map((t, i) => ({ ...t, id: `t${i}` }));
 const CNPJ = '44388152000189';
@@ -51,7 +52,14 @@ describe('IRRF do adiantamento com a folha paga no mês seguinte', () => {
         const DEPARA: Record<string, string> = { SAL: 'SAL', INSS: 'INSS', IRRF: 'IRRF', ADIANTPAG: 'ADIPG', ADIANT: 'ADIDESC', 'LAN:ATRASOS': 'ATRASO' };
         const params: ParametrosEsocialFolha = { nrInscEstab: CNPJ, codLotacao: 'LOT01', rubricas: Object.fromEntries(Object.entries(DEPARA).map(([k, c]) => [k, { codRubr: c, ideTabRubr: 'T1' }])) };
         const rubricas = [rub('SAL', '1000', '1'), rub('INSS', '9201', '2'), rub('IRRF', '9203', '2'), rub('ADIPG', '1099', '1'), rub('ADIDESC', '9200', '2'), rub('ATRASO', '9207', '2')];
-        const t = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-08', dataPagamento: '2026-09-04', dataAdiantamento: '2026-08-20', fichas: [FICHA], resultados: [agosto], rubricas, parametros: params, agora: new Date('2026-09-10T12:00:00Z') }).trabalhadores[0];
+        // S-1210 de 08 já aceito, com a folha de julho paga em 06/08 (o IRRF do adiantamento somou ela; Codex #118).
+        const pgJul = '<infoPgto><dtPgto>2026-08-06</dtPgto><tpPgto>1</tpPgto><perRef>2026-07</perRef><ideDmDev>FOLHA202607-M1</ideDmDev><vrLiq>3242.46</vrLiq></infoPgto>';
+        const aceitoAgo: ReciboEvento = { tipo: 'S-1210', cpf: FICHA.cpf, perApur: '2026-08', nrRecibo: '1.1.0000000000000000001', processadoEm: '2026-08-07', origem: 'download',
+            pagamentos: [{ tpPgto: '1', perRef: '2026-07', ideDmDev: 'FOLHA202607-M1', xml: pgJul }] };
+        const retificacao = { s1200: new Map(), s1210: new Map(), s1210PorMes: new Map([['2026-08', new Map([[FICHA.cpf, aceitoAgo]])]]) };
+        const semAceito = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-08', dataPagamento: '2026-09-04', dataAdiantamento: '2026-08-20', fichas: [FICHA], resultados: [agosto], rubricas, parametros: params }).trabalhadores[0];
+        expect(semAceito.erros).toEqual([expect.stringMatching(/^S-1210 de 08\/2026: o IRRF do adiantamento somou a folha de 07\/2026, paga em 08\/2026/)]);
+        const t = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-08', dataPagamento: '2026-09-04', dataAdiantamento: '2026-08-20', fichas: [FICHA], resultados: [agosto], rubricas, parametros: params, retificacao, agora: new Date('2026-09-10T12:00:00Z') }).trabalhadores[0];
         expect(t.erros).toEqual([]);
         const doc = (xml: string) => new DOMParser().parseFromString(xml, 'application/xml');
         const dm = Object.fromEntries(Array.from(doc(t.s1200!.xml).getElementsByTagName('dmDev')).map(d => [d.getElementsByTagName('ideDmDev')[0].textContent,
@@ -60,7 +68,7 @@ describe('IRRF do adiantamento com a folha paga no mês seguinte', () => {
         expect(dm['FOLHA202608-M1']).toMatchObject({ SAL: '9177.90', ADIDESC: '3671.16', ATRASO: '95.53', INSS: '988.09', IRRF: '61.57' });
         const pg = [t, ...t.outrosMeses].flatMap(x => (x.s1210 ? Array.from(doc(x.s1210.xml).getElementsByTagName('infoPgto')).map(i => `${i.getElementsByTagName('dtPgto')[0].textContent} ${i.getElementsByTagName('vrLiq')[0].textContent}`) : []));
         // Folha: 4.361,55 aqui; no IOB, 2.405,14 depois de 1.956,41 de consignados (fora deste teste).
-        expect(pg.sort()).toEqual(['2026-08-20 2412.57', '2026-09-04 4361.55']);
+        expect(pg.sort()).toEqual(['2026-08-06 3242.46', '2026-08-20 2412.57', '2026-09-04 4361.55']);
         // Data do adiantamento até o 5º dia útil (06/08/2026; sábado conta para salário): a folha de julho pode não ter sido paga ainda (Codex #118).
         const cedo = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-08', dataPagamento: '2026-09-04', dataAdiantamento: '2026-08-06', fichas: [FICHA], resultados: [agosto], rubricas, parametros: params }).trabalhadores[0];
         expect(cedo.erros.join(' ')).toMatch(/somou a folha de 07\/2026, paga no mês até o 5º dia útil \(06\/08\/2026\)/);
@@ -74,6 +82,9 @@ describe('IRRF do adiantamento com a folha paga no mês seguinte', () => {
         const dois = travarAdiantamentoEntreContratos([agosto, { ...agosto, fichaId: 'f2' }], [FICHA, f2]);
         expect(dois.map(x => x.situacao)).toEqual(['incompleto', 'incompleto']);
         expect(travarAdiantamentoEntreContratos([agosto], [FICHA])[0]).toBe(agosto);
+        // Outro contrato do CPF encerrado em julho, com a folha paga em agosto: também conta (Codex #118).
+        expect(travarAdiantamentoEntreContratos([agosto], [FICHA], [FICHA, f2])[0].situacao).toBe('incompleto');
+        expect(travarAdiantamentoEntreContratos([agosto], [FICHA], [FICHA])[0]).toBe(agosto);
         const t2 = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-08', dataPagamento: '2026-09-04', dataAdiantamento: '2026-08-20', fichas: [FICHA, f2], resultados: [agosto, { ...agosto, fichaId: 'f2' }], rubricas, parametros: params }).trabalhadores[0];
         expect(t2.erros.join(' ')).toMatch(/IRRF do adiantamento com mais de um contrato no CPF/);
         // Sem a folha anterior (cálculo fora da tela): incompleto, e o eSocial não sai.

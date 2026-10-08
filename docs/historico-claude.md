@@ -3045,3 +3045,6 @@ guias sindicais".
 - **Revisão do Codex no #118 (P1 e P2):**
   - **Mais de um contrato no CPF:** o IRRF do adiantamento é do CPF no mês, e o Consultor calcula cada contrato sozinho (como já na folha). Até somar os contratos, esses ficam incompletos, com aviso (`travarAdiantamentoEntreContratos`), e o eSocial recusa. Não sai arquivo bancário nem S-1200 com o IRRF por contrato.
   - **S-1210 do mês do adiantamento já aceito:** a mesclagem com o aceito passa a levar as deduções de dependentes do adiantamento (tpRend 11), além das das férias. As tpRend 11 do aceito (da folha anterior) e o resto (plano de saúde…) ficam.
+- **Revisão do Codex no #118 (dois P1):**
+  - **S-1210 do mês do adiantamento:** se o IRRF do adiantamento somou a folha anterior, paga nesse mês, o S-1210 do mês precisa levar esse pagamento junto. Sem o S-1210 do mês carregado (download do eSocial) com a folha anterior, o gerador recusa e pede para transmitir o S-1210 da folha anterior antes. Com ele carregado, os dois pagamentos saem no mesmo evento.
+  - **Contrato encerrado no mês anterior:** a trava de mais de um contrato no CPF conta também os contratos da competência anterior, cuja folha é paga no mês do adiantamento.
