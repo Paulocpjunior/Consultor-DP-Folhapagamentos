@@ -278,8 +278,9 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
         verba({ codigo: 'VT', descricao: 'Vale-transporte', referencia: '', tipo: 'desconto', valor: v, inss: false, fgts: false, irrf: false });
         if (v) r.memoria.push(`Vale-transporte: ${reais(v)} descontados no mês (informado no movimento).`);
     } else if (d.valeTransporte === 'S') {
-        // Dias com deslocamento: os pagos, menos os de afastamento remunerado e os 15 primeiros de doença (Codex #115).
-        const diasVT = Math.max(0, diasPagos - [...semTransporte].filter(x => dias.get(x) === 'pago').length);
+        // Dias com deslocamento: os pagos, menos os de afastamento remunerado, os 15 primeiros de doença e as faltas
+        // do movimento (Codex #115).
+        const diasVT = Math.max(0, diasPagos - [...semTransporte].filter(x => dias.get(x) === 'pago').length - faltas);
         const base = diasVT === diasPagos ? sal : Math.round(sal * diasVT / Math.max(1, diasPagos));
         const seis = Math.round(base * 6 / 100);
         // O custo da ficha é o do mês inteiro: em mês parcial (admissão, férias, afastamento) vale o dos dias com
@@ -288,7 +289,7 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
         const custo = custoMes > 0 && diasVT < 30 ? Math.round(custoMes * diasVT / 30) : custoMes;
         const v = custo > 0 ? Math.min(seis, custo) : seis;
         verba({ codigo: 'VT', descricao: 'Vale-transporte', referencia: '6%', tipo: 'desconto', valor: v, inss: false, fgts: false, irrf: false });
-        r.memoria.push(`Vale-transporte: 6% de ${reais(base)} (salário ${diasVT === diasPagos ? 'do mês' : `de ${diasVT} dia(s) com deslocamento; afastamento remunerado não conta`}) = ${reais(seis)}${custo > 0 ? `; custo do benefício ${reais(custo)}${custo !== custoMes ? ` (${reais(custoMes)} × ${diasVT}/30 dias)` : ''}${v < seis ? ', que limita o desconto' : ''}` : ' (sem o custo do benefício na ficha: se ele for menor, o desconto é o custo)'}.`);
+        r.memoria.push(`Vale-transporte: 6% de ${reais(base)} (salário ${diasVT === diasPagos ? 'do mês' : `de ${num(diasVT)} dia(s) com deslocamento; faltas e afastamento remunerado não contam`}) = ${reais(seis)}${custo > 0 ? `; custo do benefício ${reais(custo)}${custo !== custoMes ? ` (${reais(custoMes)} × ${diasVT}/30 dias)` : ''}${v < seis ? ', que limita o desconto' : ''}` : ' (sem o custo do benefício na ficha: se ele for menor, o desconto é o custo)'}.`);
     }
 
     // Adiantamento salarial: o percentual da ficha sobre o salário do mês (o IOB calcula assim), ou o valor
