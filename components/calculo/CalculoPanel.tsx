@@ -151,15 +151,20 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     }, [empresaId]);
 
     const compOk = /^\d{4}-(0[1-9]|1[0-2])$/.test(competencia);
+    // Cada leitura tem um número: a resposta de uma leitura já trocada (outra empresa ou competência) é descartada,
+    // senão os movimentos do período anterior valeriam para o novo (Codex #117).
+    const leituraMovimentos = useRef(0);
     const carregarMovimentos = () => {
+        const n = ++leituraMovimentos.current;
         setGravados(null); setErrosMov([]); setMovsLidos(false);
         if (!empresaId || !compOk) { setMovs({}); return; }
         listarMovimentos(empresaId, competencia)
             .then(lista => {
+                if (n !== leituraMovimentos.current) return;
                 const mapa = Object.fromEntries(lista.map(g => [g.fichaId, g]));
                 setGravados(mapa); setMovs(Object.fromEntries(lista.map(g => [g.fichaId, g.movimento]))); setVersao(n => n + 1); setMovsLidos(true);
             })
-            .catch(e => { setErro(mensagemErro(e)); setGravados({}); setMovs({}); });
+            .catch(e => { if (n !== leituraMovimentos.current) return; setErro(mensagemErro(e)); setGravados({}); setMovs({}); });
     };
     useEffect(carregarMovimentos, [empresaId, competencia]); // eslint-disable-line react-hooks/exhaustive-deps
     useEffect(() => setLeitura(null), [empresaId, competencia]);
