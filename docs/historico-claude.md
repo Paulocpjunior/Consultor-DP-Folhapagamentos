@@ -3041,3 +3041,6 @@ guias sindicais".
 - **Revisão do Codex no #118 (P1 e P2):**
   - **Deduções no S-1210 do adiantamento:** sem folha anterior no mês e com os dependentes acima do simplificado, os dependentes usados no IRRF do adiantamento vão no S-1210 do mês dele (`dedDepen`, tpRend 11, e `infoDep` de quem não está no eSocial). Não ficam só no da folha.
   - **Ordem dos pagamentos:** se o IRRF do adiantamento somou a folha anterior, a data do adiantamento precisa ser depois do 5º dia útil (CLT, art. 459, § 1º; em 08/2026, 06/08), quando essa folha já foi paga. Antes disso, o eSocial recusa e o arquivo bancário deixa o funcionário fora, com o motivo.
+- **Revisão do Codex no #118 (P1 e P2):**
+  - **Mais de um contrato no CPF:** o IRRF do adiantamento é do CPF no mês, e o Consultor calcula cada contrato sozinho (como já na folha). Até somar os contratos, esses ficam incompletos, com aviso (`travarAdiantamentoEntreContratos`), e o eSocial recusa. Não sai arquivo bancário nem S-1200 com o IRRF por contrato.
+  - **S-1210 do mês do adiantamento já aceito:** a mesclagem com o aceito passa a levar as deduções de dependentes do adiantamento (tpRend 11), além das das férias. As tpRend 11 do aceito (da folha anterior) e o resto (plano de saúde…) ficam.

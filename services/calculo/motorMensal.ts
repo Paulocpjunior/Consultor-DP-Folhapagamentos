@@ -490,6 +490,22 @@ export const dataSugeridaAdiantamento = (competencia: string) => (/^\d{4}-\d{2}$
 export const adiantamentoDoMes = (r: Pick<ResultadoCalculo, 'verbas'>) => r.verbas.find(v => v.codigo === 'ADIANT')?.valor ?? 0;
 
 /**
+ * Mais de um contrato no mesmo CPF com IRRF do adiantamento: o imposto do mês é do CPF (a tabela e as deduções
+ * valem uma vez para tudo o que foi pago), e cada contrato é calculado sozinho. Até o motor somar os contratos,
+ * esses ficam incompletos, com aviso (Codex #118).
+ */
+export function travarAdiantamentoEntreContratos<R extends ResultadoCalculo>(resultados: R[], fichas: Pick<FichaFuncionario, 'id' | 'cpf'>[]): R[] {
+    const cpfDe = new Map(fichas.map(f => [f.id, f.cpf.replace(/\D/g, '')]));
+    const porCpf = new Map<string, number>();
+    for (const r of resultados) { const c = cpfDe.get(r.fichaId); if (c) porCpf.set(c, (porCpf.get(c) ?? 0) + 1); }
+    return resultados.map(r => {
+        const c = cpfDe.get(r.fichaId);
+        if (!c || (porCpf.get(c) ?? 0) < 2 || r.irrfAdiantamento === undefined || r.situacao === 'erro') return r;
+        return { ...r, situacao: 'incompleto', avisos: [...r.avisos, 'IRRF do adiantamento com mais de um contrato no CPF: o imposto do mês é de tudo o que foi pago ao CPF, e o Consultor ainda calcula cada contrato sozinho. Confira pelo IOB.'] };
+    });
+}
+
+/**
  * IRRF pela tabela progressiva: o maior entre as deduções legais e o desconto simplificado, a faixa e o redutor
  * (Lei 15.270/2025) sobre os rendimentos. Sem a dispensa de R$ 10,00, que é de cada retenção.
  */

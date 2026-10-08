@@ -3,10 +3,10 @@
 // conferido com o S-1200 e o S-1210 do IOB de 08/2026 (adiantamento em 20/08, folha paga em 04/09). Dados
 // trocados: os eventos do IOB não vão ao repositório; ficam os valores.
 import { describe, expect, it } from 'vitest';
-import { calcularMensal, type Lancamento } from '../../calculo/motorMensal';
+import { calcularMensal, travarAdiantamentoEntreContratos, type Lancamento } from '../../calculo/motorMensal';
 import { arredondar } from '../../calculo/arredondamento';
 import { favorecidosDaFolha, foraDoAdiantamento, valorDoAdiantamento } from '../../bancario/favorecidos';
-import { gerarEventosFolha, pagoNoAdiantamento, verbasDoAdiantamento, type ParametrosEsocialFolha } from '../eventosFolha';
+import { gerarEventosFolha, mesclarIRFerias, pagoNoAdiantamento, verbasDoAdiantamento, type ParametrosEsocialFolha } from '../eventosFolha';
 import { TABELAS_OFICIAIS_2026 } from '../../cadastros/tabelasOficiais';
 import { fichaVazia, type FichaFuncionario } from '../../cadastros/funcionarios';
 import type { Rubrica } from '../../cadastros/rubricas';
@@ -69,6 +69,13 @@ describe('IRRF do adiantamento com a folha paga no mês seguinte', () => {
         // Data do adiantamento fora da competência: o IRRF foi calculado para agosto.
         const fora = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-08', dataPagamento: '2026-09-04', dataAdiantamento: '2026-09-01', fichas: [FICHA], resultados: [agosto], rubricas, parametros: params }).trabalhadores[0];
         expect(fora.erros.join(' ')).toMatch(/foi calculado para pagamento em 08\/2026/);
+        // Dois contratos no mesmo CPF: o IRRF do adiantamento é do CPF; até somar, fica incompleto (Codex #118).
+        const f2 = { ...FICHA, id: 'f2', matriculaEsocial: 'M2' };
+        const dois = travarAdiantamentoEntreContratos([agosto, { ...agosto, fichaId: 'f2' }], [FICHA, f2]);
+        expect(dois.map(x => x.situacao)).toEqual(['incompleto', 'incompleto']);
+        expect(travarAdiantamentoEntreContratos([agosto], [FICHA])[0]).toBe(agosto);
+        const t2 = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-08', dataPagamento: '2026-09-04', dataAdiantamento: '2026-08-20', fichas: [FICHA, f2], resultados: [agosto, { ...agosto, fichaId: 'f2' }], rubricas, parametros: params }).trabalhadores[0];
+        expect(t2.erros.join(' ')).toMatch(/IRRF do adiantamento com mais de um contrato no CPF/);
         // Sem a folha anterior (cálculo fora da tela): incompleto, e o eSocial não sai.
         const sem = calcularMensal({ competencia: '2026-08', pagamento: '2026-09', ficha: FICHA, tabelas: TAB, afastamentos: [] });
         expect([sem.situacao, sem.irrfAdiantamento]).toEqual(['incompleto', undefined]);
@@ -94,6 +101,12 @@ describe('IRRF do adiantamento com a folha paga no mês seguinte', () => {
         expect(tAlto.erros).toEqual([]);
         const s1210Ago = [tAlto, ...tAlto.outrosMeses].find(x => x.perApur === '2026-08')!.s1210!.xml;
         expect((s1210Ago.match(/<dedDepen><tpRend>11<\/tpRend>/g) ?? []).length).toBe(4);
+        // S-1210 de 08 já aceito (com outra dedução tpRend 11 e um plano de saúde): as do adiantamento entram, o resto fica (Codex #118).
+        const aceito = '<infoIRComplem><infoIRCR><tpCR>056107</tpCR><dedDepen><tpRend>11</tpRend><cpfDep>52998224725</cpfDep><vlrDedDep>189.59</vlrDedDep></dedDepen></infoIRCR><planSaude><cnpjOper>1</cnpjOper></planSaude></infoIRComplem>';
+        const novoIr = '<infoIRComplem><infoIRCR><tpCR>056107</tpCR><dedDepen><tpRend>11</tpRend><cpfDep>11144477735</cpfDep><vlrDedDep>189.59</vlrDedDep></dedDepen></infoIRCR></infoIRComplem>';
+        const mesclado = mesclarIRFerias(aceito, novoIr, true, true);
+        expect([mesclado.includes('52998224725'), mesclado.includes('11144477735'), mesclado.includes('<planSaude>')]).toEqual([true, true, true]);
+        expect(mesclarIRFerias(aceito, novoIr, true)).toBe(aceito);
         expect(s1210Ago).toContain('<vlrDedDep>189.59</vlrDedDep>');
         expect((s1210Ago.match(/<depIRRF>S<\/depIRRF><tpDep>03<\/tpDep>/g) ?? []).length).toBe(4);
         // E não no da folha (09), em que o IRRF foi pelo simplificado ou pelo INSS.
