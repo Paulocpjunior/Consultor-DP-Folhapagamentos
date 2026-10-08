@@ -20,7 +20,7 @@ import type { Afastamento } from '../cadastros/afastamentos';
 import { inicioBeneficio, rotuloMotivo } from '../cadastros/afastamentos';
 import { centavosDeTexto, dataValida, reais } from '../cadastros/documentos';
 import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros/tabelasLegais';
-import { diaSemana, feriados, somarDias, somarMeses } from '../prazos/calendario';
+import { diaSemana, diaUtilAnterior, feriados, somarDias, somarMeses } from '../prazos/calendario';
 
 export type TipoVerba = 'provento' | 'desconto';
 export interface Incidencias { inss: boolean; fgts: boolean; irrf: boolean }
@@ -285,7 +285,12 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     // Adiantamento salarial: o percentual da ficha sobre o salário do mês (o IOB calcula assim), ou o valor
     // efetivamente pago, informado no movimento. Pago antes, num demonstrativo próprio do S-1200; aqui, o desconto.
     const pctAd = Number((d.adiantamentoPct ?? '').replace(',', '.')) || 0;
-    const adiant = mov.adiantamento !== undefined ? Math.max(0, Math.round(mov.adiantamento)) : Math.round(sal * pctAd / 100);
+    // Automático só para quem tinha vínculo no dia do adiantamento (dia 20 ou o útil anterior): admitido depois, ou
+    // desligado antes, não recebeu (Codex #115). O valor pago num caso desses vai no movimento.
+    const diaAdiant = dataSugeridaAdiantamento(competencia);
+    const semVinculoNoDia = d.admissao > diaAdiant || (!!deslig && deslig < diaAdiant);
+    const adiant = mov.adiantamento !== undefined ? Math.max(0, Math.round(mov.adiantamento)) : semVinculoNoDia ? 0 : Math.round(sal * pctAd / 100);
+    if (pctAd > 0 && mov.adiantamento === undefined && semVinculoNoDia) r.memoria.push(`Adiantamento salarial: sem vínculo em ${brData(diaAdiant)} (dia do adiantamento), não calculado.`);
     if (adiant > 0) {
         verba({ codigo: 'ADIANT', descricao: 'Adiantamento salarial', referencia: mov.adiantamento !== undefined ? '' : `${num(pctAd)}%`, tipo: 'desconto', valor: adiant, inss: false, fgts: false, irrf: false });
         r.memoria.push(mov.adiantamento !== undefined ? `Adiantamento salarial: ${reais(adiant)} pagos no mês (informado no movimento).` : `Adiantamento salarial: ${num(pctAd)}% de ${reais(sal)} (salário do mês) = ${reais(adiant)}, descontado aqui.`);
@@ -414,6 +419,9 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     if (r.totais.liquido < 0) r.avisos.push('Líquido negativo: confira os descontos.');
     return r;
 }
+
+/** Data sugerida do adiantamento: dia 20 da competência, ou o dia útil anterior (20/09/2026 caiu num domingo e o IOB pagou em 18/09). */
+export const dataSugeridaAdiantamento = (competencia: string) => (/^\d{4}-\d{2}$/.test(competencia) ? diaUtilAnterior(`${competencia}-20`) : '');
 
 /** Adiantamento salarial do mês (desconto ADIANT da folha): o que foi pago antes, no demonstrativo próprio. */
 export const adiantamentoDoMes = (r: Pick<ResultadoCalculo, 'verbas'>) => r.verbas.find(v => v.codigo === 'ADIANT')?.valor ?? 0;

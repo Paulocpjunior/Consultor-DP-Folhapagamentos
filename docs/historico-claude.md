@@ -2935,6 +2935,11 @@ guias sindicais".
   - Até a regra ser conferida com o IOB, o motor avisa e o gerador do eSocial recusa esse caso para o trabalhador, com o motivo.
   - No caso do IOB (folha paga em 30/08), os dois pagamentos são do mesmo mês, e nada muda.
 - **Revisão do Codex no #115 (P2, VT em mês parcial):** o custo do VT na ficha é o do mês inteiro. Em mês parcial (admissão, férias, afastamento), o teto do desconto passa a ser o custo × dias pagos / 30, proporcional ao benefício concedido (Decreto 10.854/2021, art. 115). Exemplo: setembro, com 10 dias fora das férias e custo de 150,00, limita o desconto a 50,00.
+- **Revisão do Codex no #115 (dois P1):**
+  - **Sugestão de rubrica:** a sugestão pela descrição (`ADIANTPAG`) não aceita mais rubrica de férias ou de 13º, nem quando é a única com "ADIANT".
+  - **Admissão e desligamento:** o adiantamento automático só vale para quem tinha vínculo no dia do adiantamento (dia 20 ou o dia útil anterior). Admitido depois ou desligado antes fica sem adiantamento, e a memória explica.
+  - **eSocial:** recusa adiantamento informado com data anterior à admissão.
+  - `dataSugeridaAdiantamento` foi para o motor, porque é a mesma data na folha e no eSocial.
 
 ## 08/10/2026 — Arredondamento do líquido
 
