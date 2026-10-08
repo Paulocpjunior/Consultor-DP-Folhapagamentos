@@ -55,6 +55,18 @@ describe('adiantamento salarial e vale-transporte', () => {
         expect(adiantamentoDoMes(set)).toBe(46667);
     });
 
+    it('VT sem deslocamento: afastamento remunerado e os 15 primeiros dias de doença não entram (Codex #115)', () => {
+        // Doença o mês inteiro: 15 dias pagos pela empresa, nenhum com deslocamento.
+        const doente: Afastamento = { ...afastamentoVazio(), id: 'd1', fichaId: 'f1', motivo: '03', dtInicio: '2026-08-01', dtFim: '2026-08-31' };
+        const r = calcularMensal({ competencia: '2026-08', pagamento: '2026-08', ficha: FICHA, tabelas: TAB, afastamentos: [doente] });
+        expect([v(r, 'SAL'), v(r, 'VT')]).toEqual([175000, undefined]);
+        // Afastamento remunerado (16) de 10 dias: o VT fica sobre os 20 com deslocamento.
+        const rem: Afastamento = { ...afastamentoVazio(), id: 'r1', fichaId: 'f1', motivo: '16', dtInicio: '2026-08-01', dtFim: '2026-08-10' };
+        const r2 = calcularMensal({ competencia: '2026-08', pagamento: '2026-08', ficha: FICHA, tabelas: TAB, afastamentos: [rem] });
+        expect([v(r2, 'SAL'), v(r2, 'VT')]).toEqual([350000, 14000]);
+        expect(r2.memoria.join(' ')).toContain('de 20 dia(s) com deslocamento');
+    });
+
     it('motor: o custo do benefício limita o VT; o movimento sobrepõe a ficha (0 = não houve) e o 0 fica gravado', () => {
         const comCusto = mensal('2026-08', { ...FICHA, dados: { ...FICHA.dados, valeTransporteCusto: '150.00' } });
         expect(v(comCusto, 'VT')).toBe(15000);
@@ -127,6 +139,14 @@ describe('adiantamento salarial e vale-transporte', () => {
         const informado = calcularMensal({ competencia: '2026-08', pagamento: '2026-08', ficha: nova, tabelas: TAB, afastamentos: [], movimento: { adiantamento: 30000 } });
         const t = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-08', dataPagamento: '2026-08-31', fichas: [nova], resultados: [informado], rubricas: RUBRICAS, parametros: PARAMS }).trabalhadores[0];
         expect(t.erros).toEqual([expect.stringMatching(/^Adiantamento salarial em 20\/08\/2026, antes da admissão \(25\/08\/2026\)/)]);
+        // Data do adiantamento mudada na tela: quem foi admitido entre a data do cálculo e a nova é avisado (Codex #115);
+        // com o adiantamento informado no movimento, vale o informado.
+        const admit = { ...FICHA, dados: { ...FICHA.dados, admissao: '2026-08-15' } };
+        const auto = calcularMensal({ competencia: '2026-08', pagamento: '2026-08', ficha: admit, tabelas: TAB, afastamentos: [] });
+        const gera = (res: typeof auto) => gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-08', dataPagamento: '2026-08-31', dataAdiantamento: '2026-08-14', fichas: [admit], resultados: [res], rubricas: RUBRICAS, parametros: PARAMS }).trabalhadores[0];
+        expect(gera(auto).erros).toEqual([expect.stringMatching(/^Adiantamento em 14\/08\/2026, mas o cálculo usou 20\/08\/2026, e a admissão ou o desligamento fica entre as duas datas/)]);
+        const zero = calcularMensal({ competencia: '2026-08', pagamento: '2026-08', ficha: admit, tabelas: TAB, afastamentos: [], movimento: { adiantamento: 0 } });
+        expect(gera(zero).erros).toEqual([]);
     });
 
     it('arredondamento do líquido como o IOB: agosto 1.581,40 − 0,96 + 0,56 = 1.581,00; setembro 490,00 − 0,33 − 0,56 + 0,89, adiantamento pago 467,00', () => {

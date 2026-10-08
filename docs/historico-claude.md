@@ -2942,6 +2942,9 @@ guias sindicais".
   - `dataSugeridaAdiantamento` foi para o motor, porque é a mesma data na folha e no eSocial.
 - **Revisão do Codex no #115 (P2):** se o holerite do IOB não traz adiantamento ou VT, o movimento trazido dele grava 0 nos dois. Assim o motor não volta à ficha e não inventa o desconto naquele mês.
 - **Revisão do Codex no #115 (P1):** a sugestão da rubrica do adiantamento salarial agora exige "SAL", "VALE" ou "QUINZ" na descrição e evita férias, 13º, comissão e gorjeta. O catálogo de eventos do IOB tem "adiantamento comissão" e "adiantamento gorjeta".
+- **Revisão do Codex no #115 (dois P2):**
+  - **VT só nos dias com deslocamento:** afastamento remunerado (16) e os 15 primeiros dias de doença, que a empresa paga, não entram. A base e o teto do custo seguem esses dias. Doença o mês inteiro dá VT zero.
+  - **Data do adiantamento alterada na tela:** se ela diverge da usada no cálculo (dia 20 ou o dia útil anterior) e a admissão ou o desligamento fica entre as duas datas, o eSocial recusa e pede o valor no movimento. Com o adiantamento informado no movimento (`adiantamentoInformado`), vale o informado.
 
 ## 08/10/2026 — Arredondamento do líquido
 
