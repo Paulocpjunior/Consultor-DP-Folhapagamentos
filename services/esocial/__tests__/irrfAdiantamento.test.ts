@@ -29,11 +29,12 @@ const agosto = calcularMensal({ competencia: '2026-08', pagamento: '2026-09', fi
 
 describe('IRRF do adiantamento com a folha paga no mês seguinte', () => {
     it('IRRF da folha paga no mês seguinte gravado com o movimento, para o adiantamento de lá (Codex #118)', () => {
-        expect(movimentoComIrrf({ horasExtras50: 1 }, julho, true)).toEqual({ horasExtras50: 1, irrfRendimentos: 537555, irrfDeducoes: 98809, irrfRetido: 4880, irrfPagamento: '2026-08' });
-        expect(movimentoComIrrf({}, julho, false)).toBeUndefined();
-        expect(movimentoComIrrf({}, { ...julho, pagamento: '2026-07' }, true)).toBeUndefined();
-        expect(limparMovimento(movimentoComIrrf({}, julho, true)!)).toEqual({ irrfRendimentos: 537555, irrfDeducoes: 98809, irrfRetido: 4880, irrfPagamento: '2026-08' });
-        expect(semFechado(movimentoComIrrf({}, julho, true)).irrfRetido).toBeUndefined();
+        // Com ou sem adiantamento na ficha: o de agosto pode ser lançado à mão no movimento de lá (Codex #118).
+        expect(movimentoComIrrf({ horasExtras50: 1 }, julho)).toEqual({ horasExtras50: 1, irrfRendimentos: 537555, irrfDeducoes: 98809, irrfRetido: 4880, irrfPagamento: '2026-08' });
+        expect(movimentoComIrrf({}, { ...julho, pagamento: '2026-07' })).toBeUndefined();
+        expect(movimentoComIrrf({}, { ...julho, situacao: 'incompleto' })).toBeUndefined();
+        expect(limparMovimento(movimentoComIrrf({}, julho)!)).toEqual({ irrfRendimentos: 537555, irrfDeducoes: 98809, irrfRetido: 4880, irrfPagamento: '2026-08' });
+        expect(semFechado(movimentoComIrrf({}, julho)).irrfRetido).toBeUndefined();
     });
 
     it('folha de agosto (paga em 04/09): o adiantamento sai da base; IRRF 61,57 com o redutor, como no IOB', () => {
@@ -105,6 +106,9 @@ describe('IRRF do adiantamento com a folha paga no mês seguinte', () => {
         // Sem o IRRF por contrato no resultado: não vai ao resumo nem ao DARF (Codex #118).
         expect([dois[0].irrfAdiantamento, resumirFolha(dois).encargos.irrfAdiantamento]).toEqual([undefined, 0]);
         expect(travarAdiantamentoEntreContratos([agosto], [FICHA])[0]).toBe(agosto);
+        // Outro contrato do CPF na competência, sem adiantamento (admitido depois dele): não paga nada no mês (Codex #118).
+        const semAdiant = { ...agosto, fichaId: 'f2', verbas: agosto.verbas.filter(x => x.codigo !== 'ADIANT'), irrfAdiantamento: undefined };
+        expect(travarAdiantamentoEntreContratos([agosto, semAdiant], [FICHA, f2])[0]).toBe(agosto);
         // Outro contrato do CPF encerrado em julho, com a folha paga em agosto: também conta (Codex #118).
         expect(travarAdiantamentoEntreContratos([agosto], [FICHA], [FICHA, f2])[0].situacao).toBe('incompleto');
         expect(travarAdiantamentoEntreContratos([agosto], [FICHA], [FICHA])[0]).toBe(agosto);

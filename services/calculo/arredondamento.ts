@@ -132,11 +132,12 @@ export const semFechado = (m: Movimento | undefined): Movimento => ({ ...m, arre
     irrfRendimentos: undefined, irrfDeducoes: undefined, irrfRetido: undefined, irrfPagamento: undefined });
 
 /**
- * Folha paga no mês seguinte, com adiantamento na ficha: o IRRF apurado nela vai gravado com o movimento, para o
- * adiantamento daquele mês somar o que foi pago de fato (Codex #118). Sem cálculo completo, nada muda aqui.
+ * Folha paga no mês seguinte: o IRRF apurado nela vai gravado com o movimento, para o adiantamento daquele mês somar
+ * o que foi pago de fato. Vale para todo funcionário, porque o adiantamento pode ser lançado à mão no mês seguinte,
+ * e a ficha de lá (com outros dependentes) não refaz esta folha (Codex #118). Sem cálculo completo, nada muda aqui.
  */
-export function movimentoComIrrf(mov: Movimento | undefined, r: ResultadoCalculo, comAdiantamento: boolean): Movimento | undefined {
-    if (r.situacao !== 'calculado' || r.pagamento === r.competencia || !comAdiantamento || !r.irrfApurado) return undefined;
+export function movimentoComIrrf(mov: Movimento | undefined, r: ResultadoCalculo): Movimento | undefined {
+    if (r.situacao !== 'calculado' || r.pagamento === r.competencia || !r.irrfApurado) return undefined;
     return { ...mov, irrfRendimentos: r.irrfApurado.rendimentos, irrfDeducoes: r.irrfApurado.deducoesLegais, irrfRetido: r.irrfApurado.valor, irrfPagamento: r.pagamento };
 }
 /**

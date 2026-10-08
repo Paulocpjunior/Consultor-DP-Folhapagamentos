@@ -96,7 +96,9 @@ describe('aba Cálculo', () => {
     });
 
     it('carrega o movimento gravado, valida e salva só o que mudou', async () => {
-        movs.listarMovimentos.mockResolvedValue([{ id: 'f1_2026-03', empresaId: 'emp1', fichaId: 'f1', competencia: '2026-03', movimento: { horasExtras50: 10 }, atualizadoPorEmail: 'ana@x.com', atualizadoEm: new Date(2026, 3, 2, 10, 30) }]);
+        // Com o IRRF da folha de março, paga em abril, gravado junto: o adiantamento de abril usa (Codex #118).
+        const GRAVADO = { horasExtras50: 10, irrfRendimentos: 237885, irrfDeducoes: 19133, irrfRetido: 0, irrfPagamento: '2026-04' };
+        movs.listarMovimentos.mockResolvedValue([{ id: 'f1_2026-03', empresaId: 'emp1', fichaId: 'f1', competencia: '2026-03', movimento: GRAVADO, atualizadoPorEmail: 'ana@x.com', atualizadoEm: new Date(2026, 3, 2, 10, 30) }]);
         render(<CalculoPanel currentUser={USER} />);
         await waitFor(() => expect(screen.getByRole('option', { name: /0229/ })).toBeTruthy());
         fireEvent.change(screen.getByLabelText('Competência'), { target: { value: '2026-03' } });
@@ -121,7 +123,7 @@ describe('aba Cálculo', () => {
         fireEvent.click(within(holerite).getByText('remover'));
         fireEvent.click(screen.getByText('Salvar movimento (1)'));
         await waitFor(() => expect(movs.salvarMovimentos).toHaveBeenCalledTimes(1));
-        expect(movs.salvarMovimentos).toHaveBeenCalledWith('emp1', '2026-03', [{ fichaId: 'f1', antes: { horasExtras50: 10 }, depois: { horasExtras50: 10, faltasDias: 1 } }], { id: 'u1', email: 'dp@escritorio.com.br' });
+        expect(movs.salvarMovimentos).toHaveBeenCalledWith('emp1', '2026-03', [{ fichaId: 'f1', antes: GRAVADO, depois: expect.objectContaining({ horasExtras50: 10, faltasDias: 1, irrfPagamento: '2026-04' }) }], { id: 'u1', email: 'dp@escritorio.com.br' });
         await waitFor(() => expect(screen.getByRole('status').textContent).toBe('Movimento de 1 funcionário(s) salvo.'));
         expect(movs.listarMovimentos).toHaveBeenCalledTimes(2);
     });

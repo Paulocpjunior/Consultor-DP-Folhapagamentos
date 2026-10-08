@@ -314,11 +314,9 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         // regime, nada a gravar (o regime já diz). Os meses seguintes o usam (IRRF do adiantamento; Codex #118).
         const mesPagamento = /^\d{4}-\d{2}$/.test(pagamento) && pagamento !== mesDoPagamento(parametrosFolha, competencia) ? pagamento : undefined;
         for (const r of resultados) if (mesPagamento || out[r.fichaId]?.mesPagamento !== undefined) out[r.fichaId] = { ...out[r.fichaId], mesPagamento };
-        // IRRF apurado da folha paga no mês seguinte, para o adiantamento de lá (Codex #118).
-        const fichaDe = new Map((dados?.fichas ?? []).map(f => [f.id, f]));
+        // IRRF apurado da folha paga no mês seguinte, para o adiantamento de lá, mesmo lançado à mão (Codex #118).
         for (const r of resultados) {
-            const comAdiant = Number((fichaDe.get(r.fichaId)?.dados.adiantamentoPct ?? '').replace(',', '.')) > 0 || (out[r.fichaId]?.adiantamento ?? 0) > 0;
-            const m = movimentoComIrrf(out[r.fichaId], r, comAdiant);
+            const m = movimentoComIrrf(out[r.fichaId], r);
             if (m) out[r.fichaId] = m;
         }
         if (!arredondaNoMes(parametrosFolha, competencia)) return out;
@@ -328,7 +326,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             if (m) out[r.fichaId] = m;
         }
         return out;
-    }, [movs, resultados, mensal, parametrosFolha, competencia, gravados, pagamento, dados]);
+    }, [movs, resultados, mensal, parametrosFolha, competencia, gravados, pagamento]);
     const pendentes = useMemo(() => [...new Set([...Object.keys(movsParaSalvar), ...Object.keys(gravados ?? {})])]
         .filter(id => id && !mesmoMovimento(movsParaSalvar[id], gravados?.[id]?.movimento)), [movsParaSalvar, gravados]);
     useEffect(() => {
@@ -488,7 +486,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         <PdfContexto.Provider value={r => pdfHolerites([r], `holerite-${empresa?.codigoSage ?? 'empresa'}-${sufixoArquivo}-${(nomeDe(r.fichaId) || r.fichaId).replace(/[^A-Za-z0-9]+/g, '-').toLowerCase()}.pdf`)}>
         <div className="space-y-4">
             <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-100">
-                <strong>Prévia do motor de cálculo (Fase 3).</strong> Não substitui o cálculo do IOB enquanto não for conferido contra ele. O movimento do mês é gravado quando você clica em "Salvar movimento"; o resultado do cálculo não é gravado. 13º, férias e rescisão usam as médias de horas extras dos movimentos gravados. Adicionais, comissões e outras médias ainda não estão no motor.
+                <strong>Prévia do motor de cálculo (Fase 3).</strong> Não substitui o cálculo do IOB enquanto não for conferido contra ele. O movimento do mês é gravado quando você clica em "Salvar movimento"; o resultado do cálculo não é gravado, só o que o mês seguinte usa (o IRRF da folha paga no mês seguinte e o arredondamento). 13º, férias e rescisão usam as médias de horas extras dos movimentos gravados. Adicionais, comissões e outras médias ainda não estão no motor.
             </div>
             <div className="flex flex-wrap items-end gap-3">
                 {ativa ? <EmpresaAtivaFixa /> : <label className="text-sm dark:text-white">Empresa
