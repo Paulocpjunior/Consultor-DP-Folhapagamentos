@@ -28,7 +28,7 @@
 // e o INSS e o IRRF retidos no recibo, como o holerite. Vale também quando o
 // pagamento é no próprio mês do gozo.
 
-import { adiantamentoDoMes, type Movimento, type ResultadoCalculo, type Verba } from '../calculo/motorMensal';
+import { adiantamentoDoMes, dataSugeridaAdiantamento, type Movimento, type ResultadoCalculo, type Verba } from '../calculo/motorMensal';
 import { calcularFerias, parteDaCompetencia, type OpcoesFerias, type ResultadoFerias } from '../calculo/motorFerias';
 import { depNoEsocial, ratearPensao, type FichaFuncionario } from '../cadastros/funcionarios';
 import type { Afastamento } from '../cadastros/afastamentos';
@@ -115,7 +115,9 @@ export function sugerirDePara(resultados: ResultadoCalculo[], rubricas: Rubrica[
         const s = SUGESTAO[v.codigo];
         // Sem natureza na sugestão, só a descrição (dica) aponta a rubrica.
         let cand = !s ? doTipo.filter(x => normalizar(x.v!.dados.dscRubr) === normalizar(v.descricao))
-            : s.naturezas.length ? doTipo.filter(x => s.naturezas.includes(x.v!.dados.natRubr)) : doTipo.filter(x => s.dica!.test(normalizar(x.v!.dados.dscRubr)));
+            : s.naturezas.length ? doTipo.filter(x => s.naturezas.includes(x.v!.dados.natRubr))
+                // Só pela descrição: a dica precisa casar e o que se evita (férias, 13º) nunca entra, nem sozinho (Codex #115).
+                : doTipo.filter(x => s.dica!.test(normalizar(x.v!.dados.dscRubr)) && !s.evita?.test(normalizar(x.v!.dados.dscRubr)));
         if (s?.dica && cand.some(x => s.dica!.test(normalizar(x.v!.dados.dscRubr)))) cand = cand.filter(x => s.dica!.test(normalizar(x.v!.dados.dscRubr)));
         if (s?.evita && cand.some(x => !s.evita!.test(normalizar(x.v!.dados.dscRubr)))) cand = cand.filter(x => !s.evita!.test(normalizar(x.v!.dados.dscRubr)));
         const r = cand.length === 1 ? cand[0].r : null;
@@ -128,8 +130,7 @@ export function sugerirDePara(resultados: ResultadoCalculo[], rubricas: Rubrica[
 export const ideDmDev = (perApur: string, matricula: string) => `FOLHA${perApur.replace('-', '')}-${matricula}`.slice(0, 30);
 /** Demonstrativo do adiantamento salarial da competência (MOS S-1200, item 3.4: parcela paga em data própria). */
 export const ideDmDevAdiantamento = (perApur: string, matricula: string) => `ADI${perApur.replace('-', '')}-${matricula}`.slice(0, 30);
-/** Data sugerida do adiantamento: dia 20 da competência, ou o dia útil anterior (20/09/2026 caiu num domingo e o IOB pagou em 18/09). */
-export const dataSugeridaAdiantamento = (competencia: string) => (/^\d{4}-\d{2}$/.test(competencia) ? diaUtilAnterior(`${competencia}-20`) : '');
+export { dataSugeridaAdiantamento };
 /** Verbas do demonstrativo do adiantamento: o valor pago, como provento (sem INSS, FGTS e IRRF; o IRRF é na folha). */
 export const verbasDoAdiantamento = (r: Pick<ResultadoCalculo, 'verbas'>): Verba[] => {
     const v = adiantamentoDoMes(r);
@@ -376,7 +377,8 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             const adiant = adiantamentoDoMes(r);
             // Adiantamento num mês e saldo em outro: o IRRF do adiantamento é calculado de imediato, no mês dele
             // (RIR/1999, art. 621), e o motor ainda não separa. Gerar assim mandaria o IRRF no mês errado (Codex #115).
-            if (adiant > 0 && dataAdiant.slice(0, 7) !== perPgto) t.erros.push(`Adiantamento pago em ${mes(dataAdiant.slice(0, 7))} e saldo da folha em ${mes(perPgto)}${quem}: o IRRF do adiantamento é do mês em que ele é pago, e o Consultor ainda não separa esse cálculo. Transmita pelo IOB, ou informe adiantamento 0 no movimento se não houve.`);
+            if (adiant > 0 && (f.dados.admissao ?? '') > dataAdiant) t.erros.push(`Adiantamento salarial em ${br(dataAdiant)}, antes da admissão (${br(f.dados.admissao ?? '')})${quem}: informe adiantamento 0 no movimento ou corrija a data.`);
+            else if (adiant > 0 && dataAdiant.slice(0, 7) !== perPgto) t.erros.push(`Adiantamento pago em ${mes(dataAdiant.slice(0, 7))} e saldo da folha em ${mes(perPgto)}${quem}: o IRRF do adiantamento é do mês em que ele é pago, e o Consultor ainda não separa esse cálculo. Transmita pelo IOB, ou informe adiantamento 0 no movimento se não houve.`);
             else if (adiant > 0) {
                 const ideA = unico(ideDmDevAdiantamento(e.competencia, mat));
                 dmDevs.push(dmDev(ideA, categ, f, itensDe(verbasDoAdiantamento(r))));

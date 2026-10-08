@@ -104,5 +104,19 @@ describe('adiantamento salarial e vale-transporte', () => {
         const itens = sugerirDePara([ago, ...verbasDoAdiantamentoParaDePara([ago])], RUBRICAS, '2026-08');
         const s = Object.fromEntries(itens.map(i => [i.chave, i.sugestao?.codRubr ?? null]));
         expect([s.ADIANTPAG, s.ADIANT, s.VT]).toEqual(['ADIPG', 'ADIDESC', 'VTD']);
+        // Só uma rubrica de provento com "ADIANT", e ela é de férias: não é sugerida para o adiantamento salarial (Codex #115).
+        const soFerias = RUBRICAS.filter(r => r.id !== 'ADIPG').map(r => r.id !== 'FERADI' ? r : { ...r, vigencias: [{ ...r.vigencias[0], dados: { ...r.vigencias[0].dados, dscRubr: 'ADIANTAMENTO DE FERIAS' } }] });
+        const s2 = Object.fromEntries(sugerirDePara([ago, ...verbasDoAdiantamentoParaDePara([ago])], soFerias, '2026-08').map(i => [i.chave, i.sugestao?.codRubr ?? null]));
+        expect(s2.ADIANTPAG).toBeNull();
+    });
+
+    it('admitido depois do dia do adiantamento: sem adiantamento automático; informado antes da admissão, o eSocial recusa (Codex #115)', () => {
+        const nova = { ...FICHA, dados: { ...FICHA.dados, admissao: '2026-08-25' } };
+        const r = calcularMensal({ competencia: '2026-08', pagamento: '2026-08', ficha: nova, tabelas: TAB, afastamentos: [] });
+        expect([v(r, 'SAL'), v(r, 'ADIANT')]).toEqual([81667, undefined]);
+        expect(r.memoria.join(' ')).toContain('sem vínculo em 20/08/2026 (dia do adiantamento), não calculado');
+        const informado = calcularMensal({ competencia: '2026-08', pagamento: '2026-08', ficha: nova, tabelas: TAB, afastamentos: [], movimento: { adiantamento: 30000 } });
+        const t = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-08', dataPagamento: '2026-08-31', fichas: [nova], resultados: [informado], rubricas: RUBRICAS, parametros: PARAMS }).trabalhadores[0];
+        expect(t.erros).toEqual([expect.stringMatching(/^Adiantamento salarial em 20\/08\/2026, antes da admissão \(25\/08\/2026\)/)]);
     });
 });
