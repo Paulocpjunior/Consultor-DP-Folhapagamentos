@@ -214,7 +214,8 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         const afs = dados.afastamentos.filter(a => a.fichaId === f.id);
         const r1 = calcularMensal({ competencia: m1, pagamento: c, ficha: f, tabelas: dados.tabelas, movimento: salvos[m1], afastamentos: afs,
             feriasDoMes: feriasDaCompetencia(f, afs, dados.tabelas, salvos, m1, opcoesFerias), folhaPagaNoAdiantamento: null });
-        return r1.irrfApurado ? { ...r1.irrfApurado, competencia: m1 } : undefined;
+        // Só a folha anterior completa: com erro ou incompleta, o IRRF dela não é o retido (Codex #118).
+        return r1.situacao === 'calculado' && r1.irrfApurado ? { ...r1.irrfApurado, competencia: m1 } : undefined;
     }, [dados, movsEmpresa, parametrosFolha, opcoesFerias]);
     const arredondarDaEmpresa = useCallback((r: ResultadoCalculo, f: FichaFuncionario, c: string, informado?: number): ResultadoCalculo => {
         if (!arredondaNoMes(parametrosFolha, c) || !dados) return r;

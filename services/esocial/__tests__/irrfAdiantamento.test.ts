@@ -71,5 +71,16 @@ describe('IRRF do adiantamento com a folha paga no mês seguinte', () => {
         const noMes = calcularMensal({ competencia: '2026-08', pagamento: '2026-08', ficha: FICHA, tabelas: TAB, afastamentos: [], movimento: { lancamentos: [atraso(9553)] } });
         expect([noMes.irrfAdiantamento, noMes.bases.irrf]).toEqual([undefined, 908237]);
         expect(verbasDoAdiantamento(noMes).map(x => x.codigo)).toEqual(['ADIANTPAG']);
+        // Sem folha paga antes no mês (admitido em julho, por exemplo): os dependentes deduzem do adiantamento (Codex #118).
+        const comDep = { ...FICHA, dependentes: [{ nome: 'FILHO', cpf: '11144477735', irrf: 'S' }, { nome: 'FILHA', cpf: '39053344705', irrf: 'S' }] } as FichaFuncionario;
+        const primeiro = calcularMensal({ competencia: '2026-08', pagamento: '2026-09', ficha: comDep, tabelas: TAB, afastamentos: [], folhaPagaNoAdiantamento: null });
+        // 3.671,16 − 2 × 189,59 = 3.291,98 × 15% − 394,16 = 99,64; redutor (até 5.000) zera.
+        expect(primeiro.irrfAdiantamento).toBe(0);
+        const dep = (cpf: string) => ({ nome: `DEP ${cpf.slice(0, 3)}`, cpf, irrf: 'S' }) as FichaFuncionario['dependentes'][number];
+        const alto = { ...FICHA, dados: { ...FICHA.dados, salario: '20000.00' }, dependentes: ['11144477735', '39053344705', '12345678909', '98765432100'].map(dep) } as FichaFuncionario;
+        // 8.000,00 − 4 × 189,59 (758,36, mais que o simplificado de 607,20) = 7.241,64 × 27,5% − 908,73 = 1.082,72.
+        expect(calcularMensal({ competencia: '2026-08', pagamento: '2026-09', ficha: alto, tabelas: TAB, afastamentos: [], folhaPagaNoAdiantamento: null }).irrfAdiantamento).toBe(108272);
+        // Sem dependentes, o simplificado: (8.000,00 − 607,20) × 27,5% − 908,73 = 1.124,29.
+        expect(calcularMensal({ competencia: '2026-08', pagamento: '2026-09', ficha: { ...alto, dependentes: [] }, tabelas: TAB, afastamentos: [], folhaPagaNoAdiantamento: null }).irrfAdiantamento).toBe(112429);
     });
 });

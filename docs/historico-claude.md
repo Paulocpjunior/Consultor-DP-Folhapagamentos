@@ -3033,3 +3033,6 @@ guias sindicais".
 - **eSocial:** o demonstrativo do adiantamento leva o IRRF (mesma rubrica do IRRF da folha), e o S-1210 do mês do adiantamento paga o líquido. A data do adiantamento precisa ser da competência, porque o IRRF foi calculado para ela. Sai o bloqueio do #115.
 - **Arquivo bancário e arredondamento do adiantamento:** usam o valor líquido do IRRF.
 - **Trava:** `irrfAdiantamento.test.ts`, com as tabelas oficiais de 2026.
+- **Revisão do Codex no #118 (P1 e P2):**
+  - **Folha anterior:** só a folha anterior completa entra no cálculo. Com erro ou incompleta, a folha do mês fica incompleta, com aviso.
+  - **Sem folha paga antes no mês** (admissão, mudança de regime): os dependentes deduzem do adiantamento. O maior entre eles e o simplificado vale; INSS e pensão não há.

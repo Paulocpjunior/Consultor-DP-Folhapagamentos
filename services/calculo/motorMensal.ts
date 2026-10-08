@@ -451,12 +451,14 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
             if (r.situacao === 'calculado') r.situacao = 'incompleto';
         } else if ('erro' in tA) erro(`IRRF do adiantamento: ${tA.erro}`);
         else {
-            const pagos = ant ?? { rendimentos: 0, deducoesLegais: 0, valor: 0, competencia: '' };
+            // Sem folha paga antes no mês (admissão, mudança de regime): o adiantamento é o primeiro pagamento, e os
+            // dependentes deduzem dele (Codex #118); INSS e pensão não há.
+            const pagos = ant ?? { rendimentos: 0, deducoesLegais: nDep * (tA.tabela.valores.deducaoDependente ?? 0), valor: 0, competencia: '' };
             const R = pagos.rendimentos + adiant;
             const a = apurarIrrf(tA.tabela, R, pagos.deducoesLegais);
             let ir = Math.max(0, a.valor - pagos.valor);
             r.memoria.push(`IRRF do adiantamento (pago em ${rotuloCompetencia(competencia)}, tabela de ${rotuloCompetencia(tA.tabela.vigencia)}): `
-                + (ant ? `rendimentos pagos no mês ${reais(pagos.rendimentos)} (folha de ${rotuloCompetencia(ant.competencia)}) + adiantamento ${reais(adiant)} = ${reais(R)}` : `adiantamento ${reais(adiant)} (nenhuma folha paga antes no mês)`)
+                + (ant ? `rendimentos pagos no mês ${reais(pagos.rendimentos)} (folha de ${rotuloCompetencia(ant.competencia)}) + adiantamento ${reais(adiant)} = ${reais(R)}` : `adiantamento ${reais(adiant)} (nenhuma folha paga antes no mês${nDep ? `; ${nDep} dependente(s)` : ''})`)
                 + `; ${a.simplificado ? `desconto simplificado ${reais(a.deducao)}` : `deduções legais ${reais(pagos.deducoesLegais)}`}; base ${reais(a.base)} × ${pct(a.aliquota)} − ${reais(a.deducaoFaixa)} = ${reais(a.bruto)}`
                 + `${a.memoriaRedutor.length ? ` (${a.memoriaRedutor.join(' ')})` : ''}; menos ${reais(pagos.valor)} já retidos = ${reais(ir)}.`);
             if (ir > 0 && ir <= IRRF_MINIMO) { r.memoria.push(`IRRF do adiantamento de ${reais(ir)} não retido: até R$ 10,00 a retenção é dispensada (Lei 9.430/1996, art. 67).`); ir = 0; }
