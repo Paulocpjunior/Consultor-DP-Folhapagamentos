@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { dataSugeridaAdiantamento, gerarEventosFolha, recibosFeriasDaCompetencia, sugerirDePara, verbasDoAdiantamentoParaDePara, type ParametrosEsocialFolha } from '../eventosFolha';
 import { adiantamentoDoMes, calcularMensal } from '../../calculo/motorMensal';
 import { feriasDaCompetencia } from '../../calculo/motorFerias';
-import { limparMovimento } from '../../calculo/movimento';
+import { limparMovimento, validarMovimento } from '../../calculo/movimento';
 import { anteriorEncadeado, aoRealSeguinte, arredondaNoMes, arredondar } from '../../calculo/arredondamento';
 import { fichaVazia, validarFicha, type FichaFuncionario } from '../../cadastros/funcionarios';
 import { afastamentoVazio, type Afastamento } from '../../cadastros/afastamentos';
@@ -135,7 +135,7 @@ describe('adiantamento salarial e vale-transporte', () => {
         const ago = arredondar(mensal('2026-08'), 96);
         expect([v(ago, 'ARREDANT'), v(ago, 'ARREDATU'), v(ago, 'ARREDADI'), ago.totais.liquido]).toEqual([96, 56, undefined, 158100]);
         // Setembro: o anterior é o atual de agosto (0,56), encadeado a partir do informado em agosto.
-        const ant = anteriorEncadeado('2026-08', '2026-09', c => mensal(c), c => (c === '2026-08' ? 96 : undefined));
+        const ant = anteriorEncadeado('2026-08', '2026-09', c => mensal(c), c => (c === '2026-08' ? 96 : undefined)) as number;
         expect(ant).toBe(56);
         const set = arredondar(mensal('2026-09'), ant);
         expect([v(set, 'ARREDADI'), v(set, 'ARREDANT'), v(set, 'ARREDATU'), set.totais.liquido]).toEqual([33, 56, 89, 49000]);
@@ -161,6 +161,13 @@ describe('adiantamento salarial e vale-transporte', () => {
         // atuais 0,60, 0,20, 0,80, 0,40, 0,00 em ciclo; o do 42º mês é o 2º do ciclo.
         const fixo = { ...mensal('2026-08'), verbas: [{ codigo: 'SAL', descricao: 'Salário', referencia: '', tipo: 'provento' as const, valor: 10040, inss: true, fgts: true, irrf: true }] };
         expect(anteriorEncadeado('2023-01', '2026-07', () => fixo, () => undefined)).toBe(20);
+        // Mês com erro no caminho: o anterior não é inventado; um anterior informado depois dele volta a encadear (Codex #116).
+        const comErro = (c: string) => (c === '2026-08' ? { ...mensal(c), situacao: 'erro' as const } : mensal(c));
+        expect(anteriorEncadeado('2026-08', '2026-10', comErro, () => undefined)).toEqual({ erro: expect.stringMatching(/o cálculo de 08\/2026 está com erro/) });
+        expect(anteriorEncadeado('2026-08', '2026-10', comErro, c => (c === '2026-09' ? 56 : undefined))).toBe(89);
+        // Anterior informado: até 0,99 (Codex #116).
+        expect(validarMovimento({ arredondamentoAnterior: 5600 })).toEqual(['Arredondamento anterior: no máximo R$ 0,99 (são centavos do mês anterior).']);
+        expect(validarMovimento({ arredondamentoAnterior: 99 })).toEqual([]);
         // Antes do mês de início a empresa não arredonda (Codex #116).
         const p = { arredondarLiquido: true, arredondarDesde: '2026-09' };
         expect([arredondaNoMes(p, '2026-08'), arredondaNoMes(p, '2026-09'), arredondaNoMes(p, '2026-10'), arredondaNoMes({ arredondarLiquido: false }, '2026-09'), arredondaNoMes(undefined, '2026-09')])

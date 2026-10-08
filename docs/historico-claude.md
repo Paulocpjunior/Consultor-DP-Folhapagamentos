@@ -2968,3 +2968,7 @@ guias sindicais".
 - **Revisão do Codex no #116 (dois P2):**
   - **Período completo:** o encadeamento percorre todo o período desde o mês de início. Com o corte em 36 meses, o anterior verdadeiro virava 0, e o erro chegava ao mês pedido. A trava cobre 42 meses.
   - **Movimentos não carregados:** enquanto os movimentos gravados não carregam, ou se der erro, a folha com arredondamento fica "incompleta" com aviso, a não ser que o anterior do mês esteja informado. Assim não sai PDF nem arquivo bancário com o encadeamento feito sem as horas e faltas dos meses passados.
+- **Revisão do Codex no #116 (três P2):**
+  - **Mês com erro no encadeamento:** antes ele zerava o anterior sem aviso. Agora `anteriorEncadeado` devolve o erro com o mês, e a folha fica em erro até o mês ser corrigido ou até um anterior ser informado num mês seguinte.
+  - **Movimentos não carregados:** a folha agora fica em "erro", não mais "incompleta", porque os PDFs aceitavam resultados incompletos. Assim não sai holerite, arquivo bancário nem eSocial com o líquido sem o arredondamento.
+  - **Anterior informado:** no máximo R$ 0,99. Digitar 56 em vez de 0,56 tiraria R$ 56,00.

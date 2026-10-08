@@ -56,6 +56,8 @@ export function validarMovimento(m: Movimento, diasNoMes = 31): string[] {
         if (v === undefined) continue;
         if (v < 0) erros.push(`${ROTULO_MOVIMENTO[k]}: não pode ser negativo.`);
         else if (max[k] !== undefined && v > max[k]!) erros.push(`${ROTULO_MOVIMENTO[k]}: no máximo ${max[k]}.`);
+        // O arredondamento anterior é o que faltou para o real seguinte: até 0,99 (56 em vez de 0,56 tiraria R$ 56,00; Codex #116).
+        if (k === 'arredondamentoAnterior' && v > 99) erros.push(`${ROTULO_MOVIMENTO[k]}: no máximo R$ 0,99 (são centavos do mês anterior).`);
     }
     (m.lancamentos ?? []).forEach((l, i) => {
         if (!l.descricao) erros.push(`Lançamento ${i + 1}: informe a descrição.`);

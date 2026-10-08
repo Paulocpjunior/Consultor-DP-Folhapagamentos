@@ -66,16 +66,19 @@ export const arredondamentoAtual = (r: Pick<ResultadoCalculo, 'verbas'>) => r.ve
  * `informado(c)` é o anterior gravado no movimento do mês (o do holerite do IOB, por exemplo), que vale no lugar
  * do encadeado; `calcular(c)` é a folha do mês sem arredondamento (null sem vínculo). Antes de `desde`, 0.
  */
-export function anteriorEncadeado(desde: string, competencia: string, calcular: (c: string) => ResultadoCalculo | null, informado: (c: string) => number | undefined): number {
+export function anteriorEncadeado(desde: string, competencia: string, calcular: (c: string) => ResultadoCalculo | null, informado: (c: string) => number | undefined): number | { erro: string } {
     if (!/^\d{4}-\d{2}$/.test(desde) || desde >= competencia) return 0;
     // O encadeamento recalcula cada mês desde o início, inteiro: cortar o período trocaria o anterior verdadeiro por 0
     // e o erro iria até o mês pedido (Codex #116). Informe o anterior no movimento para encurtar a conta.
     let anterior = 0;
+    // Mês com cálculo em erro no caminho: o anterior dali em diante não é conhecido, até um anterior informado (Codex #116).
+    let falhou = '';
     for (let c = desde; c < competencia; c = competenciaSeguinte(c)) {
         const inf = informado(c);
-        if (inf !== undefined) anterior = inf;
+        if (inf !== undefined) { anterior = inf; falhou = ''; }
         const r = calcular(c);
-        anterior = r && r.situacao !== 'erro' ? arredondamentoAtual(arredondar(r, anterior)) : 0;
+        if (r?.situacao === 'erro') { falhou = c; anterior = 0; continue; }
+        anterior = r ? arredondamentoAtual(arredondar(r, anterior)) : 0;
     }
-    return anterior;
+    return falhou ? { erro: `Arredondamento do líquido: o cálculo de ${falhou.slice(5)}/${falhou.slice(0, 4)} está com erro e o anterior não pode ser encadeado a partir dele. Corrija esse mês ou informe o "Arredondamento anterior" no movimento de um mês seguinte.` } : anterior;
 }

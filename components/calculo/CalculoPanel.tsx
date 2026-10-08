@@ -204,14 +204,16 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         if (!arredondaNoMes(parametrosFolha, c) || !dados) return r;
         // Sem os movimentos gravados (carregando ou com erro), o encadeamento sairia sem as horas, faltas e anteriores dos
         // meses passados: a folha fica incompleta até eles chegarem, a não ser que o anterior do mês esteja informado (Codex #116).
-        if (informado === undefined && !movsEmpresa) return { ...r, situacao: r.situacao === 'erro' ? 'erro' : 'incompleto', avisos: [...r.avisos, 'Arredondamento do líquido: aguardando os movimentos gravados dos meses anteriores para encadear o anterior (ou informe o "Arredondamento anterior" no movimento).'] };
+        // Em erro (e não "incompleto"): PDF, arquivo bancário e eSocial não saem com o líquido sem o arredondamento (Codex #116).
+        const travar = (m: string): ResultadoCalculo => ({ ...r, situacao: 'erro', erros: [...r.erros, m] });
+        if (informado === undefined && !movsEmpresa) return travar('Arredondamento do líquido: aguardando os movimentos gravados dos meses anteriores para encadear o anterior (ou informe o "Arredondamento anterior" no movimento).');
         const afs = dados.afastamentos.filter(a => a.fichaId === f.id);
         const salvos = movsEmpresa?.[f.id] ?? {};
         const anterior = informado ?? anteriorEncadeado(parametrosFolha.arredondarDesde || c, c,
             m => (noMes([f], m).length ? calcularMensal({ competencia: m, pagamento: pagaNoMes ? m : competenciaSeguinte(m), ficha: f, tabelas: dados.tabelas, movimento: salvos[m], afastamentos: afs,
                 feriasDoMes: feriasDaCompetencia(f, afs, dados.tabelas, salvos, m, opcoesFerias) }) : null),
             m => salvos[m]?.arredondamentoAnterior);
-        return arredondar(r, anterior);
+        return typeof anterior === 'number' ? arredondar(r, anterior) : travar(anterior.erro);
     }, [parametrosFolha, dados, movsEmpresa, opcoesFerias]);
     const resultados = useMemo(() => {
         if (!dados) return [];
