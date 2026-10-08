@@ -18,7 +18,8 @@ import { lerDependentes, type Dependente } from '../implantacao/unificacao';
 import { UFS, cnpjValido, cpfValido, dataValida, centavosDeTexto, pisValido } from './documentos';
 
 export type { Dependente };
-export type CampoExtra = 'codigoIob' | 'horario' | 'banco' | 'agencia' | 'conta' | 'tipoConta' | 'pix' | 'observacoes' | 'dataDesligamento' | 'motivoDesligamento' | 'dataProjetadaAviso' | 'grauExp';
+export type CampoExtra = 'codigoIob' | 'horario' | 'banco' | 'agencia' | 'conta' | 'tipoConta' | 'pix' | 'observacoes' | 'dataDesligamento' | 'motivoDesligamento' | 'dataProjetadaAviso' | 'grauExp'
+    | 'adiantamentoPct' | 'valeTransporte' | 'valeTransporteCusto';
 export type CampoFicha = Exclude<Campo, 'dependentes' | 'matriculaIob'> | CampoExtra;
 export type Situacao = 'ativo' | 'desligado';
 export type ChaveOrigem = CampoFicha | 'dependentes' | 'situacao';
@@ -58,6 +59,9 @@ export const ROTULO: Record<CampoFicha, string> = {
     observacoes: 'Observações', dataDesligamento: 'Data de desligamento',
     motivoDesligamento: 'Motivo do desligamento (eSocial)', dataProjetadaAviso: 'Fim projetado pelo aviso indenizado',
     grauExp: 'Grau de exposição a agentes nocivos (S-1200)',
+    adiantamentoPct: 'Adiantamento salarial (% do salário do mês)',
+    valeTransporte: 'Vale-transporte (desconto de até 6%)',
+    valeTransporteCusto: 'Custo mensal do vale-transporte (limita o desconto)',
 };
 
 /** Motivos de desligamento (Tabela 19 do eSocial) mais usados; outro código fica como está. */
@@ -87,6 +91,7 @@ const OPCOES: Partial<Record<CampoFicha, [string, string][]>> = {
     motivoDesligamento: MOTIVOS_DESLIGAMENTO,
     // Tabela 02 do eSocial; em branco o S-1200 vai com 1.
     grauExp: [['1', '1 · Não ensejador de aposentadoria especial'], ['2', '2 · Aposentadoria especial aos 15 anos (12%)'], ['3', '3 · Aposentadoria especial aos 20 anos (9%)'], ['4', '4 · Aposentadoria especial aos 25 anos (6%)']],
+    valeTransporte: [['S', 'Sim: desconta 6% do salário do mês'], ['N', 'Não']],
     tipoConta: [['corrente', 'Corrente'], ['poupanca', 'Poupança'], ['salario', 'Salário'], ['pagamento', 'Pagamento']],
     uf: UFS.map(u => [u, u]), ufCtps: UFS.map(u => [u, u]),
 };
@@ -104,6 +109,7 @@ export function defCampo(campo: CampoFicha): DefCampo {
 export const ABAS: { id: string; titulo: string; campos: CampoFicha[] }[] = [
     { id: 'dados', titulo: 'Dados', campos: ['nome', 'nascimento', 'sexo', 'estadoCivil', 'raca', 'escolaridade', 'nacionalidade', 'paisNascimento', 'naturalidade', 'mae', 'pai', 'cep', 'logradouro', 'numero', 'complemento', 'bairro', 'municipio', 'uf', 'telefone', 'email'] },
     { id: 'identAdm', titulo: 'Ident. Adm.', campos: ['codigoIob', 'admissao', 'categoria', 'tipoContrato', 'fimContrato', 'cargo', 'cbo', 'funcao', 'cargoIob', 'departamentoIob', 'salario', 'unidadeSalario', 'horasSemanais', 'horario', 'jornada', 'horarioTrabalho', 'horarioIntervalo', 'sindicato', 'sindicatoIob', 'estabelecimento', 'regimeTrabalhista', 'regimePrevidenciario', 'opcaoFgts', 'grauExp', 'dataDesligamento', 'motivoDesligamento', 'dataProjetadaAviso'] },
+    { id: 'adiantVt', titulo: 'Adiant. e VT', campos: ['adiantamentoPct', 'valeTransporte', 'valeTransporteCusto'] },
     { id: 'documentos', titulo: 'Documentos', campos: ['pis', 'cadastroPis', 'ctps', 'serieCtps', 'ufCtps', 'rg', 'orgaoRg', 'emissaoRg', 'tituloEleitor', 'zonaEleitoral', 'secaoEleitoral', 'documentoMilitar'] },
     { id: 'outros', titulo: 'Outros', campos: ['banco', 'agencia', 'conta', 'tipoConta', 'pix', 'deficiencia', 'enderecoExterior', 'observacoes'] },
 ];
@@ -220,7 +226,7 @@ export function normalizarFicha(f: FichaFuncionario): FichaFuncionario {
         if (['pis', 'cep', 'cbo'].includes(k)) t = t.replace(/\D/g, '');
         if (['uf', 'ufCtps'].includes(k)) t = t.toUpperCase();
         if (k === 'sindicato' || k === 'estabelecimento') t = t.toUpperCase().replace(/[.\-/\s]/g, '');
-        if (k === 'salario' && t) { const c = centavosDeTexto(t); if (c !== null) t = (c / 100).toFixed(2); }
+        if ((k === 'salario' || k === 'valeTransporteCusto') && t) { const c = centavosDeTexto(t); if (c !== null) t = (c / 100).toFixed(2); }
         if (t) dados[k] = t;
     }
     return {
@@ -271,6 +277,9 @@ export function validarFicha(f: FichaFuncionario): Validacao {
     if (!d.nome) erros.push('Informe o nome.');
     for (const k of DATAS) if (d[k] && !dataValida(d[k]!)) erros.push(`${ROTULO[k]}: data inválida.`);
     if (d.salario && !/^\d+(\.\d{1,2})?$/.test(d.salario)) erros.push('Salário inválido.');
+    const pctAd = (d.adiantamentoPct ?? '').trim();
+    if (pctAd && !(/^\d+([.,]\d{1,2})?$/.test(pctAd) && Number(pctAd.replace(',', '.')) <= 100)) erros.push('Adiantamento salarial: percentual entre 0 e 100.');
+    if (d.valeTransporteCusto && !/^\d+(\.\d{1,2})?$/.test(d.valeTransporteCusto)) erros.push('Custo do vale-transporte inválido (valor com ponto decimal, ex.: 220.00).');
     if (d.cep && !/^\d{8}$/.test(d.cep)) erros.push('CEP deve ter 8 dígitos.');
     for (const k of ['uf', 'ufCtps'] as CampoFicha[]) if (d[k] && !UFS.includes(d[k]!)) erros.push(`${ROTULO[k]}: UF inválida.`);
     if (d.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email)) erros.push('E-mail inválido.');

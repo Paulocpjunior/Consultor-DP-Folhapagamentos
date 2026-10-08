@@ -9,7 +9,8 @@
 // Cobre: salário mensal, por hora ou por dia, proporcional (admissão,
 // desligamento, afastamentos); primeiros 15 dias de doença/acidente;
 // salário-maternidade; horas extras 50%/100% com reflexo no DSR; faltas e DSR
-// descontado; lançamentos avulsos; INSS progressivo; salário-família; IRRF
+// descontado; lançamentos avulsos; adiantamento salarial e vale-transporte
+// (desconto); INSS progressivo; salário-família; IRRF
 // com desconto simplificado, dependentes, pensão e o redutor de 2026; FGTS.
 // Fica de fora (aviso e situação "incompleto"): férias, 13º, rescisão,
 // adicionais e médias de variáveis.
@@ -35,6 +36,10 @@ export interface Movimento {
     /** Feriados estaduais/municipais no mês (entram como descanso no DSR das horas extras). */
     feriadosLocais?: number;
     pensaoAlimenticia?: number;
+    /** Adiantamento salarial pago no mês (centavos): substitui o calculado pelo percentual da ficha. 0 = não pago. */
+    adiantamento?: number;
+    /** Vale-transporte descontado no mês (centavos): substitui o calculado pela ficha (holerite do IOB). */
+    valeTransporte?: number;
     lancamentos?: Lancamento[];
 }
 
@@ -258,6 +263,29 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     if (faltas > 0 || dsrDesc > 0) r.memoria.push(`Faltas e DSR: ${reais(Math.round(diaria))} por dia (salário ÷ 30).`);
     (mov.lancamentos ?? []).forEach((l, i) => verba({ ...l, codigo: `LAN${i + 1}`, referencia: '', valor: Math.round(l.valor) }));
 
+    // Vale-transporte: desconto de 6% do salário básico do mês (Lei 7.418/1985, art. 4º, parágrafo único;
+    // Decreto 10.854/2021, art. 114), sem adicionais; nunca acima do custo do benefício, quando informado.
+    if (mov.valeTransporte !== undefined) {
+        const v = Math.max(0, Math.round(mov.valeTransporte));
+        verba({ codigo: 'VT', descricao: 'Vale-transporte', referencia: '', tipo: 'desconto', valor: v, inss: false, fgts: false, irrf: false });
+        if (v) r.memoria.push(`Vale-transporte: ${reais(v)} descontados no mês (informado no movimento).`);
+    } else if (d.valeTransporte === 'S') {
+        const seis = Math.round(sal * 6 / 100);
+        const custo = centavosDeTexto(d.valeTransporteCusto ?? '') ?? 0;
+        const v = custo > 0 ? Math.min(seis, custo) : seis;
+        verba({ codigo: 'VT', descricao: 'Vale-transporte', referencia: '6%', tipo: 'desconto', valor: v, inss: false, fgts: false, irrf: false });
+        r.memoria.push(`Vale-transporte: 6% de ${reais(sal)} (salário do mês) = ${reais(seis)}${custo > 0 ? `; custo do benefício ${reais(custo)}${v < seis ? ', que limita o desconto' : ''}` : ' (sem o custo do benefício na ficha: se ele for menor, o desconto é o custo)'}.`);
+    }
+
+    // Adiantamento salarial: o percentual da ficha sobre o salário do mês (o IOB calcula assim), ou o valor
+    // efetivamente pago, informado no movimento. Pago antes, num demonstrativo próprio do S-1200; aqui, o desconto.
+    const pctAd = Number((d.adiantamentoPct ?? '').replace(',', '.')) || 0;
+    const adiant = mov.adiantamento !== undefined ? Math.max(0, Math.round(mov.adiantamento)) : Math.round(sal * pctAd / 100);
+    if (adiant > 0) {
+        verba({ codigo: 'ADIANT', descricao: 'Adiantamento salarial', referencia: mov.adiantamento !== undefined ? '' : `${num(pctAd)}%`, tipo: 'desconto', valor: adiant, inss: false, fgts: false, irrf: false });
+        r.memoria.push(mov.adiantamento !== undefined ? `Adiantamento salarial: ${reais(adiant)} pagos no mês (informado no movimento).` : `Adiantamento salarial: ${num(pctAd)}% de ${reais(sal)} (salário do mês) = ${reais(adiant)}, descontado aqui.`);
+    }
+
     // Férias do mês pagas no recibo: entram nas bases do INSS e do FGTS (não no IRRF, que foi em separado).
     const fm = e.feriasDoMes;
     if (fm && fm.ferias + fm.terco > 0) {
@@ -378,6 +406,9 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     if (r.totais.liquido < 0) r.avisos.push('Líquido negativo: confira os descontos.');
     return r;
 }
+
+/** Adiantamento salarial do mês (desconto ADIANT da folha): o que foi pago antes, no demonstrativo próprio. */
+export const adiantamentoDoMes = (r: Pick<ResultadoCalculo, 'verbas'>) => r.verbas.find(v => v.codigo === 'ADIANT')?.valor ?? 0;
 
 /** Funcionários com vínculo em algum dia da competência. */
 export function noMes(fichas: FichaFuncionario[], competencia: string): FichaFuncionario[] {

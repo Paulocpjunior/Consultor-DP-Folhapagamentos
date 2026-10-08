@@ -2895,3 +2895,27 @@ guias sindicais".
 - **Trava:** `feriasEsocial.test.ts`, "confere com o IOB", reproduz o caso com dados trocados e confere cada valor acima.
 - **Revisão do Codex no #111 (P1):** quando o S-1210 do mês já tinha sido aceito com informações de IR, o reenvio levava só o bloco antigo e perdia as deduções de dependentes das férias (tpRend 13) do recibo novo.
   - `mesclarIRFerias` junta essas deduções ao bloco aceito. O dedDepen entra logo após o `tpCR` 056107, ou num `infoIRCR` novo antes do `planSaude`. O `infoDep` de quem ainda não estava no bloco entra antes do `infoIRCR`. Nada mais muda, e o que já estava lá não se repete.
+
+## 08/10/2026 — Adiantamento salarial e vale-transporte no motor
+
+- **Paulo:** *"pode seguir com adiantamento e vale transporte"*, depois da comparação do PR #111 com o IOB. Os eventos aceitos do IOB de 08 e 09/2026 mostram o adiantamento em demonstrativo próprio (`…ADIA`, pago em 20/08 e 18/09) e o VT de 6% descontado na folha.
+- **Ficha** (aba nova "Adiant. e VT"):
+  - adiantamento salarial em % do salário do mês;
+  - vale-transporte S/N;
+  - custo mensal do VT, opcional, que limita o desconto.
+- **Motor** (`calcularMensal`):
+  - **VT:** 6% do salário do mês (a verba SAL), sem adicionais, limitado ao custo do benefício (Lei 7.418/1985, art. 4º, parágrafo único; Decreto 10.854/2021, art. 114). Sem INSS, FGTS e IRRF.
+  - **Adiantamento:** o percentual sobre o salário do mês, como o IOB faz (40% de 1.166,67 em setembro, mês com 20 dias de férias), descontado na folha (ADIANT).
+  - **Movimento do mês:** "Adiantamento pago" e "Vale-transporte" sobrepõem a ficha. Em branco, valem os dados da ficha; 0 significa "não houve" e fica gravado.
+- **eSocial:**
+  - O adiantamento ganha demonstrativo próprio no S-1200 (`ADIAAAAMM-matrícula`), com a rubrica de provento do adiantamento (ADIANTPAG). O pagamento vai no S-1210 na data do adiantamento: dia 20 ou o dia útil anterior, editável na tela. Base: MOS, S-1200, item 3.4 ("cada parcela… em demonstrativo de pagamento específico").
+  - Se a folha for paga no mês seguinte, o adiantamento fica no S-1210 do mês dele.
+  - **De/para:** ADIANT em 9200, VT em 9216 e ADIANTPAG pela descrição ("ADIANT"), porque a natureza do provento varia no S-1010 de cada empresa.
+- **Conferência de holerites:** o "ADIANTAMENTO (VALE)" e o "VALE TRANSPORTE" do IOB viram linhas próprias e entram no movimento como valores informados. O arredondamento continua como lançamento avulso.
+- **Conferido com o IOB:**
+  - Agosto: líquido da folha 1.581,40 (o IOB arredonda para 1.581,00).
+  - Setembro: 490,00.
+  - Os demonstrativos do S-1200 de 08 (folha, adiantamento e recibo de férias) e as datas do S-1210 batem.
+- **Fica para depois:**
+  - arredondamento do líquido (o IOB leva os centavos para o mês seguinte);
+  - arquivo bancário e holerite do próprio adiantamento.

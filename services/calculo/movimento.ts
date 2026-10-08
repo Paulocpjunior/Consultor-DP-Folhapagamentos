@@ -18,21 +18,25 @@ export interface MovimentoGravado {
 
 export const idMovimento = (fichaId: string, competencia: string) => `${fichaId}_${competencia}`;
 
-const NUMERICOS = ['horasExtras50', 'horasExtras100', 'faltasDias', 'dsrDescontadoDias', 'feriadosLocais', 'pensaoAlimenticia'] as const;
+const NUMERICOS = ['horasExtras50', 'horasExtras100', 'faltasDias', 'dsrDescontadoDias', 'feriadosLocais', 'pensaoAlimenticia', 'adiantamento', 'valeTransporte'] as const;
+/** Valores em centavos que sobrepõem a ficha: 0 é informação ("não houve no mês") e fica gravado. */
+const SOBREPOEM_FICHA: readonly CampoNumerico[] = ['adiantamento', 'valeTransporte'];
+const EM_CENTAVOS: readonly CampoNumerico[] = ['pensaoAlimenticia', 'adiantamento', 'valeTransporte'];
 export type CampoNumerico = typeof NUMERICOS[number];
 
 export const ROTULO_MOVIMENTO: Record<CampoNumerico | 'lancamentos', string> = {
     horasExtras50: 'Horas extras 50%', horasExtras100: 'Horas extras 100%', faltasDias: 'Faltas (dias)',
     dsrDescontadoDias: 'DSR descontado (dias)', feriadosLocais: 'Feriados locais no mês', pensaoAlimenticia: 'Pensão alimentícia',
+    adiantamento: 'Adiantamento pago', valeTransporte: 'Vale-transporte descontado',
     lancamentos: 'Lançamentos avulsos',
 };
 
-/** Tira campos vazios ou zerados e lançamentos em branco; a ordem das chaves fica fixa. */
+/** Tira campos vazios ou zerados (menos adiantamento e vale-transporte, em que 0 vale) e lançamentos em branco; a ordem das chaves fica fixa. */
 export function limparMovimento(m: Movimento): Movimento {
     const out: Movimento = {};
     for (const k of NUMERICOS) {
         const v = m[k];
-        if (typeof v === 'number' && Number.isFinite(v) && v !== 0) out[k] = k === 'pensaoAlimenticia' ? Math.round(v) : Math.round(v * 100) / 100;
+        if (typeof v === 'number' && Number.isFinite(v) && (v !== 0 || SOBREPOEM_FICHA.includes(k))) out[k] = EM_CENTAVOS.includes(k) ? Math.round(v) : Math.round(v * 100) / 100;
     }
     const lancs: Lancamento[] = (m.lancamentos ?? [])
         .map(l => ({ descricao: l.descricao.trim().replace(/\s+/g, ' '), tipo: l.tipo, valor: Math.round(l.valor), inss: !!l.inss, fgts: !!l.fgts, irrf: !!l.irrf }))

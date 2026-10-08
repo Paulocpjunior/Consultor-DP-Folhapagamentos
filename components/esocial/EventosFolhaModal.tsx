@@ -16,7 +16,7 @@ import type { ResultadoCalculo } from '../../services/calculo/motorMensal';
 import { vigenciaEm, type Rubrica } from '../../services/cadastros/rubricas';
 import { listarRubricas, mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
 import { salvarParametrosEsocialFolha } from '../../services/empresas/empresasService';
-import { emLotes, gerarEventosFolha, pagamentos1210, parametrosVazios, sugerirDePara, verbasDosRecibosParaDePara, type ParametrosEsocialFolha, type ReciboFeriasEsocial, type RubricaEsocial } from '../../services/esocial/eventosFolha';
+import { dataSugeridaAdiantamento, emLotes, gerarEventosFolha, pagamentos1210, parametrosVazios, sugerirDePara, verbasDoAdiantamentoParaDePara, verbasDosRecibosParaDePara, type ParametrosEsocialFolha, type ReciboFeriasEsocial, type RubricaEsocial } from '../../services/esocial/eventosFolha';
 import { ROTULO_AMBIENTE, consultarLote, enviarLote, type Certificado, type TpAmb } from '../../services/esocial/transmissao';
 import { listarEnvios, registrarConsulta, registrarEnvio, resumoEnvio, type Envio } from '../../services/esocial/transmissaoService';
 import { exclusoesDosEnvios, lerRecibosArquivos, recibosDosEnvios, recibosVigentes, type ReciboEvento } from '../../services/esocial/recibosEsocial';
@@ -45,6 +45,9 @@ const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resu
     const [params, setParams] = useState<ParametrosEsocialFolha>(gravados);
     const [rubricas, setRubricas] = useState<Rubrica[] | null>(null);
     const [data, setData] = useState(dataSugerida);
+    // Adiantamento salarial (desconto ADIANT na folha): demonstrativo próprio, pago nesta data.
+    const comAdiantamento = useMemo(() => resultados.some(r => r.situacao === 'calculado' && r.verbas.some(v => v.codigo === 'ADIANT' && v.valor > 0)), [resultados]);
+    const [dataAdiant, setDataAdiant] = useState(() => dataSugeridaAdiantamento(competencia));
     const [tpAmb, setTpAmb] = useState<TpAmb>(2);
     const [certificado, setCertificado] = useState<Certificado>('escritorio');
     const [confirmoProducao, setConfirmoProducao] = useState(false);
@@ -62,7 +65,7 @@ const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resu
         return () => { vivo = false; };
     }, [empresa.id]);
 
-    const dePara = useMemo(() => (rubricas ? sugerirDePara([...resultados.filter(r => r.situacao === 'calculado'), ...verbasDosRecibosParaDePara(recibosFerias ?? [], competencia)], rubricas, competencia) : []), [rubricas, resultados, recibosFerias, competencia]);
+    const dePara = useMemo(() => (rubricas ? sugerirDePara([...resultados.filter(r => r.situacao === 'calculado'), ...verbasDoAdiantamentoParaDePara(resultados), ...verbasDosRecibosParaDePara(recibosFerias ?? [], competencia)], rubricas, competencia) : []), [rubricas, resultados, recibosFerias, competencia]);
     // Vazio no de/para gravado = a sugestão entra até a equipe gravar.
     const efetivos = useMemo<ParametrosEsocialFolha>(() => {
         const r = { ...params.rubricas };
@@ -94,7 +97,7 @@ const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resu
         } catch (e) { setErro(`Não foi possível ler os arquivos: ${(e as Error).message}`); }
         finally { setLendoRecibos(false); }
     }
-    const geracao = useMemo(() => (rubricas ? gerarEventosFolha({ cnpj: empresa.cnpj, tpAmb, competencia, dataPagamento: data, fichas, resultados, rubricas, parametros: efetivos, retificacao, recibosFerias }) : null), [rubricas, empresa.cnpj, tpAmb, competencia, data, fichas, resultados, efetivos, retificacao, recibosFerias]);
+    const geracao = useMemo(() => (rubricas ? gerarEventosFolha({ cnpj: empresa.cnpj, tpAmb, competencia, dataPagamento: data, dataAdiantamento: dataAdiant, fichas, resultados, rubricas, parametros: efetivos, retificacao, recibosFerias }) : null), [rubricas, empresa.cnpj, tpAmb, competencia, data, dataAdiant, fichas, resultados, efetivos, retificacao, recibosFerias]);
     const prontos = geracao?.trabalhadores.filter(t => t.s1200) ?? [];
     // Cada S-1210 do trabalhador (o do mês da folha e o dos recibos de férias, se for outro mês).
     const s1210s = prontos.flatMap(t => pagamentos1210(t).map(pm => ({ t, pm })));
@@ -195,7 +198,8 @@ const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resu
                     <label>CNPJ do estabelecimento<input aria-label="CNPJ do estabelecimento" className={`block w-full ${inp}`} value={params.nrInscEstab} onChange={e => setParams(p => ({ ...p, nrInscEstab: e.target.value.replace(/\D/g, '').slice(0, 14) }))} /></label>
                     <label>Código da lotação (S-1020)<input aria-label="Código da lotação" className={`block w-full ${inp}`} maxLength={30} value={params.codLotacao} onChange={e => setParams(p => ({ ...p, codLotacao: e.target.value }))} /></label>
                     <label>Data do pagamento<input aria-label="Data do pagamento" type="date" className={`block w-full ${inp}`} value={data} onChange={e => setData(e.target.value)} /></label>
-                    <p className="self-end text-slate-500">O S-1210 vai no mês do pagamento ({data ? comp(data.slice(0, 7)) : '—'}).{comFerias.length ? ` Recibos de férias pagos em ${comp(competencia)}: demonstrativo próprio, pago na data do recibo (S-1210 de ${comp(competencia)}).` : ''}</p>
+                    {comAdiantamento && <label>Data do adiantamento<input aria-label="Data do adiantamento" type="date" className={`block w-full ${inp}`} value={dataAdiant} onChange={e => setDataAdiant(e.target.value)} /></label>}
+                    <p className="self-end text-slate-500">O S-1210 vai no mês do pagamento ({data ? comp(data.slice(0, 7)) : '—'}).{comFerias.length ? ` Recibos de férias pagos em ${comp(competencia)}: demonstrativo próprio, pago na data do recibo (S-1210 de ${comp(competencia)}).` : ''}{comAdiantamento ? ` Adiantamento salarial: demonstrativo próprio, pago na data do adiantamento (S-1210 de ${dataAdiant ? comp(dataAdiant.slice(0, 7)) : '—'}); a folha desconta o que ele pagou.` : ''}</p>
                 </section>
 
                 <section className="space-y-1">

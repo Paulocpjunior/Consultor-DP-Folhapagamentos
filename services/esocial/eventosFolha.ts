@@ -28,7 +28,7 @@
 // e o INSS e o IRRF retidos no recibo, como o holerite. Vale também quando o
 // pagamento é no próprio mês do gozo.
 
-import type { Movimento, ResultadoCalculo, Verba } from '../calculo/motorMensal';
+import { adiantamentoDoMes, type Movimento, type ResultadoCalculo, type Verba } from '../calculo/motorMensal';
 import { calcularFerias, parteDaCompetencia, type ResultadoFerias } from '../calculo/motorFerias';
 import { depNoEsocial, ratearPensao, type FichaFuncionario } from '../cadastros/funcionarios';
 import type { Afastamento } from '../cadastros/afastamentos';
@@ -76,6 +76,11 @@ const SUGESTAO: Record<string, { naturezas: string[]; dica?: RegExp; evita?: Reg
     IRRF: { naturezas: ['9203'] },
     SF: { naturezas: ['1409'] },
     PENSAO: { naturezas: ['9213'] },
+    // Adiantamento salarial: no demonstrativo próprio, a rubrica de provento do adiantamento (a natureza varia
+    // no S-1010 de cada empresa: vai pela descrição); na folha, o desconto (9200). Vale-transporte: 9216.
+    ADIANTPAG: { naturezas: [], dica: /ADIANT/, evita: /FERIAS|13/ },
+    ADIANT: { naturezas: ['9200'] },
+    VT: { naturezas: ['9216'] },
     // Folha do mês com férias pagas antes: férias e 1/3 da competência, o desconto do líquido pago (9221) e o retido no recibo.
     FERMES: { naturezas: ['1016'] },
     FERMES13: { naturezas: ['1017'] },
@@ -105,7 +110,9 @@ export function sugerirDePara(resultados: ResultadoCalculo[], rubricas: Rubrica[
         const tp = v.tipo === 'provento' ? '1' : '2';
         const doTipo = vigentes.filter(x => x.v!.dados.tpRubr === tp);
         const s = SUGESTAO[v.codigo];
-        let cand = s ? doTipo.filter(x => s.naturezas.includes(x.v!.dados.natRubr)) : doTipo.filter(x => normalizar(x.v!.dados.dscRubr) === normalizar(v.descricao));
+        // Sem natureza na sugestão, só a descrição (dica) aponta a rubrica.
+        let cand = !s ? doTipo.filter(x => normalizar(x.v!.dados.dscRubr) === normalizar(v.descricao))
+            : s.naturezas.length ? doTipo.filter(x => s.naturezas.includes(x.v!.dados.natRubr)) : doTipo.filter(x => s.dica!.test(normalizar(x.v!.dados.dscRubr)));
         if (s?.dica && cand.some(x => s.dica!.test(normalizar(x.v!.dados.dscRubr)))) cand = cand.filter(x => s.dica!.test(normalizar(x.v!.dados.dscRubr)));
         if (s?.evita && cand.some(x => !s.evita!.test(normalizar(x.v!.dados.dscRubr)))) cand = cand.filter(x => !s.evita!.test(normalizar(x.v!.dados.dscRubr)));
         const r = cand.length === 1 ? cand[0].r : null;
@@ -116,6 +123,20 @@ export function sugerirDePara(resultados: ResultadoCalculo[], rubricas: Rubrica[
 
 /** Identificador do demonstrativo: o mesmo no S-1200 e no S-1210. */
 export const ideDmDev = (perApur: string, matricula: string) => `FOLHA${perApur.replace('-', '')}-${matricula}`.slice(0, 30);
+/** Demonstrativo do adiantamento salarial da competência (MOS S-1200, item 3.4: parcela paga em data própria). */
+export const ideDmDevAdiantamento = (perApur: string, matricula: string) => `ADI${perApur.replace('-', '')}-${matricula}`.slice(0, 30);
+/** Data sugerida do adiantamento: dia 20 da competência, ou o dia útil anterior (20/09/2026 caiu num domingo e o IOB pagou em 18/09). */
+export const dataSugeridaAdiantamento = (competencia: string) => (/^\d{4}-\d{2}$/.test(competencia) ? diaUtilAnterior(`${competencia}-20`) : '');
+/** Verbas do demonstrativo do adiantamento: o valor pago, como provento (sem INSS, FGTS e IRRF; o IRRF é na folha). */
+export const verbasDoAdiantamento = (r: Pick<ResultadoCalculo, 'verbas'>): Verba[] => {
+    const v = adiantamentoDoMes(r);
+    const ref = r.verbas.find(x => x.codigo === 'ADIANT')?.referencia ?? '';
+    return v > 0 ? [{ codigo: 'ADIANTPAG', descricao: 'Adiantamento salarial (pagamento)', referencia: ref, tipo: 'provento', valor: v, inss: false, fgts: false, irrf: false }] : [];
+};
+/** Para o de/para: a rubrica de provento do adiantamento, que não está nas verbas da folha. */
+export const verbasDoAdiantamentoParaDePara = (resultados: ResultadoCalculo[]): ResultadoCalculo[] =>
+    resultados.filter(r => r.situacao === 'calculado' && adiantamentoDoMes(r) > 0).map(r => ({ ...r, verbas: verbasDoAdiantamento(r) }));
+
 /** Demonstrativo do recibo de férias: pela data do pagamento. */
 export const ideDmDevFerias = (dataPagamento: string, matricula: string) => `FER${dataPagamento.replace(/-/g, '')}-${matricula}`.slice(0, 30);
 
@@ -220,6 +241,8 @@ export interface EntradaEventosFolha {
     retificacao?: { s1200: Map<string, ReciboEvento>; s1210: Map<string, ReciboEvento>; s1210PorMes?: Map<string, Map<string, ReciboEvento>> };
     /** Recibos de férias pagos na competência ou com gozo nela (recibosFeriasDaCompetencia). */
     recibosFerias?: ReciboFeriasEsocial[];
+    /** Data do adiantamento salarial (AAAA-MM-DD), para quem tem ADIANT na folha. Padrão: dataSugeridaAdiantamento. */
+    dataAdiantamento?: string;
     agora?: Date;
 }
 
@@ -237,6 +260,10 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
     if (!p.codLotacao.trim()) erros.push('Informe o código da lotação tributária (S-1020).');
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(e.competencia)) erros.push('Competência inválida.');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(e.dataPagamento)) erros.push('Informe a data do pagamento.');
+    const dataAdiant = e.dataAdiantamento || dataSugeridaAdiantamento(e.competencia);
+    const comAdiantamento = e.resultados.some(r => adiantamentoDoMes(r) > 0);
+    if (comAdiantamento && !/^\d{4}-\d{2}-\d{2}$/.test(dataAdiant)) erros.push('Informe a data do adiantamento salarial.');
+    else if (comAdiantamento && /^\d{4}-\d{2}-\d{2}$/.test(e.dataPagamento) && dataAdiant > e.dataPagamento) erros.push('O adiantamento salarial é pago antes da folha: confira as datas.');
     if (erros.length) return { trabalhadores: [], erros, avisos };
 
     const porFicha = new Map(e.fichas.map(f => [f.id, f]));
@@ -333,6 +360,15 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             dmDevs.push(dmDev(ide, categ, f, itens));
             pagamentos.push({ mes: perPgto, xml: infoPgto(e.dataPagamento, ide, r.totais.liquido) });
             t.liquido += r.totais.liquido;
+
+            // Adiantamento salarial: demonstrativo próprio, pago na data do adiantamento (MOS S-1200, item 3.4).
+            const adiant = adiantamentoDoMes(r);
+            if (adiant > 0) {
+                const ideA = unico(ideDmDevAdiantamento(e.competencia, mat));
+                dmDevs.push(dmDev(ideA, categ, f, itensDe(verbasDoAdiantamento(r))));
+                pagamentos.push({ mes: dataAdiant.slice(0, 7), xml: infoPgto(dataAdiant, ideA, adiant) });
+                t.liquido += adiant;
+            }
 
             // Recibos de férias pagos na competência: demonstrativo próprio, pago na data do recibo.
             for (const { r: rf, dataPagamento } of pagosNoMes) {
