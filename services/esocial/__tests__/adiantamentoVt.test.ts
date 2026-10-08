@@ -183,8 +183,10 @@ describe('adiantamento salarial e vale-transporte', () => {
         expect(anteriorEncadeado('2023-01', '2026-07', () => fixo, () => undefined)).toBe(20);
         // Mês com erro no caminho: o anterior não é inventado; um anterior informado depois dele volta a encadear (Codex #116).
         const comErro = (c: string) => (c === '2026-08' ? { ...mensal(c), situacao: 'erro' as const } : mensal(c));
-        expect(anteriorEncadeado('2026-08', '2026-10', comErro, () => undefined)).toEqual({ erro: expect.stringMatching(/o cálculo de 08\/2026 está com erro/) });
+        expect(anteriorEncadeado('2026-08', '2026-10', comErro, () => undefined)).toEqual({ erro: expect.stringMatching(/o cálculo de 08\/2026 está com erro ou incompleto/) });
         expect(anteriorEncadeado('2026-08', '2026-10', comErro, c => (c === '2026-09' ? 56 : undefined))).toBe(89);
+        const incompleto = (c: string) => (c === '2026-08' ? { ...mensal(c), situacao: 'incompleto' as const } : mensal(c));
+        expect(anteriorEncadeado('2026-08', '2026-10', incompleto, () => undefined)).toEqual({ erro: expect.stringMatching(/08\/2026 está com erro ou incompleto/) });
         // Anterior informado: até 0,99 (Codex #116).
         expect(validarMovimento({ arredondamentoAnterior: 5600 })).toEqual(['Arredondamento anterior: no máximo R$ 0,99 (são centavos do mês anterior).']);
         expect(validarMovimento({ arredondamentoAnterior: 99 })).toEqual([]);

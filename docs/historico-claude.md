@@ -2975,3 +2975,4 @@ guias sindicais".
   - **Mês com erro no encadeamento:** antes ele zerava o anterior sem aviso. Agora `anteriorEncadeado` devolve o erro com o mês, e a folha fica em erro até o mês ser corrigido ou até um anterior ser informado num mês seguinte.
   - **Movimentos não carregados:** a folha agora fica em "erro", não mais "incompleta", porque os PDFs aceitavam resultados incompletos. Assim não sai holerite, arquivo bancário nem eSocial com o líquido sem o arredondamento.
   - **Anterior informado:** no máximo R$ 0,99. Digitar 56 em vez de 0,56 tiraria R$ 56,00.
+- **Revisão do Codex no #116 (P2):** um mês antigo "incompleto" no encadeamento (férias sem recibo, por exemplo) agora trava como um mês em erro, porque o líquido dele não é o que foi pago. Um anterior informado num mês seguinte retoma o encadeamento.
