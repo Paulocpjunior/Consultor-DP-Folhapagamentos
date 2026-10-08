@@ -51,6 +51,11 @@ export interface Movimento {
     arredondamentoDesde?: string;
     /** Mês do pagamento com que o atual foi calculado: mudou o regime daquele mês, o gravado não vale (Codex #116). */
     arredondamentoPagamento?: string;
+    /**
+     * Mês do pagamento usado de fato, quando o "Pagamento em" da tela foi diferente do regime da empresa (gravado com
+     * ou sem arredondamento). Os meses seguintes o usam no lugar do regime (IRRF do adiantamento; Codex #118).
+     */
+    mesPagamento?: string;
     lancamentos?: Lancamento[];
 }
 

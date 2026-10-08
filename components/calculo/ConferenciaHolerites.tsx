@@ -71,7 +71,7 @@ const ConferenciaHolerites: React.FC<Props> = ({ empresaId, competencia, fichas,
     }
 
     // O arredondamento atual gravado pelo Consultor não vem do holerite: fica fora da comparação.
-    const digitado = (m: Movimento | undefined): Movimento | undefined => m && semFechado(m);
+    const digitado = (m: Movimento | undefined): Movimento | undefined => m && { ...semFechado(m), mesPagamento: undefined };
     function aplicar(fichaId: string, m: Movimento, nome: string) {
         if (!fichaId) return;
         const atual = digitado(movimentos[fichaId]);

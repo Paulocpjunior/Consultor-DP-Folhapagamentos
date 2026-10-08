@@ -216,7 +216,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         if (!noMes([f], m1).length) return null;
         if (!movsEmpresa) return undefined;
         const salvos = movsEmpresa[f.id] ?? {};
-        const pag1 = salvos[m1]?.arredondamentoPagamento ?? mesDoPagamento(parametrosFolha, m1);
+        const pag1 = salvos[m1]?.mesPagamento ?? salvos[m1]?.arredondamentoPagamento ?? mesDoPagamento(parametrosFolha, m1);
         if (pag1 !== c) return null;
         const afs = dados.afastamentos.filter(a => a.fichaId === f.id);
         const r1 = calcularMensal({ competencia: m1, pagamento: c, ficha: f, tabelas: dados.tabelas, movimento: salvos[m1], afastamentos: afs,
@@ -241,7 +241,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             // Mês já salvo: o mês do pagamento usado de fato (o "Pagamento em" da tela, mesmo fora do regime); senão, o do regime.
             m => {
                 if (!noMes([f], m).length) return null;
-                const pag = salvos[m]?.arredondamentoPagamento ?? mesDoPagamento(parametrosFolha, m);
+                const pag = salvos[m]?.mesPagamento ?? salvos[m]?.arredondamentoPagamento ?? mesDoPagamento(parametrosFolha, m);
                 return calcularMensal({ competencia: m, pagamento: pag, ficha: f, tabelas: dados.tabelas, movimento: salvos[m], afastamentos: afs,
                     feriasDoMes: feriasDaCompetencia(f, afs, dados.tabelas, salvos, m, opcoesFerias), folhaPagaNoAdiantamento: folhaPagaNoAdiantamento(f, m, pag) });
             },
@@ -293,7 +293,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             return arredondarDaEmpresa(r, f, competencia, movs[f.id]?.arredondamentoAnterior);
         }), dados.fichas, pagamento !== competencia
             // Só os contratos da competência anterior cuja folha foi paga neste mês (pelo mês gravado ou pelo regime; Codex #118).
-            ? noMes(dados.fichas, competenciaAnterior(competencia)).filter(f => (movsEmpresa?.[f.id]?.[competenciaAnterior(competencia)]?.arredondamentoPagamento
+            ? noMes(dados.fichas, competenciaAnterior(competencia)).filter(f => (movsEmpresa?.[f.id]?.[competenciaAnterior(competencia)]?.mesPagamento ?? movsEmpresa?.[f.id]?.[competenciaAnterior(competencia)]?.arredondamentoPagamento
                 ?? mesDoPagamento(parametrosFolha, competenciaAnterior(competencia))) === competencia)
             : []);
     }, [dados, competencia, pagamento, movs, movsEmpresa, mensal, ferias, rescisao, paramsResc, movsAno, ano, folha, opcoes13, primeiras, abonos, opcoesFerias, feriasSimuladas, arredondarDaEmpresa, folhaPagaNoAdiantamento, parametrosFolha]);
@@ -306,14 +306,18 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         // Movimento editado perde o atual gravado antes, mesmo com o arredondamento desligado neste mês: religado, o
         // encadeamento refaz o mês em vez de confiar no valor velho (Codex #116).
         for (const id of Object.keys(movs)) if (!mesmoMovimento(semFechado(movs[id]), semFechado(gravados?.[id]?.movimento))) out[id] = semFechado(movs[id]);
+        // "Pagamento em" diferente do regime: o mês usado de fato fica gravado, com ou sem arredondamento; igual ao
+        // regime, nada a gravar (o regime já diz). Os meses seguintes o usam (IRRF do adiantamento; Codex #118).
+        const mesPagamento = /^\d{4}-\d{2}$/.test(pagamento) && pagamento !== mesDoPagamento(parametrosFolha, competencia) ? pagamento : undefined;
+        for (const r of resultados) if (mesPagamento || out[r.fichaId]?.mesPagamento !== undefined) out[r.fichaId] = { ...out[r.fichaId], mesPagamento };
         if (!arredondaNoMes(parametrosFolha, competencia)) return out;
         const desde = parametrosFolha?.arredondarDesde || competencia;
         for (const r of resultados) {
-            const m = movimentoComFechado(movs[r.fichaId], gravados?.[r.fichaId]?.movimento, r, desde);
+            const m = movimentoComFechado(out[r.fichaId], gravados?.[r.fichaId]?.movimento, r, desde);
             if (m) out[r.fichaId] = m;
         }
         return out;
-    }, [movs, resultados, mensal, parametrosFolha, competencia, gravados]);
+    }, [movs, resultados, mensal, parametrosFolha, competencia, gravados, pagamento]);
     const pendentes = useMemo(() => [...new Set([...Object.keys(movsParaSalvar), ...Object.keys(gravados ?? {})])]
         .filter(id => id && !mesmoMovimento(movsParaSalvar[id], gravados?.[id]?.movimento)), [movsParaSalvar, gravados]);
     useEffect(() => {
@@ -330,7 +334,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         return noMes(dados.fichas, c).map(f => {
             const afs = dados.afastamentos.filter(a => a.fichaId === f.id);
             // Mês salvo com o arredondamento: o mês do pagamento usado de fato (Codex #116); senão, o do regime.
-            const pag = movsEmpresa[f.id]?.[c]?.arredondamentoPagamento ?? mesDoPagamento(parametrosFolha, c);
+            const pag = movsEmpresa[f.id]?.[c]?.mesPagamento ?? movsEmpresa[f.id]?.[c]?.arredondamentoPagamento ?? mesDoPagamento(parametrosFolha, c);
             const r = calcularMensal({ competencia: c, pagamento: pag, ficha: f, tabelas: dados.tabelas, movimento: movsEmpresa[f.id]?.[c], afastamentos: afs,
                 feriasDoMes: feriasDaCompetencia(f, afs, dados.tabelas, movsEmpresa[f.id] ?? {}, c, opcoesFerias), folhaPagaNoAdiantamento: folhaPagaNoAdiantamento(f, c, pag) });
             return arredondarDaEmpresa(r, f, c, movsEmpresa[f.id]?.[c]?.arredondamentoAnterior);

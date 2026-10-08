@@ -551,7 +551,9 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             const novo = irDoMes(pm.perApur);
             // No mês da competência o cálculo tem todos os recibos pagos nele: o tpRend 13 do aceito é conciliado (sai o
             // que não vale mais). Em outro mês, o aceito tem recibos de outra competência e o tpRend 13 dele fica.
-            const ir = ex?.irComplem?.length ? mesclarIRFerias(ex.irComplem.join(''), novo, pm.perApur === e.competencia, pm.perApur === e.competencia && pm.perApur !== perPgto) : novo;
+            const doAdiantamento = pm.perApur === e.competencia && pm.perApur !== perPgto;
+            const ir = ex?.irComplem?.length ? mesclarIRFerias(ex.irComplem.join(''), novo, pm.perApur === e.competencia, doAdiantamento,
+                doAdiantamento && contratos.some(c => adiantamentoDoMes(c.r) > 0 && c.r.irrfAdiantamento !== undefined) && !contratos.some(c => c.r.irrfAdiantamentoFolha)) : novo;
             if (ex?.irComplem?.length && novo) t.avisos.push(`As deduções do IRRF (dependentes e pensão) voltam como estavam no S-1210 de ${mes(pm.perApur)} aceito, com as das férias deste envio; confira se mudaram.`);
             const id1210 = idEvento(e.cnpj, agora, ++seq);
             pm.s1210 = { id: id1210, xml: `<eSocial xmlns="${NS}/evtPgtos/${VERSAO}"><evtPgtos Id="${id1210}">`
@@ -576,7 +578,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
  * cálculo sai: recibo corrigido que passou ao desconto simplificado ou deixou de deduzir alguém (Codex #111).
  * Nada mais do aceito muda. Ordem do leiaute: infoDep antes de infoIRCR; dedDepen logo após tpCR.
  */
-export function mesclarIRFerias(aceito: string, novo: string, completo = false, comAdiantamento = false): string {
+export function mesclarIRFerias(aceito: string, novo: string, completo = false, comAdiantamento = false, reconciliarAdiantamento = false): string {
     const blocos = (xml: string, tag: string) => xml.match(new RegExp(`<${tag}>[\\s\\S]*?</${tag}>`, 'g')) ?? [];
     const campo = (xml: string, tag: string) => new RegExp(`<${tag}>([^<]*)</${tag}>`).exec(xml)?.[1] ?? '';
     // tpRend 13 (férias) e, no mês do adiantamento sem folha anterior, o tpRend 11 deduzido nele (Codex #118).
@@ -592,7 +594,8 @@ export function mesclarIRFerias(aceito: string, novo: string, completo = false, 
         if (!mescla(d)) continue;
         const k = chave(d);
         if (porCpf.has(k)) { r = r.replace(d, porCpf.get(k)!); porCpf.delete(k); }
-        else if (completo && campo(d, 'tpRend') === '13') r = r.replace(d, '');
+        // Sem folha anterior no mês, as tpRend 11 do aceito são do adiantamento: as que não valem mais saem (Codex #118).
+        else if (completo && (campo(d, 'tpRend') === '13' || (reconciliarAdiantamento && campo(d, 'tpRend') === '11'))) r = r.replace(d, '');
     }
     // infoIRCR que ficou só com o código da receita não informa nada.
     r = r.replace(/<infoIRCR><tpCR>\d+<\/tpCR><\/infoIRCR>/g, '').replace(/<infoIRComplem><\/infoIRComplem>/g, '');

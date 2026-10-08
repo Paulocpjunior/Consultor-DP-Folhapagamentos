@@ -123,6 +123,12 @@ describe('IRRF do adiantamento com a folha paga no mês seguinte', () => {
         const mesclado = mesclarIRFerias(aceito, novoIr, true, true);
         expect([mesclado.includes('52998224725'), mesclado.includes('11144477735'), mesclado.includes('<planSaude>')]).toEqual([true, true, true]);
         expect(mesclarIRFerias(aceito, novoIr, true)).toBe(aceito);
+        // Sem folha anterior no mês: a dedução do adiantamento que não vale mais (agora pelo simplificado) sai do aceito;
+        // com folha anterior no mês, as tpRend 11 do aceito são dela e ficam (Codex #118).
+        const semNada = '<infoIRComplem></infoIRComplem>';
+        expect(mesclarIRFerias(aceito, semNada, true, true, true)).not.toContain('52998224725');
+        expect(mesclarIRFerias(aceito, semNada, true, true, true)).toContain('<planSaude>');
+        expect(mesclarIRFerias(aceito, semNada, true, true, false)).toContain('52998224725');
         // Dependente já no infoDep do aceito (plano de saúde), sem a marca de IRRF: a marca entra nele, antes da descrição (Codex #118).
         const aceitoDep = '<infoIRComplem><infoDep><cpfDep>11144477735</cpfDep><nome>DEP 111</nome><descrDep>X</descrDep></infoDep><planSaude><cnpjOper>1</cnpjOper></planSaude></infoIRComplem>';
         const novoDep = '<infoIRComplem><infoDep><cpfDep>11144477735</cpfDep><nome>DEP 111</nome><depIRRF>S</depIRRF><tpDep>03</tpDep></infoDep><infoIRCR><tpCR>056107</tpCR><dedDepen><tpRend>11</tpRend><cpfDep>11144477735</cpfDep><vlrDedDep>189.59</vlrDedDep></dedDepen></infoIRCR></infoIRComplem>';
