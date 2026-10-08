@@ -2961,3 +2961,4 @@ guias sindicais".
   - **De/para:** pela descrição ("ARRED… ATUAL / ANTERIOR / ADIANT").
 - **Conferência de holerites:** as linhas de arredondamento do IOB não viram lançamento avulso. O "anterior" entra no movimento, e o motor refaz o resto.
 - **Trava:** `adiantamentoVt.test.ts`, com os valores de agosto e setembro do IOB.
+- **Revisão do Codex no #116 (P1):** com o arredondamento ligado "desde 09/2026", reabrir 08/2026 também arredondava esse mês. `arredondaNoMes` deixa a folha antes do mês de início como era, e o campo "Arredondamento anterior" só aparece a partir dele.

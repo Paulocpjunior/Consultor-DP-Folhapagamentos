@@ -6,7 +6,7 @@ import { dataSugeridaAdiantamento, gerarEventosFolha, recibosFeriasDaCompetencia
 import { adiantamentoDoMes, calcularMensal } from '../../calculo/motorMensal';
 import { feriasDaCompetencia } from '../../calculo/motorFerias';
 import { limparMovimento } from '../../calculo/movimento';
-import { anteriorEncadeado, aoRealSeguinte, arredondar } from '../../calculo/arredondamento';
+import { anteriorEncadeado, aoRealSeguinte, arredondaNoMes, arredondar } from '../../calculo/arredondamento';
 import { fichaVazia, validarFicha, type FichaFuncionario } from '../../cadastros/funcionarios';
 import { afastamentoVazio, type Afastamento } from '../../cadastros/afastamentos';
 import type { TabelaLegal } from '../../cadastros/tabelasLegais';
@@ -150,5 +150,9 @@ describe('adiantamento salarial e vale-transporte', () => {
         expect([s.ARREDATU, s.ARREDANT, s.ARREDADI]).toEqual(['ARRA', 'ARRN', 'ARRD']);
         // Sem o mês de início: anterior 0; antes de começar a arredondar, nada encadeia.
         expect(anteriorEncadeado('2026-09', '2026-09', c => mensal(c), () => undefined)).toBe(0);
+        // Antes do mês de início a empresa não arredonda (Codex #116).
+        const p = { arredondarLiquido: true, arredondarDesde: '2026-09' };
+        expect([arredondaNoMes(p, '2026-08'), arredondaNoMes(p, '2026-09'), arredondaNoMes(p, '2026-10'), arredondaNoMes({ arredondarLiquido: false }, '2026-09'), arredondaNoMes(undefined, '2026-09')])
+            .toEqual([false, true, true, false, false]);
     });
 });

@@ -23,6 +23,10 @@ export interface ParametrosFolha {
     arredondarDesde?: string;
 }
 
+/** A empresa arredonda nesta competência? Só a partir do mês de início (antes dele a folha fica como era; Codex #116). */
+export const arredondaNoMes = (p: ParametrosFolha | undefined, competencia: string) =>
+    !!p?.arredondarLiquido && (!p.arredondarDesde || competencia >= p.arredondarDesde);
+
 /** Centavos que faltam para o real seguinte (0 se já é inteiro ou não é positivo). */
 export const aoRealSeguinte = (c: number) => (c > 0 && c % 100 ? 100 - (c % 100) : 0);
 
