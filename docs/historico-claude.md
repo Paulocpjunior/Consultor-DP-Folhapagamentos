@@ -2941,6 +2941,7 @@ guias sindicais".
   - **eSocial:** recusa adiantamento informado com data anterior à admissão.
   - `dataSugeridaAdiantamento` foi para o motor, porque é a mesma data na folha e no eSocial.
 - **Revisão do Codex no #115 (P2):** se o holerite do IOB não traz adiantamento ou VT, o movimento trazido dele grava 0 nos dois. Assim o motor não volta à ficha e não inventa o desconto naquele mês.
+- **Revisão do Codex no #115 (P1):** a sugestão da rubrica do adiantamento salarial agora exige "SAL", "VALE" ou "QUINZ" na descrição e evita férias, 13º, comissão e gorjeta. O catálogo de eventos do IOB tem "adiantamento comissão" e "adiantamento gorjeta".
 
 ## 08/10/2026 — Arredondamento do líquido
 
