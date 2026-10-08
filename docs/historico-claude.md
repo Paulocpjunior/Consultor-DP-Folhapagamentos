@@ -2893,3 +2893,5 @@ guias sindicais".
   - O IOB repete o abono e o 1/3 do abono na folha do gozo (1330 e 1210, com CP 00 e IRRF 09) e desconta os dois em 5590 (1.555,56). A soma é zero e nenhuma base muda. O MOS não pede isso, então o motor mantém o abono só no recibo.
   - O IOB lança o adiantamento quinzenal em demonstrativo próprio (`…ADIA`, pago em 20/08) e o vale-transporte (6%). O motor ainda não calcula nenhum dos dois. É assunto separado do PR #111.
 - **Trava:** `feriasEsocial.test.ts`, "confere com o IOB", reproduz o caso com dados trocados e confere cada valor acima.
+- **Revisão do Codex no #111 (P1):** quando o S-1210 do mês já tinha sido aceito com informações de IR, o reenvio levava só o bloco antigo e perdia as deduções de dependentes das férias (tpRend 13) do recibo novo.
+  - `mesclarIRFerias` junta essas deduções ao bloco aceito. O dedDepen entra logo após o `tpCR` 056107, ou num `infoIRCR` novo antes do `planSaude`. O `infoDep` de quem ainda não estava no bloco entra antes do `infoIRCR`. Nada mais muda, e o que já estava lá não se repete.

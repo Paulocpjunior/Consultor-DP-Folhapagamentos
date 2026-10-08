@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // Demonstrativo de férias no S-1200 e pagamento no S-1210 (dados fictícios; motor de verdade).
 import { describe, expect, it } from 'vitest';
-import { gerarEventosFolha, recibosFeriasDaCompetencia, sugerirDePara, verbasDosRecibosParaDePara, type ParametrosEsocialFolha } from '../eventosFolha';
+import { gerarEventosFolha, mesclarIRFerias, recibosFeriasDaCompetencia, sugerirDePara, verbasDosRecibosParaDePara, type ParametrosEsocialFolha } from '../eventosFolha';
 import { calcularMensal } from '../../calculo/motorMensal';
 import { calcularFerias, feriasDaCompetencia } from '../../calculo/motorFerias';
 import { fichaVazia, type FichaFuncionario } from '../../cadastros/funcionarios';
@@ -180,5 +180,21 @@ describe('férias no S-1200 e no S-1210', () => {
         expect(set.t.erros).toEqual([]);
         expect(set.dm['FOLHA202609-M1']).toEqual({ SAL: '1166.67', FERMES: '2333.33', FERMES13: '777.78', FERPAGO: '2849.18', INSSFERRET: '261.93', INSS: '140.00' });
         expect(set.t.outrosMeses).toEqual([]);
+    });
+
+    it('S-1210 aceito com IR: as deduções das férias (tpRend 13) entram no bloco que volta, sem repetir nem mexer no resto (Codex #111)', () => {
+        const dep = (c: string) => `<infoDep><cpfDep>${c}</cpfDep><depIRRF>S</depIRRF><tpDep>03</tpDep></infoDep>`;
+        const ded = (r: string, c: string, v: string) => `<dedDepen><tpRend>${r}</tpRend><cpfDep>${c}</cpfDep><vlrDedDep>${v}</vlrDedDep></dedDepen>`;
+        const novo = `<infoIRComplem>${dep('11111111111')}${dep('22222222222')}<infoIRCR><tpCR>056107</tpCR>${ded('13', '11111111111', '189.59')}${ded('13', '22222222222', '189.59')}</infoIRCR></infoIRComplem>`;
+        // Aceito com a folha (tpRend 11) do dependente 1 e plano de saúde: entra a dedução das férias dos dois e o infoDep só do 2.
+        const aceito = `<infoIRComplem>${dep('11111111111')}<infoIRCR><tpCR>056107</tpCR>${ded('11', '11111111111', '189.59')}<penAlim><tpRend>11</tpRend><cpfDep>33333333333</cpfDep><vlrDedPenAlim>500.00</vlrDedPenAlim></penAlim></infoIRCR><planSaude><cnpjOper>12345678000190</cnpjOper><vlrSaudeTit>100.00</vlrSaudeTit></planSaude></infoIRComplem>`;
+        expect(mesclarIRFerias(aceito, novo)).toBe(`<infoIRComplem>${dep('11111111111')}${dep('22222222222')}<infoIRCR><tpCR>056107</tpCR>${ded('13', '11111111111', '189.59')}${ded('13', '22222222222', '189.59')}${ded('11', '11111111111', '189.59')}<penAlim><tpRend>11</tpRend><cpfDep>33333333333</cpfDep><vlrDedPenAlim>500.00</vlrDedPenAlim></penAlim></infoIRCR><planSaude><cnpjOper>12345678000190</cnpjOper><vlrSaudeTit>100.00</vlrSaudeTit></planSaude></infoIRComplem>`);
+        // Aceito só com plano de saúde: o infoIRCR nasce antes do planSaude, com os infoDep antes dele.
+        const soPlano = '<infoIRComplem><planSaude><cnpjOper>12345678000190</cnpjOper><vlrSaudeTit>100.00</vlrSaudeTit></planSaude></infoIRComplem>';
+        expect(mesclarIRFerias(soPlano, novo)).toBe(`<infoIRComplem>${dep('11111111111')}${dep('22222222222')}<infoIRCR><tpCR>056107</tpCR>${ded('13', '11111111111', '189.59')}${ded('13', '22222222222', '189.59')}</infoIRCR><planSaude><cnpjOper>12345678000190</cnpjOper><vlrSaudeTit>100.00</vlrSaudeTit></planSaude></infoIRComplem>`);
+        // Já está no aceito (reenvio do mesmo recibo) ou não há férias com dependente: volta igual.
+        const completo = mesclarIRFerias(aceito, novo);
+        expect(mesclarIRFerias(completo, novo)).toBe(completo);
+        expect(mesclarIRFerias(aceito, `<infoIRComplem><infoIRCR><tpCR>056107</tpCR>${ded('11', '44444444444', '189.59')}</infoIRCR></infoIRComplem>`)).toBe(aceito);
     });
 });

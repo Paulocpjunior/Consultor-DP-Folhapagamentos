@@ -438,10 +438,11 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                     + `<infoExclusao><tpEvento>S-1210</tpEvento><nrRecEvt>${ex.nrRecibo}</nrRecEvt><ideTrabalhador><cpfTrab>${cpf}</cpfTrab></ideTrabalhador><ideFolhaPagto><perApur>${pm.perApur}</perApur></ideFolhaPagto></infoExclusao>`
                     + '</evtExclusao></eSocial>' };
             }
-            // As informações de IR do S-1210 aceito (dependentes, pensão, plano de saúde…) voltam como estavam.
+            // As informações de IR do S-1210 aceito (dependentes, pensão, plano de saúde…) voltam como estavam,
+            // e as deduções dos recibos de férias deste envio (tpRend 13) entram nelas (Codex #111).
             const novo = irDoMes(pm.perApur);
-            const ir = ex?.irComplem?.length ? ex.irComplem.join('') : novo;
-            if (ex?.irComplem?.length && novo) t.avisos.push(`As deduções do IRRF (dependentes e pensão) voltam como estavam no S-1210 de ${mes(pm.perApur)} aceito; confira se mudaram.`);
+            const ir = ex?.irComplem?.length ? mesclarIRFerias(ex.irComplem.join(''), novo) : novo;
+            if (ex?.irComplem?.length && novo) t.avisos.push(`As deduções do IRRF (dependentes e pensão) voltam como estavam no S-1210 de ${mes(pm.perApur)} aceito, com as das férias deste envio; confira se mudaram.`);
             const id1210 = idEvento(e.cnpj, agora, ++seq);
             pm.s1210 = { id: id1210, xml: `<eSocial xmlns="${NS}/evtPgtos/${VERSAO}"><evtPgtos Id="${id1210}">`
                 + `<ideEvento><indRetif>1</indRetif><perApur>${pm.perApur}</perApur><tpAmb>${e.tpAmb}</tpAmb><procEmi>1</procEmi><verProc>${VER_PROC}</verProc></ideEvento>`
@@ -455,6 +456,34 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
     }
     trabalhadores.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
     return { trabalhadores, erros, avisos };
+}
+
+/**
+ * Junta ao infoIRComplem do S-1210 aceito as deduções de dependentes dos recibos de férias (dedDepen tpRend 13)
+ * calculadas agora, com o infoDep de quem ainda não está nele. Nada mais do aceito muda; o que já está lá
+ * (mesmo CPF e tpRend 13) não é repetido. Ordem do leiaute: infoDep antes de infoIRCR; dedDepen logo após tpCR.
+ */
+export function mesclarIRFerias(aceito: string, novo: string): string {
+    const blocos = (xml: string, tag: string) => xml.match(new RegExp(`<${tag}>[\\s\\S]*?</${tag}>`, 'g')) ?? [];
+    const campo = (xml: string, tag: string) => new RegExp(`<${tag}>([^<]*)</${tag}>`).exec(xml)?.[1] ?? '';
+    const jaTem = new Set(blocos(aceito, 'dedDepen').filter(d => campo(d, 'tpRend') === '13').map(d => campo(d, 'cpfDep')));
+    const ded = blocos(novo, 'dedDepen').filter(d => campo(d, 'tpRend') === '13' && !jaTem.has(campo(d, 'cpfDep')));
+    if (!ded.length) return aceito;
+    const cpfs = new Set(ded.map(d => campo(d, 'cpfDep')));
+    const depsAceito = new Set(blocos(aceito, 'infoDep').map(d => campo(d, 'cpfDep')));
+    const infoDep = blocos(novo, 'infoDep').filter(d => cpfs.has(campo(d, 'cpfDep')) && !depsAceito.has(campo(d, 'cpfDep')));
+    let r = aceito;
+    const cr = '<tpCR>056107</tpCR>';
+    if (r.includes(cr)) r = r.replace(cr, cr + ded.join(''));
+    else {
+        const i = r.search(/<planSaude>|<infoReembMed>|<\/infoIRComplem>/);
+        r = r.slice(0, i) + `<infoIRCR>${cr}${ded.join('')}</infoIRCR>` + r.slice(i);
+    }
+    if (infoDep.length) {
+        const i = r.search(/<infoIRCR>|<planSaude>|<infoReembMed>|<\/infoIRComplem>/);
+        r = r.slice(0, i) + infoDep.join('') + r.slice(i);
+    }
+    return r;
 }
 
 /** Todos os S-1210 do trabalhador (o do mês da folha e os de outros meses), com a exclusão de cada um. */
