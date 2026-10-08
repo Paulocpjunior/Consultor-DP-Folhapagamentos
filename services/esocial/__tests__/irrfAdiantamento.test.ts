@@ -109,6 +109,9 @@ describe('IRRF do adiantamento com a folha paga no mês seguinte', () => {
         // Outro contrato do CPF na competência, sem adiantamento (admitido depois dele): não paga nada no mês (Codex #118).
         const semAdiant = { ...agosto, fichaId: 'f2', verbas: agosto.verbas.filter(x => x.codigo !== 'ADIANT'), irrfAdiantamento: undefined };
         expect(travarAdiantamentoEntreContratos([agosto, semAdiant], [FICHA, f2])[0]).toBe(agosto);
+        // Desligado em agosto, com a rescisão paga no mês: o pagamento dele também é do CPF (Codex #118).
+        const desligado = { ...f2, dados: { ...f2.dados, dataDesligamento: '2026-08-10' } };
+        expect(travarAdiantamentoEntreContratos([agosto, semAdiant], [FICHA, desligado])[0].situacao).toBe('incompleto');
         // Outro contrato do CPF encerrado em julho, com a folha paga em agosto: também conta (Codex #118).
         expect(travarAdiantamentoEntreContratos([agosto], [FICHA], [FICHA, f2])[0].situacao).toBe('incompleto');
         expect(travarAdiantamentoEntreContratos([agosto], [FICHA], [FICHA])[0]).toBe(agosto);

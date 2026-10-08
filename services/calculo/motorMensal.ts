@@ -506,16 +506,17 @@ export const adiantamentoDoMes = (r: Pick<ResultadoCalculo, 'verbas'>) => r.verb
 /**
  * Mais de um contrato no mesmo CPF com IRRF do adiantamento: o imposto do mês é do CPF (a tabela e as deduções
  * valem uma vez para tudo o que foi pago), e cada contrato é calculado sozinho. Até o motor somar os contratos,
- * esses ficam incompletos, com aviso (Codex #118). Da competência, conta só o contrato com adiantamento (o que
- * teve pagamento no mês; um contrato admitido depois do adiantamento não muda o imposto). `pagosNoMes`: contratos da
- * competência anterior, cuja folha é paga no mês do adiantamento (um contrato encerrado no mês passado também entra
- * na conta do CPF).
+ * esses ficam incompletos, com aviso (Codex #118). Da competência, conta o contrato com pagamento no mês: o
+ * adiantamento ou a rescisão de um desligamento no mês (um contrato admitido depois do adiantamento não muda o
+ * imposto). `pagosNoMes`: contratos da competência anterior com folha paga no mês do adiantamento (um contrato
+ * encerrado no mês passado também entra na conta do CPF); quem filtra é a tela, pelo valor pago (Codex #118).
  */
-export function travarAdiantamentoEntreContratos<R extends ResultadoCalculo>(resultados: R[], fichas: Pick<FichaFuncionario, 'id' | 'cpf'>[], pagosNoMes: Pick<FichaFuncionario, 'id' | 'cpf'>[] = []): R[] {
+export function travarAdiantamentoEntreContratos<R extends ResultadoCalculo>(resultados: R[], fichas: Pick<FichaFuncionario, 'id' | 'cpf' | 'dados'>[], pagosNoMes: Pick<FichaFuncionario, 'id' | 'cpf'>[] = []): R[] {
     const cpfDe = new Map(fichas.map(f => [f.id, f.cpf.replace(/\D/g, '')]));
+    const desligadoNoMes = new Map(fichas.map(f => [f.id, f.dados.dataDesligamento ?? '']));
     const contratosDoCpf = new Map<string, Set<string>>();
     const somar = (id: string, cpf: string | undefined) => { if (cpf) contratosDoCpf.set(cpf, (contratosDoCpf.get(cpf) ?? new Set()).add(id)); };
-    for (const r of resultados) if (adiantamentoDoMes(r) > 0) somar(r.fichaId, cpfDe.get(r.fichaId));
+    for (const r of resultados) if (adiantamentoDoMes(r) > 0 || (desligadoNoMes.get(r.fichaId) ?? '').startsWith(r.competencia)) somar(r.fichaId, cpfDe.get(r.fichaId));
     for (const f of pagosNoMes) somar(f.id, f.cpf.replace(/\D/g, ''));
     const porCpf = new Map([...contratosDoCpf].map(([c, ids]) => [c, ids.size]));
     return resultados.map(r => {

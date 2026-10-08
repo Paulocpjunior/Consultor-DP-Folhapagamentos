@@ -3062,3 +3062,6 @@ guias sindicais".
 - **Revisão do Codex no #118 (P1 e P2):**
   - **IRRF gravado de toda folha paga no mês seguinte:** o IRRF apurado fica gravado para todo funcionário com o cálculo completo, e não só para quem tem adiantamento na ficha. O adiantamento pode ser lançado à mão no movimento do mês seguinte, e a ficha de lá (com outros dependentes) não refaz a folha já paga. Com o regime "no mês seguinte", recalcular o mês deixa "não salvo" quem ainda não tem esse IRRF gravado, como já acontece com o arredondamento.
   - **Trava de contratos:** da competência, só conta o contrato com adiantamento. Um contrato admitido depois do adiantamento não paga nada no mês e não trava o outro.
+- **Revisão do Codex no #118 (P1 e P2), trava de contratos:**
+  - **Desligado no mês:** da competência, conta também o contrato desligado no mês, cuja rescisão foi paga antes do adiantamento do outro. Nesse caso, o adiantamento não é o primeiro pagamento do CPF no mês.
+  - **Contrato anterior sem pagamento:** da competência anterior, só conta o contrato cuja folha paga no mês teve rendimentos (pelo IRRF gravado ou refeito). Um contrato afastado o mês todo, sem nada pago, não trava o outro. Enquanto não dá para saber, ele conta.
