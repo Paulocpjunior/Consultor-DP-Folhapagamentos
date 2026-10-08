@@ -93,7 +93,8 @@ export interface EnvioEmail {
     empresaId: string; cnpj: string; empresaNome: string; titulo: string; competencia: string;
     para: string; assunto: string; mensagem: string; anexos: { nome: string; bytes: Uint8Array; mime: string }[];
 }
-export interface ResultadoEmail { remetente: string; fonteRemetente: 'colaborador' | 'padrao'; avisoRemetente?: string | null; copiaPara: string[] }
+/** `convites`: o CFI acrescenta vencimentos-sp.ics quando lê um vencimento num PDF anexo; `avisosConvites`: PDF que ele não conseguiu ler. */
+export interface ResultadoEmail { remetente: string; fonteRemetente: 'colaborador' | 'padrao'; avisoRemetente?: string | null; copiaPara: string[]; convites?: number; avisosConvites?: string[] }
 
 export async function enviarEmailPeloEscritorio(e: EnvioEmail, chamar: typeof callFiscal = callFiscal): Promise<ResultadoEmail> {
     try {

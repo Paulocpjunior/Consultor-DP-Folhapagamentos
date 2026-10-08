@@ -147,6 +147,14 @@ describe('modal Pacote do cliente', () => {
         expect((await lerZip(e.anexos[0].bytes)).map(a => a.nome)).toEqual(['LEIA-ME.txt', 'h.pdf']);
         expect(await screen.findByText(/E-mail enviado de ana@spassessoria\.com\.br para marta@cliente\.com\.br, com cópia para dp@spassessoria\.com\.br\./)).toBeTruthy();
         expect(screen.getByText('E-mail enviado ✓')).toBeTruthy();
+        // Convite de agenda acrescentado pelo CFI e PDF que ele não leu aparecem na tela.
+        cleanup();
+        sv.email.mockResolvedValueOnce({ remetente: 'ana@spassessoria.com.br', fonteRemetente: 'colaborador', copiaPara: [], convites: 1, avisosConvites: ['h.pdf: PDF sem texto legível; informe o vencimento no envio.'] } as never);
+        render(<PacoteClienteModal empresa={{ ...empresa, contasPagamento: [], contatoEnvio: { email: 'marta@cliente.com.br' } }} resultados={[res('f1', 'ANA', 65432)]} fichas={fichas} titulo="Folha" sufixo="2026-09"
+            dataSugerida="2026-10-06" eventos={() => []} onFechar={() => {}} documentos={[{ id: 'holerites', rotulo: 'Holerites (PDF)', nome: 'h.pdf', descricao: 'h', gerar: () => pdf }]} />);
+        fireEvent.click(screen.getByText('Baixar pacote (.zip)'));
+        fireEvent.click(await screen.findByText('Enviar e-mail pelo escritório'));
+        expect(await screen.findByText(/Foi junto vencimentos-sp\.ics com 1 vencimento\(s\).*Atenção: h\.pdf: PDF sem texto legível/)).toBeTruthy();
     });
 
     it('sem conta cadastrada: o arquivo bancário fica de fora e o pacote sai sem gravar nada', async () => {

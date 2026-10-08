@@ -173,7 +173,9 @@ const PacoteClienteModal: React.FC<Props> = ({ empresa, resultados, fichas, titu
             const r = await enviarEmailPeloEscritorio({ empresaId: empresa.id, cnpj: empresa.cnpj, empresaNome: nomeEmpresa, titulo, competencia: (/(\d{4}-\d{2})/.exec(sufixo) ?? [])[1] ?? '',
                 para: contato.email ?? '', assunto, mensagem: texto, anexos: [{ nome: pronto.nomeZip, bytes: pronto.bytes, mime: 'application/zip' }] });
             setEnviadoEmail(r);
-            setMsg(`E-mail enviado de ${r.remetente} para ${contato.email}${r.avisoRemetente ? ` (${r.avisoRemetente})` : ''}${r.copiaPara.length ? `, com cópia para ${r.copiaPara.join(', ')}` : ''}.`);
+            setMsg(`E-mail enviado de ${r.remetente} para ${contato.email}${r.avisoRemetente ? ` (${r.avisoRemetente})` : ''}${r.copiaPara.length ? `, com cópia para ${r.copiaPara.join(', ')}` : ''}.`
+                + (r.convites ? ` Foi junto vencimentos-sp.ics com ${r.convites} vencimento(s) lido(s) nos PDFs.` : '')
+                + (r.avisosConvites?.length ? ` Atenção: ${r.avisosConvites.join(' ')}` : ''));
         } catch (e) { setErro(`E-mail: ${(e as Error).message}`); }
         finally { setEnviandoEmail(false); }
     }

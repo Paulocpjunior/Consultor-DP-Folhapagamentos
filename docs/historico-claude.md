@@ -2741,3 +2741,6 @@ guias sindicais".
   - **Testes:**
     - `spConnect.test.ts`: corpo do pedido, 404 e recusa;
     - o modal com o envio.
+- **Revisão do Codex no CFI #1391:**
+  - O teto dos anexos do e-mail caiu para ~2,8 MB de arquivo. Ele agora é medido no base64, para caber no pedido de 4 MB do Graph.
+  - A resposta passou a trazer `convites` e `avisosConvites`, e a tela do pacote mostra os dois: o `vencimentos-sp.ics` que foi junto e os PDFs que o CFI não leu.
