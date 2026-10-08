@@ -1,5 +1,5 @@
 import {
-    collection, doc, getDocs, getDoc, setDoc, updateDoc, writeBatch,
+    collection, doc, getDocs, getDoc, setDoc, updateDoc, writeBatch, runTransaction,
     query, where, orderBy, serverTimestamp,
 } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
@@ -181,6 +181,26 @@ export async function protegerEmpresasExistentes(empresas: Empresa[], aoProgress
 /** Contas da empresa para o arquivo bancário (lista inteira; conta, convênio e próximo NSA). */
 export async function salvarContasPagamento(empresaId: string, contas: import('../bancario/cnab240').ContaPagamento[]): Promise<void> {
     await updateDoc(doc(db, 'empresas', empresaId), { contasPagamento: contas.map(c => JSON.parse(JSON.stringify(c))), atualizadoEm: serverTimestamp() });
+}
+
+/**
+ * Reserva o número do próximo arquivo bancário (NSA) da conta, numa transação:
+ * lê o número gravado, grava o seguinte e devolve o reservado. Dois usuários ao
+ * mesmo tempo recebem números diferentes, e quem não consegue gravar não baixa
+ * um arquivo com número repetido (auditoria de 08/10/2026).
+ */
+export async function reservarNsa(empresaId: string, contaId: string): Promise<{ nsa: number; contas: import('../bancario/cnab240').ContaPagamento[] }> {
+    return runTransaction(db, async tx => {
+        const ref = doc(db, 'empresas', empresaId);
+        const snap = await tx.get(ref);
+        const contas = ((snap.data()?.contasPagamento ?? []) as import('../bancario/cnab240').ContaPagamento[]);
+        const conta = contas.find(c => c.id === contaId);
+        if (!conta) throw new Error('Conta de pagamento não encontrada no cadastro da empresa (grave a conta antes).');
+        const nsa = Math.max(1, Math.floor(conta.proximoNsa || 1));
+        const novas = contas.map(c => (c.id === contaId ? { ...c, proximoNsa: nsa + 1 } : c));
+        tx.update(ref, { contasPagamento: novas.map(c => JSON.parse(JSON.stringify(c))), atualizadoEm: serverTimestamp() });
+        return { nsa, contas: novas };
+    });
 }
 
 export async function salvarContatoEnvio(empresaId: string, contato: import('../pacoteCliente/envio').ContatoEnvio): Promise<void> {

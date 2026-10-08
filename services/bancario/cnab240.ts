@@ -18,6 +18,7 @@
 // conferido byte a byte com o arquivo da SAGE (ITAU_10.TXT, 10/2026).
 
 import type { Data } from '../prazos/calendario';
+import { cnpjValido, cpfValido } from '../cadastros/documentos';
 
 export type FormaCredito = 'conta' | 'poupanca' | 'ted' | 'pix';
 export const FORMA_LANCAMENTO: Record<FormaCredito, string> = { conta: '01', poupanca: '05', ted: '41', pix: '45' };
@@ -102,15 +103,43 @@ const codBanco = (v: string) => (v ?? '').replace(/\D/g, '').slice(0, 3).padStar
 
 export type TipoChavePix = 'telefone' | 'email' | 'cpf' | 'aleatoria';
 const INICIACAO: Record<TipoChavePix, string> = { telefone: '01', email: '02', cpf: '03', aleatoria: '04' };
+// DDDs do Brasil (Anatel): telefone sem +55 só é reconhecido com um DDD que existe.
+const DDDS = new Set('11 12 13 14 15 16 17 18 19 21 22 24 27 28 31 32 33 34 35 37 38 41 42 43 44 45 46 47 48 49 51 53 54 55 61 62 63 64 65 66 67 68 69 71 73 74 75 77 79 81 82 83 84 85 86 87 88 89 91 92 93 94 95 96 97 98 99'.split(' '));
+/** Telefone com DDD (10 dígitos, fixo; 11, celular com 9). */
+const pareceTelefone = (d: string) => DDDS.has(d.slice(0, 2)) && (d.length === 10 || (d.length === 11 && d[2] === '9'));
+
+/**
+ * Tipo da chave PIX. CPF/CNPJ só com o dígito verificador certo; telefone com
+ * +55, com máscara de telefone ou, só com dígitos, quando não é um CPF válido.
+ * Onze dígitos que são CPF válido e também parecem celular ficam sem tipo
+ * (ambíguos): o PIX iria para o CPF de outra pessoa (auditoria de 08/10/2026).
+ */
 export function tipoChavePix(chave: string): TipoChavePix | null {
     const c = (chave ?? '').trim();
     if (!c) return null;
     if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(c)) return 'email';
     if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(c)) return 'aleatoria';
     const d = c.replace(/\D/g, '');
-    if (/^\+/.test(c) || (d.length >= 12 && d.length <= 13 && d.startsWith('55'))) return 'telefone';
-    if (d.length === 11 || d.length === 14) return 'cpf';
+    if (/^\+/.test(c) || (d.length >= 12 && d.length <= 13 && d.startsWith('55') && pareceTelefone(d.slice(2)))) return 'telefone';
+    // Máscara de telefone: (11) 98765-4321, 11 98765-4321.
+    if (/^\(?\d{2}\)?\s+\d{4,5}-?\d{4}$/.test(c) && pareceTelefone(d)) return 'telefone';
+    if (d.length === 14) return cnpjValido(d) ? 'cpf' : null;
+    if (d.length === 11) {
+        const cpf = cpfValido(d); const tel = pareceTelefone(d);
+        if (cpf && !tel) return 'cpf';
+        if (tel && !cpf) return 'telefone';
+        return null;
+    }
+    if (d.length === 10 && pareceTelefone(d)) return 'telefone';
     return null;
+}
+
+/** Por que a chave não foi reconhecida (para o motivo de quem fica fora do arquivo). */
+function motivoChavePix(chave: string): string {
+    const d = chave.replace(/\D/g, '');
+    if (d.length === 11 && cpfValido(d) && pareceTelefone(d)) return `chave PIX "${chave}" pode ser CPF ou celular: informe o celular com +55 (ex.: +55${d}) ou o CPF com pontos`;
+    if ((d.length === 11 || d.length === 14) && !/^\+/.test(chave.trim())) return `chave PIX "${chave}" não é CPF/CNPJ válido nem telefone com DDD: confira na ficha`;
+    return `chave PIX "${chave}" não reconhecida (telefone com +55, e-mail, CPF/CNPJ ou aleatória)`;
 }
 
 // ─── classificação ──────────────────────────────────────────────────────────
@@ -130,7 +159,7 @@ export function classificar(f: Favorecido, empresa: Pick<ContaPagamento, 'banco'
         return { forma: 'ted', motivo: '' };
     }
     if (temPix) return { forma: 'pix', motivo: '' };
-    if (f.pix) return { forma: null, motivo: `chave PIX "${f.pix}" não reconhecida (telefone com +55, e-mail, CPF/CNPJ ou aleatória)` };
+    if (f.pix) return { forma: null, motivo: motivoChavePix(f.pix) };
     if (banco !== '000' && ct.numero && !ct.dv) return { forma: null, motivo: 'conta sem dígito na ficha (informe como 12345-6)' };
     return { forma: null, motivo: 'sem banco/agência/conta nem chave PIX na ficha' };
 }
@@ -178,7 +207,8 @@ function segmentoB(x: Ctx, lote: number, seq: number, f: Favorecido, forma: Form
     const cpf = num(f.cpf, 14, `CPF de ${f.nome}`);
     if (forma === 'pix') {
         const tipo = tipoChavePix(f.pix)!;
-        const chave = tipo === 'cpf' ? '' : tipo === 'telefone' ? `+${f.pix.replace(/\D/g, '')}` : f.pix.trim();
+        const dig = f.pix.replace(/\D/g, '');
+        const chave = tipo === 'cpf' ? '' : tipo === 'telefone' ? `+${dig.length <= 11 ? `55${dig}` : dig}` : f.pix.trim();
         const doc = tipo === 'cpf' ? num(f.pix, 14) : cpf;
         return x.perfil.codigo + num(lote, 4) + '3' + num(seq, 5) + 'B' + alfa(INICIACAO[tipo], 3) + (doc.replace(/^0+/, '').length > 11 ? '2' : '1') + doc
             + brancos(35) + brancos(60) + chave.slice(0, 99).padEnd(99, ' ') + '0'.repeat(6) + '0'.repeat(8);

@@ -8,7 +8,7 @@ import React, { useMemo, useState } from 'react';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
 import type { ResultadoCalculo } from '../../services/calculo/motorMensal';
-import { salvarContasPagamento } from '../../services/empresas/empresasService';
+import { reservarNsa, salvarContasPagamento } from '../../services/empresas/empresasService';
 import {
     BANCOS_SUPORTADOS, PERFIS_BANCO, ROTULO_FORMA, contaPagamentoVazia, gerarRemessa, tipoChavePix,
     avisoConferencia, type ContaPagamento,
@@ -56,7 +56,7 @@ const ArquivoBancarioModal: React.FC<Props> = ({ empresa, resultados, fichas, ti
     async function gravarContas(novas: ContaPagamento[]) {
         setSalvando(true); setErro('');
         try { await salvarContasPagamento(empresa.id, novas); setContas(novas); onContasSalvas?.(novas); return true; }
-        catch (e) { setErro(`Não foi possível gravar a conta (${(e as Error).message}). Só o gestor, quem cadastrou a empresa ou o admin da carteira altera o cadastro da empresa.`); return false; }
+        catch (e) { setErro(`Não foi possível gravar a conta (${(e as Error).message}).`); return false; }
         finally { setSalvando(false); }
     }
 
@@ -70,16 +70,23 @@ const ArquivoBancarioModal: React.FC<Props> = ({ empresa, resultados, fichas, ti
 
     async function baixar() {
         if (!previa?.r || !conta) return;
-        const r = previa.r;
-        if (!r.incluidos.length) { setErro('Nenhum funcionário com dados bancários para o arquivo.'); return; }
-        if (r.naoConferidas.length && !window.confirm(`${avisoConferencia(r.perfil, r.naoConferidas)}\n\nBaixe para conferência ou homologação; envie ao banco só depois da conferência. Continuar?`)) return;
+        const p = previa.r;
+        if (!p.incluidos.length) { setErro('Nenhum funcionário com dados bancários para o arquivo.'); return; }
+        if (p.naoConferidas.length && !window.confirm(`${avisoConferencia(p.perfil, p.naoConferidas)}\n\nBaixe para conferência ou homologação; envie ao banco só depois da conferência. Continuar?`)) return;
+        // O número do arquivo é reservado antes de baixar: sem a reserva gravada, o próximo sairia repetido.
+        setSalvando(true); setErro('');
+        let r: typeof p;
+        try {
+            const res = await reservarNsa(empresa.id, conta.id);
+            setContas(res.contas); onContasSalvas?.(res.contas);
+            r = gerarRemessa({ conta: { ...conta, proximoNsa: res.nsa }, cnpj: empresa.cnpj, razaoSocial: empresa.razaoSocial, favorecidos, preferirPix });
+        } catch (e) { setErro(`Arquivo não gerado: não foi possível reservar o número do arquivo (${(e as Error).message}).`); return; }
+        finally { setSalvando(false); }
         const blob = new Blob([r.conteudo], { type: 'text/plain;charset=us-ascii' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a'); a.href = url; a.download = r.nomeArquivo; document.body.appendChild(a); a.click(); a.remove();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
-        // Próximo arquivo com o número seguinte.
-        const ok = await gravarContas(contas.map(c => (c.id === conta.id ? { ...c, proximoNsa: r.nsa + 1 } : c)));
-        setMsg(`${r.nomeArquivo} baixado: ${r.incluidos.length} pagamento(s), ${reais(r.total)}.${ok ? ` Próximo arquivo: nº ${r.nsa + 1}.` : ''}`);
+        setMsg(`${r.nomeArquivo} baixado: ${r.incluidos.length} pagamento(s), ${reais(r.total)}. Próximo arquivo: nº ${r.nsa + 1}.`);
     }
 
     const setE = (k: keyof ContaPagamento, v: string | number) => setEdicao(e => (e ? { ...e, [k]: v } : e));

@@ -2532,3 +2532,35 @@ guias sindicais".
   de exclusão reconstruída sem o recibo excluído carregado podia herdar os
   pagamentos de uma versão mais antiga do S-1210 do mesmo mês. Isso furava o
   bloqueio. Agora a marca só recebe pagamentos do próprio recibo excluído.
+
+## 08/10/2026 — Lote B da auditoria (banco e pacote)
+
+- **Paulo:** *"pode seguir com lote B"*.
+- **Chave PIX** (`tipoChavePix`): celular sem +55 não vai mais como CPF.
+  - **CPF/CNPJ:** só com o dígito verificador certo.
+  - **Telefone:** com +55; com máscara, como (11) 98765-4321; ou só com
+    dígitos, quando não é CPF válido e tem um DDD que existe.
+  - **Ambígua:** onze dígitos que são CPF válido e também parecem celular
+    ficam fora do arquivo, com o motivo e o pedido de informar o +55.
+  - **No Segmento B:** o celular sem +55 sai com +55.
+- **Número do arquivo (NSA):** passa a ser reservado numa transação
+  (`reservarNsa`) antes de gerar o arquivo, no Arquivo Bancário e no Pacote
+  do cliente.
+  - Dois usuários ao mesmo tempo recebem números diferentes.
+  - Sem a reserva gravada (permissão ou rede), o arquivo não é baixado.
+    Antes era baixado, e o próximo saía com o número repetido.
+- **Regra do Firestore (`empresas`):** quem tem a empresa na carteira,
+  colaborador incluído, grava só os campos da operação: `contasPagamento`,
+  `contatoEnvio` e `esocialFolha`. Os dados cadastrais continuam com o
+  gestor, com quem cadastrou e com o admin.
+  - Resolve a falha de permissão do colaborador ao gravar o número do
+    arquivo, o contato de envio (Codex #95) e o de/para do S-1200.
+  - Testado no emulador: 3 testes novos. Eles reprovam a regra antiga e
+    passam com a nova, e os 45 testes de regras passam.
+  - **Precisa publicar:** `firebase deploy --only firestore:rules --project
+    consultor-dp-folha`.
+- **Pacote do cliente:** a saudação acompanha o nome do contato (Codex #95),
+  e o texto digitado pela equipe é mantido.
+- **Convite .ics:** o ponto e vírgula passa a ser escapado (RFC 5545); o
+  teste repetia o mesmo erro.
+- **Testes:** 86 arquivos, 676 testes.

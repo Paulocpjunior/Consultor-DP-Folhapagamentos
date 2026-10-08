@@ -13,7 +13,7 @@ import React, { useMemo, useState } from 'react';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
 import type { ResultadoCalculo } from '../../services/calculo/motorMensal';
-import { salvarContasPagamento, salvarContatoEnvio } from '../../services/empresas/empresasService';
+import { reservarNsa, salvarContatoEnvio } from '../../services/empresas/empresasService';
 import { PERFIS_BANCO, ROTULO_FORMA, avisoConferencia, gerarRemessa, type ContaPagamento, type ResultadoRemessa } from '../../services/bancario/cnab240';
 import { emailValido, linkEmail, linkWhatsApp, mensagemEnvio, numeroWhatsApp, type ContatoEnvio } from '../../services/pacoteCliente/envio';
 import { favorecidosDaFolha } from '../../services/bancario/favorecidos';
@@ -60,7 +60,8 @@ const PacoteClienteModal: React.FC<Props> = ({ empresa, resultados, fichas, titu
     const [msg, setMsg] = useState(''); const [erro, setErro] = useState(''); const [gerando, setGerando] = useState(false);
     const [pronto, setPronto] = useState<Pronto | null>(null);
     const [contato, setContato] = useState<ContatoEnvio>(empresa.contatoEnvio ?? {});
-    const [texto, setTexto] = useState('');
+    // A mensagem padrão acompanha o contato (nome na saudação); o que a equipe digitar no texto fica.
+    const [textoEditado, setTextoEditado] = useState<string | null>(null);
     const [gravandoContato, setGravandoContato] = useState(false);
     const conta = contas.find(c => c.id === contaId) ?? null;
     const nomeEmpresa = empresa.nomeFantasia || empresa.razaoSocial;
@@ -80,11 +81,19 @@ const PacoteClienteModal: React.FC<Props> = ({ empresa, resultados, fichas, titu
 
     async function montar() {
         setErro(''); setMsg('');
-        const r = remessa?.r;
+        let r = remessa?.r;
         if (incluir.banco && !r) { setErro(remessa?.erro || 'Escolha a conta da empresa para o arquivo bancário.'); return; }
         if (r && !r.incluidos.length) { setErro('Nenhum funcionário com dados bancários para o arquivo; desmarque o arquivo bancário ou acerte as fichas.'); return; }
         if (r?.naoConferidas.length && !window.confirm(`${avisoConferencia(r.perfil, r.naoConferidas)}\n\nO LEIA-ME vai pedir ao cliente para conferir os pagamentos na tela do banco antes de autorizar. Continuar?`)) return;
         setGerando(true);
+        // O número do arquivo bancário é reservado antes de montar: sem a reserva gravada, o próximo sairia repetido.
+        if (r && conta) {
+            try {
+                const res = await reservarNsa(empresa.id, conta.id);
+                onContasSalvas?.(res.contas);
+                r = gerarRemessa({ conta: { ...conta, proximoNsa: res.nsa }, cnpj: empresa.cnpj, razaoSocial: empresa.razaoSocial, favorecidos, preferirPix });
+            } catch (e) { setErro(`Pacote não montado: não foi possível reservar o número do arquivo bancário (${(e as Error).message}).`); setGerando(false); return; }
+        }
         try {
             const arquivos: ArquivoZip[] = []; const descritos: ArquivoDoPacote[] = [];
             for (const d of documentos.filter(x => incluir[x.id])) {
@@ -108,19 +117,16 @@ const PacoteClienteModal: React.FC<Props> = ({ empresa, resultados, fichas, titu
             baixarBytes(nomeZip, bytes, 'application/zip');
             const itens = ['LEIA-ME com o que fazer com cada arquivo', ...descritos.map(d => d.descricao)];
             setPronto({ nomeZip, bytes, itens, remessa: r ?? undefined, foraDoArquivo, eventos: listaEventos });
-            setTexto(mensagemEnvio({ contato, empresa: nomeEmpresa, titulo, nomeZip, arquivos: itens, remessa: r ?? undefined, foraDoArquivo, eventos: listaEventos, assinatura: ASSINATURA }));
-            let nsa = '';
-            if (r && conta) {
-                // Próximo arquivo com o número seguinte, como no "Arquivo bancário".
-                const novas = contas.map(c => (c.id === conta.id ? { ...c, proximoNsa: r.nsa + 1 } : c));
-                try { await salvarContasPagamento(empresa.id, novas); onContasSalvas?.(novas); nsa = ` Próximo arquivo bancário: nº ${r.nsa + 1}.`; }
-                catch (e) { setErro(`Pacote baixado, mas a numeração do arquivo bancário não foi gravada (${(e as Error).message}). Ajuste o próximo nº na conta antes do próximo arquivo.`); }
-            }
+            setTextoEditado(null);
+            const nsa = r ? ` Próximo arquivo bancário: nº ${r.nsa + 1}.` : '';
             setMsg(`${nomeZip} baixado com ${arquivos.length} arquivo(s).${nsa} Envie ao cliente abaixo.`);
         } catch (e) { setErro(`Não foi possível montar o pacote: ${(e as Error).message}`); }
         finally { setGerando(false); }
     }
 
+    const textoPadrao = useMemo(() => (pronto ? mensagemEnvio({ contato, empresa: nomeEmpresa, titulo, nomeZip: pronto.nomeZip, arquivos: pronto.itens, remessa: pronto.remessa, foraDoArquivo: pronto.foraDoArquivo, eventos: pronto.eventos, assinatura: ASSINATURA }) : ''),
+        [pronto, contato, nomeEmpresa, titulo]);
+    const texto = textoEditado ?? textoPadrao;
     const zipComoArquivo = (p: Pronto) => new File([p.bytes as BlobPart], p.nomeZip, { type: 'application/zip' });
     const podeCompartilhar = !!pronto && typeof navigator.canShare === 'function' && navigator.canShare({ files: [zipComoArquivo(pronto)] });
     const whats = numeroWhatsApp(contato.whatsapp);
@@ -150,7 +156,7 @@ const PacoteClienteModal: React.FC<Props> = ({ empresa, resultados, fichas, titu
     }
     function refazer() {
         if (pronto?.remessa && !window.confirm(`Refazer o pacote gera um novo arquivo bancário (nº ${pronto.remessa.nsa + 1}). Envie ao banco só um dos dois. Continuar?`)) return;
-        setPronto(null); setMsg(''); setErro('');
+        setPronto(null); setTextoEditado(null); setMsg(''); setErro('');
     }
 
     const marca = (id: string, rotulo: React.ReactNode, desabilitado = false) => (
@@ -228,7 +234,7 @@ const PacoteClienteModal: React.FC<Props> = ({ empresa, resultados, fichas, titu
                             <label>WhatsApp<input aria-label="WhatsApp do contato" className={`block w-full ${inp}`} placeholder="(11) 98888-7777" value={contato.whatsapp ?? ''} onChange={e => setContato(c => ({ ...c, whatsapp: e.target.value }))} /></label>
                         </div>
                         <button className="rounded border border-slate-300 px-2 py-1 text-xs disabled:opacity-50 dark:border-slate-600" disabled={gravandoContato} onClick={gravarContato}>{gravandoContato ? 'Gravando…' : 'Gravar contato na empresa'}</button>
-                        <label className="block text-xs">Mensagem<textarea aria-label="Mensagem ao cliente" rows={8} className={`block w-full font-mono ${inp}`} value={texto} onChange={e => setTexto(e.target.value)} /></label>
+                        <label className="block text-xs">Mensagem<textarea aria-label="Mensagem ao cliente" rows={8} className={`block w-full font-mono ${inp}`} value={texto} onChange={e => setTextoEditado(e.target.value)} /></label>
                         <div className="flex flex-wrap gap-2">
                             {podeCompartilhar && <button className="rounded bg-green-700 px-3 py-2 font-medium text-white" onClick={compartilhar}>Compartilhar com o .zip (WhatsApp, e-mail…)</button>}
                             <button className="rounded bg-emerald-600 px-3 py-2 text-white disabled:opacity-50" disabled={!whats} title={whats ? '' : 'Informe o WhatsApp do contato'}

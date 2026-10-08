@@ -12,7 +12,8 @@ const empresa = { nome: 'SP', cnpj: '44388152000189' };
 
 describe('arquivo .ics', () => {
     it('escapa texto e dobra linhas em 75 octetos sem partir acento', () => {
-        expect(escaparIcs('a,b;c\\d\ne')).toBe('a\\,b\;c\\\\d\\ne');
+        // RFC 5545: o ponto e vírgula também leva barra ("a;b" vira "a\;b").
+        expect(escaparIcs('a,b;c\\d\ne')).toBe('a\\,b\\;c\\\\d\\ne');
         const longa = `DESCRIPTION:${'é'.repeat(60)}`;
         const d = dobrar(longa);
         for (const l of d.split('\r\n')) expect(new TextEncoder().encode(l).length).toBeLessThanOrEqual(75);
