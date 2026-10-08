@@ -56,6 +56,15 @@ export interface Movimento {
      * ou sem arredondamento). Os meses seguintes o usam no lugar do regime (IRRF do adiantamento; Codex #118).
      */
     mesPagamento?: string;
+    /**
+     * IRRF apurado nesta folha, gravado ao salvar quando ela é paga no mês seguinte (rendimentos, deduções legais e
+     * o retido, em centavos, e o mês do pagamento): o adiantamento daquele mês soma o que foi pago de fato, sem
+     * refazer a folha com a ficha de hoje (Codex #118).
+     */
+    irrfRendimentos?: number;
+    irrfDeducoes?: number;
+    irrfRetido?: number;
+    irrfPagamento?: string;
     lancamentos?: Lancamento[];
 }
 

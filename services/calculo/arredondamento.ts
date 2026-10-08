@@ -124,8 +124,21 @@ export function anteriorEncadeado(desde: string, competencia: string, calcular: 
     return falhou ? { erro: `Arredondamento do líquido: o cálculo de ${falhou.slice(5)}/${falhou.slice(0, 4)} está com erro ou incompleto, e o anterior não pode ser encadeado a partir dele. Corrija esse mês ou informe o "Arredondamento anterior" no movimento de um mês seguinte.` } : anterior;
 }
 
-/** O movimento sem o que o Consultor grava do arredondamento (o atual, o início e o mês do pagamento usados). */
-export const semFechado = (m: Movimento | undefined): Movimento => ({ ...m, arredondamentoFechado: undefined, arredondamentoDesde: undefined, arredondamentoPagamento: undefined });
+/**
+ * O movimento sem o que o Consultor grava do cálculo: o arredondamento (o atual, o início e o mês do pagamento
+ * usados) e o IRRF apurado da folha paga no mês seguinte.
+ */
+export const semFechado = (m: Movimento | undefined): Movimento => ({ ...m, arredondamentoFechado: undefined, arredondamentoDesde: undefined, arredondamentoPagamento: undefined,
+    irrfRendimentos: undefined, irrfDeducoes: undefined, irrfRetido: undefined, irrfPagamento: undefined });
+
+/**
+ * Folha paga no mês seguinte, com adiantamento na ficha: o IRRF apurado nela vai gravado com o movimento, para o
+ * adiantamento daquele mês somar o que foi pago de fato (Codex #118). Sem cálculo completo, nada muda aqui.
+ */
+export function movimentoComIrrf(mov: Movimento | undefined, r: ResultadoCalculo, comAdiantamento: boolean): Movimento | undefined {
+    if (r.situacao !== 'calculado' || r.pagamento === r.competencia || !comAdiantamento || !r.irrfApurado) return undefined;
+    return { ...mov, irrfRendimentos: r.irrfApurado.rendimentos, irrfDeducoes: r.irrfApurado.deducoesLegais, irrfRetido: r.irrfApurado.valor, irrfPagamento: r.pagamento };
+}
 /**
  * Movimento a gravar com o arredondamento atual do mês (o anterior do mês seguinte) e o início usado. Sem cálculo
  * completo: movimento editado sai sem o atual velho, para o encadeamento refazer (e travar) o mês em vez de confiar

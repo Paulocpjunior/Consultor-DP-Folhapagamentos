@@ -10,7 +10,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as XLSX from 'xlsx';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { listarEmpresasVisiveis, salvarParametrosFolha } from '../../services/empresas/empresasService';
-import { anteriorEncadeado, arredondaNoMes, arredondar, mesDoPagamento, movimentoComFechado, semFechado, mudarRegime, regimeNoMes, type ParametrosFolha, type RegimePagamento } from '../../services/calculo/arredondamento';
+import { anteriorEncadeado, arredondaNoMes, arredondar, mesDoPagamento, movimentoComFechado, movimentoComIrrf, semFechado, mudarRegime, regimeNoMes, type ParametrosFolha, type RegimePagamento } from '../../services/calculo/arredondamento';
 import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
 import EmpresaAtivaFixa from '../empresaAtiva/EmpresaAtivaFixa';
 import { listarAfastamentos, listarEnquadramentos, listarFuncionarios, listarTabelas, mensagemErro, salvarAfastamento, type Usuario } from '../../services/cadastros/cadastrosService';
@@ -218,6 +218,10 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         const salvos = movsEmpresa[f.id] ?? {};
         const pag1 = salvos[m1]?.mesPagamento ?? salvos[m1]?.arredondamentoPagamento ?? mesDoPagamento(parametrosFolha, m1);
         if (pag1 !== c) return null;
+        // IRRF da folha anterior gravado com o movimento dela: vale o que foi pago, sem refazer com a ficha de hoje (Codex #118).
+        const g = salvos[m1];
+        if (g?.irrfPagamento === c && g.irrfRendimentos !== undefined && g.irrfDeducoes !== undefined && g.irrfRetido !== undefined)
+            return { rendimentos: g.irrfRendimentos, deducoesLegais: g.irrfDeducoes, valor: g.irrfRetido, competencia: m1 };
         const afs = dados.afastamentos.filter(a => a.fichaId === f.id);
         const r1 = calcularMensal({ competencia: m1, pagamento: c, ficha: f, tabelas: dados.tabelas, movimento: salvos[m1], afastamentos: afs,
             feriasDoMes: feriasDaCompetencia(f, afs, dados.tabelas, salvos, m1, opcoesFerias), folhaPagaNoAdiantamento: null });
@@ -310,6 +314,13 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         // regime, nada a gravar (o regime já diz). Os meses seguintes o usam (IRRF do adiantamento; Codex #118).
         const mesPagamento = /^\d{4}-\d{2}$/.test(pagamento) && pagamento !== mesDoPagamento(parametrosFolha, competencia) ? pagamento : undefined;
         for (const r of resultados) if (mesPagamento || out[r.fichaId]?.mesPagamento !== undefined) out[r.fichaId] = { ...out[r.fichaId], mesPagamento };
+        // IRRF apurado da folha paga no mês seguinte, para o adiantamento de lá (Codex #118).
+        const fichaDe = new Map((dados?.fichas ?? []).map(f => [f.id, f]));
+        for (const r of resultados) {
+            const comAdiant = Number((fichaDe.get(r.fichaId)?.dados.adiantamentoPct ?? '').replace(',', '.')) > 0 || (out[r.fichaId]?.adiantamento ?? 0) > 0;
+            const m = movimentoComIrrf(out[r.fichaId], r, comAdiant);
+            if (m) out[r.fichaId] = m;
+        }
         if (!arredondaNoMes(parametrosFolha, competencia)) return out;
         const desde = parametrosFolha?.arredondarDesde || competencia;
         for (const r of resultados) {
@@ -317,7 +328,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             if (m) out[r.fichaId] = m;
         }
         return out;
-    }, [movs, resultados, mensal, parametrosFolha, competencia, gravados, pagamento]);
+    }, [movs, resultados, mensal, parametrosFolha, competencia, gravados, pagamento, dados]);
     const pendentes = useMemo(() => [...new Set([...Object.keys(movsParaSalvar), ...Object.keys(gravados ?? {})])]
         .filter(id => id && !mesmoMovimento(movsParaSalvar[id], gravados?.[id]?.movimento)), [movsParaSalvar, gravados]);
     useEffect(() => {

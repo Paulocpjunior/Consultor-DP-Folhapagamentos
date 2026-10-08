@@ -4,7 +4,8 @@
 // trocados: os eventos do IOB não vão ao repositório; ficam os valores.
 import { describe, expect, it } from 'vitest';
 import { calcularMensal, travarAdiantamentoEntreContratos, type Lancamento } from '../../calculo/motorMensal';
-import { arredondar } from '../../calculo/arredondamento';
+import { arredondar, movimentoComIrrf, semFechado } from '../../calculo/arredondamento';
+import { limparMovimento } from '../../calculo/movimento';
 import { resumirFolha } from '../../relatorios/resumoFolha';
 import { favorecidosDaFolha, foraDoAdiantamento, valorDoAdiantamento } from '../../bancario/favorecidos';
 import { gerarEventosFolha, mesclarIRFerias, pagoNoAdiantamento, verbasDoAdiantamento, type ParametrosEsocialFolha } from '../eventosFolha';
@@ -27,6 +28,14 @@ const agosto = calcularMensal({ competencia: '2026-08', pagamento: '2026-09', fi
     folhaPagaNoAdiantamento: { ...julho.irrfApurado!, competencia: '2026-07' } });
 
 describe('IRRF do adiantamento com a folha paga no mês seguinte', () => {
+    it('IRRF da folha paga no mês seguinte gravado com o movimento, para o adiantamento de lá (Codex #118)', () => {
+        expect(movimentoComIrrf({ horasExtras50: 1 }, julho, true)).toEqual({ horasExtras50: 1, irrfRendimentos: 537555, irrfDeducoes: 98809, irrfRetido: 4880, irrfPagamento: '2026-08' });
+        expect(movimentoComIrrf({}, julho, false)).toBeUndefined();
+        expect(movimentoComIrrf({}, { ...julho, pagamento: '2026-07' }, true)).toBeUndefined();
+        expect(limparMovimento(movimentoComIrrf({}, julho, true)!)).toEqual({ irrfRendimentos: 537555, irrfDeducoes: 98809, irrfRetido: 4880, irrfPagamento: '2026-08' });
+        expect(semFechado(movimentoComIrrf({}, julho, true)).irrfRetido).toBeUndefined();
+    });
+
     it('folha de agosto (paga em 04/09): o adiantamento sai da base; IRRF 61,57 com o redutor, como no IOB', () => {
         expect([v(agosto, 'SAL'), v(agosto, 'ADIANT'), v(agosto, 'INSS')]).toEqual([917790, 367116, 98809]);
         // 9.177,90 − 3.671,16 − 95,53 = 5.411,21; base 4.423,12 × 22,5% − 675,49 = 319,71; redutor 978,62 − 0,133145 × 5.411,21 = 258,14.
@@ -60,6 +69,15 @@ describe('IRRF do adiantamento com a folha paga no mês seguinte', () => {
         const aceitoAgo: ReciboEvento = { tipo: 'S-1210', cpf: FICHA.cpf, perApur: '2026-08', nrRecibo: '1.1.0000000000000000001', processadoEm: '2026-08-07', origem: 'download',
             pagamentos: [{ tpPgto: '1', perRef: '2026-07', ideDmDev: 'FOLHA202607-M1', xml: pgJul }] };
         const retificacao = { s1200: new Map(), s1210: new Map(), s1210PorMes: new Map([['2026-08', new Map([[FICHA.cpf, aceitoAgo]])]]) };
+        // Aceito só com outro pagamento de julho (não a folha mensal): não vale (Codex #118).
+        const soOutro = { ...aceitoAgo, pagamentos: [{ tpPgto: '1', perRef: '2026-07', ideDmDev: 'FER20260710-M1', xml: pgJul.replace('FOLHA202607-M1', 'FER20260710-M1') }] };
+        const comOutro = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-08', dataPagamento: '2026-09-04', dataAdiantamento: '2026-08-20', fichas: [FICHA], resultados: [agosto], rubricas, parametros: params,
+            retificacao: { s1200: new Map(), s1210: new Map(), s1210PorMes: new Map([['2026-08', new Map([[FICHA.cpf, soOutro]])]]) } }).trabalhadores[0];
+        expect(comOutro.erros.join(' ')).toMatch(/somou a folha de 07\/2026/);
+        // A folha mensal do IOB ("…MENS") vale.
+        const iob = { ...aceitoAgo, pagamentos: [{ tpPgto: '1', perRef: '2026-07', ideDmDev: 'CVINC20260700045720260806MENS', xml: pgJul.replace('FOLHA202607-M1', 'CVINC20260700045720260806MENS') }] };
+        expect(gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-08', dataPagamento: '2026-09-04', dataAdiantamento: '2026-08-20', fichas: [FICHA], resultados: [agosto], rubricas, parametros: params,
+            retificacao: { s1200: new Map(), s1210: new Map(), s1210PorMes: new Map([['2026-08', new Map([[FICHA.cpf, iob]])]]) } }).trabalhadores[0].erros).toEqual([]);
         const semAceito = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-08', dataPagamento: '2026-09-04', dataAdiantamento: '2026-08-20', fichas: [FICHA], resultados: [agosto], rubricas, parametros: params }).trabalhadores[0];
         expect(semAceito.erros).toEqual([expect.stringMatching(/^S-1210 de 08\/2026: o IRRF do adiantamento somou a folha de 07\/2026, paga em 08\/2026/)]);
         const t = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-08', dataPagamento: '2026-09-04', dataAdiantamento: '2026-08-20', fichas: [FICHA], resultados: [agosto], rubricas, parametros: params, retificacao, agora: new Date('2026-09-10T12:00:00Z') }).trabalhadores[0];

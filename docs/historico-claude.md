@@ -3056,3 +3056,6 @@ guias sindicais".
 - **Revisão do Codex no #118 (P1 e P2):**
   - **"Pagamento em" diferente do regime:** o mês usado de fato fica gravado no movimento (`mesPagamento`), com ou sem arredondamento. Igual ao regime, nada é gravado. O IRRF do adiantamento do mês seguinte, o encadeamento e a conferência usam esse mês no lugar do regime. Só quem teve o pagamento trocado fica "não salvo".
   - **Dedução do adiantamento que não vale mais:** no mês do adiantamento sem folha anterior, as tpRend 11 do S-1210 aceito são do adiantamento. As que o cálculo de agora não tem (passou ao simplificado, dependente removido) saem no reenvio. Com folha anterior no mês, elas ficam.
+- **Revisão do Codex no #118 (dois P1):**
+  - **IRRF da folha anterior gravado:** ao salvar o movimento de uma folha paga no mês seguinte, com adiantamento na ficha, o IRRF apurado nela fica gravado (`irrfRendimentos`, `irrfDeducoes`, `irrfRetido`, `irrfPagamento`). O adiantamento do mês seguinte usa o gravado e não refaz a folha com a ficha de hoje (um percentual de adiantamento mudado depois, por exemplo). Sem o gravado, refaz como antes. Editar o movimento tira o gravado até o mês ser recalculado.
+  - **S-1210 do mês do adiantamento:** o aceito precisa ter a folha mensal anterior em si (ideDmDev do Consultor, `FOLHA…`, ou o `…MENS` do IOB). Outro pagamento da mesma competência não basta.

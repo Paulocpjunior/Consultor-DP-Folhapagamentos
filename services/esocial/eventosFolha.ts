@@ -468,7 +468,11 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             // O IRRF do adiantamento somou a folha anterior, paga neste mês: o S-1210 dele tem de levar esse pagamento junto,
             // senão substituiria o aceito sem ele (ou o omitiria). Sem o S-1210 do mês com a folha anterior, não sai (Codex #118).
             const anterior = m === e.competencia && m !== perPgto ? contratos.find(c => c.r.irrfAdiantamentoFolha)?.r.irrfAdiantamentoFolha : undefined;
-            if (anterior && !(ex?.pagamentos ?? []).some(pg => pg.perRef === anterior))
+            // A folha mensal anterior em si (ideDmDev do Consultor, ou o "…MENS" do IOB), não outro pagamento da competência (Codex #118).
+            const matAnt = contratos.find(c => c.r.irrfAdiantamentoFolha)?.ficha.matriculaEsocial ?? '';
+            const ehFolhaAnterior = (pg: { perRef: string; ideDmDev: string; tpPgto: string }) => pg.tpPgto === '1' && pg.perRef === anterior
+                && (pg.ideDmDev === ideDmDev(anterior ?? '', matAnt) || /MENS$/i.test(pg.ideDmDev));
+            if (anterior && !(ex?.pagamentos ?? []).some(ehFolhaAnterior))
                 t.erros.push(`S-1210 de ${mes(m)}: o IRRF do adiantamento somou a folha de ${mes(anterior)}, paga em ${mes(m)}. Transmita o S-1210 dessa folha antes e carregue o download do eSocial com ele: o do adiantamento sai junto, no mesmo evento.`);
             return { perApur: m, s1210: null, exclusao1210: null, existente1210: ex, outrosPagamentos: outros.length, outros };
         });
