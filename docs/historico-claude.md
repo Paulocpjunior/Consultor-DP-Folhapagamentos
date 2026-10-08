@@ -2563,4 +2563,4 @@ guias sindicais".
   e o texto digitado pela equipe é mantido.
 - **Convite .ics:** o ponto e vírgula passa a ser escapado (RFC 5545); o
   teste repetia o mesmo erro.
-- **Testes:** 86 arquivos, 676 testes.
+- **Testes:** 86 arquivos, 673 testes.
