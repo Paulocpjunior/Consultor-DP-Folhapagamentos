@@ -14,6 +14,8 @@ import {
     avisoConferencia, type ContaPagamento,
 } from '../../services/bancario/cnab240';
 import { favorecidosDaFolha } from '../../services/bancario/favorecidos';
+import { remessaParaBaixar } from '../../services/bancario/download';
+import { baixarBytes } from '../../services/implantacao/zip';
 import { reais } from '../../services/cadastros/documentos';
 
 const inp = 'w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
@@ -82,12 +84,11 @@ const ArquivoBancarioModal: React.FC<Props> = ({ empresa, resultados, fichas, ti
             r = gerarRemessa({ conta: { ...conta, proximoNsa: res.nsa }, cnpj: empresa.cnpj, razaoSocial: empresa.razaoSocial, favorecidos, preferirPix });
         } catch (e) { setErro(`Arquivo não gerado: não foi possível reservar o número do arquivo (${(e as Error).message}).`); return; }
         finally { setSalvando(false); }
-        // octet-stream: como texto, o navegador (Safari no Mac) acrescenta .txt e o banco recusa o nome.
-        const blob = new Blob([r.conteudo], { type: 'application/octet-stream' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href = url; a.download = r.nomeArquivo; document.body.appendChild(a); a.click(); a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-        setMsg(`${r.nomeArquivo} baixado: ${r.incluidos.length} pagamento(s), ${reais(r.total)}. Próximo arquivo: nº ${r.nsa + 1}.`);
+        // Safari acrescenta .txt a arquivo de texto e o banco recusa o nome: lá o .REM vai dentro de um .zip.
+        const d = remessaParaBaixar(r.nomeArquivo, r.conteudo, navigator.userAgent);
+        baixarBytes(d.nome, d.bytes, d.mime);
+        setMsg(`${r.nomeArquivo} baixado${d.dentroDoZip ? ` dentro de ${d.nome}` : ''}: ${r.incluidos.length} pagamento(s), ${reais(r.total)}. Próximo arquivo: nº ${r.nsa + 1}.`
+            + (d.dentroDoZip ? ` No Safari o arquivo vai compactado porque o Safari acrescentaria ".txt" ao nome e o banco recusaria. O Safari abre o .zip sozinho; envie ao banco o ${r.nomeArquivo} da pasta Downloads (se o .zip não abrir, dê dois cliques nele).` : ''));
     }
 
     const setE = (k: keyof ContaPagamento, v: string | number) => setEdicao(e => (e ? { ...e, [k]: v } : e));
