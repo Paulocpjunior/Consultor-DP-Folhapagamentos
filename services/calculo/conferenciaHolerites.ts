@@ -173,6 +173,10 @@ export function movimentoDoHolerite(h: HoleriteIob): { movimento: Movimento; avi
             lancamentos.push({ descricao: `${v.codigo ? `${v.codigo} ` : ''}${v.descricao}`.trim(), tipo: provento ? 'provento' : 'desconto', valor: v.provento || v.desconto, inss: provento, fgts: provento, irrf: provento });
         }
     }
+    // Sem adiantamento ou VT no holerite do IOB, o mês não teve: 0 explícito, senão o motor volta à ficha e
+    // inventa o desconto (Codex #115).
+    if (mov.adiantamento === undefined) mov.adiantamento = 0;
+    if (mov.valeTransporte === undefined) mov.valeTransporte = 0;
     if (lancamentos.length) { mov.lancamentos = lancamentos; avisos.push('Lançamentos trazidos do holerite: confira as incidências de cada um (provento entrou incidindo em tudo; desconto, em nada).'); }
     return { movimento: mov, avisos };
 }

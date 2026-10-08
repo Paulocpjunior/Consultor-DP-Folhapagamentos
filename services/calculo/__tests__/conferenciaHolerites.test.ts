@@ -96,6 +96,8 @@ describe('conferência com os holerites do IOB', () => {
                 { descricao: '030 ADICIONAL NOTURNO', tipo: 'provento', valor: 5000, inss: true, fgts: true, irrf: true },
             ],
         });
+        // Holerite sem adiantamento e sem VT: o mês não teve, e o 0 explícito impede o motor de voltar à ficha (Codex #115).
+        expect(movimentoDoHolerite(holerite([P('SALARIO', 220000, '30,00'), D('INSS', 19143)])).movimento).toEqual({ adiantamento: 0, valeTransporte: 0 });
         expect(avisos[0]).toBe('DSR S/ FALTAS: referência "" ilegível; informe a quantidade.');
         expect(avisos[1]).toContain('confira as incidências');
     });
