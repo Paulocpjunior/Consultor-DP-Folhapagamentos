@@ -338,7 +338,22 @@ export function gozosNoMes(afastamentos: Afastamento[], fichaIds: Set<string>, c
  * cada recibo cujo gozo toca o mês. Se algum recibo der erro, devolve
  * undefined (a folha fica "incompleto" e aponta o recibo).
  */
-export function feriasDaCompetencia(ficha: FichaFuncionario, afastamentos: Afastamento[], tabelas: TabelaLegal[], movimentos: Record<string, Movimento>, competencia: string): { dias: number; ferias: number; terco: number; inss: number; irrf: number } | undefined {
+export interface ParteDaCompetencia { dias: number; ferias: number; terco: number; inss: number; irrf: number }
+
+/**
+ * Parte de um recibo de férias numa competência do gozo: dias, férias, 1/3 e
+ * INSS da competência, e o IRRF do recibo (em separado) na proporção de
+ * férias + 1/3. É o que a folha do mês soma e abate (FERMES, FERPAGO…).
+ */
+export function parteDaCompetencia(r: ResultadoFerias, competencia: string): ParteDaCompetencia | undefined {
+    const c = r.porCompetencia.find(x => x.competencia === competencia);
+    if (!c) return undefined;
+    const irrf = r.verbas.find(v => v.codigo === 'IRRFFER')?.valor ?? 0;
+    const total = r.porCompetencia.reduce((s, x) => s + x.ferias + x.terco, 0);
+    return { dias: c.dias, ferias: c.ferias, terco: c.terco, inss: c.inss, irrf: irrf && total ? Math.round(irrf * (c.ferias + c.terco) / total) : 0 };
+}
+
+export function feriasDaCompetencia(ficha: FichaFuncionario, afastamentos: Afastamento[], tabelas: TabelaLegal[], movimentos: Record<string, Movimento>, competencia: string): ParteDaCompetencia | undefined {
     const ini = `${competencia}-01`;
     const gozos = afastamentos.filter(a => a.fichaId === ficha.id && a.motivo === '15' && a.dtInicio.slice(0, 7) <= competencia && (!a.dtFim || a.dtFim >= ini));
     if (!gozos.length) return undefined;
@@ -346,13 +361,9 @@ export function feriasDaCompetencia(ficha: FichaFuncionario, afastamentos: Afast
     for (const gozo of gozos) {
         const r = calcularFerias({ ficha, gozo, afastamentos, tabelas, movimentos });
         if (r.situacao === 'erro') return undefined;
-        const c = r.porCompetencia.find(x => x.competencia === competencia);
+        const c = parteDaCompetencia(r, competencia);
         if (!c) continue;
-        soma.dias += c.dias; soma.ferias += c.ferias; soma.terco += c.terco; soma.inss += c.inss;
-        // IRRF do recibo (em separado) na proporção desta competência em férias + 1/3.
-        const irrf = r.verbas.find(v => v.codigo === 'IRRFFER')?.valor ?? 0;
-        const total = r.porCompetencia.reduce((s, x) => s + x.ferias + x.terco, 0);
-        if (irrf && total) soma.irrf += Math.round(irrf * (c.ferias + c.terco) / total);
+        soma.dias += c.dias; soma.ferias += c.ferias; soma.terco += c.terco; soma.inss += c.inss; soma.irrf += c.irrf;
     }
     return soma;
 }

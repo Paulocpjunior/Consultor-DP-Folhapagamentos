@@ -183,7 +183,7 @@ describe('pensão alimentícia na ficha', () => {
         const erros = validarFicha({ ...f, dependentes: [dep(''), dep(CPF, { irrf: 'S' }), dep('39053344705', { cotaPensao: '120' })] }).erros;
         expect(erros).toEqual(expect.arrayContaining([
             'Dependente 1: alimentando sem CPF (o S-1210 informa a pensão pelo CPF de quem recebe).', 'Dependente 2: o alimentando não pode ter o CPF do trabalhador.',
-            'Dependente 2: a mesma pessoa não pode ser deduzida no IRRF como dependente e como alimentando; deixe só a pensão.',
+            'Dependente 2: quem recebe pensão não é deduzido também como dependente no IRRF do mesmo mês (Lei 9.250/1995, art. 35, § 4º; IN RFB 1.500/2014, art. 90, § 4º): marque IRRF = Não e deixe a pensão, que deduz o valor pago.',
             'Dependente 3: cota da pensão deve ser um percentual entre 0 e 100.', 'Mais de um alimentando: a cota da pensão (%) de cada um deve somar 100%.',
         ]));
         expect(validarFicha({ ...f, dependentes: [dep('39053344705', { cotaPensao: '60' }), dep('12345678909', { cotaPensao: '40' })] }).erros).toEqual([]);

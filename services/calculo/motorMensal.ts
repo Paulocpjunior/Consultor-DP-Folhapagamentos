@@ -261,7 +261,9 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     // Férias do mês pagas no recibo: entram nas bases do INSS e do FGTS (não no IRRF, que foi em separado).
     const fm = e.feriasDoMes;
     if (fm && fm.ferias + fm.terco > 0) {
-        verba({ codigo: 'FERMES', descricao: 'Férias + 1/3 do mês (pagas no recibo)', referencia: `${fm.dias} dias`, tipo: 'provento', valor: fm.ferias + fm.terco, inss: true, fgts: true, irrf: false });
+        // Férias e 1/3 em linhas próprias, como no holerite do IOB (no eSocial, naturezas 1016 e 1017).
+        verba({ codigo: 'FERMES', descricao: 'Férias do mês (pagas no recibo)', referencia: `${fm.dias} dias`, tipo: 'provento', valor: fm.ferias, inss: true, fgts: true, irrf: false });
+        verba({ codigo: 'FERMES13', descricao: '1/3 de férias do mês (pago no recibo)', referencia: '', tipo: 'provento', valor: fm.terco, inss: true, fgts: true, irrf: false });
         // O que o recibo já pagou e reteve (parte desta competência): líquido, INSS e IRRF, como no holerite do IOB.
         const irrfFer = fm.irrf ?? 0;
         verba({ codigo: 'FERPAGO', descricao: 'Líquido das férias pago no recibo', referencia: '', tipo: 'desconto', valor: Math.max(0, fm.ferias + fm.terco - fm.inss - irrfFer), inss: false, fgts: false, irrf: false });

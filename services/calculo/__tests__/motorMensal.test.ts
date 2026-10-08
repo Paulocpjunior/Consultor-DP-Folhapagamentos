@@ -184,7 +184,8 @@ describe('motor do cálculo mensal', () => {
         const r = calc({ ficha: f, competencia: '2025-07', pagamento: '2025-08', afastamentos: [gozo], feriasDoMes: fm });
         expect(r.situacao).toBe('calculado');
         expect(valor(r, 'SAL')).toBe(100000); // 30 − 20 dias
-        expect(valor(r, 'FERMES')).toBe(266667);
+        expect(valor(r, 'FERMES')).toBe(200000);
+        expect(valor(r, 'FERMES13')).toBe(66667);
         expect(valor(r, 'FERPAGO')).toBe(266667 - 21723 - fm.irrf); // líquido do recibo
         expect(valor(r, 'INSSFERRET')).toBe(21723);
         expect(valor(r, 'IRRFFERRET')).toBe(fm.irrf);

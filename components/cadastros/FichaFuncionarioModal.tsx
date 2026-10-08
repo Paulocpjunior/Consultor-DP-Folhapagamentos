@@ -191,7 +191,7 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                             {!f.dependentes.length && <p className="text-sm text-slate-500">Nenhum dependente.</p>}
                             <button className="rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600 dark:text-white" onClick={() => setF({ ...f, dependentes: [...f.dependentes, { ...DEP_VAZIO }] })}>Adicionar dependente</button>
                             {f.origens.dependentes && <p className="text-[11px] text-slate-400">{f.origens.dependentes}</p>}
-                            <p className="text-[11px] text-slate-500 dark:text-slate-400">Pensão alimentícia: marque quem recebe (com CPF). Com mais de um alimentando, a cota (%) de cada um divide a pensão do mês no S-1210. A mesma pessoa não é deduzida como dependente e como alimentando.</p>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400">Pensão alimentícia: marque quem recebe (com CPF). Com mais de um alimentando, a cota (%) de cada um divide a pensão do mês no S-1210. No mesmo mês, quem recebe pensão não é deduzido também como dependente (Lei 9.250/1995, art. 35, § 4º): o filho alimentando fica com IRRF = Não e Pensão = Sim.</p>
                         </div>
                     )}
 

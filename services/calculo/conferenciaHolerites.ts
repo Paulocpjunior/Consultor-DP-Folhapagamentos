@@ -106,7 +106,7 @@ export function conferirHolerite(r: ResultadoCalculo | undefined, h: HoleriteIob
     }
     const iob = somaPorClasse(h);
     // INSS e IRRF do motor incluem o que foi retido no recibo de férias (o IOB pode imprimir em linhas separadas).
-    const codigos: Partial<Record<Classe, string[]>> = { INSS: ['INSS', 'INSSFERRET'], IRRF: ['IRRF', 'IRRFFERRET'] };
+    const codigos: Partial<Record<Classe, string[]>> = { INSS: ['INSS', 'INSSFERRET'], IRRF: ['IRRF', 'IRRFFERRET'], FERMES: ['FERMES', 'FERMES13'] };
     const motor = (c: Classe) => r.verbas.filter(v => (codigos[c] ?? [c]).includes(v.codigo)).reduce((s, v) => s + v.valor, 0);
     const linha = (item: string, m: number, i: number): LinhaConferencia => ({ item, motor: m, iob: i, diferenca: m - i, ok: Math.abs(m - i) <= TOLERANCIA });
     const doIob = ITENS.filter(c => iob[c]);

@@ -2664,3 +2664,88 @@ guias sindicais".
   - **README (P2):** o passo do proxy do Gemini passa a dizer como recuperar
     pelo git o modelo removido (`geminiService.proxy.ts`).
 - **Testes:** 86 arquivos, 681 testes.
+
+## 08/10/2026 — Demonstrativo de férias no S-1200 e no S-1210
+
+- **Paulo:** *"pode seguir com demonstrativo de férias no s-1200"*.
+- **Antes:** quem tinha férias no mês ficava sem S-1200 e S-1210, com o aviso
+  de transmitir pelo IOB.
+- **Pesquisa:**
+  - O MOS e as tabelas no gov.br estão bloqueados pela rede desta sessão.
+  - **Regra dos XSDs S-1.3:** o S-1210 aponta para o demonstrativo do
+    S-1200 pelo `perRef` e o `ideDmDev`.
+  - **Fontes secundárias (fornecedores de folha e consultorias):**
+    - erro 860: a data do pagamento não pode ser anterior ao período do
+      demonstrativo;
+    - a NT S-1.3 04/2025, obrigatória desde 01/2026, criou a natureza
+      **1015** (adiantamento de férias, com o 1/3) para o pagamento feito
+      em mês anterior ao do gozo;
+    - no mês do gozo entram **1016/1017** (férias e 1/3 da competência) e o
+      desconto **9221** (o líquido já pago);
+    - a natureza **1020** (férias) acabou em 04/2023.
+  - **Confirmar no MOS consolidado:** o detalhe de onde vão o INSS e o IRRF
+    de cada parte. Até lá, as incidências ficam com o S-1010 da empresa (as
+    rubricas do IOB), e o de/para separa cada caso numa verba própria.
+- **Modelo adotado (`services/esocial/eventosFolha.ts`):**
+  - **Recibo de férias pago na competência:** demonstrativo próprio no S-1200
+    dela (`FERAAAAMMDD-matrícula`), pago na data do recibo (dia útil até 2
+    dias antes do início, a mesma do arquivo bancário). O pagamento vai no
+    S-1210 do mês do recibo.
+  - **Divisão do recibo pela competência do gozo:**
+    - parte no mês do pagamento: férias e 1/3 (`FER`, `FER13`: 1016 e 1017)
+      e o INSS dela (`INSSFER`);
+    - parte em mês seguinte: adiantamento (`FERADI`, `FERADI13`: 1015) e o
+      INSS dela à parte (`INSSFERADI`);
+    - o IRRF do recibo (regime de caixa) fica inteiro no recibo.
+  - **Folha do mês do gozo:**
+    - férias pagas antes: soma e abate como o holerite. São as férias e o 1/3
+      do mês (`FERMES` e `FERMES13`, agora em linhas próprias), o líquido
+      pago (`FERPAGO`: 9221) e o INSS e o IRRF retidos no recibo;
+    - férias pagas no próprio mês: essa parte sai da folha, porque está no
+      recibo. O líquido da folha não muda, e o INSS do mês fecha com o
+      retido no recibo mais o da folha.
+  - **Conferência:** as férias da folha têm de bater com os recibos do mês.
+    Sem o recibo, o trabalhador fica sem evento, com o motivo. Pagamento
+    depois do início do gozo não é gerado.
+  - **S-1210 por mês de pagamento:**
+    - um para o mês da folha e outro para o mês dos recibos, quando é
+      diferente (`outrosMeses`); no mesmo mês, um só, com os dois
+      pagamentos;
+    - a exclusão e o reenvio do S-1210 aceito valem para cada mês;
+    - as deduções do IRRF (dependentes e pensão) vão no S-1210 do mês da
+      folha.
+  - **Retificação:** a folha usa o demonstrativo do original só quando ele é
+    o único da matrícula e não há recibo no mês. Um original com outros
+    nomes (por exemplo, folha e férias do IOB) cai em "demonstrativo que o
+    cálculo não gera: retifique pelo IOB".
+- **Tela:**
+  - O Cálculo › Mensal › "S-1200 e S-1210" calcula os recibos do mês
+    (`recibosFeriasDaCompetencia`).
+  - O de/para inclui as verbas do recibo.
+  - A tela mostra quantos trabalhadores têm recibo no mês e baixa e
+    transmite todos os S-1210, cada um com a sua exclusão.
+  - A aba Férias explica por onde o recibo vai ao eSocial, e o guia da MiA
+    também.
+- **Motor:** "Férias do mês" e "1/3 de férias do mês" ficam em linhas
+  próprias, como no holerite do IOB. A conferência dos holerites soma as
+  duas.
+- **Validação:** os XMLs dos três casos passam no XSD do S-1.3, exceto pela
+  assinatura, que o CFI acrescenta. Os três casos são férias pagas no mês
+  anterior, pagas no próprio mês e com o gozo em dois meses.
+- **Testes:** `feriasEsocial.test.ts` (ponta a ponta com o motor) e a tela
+  com dois S-1210.
+- **Antes de usar em produção:** comparar com o S-1200 e o S-1210 que o IOB
+  transmitiu num mês com férias. Pelo download do eSocial, confira os
+  demonstrativos e as rubricas.
+- **Paulo, no meio do trabalho, com o print da ficha da Yasmin (IRRF = Sim e
+  Pensão = Sim, cota 30%):** *"Na legislação o filho pode ser dependente
+  para abater IR e pagar pensão tbm."*
+  - **Conferido:** no mesmo mês, a lei não permite deduzir a mesma pessoa
+    como dependente e como alimentando. A Lei 9.250/1995, art. 35, § 4º,
+    veda a dedução concomitante, e a IN RFB 1.500/2014, art. 90, § 4º, diz
+    que quem paga pensão não deduz como dependente a mesma pessoa. A
+    exceção vale para meses diferentes do mesmo ano (por exemplo, o filho
+    foi dependente até a pensão começar).
+  - A validação da ficha continua, e a mensagem agora cita a norma e diz o
+    que fazer: IRRF = Não e Pensão = Sim, porque a pensão deduz o valor
+    pago, sem limite.

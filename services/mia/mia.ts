@@ -44,6 +44,7 @@ export const GUIA_DO_APP = [
     '- IOB SAGE: restauração do backup do SAGE (empresa piloto e as demais), registro de guarda dos backups.',
     '- Usuários (só admin): papéis e carteira de empresas. O vínculo com o módulo DP/Folha é no Gerenciar Usuários do CFI.',
     '- Pensão alimentícia: o valor do mês entra no movimento do Cálculo; quem recebe (alimentando) se marca na ficha, aba Dependentes (colunas Pensão, Cota % e No eSocial). O S-1210 informa a pensão pelo CPF de cada alimentando; com mais de um, a cota divide o valor.',
+    '- Férias no eSocial: o recibo vai no S-1200 do mês em que é pago, em demonstrativo próprio, e no S-1210 desse mês (data do recibo). Gozo em mês seguinte ao pagamento vai como adiantamento (natureza 1015); a folha do mês do gozo traz as férias do mês e abate o líquido pago (9221). Gera-se pelo Cálculo › Mensal › "S-1200 e S-1210" da competência do pagamento.',
     'Antes de qualquer ação o app pede a empresa e o período ativos ("Trocar empresa ou período" no topo).',
 ].join('\n');
 

@@ -67,6 +67,31 @@ describe('tela S-1200 e S-1210', () => {
         expect((screen.getByText('Transmitir S-1200 (0)') as HTMLButtonElement).disabled).toBe(true);
     });
 
+    it('recibo de férias pago na competência: de/para das verbas do recibo e dois S-1210 (o do recibo e o da folha)', async () => {
+        sv.rubricas.mockResolvedValue([rub('0001', 'SALARIO', '1000', '1'), rub('0901', 'INSS', '9201', '2'), rub('0150', 'ADIANTAMENTO DE FERIAS', '1015', '1'), rub('0950', 'INSS FERIAS', '9201', '2')]);
+        vi.spyOn(window, 'confirm').mockReturnValue(true);
+        // Gozo em outubro, pago em 29/09: adiantamento no S-1200 de setembro.
+        const recibo = { ...res, competencia: '2026-10', pagamento: '2026-09', pagarAte: '2026-09-29', gozoId: 'g1', periodo: null, direito: 30, saldo: 10, diasGozo: 20, diasDobra: 0, abonoDias: 0, irrf: null,
+            porCompetencia: [{ competencia: '2026-10', dias: 20, ferias: 200000, terco: 66667, inss: 25000, fgts: 0 }],
+            verbas: [{ codigo: 'FER', descricao: 'Férias', referencia: '20 dias', tipo: 'provento', valor: 200000 }, { codigo: 'FER13', descricao: '1/3 constitucional de férias', referencia: '', tipo: 'provento', valor: 66667 },
+                { codigo: 'INSSFER', descricao: 'INSS sobre férias', referencia: '', tipo: 'desconto', valor: 25000 }],
+            totais: { proventos: 266667, descontos: 25000, liquido: 241667 } } as unknown as import('../../calculo/motorFerias').ResultadoFerias;
+        const gravado = { nrInscEstab: CNPJ, codLotacao: 'LOT01', rubricas: { SAL: { codRubr: '0001', ideTabRubr: 'T1' }, INSS: { codRubr: '0901', ideTabRubr: 'T1' },
+            FERADI: { codRubr: '0150', ideTabRubr: 'T1' }, FERADI13: { codRubr: '0150', ideTabRubr: 'T1' }, INSSFERADI: { codRubr: '0950', ideTabRubr: 'T1' } } };
+        render(<EventosFolhaModal empresa={{ ...empresa, esocialFolha: gravado }} competencia="2026-09" fichas={[ficha]} resultados={[res]} recibosFerias={[{ r: recibo, dataPagamento: '2026-09-29' }]}
+            dataSugerida="2026-10-06" usuario={{ id: 'u', email: 'u@x' }} onFechar={() => {}} />);
+        await waitFor(() => expect(screen.getByText(/1 com recibo de férias pago no mês/)).toBeTruthy());
+        expect((screen.getByLabelText('Rubrica de Adiantamento de férias (gozo em mês seguinte)') as HTMLSelectElement).value).toBe('T1|0150');
+        expect(screen.getByText(/Recibos de férias pagos em 09\/2026: demonstrativo próprio/)).toBeTruthy();
+        const s1210 = screen.getByText('Transmitir S-1210 (2)') as HTMLButtonElement;
+        await waitFor(() => expect(s1210.disabled).toBe(false));
+        fireEvent.click(s1210);
+        await waitFor(() => expect(sv.enviar).toHaveBeenCalled());
+        const eventos = sv.enviar.mock.calls[0][0].eventos;
+        expect(eventos.map(x => x.match(/<perApur>([^<]+)<\/perApur>/)![1])).toEqual(['2026-09', '2026-10']);
+        expect(eventos[0]).toContain('<dtPgto>2026-09-29</dtPgto><tpPgto>1</tpPgto><perRef>2026-09</perRef><ideDmDev>FER20260929-M001</ideDmDev><vrLiq>2416.67</vrLiq>');
+    });
+
     it('produção com S-1210 aceito: 1. exclui (com cópia), consulta e só então libera o S-1200 e o S-1210', async () => {
         const REC = '1.1.0000000000000000002';
         sv.rubricas.mockResolvedValue([rub('0001', 'SALARIO', '1000', '1'), rub('0901', 'INSS', '9201', '2')]);
