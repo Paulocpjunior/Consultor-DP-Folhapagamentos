@@ -3017,3 +3017,7 @@ guias sindicais".
 - **`favorecidosDaFolha`** recebe opcionalmente o valor de cada recibo. O pacote do cliente e o arquivo da folha continuam com o líquido.
 - **Trava:** `adiantamentoVt.test.ts` (valor igual ao do S-1210, seleção e data) e `arquivoBancarioModal.test.tsx` (coluna "Adiantamento", valor de fora e quem fica fora).
 - **Fica para depois:** holerite (recibo) do adiantamento em PDF.
+- **Revisão do Codex no #117 (P1):** a data do adiantamento mudada no arquivo bancário passa pelas mesmas regras do eSocial (`foraDoAdiantamento`). Fica fora do arquivo, com o motivo:
+  - data fora da competência;
+  - data antes da admissão;
+  - admissão ou desligamento entre a data nova e a do cálculo, a não ser que o adiantamento esteja informado no movimento.

@@ -2,7 +2,7 @@
 // Adiantamento salarial e vale-transporte: motor, demonstrativo próprio no S-1200 e pagamento no S-1210,
 // conferidos com o caso real do IOB de 08 e 09/2026 (dados trocados; os eventos do IOB não vão ao repositório).
 import { describe, expect, it } from 'vitest';
-import { favorecidosDaFolha, valorDoAdiantamento } from '../../bancario/favorecidos';
+import { favorecidosDaFolha, foraDoAdiantamento, valorDoAdiantamento } from '../../bancario/favorecidos';
 import { dataSugeridaAdiantamento, gerarEventosFolha, recibosFeriasDaCompetencia, sugerirDePara, verbasDoAdiantamentoParaDePara, type ParametrosEsocialFolha } from '../eventosFolha';
 import { adiantamentoDoMes, calcularMensal } from '../../calculo/motorMensal';
 import { feriasDaCompetencia } from '../../calculo/motorFerias';
@@ -208,6 +208,17 @@ describe('adiantamento salarial e vale-transporte', () => {
         const { favorecidos, foraDoCalculo } = favorecidosDaFolha([set, semAdiant, { ...set, fichaId: 'f3', nome: 'CAIO', situacao: 'erro' }], [ficha], dataSugeridaAdiantamento('2026-09'), undefined, valorDoAdiantamento);
         expect(favorecidos.map(f => [f.nome, f.valor, f.dataPagamento, f.banco])).toEqual([['ANA', 46700, '2026-09-18', '341']]);
         expect(foraDoCalculo).toEqual([{ nome: 'CAIO', motivo: 'cálculo com erro' }]);
+        // Data mudada no arquivo (Codex #117): fora da competência, ou admissão entre a data nova e a do cálculo, fica fora.
+        const comData = (data: string, fichas = [ficha], res = [set]) => favorecidosDaFolha(res, fichas, data, undefined, valorDoAdiantamento, foraDoAdiantamento);
+        expect(comData('2026-10-01').foraDoCalculo).toEqual([{ nome: 'ANA', motivo: 'data 01/10/2026 fora de 09/2026: o adiantamento foi calculado para a competência' }]);
+        expect(comData('2026-09-15').favorecidos.map(f => [f.valor, f.dataPagamento])).toEqual([[46700, '2026-09-15']]);
+        const nova = { ...ficha, dados: { ...ficha.dados, admissao: '2026-09-16' } };
+        expect(comData('2026-09-15', [nova]).foraDoCalculo[0].motivo).toBe('admitido em 16/09/2026, depois de 15/09/2026');
+        const entre = { ...ficha, dados: { ...ficha.dados, admissao: '2026-09-19' } };
+        expect(comData('2026-09-20', [entre]).foraDoCalculo[0].motivo).toMatch(/^admissão ou desligamento entre 20\/09\/2026 e 18\/09\/2026/);
+        expect(comData('2026-09-20', [{ ...ficha, dados: { ...ficha.dados, dataDesligamento: '2026-09-19' } }]).foraDoCalculo[0].motivo).toMatch(/^admissão ou desligamento entre/);
+        // Adiantamento informado no movimento: vale o informado, com qualquer data da competência depois da admissão.
+        expect(comData('2026-09-20', [entre], [{ ...set, adiantamentoInformado: true }]).favorecidos).toHaveLength(1);
         // De/para das linhas do arredondamento pela descrição.
         const s = Object.fromEntries(sugerirDePara([set, ...verbasDoAdiantamentoParaDePara([set])], RUBRICAS, '2026-09').map(i => [i.chave, i.sugestao?.codRubr ?? null]));
         expect([s.ARREDATU, s.ARREDANT, s.ARREDADI]).toEqual(['ARRA', 'ARRN', 'ARRD']);

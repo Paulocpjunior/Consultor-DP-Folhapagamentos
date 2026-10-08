@@ -33,11 +33,13 @@ interface Props {
     /** Valor a pagar de cada recibo, no lugar do líquido (arquivo do adiantamento), e o nome da coluna. */
     valorPorResultado?: (r: ResultadoCalculo) => number;
     rotuloValor?: string;
+    /** Motivo para deixar o recibo fora pela data escolhida (arquivo do adiantamento: a data do cálculo). */
+    foraPorData?: (r: ResultadoCalculo, f: FichaFuncionario | undefined, data: string) => string | undefined;
     onFechar: () => void;
     onContasSalvas?: (contas: ContaPagamento[]) => void;
 }
 
-const ArquivoBancarioModal: React.FC<Props> = ({ empresa, resultados, fichas, titulo, dataSugerida, dataPorResultado, valorPorResultado, rotuloValor = 'Líquido', onFechar, onContasSalvas }) => {
+const ArquivoBancarioModal: React.FC<Props> = ({ empresa, resultados, fichas, titulo, dataSugerida, dataPorResultado, valorPorResultado, rotuloValor = 'Líquido', foraPorData, onFechar, onContasSalvas }) => {
     const [contas, setContas] = useState<ContaPagamento[]>(empresa.contasPagamento ?? []);
     const [contaId, setContaId] = useState(contas[0]?.id ?? '');
     const [edicao, setEdicao] = useState<ContaPagamento | null>(contas.length ? null : { ...contaPagamentoVazia(), id: `c${Date.now()}` });
@@ -49,8 +51,8 @@ const ArquivoBancarioModal: React.FC<Props> = ({ empresa, resultados, fichas, ti
     const perfil = conta ? PERFIS_BANCO[conta.banco] : undefined;
 
     const { favorecidos, foraDoCalculo } = useMemo(
-        () => favorecidosDaFolha(resultados, fichas, data, usarDataDoRecibo ? dataPorResultado : undefined, valorPorResultado),
-        [resultados, fichas, data, usarDataDoRecibo, dataPorResultado, valorPorResultado]);
+        () => favorecidosDaFolha(resultados, fichas, data, usarDataDoRecibo ? dataPorResultado : undefined, valorPorResultado, foraPorData),
+        [resultados, fichas, data, usarDataDoRecibo, dataPorResultado, valorPorResultado, foraPorData]);
 
     const previa = useMemo(() => {
         if (!conta) return null;
