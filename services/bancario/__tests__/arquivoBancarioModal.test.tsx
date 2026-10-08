@@ -50,7 +50,7 @@ describe('modal Arquivo Bancário', () => {
         await waitFor(() => expect(sv.reservar).toHaveBeenCalledTimes(1));
         await waitFor(() => expect(criar).toHaveBeenCalledTimes(1));
         expect((await sv.reservar.mock.results[0].value).contas[0].proximoNsa).toBe(2);
-        expect(screen.getByRole('status').textContent).toMatch(/CNAB240_237_\d{8}_000001\.REM baixado: 1 pagamento/);
+        expect(screen.getByRole('status').textContent).toMatch(/PG\d{4}01\.REM baixado: 1 pagamento/);
     });
 
     it('sem conseguir reservar o número do arquivo (permissão ou rede), não baixa: o próximo sairia repetido', async () => {

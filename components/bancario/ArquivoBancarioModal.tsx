@@ -82,7 +82,8 @@ const ArquivoBancarioModal: React.FC<Props> = ({ empresa, resultados, fichas, ti
             r = gerarRemessa({ conta: { ...conta, proximoNsa: res.nsa }, cnpj: empresa.cnpj, razaoSocial: empresa.razaoSocial, favorecidos, preferirPix });
         } catch (e) { setErro(`Arquivo não gerado: não foi possível reservar o número do arquivo (${(e as Error).message}).`); return; }
         finally { setSalvando(false); }
-        const blob = new Blob([r.conteudo], { type: 'text/plain;charset=us-ascii' });
+        // octet-stream: como texto, o navegador (Safari no Mac) acrescenta .txt e o banco recusa o nome.
+        const blob = new Blob([r.conteudo], { type: 'application/octet-stream' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a'); a.href = url; a.download = r.nomeArquivo; document.body.appendChild(a); a.click(); a.remove();
         setTimeout(() => URL.revokeObjectURL(url), 1000);

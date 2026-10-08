@@ -2664,3 +2664,83 @@ guias sindicais".
   - **README (P2):** o passo do proxy do Gemini passa a dizer como recuperar
     pelo git o modelo removido (`geminiService.proxy.ts`).
 - **Testes:** 86 arquivos, 681 testes.
+
+## 08/10/2026 — Pacote do cliente pelo SP Connect (WhatsApp do escritório)
+
+- **Paulo:** *"ao usar o consultor DP, e envio para WhatsApp, não está
+  assumindo que deve sair pelo WhatsApp, SP Connect"* e *"pode seguir no
+  Consultor DP, com a mesma regra criada no CFI e no CCI, onde podemos enviar
+  arquivos em anexo aos clientes"*.
+- **Antes:** o botão montava um link `wa.me`, que abre o WhatsApp de quem
+  está no computador, e não o número do escritório.
+- **Regra do CFI e do CCI (SP Connect, Cloud API da Meta):**
+  - o envio ao cliente sai pelo gateway dos apps irmãos (`POST
+    /api/admin/whatsapp/enviar`, que aceita o token do DP), com o template
+    do departamento;
+  - fora da janela de 24h, a Meta só aceita template, e o template só leva
+    arquivo com cabeçalho de documento (um PDF por envio);
+  - o token da Meta nunca sai do CFI, e o CFI audita o envio em
+    `whatsapp_envios`, com quem enviou.
+- **Feito (só no Consultor DP, sem mudança no CFI):**
+  - **`services/pacoteCliente/spConnect.ts`:**
+    - `templatesDoDp`: templates ativos do `dp-folha` com documento;
+    - `enviarPeloSpConnect`: template, variáveis e PDF em base64, com o
+      token do usuário (`comTokenCfi`). A recusa do CFI chega com o que
+      fazer (`acao`);
+    - `valoresSugeridos`: preenche cliente, empresa e competência pela
+      chave da variável.
+  - **Pacote do cliente, bloco "SP Connect: WhatsApp do escritório":**
+    - escolha do template e do PDF do pacote (holerites ou resumo), com as
+      variáveis já sugeridas e editáveis;
+    - confirmação antes de enviar e o resultado na tela (número e template).
+  - **Sem template `dp-folha` com documento**, a tela explica o que fazer: um
+    admin cria na Meta um modelo de utilidade com cabeçalho de DOCUMENTO e
+    cadastra no CFI (⚙️ Config Admin › WhatsApp, departamento dp-folha, "tem
+    documento").
+  - O botão antigo passa a se chamar "WhatsApp deste computador" e fica como
+    alternativa.
+  - O .zip completo (arquivo bancário, agenda, LEIA-ME) segue pelo e-mail.
+- **Para o CFI, só com a aprovação do Paulo:**
+  - `/enviar` grava `projetoOrigem` a partir de `req.user.projeto`, mas o
+    token dos irmãos preenche `projectId`. Por isso o envio do DP fica sem
+    origem na auditoria;
+  - não há rota de e-mail (Graph) aberta ao DP: o e-mail continua saindo do
+    programa de e-mail de quem usa.
+- **Testes:** `spConnect.test.ts` e o modal com o envio e com a falta de
+  template.
+- **Arquivo bancário recusado pelo Itaú (Paulo, 08/10/2026, print do app
+  Itaú):** *"Nome do arquivo recebido [CNAB240_341_20261008_000005.REM.txt]
+  fora da especificação (8 caracteres para nome e 3 para extensão)"*.
+  - O conteúdo estava certo (registros de 240 posições com CRLF); a recusa
+    era só do nome.
+  - **Nome 8.3:** `PG` + dia + mês + os 2 últimos dígitos do número do
+    arquivo, por exemplo `PG081005.REM`. O número muda a cada remessa, então
+    dois arquivos do mesmo dia não se repetem até o 100º.
+  - **Download como binário (`application/octet-stream`):** como texto, o
+    Safari acrescentava `.txt` ao nome.
+  - Vale também para o .REM de dentro do pacote do cliente.
+- **Revisão do Codex no PR #112 (P2):** a sugestão das variáveis testa primeiro empresa, competência e documento, e só depois o genérico "nome". Assim `nome_empresa` recebe a empresa, e não o contato.
+- **E-mail pelo escritório (Paulo, 08/10/2026: "Commit, PR e deploy", depois
+  das correções no CFI #1391):**
+  - O modal ganha o botão "Enviar e-mail pelo escritório". Ele chama a nova
+    rota do CFI, `POST /api/dp-integration/email/enviar`, que é a mesma régua
+    do CFI e do CCI:
+    - Graph sendMail, com a caixa do colaborador logado como remetente;
+    - casca da marca, com o Departamento Pessoal;
+    - .zip em anexo, até 3 MB;
+    - cópia oculta por `DP_EMAIL_BCC`;
+    - auditoria em `dp_email_envio_log`.
+  - A tela confirma antes de enviar e mostra de quem saiu, o aviso de
+    remetente (quando caiu na caixa institucional) e quem ficou em cópia.
+  - O botão antigo passa a se chamar "E-mail deste computador" e continua
+    como alternativa.
+  - Antes da publicação no CFI, a rota responde 404, e a tela diz para usar o
+    e-mail deste computador.
+  - No CFI, a auditoria do WhatsApp volta a gravar `projetoOrigem` a partir
+    do `projectId` dos irmãos (CFI #1391 e sp-connect #4).
+  - **Testes:**
+    - `spConnect.test.ts`: corpo do pedido, 404 e recusa;
+    - o modal com o envio.
+- **Revisão do Codex no CFI #1391:**
+  - O teto dos anexos do e-mail caiu para ~2,8 MB de arquivo. Ele agora é medido no base64, para caber no pedido de 4 MB do Graph.
+  - A resposta passou a trazer `convites` e `avisosConvites`, e a tela do pacote mostra os dois: o `vencimentos-sp.ics` que foi junto e os PDFs que o CFI não leu.
