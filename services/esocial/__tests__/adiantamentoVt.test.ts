@@ -108,6 +108,13 @@ describe('adiantamento salarial e vale-transporte', () => {
         const soFerias = RUBRICAS.filter(r => r.id !== 'ADIPG').map(r => r.id !== 'FERADI' ? r : { ...r, vigencias: [{ ...r.vigencias[0], dados: { ...r.vigencias[0].dados, dscRubr: 'ADIANTAMENTO DE FERIAS' } }] });
         const s2 = Object.fromEntries(sugerirDePara([ago, ...verbasDoAdiantamentoParaDePara([ago])], soFerias, '2026-08').map(i => [i.chave, i.sugestao?.codRubr ?? null]));
         expect(s2.ADIANTPAG).toBeNull();
+        // Nem adiantamento de comissão ou gorjeta (catálogo de eventos do IOB): só o de salário, vale ou quinzena (Codex #115).
+        for (const dsc of ['ADIANTAMENTO COMISSAO', 'ADIANTAMENTO GORJETA']) {
+            const outra = RUBRICAS.filter(r => r.id !== 'ADIPG').concat([{ ...RUBRICAS.find(r => r.id === 'ADIPG')!, id: 'X', codRubr: 'X', vigencias: [{ ...RUBRICAS[0].vigencias[0], dados: { ...RUBRICAS[0].vigencias[0].dados, dscRubr: dsc, tpRubr: '1' } }] }]);
+            expect(sugerirDePara([ago, ...verbasDoAdiantamentoParaDePara([ago])], outra, '2026-08').find(i => i.chave === 'ADIANTPAG')?.sugestao).toBeNull();
+        }
+        const quinz = RUBRICAS.map(r => r.id !== 'ADIPG' ? r : { ...r, vigencias: [{ ...r.vigencias[0], dados: { ...r.vigencias[0].dados, dscRubr: 'ADIANTAMENTO QUINZENAL' } }] });
+        expect(sugerirDePara([ago, ...verbasDoAdiantamentoParaDePara([ago])], quinz, '2026-08').find(i => i.chave === 'ADIANTPAG')?.sugestao?.codRubr).toBe('ADIPG');
     });
 
     it('admitido depois do dia do adiantamento: sem adiantamento automático; informado antes da admissão, o eSocial recusa (Codex #115)', () => {

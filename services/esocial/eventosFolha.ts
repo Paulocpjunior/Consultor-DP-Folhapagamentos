@@ -78,7 +78,8 @@ const SUGESTAO: Record<string, { naturezas: string[]; dica?: RegExp; evita?: Reg
     PENSAO: { naturezas: ['9213'] },
     // Adiantamento salarial: no demonstrativo próprio, a rubrica de provento do adiantamento (a natureza varia
     // no S-1010 de cada empresa: vai pela descrição); na folha, o desconto (9200). Vale-transporte: 9216.
-    ADIANTPAG: { naturezas: [], dica: /ADIANT/, evita: /FERIAS|13/ },
+    // Só adiantamento de salário (ou "vale", "quinzena"): comissão, gorjeta, férias e 13º têm rubricas próprias (Codex #115).
+    ADIANTPAG: { naturezas: [], dica: /ADIANT.*\b(SAL|VALE|QUINZ)/, evita: /FERIAS|13|COMISS|GORJ/ },
     ADIANT: { naturezas: ['9200'] },
     VT: { naturezas: ['9216'] },
     // Folha do mês com férias pagas antes: férias e 1/3 da competência, o desconto do líquido pago (9221) e o retido no recibo.
