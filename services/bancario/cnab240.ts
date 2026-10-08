@@ -328,9 +328,11 @@ export function gerarRemessa(p: { conta: ContaPagamento; cnpj: string; razaoSoci
     linhas.push(sispag ? trailerArquivoSispag(nLote, linhas.length + 1) : trailerArquivo(x, nLote, linhas.length + 1));
     const ruim = linhas.findIndex(l => l.length !== 240);
     if (ruim >= 0) throw new Error(`Registro ${ruim + 1} com ${linhas[ruim].length} posições (esperado 240).`);
-    const d = `${agora.getFullYear()}${String(agora.getMonth() + 1).padStart(2, '0')}${String(agora.getDate()).padStart(2, '0')}`;
+    // Nome 8.3 (o Itaú recusa outro: "8 caracteres para nome e 3 para extensão", Paulo, 08/10/2026):
+    // PG + dia + mês + os 2 últimos dígitos do número do arquivo, que muda a cada remessa.
+    const dd = String(agora.getDate()).padStart(2, '0'); const mm = String(agora.getMonth() + 1).padStart(2, '0');
     return {
-        conteudo: linhas.join('\r\n') + '\r\n', nomeArquivo: `CNAB240_${perfil.codigo}_${d}_${String(nsa).padStart(6, '0')}.REM`, nsa,
+        conteudo: linhas.join('\r\n') + '\r\n', nomeArquivo: `PG${dd}${mm}${String(nsa % 100).padStart(2, '0')}.REM`, nsa,
         lotes, incluidos, excluidos, total: lotes.reduce((s, l) => s + l.total, 0), perfil,
         naoConferidas: lotes.map(l => l.forma).filter(f => !perfil.formasConferidas.includes(f)),
     };

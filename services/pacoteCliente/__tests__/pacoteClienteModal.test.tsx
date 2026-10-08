@@ -48,7 +48,7 @@ describe('modal Pacote do cliente', () => {
         const arquivos = await lerZip(sv.baixados[0].bytes);
         const nomes = arquivos.map(a => a.nome);
         expect(nomes[0]).toBe('LEIA-ME.txt');
-        expect(nomes.slice(1)).toEqual(['holerites-1200-2026-09.pdf', expect.stringMatching(/^CNAB240_341_\d{8}_000009\.REM$/), 'agenda-1200-2026-09.ics']);
+        expect(nomes.slice(1)).toEqual(['holerites-1200-2026-09.pdf', expect.stringMatching(/^PG\d{4}09\.REM$/), 'agenda-1200-2026-09.ics']);
         const txt = (n: string) => new TextDecoder().decode(arquivos.find(a => a.nome === n)!.bytes);
         const rem = txt(nomes[2]).split('\r\n').filter(Boolean);
         expect(rem.map(l => l.slice(7, 8))).toEqual(['0', '1', '3', '5', '9']);

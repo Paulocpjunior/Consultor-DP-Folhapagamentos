@@ -2708,3 +2708,14 @@ guias sindicais".
     programa de e-mail de quem usa.
 - **Testes:** `spConnect.test.ts` e o modal com o envio e com a falta de
   template.
+- **Arquivo bancário recusado pelo Itaú (Paulo, 08/10/2026, print do app
+  Itaú):** *"Nome do arquivo recebido [CNAB240_341_20261008_000005.REM.txt]
+  fora da especificação (8 caracteres para nome e 3 para extensão)"*.
+  - O conteúdo estava certo (registros de 240 posições com CRLF); a recusa
+    era só do nome.
+  - **Nome 8.3:** `PG` + dia + mês + os 2 últimos dígitos do número do
+    arquivo, por exemplo `PG081005.REM`. O número muda a cada remessa, então
+    dois arquivos do mesmo dia não se repetem até o 100º.
+  - **Download como binário (`application/octet-stream`):** como texto, o
+    Safari acrescentava `.txt` ao nome.
+  - Vale também para o .REM de dentro do pacote do cliente.
