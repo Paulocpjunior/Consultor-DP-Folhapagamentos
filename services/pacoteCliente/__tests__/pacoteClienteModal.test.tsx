@@ -4,8 +4,12 @@ import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
-const sv = vi.hoisted(() => ({ salvar: vi.fn(async (..._a: unknown[]) => undefined), contato: vi.fn(async (..._a: unknown[]) => undefined), baixados: [] as { nome: string; bytes: Uint8Array }[] }));
-vi.mock('../../empresas/empresasService', () => ({ salvarContasPagamento: (...a: unknown[]) => sv.salvar(...a), salvarContatoEnvio: (...a: unknown[]) => sv.contato(...a) }));
+const sv = vi.hoisted(() => ({
+    // Reserva do número do arquivo em transação: devolve o gravado (9) e grava o seguinte.
+    salvar: vi.fn(async (_empresaId: string, contaId: string) => ({ nsa: 9, contas: [{ id: contaId, banco: '341', proximoNsa: 10 }] })),
+    contato: vi.fn(async (..._a: unknown[]) => undefined), baixados: [] as { nome: string; bytes: Uint8Array }[],
+}));
+vi.mock('../../empresas/empresasService', () => ({ reservarNsa: (e: string, c: string) => sv.salvar(e, c), salvarContatoEnvio: (...a: unknown[]) => sv.contato(...a) }));
 vi.mock('../../implantacao/zip', async orig => ({ ...(await orig<typeof import('../../implantacao/zip')>()), baixarBytes: (nome: string, bytes: Uint8Array) => { sv.baixados.push({ nome, bytes }); } }));
 import PacoteClienteModal from '../../../components/pacoteCliente/PacoteClienteModal';
 import { lerZip } from '../../implantacao/zip';
@@ -36,7 +40,7 @@ describe('modal Pacote do cliente', () => {
         fireEvent.click(screen.getByLabelText('Resumo da folha (PDF)'));
         fireEvent.click(screen.getByText('Baixar pacote (.zip)'));
         await waitFor(() => expect(sv.salvar).toHaveBeenCalledTimes(1));
-        expect((sv.salvar.mock.calls[0][1] as { proximoNsa: number }[])[0].proximoNsa).toBe(10);
+        expect((await sv.salvar.mock.results[0].value).contas[0].proximoNsa).toBe(10);
         expect(onContas).toHaveBeenCalled();
         expect(sv.baixados.map(b => b.nome)).toEqual(['pacote-1200-2026-09.zip']);
         const arquivos = await lerZip(sv.baixados[0].bytes);
@@ -66,6 +70,13 @@ describe('modal Pacote do cliente', () => {
         await waitFor(() => expect(screen.getByRole('region', { name: 'Enviar ao cliente' })).toBeTruthy());
         const texto = (screen.getByLabelText('Mensagem ao cliente') as HTMLTextAreaElement).value;
         expect(texto).toMatch(/^Olá, Marta!/);
+        // Trocar o nome do contato atualiza a saudação; o que for digitado na mensagem fica.
+        fireEvent.change(screen.getByLabelText('Nome do contato'), { target: { value: 'Joana' } });
+        expect((screen.getByLabelText('Mensagem ao cliente') as HTMLTextAreaElement).value).toMatch(/^Olá, Joana!/);
+        fireEvent.change(screen.getByLabelText('Mensagem ao cliente'), { target: { value: 'Texto meu' } });
+        fireEvent.change(screen.getByLabelText('Nome do contato'), { target: { value: 'Marta' } });
+        expect((screen.getByLabelText('Mensagem ao cliente') as HTMLTextAreaElement).value).toBe('Texto meu');
+        fireEvent.change(screen.getByLabelText('Mensagem ao cliente'), { target: { value: texto } });
         expect(texto).toContain('Segue o pacote da Folha mensal 09/2026 da Exemplo (pacote-1200-2026-09.zip)');
         expect(texto).toContain('• holerites para assinatura');
         expect(texto).toMatch(/Arquivo bancário \(BANCO ITAU\): 1 pagamento\(s\), total R\$ 654,32, crédito em 06\/10\/2026/);

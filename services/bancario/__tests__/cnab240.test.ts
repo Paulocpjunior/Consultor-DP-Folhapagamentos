@@ -21,6 +21,22 @@ describe('campos', () => {
         expect(['+55 11 98888-7777', 'ana@x.com.br', '529.982.247-25', '123e4567-e89b-12d3-a456-426614174000', 'abc'].map(tipoChavePix))
             .toEqual(['telefone', 'email', 'cpf', 'aleatoria', null]);
     });
+    it('chave PIX de celular sem +55 não vira CPF; CPF/CNPJ só com dígito verificador; ambígua fica de fora com o motivo', () => {
+        // Celular só com dígitos ou com máscara (não é CPF válido): telefone, e vai no arquivo com +55.
+        expect(['11987654321', '(11) 98765-4321', '11 98765-4321', '5511987654321'].map(tipoChavePix)).toEqual(['telefone', 'telefone', 'telefone', 'telefone']);
+        // CPF válido que não parece celular; CNPJ válido; DV errado não é CPF/CNPJ.
+        expect(['12345678909', '11.222.333/0001-81', '11222333000182', '52998224726'].map(tipoChavePix)).toEqual(['cpf', 'cpf', null, null]);
+        // CPF válido que também parece celular: ambíguo, não entra.
+        expect(tipoChavePix('11987654374')).toBeNull();
+        // Com a máscara de CPF, deixa de ser ambíguo (é o que o motivo pede para fazer).
+        expect(tipoChavePix('119.876.543-74')).toBe('cpf');
+        expect(classificar(fav({ banco: '', conta: '', pix: '11987654374' }), conta, false)).toEqual({ forma: null, motivo: expect.stringMatching(/pode ser CPF ou celular: informe o celular com \+55/) });
+        expect(classificar(fav({ banco: '', conta: '', pix: '52998224726' }), conta, false).motivo).toMatch(/não é CPF\/CNPJ válido nem telefone/);
+        // No Segmento B do PIX, o celular sem +55 sai com +55 e iniciação 01.
+        const r = gerarRemessa({ conta, cnpj: '44388152000189', razaoSocial: 'EMPRESA', favorecidos: [fav({ banco: '', conta: '', pix: '(11) 98765-4321' })], preferirPix: false, agora: new Date('2026-10-05T12:00:00Z') });
+        const b = r.conteudo.split('\r\n').find(l => l[13] === 'B')!;
+        expect([b.slice(14, 17), b.slice(127, 226).trim()]).toEqual(['01 ', '+5511987654321']);
+    });
     it('forma: mesmo banco = crédito em conta (ou poupança); outro banco = TED; sem conta = PIX; sem nada = fora', () => {
         expect(classificar(fav({}), conta, false).forma).toBe('conta');
         expect(classificar(fav({ tipoConta: 'poupanca' }), conta, false).forma).toBe('poupanca');

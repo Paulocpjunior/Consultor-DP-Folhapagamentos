@@ -27,7 +27,7 @@ const compBr = (c: string) => `${c.slice(5)}/${c.slice(0, 4)}`;
 const dataIcs = (d: Data) => d.replace(/-/g, '');
 
 /** Texto de propriedade do iCalendar: barra, vírgula, ponto e vírgula e quebra de linha escapados. */
-export const escaparIcs = (t: string) => t.replace(/\\/g, '\\\\').replace(/;/g, '\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+export const escaparIcs = (t: string) => t.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
 
 /** Dobra a linha em 75 octetos (UTF-8), sem partir caractere. */
 export function dobrar(linha: string): string {
