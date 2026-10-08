@@ -39,7 +39,8 @@ import { listarEnvios, type Envio } from '../../services/esocial/transmissaoServ
 import StatusEsocialAfastamento from '../esocial/StatusEsocialAfastamento';
 import ConviteAgenda from '../agenda/ConviteAgenda';
 import { eventosDoReciboFerias } from '../../services/agenda/convite';
-import { holeritesPdf, resumoPdf } from '../../services/relatorios/holeritePdf';
+// O PDF (jspdf) só carrega no clique: a tela do Cálculo abre mais leve. O xlsx já vem no pacote principal (Folha).
+const relatoriosPdf = () => import('../../services/relatorios/holeritePdf');
 
 const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const btn = 'rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
@@ -270,9 +271,14 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         : ferias ? 'Recibos de férias: o INSS e o FGTS de cada competência entram na folha mensal correspondente; aqui é só o valor dos recibos.'
         : 'Folha de 13º: a 2ª parcela tem INSS e IRRF próprios (apuração do 13º na DCTFWeb); a 1ª parcela só tem FGTS.');
     const opcoesPdf = () => ({ empresa: { razaoSocial: empresa?.razaoSocial ?? '', cnpj: empresa?.cnpj ?? '', codigoSage: empresa?.codigoSage }, titulo: tituloFolha, previa: true });
-    function pdfHolerites(lista: ResultadoCalculo[], nome: string) {
+    async function pdfHolerites(lista: ResultadoCalculo[], nome: string) {
         if (!dados) return;
-        holeritesPdf(lista, dados.fichas, opcoesPdf()).save(nome);
+        try { (await relatoriosPdf()).holeritesPdf(lista, dados.fichas, opcoesPdf()).save(nome); }
+        catch (e) { setErrosMov([`PDF não gerado: ${(e as Error).message}`]); }
+    }
+    async function pdfResumo() {
+        try { (await relatoriosPdf()).resumoPdf(resumo, opcoesPdf(), observacaoResumo).save(`resumo-${empresa?.codigoSage ?? 'empresa'}-${sufixoArquivo}.pdf`); }
+        catch (e) { setErrosMov([`PDF não gerado: ${(e as Error).message}`]); }
     }
 
     async function salvar() {
@@ -486,7 +492,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                             <h3 className="font-semibold text-slate-800 dark:text-white">Resumo da folha — {tituloFolha}</h3>
                             <p className="text-xs text-slate-600 dark:text-slate-300">{resumo.funcionarios} funcionário(s){resumo.registros !== resumo.funcionarios ? ` em ${resumo.registros} cálculos` : ''}: {resumo.situacoes.calculado} calculado(s), {resumo.situacoes.incompleto} incompleto(s), {resumo.situacoes.erro} com erro (fora dos totais).</p>
                         </div>
-                        <button className={btn} onClick={() => resumoPdf(resumo, opcoesPdf(), observacaoResumo).save(`resumo-${empresa?.codigoSage ?? 'empresa'}-${sufixoArquivo}.pdf`)}>Resumo (PDF)</button>
+                        <button className={btn} onClick={pdfResumo}>Resumo (PDF)</button>
                     </div>
                     <div className="grid gap-4 lg:grid-cols-2">
                         <table className="w-full text-sm dark:text-slate-100">
@@ -608,9 +614,9 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                         onContatoSalvo={contatoEnvio => setEmpresas(l => l?.map(e => (e.id === empresa.id ? { ...e, contatoEnvio } : e)) ?? l)}
                         documentos={[
                             { id: 'holerites', rotulo: `${recibos} (PDF)`, nome: `holerites-${cod}-${sufixoArquivo}.pdf`, descricao: `${recibos.toLowerCase()} para assinatura dos funcionários`,
-                                gerar: () => holeritesPdf(resultados, dados.fichas, opcoesPdf()).output('arraybuffer') },
+                                gerar: async () => (await relatoriosPdf()).holeritesPdf(resultados, dados.fichas, opcoesPdf()).output('arraybuffer') },
                             { id: 'resumo', rotulo: 'Resumo da folha (PDF)', nome: `resumo-${cod}-${sufixoArquivo}.pdf`, descricao: 'resumo da folha com os valores para conferir as guias',
-                                gerar: () => resumoPdf(resumo, opcoesPdf(), observacaoResumo).output('arraybuffer') },
+                                gerar: async () => (await relatoriosPdf()).resumoPdf(resumo, opcoesPdf(), observacaoResumo).output('arraybuffer') },
                         ]} />
                 );
             })()}

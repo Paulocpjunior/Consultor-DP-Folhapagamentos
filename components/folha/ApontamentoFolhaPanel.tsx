@@ -77,7 +77,7 @@ import type {
     MapeamentoApontamento,
     ResultadoMapeamento,
 } from '../../services/folha/folhaTypes';
-import type { Empresa } from '../../types';
+import type { Empresa } from '../../services/empresas/empresasTypes';
 import { parseApontamentoFile, parseApontamentoBuffer, chaveComparacaoHeader } from '../../services/folha/apontamentoParser';
 import {
     resolverEmpresa,

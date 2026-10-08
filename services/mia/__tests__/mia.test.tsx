@@ -6,7 +6,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 
 const sv = vi.hoisted(() => ({ chamar: vi.fn(async (_p: string, _b: unknown) => ({ texto: 'Até **2 dias** antes do início (CLT, art. 145).', fontes: [{ titulo: 'CLT', uri: 'https://www.planalto.gov.br/clt' }] })) }));
 vi.mock('../../serpro/serproIntegrationService', () => ({ callFiscal: (p: string, b: unknown) => sv.chamar(p, b) }));
-import { contextoDoHolerite, contextoMiaAtual, definirContextoMia, perguntarMia, GUIA_DO_APP, type MensagemMia } from '../mia';
+import { contextoDoHolerite, contextoMiaAtual, definirContextoMia, mascararCpf, perguntarMia, GUIA_DO_APP, MAX_TEXTO, type MensagemMia } from '../mia';
 import MiaAssistente from '../../../components/mia/MiaAssistente';
 import type { ResultadoCalculo } from '../../calculo/motorMensal';
 
@@ -85,6 +85,25 @@ describe('MiA', () => {
         await perguntarMia(conversa, null, 'Cálculo');
         const enviadas = (sv.chamar.mock.calls[0][1] as { mensagens: MensagemMia[] }).mensagens;
         expect(enviadas).toEqual([{ papel: 'usuaria', texto: 'a' }, { papel: 'mia', texto: 'b' }, { papel: 'usuaria', texto: 'c\n\nc de novo' }]);
+    });
+
+    it('perguntas juntadas e respostas longas cabem nos 4.000 caracteres do CFI: da pergunta fica o fim', async () => {
+        const longa = 'x'.repeat(3000);
+        const conversa: MensagemMia[] = [{ papel: 'usuaria', texto: longa }, { papel: 'usuaria', texto: `${longa} última?` }, { papel: 'mia', texto: 'y'.repeat(5000) }, { papel: 'usuaria', texto: 'ok' }];
+        await perguntarMia(conversa, null, 'Cálculo');
+        const enviadas = (sv.chamar.mock.calls[0][1] as { mensagens: MensagemMia[] }).mensagens;
+        expect(enviadas.every(m => m.texto.length <= MAX_TEXTO)).toBe(true);
+        expect(enviadas[0].texto.endsWith('última?')).toBe(true);
+        expect(enviadas[1].texto.startsWith('yyy')).toBe(true);
+    });
+
+    it('CPF não vai no contexto: com máscara sempre; só dígitos quando é CPF válido', async () => {
+        expect(mascararCpf('ANA 529.982.247-25 e 52998224725; recibo 1.2.03.4567890123; valor 12345678901; R$ 1.234.567,89'))
+            .toBe('ANA ***.***.***-** e ***.***.***-**; recibo 1.2.03.4567890123; valor 12345678901; R$ 1.234.567,89');
+        await perguntarMia([{ papel: 'usuaria', texto: 'a' }], { tela: 'Conferência', texto: 'CPF 529.982.247-25' }, 'Cálculo');
+        const corpo = sv.chamar.mock.calls[0][1] as { contexto: { texto: string } };
+        expect(corpo.contexto.texto).toContain('CPF ***.***.***-**');
+        expect(corpo.contexto.texto).not.toContain('529.982.247-25');
     });
 
     it('conversa longa: a tela guarda tudo e o pedido começa sempre por uma pergunta', async () => {

@@ -7,7 +7,7 @@
 // Assim, quando um certificado é renovado ou vence, o DP vê o mesmo que o
 // CFI e o Legal. Quem assina continua sendo o CFI.
 
-import { comTokenCfi, ehErroEmailNaoVerificado } from '../auth/tokenCfi';
+import { comTokenCfi, ehErroEmailNaoVerificado, erroCfi } from '../auth/tokenCfi';
 
 const CFI_URL = 'https://consultor-fiscal-inteligente-zricstsjqa-uw.a.run.app';
 const soDigitos = (v: unknown) => String(v ?? '').replace(/\D/g, '');
@@ -130,7 +130,7 @@ export async function buscarCofre(getToken: () => Promise<string>, deps: { fetch
     if (resp.status === 401 || resp.status === 403) {
         const motivo = String(corpo?.error ?? '');
         // "e-mail não verificado" vai com o texto do CFI, para comTokenCfi renovar o token ou orientar a verificação.
-        throw new Error(ehErroEmailNaoVerificado(motivo) ? motivo : 'O cofre recusou o acesso: entre de novo com o e-mail do escritório (verificado).');
+        throw erroCfi(ehErroEmailNaoVerificado(motivo) ? motivo : 'O cofre recusou o acesso: entre de novo com o e-mail do escritório (verificado).', resp.status);
     }
     if (!resp.ok || corpo?.ok !== true || !Array.isArray(corpo.linhas)) throw new Error(corpo?.error ? `Cofre de certificados: ${corpo.error}` : 'Resposta inesperada do cofre de certificados.');
     return { linhas: corpo.linhas as LinhaCofre[], avisos: Array.isArray(corpo.avisos) ? corpo.avisos : [] };

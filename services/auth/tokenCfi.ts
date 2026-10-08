@@ -15,6 +15,13 @@ export const AVISO_EMAIL_NAO_VERIFICADO =
 /** Resposta do CFI recusando por e-mail não verificado. */
 export const ehErroEmailNaoVerificado = (mensagem: string) => /n[ãa]o\s+verificad|not\s+verified|unverified|email_verified/i.test(mensagem ?? '');
 
+/** Erro com o status HTTP da resposta do CFI (401/403 = recusa do token). */
+export const erroCfi = (mensagem: string, status: number) => Object.assign(new Error(mensagem), { status });
+const recusaDoToken = (e: unknown) => {
+    const status = (e as { status?: number })?.status;
+    return (status === 401 || status === 403) && ehErroEmailNaoVerificado((e as Error)?.message);
+};
+
 /** Token para o CFI; renova quando o e-mail passou a constar como verificado. */
 export async function tokenParaCfi(forcar = false): Promise<string> {
     const auth = getAuth();
@@ -30,18 +37,19 @@ export async function tokenParaCfi(forcar = false): Promise<string> {
 }
 
 /**
- * Chamada ao CFI com o token; se ele recusar por e-mail não verificado e a
+ * Chamada ao CFI com o token; se ele recusar (401/403) por e-mail não verificado e a
  * conta já estiver verificada (token antigo), tenta uma vez com token novo.
  * Sem verificação, a mensagem vira a orientação de verificar o e-mail.
  */
 export async function comTokenCfi<T>(chamar: (token: string) => Promise<T>): Promise<T> {
     try { return await chamar(await tokenParaCfi()); }
     catch (e) {
-        if (!ehErroEmailNaoVerificado((e as Error).message)) throw e;
+        // Só a recusa do token (401/403) conta: um erro de negócio com "não verificado" no texto segue como veio.
+        if (!recusaDoToken(e)) throw e;
         const u = getAuth().currentUser;
         if (u?.emailVerified) {
             try { return await chamar(await tokenParaCfi(true)); }
-            catch (e2) { if (!ehErroEmailNaoVerificado((e2 as Error).message)) throw e2; }
+            catch (e2) { if (!recusaDoToken(e2)) throw e2; }
         }
         throw new Error(AVISO_EMAIL_NAO_VERIFICADO);
     }
