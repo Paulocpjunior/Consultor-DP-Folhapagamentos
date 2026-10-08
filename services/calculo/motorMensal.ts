@@ -42,6 +42,11 @@ export interface Movimento {
     valeTransporte?: number;
     /** Arredondamento do mês anterior (centavos) a descontar, quando a empresa arredonda o líquido: vale no lugar do encadeado. */
     arredondamentoAnterior?: number;
+    /**
+     * Arredondamento atual do mês, gravado ao salvar o movimento (centavos, até 0,99): é o anterior do mês seguinte.
+     * Com ele, o encadeamento não recalcula este mês com a ficha de hoje (dependentes, VT mudados depois; Codex #116).
+     */
+    arredondamentoFechado?: number;
     lancamentos?: Lancamento[];
 }
 

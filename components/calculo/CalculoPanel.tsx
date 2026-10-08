@@ -10,7 +10,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { listarEmpresasVisiveis, salvarParametrosFolha } from '../../services/empresas/empresasService';
-import { anteriorEncadeado, arredondaNoMes, arredondar, mesDoPagamento, mudarRegime, regimeNoMes, type ParametrosFolha, type RegimePagamento } from '../../services/calculo/arredondamento';
+import { anteriorEncadeado, arredondaNoMes, arredondamentoAtual, arredondar, mesDoPagamento, mudarRegime, regimeNoMes, type ParametrosFolha, type RegimePagamento } from '../../services/calculo/arredondamento';
 import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
 import EmpresaAtivaFixa from '../empresaAtiva/EmpresaAtivaFixa';
 import { listarAfastamentos, listarEnquadramentos, listarFuncionarios, listarTabelas, mensagemErro, salvarAfastamento, type Usuario } from '../../services/cadastros/cadastrosService';
@@ -183,16 +183,6 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         setPagamento(f === 'mensal' ? mesDoPagamento(parametrosFolha, competencia) : f === 'ferias' || f === 'rescisao' ? '' : `${a}-${f === '13-1a' ? '11' : '12'}`);
     }
 
-    const pendentes = useMemo(() => [...new Set([...Object.keys(movs), ...Object.keys(gravados ?? {})])]
-        .filter(id => id && !mesmoMovimento(movs[id], gravados?.[id]?.movimento)), [movs, gravados]);
-    useEffect(() => {
-        if (!pendentes.length) return;
-        const h = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
-        window.addEventListener('beforeunload', h);
-        return () => window.removeEventListener('beforeunload', h);
-    }, [pendentes.length]);
-    /** Troca de empresa ou competência: pergunta antes de descartar o que não foi salvo. */
-    const seguro = (f: () => void) => { if (!pendentes.length || window.confirm(`Há movimento não salvo de ${pendentes.length} funcionário(s). Descartar?`)) { setAviso(''); f(); } };
 
     const empresa = empresas?.find(e => e.id === empresaId);
     const parametrosFolha = empresa?.parametrosFolha;
@@ -214,13 +204,14 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         const travar = (m: string): ResultadoCalculo => ({ ...r, situacao: 'erro', erros: [...r.erros, m] });
         // O rascunho ainda não salvo já vale no cálculo: acima de 0,99 não sai pagamento com ele (Codex #116).
         if (informado !== undefined && (informado < 0 || informado > 99)) return travar('Arredondamento anterior: no máximo R$ 0,99 (são centavos do mês anterior).');
-        if (informado === undefined && !movsEmpresa) return travar('Arredondamento do líquido: aguardando os movimentos gravados dos meses anteriores para encadear o anterior (ou informe o "Arredondamento anterior" no movimento).');
+        // No mês de início o anterior é 0 e não depende do histórico (Codex #116).
+        if (informado === undefined && c > (parametrosFolha.arredondarDesde || c) && !movsEmpresa) return travar('Arredondamento do líquido: aguardando os movimentos gravados dos meses anteriores para encadear o anterior (ou informe o "Arredondamento anterior" no movimento).');
         const afs = dados.afastamentos.filter(a => a.fichaId === f.id);
         const salvos = movsEmpresa?.[f.id] ?? {};
         const anterior = informado ?? anteriorEncadeado(parametrosFolha.arredondarDesde || c, c,
             m => (noMes([f], m).length ? calcularMensal({ competencia: m, pagamento: mesDoPagamento(parametrosFolha, m), ficha: f, tabelas: dados.tabelas, movimento: salvos[m], afastamentos: afs,
                 feriasDoMes: feriasDaCompetencia(f, afs, dados.tabelas, salvos, m, opcoesFerias) }) : null),
-            m => salvos[m]?.arredondamentoAnterior);
+            m => salvos[m]?.arredondamentoAnterior, m => salvos[m]?.arredondamentoFechado);
         return typeof anterior === 'number' ? arredondar(r, anterior) : travar(anterior.erro);
     }, [parametrosFolha, dados, movsEmpresa, opcoesFerias]);
     const resultados = useMemo(() => {
@@ -265,6 +256,25 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             return arredondarDaEmpresa(r, f, competencia, movs[f.id]?.arredondamentoAnterior);
         });
     }, [dados, competencia, pagamento, movs, movsEmpresa, mensal, ferias, rescisao, paramsResc, movsAno, ano, folha, opcoes13, primeiras, abonos, opcoesFerias, feriasSimuladas, arredondarDaEmpresa]);
+    // O movimento a gravar leva o arredondamento atual do mês calculado (o anterior do mês seguinte): assim o encadeamento
+    // não refaz este mês com a ficha de amanhã (Codex #116). Mudou o atual, o funcionário fica "não salvo"; sem cálculo
+    // completo, fica o que já estava gravado.
+    const movsParaSalvar = useMemo(() => {
+        if (!mensal || !arredondaNoMes(parametrosFolha, competencia)) return movs;
+        const out = { ...movs };
+        for (const r of resultados) if (r.situacao === 'calculado') out[r.fichaId] = { ...movs[r.fichaId], arredondamentoFechado: arredondamentoAtual(r) };
+        return out;
+    }, [movs, resultados, mensal, parametrosFolha, competencia]);
+    const pendentes = useMemo(() => [...new Set([...Object.keys(movsParaSalvar), ...Object.keys(gravados ?? {})])]
+        .filter(id => id && !mesmoMovimento(movsParaSalvar[id], gravados?.[id]?.movimento)), [movsParaSalvar, gravados]);
+    useEffect(() => {
+        if (!pendentes.length) return;
+        const h = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+        window.addEventListener('beforeunload', h);
+        return () => window.removeEventListener('beforeunload', h);
+    }, [pendentes.length]);
+    /** Troca de empresa ou competência: pergunta antes de descartar o que não foi salvo. */
+    const seguro = (f: () => void) => { if (!pendentes.length || window.confirm(`Há movimento não salvo de ${pendentes.length} funcionário(s). Descartar?`)) { setAviso(''); f(); } };
     // Conferência com o eSocial do IOB: a folha mensal de qualquer competência, com os movimentos gravados dela.
     const motorDaCompetencia = useCallback((c: string): ResultadoCalculo[] => {
         if (!dados || !movsEmpresa) return [];
@@ -327,7 +337,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
 
     async function salvar() {
         if (!gravados) return;
-        const itens = pendentes.map(id => ({ fichaId: id, antes: gravados[id]?.movimento ?? null, depois: limparMovimento(movs[id] ?? {}) }));
+        const itens = pendentes.map(id => ({ fichaId: id, antes: gravados[id]?.movimento ?? null, depois: limparMovimento(movsParaSalvar[id] ?? {}) }));
         const erros = itens.flatMap(i => validarMovimento(i.depois, diasNoMes(competencia)).map(e => `${nomeDe(i.fichaId)}: ${e}`));
         setErrosMov(erros); setAviso('');
         if (erros.length) return;

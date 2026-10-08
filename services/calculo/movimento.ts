@@ -18,16 +18,16 @@ export interface MovimentoGravado {
 
 export const idMovimento = (fichaId: string, competencia: string) => `${fichaId}_${competencia}`;
 
-const NUMERICOS = ['horasExtras50', 'horasExtras100', 'faltasDias', 'dsrDescontadoDias', 'feriadosLocais', 'pensaoAlimenticia', 'adiantamento', 'valeTransporte', 'arredondamentoAnterior'] as const;
+const NUMERICOS = ['horasExtras50', 'horasExtras100', 'faltasDias', 'dsrDescontadoDias', 'feriadosLocais', 'pensaoAlimenticia', 'adiantamento', 'valeTransporte', 'arredondamentoAnterior', 'arredondamentoFechado'] as const;
 /** Valores em centavos que sobrepõem a ficha: 0 é informação ("não houve no mês") e fica gravado. */
-const SOBREPOEM_FICHA: readonly CampoNumerico[] = ['adiantamento', 'valeTransporte', 'arredondamentoAnterior'];
-const EM_CENTAVOS: readonly CampoNumerico[] = ['pensaoAlimenticia', 'adiantamento', 'valeTransporte', 'arredondamentoAnterior'];
+const SOBREPOEM_FICHA: readonly CampoNumerico[] = ['adiantamento', 'valeTransporte', 'arredondamentoAnterior', 'arredondamentoFechado'];
+const EM_CENTAVOS: readonly CampoNumerico[] = ['pensaoAlimenticia', 'adiantamento', 'valeTransporte', 'arredondamentoAnterior', 'arredondamentoFechado'];
 export type CampoNumerico = typeof NUMERICOS[number];
 
 export const ROTULO_MOVIMENTO: Record<CampoNumerico | 'lancamentos', string> = {
     horasExtras50: 'Horas extras 50%', horasExtras100: 'Horas extras 100%', faltasDias: 'Faltas (dias)',
     dsrDescontadoDias: 'DSR descontado (dias)', feriadosLocais: 'Feriados locais no mês', pensaoAlimenticia: 'Pensão alimentícia',
-    adiantamento: 'Adiantamento pago', valeTransporte: 'Vale-transporte descontado', arredondamentoAnterior: 'Arredondamento anterior',
+    adiantamento: 'Adiantamento pago', valeTransporte: 'Vale-transporte descontado', arredondamentoAnterior: 'Arredondamento anterior', arredondamentoFechado: 'Arredondamento atual do mês',
     lancamentos: 'Lançamentos avulsos',
 };
 
@@ -57,7 +57,7 @@ export function validarMovimento(m: Movimento, diasNoMes = 31): string[] {
         if (v < 0) erros.push(`${ROTULO_MOVIMENTO[k]}: não pode ser negativo.`);
         else if (max[k] !== undefined && v > max[k]!) erros.push(`${ROTULO_MOVIMENTO[k]}: no máximo ${max[k]}.`);
         // O arredondamento anterior é o que faltou para o real seguinte: até 0,99 (56 em vez de 0,56 tiraria R$ 56,00; Codex #116).
-        if (k === 'arredondamentoAnterior' && v > 99) erros.push(`${ROTULO_MOVIMENTO[k]}: no máximo R$ 0,99 (são centavos do mês anterior).`);
+        if ((k === 'arredondamentoAnterior' || k === 'arredondamentoFechado') && v > 99) erros.push(`${ROTULO_MOVIMENTO[k]}: no máximo R$ 0,99 (são centavos do mês anterior).`);
     }
     (m.lancamentos ?? []).forEach((l, i) => {
         if (!l.descricao) erros.push(`Lançamento ${i + 1}: informe a descrição.`);

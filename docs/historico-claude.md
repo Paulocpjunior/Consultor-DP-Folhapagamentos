@@ -2990,3 +2990,6 @@ guias sindicais".
 - **Revisão do Codex no #116 (dois P2):**
   - **Descrições truncadas no de/para:** as rubricas de arredondamento são sugeridas também pelas descrições do catálogo do IOB ("ARREDONDAMENTO ATUA", "ARREDONDAMENTO ANTE") ou pelo código do evento como código da rubrica (1480, 5660, 8951). O 8951 é "DESC. ARREDONDAMENT" e não tem "ADIANT" na descrição.
   - **Histórico do regime de pagamento:** mudar "folha paga" grava a mudança a partir da competência da tela (`mudancasPagamento`: desde, de, para). Os meses anteriores ficam com o regime que valia neles, no encadeamento, na conferência e no pagamento sugerido. Voltar ao regime anterior no mesmo mês desfaz a mudança.
+- **Revisão do Codex no #116 (dois P2):**
+  - **Arredondamento atual gravado:** ao salvar o movimento do mês, o Consultor grava o arredondamento atual de cada funcionário (`arredondamentoFechado`). Ele é o anterior do mês seguinte. O encadeamento usa o gravado e não refaz o mês com a ficha de hoje, então um dependente ou VT mudado depois não altera o que já foi pago. Mudou o atual, o funcionário aparece como "não salvo", e o S-1200 só sai depois de salvar. Meses sem o valor gravado continuam recalculados.
+  - **Mês de início:** na competência em que o arredondamento começa, o anterior é 0. A folha não espera mais os movimentos dos meses anteriores nem trava se eles falharem.

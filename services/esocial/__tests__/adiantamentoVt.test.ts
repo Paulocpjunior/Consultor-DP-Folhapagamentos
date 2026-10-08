@@ -217,6 +217,15 @@ describe('adiantamento salarial e vale-transporte', () => {
         const comErro = (c: string) => (c === '2026-08' ? { ...mensal(c), situacao: 'erro' as const } : mensal(c));
         expect(anteriorEncadeado('2026-08', '2026-10', comErro, () => undefined)).toEqual({ erro: expect.stringMatching(/o cálculo de 08\/2026 está com erro ou incompleto/) });
         expect(anteriorEncadeado('2026-08', '2026-10', comErro, c => (c === '2026-09' ? 56 : undefined))).toBe(89);
+        // Atual gravado ao salvar o movimento: o mês não é recalculado (a ficha de hoje pode ser outra; Codex #116).
+        let recalculados: string[] = [];
+        const conta = (c: string) => { recalculados.push(c); return mensal(c); };
+        expect(anteriorEncadeado('2026-08', '2026-10', conta, () => undefined, c => (c === '2026-09' ? 12 : undefined))).toBe(12);
+        expect(recalculados).toEqual(['2026-08']);
+        recalculados = [];
+        expect(typeof anteriorEncadeado('2026-08', '2026-10', comErro, () => undefined, c => (c === '2026-08' ? 40 : undefined))).toBe('number');
+        expect(validarMovimento({ arredondamentoFechado: 120 })).toEqual(['Arredondamento atual do mês: no máximo R$ 0,99 (são centavos do mês anterior).']);
+        expect(limparMovimento({ arredondamentoFechado: 0 })).toEqual({ arredondamentoFechado: 0 });
         const incompleto = (c: string) => (c === '2026-08' ? { ...mensal(c), situacao: 'incompleto' as const } : mensal(c));
         expect(anteriorEncadeado('2026-08', '2026-10', incompleto, () => undefined)).toEqual({ erro: expect.stringMatching(/08\/2026 está com erro ou incompleto/) });
         // Anterior informado: até 0,99 (Codex #116).
