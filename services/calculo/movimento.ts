@@ -18,16 +18,16 @@ export interface MovimentoGravado {
 
 export const idMovimento = (fichaId: string, competencia: string) => `${fichaId}_${competencia}`;
 
-const NUMERICOS = ['horasExtras50', 'horasExtras100', 'faltasDias', 'dsrDescontadoDias', 'feriadosLocais', 'pensaoAlimenticia', 'adiantamento', 'valeTransporte'] as const;
+const NUMERICOS = ['horasExtras50', 'horasExtras100', 'faltasDias', 'dsrDescontadoDias', 'feriadosLocais', 'pensaoAlimenticia', 'adiantamento', 'valeTransporte', 'arredondamentoAnterior', 'arredondamentoFechado'] as const;
 /** Valores em centavos que sobrepõem a ficha: 0 é informação ("não houve no mês") e fica gravado. */
-const SOBREPOEM_FICHA: readonly CampoNumerico[] = ['adiantamento', 'valeTransporte'];
-const EM_CENTAVOS: readonly CampoNumerico[] = ['pensaoAlimenticia', 'adiantamento', 'valeTransporte'];
+const SOBREPOEM_FICHA: readonly CampoNumerico[] = ['adiantamento', 'valeTransporte', 'arredondamentoAnterior', 'arredondamentoFechado'];
+const EM_CENTAVOS: readonly CampoNumerico[] = ['pensaoAlimenticia', 'adiantamento', 'valeTransporte', 'arredondamentoAnterior', 'arredondamentoFechado'];
 export type CampoNumerico = typeof NUMERICOS[number];
 
 export const ROTULO_MOVIMENTO: Record<CampoNumerico | 'lancamentos', string> = {
     horasExtras50: 'Horas extras 50%', horasExtras100: 'Horas extras 100%', faltasDias: 'Faltas (dias)',
     dsrDescontadoDias: 'DSR descontado (dias)', feriadosLocais: 'Feriados locais no mês', pensaoAlimenticia: 'Pensão alimentícia',
-    adiantamento: 'Adiantamento pago', valeTransporte: 'Vale-transporte descontado',
+    adiantamento: 'Adiantamento pago', valeTransporte: 'Vale-transporte descontado', arredondamentoAnterior: 'Arredondamento anterior', arredondamentoFechado: 'Arredondamento atual do mês',
     lancamentos: 'Lançamentos avulsos',
 };
 
@@ -38,6 +38,8 @@ export function limparMovimento(m: Movimento): Movimento {
         const v = m[k];
         if (typeof v === 'number' && Number.isFinite(v) && (v !== 0 || SOBREPOEM_FICHA.includes(k))) out[k] = EM_CENTAVOS.includes(k) ? Math.round(v) : Math.round(v * 100) / 100;
     }
+    if (typeof m.arredondamentoDesde === 'string' && /^\d{4}-\d{2}$/.test(m.arredondamentoDesde)) out.arredondamentoDesde = m.arredondamentoDesde;
+    if (typeof m.arredondamentoPagamento === 'string' && /^\d{4}-\d{2}$/.test(m.arredondamentoPagamento)) out.arredondamentoPagamento = m.arredondamentoPagamento;
     const lancs: Lancamento[] = (m.lancamentos ?? [])
         .map(l => ({ descricao: l.descricao.trim().replace(/\s+/g, ' '), tipo: l.tipo, valor: Math.round(l.valor), inss: !!l.inss, fgts: !!l.fgts, irrf: !!l.irrf }))
         .filter(l => l.descricao || l.valor);
@@ -56,6 +58,8 @@ export function validarMovimento(m: Movimento, diasNoMes = 31): string[] {
         if (v === undefined) continue;
         if (v < 0) erros.push(`${ROTULO_MOVIMENTO[k]}: não pode ser negativo.`);
         else if (max[k] !== undefined && v > max[k]!) erros.push(`${ROTULO_MOVIMENTO[k]}: no máximo ${max[k]}.`);
+        // O arredondamento anterior é o que faltou para o real seguinte: até 0,99 (56 em vez de 0,56 tiraria R$ 56,00; Codex #116).
+        if ((k === 'arredondamentoAnterior' || k === 'arredondamentoFechado') && v > 99) erros.push(`${ROTULO_MOVIMENTO[k]}: no máximo R$ 0,99 (são centavos do mês anterior).`);
     }
     (m.lancamentos ?? []).forEach((l, i) => {
         if (!l.descricao) erros.push(`Lançamento ${i + 1}: informe a descrição.`);

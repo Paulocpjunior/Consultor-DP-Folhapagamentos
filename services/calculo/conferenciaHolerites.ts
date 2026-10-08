@@ -21,10 +21,10 @@ export interface HoleriteIob {
     avisos: string[];
 }
 
-export type Classe = 'SAL' | 'MAT' | 'HE50' | 'HE100' | 'DSRHE' | 'FALTA' | 'DSRF' | 'SF' | 'PENSAO' | 'ADIANT' | 'VT' | 'INSS' | 'IRRF' | 'FERMES' | 'FERPAGO' | 'OUTRO';
+export type Classe = 'SAL' | 'MAT' | 'HE50' | 'HE100' | 'DSRHE' | 'FALTA' | 'DSRF' | 'SF' | 'PENSAO' | 'ADIANT' | 'VT' | 'ARRED' | 'INSS' | 'IRRF' | 'FERMES' | 'FERPAGO' | 'OUTRO';
 export const ROTULO_CLASSE: Record<Classe, string> = {
     SAL: 'Salário', MAT: 'Salário-maternidade', HE50: 'Horas extras 50%', HE100: 'Horas extras 100%', DSRHE: 'DSR sobre horas extras',
-    FALTA: 'Faltas', DSRF: 'DSR descontado', SF: 'Salário-família', PENSAO: 'Pensão alimentícia', ADIANT: 'Adiantamento salarial', VT: 'Vale-transporte', INSS: 'INSS', IRRF: 'IRRF',
+    FALTA: 'Faltas', DSRF: 'DSR descontado', SF: 'Salário-família', PENSAO: 'Pensão alimentícia', ADIANT: 'Adiantamento salarial', VT: 'Vale-transporte', ARRED: 'Arredondamento', INSS: 'INSS', IRRF: 'IRRF',
     FERMES: 'Férias + 1/3 do mês', FERPAGO: 'Férias pagas no recibo', OUTRO: 'Outros',
 };
 
@@ -39,9 +39,11 @@ export function classificarVerba(v: VerbaHolerite): Classe {
     if (/PENS(AO|\.) ?ALIM|^PENSAO/.test(d)) return 'PENSAO';
     if (desconto && /\bI\.?R\.?R\.?F\b|IMPOSTO DE RENDA|^IR\b|I\.R\.? ?FONTE/.test(d)) return 'IRRF';
     if (desconto && /\bINSS\b|PREVIDENCIA|I\.N\.S\.S/.test(d)) return 'INSS';
-    // Desconto do adiantamento salarial ("ADIANTAMENTO (VALE)" no IOB) e do vale-transporte; arredondamentos e outros
-    // adiantamentos (férias, 13º, comissão, gorjeta) ficam em "outros" (Codex #115).
-    if (desconto && /ADIANT/.test(d) && (/\b(SAL|VALE|QUINZ)/.test(d) || /^ADIANT\w*\.?$/.test(d)) && !/FERIAS|13|COMISS|GORJ|ARRED/.test(d)) return 'ADIANT';
+    // Arredondamento do líquido (atual, anterior e o do adiantamento): o motor refaz quando a empresa arredonda.
+    if (/ARREDOND/.test(d)) return 'ARRED';
+    // Desconto do adiantamento salarial ("ADIANTAMENTO (VALE)" no IOB) e do vale-transporte; outros adiantamentos
+    // (férias, 13º, comissão, gorjeta) ficam em "outros" (Codex #115).
+    if (desconto && /ADIANT/.test(d) && (/\b(SAL|VALE|QUINZ)/.test(d) || /^ADIANT\w*\.?$/.test(d)) && !/FERIAS|13|COMISS|GORJ/.test(d)) return 'ADIANT';
     if (desconto && /VALE[ -]?TRANSP|\bV\.? ?T\.?$|^V\.? ?T\b/.test(d)) return 'VT';
     // Férias no holerite do mês (pagas antes no recibo): provento = férias e 1/3; desconto = o líquido/valor já pago.
     if (/FERIAS/.test(d) && !/ABONO/.test(d)) return desconto ? 'FERPAGO' : 'FERMES';
@@ -81,7 +83,7 @@ const TOLERANCIA = 1; // centavo
 const ITENS: Classe[] = ['SAL', 'MAT', 'HE50', 'HE100', 'DSRHE', 'FALTA', 'DSRF', 'SF', 'PENSAO', 'ADIANT', 'VT', 'FERMES', 'FERPAGO', 'INSS', 'IRRF'];
 
 export function somaPorClasse(h: HoleriteIob): Record<Classe, number> {
-    const s = Object.fromEntries([...ITENS, 'OUTRO'].map(c => [c, 0])) as Record<Classe, number>;
+    const s = Object.fromEntries([...ITENS, 'ARRED', 'OUTRO'].map(c => [c, 0])) as Record<Classe, number>;
     for (const v of h.verbas) s[classificarVerba(v)] += v.provento || v.desconto;
     return s;
 }
@@ -99,6 +101,7 @@ const mesAno = (c: string) => `${c.slice(5)}/${c.slice(0, 4)}`;
 export function conferirHolerite(r: ResultadoCalculo | undefined, h: HoleriteIob, ligadoPor: string, ctx: { fichaId: string; nome: string; competencia: string }): ConferenciaFuncionario {
     const avisos = [...h.avisos];
     if (ligadoPor === 'nome') avisos.push('Holerite ligado à ficha pelo nome (sem CPF ou código do IOB no holerite): confira.');
+    // Arredondamento não é verba a lançar: o motor refaz (parâmetro da empresa) e o líquido confere.
     const semCorrespondente = h.verbas.filter(v => classificarVerba(v) === 'OUTRO');
     const base = { fichaId: ctx.fichaId, nome: ctx.nome || h.nome, ligadoPor, semCorrespondente };
     if (h.competencia && h.competencia !== ctx.competencia) {
@@ -119,6 +122,11 @@ export function conferirHolerite(r: ResultadoCalculo | undefined, h: HoleriteIob
         return { ...base, situacao: 'ilegível', linhas: [], avisos: [...avisos, 'Nenhum valor lido neste holerite: confira o PDF.'] };
     }
     const linhas: LinhaConferencia[] = ITENS.filter(c => motor(c) || iob[c]).map(c => linha(ROTULO_CLASSE[c], motor(c), iob[c]));
+    // Arredondamento: o efeito no líquido (atual − anterior − o do adiantamento), dos dois lados. Sem os totais lidos,
+    // é a única conferência dessas linhas (Codex #116).
+    const arredIob = h.verbas.filter(v => classificarVerba(v) === 'ARRED').reduce((s, v) => s + v.provento - v.desconto, 0);
+    const arredMotor = r.verbas.filter(v => /^ARRED(ATU|ANT|ADI)$/.test(v.codigo)).reduce((s, v) => s + (v.tipo === 'provento' ? v.valor : -v.valor), 0);
+    if (arredIob || arredMotor) linhas.push(linha('Arredondamento do líquido (efeito)', arredMotor, arredIob));
     if (h.totalProventos !== null) linhas.push(linha('Total de proventos', r.totais.proventos, h.totalProventos));
     if (h.totalDescontos !== null) linhas.push(linha('Total de descontos', r.totais.descontos, h.totalDescontos));
     if (h.liquido !== null) linhas.push(linha('Líquido', r.totais.liquido, h.liquido));
@@ -164,6 +172,8 @@ export function movimentoDoHolerite(h: HoleriteIob): { movimento: Movimento; avi
         // O adiantamento pago e o vale-transporte descontado valem como o IOB fez (sobrepõem a ficha).
         else if (c === 'ADIANT') mov.adiantamento = (mov.adiantamento ?? 0) + (v.desconto || v.provento);
         else if (c === 'VT') mov.valeTransporte = (mov.valeTransporte ?? 0) + (v.desconto || v.provento);
+        // O arredondamento anterior do IOB vale como foi (o motor encadeia a partir dele); atual e o do adiantamento o motor refaz.
+        else if (c === 'ARRED' && (/\bANT/.test(v.descricao.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase()) || v.codigo === '5660') && v.desconto > 0) mov.arredondamentoAnterior = (mov.arredondamentoAnterior ?? 0) + v.desconto;
         else if (c === 'OUTRO') {
             const provento = v.provento > 0;
             lancamentos.push({ descricao: `${v.codigo ? `${v.codigo} ` : ''}${v.descricao}`.trim(), tipo: provento ? 'provento' : 'desconto', valor: v.provento || v.desconto, inss: provento, fgts: provento, irrf: provento });
@@ -173,6 +183,8 @@ export function movimentoDoHolerite(h: HoleriteIob): { movimento: Movimento; avi
     // inventa o desconto (Codex #115).
     if (mov.adiantamento === undefined) mov.adiantamento = 0;
     if (mov.valeTransporte === undefined) mov.valeTransporte = 0;
+    // Holerite que arredonda (tem linha de arredondamento) sem "anterior": o anterior do mês foi 0.
+    if (mov.arredondamentoAnterior === undefined && h.verbas.some(v => classificarVerba(v) === 'ARRED')) mov.arredondamentoAnterior = 0;
     if (lancamentos.length) { mov.lancamentos = lancamentos; avisos.push('Lançamentos trazidos do holerite: confira as incidências de cada um (provento entrou incidindo em tudo; desconto, em nada).'); }
     return { movimento: mov, avisos };
 }

@@ -11,6 +11,7 @@ import { mensagemErro, type Usuario } from '../../services/cadastros/cadastrosSe
 import { reais } from '../../services/cadastros/documentos';
 import type { Movimento, ResultadoCalculo } from '../../services/calculo/motorMensal';
 import { mesmoMovimento, movimentoVazio } from '../../services/calculo/movimento';
+import { semFechado } from '../../services/calculo/arredondamento';
 import { conferirHolerite, ligarHolerite, movimentoDoHolerite, podeAplicar, type ConferenciaFuncionario, type HoleriteIob } from '../../services/calculo/conferenciaHolerites';
 import { lerHolerites, registrarLeitura, MAX_PDF_MB } from '../../services/calculo/holeritesService';
 
@@ -69,9 +70,11 @@ const ConferenciaHolerites: React.FC<Props> = ({ empresaId, competencia, fichas,
         finally { setOcupado(''); }
     }
 
+    // O arredondamento atual gravado pelo Consultor não vem do holerite: fica fora da comparação.
+    const digitado = (m: Movimento | undefined): Movimento | undefined => m && semFechado(m);
     function aplicar(fichaId: string, m: Movimento, nome: string) {
         if (!fichaId) return;
-        const atual = movimentos[fichaId];
+        const atual = digitado(movimentos[fichaId]);
         if (!movimentoVazio(atual) && !mesmoMovimento(atual, m) && !window.confirm(`${nome} já tem movimento digitado. Trocar pelo que o holerite indica?`)) return;
         onAplicarMovimento(fichaId, m);
     }
@@ -111,7 +114,7 @@ const ConferenciaHolerites: React.FC<Props> = ({ empresaId, competencia, fichas,
                                 {conf.linhas.map(({ holerite: h, conferencia: c, sugestao }, i) => {
                                     const divergentes = c?.linhas.filter(l => !l.ok) ?? [];
                                     const temSugestao = !movimentoVazio(sugestao.movimento);
-                                    const igual = c && mesmoMovimento(movimentos[c.fichaId], sugestao.movimento);
+                                    const igual = c && mesmoMovimento(digitado(movimentos[c.fichaId]), sugestao.movimento);
                                     return (
                                         <React.Fragment key={i}>
                                             <tr className="cursor-pointer border-t border-slate-100 align-top hover:bg-blue-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-700" onClick={() => setAberto(a => (a === i ? null : i))}>

@@ -212,6 +212,10 @@ export async function salvarParametrosEsocialFolha(empresaId: string, p: import(
     await updateDoc(doc(db, 'empresas', empresaId), { esocialFolha: JSON.parse(JSON.stringify(p)), atualizadoEm: serverTimestamp() });
 }
 
+export async function salvarParametrosFolha(empresaId: string, p: import('../calculo/arredondamento').ParametrosFolha): Promise<void> {
+    await updateDoc(doc(db, 'empresas', empresaId), { parametrosFolha: JSON.parse(JSON.stringify(p)), atualizadoEm: serverTimestamp() });
+}
+
 export async function excluirEmpresa(id: string): Promise<void> {
     const atual = await buscarEmpresa(id);
     const lote = writeBatch(db);

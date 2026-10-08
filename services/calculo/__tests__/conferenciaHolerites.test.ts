@@ -32,7 +32,7 @@ describe('conferência com os holerites do IOB', () => {
             [D('FALTAS', 1), 'FALTA'], [D('INSS', 1), 'INSS'], [D('I.R.R.F.', 1), 'IRRF'], [D('IMPOSTO DE RENDA', 1), 'IRRF'],
             [D('PENSAO ALIMENTICIA', 1), 'PENSAO'], [D('VALE TRANSPORTE', 1), 'VT'], [D('ADIANTAMENTO SALARIAL', 1), 'ADIANT'], [P('ADICIONAL NOTURNO', 1), 'OUTRO'],
             [D('ADIANTAMENTO (VALE)', 1), 'ADIANT'], [D('ADIANTAMENTO', 1), 'ADIANT'], [D('ADIANTAMENTO COMISSAO', 1), 'OUTRO'], [D('ADIANTAMENTO GORJETA', 1), 'OUTRO'],
-            [D('ADIANTAMENTO 13 SALARIO', 1), 'OUTRO'], [D('DESC. ARREDONDAMENTO ADIANTAME', 1), 'OUTRO'],
+            [D('ADIANTAMENTO 13 SALARIO', 1), 'OUTRO'], [D('DESC. ARREDONDAMENTO ADIANTAME', 1), 'ARRED'],
         ];
         expect(casos.map(([v]) => classificarVerba(v))).toEqual(casos.map(([, c]) => c));
     });
@@ -78,6 +78,14 @@ describe('conferência com os holerites do IOB', () => {
         expect(vazio.situacao).toBe('ilegível');
         expect(podeAplicar(vazio)).toBe(false);
         expect(conferirHolerite(r, { ...igual, competencia: '' }, 'cpf', ctx).avisos).toContain('Competência não lida no holerite: confira se o PDF é do mês certo.');
+
+        // Arredondamento sem os totais lidos: o efeito no líquido é comparado (o motor sem arredondar diverge; Codex #116).
+        const semTotais = { totalProventos: null, totalDescontos: null, liquido: null };
+        const comArred = conferirHolerite(r, holerite([...igual.verbas, D('ARREDONDAMENTO ANTERIOR', 56), P('ARREDONDAMENTO ATUAL', 13)], semTotais), 'cpf', ctx);
+        expect(comArred.situacao).toBe('diverge');
+        expect(comArred.linhas.find(l => !l.ok)).toMatchObject({ item: 'Arredondamento do líquido (efeito)', motor: 0, iob: -43 });
+        const rArred = { ...r, verbas: [...r.verbas, { codigo: 'ARREDANT', descricao: '', referencia: '', tipo: 'desconto' as const, valor: 56, inss: false, fgts: false, irrf: false }, { codigo: 'ARREDATU', descricao: '', referencia: '', tipo: 'provento' as const, valor: 13, inss: false, fgts: false, irrf: false }] };
+        expect(conferirHolerite(rArred, holerite([...igual.verbas, D('ARREDONDAMENTO ANTERIOR', 56), P('ARREDONDAMENTO ATUAL', 13)], semTotais), 'cpf', ctx).situacao).toBe('confere');
     });
 
     it('lê a referência e monta o movimento do mês a partir do holerite', () => {
@@ -88,18 +96,23 @@ describe('conferência com os holerites do IOB', () => {
         const { movimento, avisos } = movimentoDoHolerite(holerite([
             P('SALARIO', 220000, '30,00'), P('HORAS EXTRAS 50%', 15000, '10:00'), P('HORAS EXTRAS 100%', 4000, '2,00'), P('ADICIONAL NOTURNO', 5000, '', '030'),
             D('FALTAS', 7333, '1,00'), D('DSR S/ FALTAS', 7333, ''), D('PENSAO ALIMENTICIA', 30000), D('VALE TRANSPORTE', 13200, '6%', '410'), D('ADIANTAMENTO (VALE)', 88000, '40,00', '5610'),
-            D('DESC. ARREDONDAMENTO ADIANTAME', 33, '', '8951'), D('INSS', 19143),
+            D('DESC. ARREDONDAMENTO ADIANTAME', 33, '', '8951'), D('ARREDONDAMENTO ANTERIOR', 56, '', '5660'), P('ARREDONDAMENTO ATUAL', 89, '', '1480'), D('INSS', 19143),
         ]));
-        // Adiantamento e vale-transporte do IOB entram como foram (sobrepõem a ficha); arredondamento vira lançamento.
+        // Adiantamento, vale-transporte e arredondamento anterior do IOB entram como foram (sobrepõem a ficha e o
+        // encadeamento); o arredondamento atual e o do adiantamento o motor refaz, e não viram lançamento.
         expect(movimento).toEqual({
-            horasExtras50: 10, horasExtras100: 2, faltasDias: 1, pensaoAlimenticia: 30000, valeTransporte: 13200, adiantamento: 88000,
+            horasExtras50: 10, horasExtras100: 2, faltasDias: 1, pensaoAlimenticia: 30000, valeTransporte: 13200, adiantamento: 88000, arredondamentoAnterior: 56,
             lancamentos: [
                 { descricao: '030 ADICIONAL NOTURNO', tipo: 'provento', valor: 5000, inss: true, fgts: true, irrf: true },
-                { descricao: '8951 DESC. ARREDONDAMENTO ADIANTAME', tipo: 'desconto', valor: 33, inss: false, fgts: false, irrf: false },
             ],
         });
         // Holerite sem adiantamento e sem VT: o mês não teve, e o 0 explícito impede o motor de voltar à ficha (Codex #115).
         expect(movimentoDoHolerite(holerite([P('SALARIO', 220000, '30,00'), D('INSS', 19143)])).movimento).toEqual({ adiantamento: 0, valeTransporte: 0 });
+        // Arredonda (arredondamento atual) sem "anterior": anterior 0 no mês; sem linha de arredondamento, fica para o encadeamento.
+        expect(movimentoDoHolerite(holerite([P('SALARIO', 220000, '30,00'), P('ARREDONDAMENTO ATUAL', 57), D('INSS', 19143)])).movimento).toEqual({ adiantamento: 0, valeTransporte: 0, arredondamentoAnterior: 0 });
+        // Descrição truncada como no catálogo do IOB ("ARREDONDAMENTO ANTE", evento 5660): continua sendo o anterior (Codex #116).
+        expect(movimentoDoHolerite(holerite([P('SALARIO', 220000, '30,00'), D('ARREDONDAMENTO ANTE', 56), P('ARREDONDAMENTO ATUA', 89), D('INSS', 19143)])).movimento.arredondamentoAnterior).toBe(56);
+        expect(movimentoDoHolerite(holerite([P('SALARIO', 220000, '30,00'), D('ARREDONDAMENTO', 56, '', '5660'), D('INSS', 19143)])).movimento.arredondamentoAnterior).toBe(56);
         expect(avisos[0]).toBe('DSR S/ FALTAS: referência "" ilegível; informe a quantidade.');
         expect(avisos[1]).toContain('confira as incidências');
     });

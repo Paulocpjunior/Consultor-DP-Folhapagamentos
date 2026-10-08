@@ -40,6 +40,17 @@ export interface Movimento {
     adiantamento?: number;
     /** Vale-transporte descontado no mês (centavos): substitui o calculado pela ficha (holerite do IOB). */
     valeTransporte?: number;
+    /** Arredondamento do mês anterior (centavos) a descontar, quando a empresa arredonda o líquido: vale no lugar do encadeado. */
+    arredondamentoAnterior?: number;
+    /**
+     * Arredondamento atual do mês, gravado ao salvar o movimento (centavos, até 0,99): é o anterior do mês seguinte.
+     * Com ele, o encadeamento não recalcula este mês com a ficha de hoje (dependentes, VT mudados depois; Codex #116).
+     */
+    arredondamentoFechado?: number;
+    /** Mês de início do arredondamento quando o atual foi gravado: mudou o início, o gravado não vale (Codex #116). */
+    arredondamentoDesde?: string;
+    /** Mês do pagamento com que o atual foi calculado: mudou o regime daquele mês, o gravado não vale (Codex #116). */
+    arredondamentoPagamento?: string;
     lancamentos?: Lancamento[];
 }
 

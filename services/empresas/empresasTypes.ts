@@ -29,6 +29,8 @@ export interface Empresa {
     contatoEnvio?: import('../pacoteCliente/envio').ContatoEnvio;
     /** Estabelecimento, lotação e de/para das verbas com as rubricas, para o S-1200 e o S-1210. */
     esocialFolha?: import('../esocial/eventosFolha').ParametrosEsocialFolha;
+    /** Parâmetros do cálculo da folha (arredondamento do líquido). */
+    parametrosFolha?: import('../calculo/arredondamento').ParametrosFolha;
 }
 
 export interface EmpresaInput {

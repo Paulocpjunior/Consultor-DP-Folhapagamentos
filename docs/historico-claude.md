@@ -2951,3 +2951,58 @@ guias sindicais".
 - **Revisão do Codex no #115 (P2, faltas no VT):** as faltas do movimento também saem dos dias com deslocamento. A base dos 6% e o teto do custo seguem esses dias. Exemplo: 6 faltas deixam 24 dias, com VT de 168,00 sobre 3.500,00. Faltas no mês todo dão VT zero.
 - **Revisão do Codex no #115 (P2, VT em fevereiro):** havendo dias sem deslocamento, conta o menor entre os dias comerciais e os dias de calendário que sobram. Fevereiro inteiro em afastamento remunerado (28 datas e 30 dias comerciais pagos) deixava 2 dias de VT, e agora deixa zero. Com 20 dias afastados, ficam 8 dias. Sem afastamento, fevereiro continua com o mês comercial inteiro.
 - **Revisão do Codex no #115 (P2, mês do pagamento):** o gerador do S-1200/S-1210 recusa o trabalhador quando o cálculo foi feito com um mês de pagamento ("Pagamento em") e a data do pagamento na tela é de outro. O IRRF do cálculo segue a tabela do mês usado nele. Vale para todos, com ou sem adiantamento.
+
+## 08/10/2026 — Arredondamento do líquido
+
+- **Paulo:** *"pode seguir com arredondamento liquido"*. Os clientes do escritório pagam a folha no próprio mês, no 5º dia útil ou no dia 5 do mês seguinte.
+- **Como o IOB faz** (eventos de 08 e 09/2026): o pagamento sobe ao real seguinte, e os centavos pagos a mais voltam como desconto no mês seguinte.
+  - **Agosto:** 1.581,40 − 0,96 (anterior) + 0,56 (atual) = 1.581,00.
+  - **Setembro:**
+    - adiantamento de 466,67 pago como 467,00 (+ 0,33 no demonstrativo dele);
+    - folha: 490,00 − 0,33 (desc. arredondamento adiantamento) − 0,56 (anterior) + 0,89 (atual) = 490,00.
+- **`services/calculo/arredondamento.ts`:**
+  - `arredondar(r, anterior)` cria ARREDADI, ARREDANT e ARREDATU, sem INSS, FGTS e IRRF, e refaz os totais;
+  - `anteriorEncadeado` calcula o anterior mês a mês, desde o mês de início (no máximo 36 meses), usando o anterior informado no movimento quando houver.
+- **Parâmetro da empresa** (`empresas/{id}.parametrosFolha`): "Arredondar o líquido" e "desde", na tela do cálculo mensal.
+  - As regras do Firestore liberam essa chave para quem tem a empresa na carteira; o gestor já pode gravar.
+  - **Movimento:** novo campo "Arredondamento anterior", para informar o do holerite do IOB no primeiro mês.
+- **eSocial:**
+  - O demonstrativo do adiantamento leva o arredondamento dele, e o S-1210 paga 467,00.
+  - A folha leva as três linhas.
+  - **De/para:** pela descrição ("ARRED… ATUAL / ANTERIOR / ADIANT").
+- **Conferência de holerites:** as linhas de arredondamento do IOB não viram lançamento avulso. O "anterior" entra no movimento, e o motor refaz o resto.
+- **Trava:** `adiantamentoVt.test.ts`, com os valores de agosto e setembro do IOB.
+- **Revisão do Codex no #116 (P1):** com o arredondamento ligado "desde 09/2026", reabrir 08/2026 também arredondava esse mês. `arredondaNoMes` deixa a folha antes do mês de início como era, e o campo "Arredondamento anterior" só aparece a partir dele.
+- **Arredondamento no holerite do IOB:** quando o holerite tem linha de arredondamento mas não tem "anterior", o movimento grava anterior 0 para o mês. Sem nenhuma linha de arredondamento, o anterior fica para o encadeamento.
+- **Revisão do Codex no #116 (dois P2):**
+  - **Período completo:** o encadeamento percorre todo o período desde o mês de início. Com o corte em 36 meses, o anterior verdadeiro virava 0, e o erro chegava ao mês pedido. A trava cobre 42 meses.
+  - **Movimentos não carregados:** enquanto os movimentos gravados não carregam, ou se der erro, a folha com arredondamento fica "incompleta" com aviso, a não ser que o anterior do mês esteja informado. Assim não sai PDF nem arquivo bancário com o encadeamento feito sem as horas e faltas dos meses passados.
+- **Revisão do Codex no #116 (três P2):**
+  - **Mês com erro no encadeamento:** antes ele zerava o anterior sem aviso. Agora `anteriorEncadeado` devolve o erro com o mês, e a folha fica em erro até o mês ser corrigido ou até um anterior ser informado num mês seguinte.
+  - **Movimentos não carregados:** a folha agora fica em "erro", não mais "incompleta", porque os PDFs aceitavam resultados incompletos. Assim não sai holerite, arquivo bancário nem eSocial com o líquido sem o arredondamento.
+  - **Anterior informado:** no máximo R$ 0,99. Digitar 56 em vez de 0,56 tiraria R$ 56,00.
+- **Revisão do Codex no #116 (P2):** um mês antigo "incompleto" no encadeamento (férias sem recibo, por exemplo) agora trava como um mês em erro, porque o líquido dele não é o que foi pago. Um anterior informado num mês seguinte retoma o encadeamento.
+- **Revisão do Codex no #116 (três P2):**
+  - **Limite no rascunho:** o "Arredondamento anterior" digitado e ainda não salvo já entra no cálculo. Acima de 0,99, a folha do funcionário fica em erro, e o PDF, o arquivo bancário e o eSocial não saem com ele.
+  - **Regime de pagamento da empresa:** novo parâmetro "folha paga no próprio mês / no mês seguinte" (padrão: mês seguinte, para o 5º dia útil e o dia 5). Os meses passados do encadeamento e a conferência com o eSocial do IOB usam esse regime, e não o mês do pagamento da tela. Ele também é o mês do pagamento sugerido ao trocar de competência.
+  - **Descrição truncada:** "ARREDONDAMENTO ANTE" (evento 5660 do catálogo do IOB) continua sendo reconhecido como o anterior. O reconhecimento usa o início "ANT" ou o código 5660.
+- **Revisão do Codex no #116 (P1):** o mês do pagamento da tela agora segue o regime salvo da empresa ao abrir, trocar de empresa ou mudar o regime. Antes, uma empresa que paga no próprio mês abria com o pagamento no mês seguinte, e o IRRF saía pela tabela errada. O seletor "folha paga" aparece em toda folha mensal, mesmo sem o arredondamento.
+- **Revisão do Codex no #116 (dois P2):**
+  - **Descrições truncadas no de/para:** as rubricas de arredondamento são sugeridas também pelas descrições do catálogo do IOB ("ARREDONDAMENTO ATUA", "ARREDONDAMENTO ANTE") ou pelo código do evento como código da rubrica (1480, 5660, 8951). O 8951 é "DESC. ARREDONDAMENT" e não tem "ADIANT" na descrição.
+  - **Histórico do regime de pagamento:** mudar "folha paga" grava a mudança a partir da competência da tela (`mudancasPagamento`: desde, de, para). Os meses anteriores ficam com o regime que valia neles, no encadeamento, na conferência e no pagamento sugerido. Voltar ao regime anterior no mesmo mês desfaz a mudança.
+- **Revisão do Codex no #116 (dois P2):**
+  - **Arredondamento atual gravado:** ao salvar o movimento do mês, o Consultor grava o arredondamento atual de cada funcionário (`arredondamentoFechado`). Ele é o anterior do mês seguinte. O encadeamento usa o gravado e não refaz o mês com a ficha de hoje, então um dependente ou VT mudado depois não altera o que já foi pago. Mudou o atual, o funcionário aparece como "não salvo", e o S-1200 só sai depois de salvar. Meses sem o valor gravado continuam recalculados.
+  - **Mês de início:** na competência em que o arredondamento começa, o anterior é 0. A folha não espera mais os movimentos dos meses anteriores nem trava se eles falharem.
+- **Revisão do Codex no #116 (dois P2):**
+  - **Conferência de holerites:** as linhas de arredondamento são comparadas pelo efeito no líquido (atual − anterior − o do adiantamento), dos dois lados. Sem os totais lidos pelo Gemini, um arredondamento diferente não passa mais como "confere".
+  - **Mês de início alterado:** o atual gravado leva junto o mês de início usado (`arredondamentoDesde`). Se o início mudar, o gravado é ignorado e o mês é recalculado. O funcionário fica "não salvo" até o movimento ser salvo de novo.
+- **Revisão do Codex no #116 (P2):** se o movimento de um mês já fechado é editado e o cálculo fica em erro ou incompleto, o movimento é gravado sem o atual antigo. Assim, o encadeamento refaz o mês e trava, em vez de confiar no valor velho. A regra fica em `movimentoComFechado`, com testes.
+- **Revisão do Codex no #116 (dois P2):**
+  - **Parâmetros em fila:** cada mudança dos parâmetros da folha parte da última feita, e as gravações vão em ordem. Assim, marcar "Arredondar" e trocar "folha paga" em seguida não apaga uma das duas mudanças. A tela é atualizada na hora.
+  - **Regime mudado num mês já fechado:** o atual gravado leva também o mês do pagamento usado no cálculo (`arredondamentoPagamento`). Só vale se for o mesmo que o regime dá hoje para aquele mês. Se não for, o mês é recalculado.
+- **Revisão do Codex no #116 (dois P2):**
+  - **Edição com o arredondamento desligado:** qualquer movimento editado é gravado sem o atual antigo, mesmo num mês sem arredondamento. Religado o arredondamento, o mês é refeito.
+  - **"Pagamento em" fora do regime:** o mês do pagamento gravado com o atual é o que foi usado de fato. O encadeamento aceita o atual gravado e, quando precisa refazer o mês (início mudado), usa esse mês do pagamento. Mudar o regime depois não reescreve mês fechado; para isso, é preciso reabrir o mês e salvar de novo. Isso substitui a regra anterior, que descartava o atual quando o regime de hoje dava outro mês.
+- **Revisão do Codex no #116 (dois P2):**
+  - **Gravação dos parâmetros falhou:** a tela volta aos últimos parâmetros gravados, e as mudanças que estavam na fila atrás da que falhou são descartadas. A folha não segue calculada com parâmetros que não foram gravados.
+  - **Conferência com o eSocial do IOB:** o mês salvo com o arredondamento usa o mês do pagamento gravado. Fora isso, vale o mês do regime.

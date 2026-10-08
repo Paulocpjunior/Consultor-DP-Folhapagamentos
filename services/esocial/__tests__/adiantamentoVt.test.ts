@@ -5,7 +5,9 @@ import { describe, expect, it } from 'vitest';
 import { dataSugeridaAdiantamento, gerarEventosFolha, recibosFeriasDaCompetencia, sugerirDePara, verbasDoAdiantamentoParaDePara, type ParametrosEsocialFolha } from '../eventosFolha';
 import { adiantamentoDoMes, calcularMensal } from '../../calculo/motorMensal';
 import { feriasDaCompetencia } from '../../calculo/motorFerias';
-import { limparMovimento } from '../../calculo/movimento';
+import { limparMovimento, validarMovimento } from '../../calculo/movimento';
+import { arredondamentoAtual as arredondamentoAtualDe } from '../../calculo/arredondamento';
+import { anteriorEncadeado, aoRealSeguinte, arredondaNoMes, arredondar, mesDoPagamento, movimentoComFechado, mudarRegime, regimeNoMes } from '../../calculo/arredondamento';
 import { fichaVazia, validarFicha, type FichaFuncionario } from '../../cadastros/funcionarios';
 import { afastamentoVazio, type Afastamento } from '../../cadastros/afastamentos';
 import type { TabelaLegal } from '../../cadastros/tabelasLegais';
@@ -25,11 +27,12 @@ const v = (r: { verbas: { codigo: string; valor: number }[] }, c: string) => r.v
 // Rubricas como no S-1010 do IOB: o adiantamento sem natureza fixa (vai pela descrição); desconto 9200; VT 9216.
 const RUB: [string, string, string, '1' | '2'][] = [['SAL', 'SALARIO', '1000', '1'], ['INSS', 'INSS', '9201', '2'], ['ADIPG', 'ADIANTAMENTO DE SALARIO', '1099', '1'], ['ADIDESC', 'ADIANTAMENTO (VALE)', '9200', '2'],
     ['VTD', 'VALE TRANSPORTE', '9216', '2'], ['FERMES', 'FERIAS', '1016', '1'], ['FERMES13', '1/3 FERIAS', '1017', '1'], ['FERPAGO', 'DESC FERIAS', '9221', '2'], ['INSSFERRET', 'INSS S/FERIAS', '9201', '2'],
-    ['FERADI', 'FERIAS REC', '1015', '1'], ['FERADI13', '1/3 FERIAS REC', '1015', '1'], ['ABONO', 'ABONO PECUNIARIO', '1023', '1'], ['ABONO13', '1/3 ABONO', '1023', '1'], ['INSSFER', 'INSS FERIAS REC', '9201', '2']];
+    ['FERADI', 'FERIAS REC', '1015', '1'], ['FERADI13', '1/3 FERIAS REC', '1015', '1'], ['ABONO', 'ABONO PECUNIARIO', '1023', '1'], ['ABONO13', '1/3 ABONO', '1023', '1'], ['INSSFER', 'INSS FERIAS REC', '9201', '2'],
+    ['ARRA', 'ARREDONDAMENTO ATUAL', '1099', '1'], ['ARRN', 'ARREDONDAMENTO ANTERIOR', '9299', '2'], ['ARRD', 'DESC. ARREDONDAMENTO ADIANTAMENTO', '9299', '2']];
 const RUBRICAS: Rubrica[] = RUB.map(([k, dsc, nat, tp]) => ({ id: k, empresaId: 'E1', codRubr: k, ideTabRubr: 'T1', eventoIob: '', origem: '',
     vigencias: [{ iniValid: '2020-01', fimValid: '', recibo: '', dados: { dscRubr: dsc, natRubr: nat, tpRubr: tp, codIncCP: '00', codIncIRRF: '00', codIncFGTS: '00', codIncCPRP: '', observacao: '' } }] }));
 const DEPARA: Record<string, string> = { SAL: 'SAL', INSS: 'INSS', ADIANTPAG: 'ADIPG', ADIANT: 'ADIDESC', VT: 'VTD', FERMES: 'FERMES', FERMES13: 'FERMES13', FERPAGO: 'FERPAGO', INSSFERRET: 'INSSFERRET',
-    FERADI: 'FERADI', FERADI13: 'FERADI13', ABONO: 'ABONO', ABONO13: 'ABONO13', INSSFER: 'INSSFER' };
+    FERADI: 'FERADI', FERADI13: 'FERADI13', ABONO: 'ABONO', ABONO13: 'ABONO13', INSSFER: 'INSSFER', ARREDATU: 'ARRA', ARREDANT: 'ARRN', ARREDADI: 'ARRD' };
 const PARAMS: ParametrosEsocialFolha = { nrInscEstab: CNPJ, codLotacao: 'LOT01', rubricas: Object.fromEntries(Object.entries(DEPARA).map(([k, c]) => [k, { codRubr: c, ideTabRubr: 'T1' }])) };
 const doc = (xml: string) => new DOMParser().parseFromString(xml, 'application/xml');
 const txt = (d: Document, tag: string) => Array.from(d.getElementsByTagName(tag)).map(e => e.textContent);
@@ -172,5 +175,87 @@ describe('adiantamento salarial e vale-transporte', () => {
         const geraSet = (data: string) => gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-09', dataPagamento: '2026-09-30', dataAdiantamento: data, fichas: [sai], resultados: [set], rubricas: RUBRICAS, parametros: PARAMS }).trabalhadores[0];
         expect(geraSet('2026-09-20').erros).toEqual([expect.stringMatching(/^Adiantamento em 20\/09\/2026, mas o cálculo usou 18\/09\/2026/)]);
         expect(geraSet('2026-09-17').erros.filter(x => x.startsWith('Adiantamento em'))).toEqual([]);
+    });
+
+    it('arredondamento do líquido como o IOB: agosto 1.581,40 − 0,96 + 0,56 = 1.581,00; setembro 490,00 − 0,33 − 0,56 + 0,89, adiantamento pago 467,00', () => {
+        expect([aoRealSeguinte(158040), aoRealSeguinte(46667), aoRealSeguinte(49000), aoRealSeguinte(-50)]).toEqual([60, 33, 0, 0]);
+        // Agosto: o anterior do IOB (julho) era 0,96, informado no movimento.
+        const ago = arredondar(mensal('2026-08'), 96);
+        expect([v(ago, 'ARREDANT'), v(ago, 'ARREDATU'), v(ago, 'ARREDADI'), ago.totais.liquido]).toEqual([96, 56, undefined, 158100]);
+        // Setembro: o anterior é o atual de agosto (0,56), encadeado a partir do informado em agosto.
+        const ant = anteriorEncadeado('2026-08', '2026-09', c => mensal(c), c => (c === '2026-08' ? 96 : undefined)) as number;
+        expect(ant).toBe(56);
+        const set = arredondar(mensal('2026-09'), ant);
+        expect([v(set, 'ARREDADI'), v(set, 'ARREDANT'), v(set, 'ARREDATU'), set.totais.liquido]).toEqual([33, 56, 89, 49000]);
+        expect(set.verbas.filter(x => /^ARRED/.test(x.codigo)).every(x => !x.inss && !x.fgts && !x.irrf)).toBe(true);
+        // Reaplicar não duplica as linhas.
+        expect(arredondar(set, ant).verbas.filter(x => /^ARRED/.test(x.codigo))).toHaveLength(3);
+        // eSocial de 09: adiantamento 466,67 + 0,33 = 467,00 em 18/09; folha 490,00 com as três linhas, como no IOB.
+        const recibosFerias = recibosFeriasDaCompetencia([FICHA], GOZO, TAB, {}, '2026-09');
+        const t = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-09', dataPagamento: '2026-09-30', fichas: [FICHA], resultados: [set], rubricas: RUBRICAS, parametros: PARAMS, recibosFerias, agora: new Date('2026-10-01T12:00:00Z') }).trabalhadores[0];
+        expect(t.erros).toEqual([]);
+        const dm = demonstrativos(t.s1200!.xml);
+        expect(dm['ADI202609-M1']).toEqual({ ADIPG: '466.67', ARRA: '0.33' });
+        expect(dm['FOLHA202609-M1']).toMatchObject({ ADIDESC: '466.67', ARRD: '0.33', ARRN: '0.56', ARRA: '0.89', VTD: '70.00' });
+        const s1210 = doc(t.s1210!.xml);
+        const pg = Object.fromEntries(txt(s1210, 'ideDmDev').map((ide, i) => [ide, [txt(s1210, 'dtPgto')[i], txt(s1210, 'vrLiq')[i]]]));
+        expect(pg).toEqual({ 'ADI202609-M1': ['2026-09-18', '467.00'], 'FOLHA202609-M1': ['2026-09-30', '490.00'] });
+        // De/para das linhas do arredondamento pela descrição.
+        const s = Object.fromEntries(sugerirDePara([set, ...verbasDoAdiantamentoParaDePara([set])], RUBRICAS, '2026-09').map(i => [i.chave, i.sugestao?.codRubr ?? null]));
+        expect([s.ARREDATU, s.ARREDANT, s.ARREDADI]).toEqual(['ARRA', 'ARRN', 'ARRD']);
+        // Descrições truncadas como no catálogo do IOB, ou só o código do evento como código da rubrica (Codex #116).
+        const trunc: Record<string, [string, string]> = { ARRA: ['ARRA', 'ARREDONDAMENTO ATUA'], ARRN: ['ARRN', 'ARREDONDAMENTO ANTE'], ARRD: ['08951', 'DESC. ARREDONDAMENT'] };
+        const rubTrunc = RUBRICAS.map(r => !trunc[r.id] ? r : { ...r, codRubr: trunc[r.id][0], vigencias: [{ ...r.vigencias[0], dados: { ...r.vigencias[0].dados, dscRubr: trunc[r.id][1] } }] });
+        const st = Object.fromEntries(sugerirDePara([set, ...verbasDoAdiantamentoParaDePara([set])], rubTrunc, '2026-09').map(i => [i.chave, i.sugestao?.codRubr ?? null]));
+        expect([st.ARREDATU, st.ARREDANT, st.ARREDADI]).toEqual(['ARRA', 'ARRN', '08951']);
+        // Sem o mês de início: anterior 0; antes de começar a arredondar, nada encadeia.
+        expect(anteriorEncadeado('2026-09', '2026-09', c => mensal(c), () => undefined)).toBe(0);
+        // Encadeamento longo (42 meses) sem corte: o anterior verdadeiro vem do começo (Codex #116). Líquido fixo de 100,40:
+        // atuais 0,60, 0,20, 0,80, 0,40, 0,00 em ciclo; o do 42º mês é o 2º do ciclo.
+        const fixo = { ...mensal('2026-08'), verbas: [{ codigo: 'SAL', descricao: 'Salário', referencia: '', tipo: 'provento' as const, valor: 10040, inss: true, fgts: true, irrf: true }] };
+        expect(anteriorEncadeado('2023-01', '2026-07', () => fixo, () => undefined)).toBe(20);
+        // Mês com erro no caminho: o anterior não é inventado; um anterior informado depois dele volta a encadear (Codex #116).
+        const comErro = (c: string) => (c === '2026-08' ? { ...mensal(c), situacao: 'erro' as const } : mensal(c));
+        expect(anteriorEncadeado('2026-08', '2026-10', comErro, () => undefined)).toEqual({ erro: expect.stringMatching(/o cálculo de 08\/2026 está com erro ou incompleto/) });
+        expect(anteriorEncadeado('2026-08', '2026-10', comErro, c => (c === '2026-09' ? 56 : undefined))).toBe(89);
+        // Atual gravado ao salvar o movimento: o mês não é recalculado (a ficha de hoje pode ser outra; Codex #116).
+        let recalculados: string[] = [];
+        const conta = (c: string) => { recalculados.push(c); return mensal(c); };
+        expect(anteriorEncadeado('2026-08', '2026-10', conta, () => undefined, c => (c === '2026-09' ? 12 : undefined))).toBe(12);
+        expect(recalculados).toEqual(['2026-08']);
+        recalculados = [];
+        expect(typeof anteriorEncadeado('2026-08', '2026-10', comErro, () => undefined, c => (c === '2026-08' ? 40 : undefined))).toBe('number');
+        expect(validarMovimento({ arredondamentoFechado: 120 })).toEqual(['Arredondamento atual do mês: no máximo R$ 0,99 (são centavos do mês anterior).']);
+        expect(limparMovimento({ arredondamentoFechado: 0, arredondamentoDesde: '2026-08' })).toEqual({ arredondamentoFechado: 0, arredondamentoDesde: '2026-08' });
+        expect(limparMovimento({ arredondamentoDesde: 'x' })).toEqual({});
+        // Movimento a gravar: com cálculo completo, leva o atual e o início; sem, o editado perde o atual velho (Codex #116).
+        const okSet = arredondar(mensal('2026-09'), 56);
+        expect(movimentoComFechado({ horasExtras50: 2 }, undefined, okSet, '2026-08')).toEqual({ horasExtras50: 2, arredondamentoFechado: arredondamentoAtualDe(okSet), arredondamentoDesde: '2026-08', arredondamentoPagamento: okSet.pagamento });
+        const velho = { faltasDias: 1, arredondamentoFechado: 40, arredondamentoDesde: '2026-08' };
+        const falho = { ...okSet, situacao: 'erro' as const };
+        expect(movimentoComFechado(velho, velho, falho, '2026-08')).toBeUndefined();
+        expect(limparMovimento(movimentoComFechado({ ...velho, faltasDias: 2 }, velho, falho, '2026-08')!)).toEqual({ faltasDias: 2 });
+        const incompleto = (c: string) => (c === '2026-08' ? { ...mensal(c), situacao: 'incompleto' as const } : mensal(c));
+        expect(anteriorEncadeado('2026-08', '2026-10', incompleto, () => undefined)).toEqual({ erro: expect.stringMatching(/08\/2026 está com erro ou incompleto/) });
+        // Anterior informado: até 0,99 (Codex #116).
+        expect(validarMovimento({ arredondamentoAnterior: 5600 })).toEqual(['Arredondamento anterior: no máximo R$ 0,99 (são centavos do mês anterior).']);
+        expect(validarMovimento({ arredondamentoAnterior: 99 })).toEqual([]);
+        // Antes do mês de início a empresa não arredonda (Codex #116).
+        const p = { arredondarLiquido: true, arredondarDesde: '2026-09' };
+        expect([arredondaNoMes(p, '2026-08'), arredondaNoMes(p, '2026-09'), arredondaNoMes(p, '2026-10'), arredondaNoMes({ arredondarLiquido: false }, '2026-09'), arredondaNoMes(undefined, '2026-09')])
+            .toEqual([false, true, true, false, false]);
+        // Regime de pagamento da empresa, usado nos meses passados do encadeamento (Codex #116); padrão: mês seguinte.
+        expect([mesDoPagamento({ pagamentoFolha: 'mes' }, '2026-12'), mesDoPagamento({ pagamentoFolha: 'seguinte' }, '2026-12'), mesDoPagamento(undefined, '2026-08')])
+            .toEqual(['2026-12', '2027-01', '2026-09']);
+        // Mudança de regime: os meses anteriores ficam com o que valia neles (Codex #116).
+        const mudou = mudarRegime({ pagamentoFolha: 'seguinte' }, '2026-10', 'mes');
+        expect(mudou).toEqual({ pagamentoFolha: 'mes', mudancasPagamento: [{ desde: '2026-10', de: 'seguinte', para: 'mes' }] });
+        expect([mesDoPagamento(mudou, '2026-09'), mesDoPagamento(mudou, '2026-10'), mesDoPagamento(mudou, '2026-11')]).toEqual(['2026-10', '2026-10', '2026-11']);
+        // Voltar ao regime anterior no mesmo mês desfaz a mudança; mudar de novo mais à frente acrescenta outra.
+        expect(mudarRegime(mudou, '2026-10', 'seguinte')).toEqual({ pagamentoFolha: 'seguinte', mudancasPagamento: [] });
+        const duas = mudarRegime(mudou, '2027-03', 'seguinte');
+        expect(['2026-09', '2026-12', '2027-03'].map(c => regimeNoMes(duas, c))).toEqual(['seguinte', 'mes', 'seguinte']);
+        // Mudar num mês anterior a uma mudança gravada: vale daqui em diante, e a posterior sai.
+        expect(mudarRegime(duas, '2026-11', 'seguinte').mudancasPagamento).toEqual([{ desde: '2026-10', de: 'seguinte', para: 'mes' }, { desde: '2026-11', de: 'mes', para: 'seguinte' }]);
     });
 });
