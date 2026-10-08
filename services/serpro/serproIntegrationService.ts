@@ -11,7 +11,7 @@
  * IMPORTANTE: usuário precisa existir tanto no DP quanto no Fiscal
  * com mesmo email para que o token seja aceito.
  */
-import { comTokenCfi } from '../auth/tokenCfi';
+import { comTokenCfi, erroCfi } from '../auth/tokenCfi';
 
 const FISCAL_API_BASE = 'https://consultor-fiscal-inteligente-631239634290.us-west1.run.app/api/dp-integration';
 
@@ -30,7 +30,7 @@ async function chamarFiscal<T>(path: string, body: object, token: string): Promi
     });
     if (!resp.ok) {
         const err = await resp.json().catch(() => ({}));
-        throw new Error(err.error || `HTTP ${resp.status}`);
+        throw erroCfi(err.error || `HTTP ${resp.status}`, resp.status);
     }
     return resp.json();
 }

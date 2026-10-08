@@ -48,6 +48,13 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+/** PDF e Excel carregam no clique (import dinâmico): espera o arquivo sair. */
+async function clicarGerando(alvo: HTMLElement, f: { mock: { calls: unknown[] } }) {
+    const antes = f.mock.calls.length;
+    fireEvent.click(alvo);
+    await waitFor(() => expect(f.mock.calls.length).toBeGreaterThan(antes));
+}
+
 describe('aba Cálculo', () => {
     it('com empresa e período ativos: sem seletor de empresa, já na competência ativa', async () => {
         const ativa = { id: 'emp1', nome: 'Um', cnpj: '11222333000181', codigoSage: '0229', competencia: '2026-03', ativadaPor: 'dp@escritorio.com.br', ativadaEm: 1 };
@@ -84,7 +91,7 @@ describe('aba Cálculo', () => {
         fireEvent.change(within(holerite).getByLabelText('Valor do lançamento 1'), { target: { value: '132,00' } });
         await waitFor(() => expect(within(holerite).getByText('Vale-transporte', { selector: 'td' })).toBeTruthy());
 
-        fireEvent.click(screen.getByText('Exportar Excel'));
+        await clicarGerando(screen.getByText('Exportar Excel'), xlsx.writeFile);
         expect(xlsx.writeFile).toHaveBeenCalledWith(expect.anything(), 'calculo-0229-2026-03.xlsx');
     });
 
@@ -168,7 +175,7 @@ describe('aba Cálculo', () => {
         expect(within(sec).getByText('já aplicado')).toBeTruthy();
         expect(screen.getByText('Salvar movimento (1)')).toBeTruthy();
 
-        fireEvent.click(screen.getByText('Exportar Excel'));
+        await clicarGerando(screen.getByText('Exportar Excel'), xlsx.writeFile);
         const wb = xlsx.writeFile.mock.calls.at(-1)![0];
         expect(wb.SheetNames).toEqual(['Resumo', 'Verbas', 'Memória', 'Resumo da folha', 'Conferência IOB']);
     });
@@ -197,7 +204,7 @@ describe('aba Cálculo', () => {
         expect(within(hol).getByText(/13º salário 2026/)).toBeTruthy();
         fireEvent.change(within(hol).getByLabelText('1ª parcela paga'), { target: { value: '1.000,00' } });
         await waitFor(() => expect(within(hol).getByText('Adiantamento do 13º (1ª parcela)').closest('tr')!.textContent).toContain('1.000,00'));
-        fireEvent.click(screen.getByText('Exportar Excel'));
+        await clicarGerando(screen.getByText('Exportar Excel'), xlsx.writeFile);
         expect(xlsx.writeFile).toHaveBeenLastCalledWith(expect.anything(), 'calculo-0229-2026-13-2a-parcela.xlsx');
     });
 
@@ -222,7 +229,7 @@ describe('aba Cálculo', () => {
         expect(within(rec).getByText(/pagar até/).textContent).toContain('27/06/2025 (29/06/2025 não é dia útil)');
         fireEvent.change(within(rec).getByLabelText('Dias de abono'), { target: { value: '10' } });
         await waitFor(() => expect(within(rec).getByText('Abono pecuniário')).toBeTruthy());
-        fireEvent.click(screen.getByText('Exportar Excel'));
+        await clicarGerando(screen.getByText('Exportar Excel'), xlsx.writeFile);
         expect(xlsx.writeFile).toHaveBeenLastCalledWith(expect.anything(), 'calculo-0229-ferias-2025-07.xlsx');
     });
 
@@ -280,7 +287,7 @@ describe('aba Cálculo', () => {
         fireEvent.change(within(det).getByLabelText('Tipo do desligamento'), { target: { value: '07' } });
         await waitFor(() => expect(within(det).queryByText('Aviso prévio indenizado')).toBeNull());
         expect(within(det).getByText(/paga por guia, fora do líquido/).textContent).toContain('não há');
-        fireEvent.click(screen.getByText('Exportar Excel'));
+        await clicarGerando(screen.getByText('Exportar Excel'), xlsx.writeFile);
         expect(xlsx.writeFile).toHaveBeenLastCalledWith(expect.anything(), 'calculo-0229-rescisao-2026-03.xlsx');
         fireEvent.click(within(det).getByText('Remover simulação'));
         await waitFor(() => expect(screen.getByText(/Nenhum desligamento em 03\/2026/)).toBeTruthy());
@@ -322,14 +329,14 @@ describe('aba Cálculo', () => {
         const sec = screen.getByRole('region', { name: 'Resumo da folha' });
         expect(within(sec).getByText(/2 funcionário\(s\): 1 calculado\(s\), 0 incompleto\(s\), 1 com erro/)).toBeTruthy();
         expect(within(sec).getByText('INSS dos segurados').nextElementSibling!.textContent).toMatch(/175,23/); // 2.200: 113,85 + 682,00 × 9% = 61,38
-        fireEvent.click(within(sec).getByText('Resumo (PDF)'));
+        await clicarGerando(within(sec).getByText('Resumo (PDF)'), pdf.save);
         expect(pdf.resumoPdf).toHaveBeenCalledWith(expect.objectContaining({ funcionarios: 2 }), expect.objectContaining({ titulo: 'Folha mensal 03/2026', previa: true }), expect.stringContaining('Folha mensal'));
         expect(pdf.save).toHaveBeenLastCalledWith('resumo-0229-2026-03.pdf');
-        fireEvent.click(screen.getByText('Holerites (PDF)'));
+        await clicarGerando(screen.getByText('Holerites (PDF)'), pdf.save);
         expect(pdf.holeritesPdf.mock.calls[0][0]).toHaveLength(2);
         expect(pdf.save).toHaveBeenLastCalledWith('holerites-0229-2026-03.pdf');
         fireEvent.click(screen.getByText('ANA'));
-        fireEvent.click(screen.getByText('PDF deste holerite'));
+        await clicarGerando(screen.getByText('PDF deste holerite'), pdf.save);
         expect(pdf.holeritesPdf.mock.calls[1][0].map((r: { nome: string }) => r.nome)).toEqual(['ANA']);
         expect(pdf.save).toHaveBeenLastCalledWith('holerite-0229-2026-03-ana.pdf');
     });
@@ -361,9 +368,9 @@ describe('aba Cálculo', () => {
         fireEvent.click(screen.getByText('Resumo da folha'));
         const sec = screen.getByRole('region', { name: 'Resumo da folha' });
         await waitFor(() => expect(within(sec).getByRole('alert').textContent).toContain('Enquadramento não carregado (Error: sem permissão)'));
-        fireEvent.click(within(sec).getByText('Resumo (PDF)'));
+        await clicarGerando(within(sec).getByText('Resumo (PDF)'), pdf.save);
         expect(pdf.resumoPdf.mock.calls.at(-1)![2]).toContain('ATENÇÃO: enquadramento não carregado');
-        fireEvent.click(screen.getByText('Exportar Excel'));
+        await clicarGerando(screen.getByText('Exportar Excel'), xlsx.writeFile);
         const wb = xlsx.writeFile.mock.calls.at(-1)![0];
         expect(JSON.stringify(wb.Sheets['Resumo da folha'])).toContain('Parte patronal NÃO CARREGADA');
     });

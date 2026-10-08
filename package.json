@@ -50,7 +50,7 @@
     "firebase": "^12.12.1",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.0",
-    "jspdf-autotable": "^3.8.2",
+    "jspdf-autotable": "^5.0.8",
     "lucide-react": "^0.575.0",
     "motion": "^12.34.3",
     "pdfjs-dist": "6.3.289",

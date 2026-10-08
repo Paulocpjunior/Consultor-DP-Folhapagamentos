@@ -14,7 +14,7 @@ interface EntradaTeste { nome: string; dados?: Uint8Array; zeros?: number; metod
 interface Segmento { ini: number; fim: number; bytes?: Uint8Array }
 
 const enc = new TextEncoder();
-const bytes = (...vs: [number, 2 | 4 | 8][]) => {
+const bytes = (...vs: [number, 1 | 2 | 4 | 8][]) => {
     const out: number[] = [];
     for (const [v, n] of vs) for (let k = 0; k < n; k++) out.push(Math.floor(v / 2 ** (8 * k)) & 0xff);
     return new Uint8Array(out);

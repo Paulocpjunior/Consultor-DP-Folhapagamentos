@@ -49,7 +49,7 @@ export const getEmpresas = async (currentUser?: User | null): Promise<LucroPresu
             
             try {
                 const snapshot = await getDocs(q);
-                const cloudEmpresas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as LucroPresumidoEmpresa));
+                const cloudEmpresas = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as object) } as LucroPresumidoEmpresa));
                 
                 // Se conseguiu buscar da nuvem, atualiza o cache local (apenas para modo offline)
                 if (cloudEmpresas.length > 0) {

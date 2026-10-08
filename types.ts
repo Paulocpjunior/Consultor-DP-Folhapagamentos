@@ -497,6 +497,16 @@ export interface GeminiTransactionItem {
     type: 'credit' | 'debit';
     category?: string;
     balance?: number;
+    // Campos do esquema de resposta pedido à IA (services/geminiService.ts).
+    debit?: number;
+    credit?: number;
+    companyName?: string;
+    cnpj?: string;
+    isUnusual?: boolean;
+    unusualReason?: string;
+    accountDebit?: string;
+    accountCredit?: string;
+    accountingHistory?: string;
 }
 
 export interface GeminiTransactionResponse {
@@ -517,8 +527,26 @@ export interface GeminiInvestmentItem {
     quantity?: number;
 }
 
+// Movimentação do Extrato de Cotista, como no esquema de resposta pedido à IA.
+export interface GeminiInvestmentTransaction {
+    date: string;
+    fundName: string;
+    fundCNPJ: string;
+    operationType: string;
+    shareQuantity: number;
+    shareValue: number;
+    grossValue: number;
+    irWithheld: number;
+    netValue: number;
+    administrator: string;
+    gestor: string;
+    isUnusual: boolean;
+    unusualReason: string;
+}
+
 export interface GeminiInvestmentResponse {
-    transactions: GeminiInvestmentItem[];
+    transactions?: GeminiInvestmentItem[];
+    investmentTransactions: GeminiInvestmentTransaction[];
     metadata?: {
         broker?: string;
         account?: string;

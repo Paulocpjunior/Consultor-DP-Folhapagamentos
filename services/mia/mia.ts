@@ -9,6 +9,7 @@
 
 import { callFiscal } from '../serpro/serproIntegrationService';
 import type { ResultadoCalculo } from '../calculo/motorMensal';
+import { cpfValido } from '../implantacao/implantacao';
 
 export type Papel = 'usuaria' | 'mia';
 export interface MensagemMia { papel: Papel; texto: string; fontes?: { titulo: string; uri: string }[] }
@@ -16,7 +17,19 @@ export interface ContextoMia { tela: string; texto: string }
 
 /** Limites do CFI (sefaz-backend/dp-assistente-mia.js). */
 export const MAX_MENSAGENS = 20;
+export const MAX_TEXTO = 4000;
 export const MAX_CONTEXTO = 24000;
+
+/**
+ * CPF fora do texto que vai para a IA: com máscara (000.000.000-00) sempre;
+ * só dígitos, quando os 11 formam um CPF válido (auditoria de 08/10/2026).
+ */
+export const mascararCpf = (t: string) => t.replace(/(?<![\d.])(\d{3}\.\d{3}\.\d{3}-\d{2}|\d{11})(?![\d-])/g,
+    m => (m.length === 14 || cpfValido(m) ? '***.***.***-**' : m));
+
+// Cada mensagem cabe no limite do CFI: da pergunta fica o fim (a mais recente, quando foram juntadas); da resposta, o começo.
+const caber = (m: { papel: Papel; texto: string }) => m.texto.length <= MAX_TEXTO ? m
+    : { ...m, texto: m.papel === 'usuaria' ? `[…] ${m.texto.slice(-(MAX_TEXTO - 4))}` : `${m.texto.slice(0, MAX_TEXTO - 4)} […]` };
 
 /** Mapa do app para a MiA guiar a equipe (onde fica cada coisa). */
 export const GUIA_DO_APP = [
@@ -84,9 +97,9 @@ export async function perguntarMia(conversa: MensagemMia[], contexto: ContextoMi
         if (ult && ult.papel === m.papel) ult.texto = `${ult.texto}\n\n${m.texto}`;
         else alternadas.push({ papel: m.papel, texto: m.texto });
     }
-    const mensagens = alternadas.slice(-MAX_MENSAGENS);
+    const mensagens = alternadas.slice(-MAX_MENSAGENS).map(caber);
     while (mensagens.length && mensagens[0].papel !== 'usuaria') mensagens.shift();
-    const partes = [`Aba aberta: ${aba}.`, GUIA_DO_APP, ...(contexto ? [`Tela "${contexto.tela}":`, contexto.texto] : [])];
+    const partes = [`Aba aberta: ${aba}.`, GUIA_DO_APP, ...(contexto ? [`Tela "${contexto.tela}":`, mascararCpf(contexto.texto)] : [])];
     let texto = partes.join('\n\n');
     if (texto.length > MAX_CONTEXTO) texto = `${texto.slice(0, MAX_CONTEXTO - 40)}\n[contexto cortado por tamanho]`;
     const r = await callFiscal<{ texto: string; fontes?: { titulo: string; uri: string }[] }>('/assistente/mia', { mensagens, contexto: { tela: contexto?.tela ?? aba, texto } });

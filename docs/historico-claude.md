@@ -2615,3 +2615,44 @@ guias sindicais".
     depois das 21h férias que começavam no dia seguinte entravam como
     gozadas. Agora usa a data local.
   - Cada correção tem um teste que reprova o código antigo.
+
+## 08/10/2026 — Lote D da auditoria (CI, tipos, segurança e tamanho)
+
+- **CI:** o workflow roda `npm run lint` (tsc) e `npm test` antes do build.
+  Um PR com erro de tipo ou teste quebrado fica vermelho e não publica.
+- **Os 19 erros de tsc que já existiam foram zerados:**
+  - **Removidos três arquivos que ninguém importava** (restos do CFI):
+    `AccessLogsModal.tsx`, `SimplesNacionalNovaEmpresa.tsx` e
+    `geminiService.proxy.ts`.
+  - **Tipos do extrato do Gemini** alinhados ao esquema de resposta pedido
+    à IA.
+  - **Ajustes de import:** `Empresa` no Apontamento e `EventoPonto` no
+    editor de ponto.
+  - **Spread do Lucro Presumido** e helper de bytes do teste do zip.
+- **MiA (Codex #99):**
+  - **CPF mascarado** no contexto da tela que vai para a IA: com máscara,
+    sempre; só dígitos, quando os 11 formam CPF válido.
+  - **Cada mensagem cabe nos 4.000 caracteres do CFI**, também depois de
+    juntar perguntas seguidas. Da pergunta fica o fim (a mais recente); da
+    resposta, o começo.
+- **`comTokenCfi`:** renova o token ou mostra o aviso de e-mail não
+  verificado só quando o CFI responde 401/403. Antes decidia só pelo texto,
+  então um erro de negócio com "não verificado" na mensagem disparava a
+  renovação.
+- **Dependências:**
+  - `npm audit fix` sem `--force`, que corrigiu jspdf, protobufjs, ws,
+    websocket-driver, proxy-addr, dompurify e outras.
+  - `jspdf-autotable` foi para a 5.0.8, que aceita o jspdf 4. A 3.8 pedia
+    o jspdf 2.
+  - **Restam 6 apontamentos:**
+    - **firebase e grpc-js:** o grpc só roda no Node, e o navegador usa
+      outro transporte. A correção sugerida é voltar o firebase para a 9,
+      o que não faz sentido.
+    - **qs:** está dentro do express do `server.js`, que não é usado no
+      Pages.
+    - **xlsx (SheetJS):** não há versão corrigida no npm; a corrigida é
+      publicada no CDN do SheetJS. Fica para decisão do Paulo, porque muda
+      a origem da dependência.
+- **Tamanho:** o PDF (jspdf) e o Excel carregam só no clique. O pacote da
+  tela do Cálculo caiu de 632 kB para 214 kB.
+- **Testes:** 86 arquivos, 681 testes.

@@ -26,7 +26,7 @@ import ConviteAgenda from '../agenda/ConviteAgenda';
 const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 
 /** PDF do pacote, gerado só na hora de baixar. */
-export interface DocumentoPacote { id: string; rotulo: string; nome: string; descricao: string; gerar: () => Uint8Array | ArrayBuffer }
+export interface DocumentoPacote { id: string; rotulo: string; nome: string; descricao: string; gerar: () => Uint8Array | ArrayBuffer | Promise<Uint8Array | ArrayBuffer> }
 
 interface Props {
     empresa: Empresa;
@@ -97,7 +97,7 @@ const PacoteClienteModal: React.FC<Props> = ({ empresa, resultados, fichas, titu
         try {
             const arquivos: ArquivoZip[] = []; const descritos: ArquivoDoPacote[] = [];
             for (const d of documentos.filter(x => incluir[x.id])) {
-                const bytes = d.gerar();
+                const bytes = await d.gerar();
                 arquivos.push({ nome: d.nome, conteudo: bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes) });
                 descritos.push({ nome: d.nome, descricao: d.descricao });
             }

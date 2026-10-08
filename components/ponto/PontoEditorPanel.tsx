@@ -16,7 +16,7 @@ import type {
     ResultadoParsingPonto,
     ModeloPonto,
     LayoutPonto,
-    EventoPonto,
+    EventoApurado as EventoPonto,
 } from '../../types/ponto';
 
 const MODELO_ID = 'acjef_p1510_v1';
