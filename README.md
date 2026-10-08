@@ -69,7 +69,16 @@ VITE_API_PROXY_URL=https://consultor-fiscal-proxy-xxx.a.run.app
 
 ### 3. Substituir o geminiService
 
-Substitua `services/geminiService.ts` pelo arquivo `geminiService.proxy.ts` gerado.
+O modelo `services/geminiService.proxy.ts` saiu do repositório em 08/10/2026:
+nada o importava e ele não compilava. No Consultor DP, a IA da folha (MiA,
+leitura de holerites) passa pelo CFI (`callFiscal`, rota `/api/dp-integration`).
+Para usar este proxy no `services/geminiService.ts`, recupere o modelo pelo git:
+
+```bash
+git show 2f255ff^:services/geminiService.proxy.ts > services/geminiService.proxy.ts
+```
+
+e substitua `services/geminiService.ts` por ele, ajustando os tipos de `types.ts`.
 
 ### 4. Configurar CORS do Proxy
 

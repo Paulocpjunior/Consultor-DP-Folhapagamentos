@@ -2653,6 +2653,14 @@ guias sindicais".
     - **xlsx (SheetJS):** não há versão corrigida no npm; a corrigida é
       publicada no CDN do SheetJS. Fica para decisão do Paulo, porque muda
       a origem da dependência.
-- **Tamanho:** o PDF (jspdf) e o Excel carregam só no clique. O pacote da
-  tela do Cálculo caiu de 632 kB para 214 kB.
+- **Tamanho:** o PDF (jspdf) carrega só no clique. O pacote da tela do
+  Cálculo caiu de 632 kB para 214 kB.
+- **Revisão do Codex no PR #110:**
+  - **xlsx (P2):** o xlsx continua no pacote principal, porque os leitores
+    de planilha da Folha o importam direto. Carregá-lo no clique no Cálculo
+    não mudava nada, então voltou ao import normal; a redução veio só do
+    PDF. Tirar o xlsx do pacote principal fica para depois, porque mexe
+    nos leitores de planilha da Folha.
+  - **README (P2):** o passo do proxy do Gemini passa a dizer como recuperar
+    pelo git o modelo removido (`geminiService.proxy.ts`).
 - **Testes:** 86 arquivos, 681 testes.

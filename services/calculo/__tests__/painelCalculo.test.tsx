@@ -48,7 +48,7 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-/** PDF e Excel carregam no clique (import dinâmico): espera o arquivo sair. */
+/** O PDF carrega no clique (import dinâmico): espera o arquivo sair (o Excel sai na hora). */
 async function clicarGerando(alvo: HTMLElement, f: { mock: { calls: unknown[] } }) {
     const antes = f.mock.calls.length;
     fireEvent.click(alvo);

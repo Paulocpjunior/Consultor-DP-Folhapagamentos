@@ -7,6 +7,7 @@
 // não é gravado: serve para conferir o motor contra o holerite do IOB.
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import * as XLSX from 'xlsx';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
 import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
@@ -38,7 +39,7 @@ import { listarEnvios, type Envio } from '../../services/esocial/transmissaoServ
 import StatusEsocialAfastamento from '../esocial/StatusEsocialAfastamento';
 import ConviteAgenda from '../agenda/ConviteAgenda';
 import { eventosDoReciboFerias } from '../../services/agenda/convite';
-// PDF (jspdf) e Excel (xlsx) só carregam no clique: a tela do Cálculo abre mais leve.
+// O PDF (jspdf) só carrega no clique: a tela do Cálculo abre mais leve. O xlsx já vem no pacote principal (Folha).
 const relatoriosPdf = () => import('../../services/relatorios/holeritePdf');
 
 const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
@@ -295,10 +296,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         finally { setSalvando(false); }
     }
 
-    async function exportar() {
-        let XLSX: typeof import('xlsx');
-        try { XLSX = await import('xlsx'); }
-        catch (e) { setErrosMov([`Excel não gerado: ${(e as Error).message}`]); return; }
+    function exportar() {
         const planilha = resultados.map(r => ({
             Nome: r.nome, Situação: r.situacao, Proventos: r.totais.proventos / 100, INSS: inssDe(r) / 100, IRRF: irrfDe(r) / 100,
             'Salário-família': v(r, 'SF') / 100, Descontos: r.totais.descontos / 100, Líquido: r.totais.liquido / 100,
