@@ -11,6 +11,7 @@ import { mensagemErro, type Usuario } from '../../services/cadastros/cadastrosSe
 import { reais } from '../../services/cadastros/documentos';
 import type { Movimento, ResultadoCalculo } from '../../services/calculo/motorMensal';
 import { mesmoMovimento, movimentoVazio } from '../../services/calculo/movimento';
+import { semFechado } from '../../services/calculo/arredondamento';
 import { conferirHolerite, ligarHolerite, movimentoDoHolerite, podeAplicar, type ConferenciaFuncionario, type HoleriteIob } from '../../services/calculo/conferenciaHolerites';
 import { lerHolerites, registrarLeitura, MAX_PDF_MB } from '../../services/calculo/holeritesService';
 
@@ -70,7 +71,7 @@ const ConferenciaHolerites: React.FC<Props> = ({ empresaId, competencia, fichas,
     }
 
     // O arredondamento atual gravado pelo Consultor não vem do holerite: fica fora da comparação.
-    const digitado = (m: Movimento | undefined): Movimento | undefined => m && { ...m, arredondamentoFechado: undefined, arredondamentoDesde: undefined };
+    const digitado = (m: Movimento | undefined): Movimento | undefined => m && semFechado(m);
     function aplicar(fichaId: string, m: Movimento, nome: string) {
         if (!fichaId) return;
         const atual = digitado(movimentos[fichaId]);

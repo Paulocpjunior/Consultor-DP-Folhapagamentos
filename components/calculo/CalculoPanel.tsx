@@ -6,7 +6,7 @@
 // o que foi digitado e ainda não salvo fica marcado. O resultado do cálculo
 // não é gravado: serve para conferir o motor contra o holerite do IOB.
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { listarEmpresasVisiveis, salvarParametrosFolha } from '../../services/empresas/empresasService';
@@ -212,8 +212,9 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         const anterior = informado ?? anteriorEncadeado(desde, c,
             m => (noMes([f], m).length ? calcularMensal({ competencia: m, pagamento: mesDoPagamento(parametrosFolha, m), ficha: f, tabelas: dados.tabelas, movimento: salvos[m], afastamentos: afs,
                 feriasDoMes: feriasDaCompetencia(f, afs, dados.tabelas, salvos, m, opcoesFerias) }) : null),
-            // O atual gravado só vale se foi encadeado a partir do mesmo mês de início (Codex #116).
-            m => salvos[m]?.arredondamentoAnterior, m => (salvos[m]?.arredondamentoDesde === desde ? salvos[m]?.arredondamentoFechado : undefined));
+            // O atual gravado só vale se foi encadeado do mesmo mês de início e com o mesmo mês de pagamento que o regime
+            // dá hoje para aquele mês (Codex #116).
+            m => salvos[m]?.arredondamentoAnterior, m => (salvos[m]?.arredondamentoDesde === desde && salvos[m]?.arredondamentoPagamento === mesDoPagamento(parametrosFolha, m) ? salvos[m]?.arredondamentoFechado : undefined));
         return typeof anterior === 'number' ? arredondar(r, anterior) : travar(anterior.erro);
     }, [parametrosFolha, dados, movsEmpresa, opcoesFerias]);
     const resultados = useMemo(() => {
@@ -332,13 +333,18 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         catch (e) { setErrosMov([`PDF não gerado: ${(e as Error).message}`]); }
     }
 
-    async function gravarParametrosFolha(p: ParametrosFolha) {
+    // Parâmetros da folha: cada mudança parte da última (não da que estava na tela quando a anterior ainda gravava) e as
+    // gravações vão em fila, para a mais nova ser a última a chegar (Codex #116).
+    const ultimosParametros = useRef<Record<string, ParametrosFolha | undefined>>({});
+    const filaParametros = useRef<Promise<void>>(Promise.resolve());
+    function gravarParametrosFolha(mudar: (p: ParametrosFolha | undefined) => ParametrosFolha) {
         if (!empresa) return;
         const id = empresa.id;
-        try {
-            await salvarParametrosFolha(id, p);
-            setEmpresas(l => l?.map(e => (e.id === id ? { ...e, parametrosFolha: p } : e)) ?? l);
-        } catch (e) { setErro(`Arredondamento não gravado: ${mensagemErro(e)}`); }
+        const novo = mudar(id in ultimosParametros.current ? ultimosParametros.current[id] : empresa.parametrosFolha);
+        ultimosParametros.current[id] = novo;
+        setEmpresas(l => l?.map(e => (e.id === id ? { ...e, parametrosFolha: novo } : e)) ?? l);
+        filaParametros.current = filaParametros.current.then(() => salvarParametrosFolha(id, novo))
+            .catch(e => setErro(`Parâmetros da folha não gravados (recarregue a página antes de continuar): ${mensagemErro(e)}`));
     }
 
     async function salvar() {
@@ -430,13 +436,13 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 </label>}
                 {mensal && empresa && <span className="flex items-center gap-2 text-sm dark:text-white">
                     <label className="flex items-center gap-1" title="Como o IOB: o líquido sobe ao real seguinte e os centavos voltam como desconto no mês seguinte (parâmetro da empresa)."><input type="checkbox" aria-label="Arredondar o líquido" checked={!!parametrosFolha?.arredondarLiquido}
-                        onChange={e => gravarParametrosFolha({ ...parametrosFolha, arredondarLiquido: e.target.checked, arredondarDesde: parametrosFolha?.arredondarDesde || competencia })} />Arredondar o líquido</label>
+                        onChange={e => { const ligar = e.target.checked; gravarParametrosFolha(p => ({ ...p, arredondarLiquido: ligar, arredondarDesde: p?.arredondarDesde || competencia })); }} />Arredondar o líquido</label>
                     {parametrosFolha?.arredondarLiquido && <label>desde<input aria-label="Arredondamento desde" type="month" className={`ml-1 ${inp}`} value={parametrosFolha.arredondarDesde ?? ''}
-                        onChange={e => /^\d{4}-\d{2}$/.test(e.target.value) && gravarParametrosFolha({ ...parametrosFolha, arredondarDesde: e.target.value })} /></label>}
+                        onChange={e => { const d = e.target.value; if (/^\d{4}-\d{2}$/.test(d)) gravarParametrosFolha(p => ({ ...p, arredondarDesde: d })); }} /></label>}
                     {/* Regime da empresa: os meses passados do encadeamento são calculados com ele (o da tela vale só para a competência). */}
                     <label title="Mês em que a empresa paga a folha, a partir desta competência (os meses anteriores ficam com o regime que valia neles). Vale para o mês do pagamento sugerido e para o encadeamento do arredondamento.">folha paga
                         <select aria-label="Folha paga" className={`ml-1 ${inp}`} value={regimePagamento ?? 'seguinte'} disabled={!regimePagamento}
-                            onChange={e => { const p = e.target.value as RegimePagamento; gravarParametrosFolha(mudarRegime(parametrosFolha, competencia, p)); setPagamento(p === 'mes' ? competencia : competenciaSeguinte(competencia)); }}>
+                            onChange={e => { const p = e.target.value as RegimePagamento; gravarParametrosFolha(atual => mudarRegime(atual, competencia, p)); setPagamento(p === 'mes' ? competencia : competenciaSeguinte(competencia)); }}>
                             <option value="mes">no próprio mês</option><option value="seguinte">no mês seguinte</option>
                         </select></label>
                 </span>}

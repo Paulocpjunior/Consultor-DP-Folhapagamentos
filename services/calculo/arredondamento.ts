@@ -123,13 +123,14 @@ export function anteriorEncadeado(desde: string, competencia: string, calcular: 
     return falhou ? { erro: `Arredondamento do líquido: o cálculo de ${falhou.slice(5)}/${falhou.slice(0, 4)} está com erro ou incompleto, e o anterior não pode ser encadeado a partir dele. Corrija esse mês ou informe o "Arredondamento anterior" no movimento de um mês seguinte.` } : anterior;
 }
 
-const semFechado = (m: Movimento | undefined): Movimento => ({ ...m, arredondamentoFechado: undefined, arredondamentoDesde: undefined });
+/** O movimento sem o que o Consultor grava do arredondamento (o atual, o início e o mês do pagamento usados). */
+export const semFechado = (m: Movimento | undefined): Movimento => ({ ...m, arredondamentoFechado: undefined, arredondamentoDesde: undefined, arredondamentoPagamento: undefined });
 /**
  * Movimento a gravar com o arredondamento atual do mês (o anterior do mês seguinte) e o início usado. Sem cálculo
  * completo: movimento editado sai sem o atual velho, para o encadeamento refazer (e travar) o mês em vez de confiar
  * nele; sem edição, fica como está (undefined; Codex #116).
  */
 export function movimentoComFechado(mov: Movimento | undefined, gravado: Movimento | undefined, r: ResultadoCalculo, desde: string): Movimento | undefined {
-    if (r.situacao === 'calculado') return { ...mov, arredondamentoFechado: arredondamentoAtual(r), arredondamentoDesde: desde };
+    if (r.situacao === 'calculado') return { ...mov, arredondamentoFechado: arredondamentoAtual(r), arredondamentoDesde: desde, arredondamentoPagamento: r.pagamento };
     return mesmoMovimento(semFechado(mov), semFechado(gravado)) ? undefined : semFechado(mov);
 }

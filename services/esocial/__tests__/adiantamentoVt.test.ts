@@ -230,7 +230,7 @@ describe('adiantamento salarial e vale-transporte', () => {
         expect(limparMovimento({ arredondamentoDesde: 'x' })).toEqual({});
         // Movimento a gravar: com cálculo completo, leva o atual e o início; sem, o editado perde o atual velho (Codex #116).
         const okSet = arredondar(mensal('2026-09'), 56);
-        expect(movimentoComFechado({ horasExtras50: 2 }, undefined, okSet, '2026-08')).toEqual({ horasExtras50: 2, arredondamentoFechado: arredondamentoAtualDe(okSet), arredondamentoDesde: '2026-08' });
+        expect(movimentoComFechado({ horasExtras50: 2 }, undefined, okSet, '2026-08')).toEqual({ horasExtras50: 2, arredondamentoFechado: arredondamentoAtualDe(okSet), arredondamentoDesde: '2026-08', arredondamentoPagamento: okSet.pagamento });
         const velho = { faltasDias: 1, arredondamentoFechado: 40, arredondamentoDesde: '2026-08' };
         const falho = { ...okSet, situacao: 'erro' as const };
         expect(movimentoComFechado(velho, velho, falho, '2026-08')).toBeUndefined();

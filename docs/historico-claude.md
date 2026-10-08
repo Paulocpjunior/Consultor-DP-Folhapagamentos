@@ -2997,3 +2997,6 @@ guias sindicais".
   - **Conferência de holerites:** as linhas de arredondamento são comparadas pelo efeito no líquido (atual − anterior − o do adiantamento), dos dois lados. Sem os totais lidos pelo Gemini, um arredondamento diferente não passa mais como "confere".
   - **Mês de início alterado:** o atual gravado leva junto o mês de início usado (`arredondamentoDesde`). Se o início mudar, o gravado é ignorado e o mês é recalculado. O funcionário fica "não salvo" até o movimento ser salvo de novo.
 - **Revisão do Codex no #116 (P2):** se o movimento de um mês já fechado é editado e o cálculo fica em erro ou incompleto, o movimento é gravado sem o atual antigo. Assim, o encadeamento refaz o mês e trava, em vez de confiar no valor velho. A regra fica em `movimentoComFechado`, com testes.
+- **Revisão do Codex no #116 (dois P2):**
+  - **Parâmetros em fila:** cada mudança dos parâmetros da folha parte da última feita, e as gravações vão em ordem. Assim, marcar "Arredondar" e trocar "folha paga" em seguida não apaga uma das duas mudanças. A tela é atualizada na hora.
+  - **Regime mudado num mês já fechado:** o atual gravado leva também o mês do pagamento usado no cálculo (`arredondamentoPagamento`). Só vale se for o mesmo que o regime dá hoje para aquele mês. Se não for, o mês é recalculado.

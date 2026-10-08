@@ -49,6 +49,8 @@ export interface Movimento {
     arredondamentoFechado?: number;
     /** Mês de início do arredondamento quando o atual foi gravado: mudou o início, o gravado não vale (Codex #116). */
     arredondamentoDesde?: string;
+    /** Mês do pagamento com que o atual foi calculado: mudou o regime daquele mês, o gravado não vale (Codex #116). */
+    arredondamentoPagamento?: string;
     lancamentos?: Lancamento[];
 }
 

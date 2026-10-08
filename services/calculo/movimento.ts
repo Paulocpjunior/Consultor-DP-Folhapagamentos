@@ -39,6 +39,7 @@ export function limparMovimento(m: Movimento): Movimento {
         if (typeof v === 'number' && Number.isFinite(v) && (v !== 0 || SOBREPOEM_FICHA.includes(k))) out[k] = EM_CENTAVOS.includes(k) ? Math.round(v) : Math.round(v * 100) / 100;
     }
     if (typeof m.arredondamentoDesde === 'string' && /^\d{4}-\d{2}$/.test(m.arredondamentoDesde)) out.arredondamentoDesde = m.arredondamentoDesde;
+    if (typeof m.arredondamentoPagamento === 'string' && /^\d{4}-\d{2}$/.test(m.arredondamentoPagamento)) out.arredondamentoPagamento = m.arredondamentoPagamento;
     const lancs: Lancamento[] = (m.lancamentos ?? [])
         .map(l => ({ descricao: l.descricao.trim().replace(/\s+/g, ' '), tipo: l.tipo, valor: Math.round(l.valor), inss: !!l.inss, fgts: !!l.fgts, irrf: !!l.irrf }))
         .filter(l => l.descricao || l.valor);
