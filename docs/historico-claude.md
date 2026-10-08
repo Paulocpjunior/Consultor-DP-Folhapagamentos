@@ -3017,3 +3017,15 @@ guias sindicais".
 - **`favorecidosDaFolha`** recebe opcionalmente o valor de cada recibo. O pacote do cliente e o arquivo da folha continuam com o líquido.
 - **Trava:** `adiantamentoVt.test.ts` (valor igual ao do S-1210, seleção e data) e `arquivoBancarioModal.test.tsx` (coluna "Adiantamento", valor de fora e quem fica fora).
 - **Fica para depois:** holerite (recibo) do adiantamento em PDF.
+
+## 08/10/2026 — IRRF do adiantamento com a folha paga no mês seguinte
+
+- **Paulo** mandou o S-1200 e o S-1210 do IOB de 08/2026 de um funcionário com adiantamento em 20/08 e folha paga em 04/09. Os PDFs têm nome e CPF e não vão ao repositório; o teste usa dados trocados e os mesmos valores.
+- **Como o IOB faz (regime de caixa; RIR/1999, art. 621):**
+  - **Folha de 08, paga em 04/09:** o adiantamento sai dos rendimentos. 9.177,90 − 3.671,16 − 95,53 (atrasos) = 5.411,21; base 4.423,12 × 22,5% − 675,49 = 319,71; redutor 978,62 − 0,133145 × 5.411,21 = 258,14. **IRRF 61,57**, exatamente como no IOB.
+  - **Adiantamento de 08, pago em 20/08:** o IRRF é o de tudo o que foi pago em agosto (folha de 07, paga em 06/08, mais o adiantamento) menos o que a folha de 07 já reteve. Com a folha de 07 de 5.375,55 de rendimentos (3h08 de atraso): (5.375,55 + 3.671,16 − 988,09) × 27,5% − 908,73 = 1.307,39, sem redutor (acima de 7.350); menos 48,80 = **1.258,59**. **Líquido 2.412,57**, o do S-1210 do IOB.
+- **Motor:** com o adiantamento pago num mês e o saldo em outro, o adiantamento sai da base do IRRF da folha e o motor calcula `irrfAdiantamento` com a folha anterior paga no mês do adiantamento (`folhaPagaNoAdiantamento`). Sem ela, a folha fica incompleta, com aviso. `apurarIrrf` passa a ser o cálculo único da tabela progressiva com o redutor. Folha paga no próprio mês não muda.
+- **Tela:** a folha anterior é calculada pelos movimentos gravados quando foi paga no mês do adiantamento (pelo mês do pagamento gravado, ou pelo regime). Isso vale na competência, no encadeamento do arredondamento e na conferência com o IOB.
+- **eSocial:** o demonstrativo do adiantamento leva o IRRF (mesma rubrica do IRRF da folha), e o S-1210 do mês do adiantamento paga o líquido. A data do adiantamento precisa ser da competência, porque o IRRF foi calculado para ela. Sai o bloqueio do #115.
+- **Arquivo bancário e arredondamento do adiantamento:** usam o valor líquido do IRRF.
+- **Trava:** `irrfAdiantamento.test.ts`, com as tabelas oficiais de 2026.

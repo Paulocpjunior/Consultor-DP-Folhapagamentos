@@ -117,12 +117,12 @@ describe('adiantamento salarial e vale-transporte', () => {
         const pg = txt(s1210, 'ideDmDev').map((ide, i) => [ide, txt(s1210, 'dtPgto')[i], txt(s1210, 'vrLiq')[i]]);
         expect(pg).toEqual(expect.arrayContaining([['ADI202608-M1', '2026-08-20', '1400.00'], ['FER20260828-M1', '2026-08-28', '4404.74'], ['FOLHA202608-M1', '2026-08-31', '1581.40']]));
         expect(t.outrosMeses).toEqual([]);
-        // Folha paga no mês seguinte: o IRRF do adiantamento seria do mês dele (RIR/1999, art. 621), e o motor ainda
-        // não separa. O motor avisa e o eSocial não gera (Codex #115).
+        // Folha paga no mês seguinte: o IRRF do adiantamento é do mês dele (RIR/1999, art. 621; irrfAdiantamento.test.ts).
+        // Sem a folha paga no mês do adiantamento (cálculo fora da tela), fica incompleto e o eSocial não gera.
         const ago2 = calcularMensal({ competencia: '2026-08', pagamento: '2026-09', ficha: FICHA, tabelas: TAB, afastamentos: GOZO, feriasDoMes: feriasDaCompetencia(FICHA, GOZO, TAB, {}, '2026-08') });
-        expect(ago2.avisos).toEqual(expect.arrayContaining([expect.stringMatching(/o IRRF do adiantamento é do mês em que ele é pago/)]));
+        expect(ago2.avisos).toEqual(expect.arrayContaining([expect.stringMatching(/^IRRF do adiantamento \(pago em 08\/2026, saldo em 09\/2026\): falta a folha paga em 08\/2026/)]));
         const t2 = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-08', dataPagamento: '2026-09-04', fichas: [FICHA], resultados: [ago2], rubricas: RUBRICAS, parametros: PARAMS, agora: new Date('2026-10-01T12:00:00Z') }).trabalhadores[0];
-        expect(t2.erros).toEqual([expect.stringMatching(/^Adiantamento pago em 08\/2026 e saldo da folha em 09\/2026: o IRRF do adiantamento é do mês em que ele é pago/)]);
+        expect(t2.erros).toEqual([expect.stringMatching(/^Cálculo incompleto: .*IRRF do adiantamento/)]);
         expect(t2.s1200).toBeNull();
         // Data do adiantamento depois da folha é recusada.
         expect(gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-08', dataPagamento: '2026-08-10', dataAdiantamento: '2026-08-20', fichas: [FICHA], resultados: [ago], rubricas: RUBRICAS, parametros: PARAMS }).erros)
@@ -164,7 +164,7 @@ describe('adiantamento salarial e vale-transporte', () => {
         const zero = calcularMensal({ competencia: '2026-08', pagamento: '2026-08', ficha: admit, tabelas: TAB, afastamentos: [], movimento: { adiantamento: 0 } });
         expect(gera(zero).erros).toEqual([]);
         // Calculado com pagamento em setembro e gerado com data de agosto: o IRRF seria o da tabela de setembro (Codex #115).
-        const setembro = calcularMensal({ competencia: '2026-08', pagamento: '2026-09', ficha: FICHA, tabelas: TAB, afastamentos: [] });
+        const setembro = calcularMensal({ competencia: '2026-08', pagamento: '2026-09', ficha: FICHA, tabelas: TAB, afastamentos: [], folhaPagaNoAdiantamento: null });
         const outroMes = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-08', dataPagamento: '2026-08-31', fichas: [FICHA], resultados: [setembro], rubricas: RUBRICAS, parametros: PARAMS }).trabalhadores[0];
         expect(outroMes.erros).toContain('Cálculo feito com pagamento em 09/2026, mas a data do pagamento é 31/08/2026: ajuste o "Pagamento em" do cálculo para 08/2026 (ou a data) e gere de novo.');
         // Desligado no próprio dia do cálculo (18/09) e data mudada para 20/09: o motor paga (desligamento não é anterior

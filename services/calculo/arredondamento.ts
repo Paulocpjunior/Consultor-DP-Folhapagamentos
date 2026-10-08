@@ -75,7 +75,8 @@ export function arredondar(r: ResultadoCalculo, anterior: number): ResultadoCalc
     if (r.situacao === 'erro') return r;
     const out: ResultadoCalculo = { ...r, verbas: r.verbas.filter(x => !/^ARRED/.test(x.codigo)), memoria: [...r.memoria], avisos: [...r.avisos], totais: { ...r.totais } };
     const adiant = out.verbas.find(x => x.codigo === 'ADIANT')?.valor ?? 0;
-    const arredAdi = aoRealSeguinte(adiant);
+    // O adiantamento é pago líquido do IRRF dele (saldo da folha em outro mês): arredonda-se o que foi pago.
+    const arredAdi = adiant > 0 ? aoRealSeguinte(adiant - (r.irrfAdiantamento ?? 0)) : 0;
     if (arredAdi) out.verbas.push(v('ARREDADI', 'Desconto do arredondamento do adiantamento', 'desconto', arredAdi));
     const ant = Math.max(0, Math.round(anterior));
     if (ant) out.verbas.push(v('ARREDANT', 'Arredondamento anterior', 'desconto', ant));
