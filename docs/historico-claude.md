@@ -2940,3 +2940,4 @@ guias sindicais".
   - **Admissão e desligamento:** o adiantamento automático só vale para quem tinha vínculo no dia do adiantamento (dia 20 ou o dia útil anterior). Admitido depois ou desligado antes fica sem adiantamento, e a memória explica.
   - **eSocial:** recusa adiantamento informado com data anterior à admissão.
   - `dataSugeridaAdiantamento` foi para o motor, porque é a mesma data na folha e no eSocial.
+- **Revisão do Codex no #115 (P2):** se o holerite do IOB não traz adiantamento ou VT, o movimento trazido dele grava 0 nos dois. Assim o motor não volta à ficha e não inventa o desconto naquele mês.
