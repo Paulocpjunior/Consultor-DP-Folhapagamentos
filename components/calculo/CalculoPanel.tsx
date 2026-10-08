@@ -10,7 +10,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as XLSX from 'xlsx';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { listarEmpresasVisiveis, salvarParametrosFolha } from '../../services/empresas/empresasService';
-import { anteriorEncadeado, arredondaNoMes, arredondar, mesDoPagamento, movimentoComFechado, mudarRegime, regimeNoMes, type ParametrosFolha, type RegimePagamento } from '../../services/calculo/arredondamento';
+import { anteriorEncadeado, arredondaNoMes, arredondar, mesDoPagamento, movimentoComFechado, semFechado, mudarRegime, regimeNoMes, type ParametrosFolha, type RegimePagamento } from '../../services/calculo/arredondamento';
 import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
 import EmpresaAtivaFixa from '../empresaAtiva/EmpresaAtivaFixa';
 import { listarAfastamentos, listarEnquadramentos, listarFuncionarios, listarTabelas, mensagemErro, salvarAfastamento, type Usuario } from '../../services/cadastros/cadastrosService';
@@ -210,11 +210,12 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         const salvos = movsEmpresa?.[f.id] ?? {};
         const desde = parametrosFolha.arredondarDesde || c;
         const anterior = informado ?? anteriorEncadeado(desde, c,
-            m => (noMes([f], m).length ? calcularMensal({ competencia: m, pagamento: mesDoPagamento(parametrosFolha, m), ficha: f, tabelas: dados.tabelas, movimento: salvos[m], afastamentos: afs,
+            // Mês já salvo: o mês do pagamento usado de fato (o "Pagamento em" da tela, mesmo fora do regime); senão, o do regime.
+            m => (noMes([f], m).length ? calcularMensal({ competencia: m, pagamento: salvos[m]?.arredondamentoPagamento ?? mesDoPagamento(parametrosFolha, m), ficha: f, tabelas: dados.tabelas, movimento: salvos[m], afastamentos: afs,
                 feriasDoMes: feriasDaCompetencia(f, afs, dados.tabelas, salvos, m, opcoesFerias) }) : null),
-            // O atual gravado só vale se foi encadeado do mesmo mês de início e com o mesmo mês de pagamento que o regime
-            // dá hoje para aquele mês (Codex #116).
-            m => salvos[m]?.arredondamentoAnterior, m => (salvos[m]?.arredondamentoDesde === desde && salvos[m]?.arredondamentoPagamento === mesDoPagamento(parametrosFolha, m) ? salvos[m]?.arredondamentoFechado : undefined));
+            // O atual gravado só vale se foi encadeado do mesmo mês de início. O mês do pagamento gravado com ele é o que foi
+            // usado de fato: mudar o regime depois não reescreve mês fechado (para isso, reabra o mês e salve de novo; Codex #116).
+            m => salvos[m]?.arredondamentoAnterior, m => (salvos[m]?.arredondamentoDesde === desde ? salvos[m]?.arredondamentoFechado : undefined));
         return typeof anterior === 'number' ? arredondar(r, anterior) : travar(anterior.erro);
     }, [parametrosFolha, dados, movsEmpresa, opcoesFerias]);
     const resultados = useMemo(() => {
@@ -263,8 +264,12 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     // não refaz este mês com a ficha de amanhã (Codex #116). Mudou o atual, o funcionário fica "não salvo"; sem cálculo
     // completo, fica o que já estava gravado.
     const movsParaSalvar = useMemo(() => {
-        if (!mensal || !arredondaNoMes(parametrosFolha, competencia)) return movs;
+        if (!mensal) return movs;
         const out = { ...movs };
+        // Movimento editado perde o atual gravado antes, mesmo com o arredondamento desligado neste mês: religado, o
+        // encadeamento refaz o mês em vez de confiar no valor velho (Codex #116).
+        for (const id of Object.keys(movs)) if (!mesmoMovimento(semFechado(movs[id]), semFechado(gravados?.[id]?.movimento))) out[id] = semFechado(movs[id]);
+        if (!arredondaNoMes(parametrosFolha, competencia)) return out;
         const desde = parametrosFolha?.arredondarDesde || competencia;
         for (const r of resultados) {
             const m = movimentoComFechado(movs[r.fichaId], gravados?.[r.fichaId]?.movimento, r, desde);

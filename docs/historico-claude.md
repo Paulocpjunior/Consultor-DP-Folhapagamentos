@@ -3000,3 +3000,6 @@ guias sindicais".
 - **Revisão do Codex no #116 (dois P2):**
   - **Parâmetros em fila:** cada mudança dos parâmetros da folha parte da última feita, e as gravações vão em ordem. Assim, marcar "Arredondar" e trocar "folha paga" em seguida não apaga uma das duas mudanças. A tela é atualizada na hora.
   - **Regime mudado num mês já fechado:** o atual gravado leva também o mês do pagamento usado no cálculo (`arredondamentoPagamento`). Só vale se for o mesmo que o regime dá hoje para aquele mês. Se não for, o mês é recalculado.
+- **Revisão do Codex no #116 (dois P2):**
+  - **Edição com o arredondamento desligado:** qualquer movimento editado é gravado sem o atual antigo, mesmo num mês sem arredondamento. Religado o arredondamento, o mês é refeito.
+  - **"Pagamento em" fora do regime:** o mês do pagamento gravado com o atual é o que foi usado de fato. O encadeamento aceita o atual gravado e, quando precisa refazer o mês (início mudado), usa esse mês do pagamento. Mudar o regime depois não reescreve mês fechado; para isso, é preciso reabrir o mês e salvar de novo. Isso substitui a regra anterior, que descartava o atual quando o regime de hoje dava outro mês.
