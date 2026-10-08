@@ -30,6 +30,7 @@
 
 import { adiantamentoDoMes, dataSugeridaAdiantamento, type Movimento, type ResultadoCalculo, type Verba } from '../calculo/motorMensal';
 import { arredondamentoDoAdiantamento } from '../calculo/arredondamento';
+import { quintoDiaUtilSalario } from '../prazos/calendario';
 import { calcularFerias, parteDaCompetencia, type OpcoesFerias, type ResultadoFerias } from '../calculo/motorFerias';
 import { depNoEsocial, ratearPensao, type FichaFuncionario } from '../cadastros/funcionarios';
 import type { Afastamento } from '../cadastros/afastamentos';
@@ -240,6 +241,7 @@ export interface EventosDoTrabalhador extends Pagamentos1210 {
 /** indRetif 1 (original) ou 2 com o nrRecibo do evento que está valendo. */
 const retif = (r?: ReciboEvento) => (r ? `<indRetif>2</indRetif><nrRecibo>${r.nrRecibo}</nrRecibo>` : '<indRetif>1</indRetif>');
 const mes = (c: string) => `${c.slice(5)}/${c.slice(0, 4)}`;
+const quintoDiaUtilDe = (c: string) => quintoDiaUtilSalario(Number(c.slice(0, 4)), Number(c.slice(5, 7)));
 const br = (d: string) => d.split('-').reverse().join('/');
 
 export interface EntradaEventosFolha {
@@ -406,6 +408,9 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             else if (adiant > 0 && (f.dados.admissao ?? '') > dataAdiant) t.erros.push(`Adiantamento salarial em ${br(dataAdiant)}, antes da admissão (${br(f.dados.admissao ?? '')})${quem}: informe adiantamento 0 no movimento ou corrija a data.`);
             // Saldo da folha em outro mês: o IRRF do adiantamento foi calculado no mês da competência (regime de caixa).
             else if (adiant > 0 && dataAdiant.slice(0, 7) !== perPgto && r.irrfAdiantamento === undefined) t.erros.push(`Adiantamento pago em ${mes(dataAdiant.slice(0, 7))} e saldo da folha em ${mes(perPgto)}${quem}: o IRRF do adiantamento não foi calculado. Recalcule a competência na tela do cálculo.`);
+            // O IRRF do adiantamento somou a folha anterior, paga no mês até o 5º dia útil (CLT, art. 459, § 1º): antes
+            // disso ela pode não ter sido paga ainda (Codex #118).
+            else if (adiant > 0 && r.irrfAdiantamentoFolha && dataAdiant <= quintoDiaUtilDe(e.competencia)) t.erros.push(`Adiantamento em ${br(dataAdiant)}${quem}: o IRRF dele somou a folha de ${mes(r.irrfAdiantamentoFolha)}, paga no mês até o 5º dia útil (${br(quintoDiaUtilDe(e.competencia))}). Use uma data depois dela.`);
             else if (adiant > 0 && r.irrfAdiantamento !== undefined && dataAdiant.slice(0, 7) !== e.competencia) t.erros.push(`Adiantamento em ${br(dataAdiant)}${quem}: com o saldo da folha em ${mes(perPgto)}, o IRRF do adiantamento foi calculado para pagamento em ${mes(e.competencia)}. Use uma data de ${mes(e.competencia)}.`);
             else if (adiant > 0) {
                 const ideA = unico(ideDmDevAdiantamento(e.competencia, mat));
@@ -463,6 +468,8 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
         // IR do mês por CPF: dedução de dependentes (quando o motor não usou o desconto simplificado) e
         // pensão alimentícia de cada alimentando (penAlim). Quem não está no S-2200/S-2205 vai no infoDep.
         const dedDep = new Map<string, number>(); const penAlim = new Map<string, number>(); const infoDep = new Map<string, Dependente>();
+        // Dependentes deduzidos no IRRF do adiantamento sem folha anterior no mês: vão no S-1210 do mês do adiantamento (Codex #118).
+        const dedDepAdi = new Map<string, number>(); const infoDepAdi = new Map<string, Dependente>();
         for (const { ficha: f, r } of contratos) {
             const d = r.deducoesIrrf;
             if (d && !d.simplificado && d.porDependente > 0) for (const dep of d.dependentes) {
@@ -471,6 +478,14 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                 if (!dedDep.has(cpfDep)) dedDep.set(cpfDep, d.porDependente);
                 const fd = f.dependentes.find(x => digitos(x.cpf) === cpfDep);
                 if (fd && !depNoEsocial(f, fd)) infoDep.set(cpfDep, fd);
+            }
+            const da = r.deducoesAdiantamento;
+            if (da && adiantamentoDoMes(r) > 0 && da.porDependente > 0) for (const dep of da.dependentes) {
+                const cpfDep = digitos(dep.cpf);
+                if (cpfDep.length !== 11) { t.avisos.push(`Dependente ${dep.nome || '?'} sem CPF: a dedução do adiantamento não vai no S-1210.`); continue; }
+                dedDepAdi.set(cpfDep, da.porDependente);
+                const fd = f.dependentes.find(x => digitos(x.cpf) === cpfDep);
+                if (fd && !depNoEsocial(f, fd)) infoDepAdi.set(cpfDep, fd);
             }
             const pensao = r.verbas.filter(v => v.codigo === 'PENSAO').reduce((soma, v) => soma + v.valor, 0);
             if (pensao <= 0) continue;
@@ -490,19 +505,23 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             t.erros.push(`Dependente ${dep.nome || c} não está no eSocial e o tipo (Tabela 07) ${dep.tipo === '99' ? 'é 99 (agregado/outros)' : 'está em branco'}: informe o tipo na ficha ou cadastre pelo S-2205.`);
         };
         for (const [c, dep] of infoDep) if (dedDep.has(c)) conferirTipo(c, dep);
+        for (const [c, dep] of infoDepAdi) conferirTipo(c, dep);
         for (const [m, inf] of infoDepFerias) for (const [c, dep] of inf) if (dedFerias.get(m)?.has(c)) conferirTipo(c, dep);
         if (t.erros.length || !dmDevs.length) continue;
         /** Informações de IR do mês: as da folha (tpRend 11) no mês do pagamento dela e as dos recibos de férias (tpRend 13) no mês de cada um. */
         const irDoMes = (m: string) => {
             const daFolha = m === perPgto;
+            // Mês do adiantamento (antes do da folha): as deduções de dependentes usadas no IRRF dele.
+            const doAdiant = !daFolha && m === e.competencia;
+            const dedDepMes = daFolha ? dedDep : doAdiant ? dedDepAdi : new Map<string, number>();
             const dedF = dedFerias.get(m) ?? new Map<string, number>();
             const irCR = [
-                ...(daFolha ? [...dedDep].map(([c, v]) => `<dedDepen><tpRend>11</tpRend><cpfDep>${c}</cpfDep><vlrDedDep>${valor(v)}</vlrDedDep></dedDepen>`) : []),
+                ...[...dedDepMes].map(([c, v]) => `<dedDepen><tpRend>11</tpRend><cpfDep>${c}</cpfDep><vlrDedDep>${valor(v)}</vlrDedDep></dedDepen>`),
                 ...[...dedF].map(([c, v]) => `<dedDepen><tpRend>13</tpRend><cpfDep>${c}</cpfDep><vlrDedDep>${valor(v)}</vlrDedDep></dedDepen>`),
                 ...(daFolha ? [...penAlim].map(([c, v]) => `<penAlim><tpRend>11</tpRend><cpfDep>${c}</cpfDep><vlrDedPenAlim>${valor(v)}</vlrDedPenAlim></penAlim>`) : []),
             ];
-            const deps = new Map<string, Dependente>([...(daFolha ? infoDep : []), ...(infoDepFerias.get(m) ?? [])]);
-            const deduz = (c: string) => (daFolha && dedDep.has(c)) || dedF.has(c);
+            const deps = new Map<string, Dependente>([...(daFolha ? infoDep : doAdiant ? infoDepAdi : []), ...(infoDepFerias.get(m) ?? [])]);
+            const deduz = (c: string) => dedDepMes.has(c) || dedF.has(c);
             const infoDepXml = [...deps].map(([c, dep]) => `<infoDep><cpfDep>${c}</cpfDep>${/^\d{4}-\d{2}-\d{2}$/.test(dep.nascimento) ? `<dtNascto>${dep.nascimento}</dtNascto>` : ''}`
                 + `${dep.nome ? `<nome>${esc(dep.nome.slice(0, 70))}</nome>` : ''}${deduz(c) ? `<depIRRF>S</depIRRF><tpDep>${dep.tipo}</tpDep>` : ''}</infoDep>`);
             return irCR.length ? `<infoIRComplem>${infoDepXml.join('')}<infoIRCR><tpCR>056107</tpCR>${irCR.join('')}</infoIRCR></infoIRComplem>` : '';

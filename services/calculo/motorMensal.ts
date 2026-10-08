@@ -102,6 +102,10 @@ export interface ResultadoCalculo {
     irrfApurado?: IrrfApurado;
     /** Adiantamento pago num mês e saldo da folha em outro: o IRRF retido no adiantamento (já fora da base da folha). */
     irrfAdiantamento?: number;
+    /** Competência da folha anterior somada no IRRF do adiantamento (paga antes dele, até o 5º dia útil). */
+    irrfAdiantamentoFolha?: string;
+    /** Sem folha anterior no mês: dependentes deduzidos no IRRF do adiantamento (vão no S-1210 do mês dele; Codex #118). */
+    deducoesAdiantamento?: { dependentes: { cpf: string; nome: string }[]; porDependente: number };
 }
 
 /** FGTS: 8% (Lei 8.036/1990, art. 15); aprendiz 2% (§ 7º). */
@@ -463,6 +467,8 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
                 + `${a.memoriaRedutor.length ? ` (${a.memoriaRedutor.join(' ')})` : ''}; menos ${reais(pagos.valor)} já retidos = ${reais(ir)}.`);
             if (ir > 0 && ir <= IRRF_MINIMO) { r.memoria.push(`IRRF do adiantamento de ${reais(ir)} não retido: até R$ 10,00 a retenção é dispensada (Lei 9.430/1996, art. 67).`); ir = 0; }
             r.irrfAdiantamento = ir;
+            if (ant) r.irrfAdiantamentoFolha = ant.competencia;
+            else if (!a.simplificado && nDep) r.deducoesAdiantamento = { dependentes: ficha.dependentes.filter(x => x.irrf === 'S').map(x => ({ cpf: x.cpf, nome: x.nome })), porDependente: tA.tabela.valores.deducaoDependente ?? 0 };
         }
     }
 

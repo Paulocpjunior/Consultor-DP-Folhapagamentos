@@ -3037,3 +3037,6 @@ guias sindicais".
 - **Revisão do Codex no #118 (P1 e P2):**
   - **Folha anterior:** só a folha anterior completa entra no cálculo. Com erro ou incompleta, a folha do mês fica incompleta, com aviso.
   - **Sem folha paga antes no mês** (admissão, mudança de regime): os dependentes deduzem do adiantamento. O maior entre eles e o simplificado vale; INSS e pensão não há.
+- **Revisão do Codex no #118 (P1 e P2):**
+  - **Deduções no S-1210 do adiantamento:** sem folha anterior no mês e com os dependentes acima do simplificado, os dependentes usados no IRRF do adiantamento vão no S-1210 do mês dele (`dedDepen`, tpRend 11, e `infoDep` de quem não está no eSocial). Não ficam só no da folha.
+  - **Ordem dos pagamentos:** se o IRRF do adiantamento somou a folha anterior, a data do adiantamento precisa ser depois do 5º dia útil (CLT, art. 459, § 1º; em 08/2026, 06/08), quando essa folha já foi paga. Antes disso, o eSocial recusa e o arquivo bancário deixa o funcionário fora, com o motivo.

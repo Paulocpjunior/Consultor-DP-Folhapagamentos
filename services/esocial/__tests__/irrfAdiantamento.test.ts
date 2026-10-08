@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { calcularMensal, type Lancamento } from '../../calculo/motorMensal';
 import { arredondar } from '../../calculo/arredondamento';
-import { valorDoAdiantamento } from '../../bancario/favorecidos';
+import { favorecidosDaFolha, foraDoAdiantamento, valorDoAdiantamento } from '../../bancario/favorecidos';
 import { gerarEventosFolha, pagoNoAdiantamento, verbasDoAdiantamento, type ParametrosEsocialFolha } from '../eventosFolha';
 import { TABELAS_OFICIAIS_2026 } from '../../cadastros/tabelasOficiais';
 import { fichaVazia, type FichaFuncionario } from '../../cadastros/funcionarios';
@@ -61,6 +61,11 @@ describe('IRRF do adiantamento com a folha paga no mês seguinte', () => {
         const pg = [t, ...t.outrosMeses].flatMap(x => (x.s1210 ? Array.from(doc(x.s1210.xml).getElementsByTagName('infoPgto')).map(i => `${i.getElementsByTagName('dtPgto')[0].textContent} ${i.getElementsByTagName('vrLiq')[0].textContent}`) : []));
         // Folha: 4.361,55 aqui; no IOB, 2.405,14 depois de 1.956,41 de consignados (fora deste teste).
         expect(pg.sort()).toEqual(['2026-08-20 2412.57', '2026-09-04 4361.55']);
+        // Data do adiantamento até o 5º dia útil (06/08/2026; sábado conta para salário): a folha de julho pode não ter sido paga ainda (Codex #118).
+        const cedo = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-08', dataPagamento: '2026-09-04', dataAdiantamento: '2026-08-06', fichas: [FICHA], resultados: [agosto], rubricas, parametros: params }).trabalhadores[0];
+        expect(cedo.erros.join(' ')).toMatch(/somou a folha de 07\/2026, paga no mês até o 5º dia útil \(06\/08\/2026\)/);
+        expect(favorecidosDaFolha([agosto], [{ ...FICHA, dados: { ...FICHA.dados, banco: '341', agencia: '1', conta: '1-1' } }], '2026-08-06', undefined, valorDoAdiantamento, foraDoAdiantamento).foraDoCalculo[0].motivo)
+            .toBe('data 06/08/2026 até o 5º dia útil (06/08/2026): o IRRF do adiantamento somou a folha anterior, paga até lá');
         // Data do adiantamento fora da competência: o IRRF foi calculado para agosto.
         const fora = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-08', dataPagamento: '2026-09-04', dataAdiantamento: '2026-09-01', fichas: [FICHA], resultados: [agosto], rubricas, parametros: params }).trabalhadores[0];
         expect(fora.erros.join(' ')).toMatch(/foi calculado para pagamento em 08\/2026/);
@@ -76,11 +81,23 @@ describe('IRRF do adiantamento com a folha paga no mês seguinte', () => {
         const primeiro = calcularMensal({ competencia: '2026-08', pagamento: '2026-09', ficha: comDep, tabelas: TAB, afastamentos: [], folhaPagaNoAdiantamento: null });
         // 3.671,16 − 2 × 189,59 = 3.291,98 × 15% − 394,16 = 99,64; redutor (até 5.000) zera.
         expect(primeiro.irrfAdiantamento).toBe(0);
-        const dep = (cpf: string) => ({ nome: `DEP ${cpf.slice(0, 3)}`, cpf, irrf: 'S' }) as FichaFuncionario['dependentes'][number];
+        const dep = (cpf: string) => ({ nome: `DEP ${cpf.slice(0, 3)}`, cpf, irrf: 'S', tipo: '03', nascimento: '2015-01-01' }) as FichaFuncionario['dependentes'][number];
         const alto = { ...FICHA, dados: { ...FICHA.dados, salario: '20000.00' }, dependentes: ['11144477735', '39053344705', '12345678909', '98765432100'].map(dep) } as FichaFuncionario;
         // 8.000,00 − 4 × 189,59 (758,36, mais que o simplificado de 607,20) = 7.241,64 × 27,5% − 908,73 = 1.082,72.
         expect(calcularMensal({ competencia: '2026-08', pagamento: '2026-09', ficha: alto, tabelas: TAB, afastamentos: [], folhaPagaNoAdiantamento: null }).irrfAdiantamento).toBe(108272);
         // Sem dependentes, o simplificado: (8.000,00 − 607,20) × 27,5% − 908,73 = 1.124,29.
         expect(calcularMensal({ competencia: '2026-08', pagamento: '2026-09', ficha: { ...alto, dependentes: [] }, tabelas: TAB, afastamentos: [], folhaPagaNoAdiantamento: null }).irrfAdiantamento).toBe(112429);
+        // As deduções usadas no adiantamento vão no S-1210 do mês dele (tpRend 11), não só no da folha (Codex #118).
+        const rAlto = calcularMensal({ competencia: '2026-08', pagamento: '2026-09', ficha: alto, tabelas: TAB, afastamentos: [], folhaPagaNoAdiantamento: null });
+        expect(rAlto.deducoesAdiantamento?.dependentes).toHaveLength(4);
+        const tAlto = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-08', dataPagamento: '2026-09-04', dataAdiantamento: '2026-08-20', fichas: [alto], resultados: [rAlto], rubricas, parametros: params }).trabalhadores[0];
+        expect(tAlto.erros).toEqual([]);
+        const s1210Ago = [tAlto, ...tAlto.outrosMeses].find(x => x.perApur === '2026-08')!.s1210!.xml;
+        expect((s1210Ago.match(/<dedDepen><tpRend>11<\/tpRend>/g) ?? []).length).toBe(4);
+        expect(s1210Ago).toContain('<vlrDedDep>189.59</vlrDedDep>');
+        expect((s1210Ago.match(/<depIRRF>S<\/depIRRF><tpDep>03<\/tpDep>/g) ?? []).length).toBe(4);
+        // E não no da folha (09), em que o IRRF foi pelo simplificado ou pelo INSS.
+        const s1210Set = [tAlto, ...tAlto.outrosMeses].find(x => x.perApur === '2026-09')!.s1210!.xml;
+        expect(s1210Set.includes('<tpRend>11</tpRend>')).toBe(s1210Set.includes('dedDepen'));
     });
 });
