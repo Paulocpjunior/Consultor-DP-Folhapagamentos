@@ -2744,3 +2744,6 @@ guias sindicais".
 - **Revisão do Codex no CFI #1391:**
   - O teto dos anexos do e-mail caiu para ~2,8 MB de arquivo. Ele agora é medido no base64, para caber no pedido de 4 MB do Graph.
   - A resposta passou a trazer `convites` e `avisosConvites`, e a tela do pacote mostra os dois: o `vencimentos-sp.ics` que foi junto e os PDFs que o CFI não leu.
+- **Revisão do Codex depois do merge do #112, duas P2:**
+  - **Variáveis sugeridas por palavra da chave, não por pedaço.** A chave `mensagem` começava com "mes" e recebia a competência. Agora a chave é quebrada em palavras (`nomeEmpresa` vira ["nome", "empresa"]) e comparada palavra por palavra.
+  - **Teto do e-mail conferido na tela.** `LIMITE_EMAIL_BYTES` = 3.000.000, o mesmo base64 de 4.000.000 do CFI. A tela mostra "até 2,8 MB", com o teto arredondado para baixo e o tamanho do .zip para cima. Um .zip acima do teto desliga "Enviar e-mail pelo escritório" e diz para usar "E-mail deste computador".

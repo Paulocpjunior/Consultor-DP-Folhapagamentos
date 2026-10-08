@@ -20,7 +20,7 @@ import { favorecidosDaFolha } from '../../services/bancario/favorecidos';
 import { gerarIcs, type EventoAgenda } from '../../services/agenda/convite';
 import { leiaMe, nomeSeguro, type ArquivoDoPacote } from '../../services/pacoteCliente/pacote';
 import { baixarBytes, gerarZip, type ArquivoZip } from '../../services/implantacao/zip';
-import { enviarEmailPeloEscritorio, enviarPeloSpConnect, templatesDoDp, valoresSugeridos, type ResultadoEmail, type ResultadoEnvio, type TemplateWhatsApp } from '../../services/pacoteCliente/spConnect';
+import { LIMITE_EMAIL_BYTES, LIMITE_EMAIL_TEXTO, emMb, enviarEmailPeloEscritorio, enviarPeloSpConnect, templatesDoDp, valoresSugeridos, type ResultadoEmail, type ResultadoEnvio, type TemplateWhatsApp } from '../../services/pacoteCliente/spConnect';
 import { reais } from '../../services/cadastros/documentos';
 import ConviteAgenda from '../agenda/ConviteAgenda';
 
@@ -165,8 +165,9 @@ const PacoteClienteModal: React.FC<Props> = ({ empresa, resultados, fichas, titu
     const faltandoSp = (tplSp?.variaveis ?? []).filter(v => !valoresSp[v.chave]?.trim()).map(v => v.rotulo || v.chave);
     const [enviandoEmail, setEnviandoEmail] = useState(false);
     const [enviadoEmail, setEnviadoEmail] = useState<ResultadoEmail | null>(null);
+    const zipGrandeParaEmail = !!pronto && pronto.bytes.length > LIMITE_EMAIL_BYTES;
     async function enviarEmail() {
-        if (!pronto || !emailValido(contato.email)) return;
+        if (!pronto || !emailValido(contato.email) || zipGrandeParaEmail) return;
         if (!window.confirm(`Enviar o e-mail com ${pronto.nomeZip} para ${contato.email}?\n\nSai da sua caixa do escritório, com a mensagem abaixo.`)) return;
         setEnviandoEmail(true); setErro(''); setMsg('');
         try {
@@ -329,13 +330,15 @@ const PacoteClienteModal: React.FC<Props> = ({ empresa, resultados, fichas, titu
                             {podeCompartilhar && <button className="rounded bg-green-700 px-3 py-2 font-medium text-white" onClick={compartilhar}>Compartilhar com o .zip (WhatsApp, e-mail…)</button>}
                             <button className="rounded bg-emerald-600 px-3 py-2 text-white disabled:opacity-50" disabled={!whats} title={whats ? '' : 'Informe o WhatsApp do contato'}
                                 onClick={() => whats && abrir(linkWhatsApp(whats, texto), `WhatsApp aberto com a mensagem: anexe ${pronto.nomeZip} (pasta Downloads) na conversa.`)}>WhatsApp deste computador</button>
-                            <button className="rounded bg-blue-800 px-3 py-2 font-medium text-white disabled:opacity-50" disabled={!emailValido(contato.email) || enviandoEmail} title={emailValido(contato.email) ? 'Sai da sua caixa do escritório (Microsoft 365), com o .zip em anexo' : 'Informe o e-mail do contato'}
+                            <button className="rounded bg-blue-800 px-3 py-2 font-medium text-white disabled:opacity-50" disabled={!emailValido(contato.email) || enviandoEmail || zipGrandeParaEmail}
+                                title={zipGrandeParaEmail ? `O .zip tem ${emMb(pronto.bytes.length)}: o envio pelo escritório aceita até ${LIMITE_EMAIL_TEXTO}. Use "E-mail deste computador" e anexe o .zip.`
+                                    : emailValido(contato.email) ? 'Sai da sua caixa do escritório (Microsoft 365), com o .zip em anexo' : 'Informe o e-mail do contato'}
                                 onClick={enviarEmail}>{enviandoEmail ? 'Enviando…' : enviadoEmail ? 'E-mail enviado ✓' : 'Enviar e-mail pelo escritório'}</button>
                             <button className="rounded bg-blue-700 px-3 py-2 text-white disabled:opacity-50" disabled={!emailValido(contato.email)} title={emailValido(contato.email) ? '' : 'Informe o e-mail do contato'}
                                 onClick={() => abrir(linkEmail(contato.email ?? '', assunto, texto), `E-mail aberto com a mensagem: anexe ${pronto.nomeZip} (pasta Downloads) antes de enviar.`)}>E-mail deste computador</button>
                             <button className="rounded border border-slate-300 px-3 py-2 dark:border-slate-600" onClick={copiar}>Copiar mensagem</button>
                         </div>
-                        <p className="text-xs text-slate-500">"Enviar e-mail pelo escritório" sai da sua caixa do Microsoft 365 com o .zip anexado (até 3 MB) e fica registrado no CFI. Os botões "deste computador" usam o WhatsApp e o e-mail de quem está no computador, não o SP Connect. "Compartilhar" já leva o .zip (celular e navegadores que permitem); no WhatsApp e no e-mail, anexe o .zip baixado.</p>
+                        <p className="text-xs text-slate-500">"Enviar e-mail pelo escritório" sai da sua caixa do Microsoft 365 com o .zip anexado (até {LIMITE_EMAIL_TEXTO}) e fica registrado no CFI.{zipGrandeParaEmail && <strong> Este .zip tem {emMb(pronto.bytes.length)}: use "E-mail deste computador".</strong>} Os botões "deste computador" usam o WhatsApp e o e-mail de quem está no computador, não o SP Connect. "Compartilhar" já leva o .zip (celular e navegadores que permitem); no WhatsApp e no e-mail, anexe o .zip baixado.</p>
                         {pronto.eventos.length > 0 && <ConviteAgenda eventos={pronto.eventos} titulo={`${nomeEmpresa}: ${titulo}`} nomeArquivo={`agenda-${prefixo}`} />}
                     </section>
                 )}

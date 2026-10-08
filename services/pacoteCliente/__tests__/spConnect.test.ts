@@ -37,6 +37,9 @@ describe('SP Connect', () => {
         // O específico vence o genérico "nome" (Codex #112).
         expect(valoresSugeridos(['nome_empresa', 'nome_documento', 'nome_cliente', 'nome'], { contato: 'Marta', empresa: 'Exemplo', titulo: 'Folha', competencia: '09/2026' }))
             .toEqual({ nome_empresa: 'Exemplo', nome_documento: 'Folha', nome_cliente: 'Marta', nome: 'Marta' });
+        // Por palavra, não por pedaço: "mensagem" começa com "mes" e fica para a equipe (Codex #112).
+        expect(valoresSugeridos(['mensagem', 'mes_referencia', 'nomeEmpresa', 'Período'], { contato: 'Marta', empresa: 'Exemplo', titulo: 'Folha', competencia: '09/2026' }))
+            .toEqual({ mensagem: '', mes_referencia: '09/2026', nomeEmpresa: 'Exemplo', 'Período': '09/2026' });
     });
 
     it('e-mail pelo escritório: rota do DP no CFI com o .zip em base64; antes da publicação (404) diz o caminho', async () => {
