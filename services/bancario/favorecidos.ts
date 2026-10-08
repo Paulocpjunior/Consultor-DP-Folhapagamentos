@@ -9,14 +9,15 @@ import type { FichaFuncionario } from '../cadastros/funcionarios';
 import { adiantamentoDoMes, dataSugeridaAdiantamento, type ResultadoCalculo } from '../calculo/motorMensal';
 import { arredondamentoDoAdiantamento } from '../calculo/arredondamento';
 import type { Favorecido } from './cnab240';
+import { quintoDiaUtilSalario } from '../prazos/calendario';
 
 /**
- * O que se paga no dia do adiantamento: o adiantamento do mês e, se a empresa arredonda, o arredondamento dele
- * (466,67 + 0,33 = 467,00 no caso do IOB). É o mesmo valor do S-1210 do adiantamento.
+ * O que se paga no dia do adiantamento: o adiantamento do mês, menos o IRRF dele (saldo da folha em outro mês) e,
+ * se a empresa arredonda, mais o arredondamento (466,67 + 0,33 = 467,00 no caso do IOB). É o valor do S-1210 do adiantamento.
  */
-export const valorDoAdiantamento = (r: Pick<ResultadoCalculo, 'verbas'>) => {
+export const valorDoAdiantamento = (r: Pick<ResultadoCalculo, 'verbas' | 'irrfAdiantamento'>) => {
     const a = adiantamentoDoMes(r);
-    return a > 0 ? a + arredondamentoDoAdiantamento(r) : 0;
+    return a > 0 ? a - (r.irrfAdiantamento ?? 0) + arredondamentoDoAdiantamento(r) : 0;
 };
 
 export interface FavorecidosDaFolha {
@@ -33,6 +34,9 @@ const br = (d: string) => d.split('-').reverse().join('/');
  */
 export function foraDoAdiantamento(r: ResultadoCalculo, f: FichaFuncionario | undefined, data: string): string | undefined {
     if (data.slice(0, 7) !== r.competencia) return `data ${br(data)} fora de ${r.competencia.slice(5)}/${r.competencia.slice(0, 4)}: o adiantamento foi calculado para a competência`;
+    // O IRRF do adiantamento somou a folha anterior, paga até o 5º dia útil: antes disso ela pode não ter sido paga (Codex #118).
+    const quinto = quintoDiaUtilSalario(Number(r.competencia.slice(0, 4)), Number(r.competencia.slice(5, 7)));
+    if (r.irrfAdiantamentoFolha && data <= quinto) return `data ${br(data)} até o 5º dia útil (${br(quinto)}): o IRRF do adiantamento somou a folha anterior, paga até lá`;
     const d = f?.dados ?? {};
     if ((d.admissao ?? '') > data) return `admitido em ${br(d.admissao ?? '')}, depois de ${br(data)}`;
     const sugerida = dataSugeridaAdiantamento(r.competencia);

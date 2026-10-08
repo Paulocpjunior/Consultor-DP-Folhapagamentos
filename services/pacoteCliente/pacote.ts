@@ -88,8 +88,11 @@ export function eventosDaFolha(p: ParamsEventosFolha): EventoAgenda[] {
         ev.push({ uid: uid('salario'), titulo: `Pagar os salários de ${compBr(p.competencia)} (${reais(liquido)})`, inicio: p.dataPagamento, lembrete: true,
             descricao: `${base}. Folha de ${compBr(p.competencia)}: ${calculados.length} pagamento(s), líquido total ${reais(liquido)}. Prazo: 5º dia útil do mês seguinte (CLT art. 459, §1º).` });
         const comIrrf = !!e.irrf && p.pagamento === p.competencia;
-        darf(`darf-${p.competencia}`, p.competencia, `DARF da DCTFWeb ${compBr(p.competencia)}`, [...inss(), ...(comIrrf ? [`IRRF ${reais(e.irrf)}`] : [])],
-            e.totalPrevidenciario !== undefined ? e.totalPrevidenciario + (comIrrf ? e.irrf : 0) : undefined);
+        // IRRF do adiantamento pago na competência, com o saldo da folha no mês seguinte: DCTFWeb da competência (Codex #118).
+        const irAdi = p.pagamento !== p.competencia ? e.irrfAdiantamento ?? 0 : 0;
+        darf(`darf-${p.competencia}`, p.competencia, `DARF da DCTFWeb ${compBr(p.competencia)}`,
+            [...inss(), ...(comIrrf ? [`IRRF ${reais(e.irrf)}`] : []), ...(irAdi ? [`IRRF do adiantamento pago em ${compBr(p.competencia)} ${reais(irAdi)}`] : [])],
+            e.totalPrevidenciario !== undefined ? e.totalPrevidenciario + (comIrrf ? e.irrf : 0) + irAdi : undefined);
         irrfSeparado(p.competencia);
         fgts(p.competencia, e.fgts);
     } else if (p.folha === '13-1a') {

@@ -51,6 +51,20 @@ export interface Movimento {
     arredondamentoDesde?: string;
     /** Mês do pagamento com que o atual foi calculado: mudou o regime daquele mês, o gravado não vale (Codex #116). */
     arredondamentoPagamento?: string;
+    /**
+     * Mês do pagamento usado de fato, quando o "Pagamento em" da tela foi diferente do regime da empresa (gravado com
+     * ou sem arredondamento). Os meses seguintes o usam no lugar do regime (IRRF do adiantamento; Codex #118).
+     */
+    mesPagamento?: string;
+    /**
+     * IRRF apurado nesta folha, gravado ao salvar quando ela é paga no mês seguinte (rendimentos, deduções legais e
+     * o retido, em centavos, e o mês do pagamento): o adiantamento daquele mês soma o que foi pago de fato, sem
+     * refazer a folha com a ficha de hoje (Codex #118).
+     */
+    irrfRendimentos?: number;
+    irrfDeducoes?: number;
+    irrfRetido?: number;
+    irrfPagamento?: string;
     lancamentos?: Lancamento[];
 }
 
@@ -68,7 +82,18 @@ export interface EntradaCalculo {
      * Sem isto, o mês com férias fica "incompleto".
      */
     feriasDoMes?: { dias: number; ferias: number; terco: number; inss: number; irrf?: number };
+    /**
+     * Folha paga no mês do adiantamento, antes dele (a da competência anterior, quando a empresa paga no mês seguinte),
+     * com o IRRF apurado nela; `null` se não houve. Só é usada quando o adiantamento é pago num mês e o saldo da folha
+     * em outro: o IRRF do adiantamento é o do mês dele (regime de caixa), sobre tudo o que foi pago no mês, menos o
+     * que a folha anterior já reteve (RIR/1999, art. 621; conferido com o IOB, 08/2026). `{ pendente }`: a folha paga
+     * antes não é conhecida (sem o IRRF gravado dela, por exemplo), com o que falta para o aviso.
+     */
+    folhaPagaNoAdiantamento?: IrrfApurado & { competencia: string } | { pendente: string } | null;
 }
+
+/** O IRRF de um pagamento da folha: rendimentos tributáveis, deduções legais (INSS, dependentes, pensão) e o retido. */
+export interface IrrfApurado { rendimentos: number; deducoesLegais: number; valor: number }
 
 export type Situacao = 'calculado' | 'incompleto' | 'erro';
 export interface ResultadoCalculo {
@@ -88,6 +113,16 @@ export interface ResultadoCalculo {
     adiantamentoInformado?: boolean;
     /** Como o IRRF do mês foi deduzido (o S-1210 informa as deduções de dependentes). */
     deducoesIrrf?: { simplificado: boolean; dependentes: { cpf: string; nome: string }[]; porDependente: number; pensao: number };
+    /** O IRRF apurado na folha (para o adiantamento do mês seguinte, quando ela é paga junto com ele). */
+    irrfApurado?: IrrfApurado;
+    /** Adiantamento pago num mês e saldo da folha em outro: o IRRF retido no adiantamento (já fora da base da folha). */
+    irrfAdiantamento?: number;
+    /** Competência da folha anterior somada no IRRF do adiantamento (paga antes dele, até o 5º dia útil). */
+    irrfAdiantamentoFolha?: string;
+    /** Incompleto só pelo IRRF do adiantamento (falta a folha paga antes dele): o IRRF da folha em si está completo e pode ser gravado. */
+    soFaltaFolhaDoAdiantamento?: boolean;
+    /** Sem folha anterior no mês: dependentes deduzidos no IRRF do adiantamento (vão no S-1210 do mês dele; Codex #118). */
+    deducoesAdiantamento?: { dependentes: { cpf: string; nome: string }[]; porDependente: number };
 }
 
 /** FGTS: 8% (Lei 8.036/1990, art. 15); aprendiz 2% (§ 7º). */
@@ -109,6 +144,7 @@ const brData = (d: string) => d.split('-').reverse().join('/');
 const ultimoDia = (comp: string) => { const [a, m] = comp.split('-').map(Number); return new Date(Date.UTC(a, m, 0)).toISOString().slice(0, 10); };
 const competenciaValida = (c: string) => /^\d{4}-(0[1-9]|1[0-2])$/.test(c);
 export const competenciaSeguinte = (c: string) => somarMeses(`${c}-01`, 1).slice(0, 7);
+export const competenciaAnterior = (c: string) => somarMeses(`${c}-01`, -1).slice(0, 7);
 
 /** Feriados nacionais por lei (sem Carnaval e Sexta-feira Santa, que dependem de lei local). */
 function feriadoNacional(d: string): boolean {
@@ -320,9 +356,6 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     if (adiant > 0) {
         verba({ codigo: 'ADIANT', descricao: 'Adiantamento salarial', referencia: mov.adiantamento !== undefined ? '' : `${num(pctAd)}%`, tipo: 'desconto', valor: adiant, inss: false, fgts: false, irrf: false });
         r.memoria.push(mov.adiantamento !== undefined ? `Adiantamento salarial: ${reais(adiant)} pagos no mês (informado no movimento).` : `Adiantamento salarial: ${num(pctAd)}% de ${reais(sal)} (salário do mês) = ${reais(adiant)}, descontado aqui.`);
-        // Folha paga em outro mês: o adiantamento não foi "integralmente pago no próprio mês" e o IRRF dele é
-        // calculado de imediato, no mês em que é pago (RIR/1999, art. 621). O motor ainda não separa esse IRRF.
-        if (pagamento !== competencia) r.avisos.push(`Adiantamento pago em ${rotuloCompetencia(competencia)} e saldo da folha em ${rotuloCompetencia(pagamento)}: o IRRF do adiantamento é do mês em que ele é pago, e o motor ainda calcula tudo no mês da folha. Confira o IRRF com o IOB.`);
     }
 
     // Férias do mês pagas no recibo: entram nas bases do INSS e do FGTS (não no IRRF, que foi em separado).
@@ -343,6 +376,12 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     const soma = (f: (v: Verba) => boolean) => r.verbas.filter(f).reduce((s, v) => s + (v.tipo === 'provento' ? v.valor : -v.valor), 0);
     r.bases.inss = Math.max(0, soma(v => v.inss));
     r.bases.irrf = Math.max(0, soma(v => v.irrf));
+    // Adiantamento pago em mês diferente do saldo: foi tributado no mês dele e sai da base da folha (Codex #115; IOB 08/2026).
+    const adiantSeparado = adiant > 0 && pagamento !== competencia;
+    if (adiantSeparado) {
+        r.bases.irrf = Math.max(0, r.bases.irrf - adiant);
+        r.memoria.push(`IRRF: o adiantamento de ${reais(adiant)} foi pago em ${rotuloCompetencia(competencia)} e tributado lá; sai dos rendimentos da folha paga em ${rotuloCompetencia(pagamento)}.`);
+    }
     const diasFgtsAcidente = Math.min(diasAcidenteInss, Math.max(0, 30 - diasPagos - diasMat));
     const fgtsAcidente = Math.round(diaria * diasFgtsAcidente);
     r.bases.fgts = Math.max(0, soma(v => v.fgts)) + fgtsAcidente;
@@ -402,37 +441,54 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
 
     // 9. IRRF (regime de caixa: tabela do mês do pagamento).
     const tIr = tabelaVigente(e.tabelas, 'irrf', pagamento);
+    const nDep = ficha.dependentes.filter(x => x.irrf === 'S').length;
     if ('erro' in tIr) erro(`IRRF: ${tIr.erro}`);
-    else if (r.bases.irrf > 0) {
+    else {
         const t = tIr.tabela;
-        const nDep = ficha.dependentes.filter(x => x.irrf === 'S').length;
         const dep = nDep * (t.valores.deducaoDependente ?? 0);
         const legais = inss + dep + pensao;
-        const simplificado = t.valores.descontoSimplificado ?? 0;
-        const usaSimpl = simplificado > legais;
-        const deducao = usaSimpl ? simplificado : legais;
-        r.deducoesIrrf = { simplificado: usaSimpl, dependentes: ficha.dependentes.filter(x => x.irrf === 'S').map(x => ({ cpf: x.cpf, nome: x.nome })), porDependente: t.valores.deducaoDependente ?? 0, pensao };
-        const base = Math.max(0, r.bases.irrf - deducao);
-        const faixa = t.faixas.find(f => f.ate === null || base <= f.ate) ?? t.faixas[t.faixas.length - 1];
-        let ir = Math.max(0, Math.round(base * faixa.aliquota / 100) - faixa.deducao);
-        r.memoria.push(`IRRF (pagamento em ${rotuloCompetencia(pagamento)}, tabela de ${rotuloCompetencia(t.vigencia)}, ${t.norma}): rendimentos ${reais(r.bases.irrf)}; `
-            + (usaSimpl ? `desconto simplificado ${reais(simplificado)} (maior que as deduções legais de ${reais(legais)})` : `deduções legais ${reais(legais)} (INSS ${reais(inss)}${nDep ? ` + ${nDep} dependente(s) ${reais(dep)}` : ''}${pensao ? ` + pensão ${reais(pensao)}` : ''})`)
-            + `; base ${reais(base)} × ${pct(faixa.aliquota)} − ${reais(faixa.deducao)} = ${reais(ir)}.`);
-        const v = t.valores;
-        if (ir > 0 && v.redutorAte && v.redutorMaximo && v.redutorLimite && v.redutorConstante && v.redutorCoeficiente) {
-            const R = r.bases.irrf;
-            let red = 0;
-            if (R <= v.redutorAte) red = Math.min(ir, v.redutorMaximo);
-            else if (R <= v.redutorLimite) red = Math.min(ir, Math.max(0, v.redutorConstante - Math.round(R * v.redutorCoeficiente / 1_000_000)));
-            if (red) {
-                ir -= red;
-                r.memoria.push(R <= v.redutorAte
-                    ? `Redutor: rendimentos até ${reais(v.redutorAte)}; redução de ${reais(red)} (até ${reais(v.redutorMaximo)}). IRRF ${reais(ir)}.`
-                    : `Redutor: ${reais(v.redutorConstante)} − ${(v.redutorCoeficiente / 1_000_000).toFixed(6).replace('.', ',')} × ${reais(R)} = ${reais(red)}. IRRF ${reais(ir)}.`);
-            }
+        r.irrfApurado = { rendimentos: r.bases.irrf, deducoesLegais: legais, valor: 0 };
+        if (r.bases.irrf > 0) {
+            const a = apurarIrrf(t, r.bases.irrf, legais);
+            r.deducoesIrrf = { simplificado: a.simplificado, dependentes: ficha.dependentes.filter(x => x.irrf === 'S').map(x => ({ cpf: x.cpf, nome: x.nome })), porDependente: t.valores.deducaoDependente ?? 0, pensao };
+            r.memoria.push(`IRRF (pagamento em ${rotuloCompetencia(pagamento)}, tabela de ${rotuloCompetencia(t.vigencia)}, ${t.norma}): rendimentos ${reais(r.bases.irrf)}; `
+                + (a.simplificado ? `desconto simplificado ${reais(a.deducao)} (maior que as deduções legais de ${reais(legais)})` : `deduções legais ${reais(legais)} (INSS ${reais(inss)}${nDep ? ` + ${nDep} dependente(s) ${reais(dep)}` : ''}${pensao ? ` + pensão ${reais(pensao)}` : ''})`)
+                + `; base ${reais(a.base)} × ${pct(a.aliquota)} − ${reais(a.deducaoFaixa)} = ${reais(a.bruto)}.`, ...a.memoriaRedutor);
+            let ir = a.valor;
+            if (ir > 0 && ir <= IRRF_MINIMO) { r.memoria.push(`IRRF de ${reais(ir)} não retido: até R$ 10,00 a retenção é dispensada (Lei 9.430/1996, art. 67).`); ir = 0; }
+            r.irrfApurado.valor = ir;
+            verba({ codigo: 'IRRF', descricao: 'IRRF', referencia: a.aliquota ? pct(a.aliquota) : '', tipo: 'desconto', valor: ir, inss: false, fgts: false, irrf: false });
         }
-        if (ir > 0 && ir <= IRRF_MINIMO) { r.memoria.push(`IRRF de ${reais(ir)} não retido: até R$ 10,00 a retenção é dispensada (Lei 9.430/1996, art. 67).`); ir = 0; }
-        verba({ codigo: 'IRRF', descricao: 'IRRF', referencia: faixa.aliquota ? pct(faixa.aliquota) : '', tipo: 'desconto', valor: ir, inss: false, fgts: false, irrf: false });
+    }
+
+    // 9a. IRRF do adiantamento pago num mês com o saldo da folha em outro: regime de caixa no mês do adiantamento,
+    // sobre tudo o que foi pago no mês (a folha anterior, paga nele, e o adiantamento), menos o que a folha anterior
+    // já reteve (RIR/1999, art. 621). Conferido com o IOB (08/2026). Sai do valor pago no adiantamento, não da folha.
+    if (adiantSeparado) {
+        const entrada = e.folhaPagaNoAdiantamento;
+        const pendente = entrada === undefined ? 'movimentos gravados ainda não carregados' : entrada && 'pendente' in entrada ? entrada.pendente : '';
+        const ant = entrada && !('pendente' in entrada) ? entrada : null;
+        const tA = tabelaVigente(e.tabelas, 'irrf', competencia);
+        if (pendente) {
+            r.avisos.push(`IRRF do adiantamento (pago em ${rotuloCompetencia(competencia)}, saldo em ${rotuloCompetencia(pagamento)}): falta a folha paga em ${rotuloCompetencia(competencia)}, antes dele, para calcular (${pendente}). Confira o IRRF.`);
+            if (r.situacao === 'calculado') { r.situacao = 'incompleto'; r.soFaltaFolhaDoAdiantamento = true; }
+        } else if ('erro' in tA) erro(`IRRF do adiantamento: ${tA.erro}`);
+        else {
+            // Sem folha paga antes no mês (admissão, mudança de regime): o adiantamento é o primeiro pagamento, e os
+            // dependentes deduzem dele (Codex #118); INSS e pensão não há.
+            const pagos = ant ?? { rendimentos: 0, deducoesLegais: nDep * (tA.tabela.valores.deducaoDependente ?? 0), valor: 0, competencia: '' };
+            const R = pagos.rendimentos + adiant;
+            const a = apurarIrrf(tA.tabela, R, pagos.deducoesLegais);
+            let ir = Math.max(0, a.valor - pagos.valor);
+            r.memoria.push(`IRRF do adiantamento (pago em ${rotuloCompetencia(competencia)}, tabela de ${rotuloCompetencia(tA.tabela.vigencia)}): `
+                + (ant ? `rendimentos pagos no mês ${reais(pagos.rendimentos)} (folha de ${rotuloCompetencia(ant.competencia)}) + adiantamento ${reais(adiant)} = ${reais(R)}` : `adiantamento ${reais(adiant)} (nenhuma folha paga antes no mês${nDep ? `; ${nDep} dependente(s)` : ''})`)
+                + `; ${a.simplificado ? `desconto simplificado ${reais(a.deducao)}` : `deduções legais ${reais(pagos.deducoesLegais)}`}; base ${reais(a.base)} × ${pct(a.aliquota)} − ${reais(a.deducaoFaixa)} = ${reais(a.bruto)}`
+                + `${a.memoriaRedutor.length ? ` (${a.memoriaRedutor.join(' ')})` : ''}; menos ${reais(pagos.valor)} já retidos = ${reais(ir)}.`);
+            if (ir > 0 && ir <= IRRF_MINIMO) { r.memoria.push(`IRRF do adiantamento de ${reais(ir)} não retido: até R$ 10,00 a retenção é dispensada (Lei 9.430/1996, art. 67).`); ir = 0; }
+            r.irrfAdiantamento = ir;
+            if (ant) r.irrfAdiantamentoFolha = ant.competencia;
+            else if (!a.simplificado && nDep) r.deducoesAdiantamento = { dependentes: ficha.dependentes.filter(x => x.irrf === 'S').map(x => ({ cpf: x.cpf, nome: x.nome })), porDependente: tA.tabela.valores.deducaoDependente ?? 0 };
+        }
     }
 
     // 10. FGTS e totais.
@@ -451,6 +507,62 @@ export const dataSugeridaAdiantamento = (competencia: string) => (/^\d{4}-\d{2}$
 
 /** Adiantamento salarial do mês (desconto ADIANT da folha): o que foi pago antes, no demonstrativo próprio. */
 export const adiantamentoDoMes = (r: Pick<ResultadoCalculo, 'verbas'>) => r.verbas.find(v => v.codigo === 'ADIANT')?.valor ?? 0;
+
+/**
+ * Mais de um contrato no mesmo CPF com IRRF do adiantamento: o imposto do mês é do CPF (a tabela e as deduções
+ * valem uma vez para tudo o que foi pago), e cada contrato é calculado sozinho. Até o motor somar os contratos,
+ * esses ficam incompletos, com aviso (Codex #118). Da competência, conta o contrato com pagamento no mês: o
+ * adiantamento ou a rescisão de um desligamento no mês até a data sugerida do adiantamento (um contrato admitido ou
+ * desligado depois dela não paga nada antes do adiantamento). A data em que a rescisão foi paga não fica gravada no
+ * Consultor: desligado antes do adiantamento, conta, e o aviso manda conferir. `pagosNoMes`: contratos da competência anterior com folha paga no mês do adiantamento (um contrato
+ * encerrado no mês passado também entra na conta do CPF); quem filtra é a tela, pelo valor pago (Codex #118).
+ */
+export function travarAdiantamentoEntreContratos<R extends ResultadoCalculo>(resultados: R[], fichas: Pick<FichaFuncionario, 'id' | 'cpf' | 'dados'>[], pagosNoMes: Pick<FichaFuncionario, 'id' | 'cpf'>[] = []): R[] {
+    const cpfDe = new Map(fichas.map(f => [f.id, f.cpf.replace(/\D/g, '')]));
+    const desligadoNoMes = new Map(fichas.map(f => [f.id, f.dados.dataDesligamento ?? '']));
+    const contratosDoCpf = new Map<string, Set<string>>();
+    const somar = (id: string, cpf: string | undefined) => { if (cpf) contratosDoCpf.set(cpf, (contratosDoCpf.get(cpf) ?? new Set()).add(id)); };
+    for (const r of resultados) {
+        const deslig = desligadoNoMes.get(r.fichaId) ?? '';
+        if (adiantamentoDoMes(r) > 0 || (deslig.startsWith(r.competencia) && deslig <= dataSugeridaAdiantamento(r.competencia))) somar(r.fichaId, cpfDe.get(r.fichaId));
+    }
+    for (const f of pagosNoMes) somar(f.id, f.cpf.replace(/\D/g, ''));
+    const porCpf = new Map([...contratosDoCpf].map(([c, ids]) => [c, ids.size]));
+    return resultados.map(r => {
+        const c = cpfDe.get(r.fichaId);
+        if (!c || (porCpf.get(c) ?? 0) < 2 || r.irrfAdiantamento === undefined || r.situacao === 'erro') return r;
+        // O IRRF por contrato está errado: sai do resultado, para não ir ao resumo nem ao lembrete do DARF (Codex #118).
+        return { ...r, situacao: 'incompleto', irrfAdiantamento: undefined, irrfAdiantamentoFolha: undefined, deducoesAdiantamento: undefined, avisos: [...r.avisos, 'IRRF do adiantamento com mais de um contrato no CPF: o imposto do mês é de tudo o que foi pago ao CPF, e o Consultor ainda calcula cada contrato sozinho. Confira pelo IOB (um contrato desligado no mês conta pela rescisão, que pode ter sido paga antes do adiantamento).'] };
+    });
+}
+
+/**
+ * IRRF pela tabela progressiva: o maior entre as deduções legais e o desconto simplificado, a faixa e o redutor
+ * (Lei 15.270/2025) sobre os rendimentos. Sem a dispensa de R$ 10,00, que é de cada retenção.
+ */
+export function apurarIrrf(t: TabelaLegal, rendimentos: number, legais: number) {
+    const v = t.valores;
+    const simplificadoValor = v.descontoSimplificado ?? 0;
+    const simplificado = simplificadoValor > legais;
+    const deducao = simplificado ? simplificadoValor : legais;
+    const base = Math.max(0, rendimentos - deducao);
+    const faixa = t.faixas.find(f => f.ate === null || base <= f.ate) ?? t.faixas[t.faixas.length - 1];
+    const bruto = Math.max(0, Math.round(base * faixa.aliquota / 100) - faixa.deducao);
+    let valor = bruto;
+    const memoriaRedutor: string[] = [];
+    if (bruto > 0 && v.redutorAte && v.redutorMaximo && v.redutorLimite && v.redutorConstante && v.redutorCoeficiente) {
+        let red = 0;
+        if (rendimentos <= v.redutorAte) red = Math.min(bruto, v.redutorMaximo);
+        else if (rendimentos <= v.redutorLimite) red = Math.min(bruto, Math.max(0, v.redutorConstante - Math.round(rendimentos * v.redutorCoeficiente / 1_000_000)));
+        if (red) {
+            valor -= red;
+            memoriaRedutor.push(rendimentos <= v.redutorAte
+                ? `Redutor: rendimentos até ${reais(v.redutorAte)}; redução de ${reais(red)} (até ${reais(v.redutorMaximo)}). IRRF ${reais(valor)}.`
+                : `Redutor: ${reais(v.redutorConstante)} − ${(v.redutorCoeficiente / 1_000_000).toFixed(6).replace('.', ',')} × ${reais(rendimentos)} = ${reais(red)}. IRRF ${reais(valor)}.`);
+        }
+    }
+    return { simplificado, deducao, base, aliquota: faixa.aliquota, deducaoFaixa: faixa.deducao, bruto, valor, memoriaRedutor };
+}
 
 /** Funcionários com vínculo em algum dia da competência. */
 export function noMes(fichas: FichaFuncionario[], competencia: string): FichaFuncionario[] {

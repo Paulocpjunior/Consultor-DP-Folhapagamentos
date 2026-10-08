@@ -3024,3 +3024,50 @@ guias sindicais".
 - **Revisão do Codex no #117 (P1):** o botão "Arquivo do adiantamento" fica desativado até os movimentos gravados do mês carregarem. Um adiantamento informado no movimento (0 ou outro valor) muda o que se paga.
 - **Revisão do Codex no #117 (P1):** com erro na leitura dos movimentos, `gravados` vira `{}`. Por isso o botão "Arquivo do adiantamento" passa a depender de `movsLidos`, que só fica verdadeiro quando a leitura deu certo.
 - **Revisão do Codex no #117 (P1):** cada leitura dos movimentos tem um número. A resposta de uma leitura já trocada (outra empresa ou competência) é descartada, para os movimentos do período anterior não valerem para o novo nem liberarem o arquivo do adiantamento.
+
+## 08/10/2026 — IRRF do adiantamento com a folha paga no mês seguinte
+
+- **Paulo** mandou o S-1200 e o S-1210 do IOB de 08/2026 de um funcionário com adiantamento em 20/08 e folha paga em 04/09. Os PDFs têm nome e CPF e não vão ao repositório; o teste usa dados trocados e os mesmos valores.
+- **Como o IOB faz (regime de caixa; RIR/1999, art. 621):**
+  - **Folha de 08, paga em 04/09:** o adiantamento sai dos rendimentos. 9.177,90 − 3.671,16 − 95,53 (atrasos) = 5.411,21; base 4.423,12 × 22,5% − 675,49 = 319,71; redutor 978,62 − 0,133145 × 5.411,21 = 258,14. **IRRF 61,57**, exatamente como no IOB.
+  - **Adiantamento de 08, pago em 20/08:** o IRRF é o de tudo o que foi pago em agosto (folha de 07, paga em 06/08, mais o adiantamento) menos o que a folha de 07 já reteve. Com a folha de 07 de 5.375,55 de rendimentos (3h08 de atraso): (5.375,55 + 3.671,16 − 988,09) × 27,5% − 908,73 = 1.307,39, sem redutor (acima de 7.350); menos 48,80 = **1.258,59**. **Líquido 2.412,57**, o do S-1210 do IOB.
+- **Motor:** com o adiantamento pago num mês e o saldo em outro, o adiantamento sai da base do IRRF da folha e o motor calcula `irrfAdiantamento` com a folha anterior paga no mês do adiantamento (`folhaPagaNoAdiantamento`). Sem ela, a folha fica incompleta, com aviso. `apurarIrrf` passa a ser o cálculo único da tabela progressiva com o redutor. Folha paga no próprio mês não muda.
+- **Tela:** a folha anterior é calculada pelos movimentos gravados quando foi paga no mês do adiantamento (pelo mês do pagamento gravado, ou pelo regime). Isso vale na competência, no encadeamento do arredondamento e na conferência com o IOB.
+- **eSocial:** o demonstrativo do adiantamento leva o IRRF (mesma rubrica do IRRF da folha), e o S-1210 do mês do adiantamento paga o líquido. A data do adiantamento precisa ser da competência, porque o IRRF foi calculado para ela. Sai o bloqueio do #115.
+- **Arquivo bancário e arredondamento do adiantamento:** usam o valor líquido do IRRF.
+- **Trava:** `irrfAdiantamento.test.ts`, com as tabelas oficiais de 2026.
+- **Revisão do Codex no #118 (P1 e P2):**
+  - **Folha anterior:** só a folha anterior completa entra no cálculo. Com erro ou incompleta, a folha do mês fica incompleta, com aviso.
+  - **Sem folha paga antes no mês** (admissão, mudança de regime): os dependentes deduzem do adiantamento. O maior entre eles e o simplificado vale; INSS e pensão não há.
+- **Revisão do Codex no #118 (P1 e P2):**
+  - **Deduções no S-1210 do adiantamento:** sem folha anterior no mês e com os dependentes acima do simplificado, os dependentes usados no IRRF do adiantamento vão no S-1210 do mês dele (`dedDepen`, tpRend 11, e `infoDep` de quem não está no eSocial). Não ficam só no da folha.
+  - **Ordem dos pagamentos:** se o IRRF do adiantamento somou a folha anterior, a data do adiantamento precisa ser depois do 5º dia útil (CLT, art. 459, § 1º; em 08/2026, 06/08), quando essa folha já foi paga. Antes disso, o eSocial recusa e o arquivo bancário deixa o funcionário fora, com o motivo.
+- **Revisão do Codex no #118 (P1 e P2):**
+  - **Mais de um contrato no CPF:** o IRRF do adiantamento é do CPF no mês, e o Consultor calcula cada contrato sozinho (como já na folha). Até somar os contratos, esses ficam incompletos, com aviso (`travarAdiantamentoEntreContratos`), e o eSocial recusa. Não sai arquivo bancário nem S-1200 com o IRRF por contrato.
+  - **S-1210 do mês do adiantamento já aceito:** a mesclagem com o aceito passa a levar as deduções de dependentes do adiantamento (tpRend 11), além das das férias. As tpRend 11 do aceito (da folha anterior) e o resto (plano de saúde…) ficam.
+- **Revisão do Codex no #118 (dois P1):**
+  - **S-1210 do mês do adiantamento:** se o IRRF do adiantamento somou a folha anterior, paga nesse mês, o S-1210 do mês precisa levar esse pagamento junto. Sem o S-1210 do mês carregado (download do eSocial) com a folha anterior, o gerador recusa e pede para transmitir o S-1210 da folha anterior antes. Com ele carregado, os dois pagamentos saem no mesmo evento.
+  - **Contrato encerrado no mês anterior:** a trava de mais de um contrato no CPF conta também os contratos da competência anterior, cuja folha é paga no mês do adiantamento.
+- **Revisão do Codex no #118 (P1):** o IRRF retido no adiantamento entra no resumo da folha à parte (`encargos.irrfAdiantamento`): na tela, no PDF e no Excel, como "IRRF retido no adiantamento". No pacote do cliente, ele vai no lembrete do DARF da DCTFWeb da competência, o mês do adiantamento. O IRRF da folha continua no lembrete do mês do pagamento.
+- **Revisão do Codex no #118 (dois P2):**
+  - **Trava de contratos:** só conta os contratos da competência anterior cuja folha foi paga no mês do adiantamento, pelo mês gravado ou pelo regime. Uma empresa que mudou de "no próprio mês" para "no mês seguinte" não trava à toa.
+  - **infoDep do S-1210 aceito:** se o aceito já informa o dependente (por plano de saúde, por exemplo) sem `depIRRF`, a marca e o tipo de agora entram no `infoDep` dele, antes da descrição. Assim a dedução não fica sem o dependente marcado para o IRRF.
+- **Revisão do Codex no #118 (P1):** o resultado travado por mais de um contrato no CPF perde o IRRF do adiantamento calculado por contrato. Ele não vai ao resumo (PDF e Excel) nem ao lembrete do DARF.
+- **Revisão do Codex no #118 (P1 e P2):**
+  - **"Pagamento em" diferente do regime:** o mês usado de fato fica gravado no movimento (`mesPagamento`), com ou sem arredondamento. Igual ao regime, nada é gravado. O IRRF do adiantamento do mês seguinte, o encadeamento e a conferência usam esse mês no lugar do regime. Só quem teve o pagamento trocado fica "não salvo".
+  - **Dedução do adiantamento que não vale mais:** no mês do adiantamento sem folha anterior, as tpRend 11 do S-1210 aceito são do adiantamento. As que o cálculo de agora não tem (passou ao simplificado, dependente removido) saem no reenvio. Com folha anterior no mês, elas ficam.
+- **Revisão do Codex no #118 (dois P1):**
+  - **IRRF da folha anterior gravado:** ao salvar o movimento de uma folha paga no mês seguinte, com adiantamento na ficha, o IRRF apurado nela fica gravado (`irrfRendimentos`, `irrfDeducoes`, `irrfRetido`, `irrfPagamento`). O adiantamento do mês seguinte usa o gravado e não refaz a folha com a ficha de hoje (um percentual de adiantamento mudado depois, por exemplo). Sem o gravado, refaz como antes. Editar o movimento tira o gravado até o mês ser recalculado.
+  - **S-1210 do mês do adiantamento:** o aceito precisa ter a folha mensal anterior em si (ideDmDev do Consultor, `FOLHA…`, ou o `…MENS` do IOB). Outro pagamento da mesma competência não basta.
+- **Revisão do Codex no #118 (P1 e P2):**
+  - **IRRF gravado de toda folha paga no mês seguinte:** o IRRF apurado fica gravado para todo funcionário com o cálculo completo, e não só para quem tem adiantamento na ficha. O adiantamento pode ser lançado à mão no movimento do mês seguinte, e a ficha de lá (com outros dependentes) não refaz a folha já paga. Com o regime "no mês seguinte", recalcular o mês deixa "não salvo" quem ainda não tem esse IRRF gravado, como já acontece com o arredondamento.
+  - **Trava de contratos:** da competência, só conta o contrato com adiantamento. Um contrato admitido depois do adiantamento não paga nada no mês e não trava o outro.
+- **Revisão do Codex no #118 (P1 e P2), trava de contratos:**
+  - **Desligado no mês:** da competência, conta também o contrato desligado no mês, cuja rescisão foi paga antes do adiantamento do outro. Nesse caso, o adiantamento não é o primeiro pagamento do CPF no mês.
+  - **Contrato anterior sem pagamento:** da competência anterior, só conta o contrato cuja folha paga no mês teve rendimentos (pelo IRRF gravado ou refeito). Um contrato afastado o mês todo, sem nada pago, não trava o outro. Enquanto não dá para saber, ele conta.
+- **Revisão do Codex no #118 (dois P2):**
+  - **Mês do arredondamento velho:** se o movimento gravou o mês do pagamento pelo arredondamento (`arredondamentoPagamento`) e depois o arredondamento foi desligado, voltar o "Pagamento em" ao regime grava esse mês em `mesPagamento`. Sem isso, o mês velho valeria no lugar do regime (`movimentoComMesPagamento`).
+  - **Desligado no mês:** só conta na trava se o desligamento foi até a data sugerida do adiantamento (dia 20 ou o dia útil anterior). Desligado depois, a rescisão não foi paga antes do adiantamento. O Consultor não grava a data em que a rescisão foi paga, então desligado antes conta, e o aviso manda conferir.
+- **Revisão do Codex no #118 (P1 e P2):**
+  - **Folha anterior sem o IRRF gravado:** a folha já paga não é mais refeita com a ficha de hoje. Sem o IRRF gravado com o movimento dela, o adiantamento fica incompleto, com o aviso "abra MM/AAAA, confira o cálculo e clique em Salvar movimento". Para não exigir isso mês a mês até a admissão, a folha incompleta só pelo IRRF do adiantamento (`soFaltaFolhaDoAdiantamento`) ainda grava o IRRF dela. Basta salvar o mês anterior.
+  - **Mais de uma folha paga no mês do adiantamento:** se o movimento de uma folha mais antiga tem o "Pagamento em" trocado para o mês do adiantamento, o Consultor, que soma uma folha só, deixa o adiantamento incompleto, com aviso. A regra está em `folhaPagaAntes`, com testes.

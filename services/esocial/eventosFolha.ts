@@ -30,6 +30,7 @@
 
 import { adiantamentoDoMes, dataSugeridaAdiantamento, type Movimento, type ResultadoCalculo, type Verba } from '../calculo/motorMensal';
 import { arredondamentoDoAdiantamento } from '../calculo/arredondamento';
+import { quintoDiaUtilSalario } from '../prazos/calendario';
 import { calcularFerias, parteDaCompetencia, type OpcoesFerias, type ResultadoFerias } from '../calculo/motorFerias';
 import { depNoEsocial, ratearPensao, type FichaFuncionario } from '../cadastros/funcionarios';
 import type { Afastamento } from '../cadastros/afastamentos';
@@ -141,15 +142,18 @@ export const ideDmDev = (perApur: string, matricula: string) => `FOLHA${perApur.
 export const ideDmDevAdiantamento = (perApur: string, matricula: string) => `ADI${perApur.replace('-', '')}-${matricula}`.slice(0, 30);
 export { dataSugeridaAdiantamento };
 /** Verbas do demonstrativo do adiantamento: o valor, como provento, e o arredondamento dele (sem INSS, FGTS e IRRF; o IRRF é na folha). */
-export const verbasDoAdiantamento = (r: Pick<ResultadoCalculo, 'verbas'>): Verba[] => {
+export const verbasDoAdiantamento = (r: Pick<ResultadoCalculo, 'verbas' | 'irrfAdiantamento'>): Verba[] => {
     const v = adiantamentoDoMes(r);
     const ref = r.verbas.find(x => x.codigo === 'ADIANT')?.referencia ?? '';
     const arred = arredondamentoDoAdiantamento(r);
+    const ir = r.irrfAdiantamento ?? 0;
     return v > 0 ? [{ codigo: 'ADIANTPAG', descricao: 'Adiantamento salarial (pagamento)', referencia: ref, tipo: 'provento', valor: v, inss: false, fgts: false, irrf: false },
+        // Saldo da folha em outro mês: o IRRF do adiantamento é retido nele, na mesma rubrica do IRRF da folha (IOB 08/2026).
+        ...(ir ? [{ codigo: 'IRRF', descricao: 'IRRF do adiantamento', referencia: '', tipo: 'desconto' as const, valor: ir, inss: false, fgts: false, irrf: false }] : []),
         ...(arred ? [{ codigo: 'ARREDATU', descricao: 'Arredondamento atual', referencia: '', tipo: 'provento' as const, valor: arred, inss: false, fgts: false, irrf: false }] : [])] : [];
 };
-/** O que o demonstrativo do adiantamento paga: o adiantamento e o arredondamento dele. */
-export const pagoNoAdiantamento = (r: Pick<ResultadoCalculo, 'verbas'>) => verbasDoAdiantamento(r).reduce((s, v) => s + v.valor, 0);
+/** O que o demonstrativo do adiantamento paga: o adiantamento, menos o IRRF dele, mais o arredondamento. */
+export const pagoNoAdiantamento = (r: Pick<ResultadoCalculo, 'verbas' | 'irrfAdiantamento'>) => verbasDoAdiantamento(r).reduce((s, v) => s + (v.tipo === 'provento' ? v.valor : -v.valor), 0);
 /** Para o de/para: a rubrica de provento do adiantamento, que não está nas verbas da folha. */
 export const verbasDoAdiantamentoParaDePara = (resultados: ResultadoCalculo[]): ResultadoCalculo[] =>
     resultados.filter(r => r.situacao === 'calculado' && adiantamentoDoMes(r) > 0).map(r => ({ ...r, verbas: verbasDoAdiantamento(r) }));
@@ -237,6 +241,7 @@ export interface EventosDoTrabalhador extends Pagamentos1210 {
 /** indRetif 1 (original) ou 2 com o nrRecibo do evento que está valendo. */
 const retif = (r?: ReciboEvento) => (r ? `<indRetif>2</indRetif><nrRecibo>${r.nrRecibo}</nrRecibo>` : '<indRetif>1</indRetif>');
 const mes = (c: string) => `${c.slice(5)}/${c.slice(0, 4)}`;
+const quintoDiaUtilDe = (c: string) => quintoDiaUtilSalario(Number(c.slice(0, 4)), Number(c.slice(5, 7)));
 const br = (d: string) => d.split('-').reverse().join('/');
 
 export interface EntradaEventosFolha {
@@ -351,6 +356,8 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
         for (const { ficha: f, r } of contratos) {
             const quem = contratos.length > 1 ? ` (matrícula ${f.matriculaEsocial || '?'})` : '';
             if (r.situacao !== 'calculado') { t.erros.push(`Cálculo ${r.situacao === 'erro' ? 'com erro' : 'incompleto'}${quem}: ${[...r.erros, ...r.avisos].join(' ') || 'confira o holerite'}.`); continue; }
+            // IRRF do adiantamento é do CPF no mês; com dois contratos, cada um foi calculado sozinho (Codex #118).
+            if (contratos.length > 1 && r.irrfAdiantamento !== undefined) { t.erros.push(`IRRF do adiantamento com mais de um contrato no CPF${quem}: o Consultor ainda calcula cada contrato sozinho. Confira pelo IOB.`); continue; }
             if (!f.matriculaEsocial.trim()) t.erros.push(`Sem matrícula do eSocial na ficha${quem}.`);
             const categ = digitos(f.dados.categoria);
             if (!/^\d{3}$/.test(categ)) t.erros.push(`Categoria do eSocial (3 dígitos) em branco na ficha${quem}.`);
@@ -401,7 +408,12 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             if (!r.adiantamentoInformado && dataAdiant !== sugerida && Number((f.dados.adiantamentoPct ?? '').replace(',', '.')) > 0 && comVinculo(dataAdiant) !== comVinculo(sugerida))
                 t.erros.push(`Adiantamento em ${br(dataAdiant)}, mas o cálculo usou ${br(sugerida)}, e a admissão ou o desligamento${quem} fica entre as duas datas: informe no movimento o adiantamento pago (ou 0) e recalcule.`);
             else if (adiant > 0 && (f.dados.admissao ?? '') > dataAdiant) t.erros.push(`Adiantamento salarial em ${br(dataAdiant)}, antes da admissão (${br(f.dados.admissao ?? '')})${quem}: informe adiantamento 0 no movimento ou corrija a data.`);
-            else if (adiant > 0 && dataAdiant.slice(0, 7) !== perPgto) t.erros.push(`Adiantamento pago em ${mes(dataAdiant.slice(0, 7))} e saldo da folha em ${mes(perPgto)}${quem}: o IRRF do adiantamento é do mês em que ele é pago, e o Consultor ainda não separa esse cálculo. Transmita pelo IOB, ou informe adiantamento 0 no movimento se não houve.`);
+            // Saldo da folha em outro mês: o IRRF do adiantamento foi calculado no mês da competência (regime de caixa).
+            else if (adiant > 0 && dataAdiant.slice(0, 7) !== perPgto && r.irrfAdiantamento === undefined) t.erros.push(`Adiantamento pago em ${mes(dataAdiant.slice(0, 7))} e saldo da folha em ${mes(perPgto)}${quem}: o IRRF do adiantamento não foi calculado. Recalcule a competência na tela do cálculo.`);
+            // O IRRF do adiantamento somou a folha anterior, paga no mês até o 5º dia útil (CLT, art. 459, § 1º): antes
+            // disso ela pode não ter sido paga ainda (Codex #118).
+            else if (adiant > 0 && r.irrfAdiantamentoFolha && dataAdiant <= quintoDiaUtilDe(e.competencia)) t.erros.push(`Adiantamento em ${br(dataAdiant)}${quem}: o IRRF dele somou a folha de ${mes(r.irrfAdiantamentoFolha)}, paga no mês até o 5º dia útil (${br(quintoDiaUtilDe(e.competencia))}). Use uma data depois dela.`);
+            else if (adiant > 0 && r.irrfAdiantamento !== undefined && dataAdiant.slice(0, 7) !== e.competencia) t.erros.push(`Adiantamento em ${br(dataAdiant)}${quem}: com o saldo da folha em ${mes(perPgto)}, o IRRF do adiantamento foi calculado para pagamento em ${mes(e.competencia)}. Use uma data de ${mes(e.competencia)}.`);
             else if (adiant > 0) {
                 const ideA = unico(ideDmDevAdiantamento(e.competencia, mat));
                 dmDevs.push(dmDev(ideA, categ, f, itensDe(verbasDoAdiantamento(r))));
@@ -453,11 +465,22 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                 }
             }
             else if (t.retifica1200) t.avisos.push(`Nenhum S-1210 de ${mes(m)} carregado: se o pagamento desta folha já foi informado (inclusive em outro mês), carregue o download com ele; o eSocial recusa retificar o S-1200 enquanto um S-1210 aponta para ele.`);
+            // O IRRF do adiantamento somou a folha anterior, paga neste mês: o S-1210 dele tem de levar esse pagamento junto,
+            // senão substituiria o aceito sem ele (ou o omitiria). Sem o S-1210 do mês com a folha anterior, não sai (Codex #118).
+            const anterior = m === e.competencia && m !== perPgto ? contratos.find(c => c.r.irrfAdiantamentoFolha)?.r.irrfAdiantamentoFolha : undefined;
+            // A folha mensal anterior em si (ideDmDev do Consultor, ou o "…MENS" do IOB), não outro pagamento da competência (Codex #118).
+            const matAnt = contratos.find(c => c.r.irrfAdiantamentoFolha)?.ficha.matriculaEsocial ?? '';
+            const ehFolhaAnterior = (pg: { perRef: string; ideDmDev: string; tpPgto: string }) => pg.tpPgto === '1' && pg.perRef === anterior
+                && (pg.ideDmDev === ideDmDev(anterior ?? '', matAnt) || /MENS$/i.test(pg.ideDmDev));
+            if (anterior && !(ex?.pagamentos ?? []).some(ehFolhaAnterior))
+                t.erros.push(`S-1210 de ${mes(m)}: o IRRF do adiantamento somou a folha de ${mes(anterior)}, paga em ${mes(m)}. Transmita o S-1210 dessa folha antes e carregue o download do eSocial com ele: o do adiantamento sai junto, no mesmo evento.`);
             return { perApur: m, s1210: null, exclusao1210: null, existente1210: ex, outrosPagamentos: outros.length, outros };
         });
         // IR do mês por CPF: dedução de dependentes (quando o motor não usou o desconto simplificado) e
         // pensão alimentícia de cada alimentando (penAlim). Quem não está no S-2200/S-2205 vai no infoDep.
         const dedDep = new Map<string, number>(); const penAlim = new Map<string, number>(); const infoDep = new Map<string, Dependente>();
+        // Dependentes deduzidos no IRRF do adiantamento sem folha anterior no mês: vão no S-1210 do mês do adiantamento (Codex #118).
+        const dedDepAdi = new Map<string, number>(); const infoDepAdi = new Map<string, Dependente>();
         for (const { ficha: f, r } of contratos) {
             const d = r.deducoesIrrf;
             if (d && !d.simplificado && d.porDependente > 0) for (const dep of d.dependentes) {
@@ -466,6 +489,14 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                 if (!dedDep.has(cpfDep)) dedDep.set(cpfDep, d.porDependente);
                 const fd = f.dependentes.find(x => digitos(x.cpf) === cpfDep);
                 if (fd && !depNoEsocial(f, fd)) infoDep.set(cpfDep, fd);
+            }
+            const da = r.deducoesAdiantamento;
+            if (da && adiantamentoDoMes(r) > 0 && da.porDependente > 0) for (const dep of da.dependentes) {
+                const cpfDep = digitos(dep.cpf);
+                if (cpfDep.length !== 11) { t.avisos.push(`Dependente ${dep.nome || '?'} sem CPF: a dedução do adiantamento não vai no S-1210.`); continue; }
+                dedDepAdi.set(cpfDep, da.porDependente);
+                const fd = f.dependentes.find(x => digitos(x.cpf) === cpfDep);
+                if (fd && !depNoEsocial(f, fd)) infoDepAdi.set(cpfDep, fd);
             }
             const pensao = r.verbas.filter(v => v.codigo === 'PENSAO').reduce((soma, v) => soma + v.valor, 0);
             if (pensao <= 0) continue;
@@ -485,19 +516,23 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             t.erros.push(`Dependente ${dep.nome || c} não está no eSocial e o tipo (Tabela 07) ${dep.tipo === '99' ? 'é 99 (agregado/outros)' : 'está em branco'}: informe o tipo na ficha ou cadastre pelo S-2205.`);
         };
         for (const [c, dep] of infoDep) if (dedDep.has(c)) conferirTipo(c, dep);
+        for (const [c, dep] of infoDepAdi) conferirTipo(c, dep);
         for (const [m, inf] of infoDepFerias) for (const [c, dep] of inf) if (dedFerias.get(m)?.has(c)) conferirTipo(c, dep);
         if (t.erros.length || !dmDevs.length) continue;
         /** Informações de IR do mês: as da folha (tpRend 11) no mês do pagamento dela e as dos recibos de férias (tpRend 13) no mês de cada um. */
         const irDoMes = (m: string) => {
             const daFolha = m === perPgto;
+            // Mês do adiantamento (antes do da folha): as deduções de dependentes usadas no IRRF dele.
+            const doAdiant = !daFolha && m === e.competencia;
+            const dedDepMes = daFolha ? dedDep : doAdiant ? dedDepAdi : new Map<string, number>();
             const dedF = dedFerias.get(m) ?? new Map<string, number>();
             const irCR = [
-                ...(daFolha ? [...dedDep].map(([c, v]) => `<dedDepen><tpRend>11</tpRend><cpfDep>${c}</cpfDep><vlrDedDep>${valor(v)}</vlrDedDep></dedDepen>`) : []),
+                ...[...dedDepMes].map(([c, v]) => `<dedDepen><tpRend>11</tpRend><cpfDep>${c}</cpfDep><vlrDedDep>${valor(v)}</vlrDedDep></dedDepen>`),
                 ...[...dedF].map(([c, v]) => `<dedDepen><tpRend>13</tpRend><cpfDep>${c}</cpfDep><vlrDedDep>${valor(v)}</vlrDedDep></dedDepen>`),
                 ...(daFolha ? [...penAlim].map(([c, v]) => `<penAlim><tpRend>11</tpRend><cpfDep>${c}</cpfDep><vlrDedPenAlim>${valor(v)}</vlrDedPenAlim></penAlim>`) : []),
             ];
-            const deps = new Map<string, Dependente>([...(daFolha ? infoDep : []), ...(infoDepFerias.get(m) ?? [])]);
-            const deduz = (c: string) => (daFolha && dedDep.has(c)) || dedF.has(c);
+            const deps = new Map<string, Dependente>([...(daFolha ? infoDep : doAdiant ? infoDepAdi : []), ...(infoDepFerias.get(m) ?? [])]);
+            const deduz = (c: string) => dedDepMes.has(c) || dedF.has(c);
             const infoDepXml = [...deps].map(([c, dep]) => `<infoDep><cpfDep>${c}</cpfDep>${/^\d{4}-\d{2}-\d{2}$/.test(dep.nascimento) ? `<dtNascto>${dep.nascimento}</dtNascto>` : ''}`
                 + `${dep.nome ? `<nome>${esc(dep.nome.slice(0, 70))}</nome>` : ''}${deduz(c) ? `<depIRRF>S</depIRRF><tpDep>${dep.tipo}</tpDep>` : ''}</infoDep>`);
             return irCR.length ? `<infoIRComplem>${infoDepXml.join('')}<infoIRCR><tpCR>056107</tpCR>${irCR.join('')}</infoIRCR></infoIRComplem>` : '';
@@ -520,7 +555,9 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             const novo = irDoMes(pm.perApur);
             // No mês da competência o cálculo tem todos os recibos pagos nele: o tpRend 13 do aceito é conciliado (sai o
             // que não vale mais). Em outro mês, o aceito tem recibos de outra competência e o tpRend 13 dele fica.
-            const ir = ex?.irComplem?.length ? mesclarIRFerias(ex.irComplem.join(''), novo, pm.perApur === e.competencia) : novo;
+            const doAdiantamento = pm.perApur === e.competencia && pm.perApur !== perPgto;
+            const ir = ex?.irComplem?.length ? mesclarIRFerias(ex.irComplem.join(''), novo, pm.perApur === e.competencia, doAdiantamento,
+                doAdiantamento && contratos.some(c => adiantamentoDoMes(c.r) > 0 && c.r.irrfAdiantamento !== undefined) && !contratos.some(c => c.r.irrfAdiantamentoFolha)) : novo;
             if (ex?.irComplem?.length && novo) t.avisos.push(`As deduções do IRRF (dependentes e pensão) voltam como estavam no S-1210 de ${mes(pm.perApur)} aceito, com as das férias deste envio; confira se mudaram.`);
             const id1210 = idEvento(e.cnpj, agora, ++seq);
             pm.s1210 = { id: id1210, xml: `<eSocial xmlns="${NS}/evtPgtos/${VERSAO}"><evtPgtos Id="${id1210}">`
@@ -545,19 +582,24 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
  * cálculo sai: recibo corrigido que passou ao desconto simplificado ou deixou de deduzir alguém (Codex #111).
  * Nada mais do aceito muda. Ordem do leiaute: infoDep antes de infoIRCR; dedDepen logo após tpCR.
  */
-export function mesclarIRFerias(aceito: string, novo: string, completo = false): string {
+export function mesclarIRFerias(aceito: string, novo: string, completo = false, comAdiantamento = false, reconciliarAdiantamento = false): string {
     const blocos = (xml: string, tag: string) => xml.match(new RegExp(`<${tag}>[\\s\\S]*?</${tag}>`, 'g')) ?? [];
     const campo = (xml: string, tag: string) => new RegExp(`<${tag}>([^<]*)</${tag}>`).exec(xml)?.[1] ?? '';
-    const novos = blocos(novo, 'dedDepen').filter(d => campo(d, 'tpRend') === '13');
+    // tpRend 13 (férias) e, no mês do adiantamento sem folha anterior, o tpRend 11 deduzido nele (Codex #118).
+    const mescla = (d: string) => campo(d, 'tpRend') === '13' || (comAdiantamento && campo(d, 'tpRend') === '11');
+    const novos = blocos(novo, 'dedDepen').filter(mescla);
     if (!novos.length && !completo) return aceito;
-    const porCpf = new Map(novos.map(d => [campo(d, 'cpfDep'), d]));
+    const chave = (d: string) => `${campo(d, 'tpRend')}|${campo(d, 'cpfDep')}`;
+    const porCpf = new Map(novos.map(d => [chave(d), d]));
     let r = aceito;
-    // Troca o que já está no aceito (mesmo CPF, tpRend 13) pelo valor de agora; sem valor agora, sai (só se completo).
+    // Troca o que já está no aceito (mesmo CPF e tpRend) pelo valor de agora; sem valor agora, o tpRend 13 sai (só se
+    // completo). O tpRend 11 do aceito (a folha anterior, paga no mês) fica.
     for (const d of blocos(aceito, 'dedDepen')) {
-        const c = campo(d, 'cpfDep');
-        if (campo(d, 'tpRend') !== '13') continue;
-        if (porCpf.has(c)) { r = r.replace(d, porCpf.get(c)!); porCpf.delete(c); }
-        else if (completo) r = r.replace(d, '');
+        if (!mescla(d)) continue;
+        const k = chave(d);
+        if (porCpf.has(k)) { r = r.replace(d, porCpf.get(k)!); porCpf.delete(k); }
+        // Sem folha anterior no mês, as tpRend 11 do aceito são do adiantamento: as que não valem mais saem (Codex #118).
+        else if (completo && (campo(d, 'tpRend') === '13' || (reconciliarAdiantamento && campo(d, 'tpRend') === '11'))) r = r.replace(d, '');
     }
     // infoIRCR que ficou só com o código da receita não informa nada.
     r = r.replace(/<infoIRCR><tpCR>\d+<\/tpCR><\/infoIRCR>/g, '').replace(/<infoIRComplem><\/infoIRComplem>/g, '');
@@ -572,6 +614,18 @@ export function mesclarIRFerias(aceito: string, novo: string, completo = false):
     }
     const cpfs = new Set(novos.map(d => campo(d, 'cpfDep')));
     const depsAceito = new Set(blocos(r, 'infoDep').map(d => campo(d, 'cpfDep')));
+    // Dependente que o aceito já informa (por plano de saúde, por exemplo) sem a marca de IRRF: a marca e o tipo de agora
+    // entram no infoDep dele, antes da descrição (ordem do leiaute; Codex #118).
+    const novosInfo = new Map(blocos(novo, 'infoDep').map(d => [campo(d, 'cpfDep'), d] as const));
+    for (const d of blocos(r, 'infoDep')) {
+        const c = campo(d, 'cpfDep');
+        const n = novosInfo.get(c);
+        if (!cpfs.has(c) || !n || d.includes('<depIRRF>')) continue;
+        const marca = /<depIRRF>[\s\S]*?<\/tpDep>/.exec(n)?.[0];
+        if (!marca) continue;
+        const i = d.includes('<descrDep>') ? d.indexOf('<descrDep>') : d.lastIndexOf('</infoDep>');
+        r = r.replace(d, d.slice(0, i) + marca + d.slice(i));
+    }
     const infoDep = blocos(novo, 'infoDep').filter(d => cpfs.has(campo(d, 'cpfDep')) && !depsAceito.has(campo(d, 'cpfDep')));
     if (infoDep.length) {
         const i = r.search(/<infoIRCR>|<planSaude>|<infoReembMed>|<\/infoIRComplem>/);

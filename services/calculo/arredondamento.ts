@@ -12,7 +12,7 @@
 //   0,56 = 1.581,00; setembro: 490,00 − 0,33 − 0,56 + 0,89 = 490,00).
 // Nenhuma das verbas tem INSS, FGTS ou IRRF.
 
-import { competenciaSeguinte, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
+import { competenciaAnterior, competenciaSeguinte, type IrrfApurado, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
 import { mesmoMovimento } from './movimento';
 import { reais } from '../cadastros/documentos';
 
@@ -75,7 +75,8 @@ export function arredondar(r: ResultadoCalculo, anterior: number): ResultadoCalc
     if (r.situacao === 'erro') return r;
     const out: ResultadoCalculo = { ...r, verbas: r.verbas.filter(x => !/^ARRED/.test(x.codigo)), memoria: [...r.memoria], avisos: [...r.avisos], totais: { ...r.totais } };
     const adiant = out.verbas.find(x => x.codigo === 'ADIANT')?.valor ?? 0;
-    const arredAdi = aoRealSeguinte(adiant);
+    // O adiantamento é pago líquido do IRRF dele (saldo da folha em outro mês): arredonda-se o que foi pago.
+    const arredAdi = adiant > 0 ? aoRealSeguinte(adiant - (r.irrfAdiantamento ?? 0)) : 0;
     if (arredAdi) out.verbas.push(v('ARREDADI', 'Desconto do arredondamento do adiantamento', 'desconto', arredAdi));
     const ant = Math.max(0, Math.round(anterior));
     if (ant) out.verbas.push(v('ARREDANT', 'Arredondamento anterior', 'desconto', ant));
@@ -123,8 +124,58 @@ export function anteriorEncadeado(desde: string, competencia: string, calcular: 
     return falhou ? { erro: `Arredondamento do líquido: o cálculo de ${falhou.slice(5)}/${falhou.slice(0, 4)} está com erro ou incompleto, e o anterior não pode ser encadeado a partir dele. Corrija esse mês ou informe o "Arredondamento anterior" no movimento de um mês seguinte.` } : anterior;
 }
 
-/** O movimento sem o que o Consultor grava do arredondamento (o atual, o início e o mês do pagamento usados). */
-export const semFechado = (m: Movimento | undefined): Movimento => ({ ...m, arredondamentoFechado: undefined, arredondamentoDesde: undefined, arredondamentoPagamento: undefined });
+/**
+ * O movimento sem o que o Consultor grava do cálculo: o arredondamento (o atual, o início e o mês do pagamento
+ * usados) e o IRRF apurado da folha paga no mês seguinte.
+ */
+export const semFechado = (m: Movimento | undefined): Movimento => ({ ...m, arredondamentoFechado: undefined, arredondamentoDesde: undefined, arredondamentoPagamento: undefined,
+    irrfRendimentos: undefined, irrfDeducoes: undefined, irrfRetido: undefined, irrfPagamento: undefined });
+
+/**
+ * Folha paga no mês `c` antes do adiantamento: a da competência anterior, se foi paga em `c` (pelo mês gravado ou pelo
+ * regime), com o IRRF gravado com o movimento dela; `null` se não houve. `{ pendente }` sem o IRRF gravado (a folha
+ * já paga não é refeita com a ficha de hoje) ou com outra folha mais antiga paga no mesmo mês, que o Consultor ainda
+ * não soma (Codex #118).
+ */
+export function folhaPagaAntes(salvos: Record<string, Movimento>, c: string, ativoEm: (m: string) => boolean, regime: (m: string) => string):
+    (IrrfApurado & { competencia: string }) | { pendente: string } | null {
+    const m1 = competenciaAnterior(c);
+    const pagoEm = (m: string) => salvos[m]?.mesPagamento ?? salvos[m]?.arredondamentoPagamento ?? regime(m);
+    const br = (m: string) => `${m.slice(5)}/${m.slice(0, 4)}`;
+    const antiga = Object.keys(salvos).filter(m => m < m1 && pagoEm(m) === c).sort()[0];
+    if (antiga) return { pendente: `a folha de ${br(antiga)} também foi paga em ${br(c)}, e o Consultor ainda soma só a folha do mês anterior` };
+    if (!ativoEm(m1) || pagoEm(m1) !== c) return null;
+    const g = salvos[m1];
+    if (g?.irrfPagamento === c && g.irrfRendimentos !== undefined && g.irrfDeducoes !== undefined && g.irrfRetido !== undefined)
+        return { rendimentos: g.irrfRendimentos, deducoesLegais: g.irrfDeducoes, valor: g.irrfRetido, competencia: m1 };
+    return { pendente: `a folha de ${br(m1)}, paga em ${br(c)}, não tem o IRRF gravado: abra ${br(m1)}, confira o cálculo e clique em "Salvar movimento"` };
+}
+
+/**
+ * Movimento com o mês do pagamento usado de fato (`mesPagamento`), ou undefined sem nada a mudar. Diferente do regime,
+ * fica gravado; igual, sai. Exceção: o mês do arredondamento gravado antes (`arredondamentoPagamento`), diferente do
+ * de agora, com o arredondamento desligado no mês (ligado, ele é regravado): o de agora fica gravado, senão o velho
+ * valeria no lugar do regime (Codex #118).
+ */
+export function movimentoComMesPagamento(mov: Movimento | undefined, pagamento: string, regime: string, arredonda: boolean): Movimento | undefined {
+    const valido = /^\d{4}-\d{2}$/.test(pagamento);
+    const legado = valido && !arredonda && mov?.arredondamentoPagamento !== undefined && mov.arredondamentoPagamento !== pagamento;
+    const mesPagamento = valido && (pagamento !== regime || legado) ? pagamento : undefined;
+    return mesPagamento || mov?.mesPagamento !== undefined ? { ...mov, mesPagamento } : undefined;
+}
+
+/**
+ * Folha paga no mês seguinte: o IRRF apurado nela vai gravado com o movimento, para o adiantamento daquele mês somar
+ * o que foi pago de fato. Vale para todo funcionário, porque o adiantamento pode ser lançado à mão no mês seguinte,
+ * e a ficha de lá (com outros dependentes) não refaz esta folha (Codex #118). Sem cálculo completo, nada muda aqui.
+ */
+export function movimentoComIrrf(mov: Movimento | undefined, r: ResultadoCalculo): Movimento | undefined {
+    // Incompleto só pelo IRRF do adiantamento: o da folha está completo e é o que o mês seguinte precisa (sem isso,
+    // cada mês esperaria o anterior até a admissão; Codex #118).
+    const completo = r.situacao === 'calculado' || (r.situacao === 'incompleto' && !!r.soFaltaFolhaDoAdiantamento);
+    if (!completo || r.pagamento === r.competencia || !r.irrfApurado) return undefined;
+    return { ...mov, irrfRendimentos: r.irrfApurado.rendimentos, irrfDeducoes: r.irrfApurado.deducoesLegais, irrfRetido: r.irrfApurado.valor, irrfPagamento: r.pagamento };
+}
 /**
  * Movimento a gravar com o arredondamento atual do mês (o anterior do mês seguinte) e o início usado. Sem cálculo
  * completo: movimento editado sai sem o atual velho, para o encadeamento refazer (e travar) o mês em vez de confiar

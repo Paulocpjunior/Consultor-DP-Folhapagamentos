@@ -29,7 +29,7 @@ describe('relatórios da folha', () => {
         expect(r.porVerba[0].tipo).toBe('provento');
         expect(r.porVerba.at(-1)!.tipo).toBe('desconto');
         const soma = (c: string) => resultados.filter(x => x.situacao !== 'erro').reduce((s, x) => s + (x.verbas.find(v => v.codigo === c)?.valor ?? 0), 0);
-        expect(r.encargos).toEqual({ inssSegurados: soma('INSS'), irrf: soma('IRRF'), fgts: resultados[0].fgts + resultados[1].fgts, multaFgts: 0, salarioFamilia: 6500, salarioMaternidade: 0 });
+        expect(r.encargos).toEqual({ inssSegurados: soma('INSS'), irrf: soma('IRRF'), irrfAdiantamento: 0, fgts: resultados[0].fgts + resultados[1].fgts, multaFgts: 0, salarioFamilia: 6500, salarioMaternidade: 0 });
         expect(r.totais.liquido).toBe(resultados[0].totais.liquido + resultados[1].totais.liquido);
     });
 

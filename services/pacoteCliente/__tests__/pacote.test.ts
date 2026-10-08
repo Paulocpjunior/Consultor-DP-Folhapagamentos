@@ -36,6 +36,14 @@ describe('eventos da agenda da folha', () => {
         expect(darfs[0].descricao).toMatch(/total previdenciário com a parte patronal R\$ 900,00; IRRF R\$ 50,00/);
     });
 
+    it('mensal pago no mês seguinte com IRRF do adiantamento: ele vai no DARF da competência, o da folha no do pagamento (Codex #118)', () => {
+        const ev = eventosDaFolha({ ...base, encargos: { ...encargos, irrfAdiantamento: 125859, totalPrevidenciario: 90000 } });
+        const darfComp = ev.find(e => e.titulo.startsWith('DARF da DCTFWeb 09/2026'))!;
+        expect(darfComp.titulo).toBe('DARF da DCTFWeb 09/2026 (R$ 2.158,59)');
+        expect(darfComp.descricao).toMatch(/IRRF do adiantamento pago em 09\/2026 R\$ 1\.258,59/);
+        expect(ev.find(e => e.titulo.startsWith('DARF da DCTFWeb 10/2026'))!.titulo).toMatch(/IRRF \(R\$ 50,00\)/);
+    });
+
     it('13º: 1ª parcela só com FGTS de novembro; 2ª com DARF do 13º, IRRF em dezembro e FGTS de dezembro', () => {
         const p1 = eventosDaFolha({ ...base, folha: '13-1a', dataPagamento: '2026-11-30', encargos: { ...encargos, inssSegurados: 0, irrf: 0 } });
         expect(p1.map(e => e.titulo)).toEqual(['Pagar a 1ª parcela do 13º 2026 (R$ 4.300,00)', 'FGTS Digital 11/2026 (R$ 240,00)']);
