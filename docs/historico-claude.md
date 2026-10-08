@@ -2993,3 +2993,6 @@ guias sindicais".
 - **Revisão do Codex no #116 (dois P2):**
   - **Arredondamento atual gravado:** ao salvar o movimento do mês, o Consultor grava o arredondamento atual de cada funcionário (`arredondamentoFechado`). Ele é o anterior do mês seguinte. O encadeamento usa o gravado e não refaz o mês com a ficha de hoje, então um dependente ou VT mudado depois não altera o que já foi pago. Mudou o atual, o funcionário aparece como "não salvo", e o S-1200 só sai depois de salvar. Meses sem o valor gravado continuam recalculados.
   - **Mês de início:** na competência em que o arredondamento começa, o anterior é 0. A folha não espera mais os movimentos dos meses anteriores nem trava se eles falharem.
+- **Revisão do Codex no #116 (dois P2):**
+  - **Conferência de holerites:** as linhas de arredondamento são comparadas pelo efeito no líquido (atual − anterior − o do adiantamento), dos dois lados. Sem os totais lidos pelo Gemini, um arredondamento diferente não passa mais como "confere".
+  - **Mês de início alterado:** o atual gravado leva junto o mês de início usado (`arredondamentoDesde`). Se o início mudar, o gravado é ignorado e o mês é recalculado. O funcionário fica "não salvo" até o movimento ser salvo de novo.

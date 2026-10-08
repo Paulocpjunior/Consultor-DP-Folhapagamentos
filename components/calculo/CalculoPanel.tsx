@@ -208,10 +208,12 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         if (informado === undefined && c > (parametrosFolha.arredondarDesde || c) && !movsEmpresa) return travar('Arredondamento do líquido: aguardando os movimentos gravados dos meses anteriores para encadear o anterior (ou informe o "Arredondamento anterior" no movimento).');
         const afs = dados.afastamentos.filter(a => a.fichaId === f.id);
         const salvos = movsEmpresa?.[f.id] ?? {};
-        const anterior = informado ?? anteriorEncadeado(parametrosFolha.arredondarDesde || c, c,
+        const desde = parametrosFolha.arredondarDesde || c;
+        const anterior = informado ?? anteriorEncadeado(desde, c,
             m => (noMes([f], m).length ? calcularMensal({ competencia: m, pagamento: mesDoPagamento(parametrosFolha, m), ficha: f, tabelas: dados.tabelas, movimento: salvos[m], afastamentos: afs,
                 feriasDoMes: feriasDaCompetencia(f, afs, dados.tabelas, salvos, m, opcoesFerias) }) : null),
-            m => salvos[m]?.arredondamentoAnterior, m => salvos[m]?.arredondamentoFechado);
+            // O atual gravado só vale se foi encadeado a partir do mesmo mês de início (Codex #116).
+            m => salvos[m]?.arredondamentoAnterior, m => (salvos[m]?.arredondamentoDesde === desde ? salvos[m]?.arredondamentoFechado : undefined));
         return typeof anterior === 'number' ? arredondar(r, anterior) : travar(anterior.erro);
     }, [parametrosFolha, dados, movsEmpresa, opcoesFerias]);
     const resultados = useMemo(() => {
@@ -262,7 +264,8 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const movsParaSalvar = useMemo(() => {
         if (!mensal || !arredondaNoMes(parametrosFolha, competencia)) return movs;
         const out = { ...movs };
-        for (const r of resultados) if (r.situacao === 'calculado') out[r.fichaId] = { ...movs[r.fichaId], arredondamentoFechado: arredondamentoAtual(r) };
+        const desde = parametrosFolha?.arredondarDesde || competencia;
+        for (const r of resultados) if (r.situacao === 'calculado') out[r.fichaId] = { ...movs[r.fichaId], arredondamentoFechado: arredondamentoAtual(r), arredondamentoDesde: desde };
         return out;
     }, [movs, resultados, mensal, parametrosFolha, competencia]);
     const pendentes = useMemo(() => [...new Set([...Object.keys(movsParaSalvar), ...Object.keys(gravados ?? {})])]

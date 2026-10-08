@@ -47,6 +47,8 @@ export interface Movimento {
      * Com ele, o encadeamento não recalcula este mês com a ficha de hoje (dependentes, VT mudados depois; Codex #116).
      */
     arredondamentoFechado?: number;
+    /** Mês de início do arredondamento quando o atual foi gravado: mudou o início, o gravado não vale (Codex #116). */
+    arredondamentoDesde?: string;
     lancamentos?: Lancamento[];
 }
 

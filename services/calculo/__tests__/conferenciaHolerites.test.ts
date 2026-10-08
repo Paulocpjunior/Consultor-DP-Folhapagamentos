@@ -78,6 +78,14 @@ describe('conferência com os holerites do IOB', () => {
         expect(vazio.situacao).toBe('ilegível');
         expect(podeAplicar(vazio)).toBe(false);
         expect(conferirHolerite(r, { ...igual, competencia: '' }, 'cpf', ctx).avisos).toContain('Competência não lida no holerite: confira se o PDF é do mês certo.');
+
+        // Arredondamento sem os totais lidos: o efeito no líquido é comparado (o motor sem arredondar diverge; Codex #116).
+        const semTotais = { totalProventos: null, totalDescontos: null, liquido: null };
+        const comArred = conferirHolerite(r, holerite([...igual.verbas, D('ARREDONDAMENTO ANTERIOR', 56), P('ARREDONDAMENTO ATUAL', 13)], semTotais), 'cpf', ctx);
+        expect(comArred.situacao).toBe('diverge');
+        expect(comArred.linhas.find(l => !l.ok)).toMatchObject({ item: 'Arredondamento do líquido (efeito)', motor: 0, iob: -43 });
+        const rArred = { ...r, verbas: [...r.verbas, { codigo: 'ARREDANT', descricao: '', referencia: '', tipo: 'desconto' as const, valor: 56, inss: false, fgts: false, irrf: false }, { codigo: 'ARREDATU', descricao: '', referencia: '', tipo: 'provento' as const, valor: 13, inss: false, fgts: false, irrf: false }] };
+        expect(conferirHolerite(rArred, holerite([...igual.verbas, D('ARREDONDAMENTO ANTERIOR', 56), P('ARREDONDAMENTO ATUAL', 13)], semTotais), 'cpf', ctx).situacao).toBe('confere');
     });
 
     it('lê a referência e monta o movimento do mês a partir do holerite', () => {

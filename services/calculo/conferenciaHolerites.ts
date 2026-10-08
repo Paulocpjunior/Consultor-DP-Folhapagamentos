@@ -83,7 +83,7 @@ const TOLERANCIA = 1; // centavo
 const ITENS: Classe[] = ['SAL', 'MAT', 'HE50', 'HE100', 'DSRHE', 'FALTA', 'DSRF', 'SF', 'PENSAO', 'ADIANT', 'VT', 'FERMES', 'FERPAGO', 'INSS', 'IRRF'];
 
 export function somaPorClasse(h: HoleriteIob): Record<Classe, number> {
-    const s = Object.fromEntries([...ITENS, 'OUTRO'].map(c => [c, 0])) as Record<Classe, number>;
+    const s = Object.fromEntries([...ITENS, 'ARRED', 'OUTRO'].map(c => [c, 0])) as Record<Classe, number>;
     for (const v of h.verbas) s[classificarVerba(v)] += v.provento || v.desconto;
     return s;
 }
@@ -122,6 +122,11 @@ export function conferirHolerite(r: ResultadoCalculo | undefined, h: HoleriteIob
         return { ...base, situacao: 'ilegível', linhas: [], avisos: [...avisos, 'Nenhum valor lido neste holerite: confira o PDF.'] };
     }
     const linhas: LinhaConferencia[] = ITENS.filter(c => motor(c) || iob[c]).map(c => linha(ROTULO_CLASSE[c], motor(c), iob[c]));
+    // Arredondamento: o efeito no líquido (atual − anterior − o do adiantamento), dos dois lados. Sem os totais lidos,
+    // é a única conferência dessas linhas (Codex #116).
+    const arredIob = h.verbas.filter(v => classificarVerba(v) === 'ARRED').reduce((s, v) => s + v.provento - v.desconto, 0);
+    const arredMotor = r.verbas.filter(v => /^ARRED(ATU|ANT|ADI)$/.test(v.codigo)).reduce((s, v) => s + (v.tipo === 'provento' ? v.valor : -v.valor), 0);
+    if (arredIob || arredMotor) linhas.push(linha('Arredondamento do líquido (efeito)', arredMotor, arredIob));
     if (h.totalProventos !== null) linhas.push(linha('Total de proventos', r.totais.proventos, h.totalProventos));
     if (h.totalDescontos !== null) linhas.push(linha('Total de descontos', r.totais.descontos, h.totalDescontos));
     if (h.liquido !== null) linhas.push(linha('Líquido', r.totais.liquido, h.liquido));
