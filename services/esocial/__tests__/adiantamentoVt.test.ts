@@ -6,7 +6,7 @@ import { dataSugeridaAdiantamento, gerarEventosFolha, recibosFeriasDaCompetencia
 import { adiantamentoDoMes, calcularMensal } from '../../calculo/motorMensal';
 import { feriasDaCompetencia } from '../../calculo/motorFerias';
 import { limparMovimento, validarMovimento } from '../../calculo/movimento';
-import { anteriorEncadeado, aoRealSeguinte, arredondaNoMes, arredondar } from '../../calculo/arredondamento';
+import { anteriorEncadeado, aoRealSeguinte, arredondaNoMes, arredondar, mesDoPagamento } from '../../calculo/arredondamento';
 import { fichaVazia, validarFicha, type FichaFuncionario } from '../../cadastros/funcionarios';
 import { afastamentoVazio, type Afastamento } from '../../cadastros/afastamentos';
 import type { TabelaLegal } from '../../cadastros/tabelasLegais';
@@ -203,5 +203,8 @@ describe('adiantamento salarial e vale-transporte', () => {
         const p = { arredondarLiquido: true, arredondarDesde: '2026-09' };
         expect([arredondaNoMes(p, '2026-08'), arredondaNoMes(p, '2026-09'), arredondaNoMes(p, '2026-10'), arredondaNoMes({ arredondarLiquido: false }, '2026-09'), arredondaNoMes(undefined, '2026-09')])
             .toEqual([false, true, true, false, false]);
+        // Regime de pagamento da empresa, usado nos meses passados do encadeamento (Codex #116); padrão: mês seguinte.
+        expect([mesDoPagamento({ pagamentoFolha: 'mes' }, '2026-12'), mesDoPagamento({ pagamentoFolha: 'seguinte' }, '2026-12'), mesDoPagamento(undefined, '2026-08')])
+            .toEqual(['2026-12', '2027-01', '2026-09']);
     });
 });

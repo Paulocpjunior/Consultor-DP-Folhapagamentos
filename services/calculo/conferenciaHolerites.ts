@@ -168,7 +168,7 @@ export function movimentoDoHolerite(h: HoleriteIob): { movimento: Movimento; avi
         else if (c === 'ADIANT') mov.adiantamento = (mov.adiantamento ?? 0) + (v.desconto || v.provento);
         else if (c === 'VT') mov.valeTransporte = (mov.valeTransporte ?? 0) + (v.desconto || v.provento);
         // O arredondamento anterior do IOB vale como foi (o motor encadeia a partir dele); atual e o do adiantamento o motor refaz.
-        else if (c === 'ARRED' && /ANTERIOR/.test(v.descricao.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase()) && v.desconto > 0) mov.arredondamentoAnterior = (mov.arredondamentoAnterior ?? 0) + v.desconto;
+        else if (c === 'ARRED' && (/\bANT/.test(v.descricao.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase()) || v.codigo === '5660') && v.desconto > 0) mov.arredondamentoAnterior = (mov.arredondamentoAnterior ?? 0) + v.desconto;
         else if (c === 'OUTRO') {
             const provento = v.provento > 0;
             lancamentos.push({ descricao: `${v.codigo ? `${v.codigo} ` : ''}${v.descricao}`.trim(), tipo: provento ? 'provento' : 'desconto', valor: v.provento || v.desconto, inss: provento, fgts: provento, irrf: provento });

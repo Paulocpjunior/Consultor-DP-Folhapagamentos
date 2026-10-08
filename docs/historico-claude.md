@@ -2979,3 +2979,7 @@ guias sindicais".
   - **Movimentos não carregados:** a folha agora fica em "erro", não mais "incompleta", porque os PDFs aceitavam resultados incompletos. Assim não sai holerite, arquivo bancário nem eSocial com o líquido sem o arredondamento.
   - **Anterior informado:** no máximo R$ 0,99. Digitar 56 em vez de 0,56 tiraria R$ 56,00.
 - **Revisão do Codex no #116 (P2):** um mês antigo "incompleto" no encadeamento (férias sem recibo, por exemplo) agora trava como um mês em erro, porque o líquido dele não é o que foi pago. Um anterior informado num mês seguinte retoma o encadeamento.
+- **Revisão do Codex no #116 (três P2):**
+  - **Limite no rascunho:** o "Arredondamento anterior" digitado e ainda não salvo já entra no cálculo. Acima de 0,99, a folha do funcionário fica em erro, e o PDF, o arquivo bancário e o eSocial não saem com ele.
+  - **Regime de pagamento da empresa:** novo parâmetro "folha paga no próprio mês / no mês seguinte" (padrão: mês seguinte, para o 5º dia útil e o dia 5). Os meses passados do encadeamento e a conferência com o eSocial do IOB usam esse regime, e não o mês do pagamento da tela. Ele também é o mês do pagamento sugerido ao trocar de competência.
+  - **Descrição truncada:** "ARREDONDAMENTO ANTE" (evento 5660 do catálogo do IOB) continua sendo reconhecido como o anterior. O reconhecimento usa o início "ANT" ou o código 5660.

@@ -102,6 +102,9 @@ describe('conferência com os holerites do IOB', () => {
         expect(movimentoDoHolerite(holerite([P('SALARIO', 220000, '30,00'), D('INSS', 19143)])).movimento).toEqual({ adiantamento: 0, valeTransporte: 0 });
         // Arredonda (arredondamento atual) sem "anterior": anterior 0 no mês; sem linha de arredondamento, fica para o encadeamento.
         expect(movimentoDoHolerite(holerite([P('SALARIO', 220000, '30,00'), P('ARREDONDAMENTO ATUAL', 57), D('INSS', 19143)])).movimento).toEqual({ adiantamento: 0, valeTransporte: 0, arredondamentoAnterior: 0 });
+        // Descrição truncada como no catálogo do IOB ("ARREDONDAMENTO ANTE", evento 5660): continua sendo o anterior (Codex #116).
+        expect(movimentoDoHolerite(holerite([P('SALARIO', 220000, '30,00'), D('ARREDONDAMENTO ANTE', 56), P('ARREDONDAMENTO ATUA', 89), D('INSS', 19143)])).movimento.arredondamentoAnterior).toBe(56);
+        expect(movimentoDoHolerite(holerite([P('SALARIO', 220000, '30,00'), D('ARREDONDAMENTO', 56, '', '5660'), D('INSS', 19143)])).movimento.arredondamentoAnterior).toBe(56);
         expect(avisos[0]).toBe('DSR S/ FALTAS: referência "" ilegível; informe a quantidade.');
         expect(avisos[1]).toContain('confira as incidências');
     });

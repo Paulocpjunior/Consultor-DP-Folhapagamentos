@@ -21,7 +21,16 @@ export interface ParametrosFolha {
     arredondarLiquido?: boolean;
     /** Competência (AAAA-MM) em que o arredondamento começou no Consultor: o "anterior" é encadeado a partir dela. */
     arredondarDesde?: string;
+    /**
+     * Quando a folha é paga: no próprio mês ('mes') ou no mês seguinte ('seguinte', o padrão: 5º dia útil ou dia 5).
+     * Decide o mês do pagamento (e a tabela do IRRF) dos meses passados no encadeamento do arredondamento (Codex #116).
+     */
+    pagamentoFolha?: 'mes' | 'seguinte';
 }
+
+/** Mês do pagamento da folha da competência, pelo regime da empresa. */
+export const mesDoPagamento = (p: ParametrosFolha | undefined, competencia: string) =>
+    p?.pagamentoFolha === 'mes' ? competencia : competenciaSeguinte(competencia);
 
 /** A empresa arredonda nesta competência? Só a partir do mês de início (antes dele a folha fica como era; Codex #116). */
 export const arredondaNoMes = (p: ParametrosFolha | undefined, competencia: string) =>
