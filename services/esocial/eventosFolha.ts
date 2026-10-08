@@ -607,6 +607,18 @@ export function mesclarIRFerias(aceito: string, novo: string, completo = false, 
     }
     const cpfs = new Set(novos.map(d => campo(d, 'cpfDep')));
     const depsAceito = new Set(blocos(r, 'infoDep').map(d => campo(d, 'cpfDep')));
+    // Dependente que o aceito já informa (por plano de saúde, por exemplo) sem a marca de IRRF: a marca e o tipo de agora
+    // entram no infoDep dele, antes da descrição (ordem do leiaute; Codex #118).
+    const novosInfo = new Map(blocos(novo, 'infoDep').map(d => [campo(d, 'cpfDep'), d] as const));
+    for (const d of blocos(r, 'infoDep')) {
+        const c = campo(d, 'cpfDep');
+        const n = novosInfo.get(c);
+        if (!cpfs.has(c) || !n || d.includes('<depIRRF>')) continue;
+        const marca = /<depIRRF>[\s\S]*?<\/tpDep>/.exec(n)?.[0];
+        if (!marca) continue;
+        const i = d.includes('<descrDep>') ? d.indexOf('<descrDep>') : d.lastIndexOf('</infoDep>');
+        r = r.replace(d, d.slice(0, i) + marca + d.slice(i));
+    }
     const infoDep = blocos(novo, 'infoDep').filter(d => cpfs.has(campo(d, 'cpfDep')) && !depsAceito.has(campo(d, 'cpfDep')));
     if (infoDep.length) {
         const i = r.search(/<infoIRCR>|<planSaude>|<infoReembMed>|<\/infoIRComplem>/);

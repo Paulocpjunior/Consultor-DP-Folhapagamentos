@@ -291,8 +291,12 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 folhaPagaNoAdiantamento: folhaPagaNoAdiantamento(f, competencia, pagamento),
             });
             return arredondarDaEmpresa(r, f, competencia, movs[f.id]?.arredondamentoAnterior);
-        }), dados.fichas, pagamento !== competencia ? noMes(dados.fichas, competenciaAnterior(competencia)) : []);
-    }, [dados, competencia, pagamento, movs, movsEmpresa, mensal, ferias, rescisao, paramsResc, movsAno, ano, folha, opcoes13, primeiras, abonos, opcoesFerias, feriasSimuladas, arredondarDaEmpresa, folhaPagaNoAdiantamento]);
+        }), dados.fichas, pagamento !== competencia
+            // Só os contratos da competência anterior cuja folha foi paga neste mês (pelo mês gravado ou pelo regime; Codex #118).
+            ? noMes(dados.fichas, competenciaAnterior(competencia)).filter(f => (movsEmpresa?.[f.id]?.[competenciaAnterior(competencia)]?.arredondamentoPagamento
+                ?? mesDoPagamento(parametrosFolha, competenciaAnterior(competencia))) === competencia)
+            : []);
+    }, [dados, competencia, pagamento, movs, movsEmpresa, mensal, ferias, rescisao, paramsResc, movsAno, ano, folha, opcoes13, primeiras, abonos, opcoesFerias, feriasSimuladas, arredondarDaEmpresa, folhaPagaNoAdiantamento, parametrosFolha]);
     // O movimento a gravar leva o arredondamento atual do mês calculado (o anterior do mês seguinte): assim o encadeamento
     // não refaz este mês com a ficha de amanhã (Codex #116). Mudou o atual, o funcionário fica "não salvo"; sem cálculo
     // completo, fica o que já estava gravado.

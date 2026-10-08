@@ -121,6 +121,12 @@ describe('IRRF do adiantamento com a folha paga no mês seguinte', () => {
         const mesclado = mesclarIRFerias(aceito, novoIr, true, true);
         expect([mesclado.includes('52998224725'), mesclado.includes('11144477735'), mesclado.includes('<planSaude>')]).toEqual([true, true, true]);
         expect(mesclarIRFerias(aceito, novoIr, true)).toBe(aceito);
+        // Dependente já no infoDep do aceito (plano de saúde), sem a marca de IRRF: a marca entra nele, antes da descrição (Codex #118).
+        const aceitoDep = '<infoIRComplem><infoDep><cpfDep>11144477735</cpfDep><nome>DEP 111</nome><descrDep>X</descrDep></infoDep><planSaude><cnpjOper>1</cnpjOper></planSaude></infoIRComplem>';
+        const novoDep = '<infoIRComplem><infoDep><cpfDep>11144477735</cpfDep><nome>DEP 111</nome><depIRRF>S</depIRRF><tpDep>03</tpDep></infoDep><infoIRCR><tpCR>056107</tpCR><dedDepen><tpRend>11</tpRend><cpfDep>11144477735</cpfDep><vlrDedDep>189.59</vlrDedDep></dedDepen></infoIRCR></infoIRComplem>';
+        const comMarca = mesclarIRFerias(aceitoDep, novoDep, true, true);
+        expect(comMarca).toContain('<infoDep><cpfDep>11144477735</cpfDep><nome>DEP 111</nome><depIRRF>S</depIRRF><tpDep>03</tpDep><descrDep>X</descrDep></infoDep>');
+        expect((comMarca.match(/<infoDep>/g) ?? []).length).toBe(1);
         expect(s1210Ago).toContain('<vlrDedDep>189.59</vlrDedDep>');
         expect((s1210Ago.match(/<depIRRF>S<\/depIRRF><tpDep>03<\/tpDep>/g) ?? []).length).toBe(4);
         // E não no da folha (09), em que o IRRF foi pelo simplificado ou pelo INSS.
