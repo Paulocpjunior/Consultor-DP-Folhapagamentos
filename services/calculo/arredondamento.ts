@@ -12,7 +12,8 @@
 //   0,56 = 1.581,00; setembro: 490,00 − 0,33 − 0,56 + 0,89 = 490,00).
 // Nenhuma das verbas tem INSS, FGTS ou IRRF.
 
-import { competenciaSeguinte, type ResultadoCalculo, type Verba } from './motorMensal';
+import { competenciaSeguinte, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
+import { mesmoMovimento } from './movimento';
 import { reais } from '../cadastros/documentos';
 
 /** Parâmetros da folha da empresa (empresas/{id}.parametrosFolha). */
@@ -120,4 +121,15 @@ export function anteriorEncadeado(desde: string, competencia: string, calcular: 
         anterior = r ? arredondamentoAtual(arredondar(r, anterior)) : 0;
     }
     return falhou ? { erro: `Arredondamento do líquido: o cálculo de ${falhou.slice(5)}/${falhou.slice(0, 4)} está com erro ou incompleto, e o anterior não pode ser encadeado a partir dele. Corrija esse mês ou informe o "Arredondamento anterior" no movimento de um mês seguinte.` } : anterior;
+}
+
+const semFechado = (m: Movimento | undefined): Movimento => ({ ...m, arredondamentoFechado: undefined, arredondamentoDesde: undefined });
+/**
+ * Movimento a gravar com o arredondamento atual do mês (o anterior do mês seguinte) e o início usado. Sem cálculo
+ * completo: movimento editado sai sem o atual velho, para o encadeamento refazer (e travar) o mês em vez de confiar
+ * nele; sem edição, fica como está (undefined; Codex #116).
+ */
+export function movimentoComFechado(mov: Movimento | undefined, gravado: Movimento | undefined, r: ResultadoCalculo, desde: string): Movimento | undefined {
+    if (r.situacao === 'calculado') return { ...mov, arredondamentoFechado: arredondamentoAtual(r), arredondamentoDesde: desde };
+    return mesmoMovimento(semFechado(mov), semFechado(gravado)) ? undefined : semFechado(mov);
 }

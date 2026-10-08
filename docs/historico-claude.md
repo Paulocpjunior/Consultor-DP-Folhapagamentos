@@ -2996,3 +2996,4 @@ guias sindicais".
 - **Revisão do Codex no #116 (dois P2):**
   - **Conferência de holerites:** as linhas de arredondamento são comparadas pelo efeito no líquido (atual − anterior − o do adiantamento), dos dois lados. Sem os totais lidos pelo Gemini, um arredondamento diferente não passa mais como "confere".
   - **Mês de início alterado:** o atual gravado leva junto o mês de início usado (`arredondamentoDesde`). Se o início mudar, o gravado é ignorado e o mês é recalculado. O funcionário fica "não salvo" até o movimento ser salvo de novo.
+- **Revisão do Codex no #116 (P2):** se o movimento de um mês já fechado é editado e o cálculo fica em erro ou incompleto, o movimento é gravado sem o atual antigo. Assim, o encadeamento refaz o mês e trava, em vez de confiar no valor velho. A regra fica em `movimentoComFechado`, com testes.

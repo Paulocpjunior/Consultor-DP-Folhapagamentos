@@ -10,7 +10,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { listarEmpresasVisiveis, salvarParametrosFolha } from '../../services/empresas/empresasService';
-import { anteriorEncadeado, arredondaNoMes, arredondamentoAtual, arredondar, mesDoPagamento, mudarRegime, regimeNoMes, type ParametrosFolha, type RegimePagamento } from '../../services/calculo/arredondamento';
+import { anteriorEncadeado, arredondaNoMes, arredondar, mesDoPagamento, movimentoComFechado, mudarRegime, regimeNoMes, type ParametrosFolha, type RegimePagamento } from '../../services/calculo/arredondamento';
 import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
 import EmpresaAtivaFixa from '../empresaAtiva/EmpresaAtivaFixa';
 import { listarAfastamentos, listarEnquadramentos, listarFuncionarios, listarTabelas, mensagemErro, salvarAfastamento, type Usuario } from '../../services/cadastros/cadastrosService';
@@ -265,9 +265,12 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         if (!mensal || !arredondaNoMes(parametrosFolha, competencia)) return movs;
         const out = { ...movs };
         const desde = parametrosFolha?.arredondarDesde || competencia;
-        for (const r of resultados) if (r.situacao === 'calculado') out[r.fichaId] = { ...movs[r.fichaId], arredondamentoFechado: arredondamentoAtual(r), arredondamentoDesde: desde };
+        for (const r of resultados) {
+            const m = movimentoComFechado(movs[r.fichaId], gravados?.[r.fichaId]?.movimento, r, desde);
+            if (m) out[r.fichaId] = m;
+        }
         return out;
-    }, [movs, resultados, mensal, parametrosFolha, competencia]);
+    }, [movs, resultados, mensal, parametrosFolha, competencia, gravados]);
     const pendentes = useMemo(() => [...new Set([...Object.keys(movsParaSalvar), ...Object.keys(gravados ?? {})])]
         .filter(id => id && !mesmoMovimento(movsParaSalvar[id], gravados?.[id]?.movimento)), [movsParaSalvar, gravados]);
     useEffect(() => {

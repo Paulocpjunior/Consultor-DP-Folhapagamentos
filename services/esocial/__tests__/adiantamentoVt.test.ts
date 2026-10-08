@@ -6,7 +6,8 @@ import { dataSugeridaAdiantamento, gerarEventosFolha, recibosFeriasDaCompetencia
 import { adiantamentoDoMes, calcularMensal } from '../../calculo/motorMensal';
 import { feriasDaCompetencia } from '../../calculo/motorFerias';
 import { limparMovimento, validarMovimento } from '../../calculo/movimento';
-import { anteriorEncadeado, aoRealSeguinte, arredondaNoMes, arredondar, mesDoPagamento, mudarRegime, regimeNoMes } from '../../calculo/arredondamento';
+import { arredondamentoAtual as arredondamentoAtualDe } from '../../calculo/arredondamento';
+import { anteriorEncadeado, aoRealSeguinte, arredondaNoMes, arredondar, mesDoPagamento, movimentoComFechado, mudarRegime, regimeNoMes } from '../../calculo/arredondamento';
 import { fichaVazia, validarFicha, type FichaFuncionario } from '../../cadastros/funcionarios';
 import { afastamentoVazio, type Afastamento } from '../../cadastros/afastamentos';
 import type { TabelaLegal } from '../../cadastros/tabelasLegais';
@@ -227,6 +228,13 @@ describe('adiantamento salarial e vale-transporte', () => {
         expect(validarMovimento({ arredondamentoFechado: 120 })).toEqual(['Arredondamento atual do mês: no máximo R$ 0,99 (são centavos do mês anterior).']);
         expect(limparMovimento({ arredondamentoFechado: 0, arredondamentoDesde: '2026-08' })).toEqual({ arredondamentoFechado: 0, arredondamentoDesde: '2026-08' });
         expect(limparMovimento({ arredondamentoDesde: 'x' })).toEqual({});
+        // Movimento a gravar: com cálculo completo, leva o atual e o início; sem, o editado perde o atual velho (Codex #116).
+        const okSet = arredondar(mensal('2026-09'), 56);
+        expect(movimentoComFechado({ horasExtras50: 2 }, undefined, okSet, '2026-08')).toEqual({ horasExtras50: 2, arredondamentoFechado: arredondamentoAtualDe(okSet), arredondamentoDesde: '2026-08' });
+        const velho = { faltasDias: 1, arredondamentoFechado: 40, arredondamentoDesde: '2026-08' };
+        const falho = { ...okSet, situacao: 'erro' as const };
+        expect(movimentoComFechado(velho, velho, falho, '2026-08')).toBeUndefined();
+        expect(limparMovimento(movimentoComFechado({ ...velho, faltasDias: 2 }, velho, falho, '2026-08')!)).toEqual({ faltasDias: 2 });
         const incompleto = (c: string) => (c === '2026-08' ? { ...mensal(c), situacao: 'incompleto' as const } : mensal(c));
         expect(anteriorEncadeado('2026-08', '2026-10', incompleto, () => undefined)).toEqual({ erro: expect.stringMatching(/08\/2026 está com erro ou incompleto/) });
         // Anterior informado: até 0,99 (Codex #116).
