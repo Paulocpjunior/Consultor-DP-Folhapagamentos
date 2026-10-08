@@ -145,6 +145,13 @@ describe('lote A da auditoria', () => {
             retificacao: { s1200: new Map(), s1210: new Map([['52998224725', v]]) } }).trabalhadores[0];
         expect([t.s1210, t.exclusao1210]).toEqual([null, null]);
         expect(t.erros.join(' ')).toMatch(/foi excluído e volta com todos os pagamentos do mês. Carregue o download/);
+        // Com uma versão mais antiga do S-1210 carregada (não a excluída), a marca não herda os pagamentos dela.
+        const antigo = lerRecibosXml(envelope(s1210Iob, REC1, '2026-10-01T10:00:00'), 'd.xml', '44388152');
+        const comAntigo = recibosVigentes(antigo, 'S-1210', '2026-10', ex).get('52998224725')!;
+        expect([comAntigo.nrRecibo, comAntigo.pagamentos]).toEqual([REC2, undefined]);
+        // Com a cópia do próprio recibo excluído, os pagamentos voltam.
+        const exato = lerRecibosXml(envelope(s1210Iob, REC2, '2026-10-06T10:00:00'), 'd.xml', '44388152');
+        expect(recibosVigentes([...antigo, ...exato], 'S-1210', '2026-10', ex).get('52998224725')!.pagamentos).toHaveLength(2);
         // Ref antiga (só o recibo) continua valendo para marcar a exclusão.
         expect(exclusoesDosEnvios([env([{ id: 'y', tipo: 'S-3000', perApur: null, ref: `exclui:${REC1}`, cdResposta: 202, nrRecibo: REC3 }])]).get(REC1)!.cpf).toBe('');
     });
@@ -155,7 +162,7 @@ describe('lote A da auditoria', () => {
         expect(Array.from(d.getElementsByTagName('itensRemun')[0].children).map(e => e.localName)).toEqual(['codRubr', 'ideTabRubr', 'qtdRubr', 'vrRubr', 'indApurIR']);
         expect([txt(d, 'indApurIR')[0], txt(d, 'grauExp')[0]]).toEqual(['0', '1']);
         expect(Array.from(d.getElementsByTagName('remunPerApur')[0].children).map(e => e.localName)).toEqual(['matricula', 'itensRemun', 'infoAgNocivo']);
-        expect(txt(doc(gerar({ ...ficha, dados: { ...ficha.dados, grauExp: '4' } }).s1200!.xml), 'grauExp')).toEqual(['4']);
+        expect(txt(doc(gerar({ ...ficha, dados: { ...ficha.dados, grauExp: '4' } } as unknown as typeof ficha).s1200!.xml), 'grauExp')).toEqual(['4']);
         const comFerias = gerar(ficha, { ...ANA, verbas: [...ANA.verbas, { codigo: 'FERMES', descricao: 'Férias', referencia: '', tipo: 'provento', valor: 100000, inss: true, fgts: true, irrf: false }] } as ResultadoCalculo);
         expect([comFerias.s1200, comFerias.erros.join(' ')]).toEqual([null, expect.stringMatching(/Férias no mês: o demonstrativo de férias .* Transmita a competência deste trabalhador pelo IOB/)]);
     });

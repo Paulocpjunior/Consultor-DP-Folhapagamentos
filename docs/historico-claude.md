@@ -2528,3 +2528,7 @@ guias sindicais".
      aparece à parte e não esconde o botão de envio.
 - **Conferência:** S-1200 validado no `evtRemun.xsd` (só falta a
   assinatura). Testes: 86 arquivos, 671 testes.
+- **Revisão do Codex no PR #107 (P1), corrigida antes do merge:** a marca
+  de exclusão reconstruída sem o recibo excluído carregado podia herdar os
+  pagamentos de uma versão mais antiga do S-1210 do mesmo mês. Isso furava o
+  bloqueio. Agora a marca só recebe pagamentos do próprio recibo excluído.
