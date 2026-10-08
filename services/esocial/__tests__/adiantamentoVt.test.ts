@@ -150,6 +150,10 @@ describe('adiantamento salarial e vale-transporte', () => {
         expect([s.ARREDATU, s.ARREDANT, s.ARREDADI]).toEqual(['ARRA', 'ARRN', 'ARRD']);
         // Sem o mês de início: anterior 0; antes de começar a arredondar, nada encadeia.
         expect(anteriorEncadeado('2026-09', '2026-09', c => mensal(c), () => undefined)).toBe(0);
+        // Encadeamento longo (42 meses) sem corte: o anterior verdadeiro vem do começo (Codex #116). Líquido fixo de 100,40:
+        // atuais 0,60, 0,20, 0,80, 0,40, 0,00 em ciclo; o do 42º mês é o 2º do ciclo.
+        const fixo = { ...mensal('2026-08'), verbas: [{ codigo: 'SAL', descricao: 'Salário', referencia: '', tipo: 'provento' as const, valor: 10040, inss: true, fgts: true, irrf: true }] };
+        expect(anteriorEncadeado('2023-01', '2026-07', () => fixo, () => undefined)).toBe(20);
         // Antes do mês de início a empresa não arredonda (Codex #116).
         const p = { arredondarLiquido: true, arredondarDesde: '2026-09' };
         expect([arredondaNoMes(p, '2026-08'), arredondaNoMes(p, '2026-09'), arredondaNoMes(p, '2026-10'), arredondaNoMes({ arredondarLiquido: false }, '2026-09'), arredondaNoMes(undefined, '2026-09')])

@@ -202,6 +202,9 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
      */
     const arredondarDaEmpresa = useCallback((r: ResultadoCalculo, f: FichaFuncionario, c: string, pagaNoMes: boolean, informado?: number): ResultadoCalculo => {
         if (!arredondaNoMes(parametrosFolha, c) || !dados) return r;
+        // Sem os movimentos gravados (carregando ou com erro), o encadeamento sairia sem as horas, faltas e anteriores dos
+        // meses passados: a folha fica incompleta até eles chegarem, a não ser que o anterior do mês esteja informado (Codex #116).
+        if (informado === undefined && !movsEmpresa) return { ...r, situacao: r.situacao === 'erro' ? 'erro' : 'incompleto', avisos: [...r.avisos, 'Arredondamento do líquido: aguardando os movimentos gravados dos meses anteriores para encadear o anterior (ou informe o "Arredondamento anterior" no movimento).'] };
         const afs = dados.afastamentos.filter(a => a.fichaId === f.id);
         const salvos = movsEmpresa?.[f.id] ?? {};
         const anterior = informado ?? anteriorEncadeado(parametrosFolha.arredondarDesde || c, c,

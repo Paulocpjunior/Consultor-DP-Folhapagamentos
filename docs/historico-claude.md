@@ -2964,3 +2964,6 @@ guias sindicais".
 - **Trava:** `adiantamentoVt.test.ts`, com os valores de agosto e setembro do IOB.
 - **Revisão do Codex no #116 (P1):** com o arredondamento ligado "desde 09/2026", reabrir 08/2026 também arredondava esse mês. `arredondaNoMes` deixa a folha antes do mês de início como era, e o campo "Arredondamento anterior" só aparece a partir dele.
 - **Arredondamento no holerite do IOB:** quando o holerite tem linha de arredondamento mas não tem "anterior", o movimento grava anterior 0 para o mês. Sem nenhuma linha de arredondamento, o anterior fica para o encadeamento.
+- **Revisão do Codex no #116 (dois P2):**
+  - **Período completo:** o encadeamento percorre todo o período desde o mês de início. Com o corte em 36 meses, o anterior verdadeiro virava 0, e o erro chegava ao mês pedido. A trava cobre 42 meses.
+  - **Movimentos não carregados:** enquanto os movimentos gravados não carregam, ou se der erro, a folha com arredondamento fica "incompleta" com aviso, a não ser que o anterior do mês esteja informado. Assim não sai PDF nem arquivo bancário com o encadeamento feito sem as horas e faltas dos meses passados.

@@ -68,11 +68,10 @@ export const arredondamentoAtual = (r: Pick<ResultadoCalculo, 'verbas'>) => r.ve
  */
 export function anteriorEncadeado(desde: string, competencia: string, calcular: (c: string) => ResultadoCalculo | null, informado: (c: string) => number | undefined): number {
     if (!/^\d{4}-\d{2}$/.test(desde) || desde >= competencia) return 0;
-    const meses: string[] = [];
-    for (let c = desde; c < competencia; c = competenciaSeguinte(c)) meses.push(c);
-    // O encadeamento recalcula cada mês: no máximo os 36 últimos (antes deles, 0).
+    // O encadeamento recalcula cada mês desde o início, inteiro: cortar o período trocaria o anterior verdadeiro por 0
+    // e o erro iria até o mês pedido (Codex #116). Informe o anterior no movimento para encurtar a conta.
     let anterior = 0;
-    for (const c of meses.slice(-36)) {
+    for (let c = desde; c < competencia; c = competenciaSeguinte(c)) {
         const inf = informado(c);
         if (inf !== undefined) anterior = inf;
         const r = calcular(c);
