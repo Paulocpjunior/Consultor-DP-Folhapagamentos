@@ -349,7 +349,8 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                     for (const dep of f.dependentes.filter(x => x.irrf === 'S')) {
                         const cpfDep = digitos(dep.cpf);
                         if (cpfDep.length !== 11) { t.avisos.push(`Dependente ${dep.nome || '?'} sem CPF: a dedução do IRRF das férias não vai no S-1210.`); continue; }
-                        if (porDep > 0 && !ded.has(cpfDep)) ded.set(cpfDep, porDep);
+                        // Cada recibo deduz por si: dois recibos no mês (férias fracionadas, dois contratos) somam (Codex #111).
+                        if (porDep > 0) ded.set(cpfDep, (ded.get(cpfDep) ?? 0) + porDep);
                         if (!depNoEsocial(f, dep)) inf.set(cpfDep, dep);
                     }
                     dedFerias.set(m, ded); infoDepFerias.set(m, inf);
@@ -460,25 +461,36 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
 
 /**
  * Junta ao infoIRComplem do S-1210 aceito as deduções de dependentes dos recibos de férias (dedDepen tpRend 13)
- * calculadas agora, com o infoDep de quem ainda não está nele. Nada mais do aceito muda; o que já está lá
- * (mesmo CPF e tpRend 13) não é repetido. Ordem do leiaute: infoDep antes de infoIRCR; dedDepen logo após tpCR.
+ * calculadas agora, com o infoDep de quem ainda não está nele. O cálculo traz todos os recibos pagos no mês,
+ * então o valor dele vale: o tpRend 13 do mesmo CPF no aceito é trocado (reenvio igual não muda; recibo novo
+ * soma). Nada mais do aceito muda. Ordem do leiaute: infoDep antes de infoIRCR; dedDepen logo após tpCR.
  */
 export function mesclarIRFerias(aceito: string, novo: string): string {
     const blocos = (xml: string, tag: string) => xml.match(new RegExp(`<${tag}>[\\s\\S]*?</${tag}>`, 'g')) ?? [];
     const campo = (xml: string, tag: string) => new RegExp(`<${tag}>([^<]*)</${tag}>`).exec(xml)?.[1] ?? '';
-    const jaTem = new Set(blocos(aceito, 'dedDepen').filter(d => campo(d, 'tpRend') === '13').map(d => campo(d, 'cpfDep')));
-    const ded = blocos(novo, 'dedDepen').filter(d => campo(d, 'tpRend') === '13' && !jaTem.has(campo(d, 'cpfDep')));
-    if (!ded.length) return aceito;
-    const cpfs = new Set(ded.map(d => campo(d, 'cpfDep')));
-    const depsAceito = new Set(blocos(aceito, 'infoDep').map(d => campo(d, 'cpfDep')));
-    const infoDep = blocos(novo, 'infoDep').filter(d => cpfs.has(campo(d, 'cpfDep')) && !depsAceito.has(campo(d, 'cpfDep')));
+    const novos = blocos(novo, 'dedDepen').filter(d => campo(d, 'tpRend') === '13');
+    if (!novos.length) return aceito;
+    const porCpf = new Map(novos.map(d => [campo(d, 'cpfDep'), d]));
     let r = aceito;
-    const cr = '<tpCR>056107</tpCR>';
-    if (r.includes(cr)) r = r.replace(cr, cr + ded.join(''));
-    else {
-        const i = r.search(/<planSaude>|<infoReembMed>|<\/infoIRComplem>/);
-        r = r.slice(0, i) + `<infoIRCR>${cr}${ded.join('')}</infoIRCR>` + r.slice(i);
+    // Troca o que já está no aceito (mesmo CPF, tpRend 13) pelo valor de agora.
+    for (const d of blocos(aceito, 'dedDepen')) {
+        const c = campo(d, 'cpfDep');
+        if (campo(d, 'tpRend') !== '13' || !porCpf.has(c)) continue;
+        r = r.replace(d, porCpf.get(c)!);
+        porCpf.delete(c);
     }
+    const ded = [...porCpf.values()];
+    if (ded.length) {
+        const cr = '<tpCR>056107</tpCR>';
+        if (r.includes(cr)) r = r.replace(cr, cr + ded.join(''));
+        else {
+            const i = r.search(/<planSaude>|<infoReembMed>|<\/infoIRComplem>/);
+            r = r.slice(0, i) + `<infoIRCR>${cr}${ded.join('')}</infoIRCR>` + r.slice(i);
+        }
+    }
+    const cpfs = new Set(novos.map(d => campo(d, 'cpfDep')));
+    const depsAceito = new Set(blocos(r, 'infoDep').map(d => campo(d, 'cpfDep')));
+    const infoDep = blocos(novo, 'infoDep').filter(d => cpfs.has(campo(d, 'cpfDep')) && !depsAceito.has(campo(d, 'cpfDep')));
     if (infoDep.length) {
         const i = r.search(/<infoIRCR>|<planSaude>|<infoReembMed>|<\/infoIRComplem>/);
         r = r.slice(0, i) + infoDep.join('') + r.slice(i);
