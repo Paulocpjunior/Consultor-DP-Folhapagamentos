@@ -12,6 +12,7 @@
 // e-mail.
 
 import { comTokenCfi, erroCfi } from '../auth/tokenCfi';
+import { callFiscal } from '../serpro/serproIntegrationService';
 
 const CFI_URL = 'https://consultor-fiscal-inteligente-zricstsjqa-uw.a.run.app';
 /** Departamento do Pessoal no SP Connect (fila "Gestão - Departamento Pessoal"). */
@@ -81,4 +82,29 @@ export function valoresSugeridos(chaves: string[], d: { contato?: string; empres
             : /cliente|contato|nome/.test(n) ? (d.contato?.trim() || d.empresa) : '';
         return [k, v];
     }));
+}
+
+// ─── E-mail pelo escritório (Graph, no CFI) ──────────────────────────────────
+// POST /api/dp-integration/email/enviar: mesma régua do CFI e do CCI. O
+// remetente é o colaborador logado (caixa do escritório; sem caixa, a
+// institucional, dito na resposta), o .zip vai em anexo (até 3 MB) e o CFI
+// audita quem enviou. Só empresa da carteira de quem envia.
+export interface EnvioEmail {
+    empresaId: string; cnpj: string; empresaNome: string; titulo: string; competencia: string;
+    para: string; assunto: string; mensagem: string; anexos: { nome: string; bytes: Uint8Array; mime: string }[];
+}
+export interface ResultadoEmail { remetente: string; fonteRemetente: 'colaborador' | 'padrao'; avisoRemetente?: string | null; copiaPara: string[] }
+
+export async function enviarEmailPeloEscritorio(e: EnvioEmail, chamar: typeof callFiscal = callFiscal): Promise<ResultadoEmail> {
+    try {
+        return await chamar<ResultadoEmail>('/email/enviar', {
+            empresaId: e.empresaId, cnpj: e.cnpj.replace(/\D/g, ''), empresaNome: e.empresaNome, titulo: e.titulo, competencia: e.competencia,
+            para: e.para, assunto: e.assunto, mensagem: e.mensagem,
+            anexos: e.anexos.map(a => ({ nome: a.nome, base64: paraBase64(a.bytes), mime: a.mime })),
+        });
+    } catch (err) {
+        // Antes da publicação no CFI a rota não existe (404, sem corpo JSON).
+        if ((err as { status?: number }).status === 404 || /HTTP 404/.test((err as Error).message)) throw new Error('o envio de e-mail pelo escritório ainda não está publicado no CFI. Use "E-mail deste computador" e anexe o .zip.');
+        throw err;
+    }
 }

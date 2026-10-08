@@ -2720,3 +2720,24 @@ guias sindicais".
     Safari acrescentava `.txt` ao nome.
   - Vale também para o .REM de dentro do pacote do cliente.
 - **Revisão do Codex no PR #112 (P2):** a sugestão das variáveis testa primeiro empresa, competência e documento, e só depois o genérico "nome". Assim `nome_empresa` recebe a empresa, e não o contato.
+- **E-mail pelo escritório (Paulo, 08/10/2026: "Commit, PR e deploy", depois
+  das correções no CFI #1391):**
+  - O modal ganha o botão "Enviar e-mail pelo escritório". Ele chama a nova
+    rota do CFI, `POST /api/dp-integration/email/enviar`, que é a mesma régua
+    do CFI e do CCI:
+    - Graph sendMail, com a caixa do colaborador logado como remetente;
+    - casca da marca, com o Departamento Pessoal;
+    - .zip em anexo, até 3 MB;
+    - cópia oculta por `DP_EMAIL_BCC`;
+    - auditoria em `dp_email_envio_log`.
+  - A tela confirma antes de enviar e mostra de quem saiu, o aviso de
+    remetente (quando caiu na caixa institucional) e quem ficou em cópia.
+  - O botão antigo passa a se chamar "E-mail deste computador" e continua
+    como alternativa.
+  - Antes da publicação no CFI, a rota responde 404, e a tela diz para usar o
+    e-mail deste computador.
+  - No CFI, a auditoria do WhatsApp volta a gravar `projetoOrigem` a partir
+    do `projectId` dos irmãos (CFI #1391 e sp-connect #4).
+  - **Testes:**
+    - `spConnect.test.ts`: corpo do pedido, 404 e recusa;
+    - o modal com o envio.

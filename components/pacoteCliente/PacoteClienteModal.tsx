@@ -20,7 +20,7 @@ import { favorecidosDaFolha } from '../../services/bancario/favorecidos';
 import { gerarIcs, type EventoAgenda } from '../../services/agenda/convite';
 import { leiaMe, nomeSeguro, type ArquivoDoPacote } from '../../services/pacoteCliente/pacote';
 import { baixarBytes, gerarZip, type ArquivoZip } from '../../services/implantacao/zip';
-import { enviarPeloSpConnect, templatesDoDp, valoresSugeridos, type ResultadoEnvio, type TemplateWhatsApp } from '../../services/pacoteCliente/spConnect';
+import { enviarEmailPeloEscritorio, enviarPeloSpConnect, templatesDoDp, valoresSugeridos, type ResultadoEmail, type ResultadoEnvio, type TemplateWhatsApp } from '../../services/pacoteCliente/spConnect';
 import { reais } from '../../services/cadastros/documentos';
 import ConviteAgenda from '../agenda/ConviteAgenda';
 
@@ -163,6 +163,20 @@ const PacoteClienteModal: React.FC<Props> = ({ empresa, resultados, fichas, titu
         [tplSp, contato.nome, nomeEmpresa, titulo, competenciaSp]);
     const valoresSp = { ...sugeridos, ...Object.fromEntries(Object.entries(variaveisSp).filter(([k]) => k in sugeridos)) };
     const faltandoSp = (tplSp?.variaveis ?? []).filter(v => !valoresSp[v.chave]?.trim()).map(v => v.rotulo || v.chave);
+    const [enviandoEmail, setEnviandoEmail] = useState(false);
+    const [enviadoEmail, setEnviadoEmail] = useState<ResultadoEmail | null>(null);
+    async function enviarEmail() {
+        if (!pronto || !emailValido(contato.email)) return;
+        if (!window.confirm(`Enviar o e-mail com ${pronto.nomeZip} para ${contato.email}?\n\nSai da sua caixa do escritório, com a mensagem abaixo.`)) return;
+        setEnviandoEmail(true); setErro(''); setMsg('');
+        try {
+            const r = await enviarEmailPeloEscritorio({ empresaId: empresa.id, cnpj: empresa.cnpj, empresaNome: nomeEmpresa, titulo, competencia: (/(\d{4}-\d{2})/.exec(sufixo) ?? [])[1] ?? '',
+                para: contato.email ?? '', assunto, mensagem: texto, anexos: [{ nome: pronto.nomeZip, bytes: pronto.bytes, mime: 'application/zip' }] });
+            setEnviadoEmail(r);
+            setMsg(`E-mail enviado de ${r.remetente} para ${contato.email}${r.avisoRemetente ? ` (${r.avisoRemetente})` : ''}${r.copiaPara.length ? `, com cópia para ${r.copiaPara.join(', ')}` : ''}.`);
+        } catch (e) { setErro(`E-mail: ${(e as Error).message}`); }
+        finally { setEnviandoEmail(false); }
+    }
     async function enviarSp() {
         const pdf = pronto?.pdfs.find(x => x.nome === pdfSp);
         if (!pronto || !whats || !tplSp || !pdf) return;
@@ -200,7 +214,7 @@ const PacoteClienteModal: React.FC<Props> = ({ empresa, resultados, fichas, titu
     }
     function refazer() {
         if (pronto?.remessa && !window.confirm(`Refazer o pacote gera um novo arquivo bancário (nº ${pronto.remessa.nsa + 1}). Envie ao banco só um dos dois. Continuar?`)) return;
-        setPronto(null); setTextoEditado(null); setMsg(''); setErro(''); setEnviadoSp(null);
+        setPronto(null); setTextoEditado(null); setMsg(''); setErro(''); setEnviadoSp(null); setEnviadoEmail(null);
     }
 
     const marca = (id: string, rotulo: React.ReactNode, desabilitado = false) => (
@@ -313,11 +327,13 @@ const PacoteClienteModal: React.FC<Props> = ({ empresa, resultados, fichas, titu
                             {podeCompartilhar && <button className="rounded bg-green-700 px-3 py-2 font-medium text-white" onClick={compartilhar}>Compartilhar com o .zip (WhatsApp, e-mail…)</button>}
                             <button className="rounded bg-emerald-600 px-3 py-2 text-white disabled:opacity-50" disabled={!whats} title={whats ? '' : 'Informe o WhatsApp do contato'}
                                 onClick={() => whats && abrir(linkWhatsApp(whats, texto), `WhatsApp aberto com a mensagem: anexe ${pronto.nomeZip} (pasta Downloads) na conversa.`)}>WhatsApp deste computador</button>
+                            <button className="rounded bg-blue-800 px-3 py-2 font-medium text-white disabled:opacity-50" disabled={!emailValido(contato.email) || enviandoEmail} title={emailValido(contato.email) ? 'Sai da sua caixa do escritório (Microsoft 365), com o .zip em anexo' : 'Informe o e-mail do contato'}
+                                onClick={enviarEmail}>{enviandoEmail ? 'Enviando…' : enviadoEmail ? 'E-mail enviado ✓' : 'Enviar e-mail pelo escritório'}</button>
                             <button className="rounded bg-blue-700 px-3 py-2 text-white disabled:opacity-50" disabled={!emailValido(contato.email)} title={emailValido(contato.email) ? '' : 'Informe o e-mail do contato'}
-                                onClick={() => abrir(linkEmail(contato.email ?? '', assunto, texto), `E-mail aberto com a mensagem: anexe ${pronto.nomeZip} (pasta Downloads) antes de enviar.`)}>Abrir e-mail</button>
+                                onClick={() => abrir(linkEmail(contato.email ?? '', assunto, texto), `E-mail aberto com a mensagem: anexe ${pronto.nomeZip} (pasta Downloads) antes de enviar.`)}>E-mail deste computador</button>
                             <button className="rounded border border-slate-300 px-3 py-2 dark:border-slate-600" onClick={copiar}>Copiar mensagem</button>
                         </div>
-                        <p className="text-xs text-slate-500">Estes saem do WhatsApp e do e-mail de quem está usando o computador, não do SP Connect. "Compartilhar" já leva o .zip (celular e navegadores que permitem); no WhatsApp e no e-mail, anexe o .zip baixado.</p>
+                        <p className="text-xs text-slate-500">"Enviar e-mail pelo escritório" sai da sua caixa do Microsoft 365 com o .zip anexado (até 3 MB) e fica registrado no CFI. Os botões "deste computador" usam o WhatsApp e o e-mail de quem está no computador, não o SP Connect. "Compartilhar" já leva o .zip (celular e navegadores que permitem); no WhatsApp e no e-mail, anexe o .zip baixado.</p>
                         {pronto.eventos.length > 0 && <ConviteAgenda eventos={pronto.eventos} titulo={`${nomeEmpresa}: ${titulo}`} nomeArquivo={`agenda-${prefixo}`} />}
                     </section>
                 )}

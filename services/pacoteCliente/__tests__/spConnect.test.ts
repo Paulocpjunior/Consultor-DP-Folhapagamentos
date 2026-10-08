@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const fb = vi.hoisted(() => ({ user: { emailVerified: true, reload: async () => {}, getIdToken: async () => 'tok' } }));
 vi.mock('firebase/auth', () => ({ getAuth: () => ({ currentUser: fb.user }) }));
-import { enviarPeloSpConnect, paraBase64, templatesDoDp, valoresSugeridos } from '../spConnect';
+import { enviarEmailPeloEscritorio, enviarPeloSpConnect, paraBase64, templatesDoDp, valoresSugeridos } from '../spConnect';
 
 afterEach(() => vi.restoreAllMocks());
 const resposta = (status: number, corpo: unknown) => ({ ok: status < 400, status, json: async () => corpo }) as Response;
@@ -37,5 +37,19 @@ describe('SP Connect', () => {
         // O específico vence o genérico "nome" (Codex #112).
         expect(valoresSugeridos(['nome_empresa', 'nome_documento', 'nome_cliente', 'nome'], { contato: 'Marta', empresa: 'Exemplo', titulo: 'Folha', competencia: '09/2026' }))
             .toEqual({ nome_empresa: 'Exemplo', nome_documento: 'Folha', nome_cliente: 'Marta', nome: 'Marta' });
+    });
+
+    it('e-mail pelo escritório: rota do DP no CFI com o .zip em base64; antes da publicação (404) diz o caminho', async () => {
+        const pedido = { empresaId: 'E1', cnpj: '44.388.152/0001-89', empresaNome: 'Exemplo', titulo: 'Folha mensal 09/2026', competencia: '2026-09',
+            para: 'marta@cliente.com.br', assunto: 'Folha · Exemplo', mensagem: 'Olá', anexos: [{ nome: 'p.zip', bytes: new Uint8Array([80, 75, 3, 4]), mime: 'application/zip' }] };
+        const ok = { remetente: 'ana@sp.com.br', fonteRemetente: 'colaborador' as const, copiaPara: [] };
+        const chamar = vi.fn(async () => ok);
+        expect(await enviarEmailPeloEscritorio(pedido, chamar as never)).toEqual(ok);
+        expect(chamar).toHaveBeenCalledWith('/email/enviar', { empresaId: 'E1', cnpj: '44388152000189', empresaNome: 'Exemplo', titulo: 'Folha mensal 09/2026', competencia: '2026-09',
+            para: 'marta@cliente.com.br', assunto: 'Folha · Exemplo', mensagem: 'Olá', anexos: [{ nome: 'p.zip', base64: 'UEsDBA==', mime: 'application/zip' }] });
+        const sem = vi.fn(async () => { throw Object.assign(new Error('HTTP 404'), { status: 404 }); });
+        await expect(enviarEmailPeloEscritorio(pedido, sem as never)).rejects.toThrow(/ainda não está publicado no CFI\. Use "E-mail deste computador"/);
+        const recusa = vi.fn(async () => { throw Object.assign(new Error('Anexos com 3.4 MB'), { status: 413 }); });
+        await expect(enviarEmailPeloEscritorio(pedido, recusa as never)).rejects.toThrow('Anexos com 3.4 MB');
     });
 });

@@ -9,8 +9,9 @@ const sv = vi.hoisted(() => ({
     salvar: vi.fn(async (_empresaId: string, contaId: string) => ({ nsa: 9, contas: [{ id: contaId, banco: '341', proximoNsa: 10 }] })),
     contato: vi.fn(async (..._a: unknown[]) => undefined), baixados: [] as { nome: string; bytes: Uint8Array }[],
     templates: vi.fn(async () => [] as unknown[]), enviarSp: vi.fn(async (..._a: unknown[]) => ({ messageId: 'wamid.1', numeroEnviado: '5511988887777', template: 'dp_pacote_folha' })),
+    email: vi.fn(async (..._a: unknown[]) => ({ remetente: 'ana@spassessoria.com.br', fonteRemetente: 'colaborador', copiaPara: ['dp@spassessoria.com.br'] })),
 }));
-vi.mock('../spConnect', async orig => ({ ...(await orig<typeof import('../spConnect')>()), templatesDoDp: () => sv.templates(), enviarPeloSpConnect: (...a: unknown[]) => sv.enviarSp(...a) }));
+vi.mock('../spConnect', async orig => ({ ...(await orig<typeof import('../spConnect')>()), templatesDoDp: () => sv.templates(), enviarPeloSpConnect: (...a: unknown[]) => sv.enviarSp(...a), enviarEmailPeloEscritorio: (...a: unknown[]) => sv.email(...a) }));
 vi.mock('../../empresas/empresasService', () => ({ reservarNsa: (e: string, c: string) => sv.salvar(e, c), salvarContatoEnvio: (...a: unknown[]) => sv.contato(...a) }));
 vi.mock('../../implantacao/zip', async orig => ({ ...(await orig<typeof import('../../implantacao/zip')>()), baixarBytes: (nome: string, bytes: Uint8Array) => { sv.baixados.push({ nome, bytes }); } }));
 import PacoteClienteModal from '../../../components/pacoteCliente/PacoteClienteModal';
@@ -85,11 +86,11 @@ describe('modal Pacote do cliente', () => {
         expect(texto).toContain('• 06/10/2026: Pagar os salários');
         // Sem WhatsApp e sem e-mail os botões ficam desligados.
         expect((screen.getByText('WhatsApp deste computador') as HTMLButtonElement).disabled).toBe(true);
-        expect((screen.getByText('Abrir e-mail') as HTMLButtonElement).disabled).toBe(true);
+        expect((screen.getByText('E-mail deste computador') as HTMLButtonElement).disabled).toBe(true);
         fireEvent.change(screen.getByLabelText('WhatsApp do contato'), { target: { value: '(11) 98888-7777' } });
         fireEvent.change(screen.getByLabelText('E-mail do contato'), { target: { value: 'marta@cliente.com.br' } });
         fireEvent.click(screen.getByText('WhatsApp deste computador'));
-        fireEvent.click(screen.getByText('Abrir e-mail'));
+        fireEvent.click(screen.getByText('E-mail deste computador'));
         expect(abertos[0]).toMatch(/^https:\/\/wa\.me\/5511988887777\?text=Ol%C3%A1%2C%20Marta!/);
         expect(abertos[1]).toMatch(/^mailto:marta@cliente\.com\.br\?subject=Folha%20mensal%2009%2F2026%20%C2%B7%20Exemplo&body=Ol%C3%A1/);
         fireEvent.click(screen.getByText('Gravar contato na empresa'));
@@ -129,6 +130,23 @@ describe('modal Pacote do cliente', () => {
         fireEvent.click(screen.getByText('Baixar pacote (.zip)'));
         expect(await screen.findByText(/Nenhum template do Departamento Pessoal \(dp-folha\) com documento/)).toBeTruthy();
         expect(screen.getByText('WhatsApp deste computador')).toBeTruthy();
+    });
+
+    it('e-mail pelo escritório: confirma, manda o .zip com a mensagem e diz de quem saiu e quem ficou em cópia', async () => {
+        const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(true);
+        render(<PacoteClienteModal empresa={{ ...empresa, contasPagamento: [], contatoEnvio: { nome: 'Marta', email: 'marta@cliente.com.br' } }} resultados={[res('f1', 'ANA', 65432)]} fichas={fichas} titulo="Folha mensal 09/2026" sufixo="2026-09"
+            dataSugerida="2026-10-06" eventos={() => []} onFechar={() => {}} documentos={[{ id: 'holerites', rotulo: 'Holerites (PDF)', nome: 'h.pdf', descricao: 'h', gerar: () => pdf }]} />);
+        fireEvent.click(screen.getByText('Baixar pacote (.zip)'));
+        fireEvent.click(await screen.findByText('Enviar e-mail pelo escritório'));
+        expect(confirmar.mock.calls[0][0]).toMatch(/pacote-1200-2026-09\.zip para marta@cliente\.com\.br/);
+        await waitFor(() => expect(sv.email).toHaveBeenCalled());
+        const e = sv.email.mock.calls[0][0] as { empresaId: string; competencia: string; para: string; assunto: string; mensagem: string; anexos: { nome: string; mime: string; bytes: Uint8Array }[] };
+        expect([e.empresaId, e.competencia, e.para, e.assunto]).toEqual(['E1', '2026-09', 'marta@cliente.com.br', 'Folha mensal 09/2026 · Exemplo']);
+        expect(e.mensagem).toMatch(/^Olá, Marta!/);
+        expect(e.anexos.map(a => [a.nome, a.mime])).toEqual([['pacote-1200-2026-09.zip', 'application/zip']]);
+        expect((await lerZip(e.anexos[0].bytes)).map(a => a.nome)).toEqual(['LEIA-ME.txt', 'h.pdf']);
+        expect(await screen.findByText(/E-mail enviado de ana@spassessoria\.com\.br para marta@cliente\.com\.br, com cópia para dp@spassessoria\.com\.br\./)).toBeTruthy();
+        expect(screen.getByText('E-mail enviado ✓')).toBeTruthy();
     });
 
     it('sem conta cadastrada: o arquivo bancário fica de fora e o pacote sai sem gravar nada', async () => {
