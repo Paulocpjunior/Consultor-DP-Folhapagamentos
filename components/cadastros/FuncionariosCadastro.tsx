@@ -104,7 +104,7 @@ const FuncionariosCadastro: React.FC<Props> = ({ empresa, usuario, isAdmin, sind
                 </div>
             )}
 
-            {aberta && <FichaFuncionarioModal key={aberta.ficha.id || 'nova'} ficha={aberta.ficha} nova={aberta.nova} sindicatos={sindicatos} horarios={horarios} afastamentos={afastamentos.filter(a => a.fichaId === aberta.ficha.id)} usuario={usuario} isAdmin={isAdmin}
+            {aberta && <FichaFuncionarioModal key={aberta.ficha.id || 'nova'} ficha={aberta.ficha} nova={aberta.nova} sindicatos={sindicatos} horarios={horarios} afastamentos={afastamentos.filter(a => a.fichaId === aberta.ficha.id)} beneficios={empresa.parametrosFolha?.beneficios} usuario={usuario} isAdmin={isAdmin}
                 onFechar={() => setAberta(null)} onSalvo={() => { setAberta(null); carregar(); }} />}
             {importar && fichas && <ImportarEsocialModal empresa={empresa} usuario={usuario} existentes={fichas} onFechar={() => setImportar(false)} onGravado={() => { setImportar(false); carregar(); }} />}
             {historicoIob && fichas && <HistoricoFolhaIobModal empresa={empresa} usuario={usuario} fichas={fichas} onFechar={() => setHistoricoIob(false)} onGravado={() => setHistoricoIob(false)} />}

@@ -42,6 +42,7 @@ import { listarEnvios, type Envio } from '../../services/esocial/transmissaoServ
 import StatusEsocialAfastamento from '../esocial/StatusEsocialAfastamento';
 import ConviteAgenda from '../agenda/ConviteAgenda';
 import { eventosDoReciboFerias } from '../../services/agenda/convite';
+import BeneficiosEmpresa from './BeneficiosEmpresa';
 // O PDF (jspdf) só carrega no clique: a tela do Cálculo abre mais leve. O xlsx já vem no pacote principal (Folha).
 const relatoriosPdf = () => import('../../services/relatorios/holeritePdf');
 
@@ -121,6 +122,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const [recargaEnvios, setRecargaEnvios] = useState(0);
     // Arquivo bancário da folha ou do adiantamento do mês (dia 20).
     const [arquivoBancario, setArquivoBancario] = useState<false | 'folha' | 'adiantamento'>(false);
+    const [verBeneficios, setVerBeneficios] = useState(false);
     const [pacote, setPacote] = useState(false);
     const [eventosFolha, setEventosFolha] = useState(false);
     useEffect(() => { setEnviosEsocial(null); if (!empresaId || folha !== 'ferias') return; listarEnvios(empresaId).then(setEnviosEsocial).catch(() => setEnviosEsocial([])); }, [empresaId, folha, recargaEnvios]);
@@ -238,7 +240,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 if (!noMes([f], m).length) return null;
                 const pag = salvos[m]?.mesPagamento ?? salvos[m]?.arredondamentoPagamento ?? mesDoPagamento(parametrosFolha, m);
                 return calcularMensal({ competencia: m, pagamento: pag, ficha: f, tabelas: dados.tabelas, movimento: salvos[m], afastamentos: afs,
-                    feriasDoMes: feriasDaCompetencia(f, afs, dados.tabelas, salvos, m, opcoesFerias), folhaPagaNoAdiantamento: folhaPagaNoAdiantamento(f, m, pag) });
+                    feriasDoMes: feriasDaCompetencia(f, afs, dados.tabelas, salvos, m, opcoesFerias), folhaPagaNoAdiantamento: folhaPagaNoAdiantamento(f, m, pag), beneficios: parametrosFolha?.beneficios });
             },
             // O atual gravado só vale se foi encadeado do mesmo mês de início. O mês do pagamento gravado com ele é o que foi
             // usado de fato: mudar o regime depois não reescreve mês fechado (para isso, reabra o mês e salve de novo; Codex #116).
@@ -283,7 +285,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             const r = calcularMensal({
                 competencia, pagamento, ficha: f, tabelas: dados.tabelas, movimento: movs[f.id], afastamentos: afs,
                 feriasDoMes: movsEmpresa ? feriasDaCompetencia(f, afs, dados.tabelas, movsEmpresa[f.id] ?? {}, competencia, opcoesFerias) : undefined,
-                folhaPagaNoAdiantamento: folhaPagaNoAdiantamento(f, competencia, pagamento),
+                folhaPagaNoAdiantamento: folhaPagaNoAdiantamento(f, competencia, pagamento), beneficios: parametrosFolha?.beneficios,
             });
             return arredondarDaEmpresa(r, f, competencia, movs[f.id]?.arredondamentoAnterior);
         }), dados.fichas, pagamento !== competencia
@@ -343,7 +345,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             // Mês salvo com o arredondamento: o mês do pagamento usado de fato (Codex #116); senão, o do regime.
             const pag = movsEmpresa[f.id]?.[c]?.mesPagamento ?? movsEmpresa[f.id]?.[c]?.arredondamentoPagamento ?? mesDoPagamento(parametrosFolha, c);
             const r = calcularMensal({ competencia: c, pagamento: pag, ficha: f, tabelas: dados.tabelas, movimento: movsEmpresa[f.id]?.[c], afastamentos: afs,
-                feriasDoMes: feriasDaCompetencia(f, afs, dados.tabelas, movsEmpresa[f.id] ?? {}, c, opcoesFerias), folhaPagaNoAdiantamento: folhaPagaNoAdiantamento(f, c, pag) });
+                feriasDoMes: feriasDaCompetencia(f, afs, dados.tabelas, movsEmpresa[f.id] ?? {}, c, opcoesFerias), folhaPagaNoAdiantamento: folhaPagaNoAdiantamento(f, c, pag), beneficios: parametrosFolha?.beneficios });
             return arredondarDaEmpresa(r, f, c, movsEmpresa[f.id]?.[c]?.arredondamentoAnterior);
         });
     }, [dados, movsEmpresa, opcoesFerias, arredondarDaEmpresa, parametrosFolha, folhaPagaNoAdiantamento]);
@@ -476,7 +478,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             { Item: 'Multa rescisória do FGTS', Tipo: 'guia', Funcionários: '', Valor: e.multaFgts / 100 },
         ]), 'Resumo da folha');
         if (leitura && dados) {
-            const { linhas, semHolerite } = conferirTodos(leitura, dados.fichas, resultados, competencia);
+            const { linhas, semHolerite } = conferirTodos(leitura, dados.fichas, resultados, competencia, parametrosFolha?.beneficios);
             const conf: Record<string, string | number>[] = [
                 ...linhas.flatMap(({ holerite: h, conferencia: c }): Record<string, string | number>[] => (c && c.linhas.length
                     ? c.linhas.map(l => ({ Funcionário: c.nome, Holerite: h.nome, Situação: c.situacao, Item: l.item, Motor: l.motor / 100, IOB: l.iob / 100, Diferença: l.diferenca / 100, Confere: l.ok ? 'sim' : 'não' }))
@@ -526,6 +528,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                             onChange={e => { const p = e.target.value as RegimePagamento; gravarParametrosFolha(atual => mudarRegime(atual, competencia, p)); setPagamento(p === 'mes' ? competencia : competenciaSeguinte(competencia)); }}>
                             <option value="mes">no próprio mês</option><option value="seguinte">no mês seguinte</option>
                         </select></label>
+                    <button className={btn} aria-pressed={verBeneficios} onClick={() => setVerBeneficios(x => !x)}>Benefícios ({parametrosFolha?.beneficios?.length ?? 0})</button>
                 </span>}
                 {mensal && <button className="ml-auto rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={!pendentes.length || salvando || !gravados} onClick={salvar}>
                     {salvando ? 'Salvando…' : `Salvar movimento${pendentes.length ? ` (${pendentes.length})` : ''}`}
@@ -541,6 +544,8 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 {mensal && <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado') || pendentes.length > 0} title={pendentes.length ? 'Salve o movimento antes: o S-1200 sai do movimento gravado.' : undefined} onClick={() => setEventosFolha(true)}>S-1200 e S-1210</button>}
                 <button className={btn} disabled={!resultados.length} onClick={exportar}>Exportar Excel</button>
             </div>
+            {mensal && empresa && verBeneficios && <BeneficiosEmpresa key={`${empresa.id}-${competencia}`} beneficios={parametrosFolha?.beneficios ?? []} competencia={competencia} onFechar={() => setVerBeneficios(false)}
+                onSalvar={l => { gravarParametrosFolha(p => ({ ...p, beneficios: l })); setVerBeneficios(false); }} />}
             {rescisao && dados && (
                 <div className="space-y-2 rounded border border-slate-200 p-2 text-xs text-slate-700 dark:border-slate-700 dark:text-slate-200">
                     <p>Desligados no mês pela data da ficha (S-2299) e simulações. Confira o tipo e o aviso de cada um no detalhe. Pagamento em até 10 dias do término.</p>
@@ -705,7 +710,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 <ConferenciaEsocialIob empresa={empresa} fichas={dados.fichas} motor={motorDaCompetencia} comFerias={comFeriasNaCompetencia} />
             )}
             {conferir && dados && resultados.length > 0 && (
-                <ConferenciaHolerites empresaId={empresaId} competencia={competencia} fichas={dados.fichas} resultados={resultados} usuario={usuario}
+                <ConferenciaHolerites empresaId={empresaId} competencia={competencia} fichas={dados.fichas} resultados={resultados} usuario={usuario} beneficios={parametrosFolha?.beneficios}
                     leitura={leitura} onLeitura={setLeitura} movimentos={movs}
                     onAplicarMovimento={(id, m) => { setMovs(x => ({ ...x, [id]: m })); setVersao(n => n + 1); setAviso(''); }} />
             )}

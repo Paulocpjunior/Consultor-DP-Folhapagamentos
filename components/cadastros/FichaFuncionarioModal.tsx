@@ -13,6 +13,7 @@ import { historico, mensagemErro, salvarFuncionario, excluirFuncionario, type Re
 import type { Sindicato } from '../../services/cadastros/sindicatos';
 import { conferirHorasSemanais, descricaoJornada, type Horario } from '../../services/cadastros/horarios';
 import { duracao, rotuloMotivo, type Afastamento } from '../../services/cadastros/afastamentos';
+import type { AdesaoBeneficio, Beneficio } from '../../services/calculo/beneficios';
 
 interface Props {
     ficha: FichaFuncionario;
@@ -20,6 +21,8 @@ interface Props {
     sindicatos: Sindicato[];
     horarios?: Horario[];
     afastamentos?: Afastamento[];
+    /** Benefícios da empresa (parâmetros da folha): a ficha marca a adesão e as vidas. */
+    beneficios?: Beneficio[];
     usuario: Usuario;
     isAdmin: boolean;
     onFechar: () => void;
@@ -30,7 +33,7 @@ const inp = 'w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm
 const DEP_VAZIO: Dependente = { tipo: '', nome: '', nascimento: '', cpf: '', irrf: 'N', salarioFamilia: 'N', pensao: 'N', cotaPensao: '', noEsocial: 'N' };
 const formatarCpf = (c: string) => (c.length === 11 ? `${c.slice(0, 3)}.${c.slice(3, 6)}.${c.slice(6, 9)}-${c.slice(9)}` : c);
 
-const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horarios = [], afastamentos = [], usuario, isAdmin, onFechar, onSalvo }) => {
+const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horarios = [], afastamentos = [], beneficios = [], usuario, isAdmin, onFechar, onSalvo }) => {
     const [f, setF] = useState<FichaFuncionario>(ficha);
     const [aba, setAba] = useState<string>(ABAS[0].id);
     const [erros, setErros] = useState<string[]>([]);
@@ -105,7 +108,13 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
         );
     }
 
-    const abas = [...ABAS.map(a => ({ id: a.id, titulo: a.titulo })), { id: 'dependentes', titulo: `Dependentes (${f.dependentes.length})` }, ...(nova ? [] : [{ id: 'afastamentos', titulo: `Afastamentos (${afastamentos.length})` }, { id: 'historico', titulo: 'Histórico' }])];
+    const adesoes = f.beneficios ?? [];
+    // Um registro por período: mudou o número de vidas, fecha o período ("até") e abre outro (Codex #122).
+    const setAdesao = (i: number, m: Partial<AdesaoBeneficio> | null) => setF(x => {
+        const atual = x.beneficios ?? [];
+        return { ...x, beneficios: m === null ? atual.filter((_, k) => k !== i) : atual.map((a, k) => (k === i ? { ...a, ...m } : a)) };
+    });
+    const abas = [...ABAS.map(a => ({ id: a.id, titulo: a.titulo })), { id: 'dependentes', titulo: `Dependentes (${f.dependentes.length})` }, { id: 'beneficios', titulo: `Benefícios (${adesoes.length})` }, ...(nova ? [] : [{ id: 'afastamentos', titulo: `Afastamentos (${afastamentos.length})` }, { id: 'historico', titulo: 'Histórico' }])];
     const atual = ABAS.find(a => a.id === aba);
 
     return (
@@ -192,6 +201,39 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                             <button className="rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600 dark:text-white" onClick={() => setF({ ...f, dependentes: [...f.dependentes, { ...DEP_VAZIO }] })}>Adicionar dependente</button>
                             {f.origens.dependentes && <p className="text-[11px] text-slate-400">{f.origens.dependentes}</p>}
                             <p className="text-[11px] text-slate-500 dark:text-slate-400">Pensão alimentícia: marque quem recebe (com CPF). Com mais de um alimentando, a cota (%) de cada um divide a pensão do mês no S-1210. No mesmo mês, quem recebe pensão não é deduzido também como dependente (Lei 9.250/1995, art. 35, § 4º): o filho alimentando fica com IRRF = Não e Pensão = Sim.</p>
+                        </div>
+                    )}
+
+                    {aba === 'beneficios' && (
+                        <div className="space-y-2 text-sm dark:text-slate-100">
+                            {!beneficios.length && <p className="text-slate-500">A empresa não tem benefícios cadastrados. Cadastre em Cálculo › folha mensal › "Benefícios".</p>}
+                            {adesoes.length > 0 && (
+                                <table className="w-full text-xs">
+                                    <thead className="text-left text-slate-500"><tr><th className="p-1">Benefício</th><th className="p-1">Valor por vida</th><th className="p-1">Vidas</th><th className="p-1">Desde (mês)</th><th className="p-1">Até (mês)</th><th /></tr></thead>
+                                    <tbody>{adesoes.map((a, i) => {
+                                        const b = beneficios.find(x => x.id === a.beneficioId);
+                                        return (
+                                            <tr key={i} className="border-t border-slate-100 dark:border-slate-700">
+                                                <td className="p-1"><select aria-label={`Benefício ${i + 1}`} className="rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={a.beneficioId} onChange={e => setAdesao(i, { beneficioId: e.target.value })}>
+                                                    <option value="">escolha…</option>
+                                                    {beneficios.map(x => <option key={x.id} value={x.id}>{x.nome}{x.codigoIob ? ` (evento ${x.codigoIob})` : ''}{x.ativo ? '' : ' — inativo'}</option>)}
+                                                    {a.beneficioId && !b && <option value={a.beneficioId}>(removido da empresa)</option>}
+                                                </select></td>
+                                                <td className="p-1">{b?.valor ? (b.valor / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—'}</td>
+                                                <td className="p-1"><input aria-label={`Vidas do benefício ${i + 1}`} className="w-16 rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" type="number" min={1} max={20} value={a.vidas || ''}
+                                                    onChange={e => setAdesao(i, { vidas: Number(e.target.value) })} /></td>
+                                                <td className="p-1"><input aria-label={`Desde do benefício ${i + 1}`} type="month" className="rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={a.desde ?? ''}
+                                                    onChange={e => setAdesao(i, { desde: e.target.value || undefined })} /></td>
+                                                <td className="p-1"><input aria-label={`Até do benefício ${i + 1}`} type="month" className="rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={a.ate ?? ''}
+                                                    onChange={e => setAdesao(i, { ate: e.target.value || undefined })} /></td>
+                                                <td className="p-1"><button className="text-red-700 underline dark:text-red-300" onClick={() => setAdesao(i, null)}>remover</button></td>
+                                            </tr>
+                                        );
+                                    })}</tbody>
+                                </table>
+                            )}
+                            {beneficios.length > 0 && <button className="rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600" onClick={() => setF(x => ({ ...x, beneficios: [...(x.beneficios ?? []), { beneficioId: beneficios.find(b => b.ativo)?.id ?? beneficios[0].id, vidas: 1 }] }))}>Adicionar benefício</button>}
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400">Valor no mês = valor por vida × vidas, lançado pelo motor em toda folha mensal entre "desde" e "até" (em branco, sem limite). Mudou o número de vidas? Preencha "até" no período atual e adicione outro a partir do mês seguinte: os meses passados ficam com as vidas de antes.</p>
                         </div>
                     )}
 
