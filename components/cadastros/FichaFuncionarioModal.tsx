@@ -109,12 +109,10 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
     }
 
     const adesoes = f.beneficios ?? [];
-    const setAdesao = (id: string, m: Partial<AdesaoBeneficio> | null) => setF(x => {
+    // Um registro por período: mudou o número de vidas, fecha o período ("até") e abre outro (Codex #122).
+    const setAdesao = (i: number, m: Partial<AdesaoBeneficio> | null) => setF(x => {
         const atual = x.beneficios ?? [];
-        const tem = atual.some(a => a.beneficioId === id);
-        const lista = m === null ? atual.filter(a => a.beneficioId !== id)
-            : tem ? atual.map(a => (a.beneficioId === id ? { ...a, ...m } : a)) : [...atual, { beneficioId: id, vidas: 1, ...m }];
-        return { ...x, beneficios: lista };
+        return { ...x, beneficios: m === null ? atual.filter((_, k) => k !== i) : atual.map((a, k) => (k === i ? { ...a, ...m } : a)) };
     });
     const abas = [...ABAS.map(a => ({ id: a.id, titulo: a.titulo })), { id: 'dependentes', titulo: `Dependentes (${f.dependentes.length})` }, { id: 'beneficios', titulo: `Benefícios (${adesoes.length})` }, ...(nova ? [] : [{ id: 'afastamentos', titulo: `Afastamentos (${afastamentos.length})` }, { id: 'historico', titulo: 'Histórico' }])];
     const atual = ABAS.find(a => a.id === aba);
@@ -208,29 +206,34 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
 
                     {aba === 'beneficios' && (
                         <div className="space-y-2 text-sm dark:text-slate-100">
-                            {!beneficios.length && !adesoes.length && <p className="text-slate-500">A empresa não tem benefícios cadastrados. Cadastre em Cálculo › folha mensal › "Benefícios".</p>}
-                            {(beneficios.length > 0 || adesoes.length > 0) && (
+                            {!beneficios.length && <p className="text-slate-500">A empresa não tem benefícios cadastrados. Cadastre em Cálculo › folha mensal › "Benefícios".</p>}
+                            {adesoes.length > 0 && (
                                 <table className="w-full text-xs">
-                                    <thead className="text-left text-slate-500"><tr><th className="p-1">Tem</th><th className="p-1">Benefício</th><th className="p-1">Valor por vida</th><th className="p-1">Vidas</th><th className="p-1">Desde (mês)</th><th className="p-1">Até (mês)</th></tr></thead>
-                                    <tbody>{[...beneficios, ...adesoes.filter(a => !beneficios.some(b => b.id === a.beneficioId)).map(a => ({ id: a.beneficioId, nome: `(benefício removido da empresa: ${a.beneficioId})`, valor: 0, ativo: false } as Beneficio))].map(b => {
-                                        const a = adesoes.find(x => x.beneficioId === b.id);
+                                    <thead className="text-left text-slate-500"><tr><th className="p-1">Benefício</th><th className="p-1">Valor por vida</th><th className="p-1">Vidas</th><th className="p-1">Desde (mês)</th><th className="p-1">Até (mês)</th><th /></tr></thead>
+                                    <tbody>{adesoes.map((a, i) => {
+                                        const b = beneficios.find(x => x.id === a.beneficioId);
                                         return (
-                                            <tr key={b.id} className="border-t border-slate-100 dark:border-slate-700">
-                                                <td className="p-1"><input type="checkbox" aria-label={`Tem ${b.nome}`} checked={!!a} onChange={e => setAdesao(b.id, e.target.checked ? {} : null)} /></td>
-                                                <td className="p-1">{b.nome}{b.codigoIob ? <span className="text-slate-400"> · evento {b.codigoIob}</span> : null}{!b.ativo && <span className="text-amber-700"> · inativo</span>}</td>
-                                                <td className="p-1">{b.valor ? (b.valor / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—'}</td>
-                                                <td className="p-1"><input aria-label={`Vidas de ${b.nome}`} className="w-16 rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" type="number" min={1} max={20} disabled={!a} value={a?.vidas ?? ''}
-                                                    onChange={e => setAdesao(b.id, { vidas: Number(e.target.value) })} /></td>
-                                                <td className="p-1"><input aria-label={`Desde de ${b.nome}`} type="month" className="rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" disabled={!a} value={a?.desde ?? ''}
-                                                    onChange={e => setAdesao(b.id, { desde: e.target.value || undefined })} /></td>
-                                                <td className="p-1"><input aria-label={`Até de ${b.nome}`} type="month" className="rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" disabled={!a} value={a?.ate ?? ''}
-                                                    onChange={e => setAdesao(b.id, { ate: e.target.value || undefined })} /></td>
+                                            <tr key={i} className="border-t border-slate-100 dark:border-slate-700">
+                                                <td className="p-1"><select aria-label={`Benefício ${i + 1}`} className="rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={a.beneficioId} onChange={e => setAdesao(i, { beneficioId: e.target.value })}>
+                                                    <option value="">escolha…</option>
+                                                    {beneficios.map(x => <option key={x.id} value={x.id}>{x.nome}{x.codigoIob ? ` (evento ${x.codigoIob})` : ''}{x.ativo ? '' : ' — inativo'}</option>)}
+                                                    {a.beneficioId && !b && <option value={a.beneficioId}>(removido da empresa)</option>}
+                                                </select></td>
+                                                <td className="p-1">{b?.valor ? (b.valor / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—'}</td>
+                                                <td className="p-1"><input aria-label={`Vidas do benefício ${i + 1}`} className="w-16 rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" type="number" min={1} max={20} value={a.vidas || ''}
+                                                    onChange={e => setAdesao(i, { vidas: Number(e.target.value) })} /></td>
+                                                <td className="p-1"><input aria-label={`Desde do benefício ${i + 1}`} type="month" className="rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={a.desde ?? ''}
+                                                    onChange={e => setAdesao(i, { desde: e.target.value || undefined })} /></td>
+                                                <td className="p-1"><input aria-label={`Até do benefício ${i + 1}`} type="month" className="rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={a.ate ?? ''}
+                                                    onChange={e => setAdesao(i, { ate: e.target.value || undefined })} /></td>
+                                                <td className="p-1"><button className="text-red-700 underline dark:text-red-300" onClick={() => setAdesao(i, null)}>remover</button></td>
                                             </tr>
                                         );
                                     })}</tbody>
                                 </table>
                             )}
-                            <p className="text-[11px] text-slate-500 dark:text-slate-400">Valor no mês = valor por vida × vidas, lançado pelo motor em toda folha mensal entre "desde" e "até" (em branco, sem limite).</p>
+                            {beneficios.length > 0 && <button className="rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600" onClick={() => setF(x => ({ ...x, beneficios: [...(x.beneficios ?? []), { beneficioId: beneficios.find(b => b.ativo)?.id ?? beneficios[0].id, vidas: 1 }] }))}>Adicionar benefício</button>}
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400">Valor no mês = valor por vida × vidas, lançado pelo motor em toda folha mensal entre "desde" e "até" (em branco, sem limite). Mudou o número de vidas? Preencha "até" no período atual e adicione outro a partir do mês seguinte: os meses passados ficam com as vidas de antes.</p>
                         </div>
                     )}
 

@@ -39,6 +39,11 @@ describe('benefícios da empresa', () => {
         expect(validarBeneficios([ODONTO, { ...ODONTO, id: 'x' }])).toEqual(['Há benefícios com o mesmo nome.']);
         expect(validarAdesoes([{ beneficioId: 'odonto', vidas: 0 }, { beneficioId: 'b', vidas: 1, desde: '2026-10', ate: '2026-09' }])).toEqual(['Benefícios: vidas entre 1 e 20.', 'Benefícios: fim antes do início.']);
         expect(validarFicha({ ...FICHA, beneficios: [{ beneficioId: 'odonto', vidas: 0 }] }).erros).toContain('Benefícios: vidas entre 1 e 20.');
+        // Vidas mudaram em 11/2026: dois períodos do mesmo benefício, sem sobreposição; cada mês desconta as vidas da época (Codex #122).
+        const periodos = [{ beneficioId: 'odonto', vidas: 1, ate: '2026-10' }, { beneficioId: 'odonto', vidas: 2, desde: '2026-11' }];
+        expect(validarAdesoes(periodos)).toEqual([]);
+        expect([verbasDosBeneficios([ODONTO], periodos, '2026-10').verbas[0].valor, verbasDosBeneficios([ODONTO], periodos, '2026-11').verbas[0].valor]).toEqual([13874, 27748]);
+        expect(validarAdesoes([{ beneficioId: 'odonto', vidas: 1 }, { beneficioId: 'odonto', vidas: 2, desde: '2026-11' }])).toEqual(['Benefícios: períodos do mesmo benefício se sobrepõem (feche o anterior com "até" antes de abrir o novo).']);
         // A adesão entra no histórico (auditoria) da ficha.
         expect(diffFicha(FICHA, { ...FICHA, beneficios: [] }).map(a => a.campo)).toEqual(['beneficios']);
     });

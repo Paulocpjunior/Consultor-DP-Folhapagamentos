@@ -93,6 +93,13 @@ export function validarAdesoes(adesoes: AdesaoBeneficio[]): string[] {
         if ((a.desde && !COMPETENCIA.test(a.desde)) || (a.ate && !COMPETENCIA.test(a.ate))) erros.push('Benefícios: início e fim no formato AAAA-MM.');
         if (a.desde && a.ate && a.ate < a.desde) erros.push('Benefícios: fim antes do início.');
     }
+    // Mais de um período do mesmo benefício (as vidas mudaram): não podem se sobrepor, senão o mês desconta duas vezes.
+    adesoes.forEach((a, i) => adesoes.slice(i + 1).forEach(b => {
+        if (a.beneficioId !== b.beneficioId) return;
+        const ini = (x: AdesaoBeneficio) => x.desde || '0000-00'; const fim = (x: AdesaoBeneficio) => x.ate || '9999-99';
+        if (ini(a) <= fim(b) && ini(b) <= fim(a)) erros.push('Benefícios: períodos do mesmo benefício se sobrepõem (feche o anterior com "até" antes de abrir o novo).');
+    }));
+    if (adesoes.some(a => !a.beneficioId)) erros.push('Benefícios: escolha o benefício.');
     return [...new Set(erros)];
 }
 
