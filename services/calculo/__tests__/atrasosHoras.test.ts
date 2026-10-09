@@ -59,3 +59,14 @@ describe('faltas e atrasos em horas', () => {
         expect(sugerirDePara([r], [rub('5800', 'FALTAS'), r9211], '2026-09').find(i => i.chave === 'ATRASO')?.sugestao?.codRubr).toBe('5850');
     });
 });
+
+describe('horas mês da ficha (divisor do salário-hora)', () => {
+    it('com 42,3 h semanais, semanais × 5 = 211,5 h; com horas mês 220 na ficha, 8 h = 98,18 como no IOB', () => {
+        const ficha = (horasMes?: string): FichaFuncionario => ({ ...FICHA, dados: { ...FICHA.dados, horasSemanais: '42.3', ...(horasMes ? { horasMes } : {}) } });
+        const calc = (f: FichaFuncionario) => calcularMensal({ competencia: '2026-09', pagamento: '2026-10', ficha: f, tabelas: TAB, afastamentos: [], movimento: { atrasosHoras: 8 }, folhaPagaNoAdiantamento: null });
+        expect(v(calc(ficha()), 'ATRASO')).toBe(10213); // 2.700,00 ÷ 211,5 × 8
+        const r = calc(ficha('220'));
+        expect(v(r, 'ATRASO')).toBe(9818);
+        expect(r.memoria.join(' ')).toMatch(/salário ÷ 220 h/);
+    });
+});
