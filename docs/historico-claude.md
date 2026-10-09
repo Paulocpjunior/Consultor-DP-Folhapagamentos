@@ -3079,3 +3079,14 @@ guias sindicais".
 - **Abaixo da tabela:** o salário-base e a conta do IRRF do adiantamento (a memória do motor).
 - **Quem fica fora:** quem tem o cálculo com erro ou incompleto, ou não pode receber na data (as regras do arquivo do adiantamento). Esses funcionários aparecem na última página, com o motivo.
 - **Pacote do cliente:** os recibos do adiantamento entram na lista de documentos quando há adiantamento no mês.
+
+## Faltas e atrasos em horas (rodada da 1200, 09/2026)
+
+- **Paulo:** no IOB, digita-se o evento e a referência e o cálculo sai sozinho. No Consultor, o "FALTAS E ATRASOS (T/H)" (5850, ref. 8,00 = 98,18 na Bruna) teria de ser somado à mão e lançado como avulso.
+- **Mudança:** novo campo **"Faltas e atrasos (horas)"** no movimento (`atrasosHoras`). O motor calcula salário-hora × horas (2.700,00 ÷ 220 × 8 = 98,18), com INSS, FGTS e IRRF. Aceita 8,5 ou 8:30, e as horas guardam 4 casas.
+- **Conferência e histórico:** no holerite do IOB lido pela conferência, "FALTAS E ATRASOS (T/H)" deixa de ser lido como 8 *dias* de falta e vira as horas do campo novo. Na restauração e no histórico da folha (holerith), a natureza 9207 com atraso, "T/H" ou horas também vai para as horas, em vez de ficar de fora. Com isso, o encadeamento do arredondamento refaz os meses passados com os atrasos.
+- **eSocial:** a verba ATRASO sugere a rubrica de natureza 9207 com "atraso", "T/H" ou "hora", ou o código 5850.
+- **Conferido com o holerite do IOB da Bruna, 09/2026:**
+  - INSS 209,85, bases 2.601,82;
+  - com o arredondamento anterior 0,23, atual 0,26 e líquido 1.150,00.
+  - O FGTS do IOB saiu 208,14 (truncado), e o do motor saiu 208,15 (arredondado), dentro da tolerância de 1 centavo.

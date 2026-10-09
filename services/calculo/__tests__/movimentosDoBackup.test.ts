@@ -12,9 +12,10 @@ describe('o que cada evento do IOB é no movimento', () => {
         expect(classificarEvento('1003', 'H.EXTRAS 100%')).toBe('horasExtras100');
         expect(classificarEvento('1003', 'REFLEXO H.E. NO DSR')).toBeNull();
         expect(classificarEvento('9207', 'FALTAS')).toBe('faltasDias');
-        expect(classificarEvento('9207', 'FALTAS E ATRASOS (T/H)')).toBeNull();
-        expect(classificarEvento('9207', 'FALTAS EM HORAS')).toBeNull();
-        expect(classificarEvento('9211', 'FALTAS/ATRASOS')).toBeNull();
+        // Em horas: vão para "Faltas e atrasos (horas)", não para dias.
+        expect(classificarEvento('9207', 'FALTAS E ATRASOS (T/H)')).toBe('atrasosHoras');
+        expect(classificarEvento('9207', 'FALTAS EM HORAS')).toBe('atrasosHoras');
+        expect(classificarEvento('9211', 'FALTAS/ATRASOS')).toBe('atrasosHoras');
         expect(classificarEvento('9211', 'FALTAS NO MES')).toBe('faltasDias');
         expect(classificarEvento('9207', 'DSR S/ FALTAS')).toBe('dsrDescontadoDias');
         expect(classificarEvento('', 'D.S.R. DESCONTADO FALTA')).toBe('dsrDescontadoDias');
@@ -94,8 +95,8 @@ describe('movimento mensal pelo holerith', () => {
             l('52', '202501', '1', '30', 'SALARIO'), l('52', '202502', '5850', '3', 'FALTAS E ATRASOS (T/H)'),
         ] };
         const auto = movimentosDoHolerith(holerith, naturezas, [ana], { desde: '2024-01' });
-        expect(auto.movimentos).toEqual([{ fichaId: ana.id, competencia: '2025-01', movimento: { horasExtras50: 2 } }]);
-        expect(auto.todos.map(e => [e.codeven, e.classe, e.manual])).toEqual([['1', null, false], ['50', 'horasExtras50', false], ['130', null, false], ['5850', null, false]]);
+        expect(auto.movimentos).toEqual([{ fichaId: ana.id, competencia: '2025-01', movimento: { horasExtras50: 2 } }, { fichaId: ana.id, competencia: '2025-02', movimento: { atrasosHoras: 3 } }]);
+        expect(auto.todos.map(e => [e.codeven, e.classe, e.manual])).toEqual([['1', null, false], ['50', 'horasExtras50', false], ['130', null, false], ['5850', 'atrasosHoras', false]]);
 
         const r = movimentosDoHolerith(holerith, naturezas, [ana], { desde: '2024-01', sexagesimal: true, eventos: { 130: 'horasExtras100', 50: 'ignorar', 5850: 'faltasDias' } });
         expect(r.movimentos).toEqual([

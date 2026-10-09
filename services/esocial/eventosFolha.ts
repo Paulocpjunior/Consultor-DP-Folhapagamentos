@@ -74,6 +74,8 @@ const SUGESTAO: Record<string, { naturezas: string[]; dica?: RegExp; evita?: Reg
     DSRHE: { naturezas: ['1002'], dica: /EXTRA|\bHE\b/ },
     FALTA: { naturezas: ['9207'], evita: /DSR|REPOUSO/ },
     DSRF: { naturezas: ['9207'], dica: /DSR|REPOUSO/ },
+    // Faltas e atrasos em horas: no IOB, o evento 5850 "FALTAS E ATRASOS (T/H)".
+    ATRASO: { naturezas: ['9207'], dica: /ATRAS|\bT H\b|HORA/, evita: /DSR|REPOUSO/, codigos: ['5850'] },
     INSS: { naturezas: ['9201'] },
     IRRF: { naturezas: ['9203'] },
     SF: { naturezas: ['1409'] },

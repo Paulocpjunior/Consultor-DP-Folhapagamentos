@@ -33,6 +33,8 @@ export interface Movimento {
     horasExtras100?: number;
     faltasDias?: number;
     dsrDescontadoDias?: number;
+    /** Faltas e atrasos em horas (o "FALTAS E ATRASOS (T/H)" do IOB): salário-hora × horas, com INSS, FGTS e IRRF. */
+    atrasosHoras?: number;
     /** Feriados estaduais/municipais no mês (entram como descanso no DSR das horas extras). */
     feriadosLocais?: number;
     pensaoAlimenticia?: number;
@@ -316,6 +318,12 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     if (faltas > 0) verba({ codigo: 'FALTA', descricao: 'Faltas', referencia: `${num(faltas)} dias`, tipo: 'desconto', valor: Math.round(diaria * faltas), inss: true, fgts: true, irrf: true });
     if (dsrDesc > 0) verba({ codigo: 'DSRF', descricao: 'DSR descontado (faltas)', referencia: `${num(dsrDesc)} dias`, tipo: 'desconto', valor: Math.round(diaria * dsrDesc), inss: true, fgts: true, irrf: true });
     if (faltas > 0 || dsrDesc > 0) r.memoria.push(`Faltas e DSR: ${reais(Math.round(diaria))} por dia (salário ÷ 30).`);
+    const atrasos = mov.atrasosHoras ?? 0;
+    if (atrasos > 0) {
+        const v = Math.round(salarioHora * atrasos);
+        verba({ codigo: 'ATRASO', descricao: 'Faltas e atrasos (horas)', referencia: `${num(atrasos)} h`, tipo: 'desconto', valor: v, inss: true, fgts: true, irrf: true });
+        r.memoria.push(`Faltas e atrasos: ${num(atrasos)} h × ${reais(Math.round(salarioHora))}/h (salário ÷ ${num(horasMes)} h) = ${reais(v)}.`);
+    }
     (mov.lancamentos ?? []).forEach((l, i) => verba({ ...l, codigo: `LAN${i + 1}`, referencia: '', valor: Math.round(l.valor) }));
 
     // Vale-transporte: desconto de 6% do salário básico do mês (Lei 7.418/1985, art. 4º, parágrafo único;

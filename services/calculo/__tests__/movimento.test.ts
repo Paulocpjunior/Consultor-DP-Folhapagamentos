@@ -6,7 +6,7 @@ const lanc = (descricao: string, valor: number) => ({ descricao, tipo: 'provento
 describe('movimento do mês', () => {
     it('limpa zeros, vazios e lançamentos em branco; arredonda', () => {
         expect(limparMovimento({ horasExtras50: 0, faltasDias: 1, horasExtras100: 2.345, pensaoAlimenticia: 10000.4, lancamentos: [lanc('  Prêmio   anual ', 5000), lanc('', 0)] }))
-            .toEqual({ horasExtras100: 2.35, faltasDias: 1, pensaoAlimenticia: 10000, lancamentos: [lanc('Prêmio anual', 5000)] });
+            .toEqual({ horasExtras100: 2.345, faltasDias: 1, pensaoAlimenticia: 10000, lancamentos: [lanc('Prêmio anual', 5000)] });
         expect(movimentoVazio({ horasExtras50: 0, lancamentos: [lanc(' ', 0)] })).toBe(true);
         expect(movimentoVazio(undefined)).toBe(true);
         expect(movimentoVazio({ feriadosLocais: 1 })).toBe(false);
