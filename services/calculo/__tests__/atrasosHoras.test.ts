@@ -8,6 +8,8 @@ import { classificarVerba, movimentoDoHolerite } from '../conferenciaHolerites';
 import { classificarEvento } from '../movimentosDoBackup';
 import { TABELAS_OFICIAIS_2026 } from '../../cadastros/tabelasOficiais';
 import { fichaVazia, type FichaFuncionario } from '../../cadastros/funcionarios';
+import type { Rubrica } from '../../cadastros/rubricas';
+import { sugerirDePara } from '../../esocial/eventosFolha';
 
 const TAB = TABELAS_OFICIAIS_2026.map((t, i) => ({ ...t, id: `t${i}` }));
 const FICHA: FichaFuncionario = { ...fichaVazia({ id: 'E1', cnpj: '44388152000189' }), id: 'f1', cpf: '52998224725', matriculaEsocial: 'M1', situacao: 'ativo',
@@ -37,10 +39,19 @@ describe('faltas e atrasos em horas', () => {
         const verba = { codigo: '5850', descricao: 'FALTAS E ATRASOS (T/H)', referencia: '8,00', provento: 0, desconto: 9818 };
         expect(classificarVerba(verba)).toBe('ATRASO');
         expect(classificarVerba({ ...verba, descricao: 'FALTAS', referencia: '2,00' })).toBe('FALTA');
+        expect(classificarVerba({ ...verba, descricao: 'FALTAS EM HORAS' })).toBe('ATRASO');
         const { movimento } = movimentoDoHolerite({ nome: 'ANA', competencia: '2026-09', verbas: [verba], totalProventos: null, totalDescontos: null, liquido: null, baseInss: null, baseFgts: null, fgtsMes: null, baseIrrf: null, avisos: [] } as never);
         expect([movimento.atrasosHoras, movimento.faltasDias]).toEqual([8, undefined]);
         expect(classificarEvento('9207', 'FALTAS E ATRASOS (T/H)')).toBe('atrasosHoras');
         expect(classificarEvento('9207', 'FALTAS')).toBe('faltasDias');
         expect(classificarEvento('', 'ATRASOS')).toBe('atrasosHoras');
+    });
+
+    it('de/para do eSocial: FALTAS e FALTAS E ATRASOS (T/H), ambas 9207, cada uma na sua verba (Codex #120)', () => {
+        const rub = (cod: string, dsc: string): Rubrica => ({ id: cod, empresaId: 'E1', codRubr: cod, ideTabRubr: 'T1', eventoIob: '', origem: '',
+            vigencias: [{ iniValid: '2020-01', fimValid: '', recibo: '', dados: { dscRubr: dsc, natRubr: '9207', tpRubr: '2', codIncCP: '11', codIncIRRF: '11', codIncFGTS: '11', codIncCPRP: '', observacao: '' } }] });
+        const r = calcularMensal({ competencia: '2026-09', pagamento: '2026-09', ficha: FICHA, tabelas: TAB, afastamentos: [], movimento: { faltasDias: 1, atrasosHoras: 2 } });
+        const s = Object.fromEntries(sugerirDePara([r], [rub('5800', 'FALTAS'), rub('5850', 'FALTAS E ATRASOS (T/H)'), rub('5810', 'DSR S/ FALTAS')], '2026-09').map(i => [i.chave, i.sugestao?.codRubr ?? null]));
+        expect([s.FALTA, s.ATRASO]).toEqual(['5800', '5850']);
     });
 });

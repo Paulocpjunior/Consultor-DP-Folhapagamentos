@@ -3090,3 +3090,6 @@ guias sindicais".
   - INSS 209,85, bases 2.601,82;
   - com o arredondamento anterior 0,23, atual 0,26 e líquido 1.150,00.
   - O FGTS do IOB saiu 208,14 (truncado), e o do motor saiu 208,15 (arredondado), dentro da tolerância de 1 centavo.
+- **Revisão do Codex no #120 (P1 e P2):**
+  - **"FALTAS EM HORAS" no holerite:** desconto com falta e "hora(s)" na descrição também vira horas, e não dias. Era o mesmo critério do histórico.
+  - **De/para do eSocial:** a sugestão de FALTA deixa de lado as rubricas de atraso, "T/H" ou hora. Com "FALTAS" e "FALTAS E ATRASOS (T/H)" no S-1010, as duas de natureza 9207, cada verba recebe a sua.

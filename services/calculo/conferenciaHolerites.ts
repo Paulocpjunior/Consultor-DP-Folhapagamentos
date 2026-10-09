@@ -55,7 +55,7 @@ export function classificarVerba(v: VerbaHolerite): Classe {
     if (extra && /100/.test(d)) return 'HE100';
     if (extra && /50/.test(d)) return 'HE50';
     // Em horas ("FALTAS E ATRASOS (T/H)" do IOB, ref. 8,00 = 8 horas): não são dias de falta.
-    if (desconto && /ATRAS|\bT\/H\b/.test(d)) return 'ATRASO';
+    if (desconto && (/ATRAS|\bT\/H\b/.test(d) || (/FALTA|AUSENCIA/.test(d) && /\bHORAS?\b/.test(d)))) return 'ATRASO';
     if (desconto && /FALTA|AUSENCIA/.test(d)) return 'FALTA';
     if (!desconto && /^SAL(ARIO|\.)|SALDO DE SAL|HORAS NORMAIS|DIAS? TRABALHADOS|SALARIO (MENSAL|BASE|NORMAL|HORA)|^ORDENADO/.test(d)) return 'SAL';
     return 'OUTRO';
