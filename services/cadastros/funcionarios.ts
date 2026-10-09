@@ -211,7 +211,8 @@ export function fichaNaData(f: FichaFuncionario, data: string): { ficha: FichaFu
     }
     // Horas mês da ficha são do contrato atual: numa faixa com outras horas semanais, o divisor volta a ser o
     // da época (semanais × 5; Codex #121).
-    if (dados.horasMes && (dados.horasSemanais ?? '') !== (f.dados.horasSemanais ?? '')) delete dados.horasMes;
+    const horas = (t: string | undefined) => Number((t ?? '').replace(',', '.')) || 0;
+    if (dados.horasMes && horas(dados.horasSemanais) !== horas(f.dados.horasSemanais)) delete dados.horasMes;
     // O histórico da ficha devolvida para na data: um cálculo feito com ela depois (a folha do mês da
     // rescisão, por exemplo) não volta a escolher um reajuste posterior.
     return { ficha: { ...f, dados, historicoSalario: h.filter(x => x.desde <= data) }, faixa, ...(antesDoHistorico ? { antesDoHistorico } : {}) };
@@ -284,7 +285,7 @@ export function validarFicha(f: FichaFuncionario): Validacao {
     const pctAd = (d.adiantamentoPct ?? '').trim();
     if (pctAd && !(/^\d+([.,]\d{1,2})?$/.test(pctAd) && Number(pctAd.replace(',', '.')) <= 100)) erros.push('Adiantamento salarial: percentual entre 0 e 100.');
     const hm = (d.horasMes ?? '').trim();
-    if (hm && !(/^\d{1,3}([.,]\d{1,2})?$/.test(hm) && Number(hm.replace(',', '.')) > 0 && Number(hm.replace(',', '.')) <= 300)) erros.push('Horas mês: número de horas entre 1 e 300 (ex.: 220).');
+    if (hm && !(/^\d{1,3}([.,]\d{1,2})?$/.test(hm) && Number(hm.replace(',', '.')) >= 1 && Number(hm.replace(',', '.')) <= 300)) erros.push('Horas mês: número de horas entre 1 e 300 (ex.: 220).');
     if (d.valeTransporteCusto && !/^\d+(\.\d{1,2})?$/.test(d.valeTransporteCusto)) erros.push('Custo do vale-transporte inválido (valor com ponto decimal, ex.: 220.00).');
     if (d.cep && !/^\d{8}$/.test(d.cep)) erros.push('CEP deve ter 8 dígitos.');
     for (const k of ['uf', 'ufCtps'] as CampoFicha[]) if (d[k] && !UFS.includes(d[k]!)) erros.push(`${ROTULO[k]}: UF inválida.`);

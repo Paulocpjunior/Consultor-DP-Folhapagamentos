@@ -141,7 +141,7 @@ export function normalizarValor(campo: CampoCarga, v: Valor): string {
     }
     if (campo === 'horasMes') {
         const h = Number(t.replace(',', '.'));
-        return Number.isFinite(h) && h > 0 && h <= 300 ? String(Math.round(h * 100) / 100) : '';
+        return Number.isFinite(h) && h >= 1 && h <= 300 ? String(Math.round(h * 100) / 100) : '';
     }
     if (campo === 'categoria') { const d = t.replace(/\D/g, ''); return CATEGORIAS_ESOCIAL.has(d) ? d : ''; }
     if (campo === 'sexo') return /^m/i.test(t) ? 'M' : /^f/i.test(t) ? 'F' : '';

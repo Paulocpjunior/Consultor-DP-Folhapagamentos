@@ -3100,3 +3100,4 @@ guias sindicais".
 - **Causa:** sem informação, o divisor é horas semanais × 5. A ficha tem 42,3 horas semanais (do horário ou do eSocial), o que dá 211,5. O IOB divide por 220 (2.700,00 ÷ 220 × 8 = 98,18).
 - **Mudança:** campo novo na ficha, aba "Ident. Adm.": **"Horas mês (divisor do salário-hora)"** (`horasMes`). Preenchido, vale no lugar de semanais × 5 no salário-hora, nas horas extras, nos atrasos e no salário por hora, em todos os motores (`salarioContratual`). A carga pelo backup do IOB lê esse campo da `func`, se ele existir (hrsmes, horasmes etc.).
 - **Revisão do Codex no #121 (P1):** em competência de uma faixa antiga do histórico com outras horas semanais, as horas mês da ficha (do contrato atual) saem, e o divisor volta a ser o da época (semanais × 5).
+- **Revisão do Codex no #121 (P1 e P2):** as horas semanais da faixa e da ficha são comparadas como número (42.30 = 42,3). As horas mês valem só de 1 a 300, na ficha, na carga do backup e no motor.

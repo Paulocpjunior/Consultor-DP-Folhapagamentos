@@ -7,7 +7,7 @@ import { limparMovimento, validarMovimento } from '../movimento';
 import { classificarVerba, movimentoDoHolerite } from '../conferenciaHolerites';
 import { classificarEvento } from '../movimentosDoBackup';
 import { TABELAS_OFICIAIS_2026 } from '../../cadastros/tabelasOficiais';
-import { fichaNaData, fichaVazia, type FichaFuncionario } from '../../cadastros/funcionarios';
+import { fichaNaData, fichaVazia, validarFicha, type FichaFuncionario } from '../../cadastros/funcionarios';
 import type { Rubrica } from '../../cadastros/rubricas';
 import { sugerirDePara } from '../../esocial/eventosFolha';
 
@@ -78,5 +78,12 @@ describe('horas mês da ficha (divisor do salário-hora)', () => {
         // Mesmas horas semanais na faixa: as horas mês da ficha valem.
         const g: FichaFuncionario = { ...f, historicoSalario: historicoSalario.map(x => ({ ...x, horasSemanais: '40' })) };
         expect(fichaNaData(g, '2026-09-30').ficha.dados.horasMes).toBe('200');
+        // Mesmo número escrito de outro jeito (42.30 no eSocial, 42,3 na ficha): não é mudança de jornada.
+        const k: FichaFuncionario = { ...f, dados: { ...f.dados, horasSemanais: '42,3', horasMes: '220' }, historicoSalario: historicoSalario.map(x => ({ ...x, horasSemanais: '42.30' })) };
+        expect(fichaNaData(k, '2026-09-30').ficha.dados.horasMes).toBe('220');
+        // Divisor abaixo de 1 hora não vale (erro de digitação): volta a semanais × 5.
+        const meia = calcularMensal({ competencia: '2026-09', pagamento: '2026-09', ficha: { ...FICHA, dados: { ...FICHA.dados, horasSemanais: '44', horasMes: '0.5' } }, tabelas: TAB, afastamentos: [], movimento: { atrasosHoras: 8 } });
+        expect(v(meia, 'ATRASO')).toBe(9818);
+        expect(validarFicha({ ...FICHA, dados: { ...FICHA.dados, horasMes: '0,5' } }).erros.join(' ')).toMatch(/Horas mês/);
     });
 });
