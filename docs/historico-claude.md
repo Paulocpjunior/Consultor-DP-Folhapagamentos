@@ -3112,3 +3112,4 @@ guias sindicais".
   - **Conferência com o holerite do IOB:** a linha que é um benefício (pelo evento ou pelo começo do nome) confere numa linha própria, "Benefícios da empresa (efeito)". Ela não fica "sem correspondente" e não vira lançamento avulso ao aplicar o movimento do holerite.
 - **Conferido com o holerite da Carla, 09/2026:** odontológico 138,74 sem incidências, INSS 248,60; com o arredondamento anterior 0,71, atual 0,05 e líquido 1.232,00.
 - **eSocial:** a verba do benefício aparece no de/para pelo nome. Ligue-a à rubrica do evento (7001) na primeira vez.
+- **Revisão do Codex no #122 (P1 e P2):** cada benefício guarda as definições anteriores (`historico`, cada uma até a competência `ate`). Mudar valor, tipo, incidências ou ativo vale da competência da tela em diante, e os meses passados, reabertos ou retificados, usam o que valia neles (`definicaoNoMes`, `comHistorico`). O holerite em que só a linha do benefício foi lida não fica mais "ilegível".

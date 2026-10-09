@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { calcularMensal } from '../motorMensal';
 import { arredondar } from '../arredondamento';
-import { ehBeneficio, validarAdesoes, validarBeneficios, verbasDosBeneficios, type Beneficio } from '../beneficios';
+import { comHistorico, ehBeneficio, validarAdesoes, validarBeneficios, verbasDosBeneficios, type Beneficio } from '../beneficios';
 import { conferirHolerite, movimentoDoHolerite } from '../conferenciaHolerites';
 import { TABELAS_OFICIAIS_2026 } from '../../cadastros/tabelasOficiais';
 import { diffFicha, fichaVazia, validarFicha, type FichaFuncionario } from '../../cadastros/funcionarios';
@@ -55,5 +55,29 @@ describe('benefícios da empresa', () => {
         const c = conferirHolerite(r, h, 'cpf', { fichaId: 'f1', nome: 'CARLA', competencia: '2026-09', beneficios: [ODONTO] });
         expect(c.semCorrespondente).toEqual([]);
         expect(c.linhas.find(l => l.item === 'Benefícios da empresa (efeito)')).toMatchObject({ motor: -13874, iob: -13874, ok: true });
+    });
+
+    it('mudança de valor ou desativação vale da competência da tela em diante (Codex #122)', () => {
+        const ades = [{ beneficioId: 'odonto', vidas: 1 }];
+        const novo = comHistorico([ODONTO], [{ ...ODONTO, valor: 15000 }], '2026-11');
+        expect(novo[0].historico).toEqual([{ tipo: 'desconto', valor: 13874, inss: false, fgts: false, irrf: false, ativo: true, ate: '2026-10' }]);
+        expect(verbasDosBeneficios(novo, ades, '2026-10').verbas[0].valor).toBe(13874);
+        expect(verbasDosBeneficios(novo, ades, '2026-11').verbas[0].valor).toBe(15000);
+        // Desativado em 12/2026: novembro ainda desconta.
+        const fim = comHistorico(novo, [{ ...novo[0], ativo: false }], '2026-12');
+        expect(verbasDosBeneficios(fim, ades, '2026-11').verbas[0].valor).toBe(15000);
+        expect(verbasDosBeneficios(fim, ades, '2026-12').verbas).toEqual([]);
+        // Sem mudança (só o nome), o histórico fica como está; mudar de novo no mesmo mês não cria faixa vazia.
+        expect(comHistorico([ODONTO], [{ ...ODONTO, nome: 'Odonto' }], '2026-11')[0].historico).toBeUndefined();
+        expect(comHistorico(novo, [{ ...novo[0], valor: 16000 }], '2026-11')[0].historico).toEqual(novo[0].historico);
+    });
+
+    it('holerite só com a linha do benefício legível: confere, não fica ilegível (Codex #122)', () => {
+        const linha = { codigo: '7001', descricao: 'ASSISTENCIA ODONTOLOGIC', referencia: '1,00', provento: 0, desconto: 13874 };
+        const h = { nome: 'CARLA', competencia: '2026-09', verbas: [linha], totalProventos: null, totalDescontos: null, liquido: null, baseInss: null, baseFgts: null, fgtsMes: null, baseIrrf: null, avisos: [] } as never;
+        const r = calcularMensal({ competencia: '2026-09', pagamento: '2026-10', ficha: FICHA, tabelas: TAB, afastamentos: [], beneficios: [ODONTO], folhaPagaNoAdiantamento: null });
+        const c = conferirHolerite(r, h, 'cpf', { fichaId: 'f1', nome: 'CARLA', competencia: '2026-09', beneficios: [ODONTO] });
+        expect(c.situacao).not.toBe('ilegível');
+        expect(c.linhas.find(l => l.item === 'Benefícios da empresa (efeito)')?.ok).toBe(true);
     });
 });

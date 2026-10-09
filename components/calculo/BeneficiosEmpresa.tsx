@@ -5,13 +5,13 @@
 // (Cadastros › Funcionários › aba "Benefícios").
 
 import React, { useState } from 'react';
-import { novoBeneficio, validarBeneficios, type Beneficio } from '../../services/calculo/beneficios';
+import { comHistorico, novoBeneficio, validarBeneficios, type Beneficio } from '../../services/calculo/beneficios';
 import { centavosDeTexto } from '../../services/cadastros/documentos';
 
 const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const reaisTexto = (c: number) => (c ? (c / 100).toFixed(2).replace('.', ',') : '');
 
-const BeneficiosEmpresa: React.FC<{ beneficios: Beneficio[]; onSalvar: (l: Beneficio[]) => void; onFechar: () => void }> = ({ beneficios, onSalvar, onFechar }) => {
+const BeneficiosEmpresa: React.FC<{ beneficios: Beneficio[]; competencia: string; onSalvar: (l: Beneficio[]) => void; onFechar: () => void }> = ({ beneficios, competencia, onSalvar, onFechar }) => {
     const [lista, setLista] = useState<Beneficio[]>(beneficios);
     const [valores, setValores] = useState<Record<string, string>>(() => Object.fromEntries(beneficios.map(b => [b.id, reaisTexto(b.valor)])));
     const [erros, setErros] = useState<string[]>([]);
@@ -20,7 +20,8 @@ const BeneficiosEmpresa: React.FC<{ beneficios: Beneficio[]; onSalvar: (l: Benef
         const limpa = lista.map(b => ({ ...b, nome: b.nome.trim().replace(/\s+/g, ' '), codigoIob: (b.codigoIob ?? '').trim() }));
         const e = validarBeneficios(limpa);
         setErros(e);
-        if (!e.length) onSalvar(limpa);
+        // Mudança de valor, tipo, incidência ou ativo vale desta competência em diante; os meses anteriores ficam com a de antes.
+        if (!e.length) onSalvar(comHistorico(beneficios, limpa, competencia));
     };
     return (
         <section aria-label="Benefícios da empresa" className="space-y-2 rounded-lg border border-slate-200 bg-white p-3 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
@@ -28,7 +29,7 @@ const BeneficiosEmpresa: React.FC<{ beneficios: Beneficio[]; onSalvar: (l: Benef
                 <h3 className="font-semibold">Benefícios da empresa</h3>
                 <button className="text-xs underline" onClick={onFechar}>fechar</button>
             </div>
-            <p className="text-xs text-slate-600 dark:text-slate-300">Descontos (ou proventos) fixos por vida, como a assistência odontológica do IOB (evento 7001, ref. = vidas). Quem tem o benefício e com quantas vidas é marcado na ficha, aba "Benefícios". O motor lança todo mês.</p>
+            <p className="text-xs text-slate-600 dark:text-slate-300">Mudanças de valor, incidência ou ativo valem a partir de {competencia.split('-').reverse().join('/')} (a competência da tela); os meses anteriores ficam com o que valia neles. Descontos (ou proventos) fixos por vida, como a assistência odontológica do IOB (evento 7001, ref. = vidas). Quem tem o benefício e com quantas vidas é marcado na ficha, aba "Benefícios". O motor lança todo mês.</p>
             <div className="overflow-x-auto">
                 <table className="w-full min-w-[640px] text-xs">
                     <thead className="text-left text-slate-500"><tr><th className="p-1">Nome</th><th className="p-1">Evento IOB</th><th className="p-1">Tipo</th><th className="p-1">Valor por vida (R$)</th><th className="p-1">INSS</th><th className="p-1">FGTS</th><th className="p-1">IRRF</th><th className="p-1">Ativo</th><th /></tr></thead>
@@ -52,6 +53,7 @@ const BeneficiosEmpresa: React.FC<{ beneficios: Beneficio[]; onSalvar: (l: Benef
                 <button className="rounded border border-slate-300 px-3 py-1.5 text-xs dark:border-slate-600" onClick={() => setLista(l => [...l, novoBeneficio()])}>Adicionar benefício</button>
                 <button className="rounded bg-blue-700 px-3 py-1.5 text-xs font-medium text-white" onClick={salvar}>Salvar benefícios</button>
             </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">Para encerrar um benefício, desmarque "Ativo": os meses anteriores continuam com ele. "Remover" tira o benefício também dos meses passados.</p>
             <p className="text-[11px] text-slate-500 dark:text-slate-400">Incidências: confira com a rubrica do evento em Cadastros › Incidências (assistência odontológica descontada do empregado normalmente não incide em INSS, FGTS nem IRRF).</p>
         </section>
     );

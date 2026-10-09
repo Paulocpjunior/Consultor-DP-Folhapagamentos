@@ -18,6 +18,41 @@ export interface Beneficio {
     inss: boolean; fgts: boolean; irrf: boolean;
     /** Desligado na empresa: deixa de entrar na folha de todos. */
     ativo: boolean;
+    /**
+     * Definições anteriores, cada uma valendo até a competência `ate` (inclusive): mudar o valor, o tipo, as
+     * incidências ou desativar não reescreve os meses passados (Codex #122).
+     */
+    historico?: DefinicaoBeneficio[];
+}
+
+/** O que muda num benefício ao longo do tempo. */
+export type DefinicaoBeneficio = Pick<Beneficio, 'tipo' | 'valor' | 'inss' | 'fgts' | 'irrf' | 'ativo'> & { ate: string };
+
+const definicao = (b: Beneficio) => ({ tipo: b.tipo, valor: b.valor, inss: b.inss, fgts: b.fgts, irrf: b.irrf, ativo: b.ativo });
+const mesAnterior = (c: string) => { const [a, m] = c.split('-').map(Number); return m === 1 ? `${a - 1}-12` : `${a}-${String(m - 1).padStart(2, '0')}`; };
+
+/** A definição do benefício que valia na competência: a do histórico que a cobre, ou a atual. */
+export function definicaoNoMes(b: Beneficio, competencia: string): Omit<DefinicaoBeneficio, 'ate'> {
+    const h = [...(b.historico ?? [])].sort((x, y) => x.ate.localeCompare(y.ate)).find(x => x.ate >= competencia);
+    return h ? { tipo: h.tipo, valor: h.valor, inss: h.inss, fgts: h.fgts, irrf: h.irrf, ativo: h.ativo } : definicao(b);
+}
+
+/**
+ * Lista a gravar a partir da editada: o benefício cuja definição mudou guarda a anterior no histórico, valendo
+ * até o mês anterior a `aPartirDe` (a competência da tela); a nova vale dali em diante. Benefício removido sai.
+ */
+export function comHistorico(antes: Beneficio[], depois: Beneficio[], aPartirDe: string): Beneficio[] {
+    const porId = new Map(antes.map(b => [b.id, b]));
+    return depois.map(b => {
+        const a = porId.get(b.id);
+        const historico = a?.historico ?? b.historico;
+        if (!a || JSON.stringify(definicao(a)) === JSON.stringify(definicao(b)) || !COMPETENCIA.test(aPartirDe)) return { ...b, ...(historico ? { historico } : {}) };
+        const ate = mesAnterior(aPartirDe);
+        // Mudar de novo no mesmo mês substitui a mudança anterior desse mês (o histórico não ganha uma faixa vazia).
+        const anteriores = (historico ?? []).filter(x => x.ate < ate);
+        const ultimo = (historico ?? []).find(x => x.ate === ate);
+        return { ...b, historico: [...anteriores, ultimo ?? { ...definicao(a), ate }] };
+    });
 }
 
 export interface AdesaoBeneficio {
@@ -67,11 +102,13 @@ export function verbasDosBeneficios(catalogo: Beneficio[] | undefined, adesoes: 
     const porId = new Map((catalogo ?? []).map(b => [b.id, b]));
     for (const a of adesoes ?? []) {
         const b = porId.get(a.beneficioId);
-        if (!b || !b.ativo || !(b.valor > 0) || !(a.vidas > 0)) continue;
+        if (!b || !(a.vidas > 0)) continue;
         if ((a.desde && a.desde > competencia) || (a.ate && a.ate < competencia)) continue;
-        const valor = Math.round(b.valor * a.vidas);
-        verbas.push({ codigo: `${PREFIXO_BENEFICIO}${b.id}`, descricao: b.nome, referencia: `${a.vidas} vida${a.vidas > 1 ? 's' : ''}`, tipo: b.tipo, valor, inss: b.inss, fgts: b.fgts, irrf: b.irrf });
-        memoria.push(`${b.nome}${b.codigoIob ? ` (evento ${b.codigoIob} do IOB)` : ''}: ${(b.valor / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} por vida × ${a.vidas} = ${(valor / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (benefício da empresa).`);
+        const d = definicaoNoMes(b, competencia);
+        if (!d.ativo || !(d.valor > 0)) continue;
+        const valor = Math.round(d.valor * a.vidas);
+        verbas.push({ codigo: `${PREFIXO_BENEFICIO}${b.id}`, descricao: b.nome, referencia: `${a.vidas} vida${a.vidas > 1 ? 's' : ''}`, tipo: d.tipo, valor, inss: d.inss, fgts: d.fgts, irrf: d.irrf });
+        memoria.push(`${b.nome}${b.codigoIob ? ` (evento ${b.codigoIob} do IOB)` : ''}: ${(d.valor / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} por vida × ${a.vidas} = ${(valor / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (benefício da empresa).`);
     }
     return { verbas, memoria };
 }

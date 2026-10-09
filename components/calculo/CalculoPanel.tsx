@@ -544,7 +544,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 {mensal && <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado') || pendentes.length > 0} title={pendentes.length ? 'Salve o movimento antes: o S-1200 sai do movimento gravado.' : undefined} onClick={() => setEventosFolha(true)}>S-1200 e S-1210</button>}
                 <button className={btn} disabled={!resultados.length} onClick={exportar}>Exportar Excel</button>
             </div>
-            {mensal && empresa && verBeneficios && <BeneficiosEmpresa key={empresa.id} beneficios={parametrosFolha?.beneficios ?? []} onFechar={() => setVerBeneficios(false)}
+            {mensal && empresa && verBeneficios && <BeneficiosEmpresa key={`${empresa.id}-${competencia}`} beneficios={parametrosFolha?.beneficios ?? []} competencia={competencia} onFechar={() => setVerBeneficios(false)}
                 onSalvar={l => { gravarParametrosFolha(p => ({ ...p, beneficios: l })); setVerBeneficios(false); }} />}
             {rescisao && dados && (
                 <div className="space-y-2 rounded border border-slate-200 p-2 text-xs text-slate-700 dark:border-slate-700 dark:text-slate-200">

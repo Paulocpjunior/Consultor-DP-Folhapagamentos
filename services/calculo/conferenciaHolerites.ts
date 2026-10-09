@@ -123,7 +123,7 @@ export function conferirHolerite(r: ResultadoCalculo | undefined, h: HoleriteIob
     const linha = (item: string, m: number, i: number): LinhaConferencia => ({ item, motor: m, iob: i, diferenca: m - i, ok: Math.abs(m - i) <= TOLERANCIA });
     const doIob = ITENS.filter(c => iob[c]);
     const totaisLidos = [h.totalProventos, h.totalDescontos, h.liquido, h.baseInss, h.baseFgts, h.fgtsMes].some(v => v !== null);
-    if (!doIob.length && !semCorrespondente.length && !totaisLidos) {
+    if (!doIob.length && !semCorrespondente.length && !totaisLidos && !h.verbas.some(beneficio)) {
         return { ...base, situacao: 'ilegível', linhas: [], avisos: [...avisos, 'Nenhum valor lido neste holerite: confira o PDF.'] };
     }
     const linhas: LinhaConferencia[] = ITENS.filter(c => motor(c) || iob[c]).map(c => linha(ROTULO_CLASSE[c], motor(c), iob[c]));
