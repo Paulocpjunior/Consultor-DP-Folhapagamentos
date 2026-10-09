@@ -23,7 +23,7 @@ export type CampoCarga = 'cpf' | 'matriculaEsocial' | CampoFicha;
 export const CAMPOS_CARGA: CampoCarga[] = [
     'cpf', 'matriculaEsocial', 'codigoIob', 'nome', 'nascimento', 'admissao', 'dataDesligamento', 'sexo',
     'mae', 'pai', 'pis', 'ctps', 'serieCtps', 'ufCtps', 'rg', 'orgaoRg', 'emissaoRg', 'tituloEleitor',
-    'cargo', 'cbo', 'funcao', 'cargoIob', 'departamentoIob', 'salario', 'unidadeSalario', 'horasSemanais', 'fimContrato', 'opcaoFgts', 'categoria', 'sindicato', 'sindicatoIob',
+    'cargo', 'cbo', 'funcao', 'cargoIob', 'departamentoIob', 'salario', 'unidadeSalario', 'horasSemanais', 'horasMes', 'fimContrato', 'opcaoFgts', 'categoria', 'sindicato', 'sindicatoIob',
     'banco', 'agencia', 'conta', 'pix', 'cep', 'logradouro', 'numero', 'complemento', 'bairro', 'uf', 'telefone', 'email',
 ];
 
@@ -68,6 +68,7 @@ const SINONIMOS: [CampoCarga, RegExp][] = [
     // não entra: o código do IOB não é o do eSocial; a categoria vem do S-1200 (dmdev).
     ['unidadeSalario', /^(tipsal|tiposalario|unidadesalario|undsalfixo)$/],
     ['horasSemanais', /^(hrssem|horassemanais|hrsemanal|qtdhrssem)$/],
+    ['horasMes', /^(hrsmes|horasmes|hrmes|qtdhrsmes|hrsmensal|horasmensais)$/],
     ['fimContrato', /^(fimcontr|dtfimcontrato|fimcontrato|dtterm)$/],
     ['opcaoFgts', /^(dtopfg|dtopfgts|dtopcaofgts|opcaofgts)$/],
     ['categoria', /^(codcateg|categoriaesocial|categesocial)$/],
@@ -137,6 +138,10 @@ export function normalizarValor(campo: CampoCarga, v: Valor): string {
     if (campo === 'horasSemanais') {
         const h = Number(t.replace(',', '.'));
         return Number.isFinite(h) && h > 0 && h <= 44 ? String(Math.round(h * 100) / 100) : '';
+    }
+    if (campo === 'horasMes') {
+        const h = Number(t.replace(',', '.'));
+        return Number.isFinite(h) && h >= 1 && h <= 300 ? String(Math.round(h * 100) / 100) : '';
     }
     if (campo === 'categoria') { const d = t.replace(/\D/g, ''); return CATEGORIAS_ESOCIAL.has(d) ? d : ''; }
     if (campo === 'sexo') return /^m/i.test(t) ? 'M' : /^f/i.test(t) ? 'F' : '';

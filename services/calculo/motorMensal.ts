@@ -172,12 +172,14 @@ export function salarioContratual(d: FichaFuncionario['dados']): SalarioContratu
     const contratual = centavosDeTexto(d.salario ?? '');
     if (!contratual) return { erro: 'Ficha sem salário fixo.', avisos };
     const horasSemanais = Number((d.horasSemanais ?? '').replace(',', '.'));
-    const horasMes = horasSemanais > 0 ? Math.round(horasSemanais * 5 * 100) / 100 : 220;
-    if (!(horasSemanais > 0)) avisos.push('Ficha sem horas semanais: usado divisor de 220 horas.');
+    // Horas mês da ficha (o divisor do IOB, 220 para quem tem 44 h) vale sobre semanais × 5.
+    const informadas = Number((d.horasMes ?? '').replace(',', '.'));
+    const horasMes = informadas >= 1 && informadas <= 300 ? informadas : horasSemanais > 0 ? Math.round(horasSemanais * 5 * 100) / 100 : 220;
+    if (!(informadas >= 1 && informadas <= 300) && !(horasSemanais > 0)) avisos.push('Ficha sem horas semanais: usado divisor de 220 horas.');
     const unidade = d.unidadeSalario || '5';
     if (!d.unidadeSalario) avisos.push('Ficha sem unidade salarial: tratado como salário mensal.');
     if (unidade === '5') return { mensal: contratual, horasMes, memoria: `Salário mensal: ${reais(contratual)}.`, avisos };
-    if (unidade === '1') { const mensal = Math.round(contratual * horasMes); return { mensal, horasMes, memoria: `Salário por hora ${reais(contratual)} × ${num(horasMes)} h (semanais × 5, DSR incluído) = ${reais(mensal)}.`, avisos }; }
+    if (unidade === '1') { const mensal = Math.round(contratual * horasMes); return { mensal, horasMes, memoria: `Salário por hora ${reais(contratual)} × ${num(horasMes)} h (${informadas >= 1 && informadas <= 300 ? 'horas mês da ficha' : 'semanais × 5'}, DSR incluído) = ${reais(mensal)}.`, avisos }; }
     if (unidade === '2') return { mensal: contratual * 30, horasMes, memoria: `Salário por dia ${reais(contratual)} × 30 = ${reais(contratual * 30)}.`, avisos };
     if (unidade === '4') return { mensal: contratual * 2, horasMes, memoria: `Salário por quinzena ${reais(contratual)} × 2 = ${reais(contratual * 2)}.`, avisos };
     return { erro: `Unidade salarial ${unidade}: não calculada nesta versão (só mês, hora, dia e quinzena).`, avisos };

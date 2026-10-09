@@ -3093,3 +3093,11 @@ guias sindicais".
 - **Revisão do Codex no #120 (P1 e P2):**
   - **"FALTAS EM HORAS" no holerite:** desconto com falta e "hora(s)" na descrição também vira horas, e não dias. Era o mesmo critério do histórico.
   - **De/para do eSocial:** a sugestão de FALTA deixa de lado as rubricas de atraso, "T/H" ou hora. Com "FALTAS" e "FALTAS E ATRASOS (T/H)" no S-1010, as duas de natureza 9207, cada verba recebe a sua.
+
+## Horas mês na ficha (divisor do salário-hora)
+
+- **Paulo:** com 8 horas de atraso, a Bruna deu líquido 1.146,00, e não 1.150,00. O Consultor dividiu por 211,5 horas.
+- **Causa:** sem informação, o divisor é horas semanais × 5. A ficha tem 42,3 horas semanais (do horário ou do eSocial), o que dá 211,5. O IOB divide por 220 (2.700,00 ÷ 220 × 8 = 98,18).
+- **Mudança:** campo novo na ficha, aba "Ident. Adm.": **"Horas mês (divisor do salário-hora)"** (`horasMes`). Preenchido, vale no lugar de semanais × 5 no salário-hora, nas horas extras, nos atrasos e no salário por hora, em todos os motores (`salarioContratual`). A carga pelo backup do IOB lê esse campo da `func`, se ele existir (hrsmes, horasmes etc.).
+- **Revisão do Codex no #121 (P1):** em competência de uma faixa antiga do histórico com outras horas semanais, as horas mês da ficha (do contrato atual) saem, e o divisor volta a ser o da época (semanais × 5).
+- **Revisão do Codex no #121 (P1 e P2):** as horas semanais da faixa e da ficha são comparadas como número (42.30 = 42,3). As horas mês valem só de 1 a 300, na ficha, na carga do backup e no motor.

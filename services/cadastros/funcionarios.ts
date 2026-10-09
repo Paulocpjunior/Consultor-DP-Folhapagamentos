@@ -19,7 +19,7 @@ import { UFS, cnpjValido, cpfValido, dataValida, centavosDeTexto, pisValido } fr
 
 export type { Dependente };
 export type CampoExtra = 'codigoIob' | 'horario' | 'banco' | 'agencia' | 'conta' | 'tipoConta' | 'pix' | 'observacoes' | 'dataDesligamento' | 'motivoDesligamento' | 'dataProjetadaAviso' | 'grauExp'
-    | 'adiantamentoPct' | 'valeTransporte' | 'valeTransporteCusto';
+    | 'adiantamentoPct' | 'valeTransporte' | 'valeTransporteCusto' | 'horasMes';
 export type CampoFicha = Exclude<Campo, 'dependentes' | 'matriculaIob'> | CampoExtra;
 export type Situacao = 'ativo' | 'desligado';
 export type ChaveOrigem = CampoFicha | 'dependentes' | 'situacao';
@@ -60,6 +60,7 @@ export const ROTULO: Record<CampoFicha, string> = {
     motivoDesligamento: 'Motivo do desligamento (eSocial)', dataProjetadaAviso: 'Fim projetado pelo aviso indenizado',
     grauExp: 'Grau de exposição a agentes nocivos (S-1200)',
     adiantamentoPct: 'Adiantamento salarial (% do salário do mês)',
+    horasMes: 'Horas mês (divisor do salário-hora)',
     valeTransporte: 'Vale-transporte (desconto de até 6%)',
     valeTransporteCusto: 'Custo mensal do vale-transporte (limita o desconto)',
 };
@@ -108,7 +109,7 @@ export function defCampo(campo: CampoFicha): DefCampo {
 /** Abas na ordem do IOB Office. Complementos, Lanç. Automático e Holerite dependem dos prints do Office. */
 export const ABAS: { id: string; titulo: string; campos: CampoFicha[] }[] = [
     { id: 'dados', titulo: 'Dados', campos: ['nome', 'nascimento', 'sexo', 'estadoCivil', 'raca', 'escolaridade', 'nacionalidade', 'paisNascimento', 'naturalidade', 'mae', 'pai', 'cep', 'logradouro', 'numero', 'complemento', 'bairro', 'municipio', 'uf', 'telefone', 'email'] },
-    { id: 'identAdm', titulo: 'Ident. Adm.', campos: ['codigoIob', 'admissao', 'categoria', 'tipoContrato', 'fimContrato', 'cargo', 'cbo', 'funcao', 'cargoIob', 'departamentoIob', 'salario', 'unidadeSalario', 'horasSemanais', 'horario', 'jornada', 'horarioTrabalho', 'horarioIntervalo', 'sindicato', 'sindicatoIob', 'estabelecimento', 'regimeTrabalhista', 'regimePrevidenciario', 'opcaoFgts', 'grauExp', 'dataDesligamento', 'motivoDesligamento', 'dataProjetadaAviso'] },
+    { id: 'identAdm', titulo: 'Ident. Adm.', campos: ['codigoIob', 'admissao', 'categoria', 'tipoContrato', 'fimContrato', 'cargo', 'cbo', 'funcao', 'cargoIob', 'departamentoIob', 'salario', 'unidadeSalario', 'horasSemanais', 'horasMes', 'horario', 'jornada', 'horarioTrabalho', 'horarioIntervalo', 'sindicato', 'sindicatoIob', 'estabelecimento', 'regimeTrabalhista', 'regimePrevidenciario', 'opcaoFgts', 'grauExp', 'dataDesligamento', 'motivoDesligamento', 'dataProjetadaAviso'] },
     { id: 'adiantVt', titulo: 'Adiant. e VT', campos: ['adiantamentoPct', 'valeTransporte', 'valeTransporteCusto'] },
     { id: 'documentos', titulo: 'Documentos', campos: ['pis', 'cadastroPis', 'ctps', 'serieCtps', 'ufCtps', 'rg', 'orgaoRg', 'emissaoRg', 'tituloEleitor', 'zonaEleitoral', 'secaoEleitoral', 'documentoMilitar'] },
     { id: 'outros', titulo: 'Outros', campos: ['banco', 'agencia', 'conta', 'tipoConta', 'pix', 'deficiencia', 'enderecoExterior', 'observacoes'] },
@@ -208,6 +209,10 @@ export function fichaNaData(f: FichaFuncionario, data: string): { ficha: FichaFu
         if (!h.some(x => x[chave])) continue;
         if (faixa[chave]) dados[campo] = faixa[chave]; else delete dados[campo];
     }
+    // Horas mês da ficha são do contrato atual: numa faixa com outras horas semanais, o divisor volta a ser o
+    // da época (semanais × 5; Codex #121).
+    const horas = (t: string | undefined) => Number((t ?? '').replace(',', '.')) || 0;
+    if (dados.horasMes && horas(dados.horasSemanais) !== horas(f.dados.horasSemanais)) delete dados.horasMes;
     // O histórico da ficha devolvida para na data: um cálculo feito com ela depois (a folha do mês da
     // rescisão, por exemplo) não volta a escolher um reajuste posterior.
     return { ficha: { ...f, dados, historicoSalario: h.filter(x => x.desde <= data) }, faixa, ...(antesDoHistorico ? { antesDoHistorico } : {}) };
@@ -279,6 +284,8 @@ export function validarFicha(f: FichaFuncionario): Validacao {
     if (d.salario && !/^\d+(\.\d{1,2})?$/.test(d.salario)) erros.push('Salário inválido.');
     const pctAd = (d.adiantamentoPct ?? '').trim();
     if (pctAd && !(/^\d+([.,]\d{1,2})?$/.test(pctAd) && Number(pctAd.replace(',', '.')) <= 100)) erros.push('Adiantamento salarial: percentual entre 0 e 100.');
+    const hm = (d.horasMes ?? '').trim();
+    if (hm && !(/^\d{1,3}([.,]\d{1,2})?$/.test(hm) && Number(hm.replace(',', '.')) >= 1 && Number(hm.replace(',', '.')) <= 300)) erros.push('Horas mês: número de horas entre 1 e 300 (ex.: 220).');
     if (d.valeTransporteCusto && !/^\d+(\.\d{1,2})?$/.test(d.valeTransporteCusto)) erros.push('Custo do vale-transporte inválido (valor com ponto decimal, ex.: 220.00).');
     if (d.cep && !/^\d{8}$/.test(d.cep)) erros.push('CEP deve ter 8 dígitos.');
     for (const k of ['uf', 'ufCtps'] as CampoFicha[]) if (d[k] && !UFS.includes(d[k]!)) erros.push(`${ROTULO[k]}: UF inválida.`);

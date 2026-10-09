@@ -7,7 +7,7 @@ import { limparMovimento, validarMovimento } from '../movimento';
 import { classificarVerba, movimentoDoHolerite } from '../conferenciaHolerites';
 import { classificarEvento } from '../movimentosDoBackup';
 import { TABELAS_OFICIAIS_2026 } from '../../cadastros/tabelasOficiais';
-import { fichaVazia, type FichaFuncionario } from '../../cadastros/funcionarios';
+import { fichaNaData, fichaVazia, validarFicha, type FichaFuncionario } from '../../cadastros/funcionarios';
 import type { Rubrica } from '../../cadastros/rubricas';
 import { sugerirDePara } from '../../esocial/eventosFolha';
 
@@ -57,5 +57,33 @@ describe('faltas e atrasos em horas', () => {
         const r9211 = { ...rub('5850', 'FALTAS E ATRASOS (T/H)') };
         r9211.vigencias = [{ ...r9211.vigencias[0], dados: { ...r9211.vigencias[0].dados, natRubr: '9211' } }];
         expect(sugerirDePara([r], [rub('5800', 'FALTAS'), r9211], '2026-09').find(i => i.chave === 'ATRASO')?.sugestao?.codRubr).toBe('5850');
+    });
+});
+
+describe('horas mês da ficha (divisor do salário-hora)', () => {
+    it('com 42,3 h semanais, semanais × 5 = 211,5 h; com horas mês 220 na ficha, 8 h = 98,18 como no IOB', () => {
+        const ficha = (horasMes?: string): FichaFuncionario => ({ ...FICHA, dados: { ...FICHA.dados, horasSemanais: '42.3', ...(horasMes ? { horasMes } : {}) } });
+        const calc = (f: FichaFuncionario) => calcularMensal({ competencia: '2026-09', pagamento: '2026-10', ficha: f, tabelas: TAB, afastamentos: [], movimento: { atrasosHoras: 8 }, folhaPagaNoAdiantamento: null });
+        expect(v(calc(ficha()), 'ATRASO')).toBe(10213); // 2.700,00 ÷ 211,5 × 8
+        const r = calc(ficha('220'));
+        expect(v(r, 'ATRASO')).toBe(9818);
+        expect(r.memoria.join(' ')).toMatch(/salário ÷ 220 h/);
+    });
+
+    it('faixa antiga com outras horas semanais não herda as horas mês de hoje (Codex #121)', () => {
+        const historicoSalario = [{ desde: '2026-05-13', salario: '2700.00', unidade: '5', horasSemanais: '44', origem: 'S-2200 · 1' }, { desde: '2026-10-01', salario: '2700.00', unidade: '5', horasSemanais: '40', origem: 'S-2206 · 2' }];
+        const f: FichaFuncionario = { ...FICHA, historicoSalario, dados: { ...FICHA.dados, horasSemanais: '40', horasMes: '200' } };
+        expect(fichaNaData(f, '2026-09-30').ficha.dados).toMatchObject({ horasSemanais: '44' });
+        expect(fichaNaData(f, '2026-09-30').ficha.dados.horasMes).toBeUndefined();
+        // Mesmas horas semanais na faixa: as horas mês da ficha valem.
+        const g: FichaFuncionario = { ...f, historicoSalario: historicoSalario.map(x => ({ ...x, horasSemanais: '40' })) };
+        expect(fichaNaData(g, '2026-09-30').ficha.dados.horasMes).toBe('200');
+        // Mesmo número escrito de outro jeito (42.30 no eSocial, 42,3 na ficha): não é mudança de jornada.
+        const k: FichaFuncionario = { ...f, dados: { ...f.dados, horasSemanais: '42,3', horasMes: '220' }, historicoSalario: historicoSalario.map(x => ({ ...x, horasSemanais: '42.30' })) };
+        expect(fichaNaData(k, '2026-09-30').ficha.dados.horasMes).toBe('220');
+        // Divisor abaixo de 1 hora não vale (erro de digitação): volta a semanais × 5.
+        const meia = calcularMensal({ competencia: '2026-09', pagamento: '2026-09', ficha: { ...FICHA, dados: { ...FICHA.dados, horasSemanais: '44', horasMes: '0.5' } }, tabelas: TAB, afastamentos: [], movimento: { atrasosHoras: 8 } });
+        expect(v(meia, 'ATRASO')).toBe(9818);
+        expect(validarFicha({ ...FICHA, dados: { ...FICHA.dados, horasMes: '0,5' } }).erros.join(' ')).toMatch(/Horas mês/);
     });
 });
