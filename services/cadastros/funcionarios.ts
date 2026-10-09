@@ -209,6 +209,9 @@ export function fichaNaData(f: FichaFuncionario, data: string): { ficha: FichaFu
         if (!h.some(x => x[chave])) continue;
         if (faixa[chave]) dados[campo] = faixa[chave]; else delete dados[campo];
     }
+    // Horas mês da ficha são do contrato atual: numa faixa com outras horas semanais, o divisor volta a ser o
+    // da época (semanais × 5; Codex #121).
+    if (dados.horasMes && (dados.horasSemanais ?? '') !== (f.dados.horasSemanais ?? '')) delete dados.horasMes;
     // O histórico da ficha devolvida para na data: um cálculo feito com ela depois (a folha do mês da
     // rescisão, por exemplo) não volta a escolher um reajuste posterior.
     return { ficha: { ...f, dados, historicoSalario: h.filter(x => x.desde <= data) }, faixa, ...(antesDoHistorico ? { antesDoHistorico } : {}) };

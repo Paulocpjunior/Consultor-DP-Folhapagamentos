@@ -7,7 +7,7 @@ import { limparMovimento, validarMovimento } from '../movimento';
 import { classificarVerba, movimentoDoHolerite } from '../conferenciaHolerites';
 import { classificarEvento } from '../movimentosDoBackup';
 import { TABELAS_OFICIAIS_2026 } from '../../cadastros/tabelasOficiais';
-import { fichaVazia, type FichaFuncionario } from '../../cadastros/funcionarios';
+import { fichaNaData, fichaVazia, type FichaFuncionario } from '../../cadastros/funcionarios';
 import type { Rubrica } from '../../cadastros/rubricas';
 import { sugerirDePara } from '../../esocial/eventosFolha';
 
@@ -68,5 +68,15 @@ describe('horas mês da ficha (divisor do salário-hora)', () => {
         const r = calc(ficha('220'));
         expect(v(r, 'ATRASO')).toBe(9818);
         expect(r.memoria.join(' ')).toMatch(/salário ÷ 220 h/);
+    });
+
+    it('faixa antiga com outras horas semanais não herda as horas mês de hoje (Codex #121)', () => {
+        const historicoSalario = [{ desde: '2026-05-13', salario: '2700.00', unidade: '5', horasSemanais: '44', origem: 'S-2200 · 1' }, { desde: '2026-10-01', salario: '2700.00', unidade: '5', horasSemanais: '40', origem: 'S-2206 · 2' }];
+        const f: FichaFuncionario = { ...FICHA, historicoSalario, dados: { ...FICHA.dados, horasSemanais: '40', horasMes: '200' } };
+        expect(fichaNaData(f, '2026-09-30').ficha.dados).toMatchObject({ horasSemanais: '44' });
+        expect(fichaNaData(f, '2026-09-30').ficha.dados.horasMes).toBeUndefined();
+        // Mesmas horas semanais na faixa: as horas mês da ficha valem.
+        const g: FichaFuncionario = { ...f, historicoSalario: historicoSalario.map(x => ({ ...x, horasSemanais: '40' })) };
+        expect(fichaNaData(g, '2026-09-30').ficha.dados.horasMes).toBe('200');
     });
 });
