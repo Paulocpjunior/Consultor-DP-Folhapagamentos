@@ -54,5 +54,8 @@ describe('faltas e atrasos em horas', () => {
         const r = calcularMensal({ competencia: '2026-09', pagamento: '2026-09', ficha: FICHA, tabelas: TAB, afastamentos: [], movimento: { faltasDias: 1, atrasosHoras: 2 } });
         const s = Object.fromEntries(sugerirDePara([r], [rub('5800', 'FALTAS'), rub('5850', 'FALTAS E ATRASOS (T/H)'), rub('5810', 'DSR S/ FALTAS')], '2026-09').map(i => [i.chave, i.sugestao?.codRubr ?? null]));
         expect([s.FALTA, s.ATRASO]).toEqual(['5800', '5850']);
+        const r9211 = { ...rub('5850', 'FALTAS E ATRASOS (T/H)') };
+        r9211.vigencias = [{ ...r9211.vigencias[0], dados: { ...r9211.vigencias[0].dados, natRubr: '9211' } }];
+        expect(sugerirDePara([r], [rub('5800', 'FALTAS'), r9211], '2026-09').find(i => i.chave === 'ATRASO')?.sugestao?.codRubr).toBe('5850');
     });
 });

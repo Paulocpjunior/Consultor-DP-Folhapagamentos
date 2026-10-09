@@ -76,7 +76,8 @@ const SUGESTAO: Record<string, { naturezas: string[]; dica?: RegExp; evita?: Reg
     FALTA: { naturezas: ['9207'], evita: /DSR|REPOUSO|ATRAS|\bT H\b|HORA/ },
     DSRF: { naturezas: ['9207'], dica: /DSR|REPOUSO/ },
     // Faltas e atrasos em horas: no IOB, o evento 5850 "FALTAS E ATRASOS (T/H)".
-    ATRASO: { naturezas: ['9207'], dica: /ATRAS|\bT H\b|HORA/, evita: /DSR|REPOUSO/, codigos: ['5850'] },
+    // Natureza 9207 ou 9211 (a que o histórico do IOB também lê como falta; Codex #120).
+    ATRASO: { naturezas: ['9207', '9211'], dica: /ATRAS|\bT H\b|HORA/, evita: /DSR|REPOUSO/, codigos: ['5850'] },
     INSS: { naturezas: ['9201'] },
     IRRF: { naturezas: ['9203'] },
     SF: { naturezas: ['1409'] },
