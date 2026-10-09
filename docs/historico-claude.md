@@ -3101,3 +3101,14 @@ guias sindicais".
 - **Mudança:** campo novo na ficha, aba "Ident. Adm.": **"Horas mês (divisor do salário-hora)"** (`horasMes`). Preenchido, vale no lugar de semanais × 5 no salário-hora, nas horas extras, nos atrasos e no salário por hora, em todos os motores (`salarioContratual`). A carga pelo backup do IOB lê esse campo da `func`, se ele existir (hrsmes, horasmes etc.).
 - **Revisão do Codex no #121 (P1):** em competência de uma faixa antiga do histórico com outras horas semanais, as horas mês da ficha (do contrato atual) saem, e o divisor volta a ser o da época (semanais × 5).
 - **Revisão do Codex no #121 (P1 e P2):** as horas semanais da faixa e da ficha são comparadas como número (42.30 = 42,3). As horas mês valem só de 1 a 300, na ficha, na carga do backup e no motor.
+
+## Benefícios da empresa com desconto fixo na folha
+
+- **Paulo:** na 1200, o holerite do IOB da Carla (nome trocado) tem "ASSISTENCIA ODONTOLOGIC" (evento 7001, ref. 1,00 = 138,74). Pergunta: onde cadastrar benefícios para o desconto já sair calculado na folha? Escolheu tabela da empresa mais adesão na ficha.
+- **Mudança:**
+  - **Empresa:** em Cálculo, folha mensal, o botão **"Benefícios"** abre a tabela de benefícios da empresa: nome, evento do IOB, desconto ou provento, valor por vida, INSS/FGTS/IRRF e ativo. Fica nos parâmetros da folha (`parametrosFolha.beneficios`), sem mudar as regras do Firestore.
+  - **Ficha:** a nova aba **"Benefícios"** registra quem tem cada benefício, com vidas, "desde" e "até" (`ficha.beneficios`). Valida vidas de 1 a 20 e entra no histórico (auditoria).
+  - **Motor:** os benefícios da ficha vigentes no mês entram como verba `BEN-<id>`, com valor por vida × vidas e a incidência do cadastro (`verbasDosBeneficios`).
+  - **Conferência com o holerite do IOB:** a linha que é um benefício (pelo evento ou pelo começo do nome) confere numa linha própria, "Benefícios da empresa (efeito)". Ela não fica "sem correspondente" e não vira lançamento avulso ao aplicar o movimento do holerite.
+- **Conferido com o holerite da Carla, 09/2026:** odontológico 138,74 sem incidências, INSS 248,60; com o arredondamento anterior 0,71, atual 0,05 e líquido 1.232,00.
+- **eSocial:** a verba do benefício aparece no de/para pelo nome. Ligue-a à rubrica do evento (7001) na primeira vez.

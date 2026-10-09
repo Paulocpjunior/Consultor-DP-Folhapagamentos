@@ -32,6 +32,8 @@ export interface ParametrosFolha {
      * encadeamento são recalculados com o regime que valia neles (Codex #116).
      */
     mudancasPagamento?: { desde: string; de: RegimePagamento; para: RegimePagamento }[];
+    /** Benefícios da empresa com desconto (ou provento) fixo na folha; a ficha diz quem aderiu. */
+    beneficios?: import('./beneficios').Beneficio[];
 }
 export type RegimePagamento = NonNullable<ParametrosFolha['pagamentoFolha']>;
 

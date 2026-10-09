@@ -5,6 +5,7 @@
 // motor, item a item. A IA só transcreve; ligar, comparar e sugerir o
 // movimento é código (services/calculo/conferenciaHolerites).
 
+import type { Beneficio } from '../../services/calculo/beneficios';
 import React, { useMemo, useState } from 'react';
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
 import { mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
@@ -21,6 +22,8 @@ interface Props {
     empresaId: string; competencia: string; fichas: FichaFuncionario[]; resultados: ResultadoCalculo[]; usuario: Usuario;
     leitura: LeituraHolerites | null; onLeitura: (l: LeituraHolerites | null) => void;
     movimentos: Record<string, Movimento>; onAplicarMovimento: (fichaId: string, m: Movimento) => void;
+    /** Benefícios da empresa: a linha do IOB que é um deles confere com o motor e não vira lançamento avulso. */
+    beneficios?: Beneficio[];
 }
 
 const COR = {
@@ -35,24 +38,24 @@ const dif = (c: number) => `${c > 0 ? '+' : c < 0 ? '−' : ''}${reais(Math.abs(
 export interface LinhaConferida { holerite: HoleriteIob; conferencia: ConferenciaFuncionario | null; sugestao: ReturnType<typeof movimentoDoHolerite> }
 
 /** Liga e confere todos os holerites lidos; também usado na exportação. */
-export function conferirTodos(leitura: LeituraHolerites, fichas: FichaFuncionario[], resultados: ResultadoCalculo[], competencia: string): { linhas: LinhaConferida[]; semHolerite: ResultadoCalculo[] } {
+export function conferirTodos(leitura: LeituraHolerites, fichas: FichaFuncionario[], resultados: ResultadoCalculo[], competencia: string, beneficios?: Beneficio[]): { linhas: LinhaConferida[]; semHolerite: ResultadoCalculo[] } {
     const usados = new Set<string>();
     const linhas = leitura.holerites.map(h => {
         const { ficha, por } = ligarHolerite(h, fichas);
-        const conferencia = ficha ? conferirHolerite(resultados.find(r => r.fichaId === ficha.id), h, por, { fichaId: ficha.id, nome: ficha.dados.nome ?? '', competencia }) : null;
+        const conferencia = ficha ? conferirHolerite(resultados.find(r => r.fichaId === ficha.id), h, por, { fichaId: ficha.id, nome: ficha.dados.nome ?? '', competencia, beneficios }) : null;
         if (ficha && conferencia?.situacao !== 'outra competência') usados.add(ficha.id);
-        return { holerite: h, conferencia, sugestao: movimentoDoHolerite(h) };
+        return { holerite: h, conferencia, sugestao: movimentoDoHolerite(h, beneficios) };
     });
     return { linhas, semHolerite: resultados.filter(r => !usados.has(r.fichaId)) };
 }
 
-const ConferenciaHolerites: React.FC<Props> = ({ empresaId, competencia, fichas, resultados, usuario, leitura, onLeitura, movimentos, onAplicarMovimento }) => {
+const ConferenciaHolerites: React.FC<Props> = ({ empresaId, competencia, fichas, resultados, usuario, leitura, onLeitura, movimentos, onAplicarMovimento, beneficios }) => {
     const [arquivos, setArquivos] = useState<File[]>([]);
     const [ocupado, setOcupado] = useState('');
     const [erro, setErro] = useState('');
     const [aberto, setAberto] = useState<number | null>(null);
 
-    const conf = useMemo(() => (leitura ? conferirTodos(leitura, fichas, resultados, competencia) : null), [leitura, fichas, resultados, competencia]);
+    const conf = useMemo(() => (leitura ? conferirTodos(leitura, fichas, resultados, competencia, beneficios) : null), [leitura, fichas, resultados, competencia, beneficios]);
     const cont = (s: string) => conf?.linhas.filter(l => l.conferencia?.situacao === s).length ?? 0;
 
     async function ler() {

@@ -9,6 +9,7 @@
 // - sugerir o movimento do mês a partir do holerite (horas, faltas, pensão,
 //   outros lançamentos), para a equipe aplicar e salvar.
 
+import { ehBeneficio, PREFIXO_BENEFICIO, type Beneficio } from './beneficios';
 import type { FichaFuncionario } from '../cadastros/funcionarios';
 import type { Lancamento, Movimento, ResultadoCalculo } from './motorMensal';
 
@@ -100,11 +101,13 @@ const mesAno = (c: string) => `${c.slice(5)}/${c.slice(0, 4)}`;
  * `ctx` traz a ficha ligada e a competência conferida: holerite de outro mês
  * não é comparado, e holerite sem nenhum valor lido nunca "confere".
  */
-export function conferirHolerite(r: ResultadoCalculo | undefined, h: HoleriteIob, ligadoPor: string, ctx: { fichaId: string; nome: string; competencia: string }): ConferenciaFuncionario {
+export function conferirHolerite(r: ResultadoCalculo | undefined, h: HoleriteIob, ligadoPor: string, ctx: { fichaId: string; nome: string; competencia: string; beneficios?: Beneficio[] }): ConferenciaFuncionario {
     const avisos = [...h.avisos];
     if (ligadoPor === 'nome') avisos.push('Holerite ligado à ficha pelo nome (sem CPF ou código do IOB no holerite): confira.');
     // Arredondamento não é verba a lançar: o motor refaz (parâmetro da empresa) e o líquido confere.
-    const semCorrespondente = h.verbas.filter(v => classificarVerba(v) === 'OUTRO');
+    // Benefício da empresa (assistência odontológica…): o motor lança pela ficha; confere numa linha própria.
+    const beneficio = (v: VerbaHolerite) => classificarVerba(v) === 'OUTRO' && ehBeneficio(ctx.beneficios, v.codigo ?? '', v.descricao);
+    const semCorrespondente = h.verbas.filter(v => classificarVerba(v) === 'OUTRO' && !beneficio(v));
     const base = { fichaId: ctx.fichaId, nome: ctx.nome || h.nome, ligadoPor, semCorrespondente };
     if (h.competencia && h.competencia !== ctx.competencia) {
         return { ...base, situacao: 'outra competência', linhas: [], avisos: [...avisos, `Holerite de ${mesAno(h.competencia)}; a competência conferida é ${mesAno(ctx.competencia)}. Não comparado.`] };
@@ -129,6 +132,9 @@ export function conferirHolerite(r: ResultadoCalculo | undefined, h: HoleriteIob
     const arredIob = h.verbas.filter(v => classificarVerba(v) === 'ARRED').reduce((s, v) => s + v.provento - v.desconto, 0);
     const arredMotor = r.verbas.filter(v => /^ARRED(ATU|ANT|ADI)$/.test(v.codigo)).reduce((s, v) => s + (v.tipo === 'provento' ? v.valor : -v.valor), 0);
     if (arredIob || arredMotor) linhas.push(linha('Arredondamento do líquido (efeito)', arredMotor, arredIob));
+    const benIob = h.verbas.filter(beneficio).reduce((s, v) => s + v.provento - v.desconto, 0);
+    const benMotor = r.verbas.filter(v => v.codigo.startsWith(PREFIXO_BENEFICIO)).reduce((s, v) => s + (v.tipo === 'provento' ? v.valor : -v.valor), 0);
+    if (benIob || benMotor) linhas.push(linha('Benefícios da empresa (efeito)', benMotor, benIob));
     if (h.totalProventos !== null) linhas.push(linha('Total de proventos', r.totais.proventos, h.totalProventos));
     if (h.totalDescontos !== null) linhas.push(linha('Total de descontos', r.totais.descontos, h.totalDescontos));
     if (h.liquido !== null) linhas.push(linha('Líquido', r.totais.liquido, h.liquido));
@@ -157,7 +163,7 @@ export function quantidadeDaReferencia(ref: string): number {
  * referência, pensão pelo valor e as demais verbas como lançamentos avulsos
  * (provento incide em tudo; desconto em nada — confira as incidências).
  */
-export function movimentoDoHolerite(h: HoleriteIob): { movimento: Movimento; avisos: string[] } {
+export function movimentoDoHolerite(h: HoleriteIob, beneficios?: Beneficio[]): { movimento: Movimento; avisos: string[] } {
     const mov: Movimento = {}; const avisos: string[] = []; const lancamentos: Lancamento[] = [];
     const somar = (k: 'horasExtras50' | 'horasExtras100' | 'faltasDias' | 'dsrDescontadoDias' | 'atrasosHoras', v: VerbaHolerite) => {
         const q = quantidadeDaReferencia(v.referencia);
@@ -177,6 +183,8 @@ export function movimentoDoHolerite(h: HoleriteIob): { movimento: Movimento; avi
         else if (c === 'VT') mov.valeTransporte = (mov.valeTransporte ?? 0) + (v.desconto || v.provento);
         // O arredondamento anterior do IOB vale como foi (o motor encadeia a partir dele); atual e o do adiantamento o motor refaz.
         else if (c === 'ARRED' && (/\bANT/.test(v.descricao.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase()) || v.codigo === '5660') && v.desconto > 0) mov.arredondamentoAnterior = (mov.arredondamentoAnterior ?? 0) + v.desconto;
+        // Benefício da empresa: vem da ficha, não do movimento.
+        else if (c === 'OUTRO' && ehBeneficio(beneficios, v.codigo ?? '', v.descricao)) continue;
         else if (c === 'OUTRO') {
             const provento = v.provento > 0;
             lancamentos.push({ descricao: `${v.codigo ? `${v.codigo} ` : ''}${v.descricao}`.trim(), tipo: provento ? 'provento' : 'desconto', valor: v.provento || v.desconto, inss: provento, fgts: provento, irrf: provento });

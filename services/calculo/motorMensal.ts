@@ -15,6 +15,7 @@
 // Fica de fora (aviso e situação "incompleto"): férias, 13º, rescisão,
 // adicionais e médias de variáveis.
 
+import { verbasDosBeneficios, type Beneficio } from './beneficios';
 import { fichaNaCompetencia, memoriaDoHistorico, type FichaFuncionario } from '../cadastros/funcionarios';
 import type { Afastamento } from '../cadastros/afastamentos';
 import { inicioBeneficio, rotuloMotivo } from '../cadastros/afastamentos';
@@ -92,6 +93,8 @@ export interface EntradaCalculo {
      * antes não é conhecida (sem o IRRF gravado dela, por exemplo), com o que falta para o aviso.
      */
     folhaPagaNoAdiantamento?: IrrfApurado & { competencia: string } | { pendente: string } | null;
+    /** Benefícios da empresa (parâmetros da folha): os da ficha vigentes no mês entram como verbas. */
+    beneficios?: Beneficio[];
 }
 
 /** O IRRF de um pagamento da folha: rendimentos tributáveis, deduções legais (INSS, dependentes, pensão) e o retido. */
@@ -327,6 +330,8 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
         r.memoria.push(`Faltas e atrasos: ${num(atrasos)} h × ${reais(Math.round(salarioHora))}/h (salário ÷ ${num(horasMes)} h) = ${reais(v)}.`);
     }
     (mov.lancamentos ?? []).forEach((l, i) => verba({ ...l, codigo: `LAN${i + 1}`, referencia: '', valor: Math.round(l.valor) }));
+    const ben = verbasDosBeneficios(e.beneficios, ficha.beneficios, competencia);
+    ben.verbas.forEach(verba); r.memoria.push(...ben.memoria);
 
     // Vale-transporte: desconto de 6% do salário básico do mês (Lei 7.418/1985, art. 4º, parágrafo único;
     // Decreto 10.854/2021, art. 114), sem adicionais; nunca acima do custo do benefício, quando informado.
