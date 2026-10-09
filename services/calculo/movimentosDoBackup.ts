@@ -19,8 +19,8 @@ import { validarMovimento } from './movimento';
 
 export const TABELAS_HISTORICO = ['holerith', 'eventos_esocial', 'esocialdadosficha_s1010'];
 
-export type Classe = 'horasExtras50' | 'horasExtras100' | 'faltasDias' | 'dsrDescontadoDias';
-export const CAMPOS_HISTORICO: Classe[] = ['horasExtras50', 'horasExtras100', 'faltasDias', 'dsrDescontadoDias'];
+export type Classe = 'horasExtras50' | 'horasExtras100' | 'faltasDias' | 'dsrDescontadoDias' | 'atrasosHoras';
+export const CAMPOS_HISTORICO: Classe[] = ['horasExtras50', 'horasExtras100', 'faltasDias', 'dsrDescontadoDias', 'atrasosHoras'];
 
 const semAcento = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
@@ -34,9 +34,9 @@ export function classificarEvento(natRubr: string, descricao: string): Classe | 
         if (/reflexo|media|dsr|banco/.test(d)) return null;
         return /100/.test(d) ? 'horasExtras100' : 'horasExtras50';
     }
-    // Falta junto com atraso, ou em horas ("(T/H)"), não é contagem de dias.
-    if (natRubr === '9207') return /atras|t\/h|\bhoras?\b/.test(d) ? null : 'faltasDias';
-    if (natRubr === '9211' || !natRubr) return falta && !/atras/.test(d) ? 'faltasDias' : null;
+    // Falta junto com atraso, ou em horas ("(T/H)"): horas, não dias (salário-hora × horas no motor).
+    if (natRubr === '9207') return /atras|t\/h|\bhoras?\b/.test(d) ? 'atrasosHoras' : 'faltasDias';
+    if (natRubr === '9211' || !natRubr) return /atras|t\/h/.test(d) || (falta && /\bhoras?\b/.test(d)) ? 'atrasosHoras' : falta ? 'faltasDias' : null;
     return null;
 }
 
@@ -136,7 +136,7 @@ export function movimentosDoHolerith(holerith: TabelaLida, naturezas: NaturezasE
         const manual = opcoes.eventos?.[ev];
         const automatica = classificarEvento(natRubr, descricao);
         const classe = manual ? (manual === 'ignorar' ? null : manual) : automatica;
-        const q = Math.abs(quantidade(l[iRef], opcoes.sexagesimal && (classe === 'horasExtras50' || classe === 'horasExtras100')));
+        const q = Math.abs(quantidade(l[iRef], opcoes.sexagesimal && (classe === 'horasExtras50' || classe === 'horasExtras100' || classe === 'atrasosHoras')));
         const chaveResumo = `${ev}|${natRubr}`;
         const res = resumo.get(chaveResumo) ?? { codeven: ev, descricao, natRubr, classe, automatica, manual: !!manual, linhas: 0, total: 0 };
         res.linhas++; res.total += q; resumo.set(chaveResumo, res);
@@ -148,7 +148,7 @@ export function movimentosDoHolerith(holerith: TabelaLida, naturezas: NaturezasE
         if (vinculos.length !== 1) { semFicha++; continue; }
         const chave = `${vinculos[0].id}_${competencia}`;
         const m = soma.get(chave) ?? { fichaId: vinculos[0].id, competencia, movimento: {} };
-        m.movimento[classe] = Math.round(((m.movimento[classe] ?? 0) + q) * 100) / 100;
+        m.movimento[classe] = Math.round(((m.movimento[classe] ?? 0) + q) * 10000) / 10000;
         soma.set(chave, m);
     }
     r.movimentos = [...soma.values()].sort((a, b) => a.fichaId.localeCompare(b.fichaId) || a.competencia.localeCompare(b.competencia));

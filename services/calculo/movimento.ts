@@ -18,15 +18,16 @@ export interface MovimentoGravado {
 
 export const idMovimento = (fichaId: string, competencia: string) => `${fichaId}_${competencia}`;
 
-const NUMERICOS = ['horasExtras50', 'horasExtras100', 'faltasDias', 'dsrDescontadoDias', 'feriadosLocais', 'pensaoAlimenticia', 'adiantamento', 'valeTransporte', 'arredondamentoAnterior', 'arredondamentoFechado', 'irrfRendimentos', 'irrfDeducoes', 'irrfRetido'] as const;
+const NUMERICOS = ['horasExtras50', 'horasExtras100', 'faltasDias', 'dsrDescontadoDias', 'atrasosHoras', 'feriadosLocais', 'pensaoAlimenticia', 'adiantamento', 'valeTransporte', 'arredondamentoAnterior', 'arredondamentoFechado', 'irrfRendimentos', 'irrfDeducoes', 'irrfRetido'] as const;
 /** Valores em centavos que sobrepõem a ficha: 0 é informação ("não houve no mês") e fica gravado. */
 const SOBREPOEM_FICHA: readonly CampoNumerico[] = ['adiantamento', 'valeTransporte', 'arredondamentoAnterior', 'arredondamentoFechado', 'irrfRendimentos', 'irrfDeducoes', 'irrfRetido'];
 const EM_CENTAVOS: readonly CampoNumerico[] = ['pensaoAlimenticia', 'adiantamento', 'valeTransporte', 'arredondamentoAnterior', 'arredondamentoFechado', 'irrfRendimentos', 'irrfDeducoes', 'irrfRetido'];
 export type CampoNumerico = typeof NUMERICOS[number];
+const HORAS: readonly CampoNumerico[] = ['horasExtras50', 'horasExtras100', 'atrasosHoras'];
 
 export const ROTULO_MOVIMENTO: Record<CampoNumerico | 'lancamentos', string> = {
     horasExtras50: 'Horas extras 50%', horasExtras100: 'Horas extras 100%', faltasDias: 'Faltas (dias)',
-    dsrDescontadoDias: 'DSR descontado (dias)', feriadosLocais: 'Feriados locais no mês', pensaoAlimenticia: 'Pensão alimentícia',
+    dsrDescontadoDias: 'DSR descontado (dias)', atrasosHoras: 'Faltas e atrasos (horas)', feriadosLocais: 'Feriados locais no mês', pensaoAlimenticia: 'Pensão alimentícia',
     adiantamento: 'Adiantamento pago', valeTransporte: 'Vale-transporte descontado', arredondamentoAnterior: 'Arredondamento anterior', arredondamentoFechado: 'Arredondamento atual do mês',
     irrfRendimentos: 'Rendimentos do IRRF (gravado)', irrfDeducoes: 'Deduções do IRRF (gravado)', irrfRetido: 'IRRF retido (gravado)',
     lancamentos: 'Lançamentos avulsos',
@@ -37,7 +38,8 @@ export function limparMovimento(m: Movimento): Movimento {
     const out: Movimento = {};
     for (const k of NUMERICOS) {
         const v = m[k];
-        if (typeof v === 'number' && Number.isFinite(v) && (v !== 0 || SOBREPOEM_FICHA.includes(k))) out[k] = EM_CENTAVOS.includes(k) ? Math.round(v) : Math.round(v * 100) / 100;
+        // Horas com 4 casas: 8:20 é 8,3333 h, e 8,33 h daria centavos a menos que o IOB.
+        if (typeof v === 'number' && Number.isFinite(v) && (v !== 0 || SOBREPOEM_FICHA.includes(k))) out[k] = EM_CENTAVOS.includes(k) ? Math.round(v) : HORAS.includes(k) ? Math.round(v * 10000) / 10000 : Math.round(v * 100) / 100;
     }
     if (typeof m.arredondamentoDesde === 'string' && /^\d{4}-\d{2}$/.test(m.arredondamentoDesde)) out.arredondamentoDesde = m.arredondamentoDesde;
     if (typeof m.arredondamentoPagamento === 'string' && /^\d{4}-\d{2}$/.test(m.arredondamentoPagamento)) out.arredondamentoPagamento = m.arredondamentoPagamento;
@@ -55,7 +57,7 @@ export const movimentoVazio = (m: Movimento | undefined) => !m || Object.keys(li
 /** Erros que impedem gravar. Recebe o movimento já limpo. */
 export function validarMovimento(m: Movimento, diasNoMes = 31): string[] {
     const erros: string[] = [];
-    const max: Partial<Record<CampoNumerico, number>> = { horasExtras50: 300, horasExtras100: 300, faltasDias: diasNoMes, dsrDescontadoDias: diasNoMes, feriadosLocais: diasNoMes };
+    const max: Partial<Record<CampoNumerico, number>> = { horasExtras50: 300, horasExtras100: 300, atrasosHoras: 300, faltasDias: diasNoMes, dsrDescontadoDias: diasNoMes, feriadosLocais: diasNoMes };
     for (const k of NUMERICOS) {
         const v = m[k];
         if (v === undefined) continue;

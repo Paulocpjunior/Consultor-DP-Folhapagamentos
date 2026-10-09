@@ -21,10 +21,10 @@ export interface HoleriteIob {
     avisos: string[];
 }
 
-export type Classe = 'SAL' | 'MAT' | 'HE50' | 'HE100' | 'DSRHE' | 'FALTA' | 'DSRF' | 'SF' | 'PENSAO' | 'ADIANT' | 'VT' | 'ARRED' | 'INSS' | 'IRRF' | 'FERMES' | 'FERPAGO' | 'OUTRO';
+export type Classe = 'SAL' | 'MAT' | 'HE50' | 'HE100' | 'DSRHE' | 'FALTA' | 'DSRF' | 'ATRASO' | 'SF' | 'PENSAO' | 'ADIANT' | 'VT' | 'ARRED' | 'INSS' | 'IRRF' | 'FERMES' | 'FERPAGO' | 'OUTRO';
 export const ROTULO_CLASSE: Record<Classe, string> = {
     SAL: 'Salário', MAT: 'Salário-maternidade', HE50: 'Horas extras 50%', HE100: 'Horas extras 100%', DSRHE: 'DSR sobre horas extras',
-    FALTA: 'Faltas', DSRF: 'DSR descontado', SF: 'Salário-família', PENSAO: 'Pensão alimentícia', ADIANT: 'Adiantamento salarial', VT: 'Vale-transporte', ARRED: 'Arredondamento', INSS: 'INSS', IRRF: 'IRRF',
+    FALTA: 'Faltas', DSRF: 'DSR descontado', ATRASO: 'Faltas e atrasos (horas)', SF: 'Salário-família', PENSAO: 'Pensão alimentícia', ADIANT: 'Adiantamento salarial', VT: 'Vale-transporte', ARRED: 'Arredondamento', INSS: 'INSS', IRRF: 'IRRF',
     FERMES: 'Férias + 1/3 do mês', FERPAGO: 'Férias pagas no recibo', OUTRO: 'Outros',
 };
 
@@ -54,6 +54,8 @@ export function classificarVerba(v: VerbaHolerite): Classe {
     if (/D\.?S\.?R|REPOUSO|DESCANSO SEMANAL|\bRSR\b/.test(d)) return desconto ? 'DSRF' : extra || !/S\/|SOBRE/.test(d) ? 'DSRHE' : 'OUTRO';
     if (extra && /100/.test(d)) return 'HE100';
     if (extra && /50/.test(d)) return 'HE50';
+    // Em horas ("FALTAS E ATRASOS (T/H)" do IOB, ref. 8,00 = 8 horas): não são dias de falta.
+    if (desconto && (/ATRAS|\bT\/H\b/.test(d) || (/FALTA|AUSENCIA/.test(d) && /\bHORAS?\b/.test(d)))) return 'ATRASO';
     if (desconto && /FALTA|AUSENCIA/.test(d)) return 'FALTA';
     if (!desconto && /^SAL(ARIO|\.)|SALDO DE SAL|HORAS NORMAIS|DIAS? TRABALHADOS|SALARIO (MENSAL|BASE|NORMAL|HORA)|^ORDENADO/.test(d)) return 'SAL';
     return 'OUTRO';
@@ -80,7 +82,7 @@ export interface ConferenciaFuncionario {
 }
 
 const TOLERANCIA = 1; // centavo
-const ITENS: Classe[] = ['SAL', 'MAT', 'HE50', 'HE100', 'DSRHE', 'FALTA', 'DSRF', 'SF', 'PENSAO', 'ADIANT', 'VT', 'FERMES', 'FERPAGO', 'INSS', 'IRRF'];
+const ITENS: Classe[] = ['SAL', 'MAT', 'HE50', 'HE100', 'DSRHE', 'FALTA', 'DSRF', 'ATRASO', 'SF', 'PENSAO', 'ADIANT', 'VT', 'FERMES', 'FERPAGO', 'INSS', 'IRRF'];
 
 export function somaPorClasse(h: HoleriteIob): Record<Classe, number> {
     const s = Object.fromEntries([...ITENS, 'ARRED', 'OUTRO'].map(c => [c, 0])) as Record<Classe, number>;
@@ -157,10 +159,10 @@ export function quantidadeDaReferencia(ref: string): number {
  */
 export function movimentoDoHolerite(h: HoleriteIob): { movimento: Movimento; avisos: string[] } {
     const mov: Movimento = {}; const avisos: string[] = []; const lancamentos: Lancamento[] = [];
-    const somar = (k: 'horasExtras50' | 'horasExtras100' | 'faltasDias' | 'dsrDescontadoDias', v: VerbaHolerite) => {
+    const somar = (k: 'horasExtras50' | 'horasExtras100' | 'faltasDias' | 'dsrDescontadoDias' | 'atrasosHoras', v: VerbaHolerite) => {
         const q = quantidadeDaReferencia(v.referencia);
         if (!q) { avisos.push(`${v.descricao}: referência "${v.referencia}" ilegível; informe a quantidade.`); return; }
-        mov[k] = Math.round(((mov[k] ?? 0) + q) * 100) / 100;
+        mov[k] = Math.round(((mov[k] ?? 0) + q) * 10000) / 10000;
     };
     for (const v of h.verbas) {
         const c = classificarVerba(v);
@@ -168,6 +170,7 @@ export function movimentoDoHolerite(h: HoleriteIob): { movimento: Movimento; avi
         else if (c === 'HE100') somar('horasExtras100', v);
         else if (c === 'FALTA') somar('faltasDias', v);
         else if (c === 'DSRF') somar('dsrDescontadoDias', v);
+        else if (c === 'ATRASO') somar('atrasosHoras', v);
         else if (c === 'PENSAO') mov.pensaoAlimenticia = (mov.pensaoAlimenticia ?? 0) + (v.desconto || v.provento);
         // O adiantamento pago e o vale-transporte descontado valem como o IOB fez (sobrepõem a ficha).
         else if (c === 'ADIANT') mov.adiantamento = (mov.adiantamento ?? 0) + (v.desconto || v.provento);

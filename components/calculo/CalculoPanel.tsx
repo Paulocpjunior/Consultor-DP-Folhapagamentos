@@ -53,6 +53,8 @@ const SITUACAO: Record<ResultadoCalculo['situacao'], [string, string]> = {
     erro: ['erro', 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200'],
 };
 const decimal = (t: string) => { const n = Number(t.trim().replace(',', '.')); return t.trim() && Number.isFinite(n) && n >= 0 ? n : undefined; };
+/** Horas: decimal (8,5 = 8h30) ou hh:mm (8:30). */
+const horas = (t: string) => { const m = t.trim().match(/^(\d{1,3}):([0-5]\d)$/); return m ? Number(m[1]) + Number(m[2]) / 60 : decimal(t); };
 const v = (r: ResultadoCalculo, c: string) => r.verbas.find(x => x.codigo === c)?.valor ?? 0;
 const inssDe = (r: ResultadoCalculo) => v(r, 'INSS') + v(r, 'INSS13') + v(r, 'INSSFER') + v(r, 'INSSFERRET');
 const irrfDe = (r: ResultadoCalculo) => v(r, 'IRRF') + v(r, 'IRRF13') + v(r, 'IRRFFER') + v(r, 'IRRFFERRET');
@@ -914,10 +916,11 @@ const PdfContexto = React.createContext<((r: ResultadoCalculo) => void) | null>(
 
 const Holerite: React.FC<{ r: ResultadoCalculo; mov?: Movimento; gravado?: MovimentoGravado; pendente?: boolean; arredonda?: boolean; onMov?: (m: Movimento) => void; children?: React.ReactNode }> = ({ r, mov = {}, gravado, pendente = false, arredonda = false, onMov = () => {}, children }) => {
     const pdf = React.useContext(PdfContexto);
-    const campo = (k: 'horasExtras50' | 'horasExtras100' | 'faltasDias' | 'dsrDescontadoDias' | 'feriadosLocais', rotulo: string) => (
-        <label className="text-xs dark:text-slate-200">{rotulo}
+    const emHoras = (k: string) => k === 'horasExtras50' || k === 'horasExtras100' || k === 'atrasosHoras';
+    const campo = (k: 'horasExtras50' | 'horasExtras100' | 'faltasDias' | 'dsrDescontadoDias' | 'atrasosHoras' | 'feriadosLocais', rotulo: string) => (
+        <label className="text-xs dark:text-slate-200" title={emHoras(k) ? 'Em horas: 8,5 ou 8:30 para 8h30. O valor sai do salário-hora.' : undefined}>{rotulo}
             <input aria-label={rotulo} className={`mt-0.5 block w-24 ${inp}`} defaultValue={mov[k] != null ? String(mov[k]).replace('.', ',') : ''}
-                onChange={e => onMov({ ...mov, [k]: decimal(e.target.value) })} />
+                onChange={e => onMov({ ...mov, [k]: emHoras(k) ? horas(e.target.value) : decimal(e.target.value) })} />
         </label>
     );
     const lancs = mov.lancamentos ?? [];
@@ -958,6 +961,7 @@ const Holerite: React.FC<{ r: ResultadoCalculo; mov?: Movimento; gravado?: Movim
                     {campo('horasExtras100', 'Horas extras 100%')}
                     {campo('faltasDias', 'Faltas (dias)')}
                     {campo('dsrDescontadoDias', 'DSR descontado (dias)')}
+                    {campo('atrasosHoras', 'Faltas e atrasos (horas)')}
                     {campo('feriadosLocais', 'Feriados locais no mês')}
                     <label className="text-xs dark:text-slate-200">Pensão alimentícia (R$)
                         <input aria-label="Pensão alimentícia" className={`mt-0.5 block w-28 ${inp}`} defaultValue={mov.pensaoAlimenticia ? (mov.pensaoAlimenticia / 100).toFixed(2).replace('.', ',') : ''}
