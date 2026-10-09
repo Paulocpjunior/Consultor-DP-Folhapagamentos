@@ -381,6 +381,14 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         try { (await relatoriosPdf()).holeritesPdf(lista, dados.fichas, opcoesPdf()).save(nome); }
         catch (e) { setErrosMov([`PDF não gerado: ${(e as Error).message}`]); }
     }
+    /** Recibos do adiantamento do mês, na data sugerida (dia 20 ou o dia útil anterior), a mesma do arquivo do adiantamento. */
+    const dataAdiantamento = dataSugeridaAdiantamento(competencia);
+    const opcoesPdfAdiantamento = () => ({ ...opcoesPdf(), titulo: `Recibo de adiantamento ${br(competencia)}` });
+    async function pdfAdiantamento() {
+        if (!dados) return;
+        try { (await relatoriosPdf()).recibosAdiantamentoPdf(resultados, dados.fichas, opcoesPdfAdiantamento(), dataAdiantamento).save(`adiantamento-${empresa?.codigoSage ?? 'empresa'}-${competencia}.pdf`); }
+        catch (e) { setErrosMov([`PDF não gerado: ${(e as Error).message}`]); }
+    }
     async function pdfResumo() {
         try { (await relatoriosPdf()).resumoPdf(resumo, opcoesPdf(), observacaoResumo).save(`resumo-${empresa?.codigoSage ?? 'empresa'}-${sufixoArquivo}.pdf`); }
         catch (e) { setErrosMov([`PDF não gerado: ${(e as Error).message}`]); }
@@ -526,6 +534,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 <button className={btn} disabled={!resultados.some(r => r.situacao !== 'erro')} onClick={() => pdfHolerites(resultados, `holerites-${empresa?.codigoSage ?? 'empresa'}-${sufixoArquivo}.pdf`)}>Holerites (PDF)</button>
                 <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado')} onClick={() => setArquivoBancario('folha')}>Arquivo bancário</button>
                 {mensal && resultados.some(r => r.situacao === 'calculado' && valorDoAdiantamento(r) > 0) && <button className={btn} disabled={!empresa || !movsLidos} title={movsLidos ? 'Remessa do adiantamento salarial do mês (dia 20 ou o dia útil anterior), com o valor de cada um.' : 'Sem os movimentos gravados do mês (carregando ou com erro na leitura): um adiantamento informado no movimento muda o valor.'} onClick={() => setArquivoBancario('adiantamento')}>Arquivo do adiantamento</button>}
+                {mensal && resultados.some(r => valorDoAdiantamento(r) > 0) && <button className={btn} disabled={!dados || !movsLidos} title={movsLidos ? `Recibo do adiantamento salarial de cada funcionário, pago em ${br(dataAdiantamento)}, para assinatura.` : 'Sem os movimentos gravados do mês (carregando ou com erro na leitura): um adiantamento informado no movimento muda o valor.'} onClick={pdfAdiantamento}>Recibos do adiantamento (PDF)</button>}
                 <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado')} onClick={() => setPacote(true)}>Pacote do cliente</button>
                 {mensal && <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado') || pendentes.length > 0} title={pendentes.length ? 'Salve o movimento antes: o S-1200 sai do movimento gravado.' : undefined} onClick={() => setEventosFolha(true)}>S-1200 e S-1210</button>}
                 <button className={btn} disabled={!resultados.length} onClick={exportar}>Exportar Excel</button>
@@ -772,6 +781,9 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                         documentos={[
                             { id: 'holerites', rotulo: `${recibos} (PDF)`, nome: `holerites-${cod}-${sufixoArquivo}.pdf`, descricao: `${recibos.toLowerCase()} para assinatura dos funcionários`,
                                 gerar: async () => (await relatoriosPdf()).holeritesPdf(resultados, dados.fichas, opcoesPdf()).output('arraybuffer') },
+                            ...(mensal && movsLidos && resultados.some(r => r.situacao === 'calculado' && valorDoAdiantamento(r) > 0) ? [{ id: 'adiantamento', rotulo: 'Recibos do adiantamento (PDF)', nome: `adiantamento-${cod}-${competencia}.pdf`,
+                                descricao: `recibos do adiantamento salarial pago em ${br(dataAdiantamento)}, para assinatura dos funcionários`,
+                                gerar: async () => (await relatoriosPdf()).recibosAdiantamentoPdf(resultados, dados.fichas, opcoesPdfAdiantamento(), dataAdiantamento).output('arraybuffer') }] : []),
                             { id: 'resumo', rotulo: 'Resumo da folha (PDF)', nome: `resumo-${cod}-${sufixoArquivo}.pdf`, descricao: 'resumo da folha com os valores para conferir as guias',
                                 gerar: async () => (await relatoriosPdf()).resumoPdf(resumo, opcoesPdf(), observacaoResumo).output('arraybuffer') },
                         ]} />
