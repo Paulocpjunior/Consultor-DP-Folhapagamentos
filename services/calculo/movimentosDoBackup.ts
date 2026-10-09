@@ -36,7 +36,7 @@ export function classificarEvento(natRubr: string, descricao: string): Classe | 
     }
     // Falta junto com atraso, ou em horas ("(T/H)"): horas, não dias (salário-hora × horas no motor).
     if (natRubr === '9207') return /atras|t\/h|\bhoras?\b/.test(d) ? 'atrasosHoras' : 'faltasDias';
-    if (natRubr === '9211' || !natRubr) return /atras|t\/h/.test(d) ? 'atrasosHoras' : falta ? 'faltasDias' : null;
+    if (natRubr === '9211' || !natRubr) return /atras|t\/h/.test(d) || (falta && /\bhoras?\b/.test(d)) ? 'atrasosHoras' : falta ? 'faltasDias' : null;
     return null;
 }
 

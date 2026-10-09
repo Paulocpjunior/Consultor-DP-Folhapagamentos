@@ -45,6 +45,7 @@ describe('faltas e atrasos em horas', () => {
         expect(classificarEvento('9207', 'FALTAS E ATRASOS (T/H)')).toBe('atrasosHoras');
         expect(classificarEvento('9207', 'FALTAS')).toBe('faltasDias');
         expect(classificarEvento('', 'ATRASOS')).toBe('atrasosHoras');
+        expect([classificarEvento('', 'FALTAS EM HORAS'), classificarEvento('9211', 'FALTAS EM HORAS')]).toEqual(['atrasosHoras', 'atrasosHoras']);
     });
 
     it('de/para do eSocial: FALTAS e FALTAS E ATRASOS (T/H), ambas 9207, cada uma na sua verba (Codex #120)', () => {
