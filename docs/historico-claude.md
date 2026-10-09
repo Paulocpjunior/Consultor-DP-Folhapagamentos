@@ -3071,3 +3071,11 @@ guias sindicais".
 - **Revisão do Codex no #118 (P1 e P2):**
   - **Folha anterior sem o IRRF gravado:** a folha já paga não é mais refeita com a ficha de hoje. Sem o IRRF gravado com o movimento dela, o adiantamento fica incompleto, com o aviso "abra MM/AAAA, confira o cálculo e clique em Salvar movimento". Para não exigir isso mês a mês até a admissão, a folha incompleta só pelo IRRF do adiantamento (`soFaltaFolhaDoAdiantamento`) ainda grava o IRRF dela. Basta salvar o mês anterior.
   - **Mais de uma folha paga no mês do adiantamento:** se o movimento de uma folha mais antiga tem o "Pagamento em" trocado para o mês do adiantamento, o Consultor, que soma uma folha só, deixa o adiantamento incompleto, com aviso. A regra está em `folhaPagaAntes`, com testes.
+
+## Recibo do adiantamento em PDF
+
+- **Botão "Recibos do adiantamento (PDF)"** na folha mensal, ao lado de "Arquivo do adiantamento". Gera um recibo por funcionário com adiantamento no mês, na data sugerida (dia 20 ou o dia útil anterior), para assinatura.
+- **Verbas:** as mesmas do demonstrativo do adiantamento no S-1200 e no S-1210 (`verbasDoAdiantamento`). São o adiantamento (com o percentual), o IRRF do adiantamento, quando a folha é paga no mês seguinte, e o arredondamento. O líquido é o mesmo do arquivo do adiantamento: no caso do IOB de 08/2026, 3.671,16 − 1.258,59 + 0,43 = 2.413,00.
+- **Abaixo da tabela:** o salário-base e a conta do IRRF do adiantamento (a memória do motor).
+- **Quem fica fora:** quem tem o cálculo com erro ou incompleto, ou não pode receber na data (as regras do arquivo do adiantamento). Esses funcionários aparecem na última página, com o motivo.
+- **Pacote do cliente:** os recibos do adiantamento entram na lista de documentos quando há adiantamento no mês.

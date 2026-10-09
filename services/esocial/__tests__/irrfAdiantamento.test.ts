@@ -13,6 +13,7 @@ import { TABELAS_OFICIAIS_2026 } from '../../cadastros/tabelasOficiais';
 import { fichaVazia, type FichaFuncionario } from '../../cadastros/funcionarios';
 import type { Rubrica } from '../../cadastros/rubricas';
 import type { ReciboEvento } from '../recibosEsocial';
+import { recibosAdiantamentoPdf } from '../../relatorios/holeritePdf';
 
 const TAB = TABELAS_OFICIAIS_2026.map((t, i) => ({ ...t, id: `t${i}` }));
 const CNPJ = '44388152000189';
@@ -64,6 +65,27 @@ describe('IRRF do adiantamento com a folha paga no mês seguinte', () => {
         expect(pend.avisos.join(' ')).toMatch(/\(teste\)/);
         expect(movimentoComIrrf({}, pend)?.irrfRetido).toBe(agosto.irrfApurado!.valor);
         expect(movimentoComIrrf({}, { ...pend, soFaltaFolhaDoAdiantamento: undefined })).toBeUndefined();
+    });
+
+    it('recibo do adiantamento em PDF: o adiantamento, o IRRF dele e o arredondamento; líquido igual ao do banco', () => {
+        const o = { empresa: { razaoSocial: 'EMPRESA TESTE LTDA', cnpj: CNPJ }, titulo: 'Recibo de adiantamento 08/2026', previa: true };
+        const comArred = arredondar(agosto, 0);
+        const doc = recibosAdiantamentoPdf([comArred], [FICHA], o, '2026-08-20');
+        expect(doc.getNumberOfPages()).toBe(1);
+        const bruto = doc.output();
+        // 3.671,16 − 1.258,59 + 0,43 = 2.413,00, o valor do arquivo do adiantamento.
+        for (const t of ['BIA', '3.671,16', '1.258,59', '0,43', '2.413,00', 'Pagamento: 20/08/2026', 'IRRF do adiantamento']) expect(bruto).toContain(t);
+        expect(valorDoAdiantamento(comArred)).toBe(241300);
+        // Data até o 5º dia útil: sem recibo, com o motivo (as regras do arquivo do adiantamento).
+        const cedo = recibosAdiantamentoPdf([agosto], [FICHA], o, '2026-08-06').output();
+        expect(cedo).toContain('Sem recibo do adiantamento \\(1\\)'); // parênteses escapados no PDF
+        expect(cedo).not.toContain('Líquido a receber');
+        // Incompleto (IRRF do adiantamento pendente) e quem não tem adiantamento: fora, o primeiro com aviso.
+        const pend = calcularMensal({ competencia: '2026-08', pagamento: '2026-09', ficha: FICHA, tabelas: TAB, afastamentos: [], folhaPagaNoAdiantamento: { pendente: 'teste' } });
+        const sem = { ...agosto, fichaId: 'f2', nome: 'SEM ADIANTAMENTO', verbas: agosto.verbas.filter(x => x.codigo !== 'ADIANT') };
+        const lista = recibosAdiantamentoPdf([pend, sem], [FICHA], o, '2026-08-20').output();
+        expect(lista).toContain('incompleto');
+        expect(lista).not.toContain('SEM ADIANTAMENTO');
     });
 
     it('folha de agosto (paga em 04/09): o adiantamento sai da base; IRRF 61,57 com o redutor, como no IOB', () => {

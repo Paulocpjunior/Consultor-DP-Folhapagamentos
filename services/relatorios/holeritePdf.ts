@@ -2,8 +2,9 @@
 //
 // Holerite (recibo de pagamento) em PDF a partir do resultado do motor: um
 // funcionário por página, com as verbas, os totais, as bases e o campo de
-// assinatura; e o resumo da folha. Enquanto o motor não for conferido com o
-// IOB, todo PDF sai com a marca "PRÉVIA" — não é documento para entregar.
+// assinatura; o recibo do adiantamento salarial; e o resumo da folha. Enquanto
+// o motor não for conferido com o IOB, todo PDF sai com a marca "PRÉVIA" — não
+// é documento para entregar.
 
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -12,6 +13,8 @@ import type { FichaFuncionario } from '../cadastros/funcionarios';
 import type { ResumoFolha } from './resumoFolha';
 import { centavosDeTexto } from '../cadastros/documentos';
 import type { InfoIrrfFerias } from '../calculo/motorFerias';
+import { verbasDoAdiantamento } from '../esocial/eventosFolha';
+import { foraDoAdiantamento } from '../bancario/favorecidos';
 
 export interface CabecalhoEmpresa { razaoSocial: string; cnpj: string; codigoSage?: string }
 export interface OpcoesPdf { empresa: CabecalhoEmpresa; titulo: string; previa: boolean }
@@ -67,6 +70,25 @@ export function linhasIrrfFerias(r: ResultadoCalculo): string[] {
     ];
 }
 
+/** Declaração e campo de assinatura, abaixo de `y`. */
+function assinatura(doc: jsPDF, y: number, nome: string) {
+    doc.text(textoPdf('Declaro ter recebido a importância líquida discriminada neste recibo.'), 14, y + 14);
+    doc.line(14, y + 30, 100, y + 30);
+    doc.text(textoPdf(`Data: ____/____/______`), 120, y + 30);
+    doc.text(textoPdf(`Assinatura de ${nome}`), 14, y + 35);
+}
+
+/** Cabeçalho do funcionário (nome, CPF, matrícula, cargo e admissão), a partir de y = 34. */
+function dadosDoFuncionario(doc: jsPDF, nome: string, f: FichaFuncionario | undefined) {
+    const d = f?.dados ?? {};
+    doc.setFontSize(9);
+    [
+        `Funcionário: ${nome}`,
+        `CPF ${cpfFmt(f?.cpf ?? '')} · matrícula ${f?.matriculaEsocial ?? ''}${d.codigoIob ? ` · código IOB ${d.codigoIob}` : ''}`,
+        `Cargo: ${d.cargo ?? ''}${d.cbo ? ` (CBO ${d.cbo})` : ''} · admissão ${br(d.admissao)}`,
+    ].forEach((t, j) => doc.text(textoPdf(t), 14, 34 + j * 5));
+}
+
 export function holeritesPdf(resultados: ResultadoCalculo[], fichas: FichaFuncionario[], o: OpcoesPdf): jsPDF {
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     const validos = resultados.filter(r => r.situacao !== 'erro');
@@ -75,13 +97,7 @@ export function holeritesPdf(resultados: ResultadoCalculo[], fichas: FichaFuncio
         const f = fichas.find(x => x.id === r.fichaId);
         const d = f?.dados ?? {};
         cabecalho(doc, o, `Pagamento: ${r.pagamento.split('-').reverse().join('/')}`);
-        doc.setFontSize(9);
-        const linhas = [
-            `Funcionário: ${r.nome}`,
-            `CPF ${cpfFmt(f?.cpf ?? '')} · matrícula ${f?.matriculaEsocial ?? ''}${d.codigoIob ? ` · código IOB ${d.codigoIob}` : ''}`,
-            `Cargo: ${d.cargo ?? ''}${d.cbo ? ` (CBO ${d.cbo})` : ''} · admissão ${br(d.admissao)}`,
-        ];
-        linhas.forEach((t, j) => doc.text(textoPdf(t), 14, 34 + j * 5));
+        dadosDoFuncionario(doc, r.nome, f);
         autoTable(doc, {
             startY: 50,
             head: [['Cód.', 'Descrição', 'Referência', 'Vencimentos', 'Descontos']],
@@ -102,12 +118,67 @@ export function holeritesPdf(resultados: ResultadoCalculo[], fichas: FichaFuncio
         doc.text(textoPdf(`Salário-base ${brl(centavosDeTexto(d.salario ?? '') ?? 0)} · Base INSS ${brl(r.bases.inss)} · Base FGTS ${brl(r.bases.fgts)} · FGTS do mês ${brl(r.fgts)} · Base IRRF ${brl(r.bases.irrf)}`), 14, y);
         irrf.forEach((t, j) => doc.text(t, 14, y + 4.5 + j * 4));
         y += extra;
-        doc.text(textoPdf('Declaro ter recebido a importância líquida discriminada neste recibo.'), 14, y + 14);
-        doc.line(14, y + 30, 100, y + 30);
-        doc.text(textoPdf(`Data: ____/____/______`), 120, y + 30);
-        doc.text(textoPdf(`Assinatura de ${r.nome}`), 14, y + 35);
+        assinatura(doc, y, r.nome);
     });
     if (!validos.length) { cabecalho(doc, o, ''); doc.text('Nenhum holerite calculado.', 14, 40); }
+    if (o.previa) marcaPrevia(doc);
+    return doc;
+}
+
+/**
+ * Recibo do adiantamento salarial: um funcionário por página, com as verbas do demonstrativo do adiantamento (as
+ * mesmas do S-1200 e do S-1210): o adiantamento, o IRRF dele (com o saldo da folha em outro mês) e o arredondamento.
+ * O líquido é o valor do arquivo do adiantamento. Fica fora quem não está com o cálculo completo ou não pode receber
+ * na data (as regras do arquivo bancário); a última página lista quem ficou fora e por quê.
+ */
+export function recibosAdiantamentoPdf(resultados: ResultadoCalculo[], fichas: FichaFuncionario[], o: OpcoesPdf, dataPagamento: string): jsPDF {
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const fora: { nome: string; motivo: string }[] = [];
+    let paginas = 0;
+    for (const r of resultados) {
+        const verbas = verbasDoAdiantamento(r);
+        if (!verbas.length) continue;
+        const f = fichas.find(x => x.id === r.fichaId);
+        if (r.situacao !== 'calculado') { fora.push({ nome: r.nome, motivo: `cálculo ${r.situacao === 'erro' ? 'com erro' : 'incompleto'} (veja os avisos no holerite)` }); continue; }
+        const motivo = foraDoAdiantamento(r, f, dataPagamento);
+        if (motivo) { fora.push({ nome: r.nome, motivo }); continue; }
+        if (paginas++) doc.addPage();
+        cabecalho(doc, o, `Pagamento: ${br(dataPagamento)}`);
+        dadosDoFuncionario(doc, r.nome, f);
+        const prov = verbas.filter(v => v.tipo === 'provento').reduce((t, v) => t + v.valor, 0);
+        const desc = verbas.filter(v => v.tipo === 'desconto').reduce((t, v) => t + v.valor, 0);
+        autoTable(doc, {
+            startY: 50,
+            head: [['Cód.', 'Descrição', 'Referência', 'Vencimentos', 'Descontos']],
+            body: verbas.map(v => [v.codigo, textoPdf(v.descricao.replace(' (pagamento)', '')), textoPdf(v.referencia), v.tipo === 'provento' ? brl(v.valor) : '', v.tipo === 'desconto' ? brl(v.valor) : '']),
+            foot: [['', 'Totais', '', direita(brl(prov)), direita(brl(desc))], ['', 'Líquido a receber', '', '', direita(brl(prov - desc))]],
+            styles: { fontSize: 8.5, cellPadding: 1.5 },
+            headStyles: { fillColor: [30, 64, 175] },
+            footStyles: { fillColor: [241, 245, 249], textColor: 20, fontStyle: 'bold' },
+            columnStyles: { 0: { cellWidth: 22 }, 2: { cellWidth: 26 }, 3: { halign: 'right', cellWidth: 30 }, 4: { halign: 'right', cellWidth: 30 } },
+            margin: { left: 14, right: 14 },
+        });
+        let y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+        doc.setFontSize(8.5);
+        // A conta do IRRF do adiantamento (a memória do motor) e o salário-base de referência.
+        const notas = [`Salário-base ${brl(centavosDeTexto(f?.dados.salario ?? '') ?? 0)} · o adiantamento é descontado na folha de ${r.competencia.slice(5)}/${r.competencia.slice(0, 4)}.`,
+            ...r.memoria.filter(m => m.startsWith('IRRF do adiantamento'))].flatMap(t => doc.splitTextToSize(textoPdf(t), 182) as string[]);
+        notas.forEach((t, j) => doc.text(t, 14, y + j * 4));
+        y += (notas.length - 1) * 4;
+        assinatura(doc, y, r.nome);
+    }
+    if (fora.length) {
+        if (paginas) doc.addPage();
+        cabecalho(doc, o, `Pagamento: ${br(dataPagamento)}`);
+        autoTable(doc, {
+            startY: 34,
+            head: [[`Sem recibo do adiantamento (${fora.length}): confira antes de pagar`, 'Motivo']],
+            body: fora.map(x => [textoPdf(x.nome), textoPdf(x.motivo)]),
+            styles: { fontSize: 8.5, cellPadding: 1.5 }, headStyles: { fillColor: [180, 83, 9] },
+            columnStyles: { 0: { cellWidth: 70 } }, margin: { left: 14, right: 14 },
+        });
+    }
+    if (!paginas && !fora.length) { cabecalho(doc, o, ''); doc.text('Nenhum adiantamento no mês.', 14, 40); }
     if (o.previa) marcaPrevia(doc);
     return doc;
 }
