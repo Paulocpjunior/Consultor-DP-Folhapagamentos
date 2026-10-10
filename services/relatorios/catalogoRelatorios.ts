@@ -12,6 +12,10 @@ import type { Afastamento } from '../cadastros/afastamentos';
 import { centavosDeTexto } from '../cadastros/documentos';
 import { periodosFerias, prazosFuncionarios } from '../prazos/prazosFuncionarios';
 import type { TabelaRelatorio } from './layoutPdf';
+import type { TabelaLegal } from '../cadastros/tabelasLegais';
+import type { Enquadramento } from '../cadastros/enquadramento';
+import type { Movimento } from '../calculo/motorMensal';
+import { calcularProvisao, totalSaldo, type Movimentacao, type Provisao } from '../calculo/provisoes';
 
 export type GrupoRelatorio = 'Mensais' | 'Funcionários' | 'Férias' | 'Anuais';
 export type TipoRelatorio = 'tabela' | 'holerites' | 'resumo' | 'adiantamento' | 'ficha-financeira' | 'aviso-ferias' | 'informe';
@@ -23,6 +27,8 @@ export interface ContextoRelatorio {
     afastamentos: Afastamento[];
     /** Holerites da folha gravada do mês (null: ainda não gravada). */
     folha: ResultadoCalculo[] | null;
+    /** Para as provisões: tabelas legais, movimentos gravados (por ficha e competência) e enquadramentos. */
+    calculo?: { empresaId: string; tabelas: TabelaLegal[]; movimentos: Record<string, Record<string, Movimento>>; enquadramentos: Enquadramento[] };
 }
 
 export interface DefRelatorio {
@@ -33,6 +39,8 @@ export interface DefRelatorio {
     tipo: TipoRelatorio;
     /** Precisa da folha gravada do mês. */
     precisaFolha: boolean;
+    /** Precisa das tabelas legais, dos movimentos e do enquadramento (provisões). */
+    precisaCalculo?: boolean;
     orientacao?: 'retrato' | 'paisagem';
     montar?: (c: ContextoRelatorio) => TabelaRelatorio;
 }
@@ -142,11 +150,44 @@ function aniversariantes(c: ContextoRelatorio): TabelaRelatorio {
     return { colunas: [{ titulo: 'Dia', largura: 14 }, { titulo: 'Funcionário' }, { titulo: 'Cargo' }], linhas: lista.map(f => [(f.dados.nascimento ?? '').slice(8, 10), f.dados.nome ?? '', f.dados.cargo ?? '']) };
 }
 
+// ---------- Provisões de férias e 13º (services/calculo/provisoes.ts) ----------
+
+const provisaoDo = (c: ContextoRelatorio): Provisao | null => (c.calculo ? calcularProvisao({ competencia: c.competencia, fichas: c.fichas, afastamentos: c.afastamentos, ...c.calculo }) : null);
+const sinal = (v: number) => (v < 0 ? `(${brl(-v)})` : brl(v));
+
+function tabelaProvisao(c: ContextoRelatorio, qual: 'ferias' | 'decimo'): TabelaRelatorio {
+    const p = provisaoDo(c);
+    const colunas = [{ titulo: 'Funcionário' }, { titulo: 'Remuneração', alinhar: 'direita' as const, largura: 24 }, { titulo: qual === 'ferias' ? 'Vencidos / avos' : 'Avos', largura: qual === 'ferias' ? 24 : 14 },
+        { titulo: 'Saldo anterior', alinhar: 'direita' as const, largura: 24 }, { titulo: 'Constituição', alinhar: 'direita' as const, largura: 24 }, { titulo: 'Baixas', alinhar: 'direita' as const, largura: 22 },
+        { titulo: 'Saldo atual', alinhar: 'direita' as const, largura: 24 }, { titulo: 'INSS', alinhar: 'direita' as const, largura: 20 }, { titulo: 'FGTS', alinhar: 'direita' as const, largura: 20 }, { titulo: 'Total', alinhar: 'direita' as const, largura: 24 }];
+    if (!p) return { colunas, linhas: [], observacao: 'Carregando as tabelas, os movimentos e o enquadramento…' };
+    const linha = (nome: string, rem: string, ref: string, m: Movimentacao) => [nome, rem, ref, sinal(m.anterior.principal), sinal(m.constituicao.principal), brl(m.baixa.principal), brl(m.atual.principal), brl(m.atual.inss), brl(m.atual.fgts), brl(totalSaldo(m.atual))];
+    const validas = p.linhas.filter(l => !l.erro);
+    const linhas = validas.map(l => linha(`${l.nome}${l.situacao === 'desligado' ? ' (desligado)' : l.situacao === 'admitido' ? ' (admitido)' : ''}`, brl(l.remuneracao),
+        qual === 'ferias' ? `${l.diasVencidos} d · ${l.avosFerias}/12` : `${l.avos13}/12`, l[qual]));
+    const t = p.totais[qual];
+    const enc = (k: 'inss' | 'fgts') => `${sinal(t.constituicao[k])} (baixa ${brl(t.baixa[k])})`;
+    const nome = qual === 'ferias' ? 'férias e 1/3' : '13º salário';
+    return {
+        colunas, linhas, totais: linha(`Total (${validas.length})`, '', '', t),
+        observacao: [
+            `Método do saldo: saldo anterior + constituição − baixas = saldo atual, no fim de ${c.competencia.split('-').reverse().join('/')}. Valores entre parênteses: reversão.`,
+            qual === 'ferias' ? 'Férias vencidas (em dobro fora do concessivo, sem encargos) e proporcionais (15 dias ou mais no mês), com 1/3, pela remuneração do fim do mês (salário, adicional de risco e média das variáveis). Baixa: gozos e abonos que começam no mês e desligamentos.'
+                : '13º pelos avos do ano (15 dias ou mais no mês) e a remuneração do fim do mês. A 1ª parcela é adiantamento e não baixa a provisão; a baixa é em dezembro e nos desligamentos.',
+            `Encargos: ${p.encargos?.memoria ?? 'sem enquadramento vigente (Cadastros › Enquadramento): INSS patronal 0%'}.`,
+            `Lançamento do mês — ${nome}: constituição ${sinal(t.constituicao.principal)}, baixa ${brl(t.baixa.principal)}; INSS ${enc('inss')}; FGTS ${enc('fgts')}.`,
+            ...p.avisos,
+        ].join(' '),
+    };
+}
+
 export const RELATORIOS: DefRelatorio[] = [
     { id: 'folha-analitica', grupo: 'Mensais', titulo: 'Folha mensal (analítica)', descricao: 'Proventos, descontos, líquido, bases e encargos de cada funcionário, com os totais.', tipo: 'tabela', precisaFolha: true, orientacao: 'paisagem', montar: folhaAnalitica },
     { id: 'holerites', grupo: 'Mensais', titulo: 'Holerites', descricao: 'Recibo de pagamento de cada funcionário, para assinatura.', tipo: 'holerites', precisaFolha: true },
     { id: 'resumo', grupo: 'Mensais', titulo: 'Resumo da folha', descricao: 'Totais por verba e o quadro para conferir as guias.', tipo: 'resumo', precisaFolha: true },
     { id: 'relacao-bancaria', grupo: 'Mensais', titulo: 'Relação bancária (crédito em conta)', descricao: 'Líquido de cada funcionário com banco, agência, conta e PIX.', tipo: 'tabela', precisaFolha: true, orientacao: 'paisagem', montar: relacaoBancaria },
+    { id: 'provisao-ferias', grupo: 'Mensais', titulo: 'Provisão de férias', descricao: 'Saldo de férias (vencidas, em dobro e proporcionais, com 1/3) de cada funcionário no fim do mês, com INSS patronal e FGTS, e o movimento do mês para a contabilidade.', tipo: 'tabela', precisaFolha: false, precisaCalculo: true, orientacao: 'paisagem', montar: c => tabelaProvisao(c, 'ferias') },
+    { id: 'provisao-13', grupo: 'Mensais', titulo: 'Provisão de 13º salário', descricao: 'Saldo do 13º (avos do ano) de cada funcionário no fim do mês, com INSS patronal e FGTS, e o movimento do mês para a contabilidade.', tipo: 'tabela', precisaFolha: false, precisaCalculo: true, orientacao: 'paisagem', montar: c => tabelaProvisao(c, 'decimo') },
     { id: 'admitidos-demitidos', grupo: 'Mensais', titulo: 'Admitidos e demitidos', descricao: 'Admissões e desligamentos da competência.', tipo: 'tabela', precisaFolha: false, montar: admitidosDemitidos },
     { id: 'funcionarios', grupo: 'Funcionários', titulo: 'Relação de funcionários', descricao: 'Quem está na folha da competência, com cargo, salário e situação.', tipo: 'tabela', precisaFolha: false, orientacao: 'paisagem', montar: funcionarios },
     { id: 'experiencia', grupo: 'Funcionários', titulo: 'Contratos de experiência', descricao: 'Fim dos contratos de experiência e por prazo determinado.', tipo: 'tabela', precisaFolha: false, montar: contratosExperiencia },

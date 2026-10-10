@@ -63,7 +63,8 @@ describe('central de relatórios: modelos', () => {
 // Tela: dados mockados.
 const srv = vi.hoisted(() => ({ folha: null as unknown, emailEnviado: vi.fn(async (..._a: unknown[]) => ({ remetente: 'dp@escritorio.com.br', fonteRemetente: 'colaborador', copiaPara: [] })) }));
 vi.mock('../../empresas/empresasService', () => ({ listarEmpresasVisiveis: async () => [{ id: 'emp1', cnpj: EMP.cnpj, razaoSocial: 'EMPRESA UM LTDA', codigoSage: '1200', contatoEnvio: { nome: 'Rita', email: 'rita@cliente.com.br' } }], salvarContatoEnvio: vi.fn() }));
-vi.mock('../../cadastros/cadastrosService', () => ({ listarFuncionarios: async () => FICHAS, listarAfastamentos: async () => [], listarEnquadramentos: async () => [], mensagemErro: (e: unknown) => String(e) }));
+vi.mock('../../cadastros/cadastrosService', () => ({ listarFuncionarios: async () => FICHAS, listarAfastamentos: async () => [], listarEnquadramentos: async () => [], listarTabelas: async () => [INSS, IR], mensagemErro: (e: unknown) => String(e) }));
+vi.mock('../../calculo/movimentosService', () => ({ listarMovimentosDaEmpresa: async () => ({}) }));
 vi.mock('../../calculo/folhaGravadaService', () => ({ lerFolhaGravada: async () => srv.folha, lerFolhasDoAno: async (_e: string, ano: string) => (ano === '2026' ? [{ competencia: '2026-09', holerites: folha }] : []) }));
 vi.mock('../../pacoteCliente/spConnect', async orig => ({ ...(await orig<typeof import('../../pacoteCliente/spConnect')>()), templatesDoDp: async () => [], enviarEmailPeloEscritorio: (...a: unknown[]) => srv.emailEnviado(...a) }));
 import RelatoriosPanel from '../../../components/relatorios/RelatoriosPanel';
@@ -107,5 +108,15 @@ describe('central de relatórios: tela', () => {
         expect((screen.getByLabelText('Funcionário') as HTMLSelectElement).options.length).toBe(4);
         expect((screen.getByRole('button', { name: 'Baixar PDF' }) as HTMLButtonElement).disabled).toBe(false);
         expect(screen.getByRole('button', { name: 'Excel' })).toBeTruthy();
+    });
+    it('provisão de férias: lê tabelas e movimentos e sai sem a folha gravada', async () => {
+        tela();
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Provisão de férias' })).toBeTruthy());
+        fireEvent.click(screen.getByRole('button', { name: 'Provisão de férias' }));
+        await waitFor(() => expect((screen.getByRole('button', { name: 'Baixar PDF' }) as HTMLButtonElement).disabled).toBe(false));
+        expect(screen.queryByText(/ainda não foi gravada/)).toBeNull();
+        expect(screen.getByRole('button', { name: 'Excel' })).toBeTruthy();
+        const t = def('provisao-ferias').montar!({ ...ctx, calculo: { empresaId: 'emp1', tabelas: [INSS, IR], movimentos: {}, enquadramentos: [] } });
+        expect(t.linhas.map(l => l[0])).toEqual(['ANA (admitido)', 'BRUNO', 'CAIO (desligado)']);
     });
 });

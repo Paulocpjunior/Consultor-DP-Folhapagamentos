@@ -3780,3 +3780,20 @@ Paulo: "pode seguir com s-1010".
   - os modelos no XSD e coerentes com o motor; férias pelos modelos sem aviso de incidência no recibo e na folha do gozo;
   - tela (aceito aplicado com de/para, rubrica pelo modelo, transmissão só do que falta, alteração vinda das incidências);
   - regras (`testes-regras/s1010.test.mjs`).
+
+## 10/10/2026 — Provisão de férias e 13º
+
+Paulo: "pode seguir com provisão de férias e 13, lembrando que SST é com empresa de medicina e segurança do trabalho".
+
+- **Onde:** Relatórios › Central › Mensais, dois modelos: **Provisão de férias** e **Provisão de 13º salário**. Saem com visualizar, imprimir, PDF (paisagem), Excel e envio ao cliente. Não dependem da folha gravada: leem as tabelas legais, os movimentos gravados (médias e faltas) e o enquadramento.
+- **Método do saldo** (`services/calculo/provisoes.ts`): no fim do mês, o saldo de cada empregado; o movimento do mês é saldo anterior + constituição − baixas = saldo atual (constituição negativa = reversão).
+  - **Férias:** vencidas (saldo de dias dos períodos fechados), em dobro fora do concessivo (com 1/3, sem encargos), proporcionais (15 dias ou mais no mês; dias de direito pelas faltas, art. 130) e o 1/3. Os períodos, perdas e suspensões vêm do motor de férias.
+  - **13º:** remuneração × avos do ano (os mesmos avos do motor do 13º).
+  - **Remuneração:** a do fim do mês, como na rescisão (salário pelo histórico, adicional de risco e média das variáveis dos 12 meses). Reajuste e média entram na constituição.
+  - **Baixas:** férias pelos gozos e abonos que começam no mês; 13º em dezembro (a 1ª parcela é adiantamento e não baixa); desligamento pelo saldo no dia (pago na rescisão).
+  - **Encargos:** INSS patronal + RAT × FAP + terceiros pelo regime do enquadramento (Simples dos demais anexos: zero; Anexo IV: sem terceiros) e FGTS de 8% (aprendiz, 2%). Sem enquadramento, avisa e sai sem INSS.
+  - **Fora:** intermitente (recebe a cada convocação) e quem não é empregado; ficha com erro aparece no aviso com o motivo.
+- **Lançamento do mês** na observação do relatório (constituição e baixa da provisão, do INSS e do FGTS), para a contabilidade.
+- **SST:** confirmado que ASO, CAT, S-2210, S-2220 e S-2240 ficam com a empresa de medicina e segurança do trabalho de cada cliente; o catálogo SAGE diz isso.
+- **Catálogo SAGE:** férias e 13º citam as provisões (continuam parciais: faltam férias coletivas e 13º complementar). Placar inalterado: 18 disponíveis, 21 parciais, 9 planejados, 3 fora.
+- **Testes:** posição (vencidas, dobra, proporcionais, faltas, 13º); movimento do mês com valores à mão (constituição, baixa por gozo, 13º em dezembro e janeiro, desligado, admitido, categorias); encargos por regime; lançamento; relatórios; tela da Central.
