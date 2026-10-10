@@ -6,6 +6,7 @@ import React, { useCallback, useState } from 'react';
 import { MESES, normalizarSindicato, sindicatoVazio, situacaoConvencao, validarSindicato, type Sindicato } from '../../services/cadastros/sindicatos';
 import { excluirSindicato, mensagemErro, salvarSindicato, type Usuario } from '../../services/cadastros/cadastrosService';
 import { UFS, centavosDeTexto, reais } from '../../services/cadastros/documentos';
+import ConvencoesSindicato from '../sindicatos/ConvencoesSindicato';
 
 interface Props { sindicatos: Sindicato[] | null; erroLista: string; usuario: Usuario; isAdmin: boolean; onRecarregar: () => void }
 
@@ -56,7 +57,7 @@ const SindicatosCadastro: React.FC<Props> = ({ sindicatos, erroLista, usuario, i
         <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
                 <button className="rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white" onClick={() => abrir(null)}>Novo sindicato</button>
-                <p className="text-sm text-slate-600 dark:text-slate-300">Cadastro único do escritório: o mesmo sindicato serve a várias empresas. A ficha do funcionário liga pelo CNPJ que vem do S-2200.</p>
+                <p className="text-sm text-slate-600 dark:text-slate-300">Cadastro único do escritório: o mesmo sindicato serve a várias empresas (Empresas › editar › sindicatos). A ficha do funcionário liga pelo CNPJ que vem do S-2200. Abra o sindicato para anexar a convenção em PDF.</p>
             </div>
             {erroLista && <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erroLista}</p>}
             {!sindicatos && !erroLista && <p className="text-sm text-slate-500">Carregando…</p>}
@@ -103,7 +104,7 @@ const SindicatosCadastro: React.FC<Props> = ({ sindicatos, erroLista, usuario, i
                             {texto('municipio', 'Município / base territorial')}
                         </div>
                         <fieldset className="grid gap-3 rounded border border-slate-200 p-3 sm:grid-cols-3 dark:border-slate-700">
-                            <legend className="px-1 text-xs font-medium text-slate-600 dark:text-slate-300">Convenção coletiva vigente</legend>
+                            <legend className="px-1 text-xs font-medium text-slate-600 dark:text-slate-300">Resumo da convenção vigente (o PDF, os pisos e as regras ficam em Convenções, abaixo)</legend>
                             {texto('registroMte', 'Registro no Mediador (MTE)')}
                             {texto('vigenciaInicio', 'Início da vigência', { type: 'date' })}
                             {texto('vigenciaFim', 'Fim da vigência', { type: 'date' })}
@@ -120,6 +121,7 @@ const SindicatosCadastro: React.FC<Props> = ({ sindicatos, erroLista, usuario, i
                         </fieldset>
                         <label className="block"><span className="text-xs font-medium text-slate-600 dark:text-slate-300">Observações (adicionais, aviso prévio, cláusulas que o DP precisa lembrar)</span>
                             <textarea className={inp} rows={3} value={edicao.s.observacoes} onChange={e => set('observacoes', e.target.value)} aria-label="Observações" /></label>
+                        {edicao.antes ? <ConvencoesSindicato sindicato={edicao.antes} usuario={usuario} /> : <p className="text-xs text-slate-500">Grave o sindicato para anexar as convenções.</p>}
                         {erros.length > 0 && <ul role="alert" className="list-disc rounded bg-red-50 p-2 pl-6 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erros.map(e => <li key={e}>{e}</li>)}</ul>}
                         <div className="flex justify-between gap-2">
                             <div>{edicao.antes && isAdmin && <button className="rounded border border-red-300 px-3 py-2 text-sm text-red-700 dark:text-red-300" disabled={salvando} onClick={excluir}>Excluir</button>}</div>

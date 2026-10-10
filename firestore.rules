@@ -568,6 +568,34 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ===== Convenções coletivas (do sindicato: servem a todas as empresas dele) =====
+    // Id = cnpj do sindicato + '_' + início da vigência. Qualquer aprovado cadastra e corrige (com autor);
+    // apagar só o admin. O PDF fica no Storage (convencoes/{cnpj}/...).
+    function convencaoValida(id) {
+      let d = request.resource.data;
+      return d.sindicatoCnpj is string && d.sindicatoCnpj.matches('^[0-9]{14}$')
+        && d.vigenciaInicio is string && d.vigenciaInicio.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && d.vigenciaFim is string && d.vigenciaFim.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && id == d.sindicatoCnpj + '_' + d.vigenciaInicio
+        && d.atualizadoPor == request.auth.uid;
+    }
+    match /convencoes_coletivas/{id} {
+      allow read: if isApproved();
+      allow create, update: if isApproved() && convencaoValida(id);
+      allow delete: if isAdmin();
+    }
+    // Obrigações da convenção cumpridas pela empresa: quem pode na empresa marca; a empresa não muda; nada se apaga.
+    match /convencao_checklist/{id} {
+      allow read: if podeEmpresa(resource.data.empresaId);
+      allow create, update: if podeEmpresa(request.resource.data.empresaId)
+                    && request.resource.data.convencaoId is string
+                    && id == request.resource.data.empresaId + '_' + request.resource.data.convencaoId
+                    && request.resource.data.itens is map
+                    && request.resource.data.atualizadoPor == request.auth.uid
+                    && (resource == null || resource.data.empresaId == request.resource.data.empresaId);
+      allow delete: if false;
+    }
+
     // ===== Fim de mês =====
     // Encerra quem trabalha na empresa (a lista de conferência fica gravada); só o gestor reabre, com o motivo.
     // Reencerrar depois da alteração: de novo quem trabalha na empresa. Nada se apaga.

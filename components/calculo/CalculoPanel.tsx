@@ -818,6 +818,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                         <p className="font-medium">Salário mínimo federal e estadual</p>
                         {c.alertas.length > 0 && <ul className="list-disc pl-5">{c.alertas.map(a => <li key={a.fichaId + a.regra} className={a.nivel === 'erro' ? 'text-red-800 dark:text-red-200' : ''}><strong>{a.nome}:</strong> {a.mensagem}</li>)}</ul>}
                         {c.avisos.map(a => <p key={a}>{a}</p>)}
+                        <p className="text-amber-800/80 dark:text-amber-200/80">Piso e reajuste da convenção coletiva, horas extras e obrigações: Cadastros › Conformidade (o piso da convenção prevalece sobre o estadual).</p>
                     </section>
                 );
             })()}

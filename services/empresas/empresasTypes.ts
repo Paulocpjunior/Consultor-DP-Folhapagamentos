@@ -22,6 +22,8 @@ export interface Empresa {
     /** UF e município do local de trabalho (salário mínimo estadual, feriados e comunicações). */
     uf?: string;
     municipio?: string;
+    /** Sindicatos da categoria dos empregados (CNPJs do cadastro de sindicatos): convenção coletiva e conformidade. */
+    sindicatos?: string[];
     criadoPor: string;         // uid do usuário que cadastrou
     criadoEm?: any;            // serverTimestamp
     atualizadoEm?: any;
@@ -45,4 +47,5 @@ export interface EmpresaInput {
     codigoSage: string;
     uf?: string;
     municipio?: string;
+    sindicatos?: string[];
 }

@@ -110,6 +110,9 @@ jobs:
         run: |
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/conta.json"
           GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/conta.json" npx --yes firebase-tools@14 deploy --only firestore:rules --project consultor-dp-folha --non-interactive
+          # Storage (PDF das convenções coletivas): sem permissão da conta, avisa e segue (publique pelo console).
+          GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/conta.json" npx --yes firebase-tools@14 deploy --only storage --project consultor-dp-folha --non-interactive \
+            || echo "::warning::Regras do Storage nao publicadas (permissao da conta de servico?). Publique storage.rules pelo console."
           rm -f "$RUNNER_TEMP/conta.json"
       - name: Sem a credencial
         if: env.FIREBASE_SERVICE_ACCOUNT == ''
