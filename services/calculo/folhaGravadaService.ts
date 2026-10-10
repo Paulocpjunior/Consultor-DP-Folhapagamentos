@@ -36,3 +36,10 @@ export async function gravarFolha(empresaId: string, competencia: string, pagame
     for (const fichaId of antes) if (!validos.some(r => r.fichaId === fichaId)) b.delete(doc(db, COL, id, 'holerites', fichaId));
     await b.commit();
 }
+
+/** Folhas gravadas do ano (as que existem), para a ficha financeira. */
+export async function lerFolhasDoAno(empresaId: string, ano: string): Promise<FolhaGravada[]> {
+    const meses = Array.from({ length: 12 }, (_, i) => `${ano}-${String(i + 1).padStart(2, '0')}`);
+    const lidas = await Promise.all(meses.map(c => lerFolhaGravada(empresaId, c).catch(() => null)));
+    return lidas.filter((f): f is FolhaGravada => !!f);
+}
