@@ -52,7 +52,9 @@ describe('13º salário', () => {
         expect(v(semRedutor, 'IRRF13')).toBe(2383); // (3.000 − 253,41) × 7,5% − 182,16
         const simpl = calc({ opcoes: { simplificado: true, redutor: false } });
         expect(v(simpl, 'IRRF13')).toBe(0); // 3.000 − 607,20 = 2.392,80: isento
-        expect(r.avisos.join(' ')).toContain('SEM desconto simplificado e COM o redutor');
+        // Padrão: com o desconto simplificado (IN RFB 2.141/2023) e o redutor; fora do padrão, avisa.
+        expect(r.avisos.join(' ')).not.toContain('desconto simplificado');
+        expect(semRedutor.avisos.join(' ')).toContain('SEM desconto simplificado e SEM o redutor');
     });
 
     it('salário alto: IRRF sem redutor acima de 7.350; 1ª parcela informada', () => {

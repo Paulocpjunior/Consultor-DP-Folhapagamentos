@@ -17,8 +17,9 @@
 // - 2ª parcela: 13º integral − 1ª parcela; INSS do 13º em separado (tabela de
 //   dezembro), IRRF exclusivo na fonte sobre o 13º integral (tabela do mês do
 //   pagamento); FGTS sobre o que falta.
-// O desconto simplificado e o redutor de 2026 no IRRF do 13º ficam como
-// opção da tela, com aviso, até a conferência com o IOB confirmar a regra.
+// O desconto simplificado vale também no 13º (IN RFB 1.500/2014, alterada pela
+// IN RFB 2.141/2023), quando maior que as deduções legais, como nas férias e na
+// rescisão; o redutor de 2026 também. Os dois ficam como opção da tela.
 // 13º na rescisão fica de fora.
 
 import { fichaNaData, memoriaDoHistorico, type FichaFuncionario } from '../cadastros/funcionarios';
@@ -31,7 +32,7 @@ import { diasDsr, salarioContratual, valorHorasExtras, type Movimento, type Resu
 
 export type Parcela13 = '1a' | '2a';
 export interface Opcoes13 { simplificado: boolean; redutor: boolean }
-export const OPCOES_13_PADRAO: Opcoes13 = { simplificado: false, redutor: true };
+export const OPCOES_13_PADRAO: Opcoes13 = { simplificado: true, redutor: true };
 
 export interface Entrada13 {
     ano: number;
@@ -222,7 +223,7 @@ export function calcular13(e: Entrada13): ResultadoCalculo {
             const faixa = t.faixas.find(f => f.ate === null || base <= f.ate) ?? t.faixas[t.faixas.length - 1];
             let ir = Math.max(0, Math.round(base * faixa.aliquota / 100) - faixa.deducao);
             r.memoria.push(`IRRF do 13º (exclusivo na fonte, tabela de ${rotuloCompetencia(t.vigencia)}): ${reais(integral)} − ${usaSimpl ? `desconto simplificado ${reais(simpl)}` : `INSS ${reais(inss)}${nDep ? ` e ${nDep} dependente(s)` : ''}`} = base ${reais(base)} × ${pct(faixa.aliquota)} − ${reais(faixa.deducao)} = ${reais(ir)}.`);
-            r.avisos.push(`IRRF do 13º ${opcoes.simplificado ? 'COM' : 'SEM'} desconto simplificado e ${opcoes.redutor ? 'COM' : 'SEM'} o redutor de 2026: confirme a regra na norma e na conferência com o IOB.`);
+            if (!opcoes.simplificado || !opcoes.redutor) r.avisos.push(`IRRF do 13º ${opcoes.simplificado ? 'COM' : 'SEM'} desconto simplificado e ${opcoes.redutor ? 'COM' : 'SEM'} o redutor de 2026 (opção da tela; o padrão é com os dois).`);
             const v = t.valores;
             if (opcoes.redutor && ir > 0 && v.redutorAte && v.redutorMaximo && v.redutorLimite && v.redutorConstante && v.redutorCoeficiente) {
                 let red = 0;

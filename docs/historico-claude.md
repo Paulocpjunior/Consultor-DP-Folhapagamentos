@@ -3247,3 +3247,9 @@ guias sindicais".
 - **Situação:** o GitHub do projeto só tem a configuração web do Firebase (chave pública), que não publica regras; esta sessão não tem login no Firebase. As regras foram mandadas ao Paulo para publicar pelo console.
 - **CI:** job `publicar-regras` no `deploy.yml`, depois dos testes das regras, a cada push na main (ou "Run workflow"). Usa o segredo `FIREBASE_SERVICE_ACCOUNT` (chave JSON de uma conta de serviço com "Administrador de regras do Firebase"); sem ele, só avisa.
 - **10/10/2026:** Paulo criou a conta de serviço `github-regras` (Administrador de regras do Firebase e Consumidor do Service Usage) e o segredo `FIREBASE_SERVICE_ACCOUNT` no GitHub. A partir daqui, o merge na main publica as regras.
+
+## 10/10/2026 — Desconto simplificado no IRRF do 13º
+
+- **Antes:** a aba do 13º calculava o IRRF sem o desconto simplificado (padrão), e a rescisão com ele.
+- **Regra:** a IN RFB 2.141/2023 alterou a IN RFB 1.500/2014 para a fonte pagadora usar o desconto simplificado mensal, quando mais benéfico, também no 13º e nas férias.
+- **Agora:** o 13º usa o desconto simplificado e o redutor de 2026 por padrão (as duas opções continuam na tela; fora do padrão, aviso).
