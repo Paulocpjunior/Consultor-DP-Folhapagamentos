@@ -10,6 +10,8 @@ import { ROTULO_PAPEL, papelEfetivo, type Papel } from '../../services/auth/pape
 import { diffCarteira, motivosRecusa } from '../../services/carteira/carteira';
 import { salvarCarteira } from '../../services/carteira/carteiraService';
 import { mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
+import { idsDoUsuario, rotuloColaborador, sugestaoCarteira } from '../../services/crm/crmDp';
+import type { CrmCompleto } from '../../services/crm/crmService';
 
 interface Props {
     alvo: { uid: string; nome: string; email: string; papel: string };
@@ -22,6 +24,10 @@ interface Props {
     atual: string[];
     /** Carteira do ator (o admin só mexe nestas). */
     minhas: string[];
+    /** CRM do DP (Jotform) sincronizado: sugere a carteira pelo responsável. */
+    crm?: CrmCompleto | null;
+    /** Liga o responsável do CRM a esta pessoa (vazio desliga). */
+    onLigarCrm?: (jotformId: string, uid: string) => Promise<void>;
     onFechar: () => void;
     onSalvo: () => void;
 }
@@ -29,7 +35,7 @@ interface Props {
 const cnpjFmt = (c: string) => (c?.length === 14 ? `${c.slice(0, 2)}.${c.slice(2, 5)}.${c.slice(5, 8)}/${c.slice(8, 12)}-${c.slice(12)}` : c);
 const sem = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
-const CarteiraModal: React.FC<Props> = ({ alvo, ator, atorUid, usuario, empresas, atual, minhas, onFechar, onSalvo }) => {
+const CarteiraModal: React.FC<Props> = ({ alvo, ator, atorUid, usuario, empresas, atual, minhas, crm, onLigarCrm, onFechar, onSalvo }) => {
     const [marcadas, setMarcadas] = useState<Set<string>>(() => new Set(atual));
     const [busca, setBusca] = useState('');
     const [soMarcadas, setSoMarcadas] = useState(false);
@@ -52,6 +58,22 @@ const CarteiraModal: React.FC<Props> = ({ alvo, ator, atorUid, usuario, empresas
         for (const e of lista) if (editavel(e.id)) { if (sim) n.add(e.id); else n.delete(e.id); }
         return n;
     });
+
+    // CRM: os responsáveis do Jotform que são esta pessoa (ligados ou pelo mesmo e-mail) e as empresas que o CRM aponta.
+    const [ligacao, setLigacao] = useState<string[] | null>(null);
+    const idsCrm = ligacao ?? (crm ? idsDoUsuario(crm.colaboradores, crm.mapa, alvo) : []);
+    const sugestao = crm ? sugestaoCarteira(crm.empresas, empresas, idsCrm) : null;
+    const faltam = sugestao ? sugestao.empresaIds.filter(id => !marcadas.has(id) && editavel(id)) : [];
+    const foraDoCrm = sugestao && idsCrm.length ? [...marcadas].filter(id => !sugestao.empresaIds.includes(id) && editavel(id)) : [];
+    async function ligar(jotformId: string) {
+        const antigos = idsCrm.filter(i => i !== jotformId);
+        setErros([]);
+        try {
+            for (const i of antigos) await onLigarCrm?.(i, '');
+            if (jotformId) await onLigarCrm?.(jotformId, alvo.uid);
+            setLigacao(jotformId ? [jotformId] : []);
+        } catch (e) { setErros([mensagemErro(e)]); }
+    }
 
     const depois = [...marcadas];
     const { incluidas, removidas } = diffCarteira(atual, depois);
@@ -80,6 +102,39 @@ const CarteiraModal: React.FC<Props> = ({ alvo, ator, atorUid, usuario, empresas
                     {alvo.nome} só verá e trabalhará nas empresas marcadas (e nas que ele mesmo cadastrar).
                     {ator === 'admin' && ' Como admin, você só inclui ou retira empresas da sua própria carteira.'}
                 </p>
+                {crm !== undefined && (
+                    <section aria-label="CRM do DP" className="space-y-2 rounded-lg border border-sky-200 bg-sky-50/60 p-3 text-sm dark:border-sky-800 dark:bg-sky-900/15">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <strong className="text-sky-900 dark:text-sky-100">CRM do DP (Jotform)</strong>
+                            <span className="text-xs text-slate-500">{crm ? `sincronizado em ${crm.sincronizadoEm?.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) ?? '—'} · ${crm.empresas.filter(e => e.ativoNoCrm).length} empresas` : 'ainda não sincronizado'}</span>
+                        </div>
+                        {crm && (
+                            <>
+                                <label className="block text-xs text-slate-600 dark:text-slate-300">Responsável no CRM
+                                    <select aria-label="Responsável no CRM" className="mt-1 block w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                                        value={idsCrm[0] ?? ''} disabled={!onLigarCrm} onChange={e => void ligar(e.target.value)}>
+                                        <option value="">— não ligado —</option>
+                                        {crm.colaboradores.filter(c => c.jotformId).map(c => <option key={c.jotformId} value={c.jotformId}>{rotuloColaborador(c)}</option>)}
+                                    </select>
+                                </label>
+                                {sugestao && idsCrm.length > 0 && (
+                                    <div className="space-y-1 text-xs text-slate-700 dark:text-slate-200">
+                                        <p>O CRM aponta {sugestao.empresaIds.length + sugestao.naoCadastradas.length} empresa(s) para {alvo.nome}: {sugestao.empresaIds.length} no Consultor{faltam.length ? `, ${faltam.length} fora desta carteira` : ''}{sugestao.naoCadastradas.length ? `, ${sugestao.naoCadastradas.length} ainda não cadastrada(s) no Consultor` : ''}.</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            <button className="rounded bg-sky-700 px-2 py-1 text-white disabled:opacity-50" disabled={!faltam.length} onClick={() => setMarcadas(m => new Set([...m, ...faltam]))}>Marcar as {faltam.length} do CRM</button>
+                                            {foraDoCrm.length > 0 && <button className="rounded border border-slate-300 px-2 py-1 dark:border-slate-600" onClick={() => setMarcadas(m => new Set([...m].filter(id => !foraDoCrm.includes(id))))}>Desmarcar as {foraDoCrm.length} que não estão no CRM</button>}
+                                        </div>
+                                        {sugestao.naoCadastradas.length > 0 && (
+                                            <details><summary className="cursor-pointer">Não cadastradas no Consultor</summary>
+                                                <ul className="mt-1 list-disc pl-5">{sugestao.naoCadastradas.map(c => <li key={c.documento}>{c.nome} · {c.codigoSage ? `SAGE ${c.codigoSage} · ` : ''}{cnpjFmt(c.documento)}</li>)}</ul>
+                                            </details>
+                                        )}
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </section>
+                )}
                 <div className="flex flex-wrap items-center gap-2">
                     <input aria-label="Buscar empresa" placeholder="Buscar por nome, CNPJ ou código SAGE" value={busca} onChange={e => setBusca(e.target.value)}
                         className="min-w-0 flex-1 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100" />

@@ -30,11 +30,13 @@ interface Props {
     bloqueados?: Partial<Record<string, string>>;
     /** Faixa da situação do período (Fim de mês), ao lado da competência. */
     situacaoPeriodo?: React.ReactNode;
+    /** Ao lado da empresa ativa (ex.: particularidades do CRM). */
+    extraEmpresa?: React.ReactNode;
     /** Número no grupo do menu (ex.: pedidos de reabertura esperando o gestor). */
     contadores?: Partial<Record<string, number>>;
 }
 
-const Cabecalho: React.FC<Props> = ({ menu, destino, onNavegar, ativa, onTrocar, usuario, papel, escuro, onTema, onSair, bloqueados = {}, situacaoPeriodo, contadores = {} }) => {
+const Cabecalho: React.FC<Props> = ({ menu, destino, onNavegar, ativa, onTrocar, usuario, papel, escuro, onTema, onSair, bloqueados = {}, situacaoPeriodo, contadores = {}, extraEmpresa }) => {
     const [aberto, setAberto] = useState<string | null>(null);
     const ref = useRef<HTMLElement>(null);
     const atual = ondeEsta(destino, menu);
@@ -99,6 +101,7 @@ const Cabecalho: React.FC<Props> = ({ menu, destino, onNavegar, ativa, onTrocar,
                                 <div className="truncate text-[11px] text-slate-400">CNPJ {ativa.cnpj} · SAGE {ativa.codigoSage}</div>
                             </div>
                             <div className="ml-auto flex shrink-0 items-center gap-2">
+                                {extraEmpresa}
                                 <div className="text-right leading-tight">
                                     <div className="text-[10px] uppercase tracking-wider text-slate-400">Competência</div>
                                     <div className="font-mono text-sm font-semibold text-white">{competenciaBr(ativa.competencia)}</div>

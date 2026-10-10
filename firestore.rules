@@ -412,6 +412,25 @@ service cloud.firestore {
                     && !periodoEncerrado(resource.data.empresaId, resource.data.competencia);
     }
 
+    // ===== CRM do DP (Jotform) =====
+    // Gravado só pelo job de sincronização (conta de serviço). A empresa: quem pode no CNPJ; o CRM inteiro e o resumo:
+    // gestor e admin (montam as carteiras). A ligação responsável do CRM → usuário: gestor e admin.
+    match /crm_dp/{documento} {
+      allow get: if isAdmin() || (documento.matches('^[0-9]{14}$') && podeCnpj(documento));
+      allow list: if isAdmin();
+      allow write: if false;
+    }
+    match /crm_dp_meta/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /crm_dp_mapa/{id} {
+      allow read: if isAdmin();
+      allow create, update: if isAdmin() && id == 'colaboradores'
+                    && request.resource.data.keys().size() <= 200;
+      allow delete: if false;
+    }
+
     // ===== Fim de mês =====
     // Encerra quem trabalha na empresa (a lista de conferência fica gravada); só o gestor reabre, com o motivo.
     // Reencerrar depois da alteração: de novo quem trabalha na empresa. Nada se apaga.

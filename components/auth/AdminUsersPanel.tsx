@@ -7,6 +7,7 @@ import { listarEmpresasVisiveis } from '../../services/empresas/empresasService'
 import { lerCarteira, listarCarteiras } from '../../services/carteira/carteiraService';
 import { resumoCarteira } from '../../services/carteira/carteira';
 import CarteiraModal from './CarteiraModal';
+import { lerCrmCompleto, ligarColaborador, type CrmCompleto } from '../../services/crm/crmService';
 import { VerificarMaster } from './PendingScreen';
 import { ehMaster } from '../../services/auth/papeis';
 
@@ -21,6 +22,8 @@ const AdminUsersPanel: React.FC<Props> = ({ currentUser, embutido = false }) => 
     const [minhas, setMinhas] = useState<string[]>([]);
     const [erroCarteira, setErroCarteira] = useState('');
     const [editando, setEditando] = useState<authService.UserDoc | null>(null);
+    // CRM do DP (Jotform): undefined = carregando ou sem acesso; null = ainda não sincronizado.
+    const [crm, setCrm] = useState<CrmCompleto | null | undefined>(undefined);
     const meuUid = (currentUser as any).uid ?? currentUser.id;
 
     const reload = async () => {
@@ -44,6 +47,8 @@ const AdminUsersPanel: React.FC<Props> = ({ currentUser, embutido = false }) => 
         }
     };
     useEffect(() => { reload(); }, []);
+    const recarregarCrm = () => lerCrmCompleto().then(setCrm).catch(() => setCrm(undefined));
+    useEffect(() => { void recarregarCrm(); }, []);
 
     const ator = papelEfetivo(currentUser.role);
     // Gestor monta a de qualquer admin/colaborador (gestor já vê tudo); admin, só a de colaboradores.
@@ -98,6 +103,7 @@ const AdminUsersPanel: React.FC<Props> = ({ currentUser, embutido = false }) => 
                     alvo={{ uid: editando.uid, nome: editando.name, email: editando.email, papel: editando.role }}
                     ator={ator} atorUid={meuUid} usuario={{ id: meuUid, email: currentUser.email }}
                     empresas={empresas} atual={carteiras.get(editando.uid) ?? []} minhas={minhas}
+                    crm={crm} onLigarCrm={async (id, uid) => { await ligarColaborador(id, uid); await recarregarCrm(); }}
                     onFechar={() => setEditando(null)}
                     onSalvo={() => { setEditando(null); reload(); }}
                 />

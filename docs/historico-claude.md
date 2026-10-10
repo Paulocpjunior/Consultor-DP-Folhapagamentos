@@ -3374,3 +3374,24 @@ guias sindicais".
   - Transmissão: avião de papel; FGTS: moeda.
   - Fechamento: cadeado; Pedidos de reabertura: cadeado aberto.
 - **Teste:** todo grupo tem cor, todo item tem ícone e as cores dos grupos não se repetem.
+
+## 10/10/2026 — CRM do DP (Jotform) nas carteiras e particularidades
+
+- **Paulo:** "quanto às carteiras, devemos linkar no Jotform, ele é o CRM com as devidas informações das empresas, separadas por usuários, particularidades". Fonte: tabela do "Controle DP RH_2022" (formulário 213255365041650).
+- **A tabela, em 10/10/2026:**
+  - 274 linhas, 268 ativas, quase todas com código SAGE e CNPJ.
+  - Por empresa: tributação, fechamento (folha, pró-labore, doméstica), adiantamento, dia do pagamento, VT/VR, desoneração, sindicato, dissídio e observações do fechamento (as particularidades).
+  - Responsável no campo de atribuição. Sete responsáveis atendem de 26 a 39 empresas cada, mas a lista do campo não traz o nome deles.
+- **Sincronização:**
+  - O job `.github/workflows/crm-jotform.yml` roda em dias úteis, de 2 em 2 horas no horário comercial, ou por "Run workflow".
+  - Grava `crm_dp/{CNPJ ou CPF}` e o resumo `crm_dp_meta/sincronizacao`. Empresas que saem da tabela ficam como `ativoNoCrm: false`; nada se apaga.
+  - Lógica pura em `scripts/crm/jotformDp.mjs`; o script em `scripts/crm/sincronizarCrmJotform.mjs`.
+  - Precisa dos segredos `JOTFORM_API_KEY` e `FIREBASE_SERVICE_ACCOUNT`. A conta de serviço precisa de gravação no Firestore.
+- **Carteira (Usuários › Carteira):**
+  - Quadro "CRM do DP" com o responsável no CRM daquela pessoa: pelo mesmo e-mail ou ligado pelo gestor ou admin (`crm_dp_mapa/colaboradores`).
+  - O quadro mostra quantas empresas o CRM aponta (no Consultor, fora da carteira e ainda não cadastradas) e tem os botões "Marcar as do CRM" e "Desmarcar as que não estão no CRM". Salvar continua com o gestor.
+- **Particularidades:** botão "Particularidades" ao lado da empresa ativa, no cabeçalho, com responsável, fechamento, adiantamento, pagamento, VT, desoneração, sindicato, dissídio e as observações. Quem altera é o Jotform.
+- **Regras:**
+  - `crm_dp`: a empresa é lida por quem pode no CNPJ; a lista inteira, pelo gestor e pelo admin.
+  - Só o job grava.
+  - A ligação dos responsáveis é feita pelo gestor e pelo admin.

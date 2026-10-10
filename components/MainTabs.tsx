@@ -25,6 +25,7 @@ import ESocialMonitorPanel from './esocial/ESocialMonitorPanel';
 import AlertaPendenciasPopup from './AlertaPendenciasPopup';
 import Cabecalho, { Ico } from './layout/Cabecalho';
 import { corDoGrupo } from './layout/cores';
+import ParticularidadesEmpresa from './crm/ParticularidadesEmpresa';
 import { menuDoPapel, ondeEsta, type Destino as DestinoMenu } from '../services/navegacao/menu';
 import UpdateBanner from './UpdateBanner';
 import MiaAssistente from './mia/MiaAssistente';
@@ -349,7 +350,8 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                 usuario={currentUser.name || currentUser.email} papel={isAdmin ? ROTULO_PAPEL[papelEfetivo(currentUser.role)] : undefined}
                 escuro={escuro} onTema={() => setEscuro(e => !e)} onSair={handleLogout} bloqueados={bloqueados}
                 situacaoPeriodo={situacaoPeriodo ? <button onClick={() => navegar({ aba: 'fimdemes', sub: 'fechamento' })} title="Fim de mês desta competência"><SeloSituacao situacao={situacaoPeriodo} /></button> : undefined}
-                contadores={pedidosGestor ? { fimdemes: pedidosGestor } : undefined} />
+                contadores={pedidosGestor ? { fimdemes: pedidosGestor } : undefined}
+                extraEmpresa={ativa ? <ParticularidadesEmpresa cnpj={ativa.cnpj} /> : undefined} />
             {pedidosGestor > 0 && nav.d.aba !== 'fimdemes' && (
                 <div className="border-b border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20">
                     <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-4 py-2 text-sm text-amber-900 dark:text-amber-100">

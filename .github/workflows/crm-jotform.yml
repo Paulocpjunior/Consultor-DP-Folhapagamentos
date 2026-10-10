@@ -1,0 +1,40 @@
+name: CRM do DP (Jotform)
+
+# Lê a tabela do CRM do DP no Jotform e grava no Firestore (crm_dp), para as sugestões de
+# carteira e as particularidades das empresas no Consultor. Dias úteis, de 2 em 2 horas
+# no horário comercial de Brasília, ou pelo botão "Run workflow".
+on:
+  schedule:
+    - cron: '7 11-21/2 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: crm-jotform
+  cancel-in-progress: false
+
+jobs:
+  sincronizar:
+    runs-on: ubuntu-latest
+    env:
+      JOTFORM_API_KEY: ${{ secrets.JOTFORM_API_KEY }}
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+    steps:
+      - name: Sem os segredos
+        if: env.JOTFORM_API_KEY == '' || env.FIREBASE_SERVICE_ACCOUNT == ''
+        run: echo "::warning::Segredos JOTFORM_API_KEY e FIREBASE_SERVICE_ACCOUNT necessários - CRM não sincronizado."
+      - name: Checkout
+        if: env.JOTFORM_API_KEY != '' && env.FIREBASE_SERVICE_ACCOUNT != ''
+        uses: actions/checkout@v5
+      - name: Setup Node.js
+        if: env.JOTFORM_API_KEY != '' && env.FIREBASE_SERVICE_ACCOUNT != ''
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Sincronizar
+        if: env.JOTFORM_API_KEY != '' && env.FIREBASE_SERVICE_ACCOUNT != ''
+        run: |
+          mkdir -p "$RUNNER_TEMP/crm" && cd "$RUNNER_TEMP/crm" && npm init -y > /dev/null && npm i --no-audit --no-fund firebase-admin@13 > /dev/null
+          cp "$GITHUB_WORKSPACE"/scripts/crm/*.mjs . && node sincronizarCrmJotform.mjs
