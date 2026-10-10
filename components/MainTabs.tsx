@@ -19,7 +19,8 @@ import type { SubCadastro } from './cadastros/CadastrosPanel';
 import EmpresasPanel from './empresas/EmpresasPanel';
 import ESocialMonitorPanel from './esocial/ESocialMonitorPanel';
 import AlertaPendenciasPopup from './AlertaPendenciasPopup';
-import Logo from './Logo';
+import Cabecalho from './layout/Cabecalho';
+import { menuDoPapel, ondeEsta, type Destino as DestinoMenu } from '../services/navegacao/menu';
 import UpdateBanner from './UpdateBanner';
 import MiaAssistente from './mia/MiaAssistente';
 import { listarEmpresasVisiveis } from '../services/empresas/empresasService';
@@ -34,6 +35,10 @@ import {
 } from '../services/empresaAtiva/empresaAtiva';
 
 type Tab = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin';
+
+/** Tema escuro guardado no navegador (preferência de cada pessoa). */
+const CHAVE_TEMA = 'consultor-dp:tema';
+const temaGuardado = () => { try { return localStorage.getItem(CHAVE_TEMA) === 'escuro'; } catch { return false; } };
 
 const SUB_FOLHA: Partial<Record<Destino, SubTabFolha>> = {
     'folha:apontamento': 'apontamento', 'folha:implantacao': 'implantacao', 'folha:conferencia': 'conferencia',
@@ -71,10 +76,20 @@ function saudacaoPorHora(): string {
 const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [authReady, setAuthReady] = useState(false);
-    const [activeTab, setActiveTab] = useState<Tab>('folha');
-    // Sub-aba da Folha pedida por outro módulo (IOB SAGE); a chave remonta o painel nela.
-    const [folhaSub, setFolhaSub] = useState<{ sub: SubTabFolha; n: number } | null>(null);
-    const [cadastroSub, setCadastroSub] = useState<{ sub: SubCadastro; n: number } | null>(null);
+    // Onde a pessoa está (grupo e item do menu); n remonta o painel ao escolher de novo pelo menu.
+    const [nav, setNav] = useState<{ d: Exclude<DestinoMenu, { aba: 'trocar' }>; n: number }>({ d: { aba: 'folha', sub: 'apontamento' }, n: 0 });
+    const activeTab: Tab = nav.d.aba;
+    const navegar = useCallback((d: DestinoMenu) => { if (d.aba !== 'trocar') setNav(x => ({ d, n: x.n + 1 })); }, []);
+    const setActiveTab = useCallback((t: Tab) => navegar(
+        t === 'folha' ? { aba: 'folha', sub: 'apontamento' } : t === 'cadastros' ? { aba: 'cadastros', sub: 'funcionarios' }
+            : t === 'esocial' ? { aba: 'esocial', sub: 'dashboard' } : t === 'calculo' ? { aba: 'calculo', folha: 'mensal' } : { aba: t }), [navegar]);
+    const irFolha = (sub: SubTabFolha) => navegar({ aba: 'folha', sub });
+    const irCadastro = (sub: SubCadastro) => navegar({ aba: 'cadastros', sub });
+    const [escuro, setEscuro] = useState(temaGuardado);
+    useEffect(() => {
+        document.documentElement.classList.toggle('dark', escuro);
+        try { localStorage.setItem(CHAVE_TEMA, escuro ? 'escuro' : 'claro'); } catch { /* sem armazenamento: vale só nesta aba */ }
+    }, [escuro]);
     const [empresasCount, setEmpresasCount] = useState<number | null>(null);
     // Empresa e período ativos da sessão (services/empresaAtiva): portão antes de qualquer ação.
     const [visiveis, setVisiveis] = useState<Empresa[] | null>(null);
@@ -197,7 +212,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
     const isAdmin = ehAdmin(currentUser.role);
 
     if (!isAdmin && activeTab === 'admin') {
-        setActiveTab('folha');
+        setNav({ d: { aba: 'folha', sub: 'apontamento' }, n: nav.n + 1 });
     }
 
     // Boas-vindas a cada login: vem ANTES do portão de empresa e período
@@ -272,20 +287,15 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
         );
     }
 
-    const tabs: { id: Tab; label: string; icon: string; adminOnly: boolean }[] = [
-        { id: 'folha',    label: 'Folha',     icon: '📋', adminOnly: false },
-        { id: 'cadastros', label: 'Cadastros', icon: '🗃️', adminOnly: false },
-        { id: 'calculo',  label: 'Cálculo',   icon: '🧮', adminOnly: false },
-        { id: 'prazos',   label: 'Prazos',    icon: '⏰', adminOnly: false },
-        { id: 'certificados', label: 'Certificados', icon: '🔐', adminOnly: false },
-        { id: 'empresas', label: 'Empresas',  icon: '🏢', adminOnly: false },
-        { id: 'esocial',  label: 'eSocial',   icon: '📡', adminOnly: false },
-        { id: 'iobsage',  label: 'IOB SAGE',  icon: '🗂️', adminOnly: false },
-        { id: 'admin',    label: 'Usuários',  icon: '👥', adminOnly: true  },
-    ];
+    const menu = menuDoPapel(isAdmin);
+    const local = ondeEsta(nav.d, menu);
+    // Sem empresa na carteira, as telas da Folha ficam fechadas (como a aba antiga).
+    const bloqueados: Record<string, string> = empresasCount === 0
+        ? Object.fromEntries(menu.flatMap(g => g.itens).filter(i => i.destino.aba === 'folha').map(i => [i.id, 'Nenhuma empresa na sua carteira: peça ao gestor ou admin']))
+        : {};
 
     return (
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
+        <div className="min-h-screen bg-slate-100/70 dark:bg-slate-950">
             {gate?.aviso && (
                 <div className="px-4 py-2 text-center text-[13px] bg-amber-50 text-amber-800 border-b border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800">
                     ⚠ {gate.aviso}
@@ -309,79 +319,32 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                 // Sem e-mail verificado o CFI recusa o token (cofre de certificados, transmissão ao eSocial).
                 <div className="mx-auto max-w-7xl px-4 pt-3"><VerificarEmail email={currentUser.email} /></div>
             )}
-            <nav className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-40 shadow-sm">
-                <div className="max-w-7xl mx-auto px-4">
-                    <div className="flex items-center justify-between h-14">
-                        <div className="flex items-center gap-1">
-                            <Logo iconOnly className="h-9 w-9 mr-3 hidden sm:block" />
-                            <span className="font-bold text-slate-800 dark:text-white mr-4 hidden xl:block whitespace-nowrap">
-                                Consultor DP · SP Assessoria
-                            </span>
-                            {isAdmin && <a href="https://consultor-fiscal-inteligente-631239634290.us-west1.run.app/?painel=comunicacao&departamento=dp-folha" target="_blank" rel="noopener noreferrer" className="px-3 py-2 rounded-lg text-sm font-medium text-blue-700 dark:text-blue-300 whitespace-nowrap" title="Administração central de comunicação (templates e agendamentos) — acesso de admin no CFI"><span className="hidden xl:inline">Templates e agendamentos </span><span className="xl:hidden">Templates </span>↗</a>}
-                            {tabs.filter(t => !t.adminOnly || isAdmin).map(t => {
-                                const bloqueado = t.id === 'folha' && empresasCount === 0;
-                                const titulo = bloqueado ? 'Nenhuma empresa na sua carteira: peça ao gestor ou admin' : t.label;
-                                return (
-                                    <button
-                                        key={t.id}
-                                        onClick={() => !bloqueado && setActiveTab(t.id)}
-                                        disabled={bloqueado}
-                                        title={titulo}
-                                        className={`px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                                            bloqueado
-                                                ? 'text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-60'
-                                                : activeTab === t.id
-                                                ? 'bg-blue-600 text-white'
-                                                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
-                                        }`}>
-                                        <span className="mr-1">{t.icon}</span>
-                                        <span className="hidden sm:inline">{t.label}</span>
-                                        {bloqueado && <span className="ml-1 text-xs">(cadastre empresa)</span>}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                        <div className="flex items-center gap-2">
-                            {isAdmin && (
-                                <span className="hidden sm:inline px-2 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-xs font-medium rounded">
-                                    👑 {ROTULO_PAPEL[papelEfetivo(currentUser.role)]}
-                                </span>
-                            )}
-                            <span className="hidden md:block text-sm text-slate-600 dark:text-slate-300">
-                                {currentUser.name || currentUser.email}
-                            </span>
-                            <button onClick={handleLogout} className="px-3 py-1.5 text-sm bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg">
-                                Sair
-                            </button>
-                        </div>
-                    </div>
+            <Cabecalho menu={menu} destino={nav.d} onNavegar={navegar} ativa={ativa} onTrocar={abrirTroca}
+                usuario={currentUser.name || currentUser.email} papel={isAdmin ? ROTULO_PAPEL[papelEfetivo(currentUser.role)] : undefined}
+                escuro={escuro} onTema={() => setEscuro(e => !e)} onSair={handleLogout} bloqueados={bloqueados} />
+            {isAdmin && (
+                <div className="mx-auto flex max-w-7xl justify-end px-4 pt-2 sm:px-6">
+                    <a href="https://consultor-fiscal-inteligente-631239634290.us-west1.run.app/?painel=comunicacao&departamento=dp-folha" target="_blank" rel="noopener noreferrer"
+                        className="text-xs font-medium text-blue-700 hover:underline dark:text-blue-300" title="Administração central de comunicação (templates e agendamentos) — acesso de admin no CFI">Templates e agendamentos ↗</a>
                 </div>
-            </nav>
-
-            <div className="border-b border-blue-100 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/40">
-                <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-1.5 text-sm text-blue-900 dark:text-blue-100">
-                    {ativa ? (
-                        <>
-                            <span>🏢 <strong>{ativa.nome}</strong> <span className="text-xs text-blue-700 dark:text-blue-300">CNPJ {ativa.cnpj} · SAGE {ativa.codigoSage}</span></span>
-                            <span>📅 Competência <strong>{competenciaBr(ativa.competencia)}</strong></span>
-                            <button onClick={abrirTroca} className="rounded border border-blue-300 px-2 py-0.5 text-xs font-medium dark:border-blue-700">⇄ Trocar empresa ou período</button>
-                        </>
-                    ) : (
-                        <>
-                            <span>Nenhuma empresa ativa.</span>
-                            <button onClick={abrirTroca} className="rounded border border-blue-300 px-2 py-0.5 text-xs font-medium dark:border-blue-700">⚡ Ativar empresa</button>
-                        </>
-                    )}
-                </div>
-            </div>
+            )}
 
             <EmpresaAtivaProvider ativa={ativa} trocar={abrirTroca} ativar={ativarEmpresa}>
             {/* Trocar de empresa ou de período remonta as telas: dado de um cliente (ou de um mês) nunca fica na tela de outro. */}
             <main key={ativa ? `${ativa.id}_${ativa.competencia}` : 'sem-empresa'} className="max-w-7xl mx-auto p-4 sm:p-6">
+                {local && (
+                    <div className="mb-5 border-b border-slate-200 pb-4 dark:border-slate-700/60">
+                        <nav aria-label="Você está em" className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-blue-700/80 dark:text-blue-300/80">
+                            <span>{local.grupo.rotulo}</span><span aria-hidden className="text-slate-300 dark:text-slate-600">/</span><span>{local.item.rotulo}</span>
+                        </nav>
+                        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">{local.item.rotulo}</h1>
+                        <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{local.item.descricao}</p>
+                    </div>
+                )}
                 {activeTab === 'folha' && (empresasCount && empresasCount > 0
                     ? <FolhaPanel
-                        key={folhaSub ? `sub-${folhaSub.n}` : 'folha'}
-                        subInicial={folhaSub?.sub}
+                        key={`folha-${nav.n}`}
+                        subInicial={nav.d.aba === 'folha' ? nav.d.sub : undefined} embutido
                         currentUser={currentUser as any}
                         onIrParaEmpresas={() => setActiveTab('empresas')}
                       />
@@ -399,44 +362,44 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                         </div>
                     )
                 )}
-                {activeTab === 'empresas' && <EmpresasPanel currentUser={currentUser as any} />}
-                {activeTab === 'esocial' && <ESocialMonitorPanel currentUser={currentUser as any} />}
+                {activeTab === 'empresas' && <EmpresasPanel currentUser={currentUser as any} embutido />}
+                {activeTab === 'esocial' && <ESocialMonitorPanel key={`esocial-${nav.n}`} currentUser={currentUser as any} subInicial={nav.d.aba === 'esocial' ? nav.d.sub : undefined} embutido />}
                 {activeTab === 'iobsage' && (
                     <Suspense fallback={<div className="py-12 text-center text-sm text-slate-500">Carregando…</div>}>
-                        <IobSagePanel usuario={{ id: uidAtual, email: currentUser.email }} ehGestor={papelEfetivo(currentUser.role) === 'gestor'} ehAdmin={isAdmin} onNavegar={d => {
+                        <IobSagePanel usuario={{ id: uidAtual, email: currentUser.email }} ehGestor={papelEfetivo(currentUser.role) === 'gestor'} ehAdmin={isAdmin} embutido onNavegar={d => {
                             const sub = SUB_FOLHA[d];
                             const cad = SUB_CADASTRO[d];
-                            if (sub) { setFolhaSub(f => ({ sub, n: (f?.n ?? 0) + 1 })); setActiveTab('folha'); }
-                            else if (cad) { setCadastroSub(c => ({ sub: cad, n: (c?.n ?? 0) + 1 })); setActiveTab('cadastros'); }
+                            if (sub) irFolha(sub);
+                            else if (cad) irCadastro(cad);
                             else if (d === 'empresas' || d === 'esocial' || d === 'calculo') setActiveTab(d);
                         }} />
                     </Suspense>
                 )}
                 {activeTab === 'calculo' && (
                     <Suspense fallback={<div className="py-12 text-center text-sm text-slate-500">Carregando…</div>}>
-                        <CalculoPanel currentUser={currentUser} />
+                        <CalculoPanel key={`calculo-${nav.n}`} currentUser={currentUser} folhaInicial={nav.d.aba === 'calculo' ? nav.d.folha : undefined} embutido />
                     </Suspense>
                 )}
                 {activeTab === 'prazos' && (
                     <Suspense fallback={<div className="py-12 text-center text-sm text-slate-500">Carregando…</div>}>
-                        <PrazosPanel onAbrirCadastros={() => setActiveTab('cadastros')} usuario={currentUser ? { id: uidAtual, email: currentUser.email } : undefined}
-                            onAbrirConferencia={() => { setFolhaSub(f => ({ sub: 'conferencia', n: (f?.n ?? 0) + 1 })); setActiveTab('folha'); }} />
+                        <PrazosPanel embutido onAbrirCadastros={() => setActiveTab('cadastros')} usuario={currentUser ? { id: uidAtual, email: currentUser.email } : undefined}
+                            onAbrirConferencia={() => irFolha('conferencia')} />
                     </Suspense>
                 )}
                 {activeTab === 'cadastros' && (
                     <Suspense fallback={<div className="py-12 text-center text-sm text-slate-500">Carregando…</div>}>
-                        <CadastrosPanel key={cadastroSub?.n ?? 0} currentUser={currentUser} subInicial={cadastroSub?.sub}
-                            onAbrirEventos={() => { setFolhaSub(f => ({ sub: 'eventos', n: (f?.n ?? 0) + 1 })); setActiveTab('folha'); }} />
+                        <CadastrosPanel key={`cadastros-${nav.n}`} currentUser={currentUser} subInicial={nav.d.aba === 'cadastros' ? nav.d.sub : undefined} embutido
+                            onAbrirEventos={() => irFolha('eventos')} />
                     </Suspense>
                 )}
                 {activeTab === 'certificados' && (
                     <Suspense fallback={<div className="py-12 text-center text-sm text-slate-500">Carregando…</div>}>
-                        <CofreCertificadosPanel />
+                        <CofreCertificadosPanel embutido />
                     </Suspense>
                 )}
-                {activeTab === 'admin' && isAdmin && <AdminUsersPanel currentUser={currentUser as any} />}
+                {activeTab === 'admin' && isAdmin && <AdminUsersPanel currentUser={currentUser as any} embutido />}
             </main>
-            <MiaAssistente aba={tabs.find(t => t.id === activeTab)?.label ?? activeTab} />
+            <MiaAssistente aba={local?.item.rotulo ?? activeTab} />
             </EmpresaAtivaProvider>
         </div>
     );

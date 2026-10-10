@@ -22,6 +22,8 @@ interface FolhaPanelProps {
     currentUser: User;
     /** Sub-aba inicial, quando outro módulo abre a Folha num ponto específico. */
     subInicial?: SubTab;
+    /** Aberto pelo menu do app: sem o título e as abas próprias (o menu escolhe a tela). */
+    embutido?: boolean;
     onIrParaEmpresas?: () => void;
 }
 
@@ -32,7 +34,7 @@ export interface SessaoFolha {
     iniciadaEm: Date;
 }
 
-const FolhaPanel: React.FC<FolhaPanelProps> = ({ currentUser, onIrParaEmpresas, subInicial }) => {
+const FolhaPanel: React.FC<FolhaPanelProps> = ({ currentUser, onIrParaEmpresas, subInicial, embutido = false }) => {
     const [sub, setSub] = useState<SubTab>(subInicial ?? 'apontamento');
     const [implantacaoAberta, setImplantacaoAberta] = useState(subInicial === 'implantacao');
     const [sessao, setSessao] = useState<SessaoFolha | null>(null);
@@ -42,20 +44,20 @@ const FolhaPanel: React.FC<FolhaPanelProps> = ({ currentUser, onIrParaEmpresas, 
 
     return (
         <div>
-            <header className="mb-4">
+            {!embutido && <header className="mb-4">
                 <h2 className="text-2xl font-bold text-slate-800 dark:text-white">
                     📋 Folha de Pagamento — IOB SAGE FOLHAMATIC
                 </h2>
                 <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
                     Implantação cadastral, apontamentos mensais e conferência pós-folha.
                 </p>
-            </header>
+            </header>}
 
-            {!sessao && <div className="mb-4 flex flex-wrap gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 dark:bg-slate-800">
+            {!sessao && !embutido && <div className="mb-4 flex flex-wrap gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 dark:bg-slate-800">
                 <button className="rounded bg-blue-700 px-4 py-2 text-sm text-white" onClick={() => selecionarModo('cadastro')}>Primeiro acesso da empresa — unificar eSocial + ficha</button>
                 <button className="rounded border px-4 py-2 text-sm" onClick={() => selecionarModo('apontamentos')}>Rotina mensal — apontamentos</button>
             </div>}
-            <div className="flex gap-2 mb-4 border-b border-slate-200 dark:border-slate-700">
+            <div className={`flex gap-2 mb-4 border-b border-slate-200 dark:border-slate-700 ${embutido ? 'hidden' : ''}`}>
                 <button
                     onClick={() => setSub('apontamento')}
                     className={`px-4 py-2 -mb-px text-sm font-medium border-b-2 transition-colors ${

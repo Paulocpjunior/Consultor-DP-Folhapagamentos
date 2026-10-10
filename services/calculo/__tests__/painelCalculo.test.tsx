@@ -136,6 +136,20 @@ describe('aba Cálculo', () => {
         await waitFor(() => expect(screen.getByText(/Evento 12345 não está no catálogo/)).toBeTruthy());
     });
 
+    it('aberto pelo menu: entra na folha escolhida, sem o seletor de folha; ações agrupadas', async () => {
+        const ativa = { id: 'emp1', nome: 'Um', cnpj: '11222333000181', codigoSage: '0229', competencia: '2026-03', ativadaPor: 'dp@escritorio.com.br', ativadaEm: 1 };
+        const { unmount } = render(<EmpresaAtivaProvider ativa={ativa} trocar={() => {}}><CalculoPanel currentUser={USER} folhaInicial="ferias" embutido /></EmpresaAtivaProvider>);
+        await waitFor(() => expect(screen.getByLabelText('Início das férias em')).toBeTruthy());
+        expect((screen.getByLabelText('Folha') as HTMLSelectElement).value).toBe('ferias');
+        expect(screen.getByLabelText('Folha').closest('label')!.className).toContain('hidden');
+        unmount();
+
+        render(<EmpresaAtivaProvider ativa={ativa} trocar={() => {}}><CalculoPanel currentUser={USER} folhaInicial="adiantamento" embutido /></EmpresaAtivaProvider>);
+        await waitFor(() => expect(screen.getByRole('dialog', { name: /Cálculo de adiantamentos/i })).toBeTruthy());
+        for (const g of ['Conferir', 'Relatórios', 'Pagamento', 'Envios']) expect(screen.getByText(g, { selector: 'summary' })).toBeTruthy();
+        expect(screen.getByText('Holerites (PDF)').closest('details')!.textContent).toContain('Relatórios');
+    });
+
     it('carrega o movimento gravado, valida e salva só o que mudou', async () => {
         // Com o IRRF da folha de março, paga em abril, gravado junto: o adiantamento de abril usa (Codex #118).
         const GRAVADO = { horasExtras50: 10, irrfRendimentos: 237885, irrfDeducoes: 19133, irrfRetido: 0, irrfPagamento: '2026-04' };

@@ -83,7 +83,21 @@ interface Dados { fichas: FichaFuncionario[]; afastamentos: Afastamento[]; tabel
 const diasNoMes = (c: string) => { const [a, m] = c.split('-').map(Number); return new Date(Date.UTC(a, m, 0)).getUTCDate(); };
 const quando = (d?: Date) => (d ? d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '');
 
-const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
+/** Ações do Cálculo agrupadas num menu (Conferir, Relatórios, Pagamento, Envios): os itens são os botões de sempre. */
+const GrupoAcoes: React.FC<{ rotulo: string; children: React.ReactNode }> = ({ rotulo, children }) => (
+    <details className="group relative">
+        <summary className="flex cursor-pointer list-none items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700 [&::-webkit-details-marker]:hidden">
+            {rotulo}<svg aria-hidden viewBox="0 0 24 24" className="h-3.5 w-3.5 opacity-60 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth={2}><path d="M6 9l6 6 6-6" /></svg>
+        </summary>
+        {/* Escolher um item fecha o menu. */}
+        <div className="absolute right-0 z-30 mt-1 flex min-w-[16rem] flex-col gap-0.5 rounded-xl bg-white p-1.5 shadow-xl ring-1 ring-slate-900/10 dark:bg-slate-800 dark:ring-white/10 [&>button]:w-full [&>button]:rounded-lg [&>button]:border-0 [&>button]:text-left [&>button]:shadow-none"
+            onClick={e => { if ((e.target as HTMLElement).closest('button')) e.currentTarget.closest('details')?.removeAttribute('open'); }}>
+            {children}
+        </div>
+    </details>
+);
+
+const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiantamento'; embutido?: boolean }> = ({ currentUser, folhaInicial, embutido = false }) => {
     const usuario: Usuario = { id: currentUser.uid ?? currentUser.id, email: currentUser.email };
     const mesAnterior = somarMeses(`${new Date().toLocaleDateString('sv-SE').slice(0, 7)}-01`, -1).slice(0, 7);
     const [empresas, setEmpresas] = useState<Empresa[] | null>(null);
@@ -130,7 +144,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const [verBeneficios, setVerBeneficios] = useState(false);
     const [pacote, setPacote] = useState(false);
     const [eventosFolha, setEventosFolha] = useState(false);
-    const [verAdiantamentos, setVerAdiantamentos] = useState(false);
+    const [verAdiantamentos, setVerAdiantamentos] = useState(folhaInicial === 'adiantamento');
     useEffect(() => { setEnviosEsocial(null); if (!empresaId || folha !== 'ferias') return; listarEnvios(empresaId).then(setEnviosEsocial).catch(() => setEnviosEsocial([])); }, [empresaId, folha, recargaEnvios]);
     const [opcoesFerias, setOpcoesFerias] = useState<OpcoesFerias>(OPCOES_FERIAS_PADRAO);
     const [recarga, setRecarga] = useState(0);
@@ -212,6 +226,8 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             .catch(e => { if (valida) setErro(`Movimentos gravados não carregados: ${mensagemErro(e)}`); });
         return () => { valida = false; };
     }, [empresaId, ano, mensal, ferias, rescisao]);
+    // Aberto pelo menu numa folha (13º, férias, rescisão): já entra nela.
+    useEffect(() => { if (folhaInicial && folhaInicial !== 'mensal' && folhaInicial !== 'adiantamento') trocarFolha(folhaInicial); }, []); // eslint-disable-line react-hooks/exhaustive-deps
     function trocarFolha(f: Folha, a = ano) {
         setFolha(f); setAno(a); setAberto(''); setConferir(false);
         if (f === 'ferias') setAbonos({});
@@ -578,13 +594,13 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 </div>
             )}
             <div className="flex flex-wrap items-end gap-3">
-                {ativa ? <EmpresaAtivaFixa /> : <label className="text-sm dark:text-white">Empresa
+                {ativa ? (embutido ? null : <EmpresaAtivaFixa />) : <label className="text-sm dark:text-white">Empresa
                     <select aria-label="Empresa" className={`ml-2 ${inp}`} value={empresaId} onChange={e => { const v = e.target.value; seguro(() => setEmpresaId(v)); }}>
                         <option value="">— escolha —</option>
                         {(empresas ?? []).map(e => <option key={e.id} value={e.id}>{e.codigoSage} · {e.nomeFantasia || e.razaoSocial}</option>)}
                     </select>
                 </label>}
-                <label className="text-sm dark:text-white">Folha
+                <label className={`text-sm dark:text-white ${embutido ? 'hidden' : ''}`}>Folha
                     <select aria-label="Folha" className={`ml-2 ${inp}`} value={folha} onChange={e => trocarFolha(e.target.value as Folha)}>
                         <option value="mensal">Mensal</option><option value="13-1a">13º — 1ª parcela</option><option value="13-2a">13º — 2ª parcela</option><option value="ferias">Férias</option><option value="rescisao">Rescisão</option>
                     </select>
@@ -614,18 +630,28 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 {mensal && <button className="ml-auto rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={!pendentes.length || salvando || !gravados} onClick={salvar}>
                     {salvando ? 'Salvando…' : `Salvar movimento${pendentes.length ? ` (${pendentes.length})` : ''}`}
                 </button>}
-                {mensal && <button className={btn} disabled={!resultados.length} aria-pressed={conferir} onClick={() => setConferir(c => !c)}>Conferir com holerites do IOB</button>}
-                {mensal && <button className={btn} disabled={!empresa || !dados || !movsEmpresa} title={movsEmpresa ? '' : 'Carregando os movimentos gravados…'} aria-pressed={conferirEsocial} onClick={() => setConferirEsocial(c => !c)}>Conferir com o eSocial do IOB</button>}
-                <button className={`${mensal ? '' : 'ml-auto '}${btn}`} disabled={!resultados.length} aria-pressed={verResumo} onClick={() => setVerResumo(x => !x)}>Resumo da folha</button>
-                <button className={btn} disabled={!resultados.some(r => r.situacao !== 'erro')} onClick={() => pdfHolerites(resultados, `holerites-${empresa?.codigoSage ?? 'empresa'}-${sufixoArquivo}.pdf`)}>Holerites (PDF)</button>
-                <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado') || !!bloqueioPagamento} title={bloqueioPagamento || undefined} onClick={() => setArquivoBancario('folha')}>Arquivo bancário</button>
-                {mensal && <button className={btn} disabled={!dados || !resultados.length} title="Adiantamento salarial do mês por funcionário: valores, IRRF, arredondamento, recibos e arquivo bancário." onClick={() => setVerAdiantamentos(true)}>Cálculo de adiantamentos</button>}
-                {mensal && resultados.some(r => r.situacao === 'calculado' && valorDoAdiantamento(r) > 0) && <button className={btn} disabled={!empresa || !movsLidos || !!bloqueioPagamento} title={bloqueioPagamento || (movsLidos ? 'Remessa do adiantamento salarial do mês (dia 20 ou o dia útil anterior), com o valor de cada um.' : 'Sem os movimentos gravados do mês (carregando ou com erro na leitura): um adiantamento informado no movimento muda o valor.')} onClick={() => setArquivoBancario('adiantamento')}>Arquivo do adiantamento</button>}
-                {mensal && resultados.some(r => valorDoAdiantamento(r) > 0) && <button className={btn} disabled={!dados || !movsLidos} title={movsLidos ? `Recibo do adiantamento salarial de cada funcionário, pago em ${br(dataAdiantamento)}, para assinatura.` : 'Sem os movimentos gravados do mês (carregando ou com erro na leitura): um adiantamento informado no movimento muda o valor.'} onClick={pdfAdiantamento}>Recibos do adiantamento (PDF)</button>}
-                <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado') || !!bloqueioPagamento} title={bloqueioPagamento || undefined} onClick={() => setPacote(true)}>Pacote do cliente</button>
-                {mensal && <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado') || pendentes.length > 0} title={pendentes.length ? 'Salve o movimento antes: o S-1200 sai do movimento gravado.' : undefined} onClick={() => setEventosFolha(true)}>S-1200 e S-1210</button>}
-                {folha === '13-2a' && <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado')} title="13º no eSocial: S-1200 anual e o pagamento no S-1210 do mês da 2ª parcela. A 1ª parcela vai no S-1200 de novembro." onClick={() => setEventosFolha(true)}>S-1200 anual e S-1210</button>}
-                <button className={btn} disabled={!resultados.length} onClick={exportar}>Exportar Excel</button>
+                <div className={`flex flex-wrap items-center gap-2 ${mensal ? '' : 'ml-auto'}`}>
+                {mensal && <GrupoAcoes rotulo="Conferir">
+                    {mensal && <button className={btn} disabled={!resultados.length} aria-pressed={conferir} onClick={() => setConferir(c => !c)}>Conferir com holerites do IOB</button>}
+                    {mensal && <button className={btn} disabled={!empresa || !dados || !movsEmpresa} title={movsEmpresa ? '' : 'Carregando os movimentos gravados…'} aria-pressed={conferirEsocial} onClick={() => setConferirEsocial(c => !c)}>Conferir com o eSocial do IOB</button>}
+                </GrupoAcoes>}
+                <GrupoAcoes rotulo="Relatórios">
+                    <button className={btn} disabled={!resultados.length} aria-pressed={verResumo} onClick={() => setVerResumo(x => !x)}>Resumo da folha</button>
+                    <button className={btn} disabled={!resultados.some(r => r.situacao !== 'erro')} onClick={() => pdfHolerites(resultados, `holerites-${empresa?.codigoSage ?? 'empresa'}-${sufixoArquivo}.pdf`)}>Holerites (PDF)</button>
+                    <button className={btn} disabled={!resultados.length} onClick={exportar}>Exportar Excel</button>
+                </GrupoAcoes>
+                <GrupoAcoes rotulo="Pagamento">
+                    <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado') || !!bloqueioPagamento} title={bloqueioPagamento || undefined} onClick={() => setArquivoBancario('folha')}>Arquivo bancário</button>
+                    {mensal && <button className={btn} disabled={!dados || !resultados.length} title="Adiantamento salarial do mês por funcionário: valores, IRRF, arredondamento, recibos e arquivo bancário." onClick={() => setVerAdiantamentos(true)}>Cálculo de adiantamentos</button>}
+                    {mensal && resultados.some(r => r.situacao === 'calculado' && valorDoAdiantamento(r) > 0) && <button className={btn} disabled={!empresa || !movsLidos || !!bloqueioPagamento} title={bloqueioPagamento || (movsLidos ? 'Remessa do adiantamento salarial do mês (dia 20 ou o dia útil anterior), com o valor de cada um.' : 'Sem os movimentos gravados do mês (carregando ou com erro na leitura): um adiantamento informado no movimento muda o valor.')} onClick={() => setArquivoBancario('adiantamento')}>Arquivo do adiantamento</button>}
+                    {mensal && resultados.some(r => valorDoAdiantamento(r) > 0) && <button className={btn} disabled={!dados || !movsLidos} title={movsLidos ? `Recibo do adiantamento salarial de cada funcionário, pago em ${br(dataAdiantamento)}, para assinatura.` : 'Sem os movimentos gravados do mês (carregando ou com erro na leitura): um adiantamento informado no movimento muda o valor.'} onClick={pdfAdiantamento}>Recibos do adiantamento (PDF)</button>}
+                </GrupoAcoes>
+                <GrupoAcoes rotulo="Envios">
+                    <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado') || !!bloqueioPagamento} title={bloqueioPagamento || undefined} onClick={() => setPacote(true)}>Pacote do cliente</button>
+                    {mensal && <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado') || pendentes.length > 0} title={pendentes.length ? 'Salve o movimento antes: o S-1200 sai do movimento gravado.' : undefined} onClick={() => setEventosFolha(true)}>S-1200 e S-1210</button>}
+                    {folha === '13-2a' && <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado')} title="13º no eSocial: S-1200 anual e o pagamento no S-1210 do mês da 2ª parcela. A 1ª parcela vai no S-1200 de novembro." onClick={() => setEventosFolha(true)}>S-1200 anual e S-1210</button>}
+                </GrupoAcoes>
+                </div>
             </div>
             {mensal && empresa && verBeneficios && <BeneficiosEmpresa key={`${empresa.id}-${competencia}`} beneficios={parametrosFolha?.beneficios ?? []} competencia={competencia} onFechar={() => setVerBeneficios(false)}
                 onSalvar={l => { gravarParametrosFolha(p => ({ ...p, beneficios: l })); setVerBeneficios(false); }} />}

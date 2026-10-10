@@ -13,14 +13,17 @@ import PontoEditorPanel from '../ponto/PontoEditorPanel';
 import PontoPanel from '../ponto/PontoPanel';
 import type { User } from '../../types';
 
-type SubTab = 'dashboard' | 'eventos' | 'transmissao' | 'download' | 'fgts' | 'calendario' | 'certificados' | 'teses' | 'ponto' | 'ponto_eletronico' | 'relatorio' | 'audit';
+export type SubTab = 'dashboard' | 'eventos' | 'transmissao' | 'download' | 'fgts' | 'calendario' | 'certificados' | 'teses' | 'ponto' | 'ponto_eletronico' | 'relatorio' | 'audit';
 
 interface Props {
     currentUser: User;
+    subInicial?: SubTab;
+    /** Aberto pelo menu do app: sem o título e as abas próprias. */
+    embutido?: boolean;
 }
 
-const ESocialMonitorPanel: React.FC<Props> = ({ currentUser }) => {
-    const [subTab, setSubTab] = useState<SubTab>('dashboard');
+const ESocialMonitorPanel: React.FC<Props> = ({ currentUser, subInicial, embutido = false }) => {
+    const [subTab, setSubTab] = useState<SubTab>(subInicial ?? 'dashboard');
 
     const tabs: { id: SubTab; label: string; icon: string }[] = [
         { id: 'dashboard',    label: 'Dashboard',    icon: '📊' },
@@ -39,16 +42,16 @@ const ESocialMonitorPanel: React.FC<Props> = ({ currentUser }) => {
 
     return (
         <div>
-            <header className="mb-4">
+            {!embutido && <header className="mb-4">
                 <h2 className="text-xl font-bold text-slate-800 dark:text-white">
                     eSocial Monitor
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                     Monitoramento de eventos, FGTS Digital e obrigações trabalhistas
                 </p>
-            </header>
+            </header>}
 
-            <div className="flex flex-wrap gap-1 mb-4 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+            <div className={`flex flex-wrap gap-1 mb-4 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg ${embutido ? 'hidden' : ''}`}>
                 {tabs.map(t => (
                     <button
                         key={t.id}

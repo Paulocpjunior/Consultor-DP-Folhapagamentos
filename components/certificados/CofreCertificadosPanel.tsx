@@ -30,7 +30,7 @@ const corSituacao = (l: LinhaCofre) => (!l.apto ? 'bg-red-100 text-red-800 dark:
     : precisaAtencao(l) ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
     : 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200');
 
-const CofreCertificadosPanel: React.FC = () => {
+const CofreCertificadosPanel: React.FC<{ /** Aberto pelo menu do app: o título vem do cabeçalho da página. */ embutido?: boolean }> = ({ embutido = false }) => {
     const [dados, setDados] = useState<Dados | null>(null);
     const [erro, setErro] = useState('');
     const [carregando, setCarregando] = useState(false);
@@ -72,7 +72,7 @@ const CofreCertificadosPanel: React.FC = () => {
         <div className="space-y-4">
             <header className="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                    <h2 className="text-xl font-bold text-slate-800 dark:text-white">🔐 Certificados digitais</h2>
+                    {!embutido && <h2 className="text-xl font-bold text-slate-800 dark:text-white">🔐 Certificados digitais</h2>}
                     <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
                         Cofre único do SaaS: o mesmo que o Consultor Fiscal e o Departamento Legal veem. Só as empresas da sua carteira.
                         A renovação (novo .pfx) sobe pelo app Legal; aqui não se envia nem se baixa certificado.
