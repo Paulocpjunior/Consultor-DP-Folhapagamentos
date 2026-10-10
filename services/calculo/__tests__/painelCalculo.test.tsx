@@ -372,7 +372,7 @@ describe('aba Cálculo', () => {
             cleanup();
             // Admin ativa a partir da competência da tela.
             emp.parametrosFolha = undefined;
-            render(<CalculoPanel currentUser={{ ...USER, role: 'admin' } as never} />);
+            render(<CalculoPanel currentUser={{ ...(USER as object), role: 'admin' } as never} />);
             await waitFor(() => expect(screen.getByRole('option', { name: /0229/ })).toBeTruthy());
             fireEvent.change(screen.getByLabelText('Competência'), { target: { value: '2026-03' } });
             fireEvent.change(screen.getByLabelText('Empresa'), { target: { value: 'emp1' } });
