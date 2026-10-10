@@ -12,13 +12,13 @@ describe('Configurações › Serviços externos', () => {
         const f = vi.fn(async (_u: string, _i?: RequestInit) => new Response(null, { status: 200 }));
         vi.stubGlobal('fetch', f);
         render(<ServicosExternosPanel />);
-        for (const t of ['Cadastro central', 'Cofre de certificados', 'Governo', 'Mensagens', 'Inteligência artificial']) expect(screen.getByText(t)).toBeTruthy();
-        expect(screen.getAllByText('CFI')).toHaveLength(5);
-        expect(screen.getAllByText(HOST_CFI)).toHaveLength(2);
+        for (const t of ['Cadastro central', 'Cofre de certificados', 'Governo', 'E-mail', 'WhatsApp', 'Inteligência artificial']) expect(screen.getByText(t)).toBeTruthy();
+        expect(screen.getAllByText('CFI')).toHaveLength(6);
+        expect(screen.getAllByText(HOST_CFI)).toHaveLength(3);
         expect(screen.getAllByText(HOST_CFI_INTEGRACAO)).toHaveLength(3);
         expect(screen.queryByRole('alert')).toBeNull();
         fireEvent.click(screen.getByText('Testar todos'));
-        await waitFor(() => expect(screen.getAllByText(/^responde/)).toHaveLength(5));
+        await waitFor(() => expect(screen.getAllByText(/^responde/)).toHaveLength(6));
         expect(f.mock.calls.every(([, init]) => init?.mode === 'no-cors' && !init?.headers)).toBe(true);
     });
 });

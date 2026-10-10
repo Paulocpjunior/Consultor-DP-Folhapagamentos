@@ -1,8 +1,8 @@
 # Serviços externos do DP — contrato das rotas
 
 Autonomia dos módulos, passo 3 (10/10/2026). Tudo o que o Consultor DP chama
-fora do Firebase passa por `services/plataforma/servicos.ts`, agrupado em cinco
-serviços. Sem configuração, todos ficam no CFI, exatamente como antes. Quem for
+fora do Firebase passa por `services/plataforma/servicos.ts`, agrupado em seis
+serviços. O plano de quem assume cada um está em `docs/plataforma-comum.md`. Sem configuração, todos ficam no CFI, exatamente como antes. Quem for
 assumir um serviço (a plataforma comum ou um serviço próprio do DP) implementa
 **as mesmas rotas, com os mesmos corpos e respostas** do CFI de hoje.
 
@@ -14,11 +14,12 @@ endereços públicos, por isso não são segredos.
 
 | Variável | Efeito |
 |---|---|
-| `VITE_PLATAFORMA_URL` | Todos os serviços passam para a plataforma comum |
+| `VITE_PLATAFORMA_URL` | Todos os serviços passam para a plataforma comum, menos o WhatsApp |
 | `VITE_SERVICO_CADASTRO_URL` | Só o cadastro central |
 | `VITE_SERVICO_COFRE_URL` | Só o cofre de certificados |
 | `VITE_SERVICO_GOVERNO_URL` | Só o governo (eSocial, FGTS, DCTFWeb, SERPRO) |
-| `VITE_SERVICO_MENSAGENS_URL` | Só e-mail e WhatsApp |
+| `VITE_SERVICO_EMAIL_URL` | Só o e-mail |
+| `VITE_SERVICO_WHATSAPP_URL` | Só o WhatsApp (destino: o SP Connect, nunca a plataforma) |
 | `VITE_SERVICO_IA_URL` | Só a MIA e a leitura de holerites |
 | `VITE_PAINEL_MENSAGENS_URL` | Link "Templates e agendamentos" (admin) |
 
@@ -75,11 +76,19 @@ Precedência: a variável do serviço, depois `VITE_PLATAFORMA_URL`, depois o CF
 | `/api/dp-integration/dctfweb/debitos` | Débitos da DCTFWeb |
 | `/api/dp-integration/empresa-completo` | Dados da empresa (SERPRO) |
 
-### Mensagens (`mensagens`)
+### E-mail (`email`)
 
 | Método | Rota | Uso |
 |---|---|---|
 | POST | `/api/dp-integration/email/enviar` | E-mail pelo escritório (Graph), com anexos em base64 |
+
+### WhatsApp (`whatsapp`)
+
+O dono do canal é o SP Connect (separação própria, `docs/separacao-sp-connect.md`
+no repositório dele). A plataforma comum não assume o WhatsApp.
+
+| Método | Rota | Uso |
+|---|---|---|
 | GET | `/api/admin/whatsapp/templates?departamento=dp-folha` | Templates do SP Connect do DP |
 | POST | `/api/admin/whatsapp/enviar` | WhatsApp oficial (template + PDF) |
 

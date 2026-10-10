@@ -13,7 +13,8 @@ interface ImportMetaEnv {
     readonly VITE_SERVICO_CADASTRO_URL?: string;
     readonly VITE_SERVICO_COFRE_URL?: string;
     readonly VITE_SERVICO_GOVERNO_URL?: string;
-    readonly VITE_SERVICO_MENSAGENS_URL?: string;
+    readonly VITE_SERVICO_EMAIL_URL?: string;
+    readonly VITE_SERVICO_WHATSAPP_URL?: string;
     readonly VITE_SERVICO_IA_URL?: string;
     readonly VITE_PAINEL_MENSAGENS_URL?: string;
 }

@@ -19,8 +19,8 @@ describe('sem configuração: o CFI de sempre', () => {
     it('cada rota vai ao mesmo host de antes', () => {
         expect(urlDoServico('cadastro', '/api/admin/cadastro/empresas', {})).toBe(`${HOST_CFI}/api/admin/cadastro/empresas`);
         expect(urlDoServico('cofre', '/api/admin/cadastro/certificados?cnpjs=1', {})).toBe(`${HOST_CFI}/api/admin/cadastro/certificados?cnpjs=1`);
-        expect(urlDoServico('mensagens', '/api/admin/whatsapp/enviar', {})).toBe(`${HOST_CFI}/api/admin/whatsapp/enviar`);
-        expect(urlDoServico('mensagens', '/api/dp-integration/email/enviar', {})).toBe(`${HOST_CFI_INTEGRACAO}/api/dp-integration/email/enviar`);
+        expect(urlDoServico('whatsapp', '/api/admin/whatsapp/enviar', {})).toBe(`${HOST_CFI}/api/admin/whatsapp/enviar`);
+        expect(urlDoServico('email', '/api/dp-integration/email/enviar', {})).toBe(`${HOST_CFI_INTEGRACAO}/api/dp-integration/email/enviar`);
         expect(urlDoServico('governo', '/api/dp-integration/esocial/envio/lote', {})).toBe(`${HOST_CFI_INTEGRACAO}/api/dp-integration/esocial/envio/lote`);
         expect(configuracaoDosServicos({}).every(c => c.origem === 'cfi' && c.base === null && !c.avisos.length)).toBe(true);
         expect(painelDeMensagens({})).toBe(PAINEL_MENSAGENS_CFI);
@@ -36,7 +36,12 @@ describe('plataforma comum e serviço próprio', () => {
         expect(urlDoServico('cofre', '/api/admin/cadastro/certificados', env)).toBe('https://plataforma.exemplo.com.br/api/admin/cadastro/certificados');
         expect(urlDoServico('ia', '/api/dp-integration/assistente/mia', env)).toBe('https://plataforma.exemplo.com.br/api/dp-integration/assistente/mia');
         expect(urlDoServico('governo', '/api/dp-integration/esocial/envio/lote', env)).toBe('https://gov.exemplo.com.br/dp/api/dp-integration/esocial/envio/lote');
-        expect(configuracaoDosServicos(env).map(c => c.origem)).toEqual(['plataforma', 'plataforma', 'proprio', 'plataforma', 'plataforma']);
+        expect(configuracaoDosServicos(env).map(c => c.origem)).toEqual(['plataforma', 'plataforma', 'proprio', 'plataforma', 'cfi', 'plataforma']);
+    });
+    it('o WhatsApp não vai para a plataforma: só a variável dele o leva (SP Connect)', () => {
+        expect(urlDoServico('whatsapp', '/api/admin/whatsapp/enviar', env)).toBe(`${HOST_CFI}/api/admin/whatsapp/enviar`);
+        const sp = { ...env, VITE_SERVICO_WHATSAPP_URL: 'https://app.spassessoriacontabil.com.br' };
+        expect(urlDoServico('whatsapp', '/api/admin/whatsapp/enviar', sp)).toBe('https://app.spassessoriacontabil.com.br/api/admin/whatsapp/enviar');
     });
     it('o que a tela mostra', () => {
         expect(enderecoExibido(configuracaoDoServico('governo', env))).toBe('https://gov.exemplo.com.br/dp');
@@ -54,9 +59,9 @@ describe('endereço inválido nunca recebe o token', () => {
         ['javascript:alert(1)', 'não é https'],
     ])('%s', (v, motivo) => {
         expect(enderecoValido(v).url).toBeNull();
-        const c = configuracaoDoServico('mensagens', { VITE_SERVICO_MENSAGENS_URL: v });
+        const c = configuracaoDoServico('email', { VITE_SERVICO_EMAIL_URL: v });
         expect(c.origem).toBe('cfi');
-        expect(c.avisos[0]).toContain('VITE_SERVICO_MENSAGENS_URL ignorado');
+        expect(c.avisos[0]).toContain('VITE_SERVICO_EMAIL_URL ignorado');
         expect(c.avisos[0]).toContain(motivo);
     });
     it('inválido no próprio cai na plataforma, com aviso', () => {
@@ -78,7 +83,7 @@ describe('rotas do túnel', () => {
     it('cada trecho tem dono', () => {
         expect(servicoDaRota('/esocial/envio/lote')).toBe('governo');
         expect(servicoDaRota('/empresa-completo')).toBe('governo');
-        expect(servicoDaRota('/email/enviar')).toBe('mensagens');
+        expect(servicoDaRota('/email/enviar')).toBe('email');
         expect(servicoDaRota('/holerites/extrair')).toBe('ia');
         expect(servicoDaRota('/nova-rota')).toBeNull();
     });
