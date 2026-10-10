@@ -67,7 +67,22 @@ export interface ContaPagamento {
     /** Próximo número sequencial do arquivo (NSA). */
     proximoNsa: number;
     logradouro?: string; numero?: string; complemento?: string; cidade?: string; cep?: string; uf?: string;
+    /** Últimas remessas geradas na conta (a mais nova primeiro): o mesmo pagamento de novo pede confirmação. */
+    remessas?: RemessaGerada[];
 }
+/** Remessa gerada: a folha e os pagamentos (chave), o número do arquivo e quando. */
+export interface RemessaGerada { chave: string; nsa: number; em: string; quantidade: number; total: number }
+/** A mesma folha com os mesmos pagamentos (CPF, valor e data de cada um) dá a mesma chave. */
+export function chaveRemessa(titulo: string, r: Pick<ResultadoRemessa, 'incluidos'>): string {
+    const itens = r.incluidos.map(i => `${i.favorecido.cpf}:${i.favorecido.valor}:${i.favorecido.dataPagamento}`).sort().join(',');
+    let h = 5381;
+    for (let i = 0; i < itens.length; i++) h = ((h * 33) ^ itens.charCodeAt(i)) >>> 0;
+    return `${titulo}|${r.incluidos.length}|${h.toString(16)}`;
+}
+/** Pergunta antes de gerar de novo a mesma remessa (pagaria duas vezes se as duas forem ao banco). */
+export const avisoRemessaRepetida = (titulo: string, x: RemessaGerada) => `O arquivo nº ${x.nsa} de ${titulo} já foi gerado em ${new Date(x.em).toLocaleString('pt-BR')}`
+    + ` com os mesmos ${x.quantidade} pagamento(s) (${(x.total / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}). Enviar os dois ao banco paga duas vezes.`
+    + '\n\nGerar outro arquivo mesmo assim (por exemplo, porque o primeiro foi recusado pelo banco)?';
 export const contaPagamentoVazia = (): ContaPagamento => ({ id: '', banco: '', agencia: '', agenciaDv: '', conta: '', contaDv: '', convenio: '', proximoNsa: 1 });
 
 export interface Favorecido {
@@ -99,7 +114,8 @@ export function separarDv(v: string): { numero: string; dv: string } {
     const m = (v ?? '').trim().toUpperCase().match(/^([\d.\s]+)\s*-\s*([0-9X])$/);
     return m ? { numero: m[1].replace(/\D/g, ''), dv: m[2] } : { numero: (v ?? '').replace(/\D/g, ''), dv: '' };
 }
-const codBanco = (v: string) => (v ?? '').replace(/\D/g, '').slice(0, 3).padStart(3, '0');
+// Código COMPE com 3 dígitos: zeros à esquerda a mais saem antes ("0341" do cadastro é o Itaú 341, não "034").
+const codBanco = (v: string) => (v ?? '').replace(/\D/g, '').replace(/^0+(?=\d{3})/, '').slice(0, 3).padStart(3, '0');
 
 export type TipoChavePix = 'telefone' | 'email' | 'cpf' | 'aleatoria';
 const INICIACAO: Record<TipoChavePix, string> = { telefone: '01', email: '02', cpf: '03', aleatoria: '04' };

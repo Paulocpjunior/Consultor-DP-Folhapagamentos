@@ -178,9 +178,21 @@ export async function protegerEmpresasExistentes(empresas: Empresa[], aoProgress
     return { reservadas, normalizadas, repetidas: repetidas(empresas), falhas };
 }
 
-/** Contas da empresa para o arquivo bancário (lista inteira; conta, convênio e próximo NSA). */
-export async function salvarContasPagamento(empresaId: string, contas: import('../bancario/cnab240').ContaPagamento[]): Promise<void> {
-    await updateDoc(doc(db, 'empresas', empresaId), { contasPagamento: contas.map(c => JSON.parse(JSON.stringify(c))), atualizadoEm: serverTimestamp() });
+/**
+ * Grava uma conta de pagamento numa transação, sobre a lista que está no banco: as outras contas (e as edições de
+ * outro usuário nelas) ficam, e o próximo número do arquivo só muda se foi editado na tela. Antes, gravar a conta
+ * com a lista aberta na tela devolvia o NSA a um número já usado (auditoria de 10/2026).
+ */
+export async function gravarContaPagamento(empresaId: string, conta: import('../bancario/cnab240').ContaPagamento, nsaEditado: boolean): Promise<import('../bancario/cnab240').ContaPagamento[]> {
+    return runTransaction(db, async tx => {
+        const ref = doc(db, 'empresas', empresaId);
+        const contas = ((await tx.get(ref)).data()?.contasPagamento ?? []) as import('../bancario/cnab240').ContaPagamento[];
+        const atual = contas.find(c => c.id === conta.id);
+        const nova = atual ? { ...conta, remessas: atual.remessas, ...(nsaEditado ? {} : { proximoNsa: atual.proximoNsa }) } : conta;
+        const novas = atual ? contas.map(c => (c.id === conta.id ? nova : c)) : [...contas, nova];
+        tx.update(ref, { contasPagamento: novas.map(c => JSON.parse(JSON.stringify(c))), atualizadoEm: serverTimestamp() });
+        return novas;
+    });
 }
 
 /**
@@ -189,15 +201,20 @@ export async function salvarContasPagamento(empresaId: string, contas: import('.
  * mesmo tempo recebem números diferentes, e quem não consegue gravar não baixa
  * um arquivo com número repetido (auditoria de 08/10/2026).
  */
-export async function reservarNsa(empresaId: string, contaId: string): Promise<{ nsa: number; contas: import('../bancario/cnab240').ContaPagamento[] }> {
+export async function reservarNsa(empresaId: string, contaId: string, remessa?: Omit<import('../bancario/cnab240').RemessaGerada, 'nsa' | 'em'>, aceitarRepetida = false):
+    Promise<{ nsa: number; contas: import('../bancario/cnab240').ContaPagamento[]; repetida?: import('../bancario/cnab240').RemessaGerada }> {
     return runTransaction(db, async tx => {
         const ref = doc(db, 'empresas', empresaId);
         const snap = await tx.get(ref);
         const contas = ((snap.data()?.contasPagamento ?? []) as import('../bancario/cnab240').ContaPagamento[]);
         const conta = contas.find(c => c.id === contaId);
         if (!conta) throw new Error('Conta de pagamento não encontrada no cadastro da empresa (grave a conta antes).');
+        // A mesma folha com os mesmos pagamentos já gerada (por qualquer usuário): nada é reservado sem a confirmação.
+        const repetida = remessa && conta.remessas?.find(x => x.chave === remessa.chave);
+        if (repetida && !aceitarRepetida) return { nsa: 0, contas, repetida };
         const nsa = Math.max(1, Math.floor(conta.proximoNsa || 1));
-        const novas = contas.map(c => (c.id === contaId ? { ...c, proximoNsa: nsa + 1 } : c));
+        const registro = remessa ? [{ ...remessa, nsa, em: new Date().toISOString() }] : [];
+        const novas = contas.map(c => (c.id === contaId ? { ...c, proximoNsa: nsa + 1, ...(remessa ? { remessas: [...registro, ...(c.remessas ?? [])].slice(0, 20) } : {}) } : c));
         tx.update(ref, { contasPagamento: novas.map(c => JSON.parse(JSON.stringify(c))), atualizadoEm: serverTimestamp() });
         return { nsa, contas: novas };
     });
@@ -208,12 +225,34 @@ export async function salvarContatoEnvio(empresaId: string, contato: import('../
     await updateDoc(doc(db, 'empresas', empresaId), { contatoEnvio: limpo, atualizadoEm: serverTimestamp() });
 }
 
-export async function salvarParametrosEsocialFolha(empresaId: string, p: import('../esocial/eventosFolha').ParametrosEsocialFolha): Promise<void> {
-    await updateDoc(doc(db, 'empresas', empresaId), { esocialFolha: JSON.parse(JSON.stringify(p)), atualizadoEm: serverTimestamp() });
+/**
+ * Grava o de/para e os parâmetros do eSocial da folha só se o gravado ainda é o que a tela leu (`lido`): senão outro
+ * usuário gravou nesse meio-tempo e a gravação apagaria o dele (auditoria de 10/2026).
+ */
+export async function salvarParametrosEsocialFolha(empresaId: string, p: import('../esocial/eventosFolha').ParametrosEsocialFolha, lido?: import('../esocial/eventosFolha').ParametrosEsocialFolha): Promise<void> {
+    await runTransaction(db, async tx => {
+        const ref = doc(db, 'empresas', empresaId);
+        const atual = (await tx.get(ref)).data()?.esocialFolha;
+        if (lido !== undefined && atual !== undefined && JSON.stringify(ordenado(atual)) !== JSON.stringify(ordenado(JSON.parse(JSON.stringify(lido)))))
+            throw new Error('outro usuário gravou o de/para desta empresa depois que a tela abriu. Feche e abra a tela de novo para ver o gravado');
+        tx.update(ref, { esocialFolha: JSON.parse(JSON.stringify(p)), atualizadoEm: serverTimestamp() });
+    });
 }
+/** Objeto com as chaves em ordem (o Firestore não garante a ordem das chaves de um mapa). */
+const ordenado = (v: unknown): unknown => (Array.isArray(v) ? v.map(ordenado) : v && typeof v === 'object'
+    ? Object.fromEntries(Object.keys(v).sort().map(k => [k, ordenado((v as Record<string, unknown>)[k])])) : v);
 
-export async function salvarParametrosFolha(empresaId: string, p: import('../calculo/arredondamento').ParametrosFolha): Promise<void> {
-    await updateDoc(doc(db, 'empresas', empresaId), { parametrosFolha: JSON.parse(JSON.stringify(p)), atualizadoEm: serverTimestamp() });
+/**
+ * Muda os parâmetros da folha numa transação, aplicando `mudar` ao que está gravado (não ao que a tela tinha): duas
+ * pessoas mudando partes diferentes (benefícios, arredondamento) não apagam a mudança uma da outra. Devolve o gravado.
+ */
+export async function atualizarParametrosFolha(empresaId: string, mudar: (p: import('../calculo/arredondamento').ParametrosFolha | undefined) => import('../calculo/arredondamento').ParametrosFolha): Promise<import('../calculo/arredondamento').ParametrosFolha> {
+    return runTransaction(db, async tx => {
+        const ref = doc(db, 'empresas', empresaId);
+        const novo = mudar((await tx.get(ref)).data()?.parametrosFolha);
+        tx.update(ref, { parametrosFolha: JSON.parse(JSON.stringify(novo)), atualizadoEm: serverTimestamp() });
+        return novo;
+    });
 }
 
 export async function excluirEmpresa(id: string): Promise<void> {

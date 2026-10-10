@@ -9,7 +9,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import type { Empresa } from '../../services/empresas/empresasTypes';
-import { listarEmpresasVisiveis, salvarParametrosFolha } from '../../services/empresas/empresasService';
+import { atualizarParametrosFolha, listarEmpresasVisiveis } from '../../services/empresas/empresasService';
 import { anteriorEncadeado, arredondaNoMes, arredondar, folhaPagaAntes, mesDoPagamento, movimentoComFechado, movimentoComIrrf, movimentoComMesPagamento, semFechado, mudarRegime, regimeNoMes, type ParametrosFolha, type RegimePagamento } from '../../services/calculo/arredondamento';
 import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
 import EmpresaAtivaFixa from '../empresaAtiva/EmpresaAtivaFixa';
@@ -91,7 +91,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const [dados, setDados] = useState<Dados | null>(null);
     const [movs, setMovs] = useState<Record<string, Movimento>>({});
     const [gravados, setGravados] = useState<Record<string, MovimentoGravado> | null>(null);
-    // Movimentos do mês lidos de fato (com erro na leitura, `gravados` vira {} e não diz se havia adiantamento informado).
+    // Movimentos do mês lidos de fato (com erro na leitura, `gravados` fica null e o "Salvar" bloqueado).
     const [movsLidos, setMovsLidos] = useState(false);
     const [versao, setVersao] = useState(0);
     const [aberto, setAberto] = useState('');
@@ -158,6 +158,14 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     // Cada leitura tem um número: a resposta de uma leitura já trocada (outra empresa ou competência) é descartada,
     // senão os movimentos do período anterior valeriam para o novo (Codex #117).
     const leituraMovimentos = useRef(0);
+    // Rascunho do movimento (o não salvo) na sessão do navegador, por empresa e competência: trocar de aba, de tela ou
+    // abrir uma simulação não perde o que foi digitado; volta ao reabrir o mês. A chave é a do mês lido (não a da tela,
+    // que muda antes de a leitura nova chegar).
+    const chaveRascunho = useRef('');
+    const lerRascunho = (k: string): Record<string, Movimento> => { try { return JSON.parse(sessionStorage.getItem(k) ?? '{}') ?? {}; } catch { return {}; } };
+    const gravarRascunho = (k: string, r: Record<string, Movimento>) => {
+        try { if (Object.keys(r).length) sessionStorage.setItem(k, JSON.stringify(r)); else sessionStorage.removeItem(k); } catch { /* sem armazenamento: fica só na tela */ }
+    };
     const carregarMovimentos = () => {
         const n = ++leituraMovimentos.current;
         setGravados(null); setErrosMov([]); setMovsLidos(false);
@@ -166,9 +174,17 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             .then(lista => {
                 if (n !== leituraMovimentos.current) return;
                 const mapa = Object.fromEntries(lista.map(g => [g.fichaId, g]));
-                setGravados(mapa); setMovs(Object.fromEntries(lista.map(g => [g.fichaId, g.movimento]))); setVersao(n => n + 1); setMovsLidos(true);
+                chaveRascunho.current = `consultor-dp:rascunho-movimento:${empresaId}:${competencia}`;
+                const rascunho = Object.fromEntries(Object.entries(lerRascunho(chaveRascunho.current)).filter(([id, m]) => !mesmoMovimento(m, mapa[id]?.movimento)));
+                setGravados(mapa); setMovs({ ...Object.fromEntries(lista.map(g => [g.fichaId, g.movimento])), ...rascunho }); setVersao(n => n + 1); setMovsLidos(true);
+                if (Object.keys(rascunho).length) setAviso(`Movimento não salvo de ${Object.keys(rascunho).length} funcionário(s) recuperado desta sessão. Confira e salve (ou troque a competência e descarte).`);
             })
-            .catch(e => { if (n !== leituraMovimentos.current) return; setErro(mensagemErro(e)); setGravados({}); setMovs({}); });
+            .catch(e => {
+                if (n !== leituraMovimentos.current) return;
+                // Sem a leitura, "Salvar" gravaria por cima do que está no banco como se o mês estivesse vazio: fica bloqueado.
+                setErro(`Movimentos do mês não carregados (o "Salvar movimento" fica bloqueado até a leitura dar certo; troque a competência e volte, ou recarregue a página): ${mensagemErro(e)}`);
+                setGravados(null); setMovs({});
+            });
     };
     useEffect(carregarMovimentos, [empresaId, competencia]); // eslint-disable-line react-hooks/exhaustive-deps
     useEffect(() => setLeitura(null), [empresaId, competencia]);
@@ -335,8 +351,22 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         window.addEventListener('beforeunload', h);
         return () => window.removeEventListener('beforeunload', h);
     }, [pendentes.length]);
+    // Pagamento e pacote saem do que vale: sem movimento por salvar (o banco pagaria o rascunho) e sem simulação na tela
+    // (rescisão de quem não foi desligado, férias não gravadas em Afastamentos).
+    const simulacoes = rescisao ? resultados.filter(r => paramsResc[r.fichaId]?.simulada).length
+        : ferias ? resultados.filter(r => !dados?.afastamentos.some(a => a.id === (r as ResultadoFerias).gozoId)).length : 0;
+    const bloqueioPagamento = mensal && pendentes.length ? 'Salve o movimento antes: o pagamento sai do movimento gravado, não do rascunho.'
+        : simulacoes ? `Há ${simulacoes} simulação(ões) na tela: grave (ficha ou Afastamentos) ou remova antes de gerar pagamento ou pacote.` : '';
+    useEffect(() => {
+        if (!gravados || !chaveRascunho.current) return;
+        gravarRascunho(chaveRascunho.current, Object.fromEntries(Object.entries(movs).filter(([id, m]) => !mesmoMovimento(m, gravados[id]?.movimento))));
+    }, [movs, gravados]); // eslint-disable-line react-hooks/exhaustive-deps
     /** Troca de empresa ou competência: pergunta antes de descartar o que não foi salvo. */
-    const seguro = (f: () => void) => { if (!pendentes.length || window.confirm(`Há movimento não salvo de ${pendentes.length} funcionário(s). Descartar?`)) { setAviso(''); f(); } };
+    const seguro = (f: () => void) => {
+        if (pendentes.length && !window.confirm(`Há movimento não salvo de ${pendentes.length} funcionário(s). Descartar?`)) return;
+        if (pendentes.length && chaveRascunho.current) gravarRascunho(chaveRascunho.current, {});
+        setAviso(''); f();
+    };
     // Conferência com o eSocial do IOB: a folha mensal de qualquer competência, com os movimentos gravados dela.
     const motorDaCompetencia = useCallback((c: string): ResultadoCalculo[] => {
         if (!dados || !movsEmpresa) return [];
@@ -418,8 +448,11 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         filaParametros.current = filaParametros.current.then(async () => {
             if ((geracaoParametros.current[id] ?? 0) !== geracao) return;
             try {
-                await salvarParametrosFolha(id, novo);
-                gravadosParametros.current[id] = novo;
+                // A mudança vai sobre o que está gravado (outro usuário pode ter mudado outra parte nesse meio-tempo).
+                const gravado = await atualizarParametrosFolha(id, mudar);
+                gravadosParametros.current[id] = gravado;
+                // Última da fila: a tela passa a mostrar o gravado, com o que o outro usuário mudou.
+                if (ultimosParametros.current[id] === novo) { ultimosParametros.current[id] = gravado; aplicar(gravado); }
             } catch (e) {
                 geracaoParametros.current[id] = geracao + 1;
                 ultimosParametros.current[id] = gravadosParametros.current[id];
@@ -439,6 +472,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         try {
             await salvarMovimentos(empresaId, competencia, itens, usuario);
             setAviso(`Movimento de ${itens.length} funcionário(s) salvo.`);
+            if (chaveRascunho.current) gravarRascunho(chaveRascunho.current, {});
             carregarMovimentos(); setSalvos(n => n + 1);
         } catch (e) { setErrosMov([mensagemErro(e)]); }
         finally { setSalvando(false); }
@@ -537,10 +571,10 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 {mensal && <button className={btn} disabled={!empresa || !dados || !movsEmpresa} title={movsEmpresa ? '' : 'Carregando os movimentos gravados…'} aria-pressed={conferirEsocial} onClick={() => setConferirEsocial(c => !c)}>Conferir com o eSocial do IOB</button>}
                 <button className={`${mensal ? '' : 'ml-auto '}${btn}`} disabled={!resultados.length} aria-pressed={verResumo} onClick={() => setVerResumo(x => !x)}>Resumo da folha</button>
                 <button className={btn} disabled={!resultados.some(r => r.situacao !== 'erro')} onClick={() => pdfHolerites(resultados, `holerites-${empresa?.codigoSage ?? 'empresa'}-${sufixoArquivo}.pdf`)}>Holerites (PDF)</button>
-                <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado')} onClick={() => setArquivoBancario('folha')}>Arquivo bancário</button>
-                {mensal && resultados.some(r => r.situacao === 'calculado' && valorDoAdiantamento(r) > 0) && <button className={btn} disabled={!empresa || !movsLidos} title={movsLidos ? 'Remessa do adiantamento salarial do mês (dia 20 ou o dia útil anterior), com o valor de cada um.' : 'Sem os movimentos gravados do mês (carregando ou com erro na leitura): um adiantamento informado no movimento muda o valor.'} onClick={() => setArquivoBancario('adiantamento')}>Arquivo do adiantamento</button>}
+                <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado') || !!bloqueioPagamento} title={bloqueioPagamento || undefined} onClick={() => setArquivoBancario('folha')}>Arquivo bancário</button>
+                {mensal && resultados.some(r => r.situacao === 'calculado' && valorDoAdiantamento(r) > 0) && <button className={btn} disabled={!empresa || !movsLidos || !!bloqueioPagamento} title={bloqueioPagamento || (movsLidos ? 'Remessa do adiantamento salarial do mês (dia 20 ou o dia útil anterior), com o valor de cada um.' : 'Sem os movimentos gravados do mês (carregando ou com erro na leitura): um adiantamento informado no movimento muda o valor.')} onClick={() => setArquivoBancario('adiantamento')}>Arquivo do adiantamento</button>}
                 {mensal && resultados.some(r => valorDoAdiantamento(r) > 0) && <button className={btn} disabled={!dados || !movsLidos} title={movsLidos ? `Recibo do adiantamento salarial de cada funcionário, pago em ${br(dataAdiantamento)}, para assinatura.` : 'Sem os movimentos gravados do mês (carregando ou com erro na leitura): um adiantamento informado no movimento muda o valor.'} onClick={pdfAdiantamento}>Recibos do adiantamento (PDF)</button>}
-                <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado')} onClick={() => setPacote(true)}>Pacote do cliente</button>
+                <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado') || !!bloqueioPagamento} title={bloqueioPagamento || undefined} onClick={() => setPacote(true)}>Pacote do cliente</button>
                 {mensal && <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado') || pendentes.length > 0} title={pendentes.length ? 'Salve o movimento antes: o S-1200 sai do movimento gravado.' : undefined} onClick={() => setEventosFolha(true)}>S-1200 e S-1210</button>}
                 <button className={btn} disabled={!resultados.length} onClick={exportar}>Exportar Excel</button>
             </div>

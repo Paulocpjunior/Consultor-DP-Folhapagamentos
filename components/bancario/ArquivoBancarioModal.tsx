@@ -8,10 +8,10 @@ import React, { useMemo, useState } from 'react';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
 import type { ResultadoCalculo } from '../../services/calculo/motorMensal';
-import { reservarNsa, salvarContasPagamento } from '../../services/empresas/empresasService';
+import { gravarContaPagamento, reservarNsa } from '../../services/empresas/empresasService';
 import {
     BANCOS_SUPORTADOS, PERFIS_BANCO, ROTULO_FORMA, contaPagamentoVazia, gerarRemessa, tipoChavePix,
-    avisoConferencia, type ContaPagamento,
+    avisoConferencia, avisoRemessaRepetida, chaveRemessa, type ContaPagamento,
 } from '../../services/bancario/cnab240';
 import { favorecidosDaFolha } from '../../services/bancario/favorecidos';
 import { remessaParaBaixar } from '../../services/bancario/download';
@@ -60,9 +60,11 @@ const ArquivoBancarioModal: React.FC<Props> = ({ empresa, resultados, fichas, ti
         catch (e) { return { r: null, erro: (e as Error).message }; }
     }, [conta, empresa, favorecidos, preferirPix]);
 
-    async function gravarContas(novas: ContaPagamento[]) {
+    async function gravarConta(c: ContaPagamento) {
         setSalvando(true); setErro('');
-        try { await salvarContasPagamento(empresa.id, novas); setContas(novas); onContasSalvas?.(novas); return true; }
+        // O próximo número só vai se foi mudado na tela; senão fica o do banco (outro arquivo pode ter sido gerado nesse meio-tempo).
+        const nsaEditado = c.proximoNsa !== contas.find(x => x.id === c.id)?.proximoNsa;
+        try { const novas = await gravarContaPagamento(empresa.id, c, nsaEditado); setContas(novas); onContasSalvas?.(novas); return true; }
         catch (e) { setErro(`Não foi possível gravar a conta (${(e as Error).message}).`); return false; }
         finally { setSalvando(false); }
     }
@@ -71,8 +73,7 @@ const ArquivoBancarioModal: React.FC<Props> = ({ empresa, resultados, fichas, ti
         if (!edicao) return;
         if (!PERFIS_BANCO[edicao.banco]) { setErro('Escolha o banco.'); return; }
         if (!/^\d{1,5}(-[0-9X])?$/i.test(edicao.agencia.trim()) || !/^\d{1,12}-[0-9X]$/i.test(edicao.conta.trim())) { setErro('Agência (ex.: 1234 ou 1234-5) e conta com dígito (ex.: 12345-6).'); return; }
-        const novas = contas.some(c => c.id === edicao.id) ? contas.map(c => (c.id === edicao.id ? edicao : c)) : [...contas, edicao];
-        if (await gravarContas(novas)) { setContaId(edicao.id); setEdicao(null); }
+        if (await gravarConta(edicao)) { setContaId(edicao.id); setEdicao(null); }
     }
 
     async function baixar() {
@@ -84,7 +85,12 @@ const ArquivoBancarioModal: React.FC<Props> = ({ empresa, resultados, fichas, ti
         setSalvando(true); setErro('');
         let r: typeof p;
         try {
-            const res = await reservarNsa(empresa.id, conta.id);
+            const remessa = { chave: chaveRemessa(titulo, p), quantidade: p.incluidos.length, total: p.total };
+            let res = await reservarNsa(empresa.id, conta.id, remessa);
+            if (res.repetida) {
+                if (!window.confirm(avisoRemessaRepetida(titulo, res.repetida))) return;
+                res = await reservarNsa(empresa.id, conta.id, remessa, true);
+            }
             setContas(res.contas); onContasSalvas?.(res.contas);
             r = gerarRemessa({ conta: { ...conta, proximoNsa: res.nsa }, cnpj: empresa.cnpj, razaoSocial: empresa.razaoSocial, favorecidos, preferirPix });
         } catch (e) { setErro(`Arquivo não gerado: não foi possível reservar o número do arquivo (${(e as Error).message}).`); return; }

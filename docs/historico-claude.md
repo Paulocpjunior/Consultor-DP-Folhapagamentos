@@ -3144,3 +3144,20 @@ guias sindicais".
 - **Tela:** em produção, o passo 3 (S-1210) só libera com o S-1200 aceito. O S-2230 abre na produção restrita. Novo parâmetro "Simples com classTrib 03" (indSimples).
 - **Testes:** `services/esocial/__tests__/auditoriaEsocial.test.ts`.
 - **Fica para depois:** o motor ainda deduz o alimentando como dependente quando a ficha está marcada assim (a validação da ficha já recusa; entra no lote do motor).
+
+## 10/10/2026 — Auditoria do projeto, lote T (banco e telas)
+
+- **Paulo:** "pode seguir com bancos e telas". Perguntou o modelo: seguir no Opus 5.5.
+- **Movimento do mês:**
+  - Erro na leitura do mês não libera mais o "Salvar" (antes, a tela tratava o mês como vazio e gravava por cima).
+  - Antes de gravar, o mês é relido: se outra pessoa gravou depois da leitura da tela, nada é gravado e o erro diz quem.
+  - O rascunho (não salvo) fica na sessão do navegador por empresa e competência e volta ao reabrir o mês (troca de aba, de tela, simulação). Descartar na troca de competência apaga.
+- **Pagamento e pacote:** não saem com movimento por salvar (o banco pagaria o rascunho) nem com simulação de rescisão ou de férias na tela.
+- **Arquivo bancário:**
+  - "0341" no cadastro é o Itaú 341 (antes virava "034" e ia como TED).
+  - Gravar a conta é transação sobre a lista do banco: o próximo número do arquivo só muda se foi editado (antes voltava a um número já usado).
+  - Cada remessa fica registrada na conta (folha, pagamentos e número). A mesma folha com os mesmos pagamentos pede confirmação antes de gerar outro arquivo (no arquivo bancário e no pacote).
+- **Resumo e DARF:** o IRRF retido no recibo de férias não entra de novo na folha do gozo; o INSS das férias conta só na folha do gozo (o do recibo não vai à guia).
+- **Benefícios:** mudar numa competência anterior a outra mudança registrada é recusado (reescreveria os meses seguintes).
+- **Parâmetros:** os da folha mudam em transação sobre o gravado (benefícios e arredondamento de duas pessoas não se apagam). O de/para do eSocial só grava se o gravado ainda é o que a tela leu.
+- **Testes:** `services/bancario/__tests__/auditoriaBancoTelas.test.ts` e casos novos na tela do cálculo e no arquivo bancário.

@@ -46,7 +46,7 @@ beforeEach(() => {
     cad.erroEnq = '';
     pdf.save.mockReset(); pdf.holeritesPdf.mockReset().mockReturnValue({ save: pdf.save }); pdf.resumoPdf.mockReset().mockReturnValue({ save: pdf.save });
 });
-afterEach(cleanup);
+afterEach(() => { cleanup(); sessionStorage.clear(); });
 
 /** O PDF carrega no clique (import dinâmico): espera o arquivo sair (o Excel sai na hora). */
 async function clicarGerando(alvo: HTMLElement, f: { mock: { calls: unknown[] } }) {
@@ -141,6 +141,36 @@ describe('aba Cálculo', () => {
         expect(confirmar).toHaveBeenCalledWith('Há movimento não salvo de 1 funcionário(s). Descartar?');
         expect((screen.getByLabelText('Competência') as HTMLInputElement).value).toBe('2026-03');
         confirmar.mockRestore();
+    });
+
+    it('rascunho: bloqueia arquivo bancário e pacote, volta ao reabrir a tela; erro na leitura bloqueia o "Salvar"', async () => {
+        const abrir = async () => {
+            render(<CalculoPanel currentUser={USER} />);
+            await waitFor(() => expect(screen.getByRole('option', { name: /0229/ })).toBeTruthy());
+            fireEvent.change(screen.getByLabelText('Competência'), { target: { value: '2026-03' } });
+            fireEvent.change(screen.getByLabelText('Empresa'), { target: { value: 'emp1' } });
+            await waitFor(() => expect(screen.getByText('ANA')).toBeTruthy());
+        };
+        await abrir();
+        fireEvent.click(screen.getByText('ANA'));
+        fireEvent.change(screen.getByLabelText('Horas extras 50%'), { target: { value: '2' } });
+        const banco = screen.getByText('Arquivo bancário') as HTMLButtonElement;
+        expect(banco.disabled).toBe(true);
+        expect(banco.title).toMatch(/Salve o movimento antes/);
+        expect((screen.getByText('Pacote do cliente') as HTMLButtonElement).disabled).toBe(true);
+        // Saiu da tela (outra aba do app) e voltou: o digitado volta, ainda por salvar.
+        cleanup();
+        await abrir();
+        await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/Movimento não salvo de 1 funcionário\(s\) recuperado/));
+        expect(screen.getByText('Salvar movimento (1)')).toBeTruthy();
+        cleanup(); sessionStorage.clear();
+        // Leitura do mês com erro: nada a salvar por cima do gravado.
+        movs.listarMovimentos.mockRejectedValue(new Error('unavailable'));
+        await abrir();
+        await waitFor(() => expect(screen.getByText(/Movimentos do mês não carregados \(o "Salvar movimento" fica bloqueado/)).toBeTruthy());
+        fireEvent.click(screen.getByText('ANA'));
+        fireEvent.change(screen.getByLabelText('Horas extras 50%'), { target: { value: '2' } });
+        expect((screen.getByText(/^Salvar movimento/) as HTMLButtonElement).disabled).toBe(true);
     });
 
     it('confere com os holerites lidos pelo Gemini e aplica o movimento do holerite', async () => {

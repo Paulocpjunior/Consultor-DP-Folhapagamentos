@@ -45,8 +45,11 @@ export interface ResumoFolha {
     };
 }
 
-const INSS = ['INSS', 'INSS13', 'INSSFER', 'INSSFERRET'];
-const IRRF = ['IRRF', 'IRRF13', 'IRRFFER', 'IRRFFERRET'];
+// Guias: o INSS das férias é da competência do gozo (INSSFERRET, na folha dela); o do recibo (INSSFER) não entra de
+// novo. O IRRF das férias é retido no pagamento do recibo (IRRFFER); o que a folha do gozo desconta (IRRFFERRET) já foi
+// recolhido e, somado, iria em dobro no DARF (auditoria de 10/2026).
+const INSS = ['INSS', 'INSS13', 'INSSFERRET'];
+const IRRF = ['IRRF', 'IRRF13', 'IRRFFER'];
 
 /** Verbas com período no código (férias vencidas por período) somam numa linha só. */
 const chaveVerba = (codigo: string) => codigo.replace(/\d{4}-\d{2}-\d{2}$/, '');
