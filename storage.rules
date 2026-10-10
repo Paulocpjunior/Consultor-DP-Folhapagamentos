@@ -1,4 +1,5 @@
 rules_version = '2';
+// Convenções coletivas: o PDF de cada uma, enviado em Cadastros › Sindicatos (regra abaixo).
 // O Storage deste projeto só guardava certificados digitais (.pfx). O cofre
 // único agora é o do CFI (arquivo e senha cifrados), e o renovado sobe pelo
 // app Legal: este app não grava mais certificado. Ficam só para o gestor
@@ -19,6 +20,18 @@ service firebase.storage {
     match /certificados/{allPaths=**} {
       allow read, list: if isGestor();
       allow write: if false;
+    }
+    function aprovado() {
+      return request.auth != null && (isMaster() || papel() in ['gestor', 'admin', 'colaborador']);
+    }
+    // PDF das convenções coletivas (Cadastros › Sindicatos): qualquer aprovado lê e envia um novo; nada se
+    // sobrescreve nem se apaga (cada envio tem nome próprio).
+    match /convencoes/{cnpj}/{arquivo} {
+      allow read: if aprovado();
+      allow create: if aprovado() && resource == null && cnpj.matches('^[0-9]{14}$')
+                    && request.resource.contentType == 'application/pdf'
+                    && request.resource.size < 20 * 1024 * 1024;
+      allow update, delete: if false;
     }
     match /{allPaths=**} {
       allow read, write: if false;

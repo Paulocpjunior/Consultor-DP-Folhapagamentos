@@ -3,6 +3,8 @@ import { consultarCnpj, validaCnpj, formatCnpj } from '../../services/brasilApiS
 import { criarEmpresa, atualizarEmpresa } from '../../services/empresas/empresasService';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { UFS } from '../../services/cadastros/tabelasLegais';
+import { listarSindicatos } from '../../services/cadastros/cadastrosService';
+import type { Sindicato } from '../../services/cadastros/sindicatos';
 import type { User } from '../../types';
 
 interface Props {
@@ -20,6 +22,9 @@ const EmpresaForm: React.FC<Props> = ({ currentUser, empresaParaEditar, onSalvo,
     const [codigoSage, setCodigoSage]     = useState(empresaParaEditar?.codigoSage ?? '');
     const [uf, setUf]                     = useState(empresaParaEditar?.uf ?? '');
     const [municipio, setMunicipio]       = useState(empresaParaEditar?.municipio ?? '');
+    const [sindicatos, setSindicatos]     = useState<string[]>(empresaParaEditar?.sindicatos ?? []);
+    const [cadastroSind, setCadastroSind] = useState<Sindicato[] | null>(null);
+    useEffect(() => { listarSindicatos().then(setCadastroSind).catch(() => setCadastroSind([])); }, []);
     const [busy, setBusy]                 = useState(false);
     const [erro, setErro]                 = useState('');
     const [info, setInfo]                 = useState('');
@@ -32,6 +37,7 @@ const EmpresaForm: React.FC<Props> = ({ currentUser, empresaParaEditar, onSalvo,
             setCodigoSage(empresaParaEditar.codigoSage);
             setUf(empresaParaEditar.uf ?? '');
             setMunicipio(empresaParaEditar.municipio ?? '');
+            setSindicatos(empresaParaEditar.sindicatos ?? []);
         }
     }, [empresaParaEditar]);
 
@@ -64,9 +70,9 @@ const EmpresaForm: React.FC<Props> = ({ currentUser, empresaParaEditar, onSalvo,
         setBusy(true);
         try {
             if (editando && empresaParaEditar) {
-                await atualizarEmpresa(empresaParaEditar.id, { cnpj, razaoSocial, nomeFantasia, codigoSage, uf, municipio });
+                await atualizarEmpresa(empresaParaEditar.id, { cnpj, razaoSocial, nomeFantasia, codigoSage, uf, municipio, sindicatos });
             } else {
-                await criarEmpresa((currentUser as any).uid, { cnpj, razaoSocial, nomeFantasia, codigoSage, uf, municipio });
+                await criarEmpresa((currentUser as any).uid, { cnpj, razaoSocial, nomeFantasia, codigoSage, uf, municipio, sindicatos });
             }
             onSalvo();
         } catch (e: any) {
@@ -136,6 +142,21 @@ const EmpresaForm: React.FC<Props> = ({ currentUser, empresaParaEditar, onSalvo,
                 </div>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">A UF decide o salário mínimo estadual (piso regional, como o de São Paulo) conferido na folha.</p>
+
+            <fieldset>
+                <legend className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Sindicatos da categoria (convenção coletiva)</legend>
+                {!cadastroSind && <p className="text-xs text-slate-500">Carregando os sindicatos…</p>}
+                {cadastroSind?.length === 0 && <p className="text-xs text-slate-500">Nenhum sindicato no cadastro (Cadastros › Sindicatos).</p>}
+                <div className="max-h-40 space-y-1 overflow-auto">
+                    {cadastroSind?.map(s => (
+                        <label key={s.cnpj} className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+                            <input type="checkbox" checked={sindicatos.includes(s.cnpj)} onChange={(e) => setSindicatos(x => e.target.checked ? [...x, s.cnpj] : x.filter(c => c !== s.cnpj))} aria-label={`Sindicato ${s.nome}`} />
+                            {s.nome}{s.dataBase ? ` · data-base ${s.dataBase}` : ''}
+                        </label>
+                    ))}
+                </div>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">A folha confere pisos, reajuste da data-base, horas extras e obrigações pela convenção deles. Funcionário de categoria diferenciada: informe o sindicato na ficha.</p>
+            </fieldset>
 
             {info && <p className="text-sm text-green-700 dark:text-green-400">{info}</p>}
             {erro && <p className="text-sm text-red-700 dark:text-red-400">{erro}</p>}

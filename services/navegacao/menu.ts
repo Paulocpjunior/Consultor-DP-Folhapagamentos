@@ -7,7 +7,7 @@
 export type Aba = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin' | 'fimdemes' | 'relatorios' | 'servicos' | 'demissoes';
 
 export type SubFolha = 'eventos' | 'apontamento' | 'validador-ponto' | 'implantacao' | 'conferencia';
-export type SubCadastroMenu = 'funcionarios' | 'horarios' | 'afastamentos' | 'incidencias' | 'enquadramento' | 'sindicatos' | 'tabelas';
+export type SubCadastroMenu = 'funcionarios' | 'horarios' | 'afastamentos' | 'incidencias' | 'enquadramento' | 'sindicatos' | 'tabelas' | 'conformidade';
 export type SubEsocial = 'dashboard' | 'saude' | 'eventos' | 'transmissao' | 'download' | 'fgts' | 'calendario' | 'teses' | 'ponto' | 'ponto_eletronico' | 'relatorio' | 'audit';
 export type FolhaCalculo = 'mensal' | 'adiantamento' | '13-1a' | '13-2a' | 'ferias' | 'rescisao';
 
@@ -38,11 +38,12 @@ export const MENU: GrupoMenu[] = [
         { id: 'funcionarios', rotulo: 'Funcionários', descricao: 'Fichas, salários e dependentes', icone: 'pessoas', destino: { aba: 'cadastros', sub: 'funcionarios' } },
         { id: 'horarios', rotulo: 'Horários', descricao: 'Jornadas e escalas', icone: 'relogio', destino: { aba: 'cadastros', sub: 'horarios' } },
         { id: 'afastamentos', rotulo: 'Afastamentos e férias', descricao: 'Licenças, atestados e gozos de férias', icone: 'calendarioX', destino: { aba: 'cadastros', sub: 'afastamentos' } },
-        { id: 'sindicatos', rotulo: 'Sindicatos', descricao: 'Convenções, pisos e contribuições', icone: 'sindicato', destino: { aba: 'cadastros', sub: 'sindicatos' } },
+        { id: 'sindicatos', rotulo: 'Sindicatos', descricao: 'Convenções em PDF, pisos, reajuste e contribuições', icone: 'sindicato', destino: { aba: 'cadastros', sub: 'sindicatos' } },
         { id: 'eventos', rotulo: 'Eventos IOB', descricao: 'Catálogo de eventos (código, rotina e incidências)', icone: 'lista', destino: { aba: 'folha', sub: 'eventos' } },
         { id: 'incidencias', rotulo: 'Incidências', descricao: 'Eventos IOB × rubricas do S-1010 e o S-1010 pelo Consultor', icone: 'elo', destino: { aba: 'cadastros', sub: 'incidencias' } },
         { id: 'enquadramento', rotulo: 'Enquadramento', descricao: 'FPAS, RAT/FAP e terceiros da empresa', icone: 'camadas', destino: { aba: 'cadastros', sub: 'enquadramento' } },
-        { id: 'tabelas', rotulo: 'Tabelas legais', descricao: 'INSS, IRRF, salário-família e mínimo', icone: 'tabela', destino: { aba: 'cadastros', sub: 'tabelas' } },
+        { id: 'tabelas', rotulo: 'Tabelas legais', descricao: 'INSS, IRRF, salário-família e mínimo federal e estadual', icone: 'tabela', destino: { aba: 'cadastros', sub: 'tabelas' } },
+        { id: 'conformidade', rotulo: 'Conformidade', descricao: 'Salário mínimo e convenção coletiva: pisos, reajuste e obrigações', icone: 'sindicato', destino: { aba: 'cadastros', sub: 'conformidade' } },
         { id: 'implantacao', rotulo: 'Implantação de funcionários', descricao: 'Primeiro acesso: unificar eSocial e ficha', icone: 'pessoaMais', destino: { aba: 'folha', sub: 'implantacao' } },
     ] },
     { id: 'folha', rotulo: 'Folha do mês', icone: 'folha', itens: [

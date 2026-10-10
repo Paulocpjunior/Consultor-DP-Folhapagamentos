@@ -3830,3 +3830,21 @@ Paulo: no modal de cadastros (tabelas), os campos "Salário Mínimo Federal" (to
   - fora: quem não é empregado e o intermitente; sem UF na empresa ou sem tabela federal, avisa.
 - **Catálogo SAGE:** Tabelas legais cita o mínimo estadual e a conferência.
 - **Testes:** tabela estadual (UF, pisos, vigência por UF), mínimos vigentes, conferência (federal, estadual, jornada parcial, salário por hora, histórico, quem fica fora).
+
+## 10/10/2026 — Sindicato na empresa, convenção coletiva em PDF e conformidade
+
+Paulo: sindicatos vinculados ao cadastro das empresas; campo para upload da última convenção coletiva com a validade; o app confronta os dados da convenção (data de reajuste, piso permitido, regras obrigatórias) e alerta o não cumprimento.
+
+- **Empresa ↔ sindicatos:** Empresas › editar › "Sindicatos da categoria" (vários; funcionário de categoria diferenciada usa o sindicato da ficha).
+- **Convenções do sindicato** (Cadastros › Sindicatos › abrir o sindicato › Convenções; `services/sindicatos/convencao.ts`):
+  - CCT ou ACT com vigência (até 2 anos: CLT, art. 614, § 3º), data-base, registro no Mediador, reajuste (% e a partir de), pisos por função (CBO opcional), adicionais de hora extra (dias úteis e domingos/feriados) e noturno, obrigações (uma por linha) e o **PDF**;
+  - ao escolher o PDF, o texto é lido no navegador (PDF.js, nada vai para a rede) e sugere vigência, data-base, registro, reajuste e pisos; a equipe confere e grava;
+  - `convencoes_coletivas/{cnpj}_{início}` no Firestore e o PDF no Storage (`convencoes/{cnpj}/…`): qualquer aprovado envia e lê; nada se sobrescreve nem se apaga (só o admin apaga a convenção).
+- **Cadastros › Conformidade** (empresa e competência; `components/conformidade/ConformidadePanel.tsx`):
+  - empresa: sem sindicato, sindicato sem convenção, convenção vencida (erro) ou a vencer em 30 dias, data-base passada sem a convenção nova, obrigações sem confirmação, funcionários sem histórico de salário (reajuste não conferido);
+  - funcionário: salário abaixo do piso (pelo CBO, pelo cargo ou o menor, proporcional à jornada), reajuste da data-base não aplicado pelo histórico de salário (admitido depois da data-base anterior: aviso para conferir o proporcional), horas extras lançadas a 50%/100% quando a convenção garante mais, ficha sem sindicato com dois na empresa;
+  - junta com o salário mínimo federal e estadual; o estadual sai para quem tem piso na convenção (LC 103/2000);
+  - checklist das obrigações da convenção por empresa, com quem marcou e a observação (`convencao_checklist/{empresa}_{convenção}`).
+- **Deploy:** a publicação das regras passa a incluir as do Storage (sem permissão da conta, avisa e segue).
+- **Catálogo SAGE:** Sindicatos atualizado (continua parcial: desconto sindical e aviso prévio da convenção ainda não entram no cálculo).
+- **Testes:** convenção (validação, vigente, piso por CBO/cargo, conferência, leitura do texto), telas (PDF pré-preenchendo e gravando; conformidade com o piso, o estadual suprimido e o checklist), regras do Firestore e do Storage.
