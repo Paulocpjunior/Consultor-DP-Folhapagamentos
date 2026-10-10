@@ -3200,3 +3200,16 @@ guias sindicais".
   - E-mail verificado em `isApproved`, CSP e App Check: mudam o login de quem já usa; ficam para combinar.
   - Cloud Functions antigas: aguarda o `gcloud functions list` do Paulo.
   - Dados pessoais versionados e limpeza do histórico: lote próprio (o histórico depende do "pode" do Paulo).
+
+## 10/10/2026 — Itens menores do motor
+
+- **Paulo:** "pode seguir com os itens menores do motor" (e não focar agora na troca de dados pessoais).
+- **Hora extra com outro adicional (60%, 75%…):** campo novo no movimento (adicional e horas, uma linha por percentual), verba HE<percentual> com DSR, nas médias de 13º, férias e rescisão; o holerite do IOB passa a ler "HE 75%" (e "HE 150%" não vira mais 50%); no histórico do backup vai como horas de 50% de mesmo valor (só para as médias); no de/para do eSocial, natureza 1003 pelo percentual.
+- **Período aquisitivo:** licença não remunerada, serviço militar e suspensões (21, 29, 44, 45) adiam o fim pelos dias suspensos; suspensão disciplinar (30) conta como falta.
+- **Admissão em 29/02:** o período vai até 28/02; o ano do aviso completa no aniversário (01/03 em ano comum).
+- **Verbas do holerite trazidas como lançamento:** abono pecuniário e ajuda de custo sem incidências; adiantamento do 13º só com FGTS.
+- **DSR das horas extras em mês parcial:** pelos dias do vínculo.
+- **Rescisão:** desconta o arredondamento atual da folha passada (ou o anterior informado no movimento).
+- **Benefício da empresa:** sem salário no mês, não é descontado (aviso para cobrar à parte).
+- **Testes:** `services/calculo/__tests__/motorItensMenores.test.ts`.
+- **Ficou:** a diferença do desconto simplificado no IRRF do 13º (13º separado sem, rescisão com) precisa de conferência com o IOB antes de mexer; pensão no IRRF de férias, 13º e rescisão só faz sentido quando o motor calcular a pensão desses pagamentos.

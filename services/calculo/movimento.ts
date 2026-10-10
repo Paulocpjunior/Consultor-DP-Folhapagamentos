@@ -45,6 +45,10 @@ export function limparMovimento(m: Movimento): Movimento {
     if (typeof m.arredondamentoPagamento === 'string' && /^\d{4}-\d{2}$/.test(m.arredondamentoPagamento)) out.arredondamentoPagamento = m.arredondamentoPagamento;
     if (typeof m.mesPagamento === 'string' && /^\d{4}-\d{2}$/.test(m.mesPagamento)) out.mesPagamento = m.mesPagamento;
     if (typeof m.irrfPagamento === 'string' && /^\d{4}-\d{2}$/.test(m.irrfPagamento)) out.irrfPagamento = m.irrfPagamento;
+    // Outros adicionais de hora extra: chaves numéricas em ordem, horas com 4 casas, sem os zerados.
+    const pct = Object.entries(m.horasExtrasPct ?? {}).filter(([p, h]) => /^\d{1,3}(\.\d{1,2})?$/.test(p) && typeof h === 'number' && Number.isFinite(h) && h !== 0)
+        .sort((a, b) => Number(a[0]) - Number(b[0])).map(([p, h]) => [p, Math.round(h * 10000) / 10000] as const);
+    if (pct.length) out.horasExtrasPct = Object.fromEntries(pct);
     const lancs: Lancamento[] = (m.lancamentos ?? [])
         .map(l => ({ descricao: l.descricao.trim().replace(/\s+/g, ' '), tipo: l.tipo, valor: Math.round(l.valor), inss: !!l.inss, fgts: !!l.fgts, irrf: !!l.irrf }))
         .filter(l => l.descricao || l.valor);
@@ -65,6 +69,13 @@ export function validarMovimento(m: Movimento, diasNoMes = 31): string[] {
         else if (max[k] !== undefined && v > max[k]!) erros.push(`${ROTULO_MOVIMENTO[k]}: no máximo ${max[k]}.`);
         // O arredondamento anterior é o que faltou para o real seguinte: até 0,99 (56 em vez de 0,56 tiraria R$ 56,00; Codex #116).
         if ((k === 'arredondamentoAnterior' || k === 'arredondamentoFechado') && v > 99) erros.push(`${ROTULO_MOVIMENTO[k]}: no máximo R$ 0,99 (são centavos do mês anterior).`);
+    }
+    for (const [p, h] of Object.entries(m.horasExtrasPct ?? {})) {
+        const n = Number(p);
+        if (n === 50 || n === 100) erros.push(`Horas extras ${p}%: use o campo próprio de ${p}%.`);
+        else if (!(n > 0 && n <= 300)) erros.push(`Horas extras: adicional de ${p}% inválido (de 1% a 300%).`);
+        if (h < 0) erros.push(`Horas extras ${p}%: não pode ser negativo.`);
+        else if (h > 300) erros.push(`Horas extras ${p}%: no máximo 300.`);
     }
     (m.lancamentos ?? []).forEach((l, i) => {
         if (!l.descricao) erros.push(`Lançamento ${i + 1}: informe a descrição.`);

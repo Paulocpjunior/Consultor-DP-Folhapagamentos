@@ -964,6 +964,9 @@ const Holerite: React.FC<{ r: ResultadoCalculo; mov?: Movimento; gravado?: Movim
                 onChange={e => onMov({ ...mov, [k]: emHoras(k) ? horas(e.target.value) : decimal(e.target.value) })} />
         </label>
     );
+    // Horas extras com outros adicionais da convenção (60%, 75%…): uma linha por percentual.
+    const outras = Object.entries(mov.horasExtrasPct ?? {});
+    const setOutras = (l: [string, number][]) => onMov({ ...mov, horasExtrasPct: l.length ? Object.fromEntries(l) : undefined });
     const lancs = mov.lancamentos ?? [];
     const setLanc = (i: number, l: Partial<Lancamento>) => onMov({ ...mov, lancamentos: lancs.map((x, j) => (j === i ? { ...x, ...l } : x)) });
     return (
@@ -1000,6 +1003,17 @@ const Holerite: React.FC<{ r: ResultadoCalculo; mov?: Movimento; gravado?: Movim
                 <div className="flex flex-wrap gap-3">
                     {campo('horasExtras50', 'Horas extras 50%')}
                     {campo('horasExtras100', 'Horas extras 100%')}
+                    {outras.map(([p, h], i) => (
+                        <span key={i} className="flex items-end gap-1 text-xs dark:text-slate-200">
+                            <label>Adicional (%)<input aria-label={`Adicional da hora extra ${i + 1}`} className={`mt-0.5 block w-16 ${inp}`} defaultValue={p}
+                                onChange={e => setOutras(outras.map((x, j) => (j === i ? [e.target.value.replace(',', '.').replace(/[^\d.]/g, ''), x[1]] : x)))} /></label>
+                            <label>Horas<input aria-label={`Horas da hora extra ${i + 1}`} className={`mt-0.5 block w-20 ${inp}`} defaultValue={h ? String(h).replace('.', ',') : ''}
+                                onChange={e => setOutras(outras.map((x, j) => (j === i ? [x[0], horas(e.target.value) ?? 0] : x)))} /></label>
+                            <button className="pb-1 text-red-700 dark:text-red-300" aria-label={`Remover hora extra ${i + 1}`} onClick={() => setOutras(outras.filter((_, j) => j !== i))}>✕</button>
+                        </span>
+                    ))}
+                    <button className="self-end rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:text-white" title="Hora extra com adicional da convenção diferente de 50% e 100% (60%, 75%…)"
+                        onClick={() => setOutras([...outras, [String(outras.length ? '' : '60'), 0]])}>+ Hora extra com outro adicional</button>
                     {campo('faltasDias', 'Faltas (dias)')}
                     {campo('dsrDescontadoDias', 'DSR descontado (dias)')}
                     {campo('atrasosHoras', 'Faltas e atrasos (horas)')}

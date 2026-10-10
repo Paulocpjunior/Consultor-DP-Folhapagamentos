@@ -27,7 +27,7 @@ import { inicioBeneficio } from '../cadastros/afastamentos';
 import { dataValida, reais } from '../cadastros/documentos';
 import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros/tabelasLegais';
 import { somarDias } from '../prazos/calendario';
-import { diasDsr, salarioContratual, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
+import { diasDsr, salarioContratual, valorHorasExtras, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
 
 export type Parcela13 = '1a' | '2a';
 export interface Opcoes13 { simplificado: boolean; redutor: boolean }
@@ -149,11 +149,11 @@ export function calcular13(e: Entrada13): ResultadoCalculo {
     let somaVar = 0; let horas = 0;
     for (const m of periodo) {
         const mov = e.movimentos[m.competencia]; if (!mov) continue;
-        const he = Math.round(salarioHora * 1.5 * (mov.horasExtras50 ?? 0)) + Math.round(salarioHora * 2 * (mov.horasExtras100 ?? 0));
+        const { valor: he, horas: h } = valorHorasExtras(salarioHora, mov);
         if (!he) continue;
         const { uteis, descanso } = diasDsr(m.competencia, mov.feriadosLocais);
         somaVar += he + Math.round(he / uteis * descanso);
-        horas += (mov.horasExtras50 ?? 0) + (mov.horasExtras100 ?? 0);
+        horas += h;
     }
     const media = periodo.length ? Math.round(somaVar / periodo.length) : 0;
     if (media) r.memoria.push(`Média de horas extras com DSR: ${reais(somaVar)} em ${num(horas)} h nos movimentos de ${periodo.length} mês(es) ÷ ${periodo.length} = ${reais(media)} (hora atual ${reais(Math.round(salarioHora))}).`);

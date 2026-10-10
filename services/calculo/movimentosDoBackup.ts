@@ -24,6 +24,13 @@ export const CAMPOS_HISTORICO: Classe[] = ['horasExtras50', 'horasExtras100', 'f
 
 const semAcento = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
+const percentualHE = (d: string) => { const m = /(\d{2,3}(?:[.,]\d{1,2})?)\s*%/.exec(d); return m ? Number(m[1].replace(',', '.')) : null; };
+/**
+ * Hora extra com outro adicional (60%, 75%, 150%…) no histórico: vai como horas de 50% de mesmo valor
+ * (horas × (1 + p) ÷ 1,5). O histórico só serve às médias, que somam o valor das horas.
+ */
+export const fatorHoraExtra = (descricao: string) => { const p = percentualHE(semAcento(descricao)); return p !== null && p !== 50 && p !== 100 ? (1 + p / 100) / 1.5 : 1; };
+
 /** O que o evento é para o movimento, pela natureza da rubrica e pela descrição; null = não entra. */
 export function classificarEvento(natRubr: string, descricao: string): Classe | null {
     const d = semAcento(descricao);
@@ -32,7 +39,9 @@ export function classificarEvento(natRubr: string, descricao: string): Classe | 
     if (dsr) return falta || natRubr === '9207' || natRubr === '9211' ? 'dsrDescontadoDias' : null;
     if (natRubr === '1003' || (!natRubr && /hora?s?\s*extra|\bh\.?\s*e\b|\bhe\b/.test(d))) {
         if (/reflexo|media|dsr|banco/.test(d)) return null;
-        return /100/.test(d) ? 'horasExtras100' : 'horasExtras50';
+        const p = percentualHE(d);
+        if (p !== null && p !== 50 && p !== 100) return 'horasExtras50';
+        return p === 100 || (p === null && /100/.test(d)) ? 'horasExtras100' : 'horasExtras50';
     }
     // Falta junto com atraso, ou em horas ("(T/H)"): horas, não dias (salário-hora × horas no motor).
     if (natRubr === '9207') return /atras|t\/h|\bhoras?\b/.test(d) ? 'atrasosHoras' : 'faltasDias';
@@ -148,7 +157,8 @@ export function movimentosDoHolerith(holerith: TabelaLida, naturezas: NaturezasE
         if (vinculos.length !== 1) { semFicha++; continue; }
         const chave = `${vinculos[0].id}_${competencia}`;
         const m = soma.get(chave) ?? { fichaId: vinculos[0].id, competencia, movimento: {} };
-        m.movimento[classe] = Math.round(((m.movimento[classe] ?? 0) + q) * 10000) / 10000;
+        const qq = classe === 'horasExtras50' ? q * fatorHoraExtra(descricao) : q;
+        m.movimento[classe] = Math.round(((m.movimento[classe] ?? 0) + qq) * 10000) / 10000;
         soma.set(chave, m);
     }
     r.movimentos = [...soma.values()].sort((a, b) => a.fichaId.localeCompare(b.fichaId) || a.competencia.localeCompare(b.competencia));
