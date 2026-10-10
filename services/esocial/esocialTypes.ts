@@ -8,7 +8,8 @@ export type EventoTipo =
 
 export type EventoStatus = 'pendente' | 'transmitido' | 'rejeitado' | 'processado';
 
-export type FgtsStatus = 'em_dia' | 'atrasado' | 'parcial';
+/** nao_declarado: a folha do Consultor tem FGTS e o eSocial não declarou nada depois do prazo do fechamento (pendente de envio). */
+export type FgtsStatus = 'em_dia' | 'atrasado' | 'parcial' | 'nao_declarado';
 
 export interface EventoEsocial {
     id: string;

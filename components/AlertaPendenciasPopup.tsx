@@ -65,7 +65,7 @@ const AlertaPendenciasPopup: React.FC<Props> = ({ currentUser, onNavigateEsocial
             } catch (e) {
                 console.warn('Erro ao calcular pendencias:', e);
                 setResumo({
-                    fgtsAtrasados: 0, fgtsParciais: 0, fgtsValorPendente: 0,
+                    fgtsAtrasados: 0, fgtsParciais: 0, fgtsNaoDeclarados: 0, fgtsValorPendente: 0,
                     eventosPendentes: 0, eventosRejeitados: 0,
                     alertasVencimento: 0, certsVencendo: 0, certsVencidos: 0,
                     totalEmpresas: 0, temPendencias: false,
@@ -137,7 +137,7 @@ const AlertaPendenciasPopup: React.FC<Props> = ({ currentUser, onNavigateEsocial
                     )}
 
                     {/* Section 1: FGTS */}
-                    {(resumo.fgtsAtrasados > 0 || resumo.fgtsParciais > 0) && (
+                    {(resumo.fgtsAtrasados > 0 || resumo.fgtsParciais > 0 || resumo.fgtsNaoDeclarados > 0) && (
                         <div className="space-y-2">
                             <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
                                 <span>&#128176;</span> FGTS em Aberto / Atrasado
@@ -160,6 +160,16 @@ const AlertaPendenciasPopup: React.FC<Props> = ({ currentUser, onNavigateEsocial
                                         </span>
                                         <span className="text-xs text-slate-500 dark:text-slate-400">
                                             empresa(s) com FGTS parcialmente recolhido
+                                        </span>
+                                    </div>
+                                )}
+                                {resumo.fgtsNaoDeclarados > 0 && (
+                                    <div className="flex items-center gap-2">
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300">
+                                            {resumo.fgtsNaoDeclarados} não declarado{resumo.fgtsNaoDeclarados > 1 ? 's' : ''}
+                                        </span>
+                                        <span className="text-xs text-slate-500 dark:text-slate-400">
+                                            competência(s) com FGTS na folha e sem declaração no eSocial (pendente de envio)
                                         </span>
                                     </div>
                                 )}

@@ -27,6 +27,8 @@ export interface Empresa {
     contasPagamento?: import('../bancario/cnab240').ContaPagamento[];
     /** Para quem vai o pacote da folha (e-mail e WhatsApp do contato no cliente). */
     contatoEnvio?: import('../pacoteCliente/envio').ContatoEnvio;
+    /** Procuração do FGTS Digital dada ao escritório (protocolo.gov.br): perfil e validade. */
+    procuracaoFgts?: import('../fgts/consultaFgts').ProcuracaoFgts;
     /** Estabelecimento, lotação e de/para das verbas com as rubricas, para o S-1200 e o S-1210. */
     esocialFolha?: import('../esocial/eventosFolha').ParametrosEsocialFolha;
     /** Parâmetros do cálculo da folha (arredondamento do líquido). */

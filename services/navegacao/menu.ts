@@ -70,7 +70,7 @@ export const MENU: GrupoMenu[] = [
         { id: 'transmissao', rotulo: 'Transmissão', descricao: 'Enviar lotes, S-1299 e S-1298', icone: 'enviar', destino: { aba: 'esocial', sub: 'transmissao' } },
         { id: 'eventos', rotulo: 'Eventos', descricao: 'Eventos registrados e recibos', icone: 'lista', destino: { aba: 'esocial', sub: 'eventos' } },
         { id: 'download', rotulo: 'Download', descricao: 'Baixar eventos do governo', icone: 'baixar', destino: { aba: 'esocial', sub: 'download' } },
-        { id: 'fgts', rotulo: 'FGTS Digital', descricao: 'Guias e conferência do FGTS', icone: 'moeda', destino: { aba: 'esocial', sub: 'fgts' } },
+        { id: 'fgts', rotulo: 'FGTS Digital', descricao: 'Recolhimento mês a mês, extrato por funcionário, CRF e procuração do FGTS Digital', icone: 'moeda', destino: { aba: 'esocial', sub: 'fgts' } },
         { id: 'ponto-editor', rotulo: 'Ponto (editor)', descricao: 'Layouts e marcações do ponto', icone: 'lapis', destino: { aba: 'esocial', sub: 'ponto' } },
         { id: 'ponto-eletronico', rotulo: 'Ponto eletrônico', descricao: 'Espelho e apuração', icone: 'relogio', destino: { aba: 'esocial', sub: 'ponto_eletronico' } },
         { id: 'teses', rotulo: 'Recuperação', descricao: 'Teses e créditos', icone: 'balanca', destino: { aba: 'esocial', sub: 'teses' } },

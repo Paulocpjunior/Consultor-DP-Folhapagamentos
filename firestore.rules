@@ -91,7 +91,7 @@ service cloud.firestore {
                     // quem cadastrou e o admin.
                     || (podeEmpresa(empresaId)
                         && request.resource.data.diff(resource.data).affectedKeys()
-                             .hasOnly(['contasPagamento', 'contatoEnvio', 'esocialFolha', 'parametrosFolha', 'atualizadoEm'])))
+                             .hasOnly(['contasPagamento', 'contatoEnvio', 'esocialFolha', 'parametrosFolha', 'procuracaoFgts', 'atualizadoEm'])))
                     // Quem cadastrou não muda (dá acesso permanente; auditoria de 10/2026), a não ser pelo gestor.
                     && (request.resource.data.get('criadoPor', null) == resource.data.get('criadoPor', null) || isGestor())
                     // Trocar o código SAGE ou o CNPJ exige reservar a chave nova, no formato certo.

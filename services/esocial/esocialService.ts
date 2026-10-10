@@ -16,6 +16,7 @@ import {
     startAfter,
     getCountFromServer,
     type QueryDocumentSnapshot,
+    setDoc,
 } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import type {
@@ -182,6 +183,12 @@ export async function criarFgts(registro: Omit<FgtsDigitalRegistro, 'id'>): Prom
     return docRef.id;
 }
 
+/** Grava o registro com id conhecido (a consulta do SERPRO por empresa e competência): cria ou atualiza, sem duplicar. */
+export async function gravarFgtsComId(id: string, registro: Omit<FgtsDigitalRegistro, 'id'>): Promise<void> {
+    if (!db) throw new Error('Firebase não configurado');
+    await setDoc(doc(db, COLECAO_FGTS, id), { ...registro, consultadoEm: new Date().toISOString() });
+}
+
 export async function atualizarFgts(id: string, dados: Partial<FgtsDigitalRegistro>): Promise<void> {
     if (!db) throw new Error('Firebase não configurado');
     await updateDoc(doc(db, COLECAO_FGTS, id), dados);
@@ -234,8 +241,8 @@ export async function calcularResumoEmpresa(empresaId: string, razaoSocial: stri
     const fgtsDevidoTotal = fgts.reduce((acc, f) => acc + f.valorDevido, 0);
     const fgtsRecolhidoTotal = fgts.reduce((acc, f) => acc + f.valorRecolhido, 0);
 
-    let fgtsStatus: 'em_dia' | 'atrasado' | 'parcial' = 'em_dia';
-    if (fgts.some(f => f.status === 'atrasado')) fgtsStatus = 'atrasado';
+    let fgtsStatus: FgtsDigitalRegistro['status'] = 'em_dia';
+    if (fgts.some(f => f.status === 'atrasado' || f.status === 'nao_declarado')) fgtsStatus = 'atrasado';
     else if (fgts.some(f => f.status === 'parcial')) fgtsStatus = 'parcial';
 
     return {
@@ -302,6 +309,8 @@ export function calcularAlertasVencimento(eventos: EventoEsocial[]): EventoEsoci
 export interface ResumoPendencias {
     fgtsAtrasados: number;
     fgtsParciais: number;
+    /** Competências com FGTS na folha e sem declaração no eSocial depois do prazo (pendente de envio). */
+    fgtsNaoDeclarados: number;
     fgtsValorPendente: number;
     eventosPendentes: number;
     eventosRejeitados: number;
@@ -329,6 +338,7 @@ export async function calcularResumoPendencias(): Promise<ResumoPendencias> {
 
     const fgtsAtrasados = fgts.filter(f => f.status === 'atrasado').length;
     const fgtsParciais = fgts.filter(f => f.status === 'parcial').length;
+    const fgtsNaoDeclarados = fgts.filter(f => f.status === 'nao_declarado').length;
     const fgtsValorPendente = fgts.reduce((acc, f) => acc + Math.max(0, f.valorDevido - f.valorRecolhido), 0);
 
     const eventosPendentes = eventos.filter(e => e.status === 'pendente').length;
@@ -346,6 +356,7 @@ export async function calcularResumoPendencias(): Promise<ResumoPendencias> {
     const temPendencias =
         fgtsAtrasados > 0 ||
         fgtsParciais > 0 ||
+        fgtsNaoDeclarados > 0 ||
         eventosPendentes > 0 ||
         eventosRejeitados > 0 ||
         alertasVencimento > 0 ||
@@ -355,6 +366,7 @@ export async function calcularResumoPendencias(): Promise<ResumoPendencias> {
     return {
         fgtsAtrasados,
         fgtsParciais,
+        fgtsNaoDeclarados,
         fgtsValorPendente,
         eventosPendentes,
         eventosRejeitados,
