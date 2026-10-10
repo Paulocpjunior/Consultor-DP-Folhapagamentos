@@ -62,7 +62,7 @@ describe('tela S-1200 e S-1210', () => {
     it('pendência aparece por trabalhador e, sem evento pronto, não há o que transmitir', async () => {
         sv.rubricas.mockResolvedValue([rub('0001', 'SALARIO', '1000', '1')]);
         render(<EventosFolhaModal empresa={{ ...empresa, esocialFolha: { nrInscEstab: CNPJ, codLotacao: 'LOT01', rubricas: { SAL: { codRubr: '0001', ideTabRubr: 'T1' } } } }} competencia="2026-09" fichas={[ficha]} resultados={[res]} dataSugerida="2026-10-06" usuario={{ id: 'u', email: 'u@x' }} onFechar={() => {}} />);
-        await waitFor(() => expect(screen.getByText(/ANA/)).toBeTruthy());
+        await waitFor(() => expect(screen.getAllByText(/ANA/).length).toBeGreaterThan(0));
         expect(screen.getByText(/"INSS" sem rubrica no de\/para/)).toBeTruthy();
         expect((screen.getByText('Transmitir S-1200 (0)') as HTMLButtonElement).disabled).toBe(true);
     });
@@ -127,9 +127,18 @@ describe('tela S-1200 e S-1210', () => {
         expect(sv.registrarConsulta).toHaveBeenCalled();
         expect((screen.getByText('1. Excluir S-1210 aceito (0)') as HTMLButtonElement).disabled).toBe(true);
         expect(screen.getByText(/já excluído, volta com mais 1 pagamento/)).toBeTruthy();
-        fireEvent.click(screen.getByText('3. Transmitir S-1210 (1)'));
+        // O S-1210 espera o S-1200 aceito (o eSocial recusaria o pagamento de um demonstrativo que ainda não existe).
+        expect((screen.getByText('3. Transmitir S-1210 (1)') as HTMLButtonElement).disabled).toBe(true);
+        expect(screen.getByText(/O S-1210 libera depois que o S-1200 for aceito/)).toBeTruthy();
+        fireEvent.click(screen.getByText('2. Transmitir S-1200 (1)'));
         await waitFor(() => expect(sv.enviar).toHaveBeenCalledTimes(2));
-        const s = sv.enviar.mock.calls[1][0].eventos[0];
+        sv.envios = [...sv.envios, { id: 'y', tpAmb: 1, protocolo: 'P2', situacao: 'processado', certificado: 'escritorio', consultadoEm: '2026-10-08T11:00:00', enviadoEm: '2026-10-08',
+            eventos: [{ id: 'S1200', tipo: 'S-1200', perApur: '2026-09', ref: 'f1', cdResposta: 201, nrRecibo: '1.1.0000000000000000010' }] }];
+        fireEvent.click(screen.getByText('Consultar resultado'));
+        await waitFor(() => expect((screen.getByText('3. Transmitir S-1210 (1)') as HTMLButtonElement).disabled).toBe(false));
+        fireEvent.click(screen.getByText('3. Transmitir S-1210 (1)'));
+        await waitFor(() => expect(sv.enviar).toHaveBeenCalledTimes(3));
+        const s = sv.enviar.mock.calls[2][0].eventos[0];
         expect([s.includes('<indRetif>1</indRetif>'), s.includes('<ideDmDev>ADT-10</ideDmDev>')]).toEqual([true, true]);
     });
 });

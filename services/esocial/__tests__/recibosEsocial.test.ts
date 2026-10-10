@@ -71,9 +71,10 @@ describe('exclusão e S-1210 vigente', () => {
         const doConsultor: ReciboEvento = { tipo: 'S-1210', cpf: '52998224725', perApur: '2026-10', nrRecibo: REC2, processadoEm: '2026-10-06T10:00:01', origem: 'transmitido pelo Consultor' };
         const v = recibosVigentes([doConsultor, ...baixado], 'S-1210', '2026-10', ex).get('52998224725')!;
         expect([v.nrRecibo, v.pagamentos?.length, !!v.excluidoEm]).toEqual([REC2, 2, true]);
-        // Reenviado pelo Consultor depois (sem conteúdo no envio): vale o novo, com os pagamentos do baixado como base.
+        // Reenviado pelo Consultor depois (sem conteúdo no envio): vale o novo, sem os pagamentos do baixado (versão
+        // anterior, sem o que o reenvio acrescentou): o próximo reenvio pede o download dele.
         const novo = recibosVigentes([...baixado, { ...doConsultor, nrRecibo: REC3, processadoEm: '2026-10-09T10:00:00' }], 'S-1210', '2026-10', ex).get('52998224725')!;
-        expect([novo.nrRecibo, novo.pagamentos?.length, novo.excluidoEm]).toEqual([REC3, 2, undefined]);
+        expect([novo.nrRecibo, novo.pagamentos?.length, novo.excluidoEm]).toEqual([REC3, undefined, undefined]);
     });
 });
 

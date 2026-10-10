@@ -182,22 +182,18 @@ export function recibosVigentes(recibos: ReciboEvento[], tipo: TipoPeriodico, pe
     }
     const m = new Map<string, ReciboEvento>();
     const comDemonstrativos = new Map<string, ReciboEvento>();
-    const conteudo = new Map<string, ReciboEvento>();
     for (const r of porRecibo.values()) {
         if (r.demonstrativos && Object.keys(r.demonstrativos).length && (!comDemonstrativos.has(r.cpf) || depois(r.processadoEm, comDemonstrativos.get(r.cpf)!.processadoEm))) comDemonstrativos.set(r.cpf, r);
-        if (r.pagamentos && (!conteudo.has(r.cpf) || depois(r.processadoEm, conteudo.get(r.cpf)!.processadoEm))) conteudo.set(r.cpf, r);
         const a = m.get(r.cpf);
         if (!a || depois(r.processadoEm, a.processadoEm)) m.set(r.cpf, r);
     }
     // Marca de exclusão sem o recibo excluído carregado: só leva pagamentos do próprio recibo excluído, nunca os
     // de uma versão mais antiga do mesmo mês (o reenvio sairia com um conjunto de pagamentos desatualizado).
-    const soMarca = new Set<string>();
     if (tipo === 'S-1210') for (const [nrRecibo, ex] of exclusoes) {
         if (!ex.cpf || ex.perApur !== perApur) continue;
         const a = m.get(ex.cpf);
         if (!a || (a.nrRecibo !== nrRecibo && depois(ex.em, a.processadoEm))) {
             m.set(ex.cpf, { tipo, cpf: ex.cpf, perApur, nrRecibo, processadoEm: ex.em, origem: 'excluído pelo Consultor (S-3000)' });
-            soMarca.add(ex.cpf);
         }
     }
     for (const [cpf, r] of m) {
@@ -205,8 +201,9 @@ export function recibosVigentes(recibos: ReciboEvento[], tipo: TipoPeriodico, pe
         // O retificador do Consultor repete os demonstrativos do original do IOB: o recibo mais novo pode não trazê-los.
         // Vale o recibo mais novo que os traz (não a soma de versões: uma retificação do IOB pode ter tirado algum).
         if (!v.demonstrativos && comDemonstrativos.has(cpf)) v = { ...v, demonstrativos: comDemonstrativos.get(cpf)!.demonstrativos };
-        // O S-1210 que o Consultor reenviou leva os pagamentos do baixado mais os desta folha: o baixado serve de base.
-        const c = soMarca.has(cpf) ? porRecibo.get(v.nrRecibo) : conteudo.get(cpf);
+        // Os pagamentos e o IR só do próprio recibo: o de uma versão anterior (o baixado antes de o Consultor reenviar)
+        // não tem o que o reenvio acrescentou, e o S-1210 voltaria sem eles. Sem o conteúdo do que vale, o reenvio pede o download.
+        const c = porRecibo.get(v.nrRecibo);
         if (!v.pagamentos && c?.pagamentos) v = { ...v, pagamentos: c.pagamentos, irComplem: c.irComplem, xmlOrigem: c.xmlOrigem };
         if (exclusoes.has(v.nrRecibo)) v = { ...v, excluidoEm: exclusoes.get(v.nrRecibo)!.em || 'excluído' };
         m.set(cpf, v);

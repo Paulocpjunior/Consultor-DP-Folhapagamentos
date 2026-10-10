@@ -102,6 +102,8 @@ const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resu
     // Cada S-1210 do trabalhador (o do mês da folha e o dos recibos de férias, se for outro mês).
     const s1210s = prontos.flatMap(t => pagamentos1210(t).map(pm => ({ t, pm })));
     const aExcluir = s1210s.filter(x => x.pm.exclusao1210);
+    // Em produção, o S-1210 aponta para o S-1200 aceito: sem o recibo dele, o passo 3 espera (o eSocial recusaria).
+    const semS1200Aceito = tpAmb === 1 ? prontos.filter(t => !t.retifica1200) : [];
     const comFerias = prontos.filter(t => t.recibosFerias > 0);
     const comErro = geracao?.trabalhadores.filter(t => !t.s1200) ?? [];
     const naoGravado = JSON.stringify(efetivos) !== JSON.stringify(gravados);
@@ -197,6 +199,9 @@ const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resu
                 <section className="grid gap-2 rounded border border-slate-200 p-2 text-xs sm:grid-cols-4 dark:border-slate-700">
                     <label>CNPJ do estabelecimento<input aria-label="CNPJ do estabelecimento" className={`block w-full ${inp}`} value={params.nrInscEstab} onChange={e => setParams(p => ({ ...p, nrInscEstab: e.target.value.replace(/\D/g, '').slice(0, 14) }))} /></label>
                     <label>Código da lotação (S-1020)<input aria-label="Código da lotação" className={`block w-full ${inp}`} maxLength={30} value={params.codLotacao} onChange={e => setParams(p => ({ ...p, codLotacao: e.target.value }))} /></label>
+                    <label>Simples com classTrib 03<select aria-label="indSimples" className={`block w-full ${inp}`} value={params.indSimples ?? ''} onChange={e => setParams(p => ({ ...p, indSimples: e.target.value as ParametrosEsocialFolha['indSimples'] }))}>
+                        <option value="">Não se aplica</option><option value="1">1 - CPP substituída</option><option value="2">2 - CPP não substituída</option><option value="3">3 - Substituída e não substituída</option>
+                    </select></label>
                     <label>Data do pagamento<input aria-label="Data do pagamento" type="date" className={`block w-full ${inp}`} value={data} onChange={e => setData(e.target.value)} /></label>
                     {comAdiantamento && <label>Data do adiantamento<input aria-label="Data do adiantamento" type="date" className={`block w-full ${inp}`} value={dataAdiant} onChange={e => setDataAdiant(e.target.value)} /></label>}
                     <p className="self-end text-slate-500">O S-1210 vai no mês do pagamento ({data ? comp(data.slice(0, 7)) : '—'}).{comFerias.length ? ` Recibos de férias pagos em ${comp(competencia)}: demonstrativo próprio, pago na data do recibo (S-1210 de ${comp(competencia)}).` : ''}{comAdiantamento ? ` Adiantamento salarial: demonstrativo próprio, pago na data do adiantamento (S-1210 de ${dataAdiant ? comp(dataAdiant.slice(0, 7)) : '—'}); a folha desconta o que ele pagou.` : ''}</p>
@@ -275,10 +280,11 @@ const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resu
                     <button className="rounded border border-slate-300 px-3 py-2 disabled:opacity-50 dark:border-slate-600" disabled={!prontos.length} onClick={baixar}>Baixar XMLs (.zip)</button>
                     {tpAmb === 1 && <button className="rounded bg-red-700 px-3 py-2 text-white disabled:opacity-50" disabled={!podeTransmitir || !esperaExclusao} onClick={() => transmitir('S-3000')}>1. Excluir S-1210 aceito ({aExcluir.length})</button>}
                     <button className="rounded bg-green-700 px-3 py-2 text-white disabled:opacity-50" disabled={!podeTransmitir || esperaExclusao} onClick={() => transmitir('S-1200')}>{tpAmb === 1 ? '2. ' : ''}Transmitir S-1200 ({prontos.length})</button>
-                    <button className="rounded bg-green-700 px-3 py-2 text-white disabled:opacity-50" disabled={!podeTransmitir || esperaExclusao} onClick={() => transmitir('S-1210')}>{tpAmb === 1 ? '3. ' : ''}Transmitir S-1210 ({s1210s.length})</button>
+                    <button className="rounded bg-green-700 px-3 py-2 text-white disabled:opacity-50" disabled={!podeTransmitir || esperaExclusao || semS1200Aceito.length > 0} onClick={() => transmitir('S-1210')}>{tpAmb === 1 ? '3. ' : ''}Transmitir S-1210 ({s1210s.length})</button>
                     {meusEnvios.length > 0 && <button className="rounded border border-slate-300 px-3 py-2 disabled:opacity-50 dark:border-slate-600" disabled={!!ocupado} onClick={consultar}>Consultar resultado</button>}
                     {naoGravado && prontos.length > 0 && <span className="text-amber-700 dark:text-amber-300">Grave os parâmetros e o de/para antes de transmitir.</span>}
                     {!naoGravado && esperaExclusao && <span className="text-amber-700 dark:text-amber-300">Primeiro a exclusão do S-1210 (passo 1); depois de aceita ("Consultar resultado"), o S-1200 e o S-1210 liberam.</span>}
+                    {!naoGravado && !esperaExclusao && semS1200Aceito.length > 0 && prontos.length > 0 && <span className="text-amber-700 dark:text-amber-300">O S-1210 libera depois que o S-1200 for aceito ("Consultar resultado"){semS1200Aceito.length < prontos.length ? `: falta o de ${semS1200Aceito.map(t => t.nome).join(', ')}` : ''}.</span>}
                 </section>
                 {ocupado && <p role="status" className="text-blue-700 dark:text-blue-300">{ocupado}</p>}
                 {erro && <p role="alert" className="rounded bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}

@@ -3130,3 +3130,17 @@ guias sindicais".
 - **Código:** `historico()` consulta a auditoria filtrando pela empresa (ou pela coleção, nos globais).
 - **Testes das regras versionados:** em `testes-regras/` (46 que já existiam fora do repositório e 10 novos de ataque), rodados com `npm run test:regras` (emulador, Java) e no CI (job `regras`).
 - **Precisa publicar** as regras depois do merge.
+
+## 10/10/2026 — Auditoria do projeto, lote E (eSocial)
+
+- **Paulo:** "pode seguir com esocial".
+- **Férias com INSS e IRRF em dobro (P0):** o retido no recibo vai no demonstrativo dele (INSSFER, IRRFFER) e de novo, como desconto, na folha do gozo (INSSFERRET, IRRFFERRET). O de/para sugeria a mesma rubrica para os dois.
+  - A sugestão da folha fica em branco quando é igual à do recibo.
+  - O gerador recusa: a mesma rubrica nos dois; INSS do recibo e da folha com codIncCP 31; IRRF da folha com codIncIRRF de retenção (31 a 35).
+- **Incidências:** o gerador compara o que o cálculo soma à base do INSS, do FGTS e do IRRF com os codInc do S-1010 e avisa uma vez por rubrica. O adiantamento de férias (1015) não é base do INSS nem do FGTS no recibo.
+- **Ficha:** CPF com dígito conferido; local de trabalho em outro CNPJ trava (o Consultor informa um estabelecimento só); grau de exposição em branco vira um aviso (vai 1).
+- **IRRF no S-1210:** alimentando que também é dependente no IRRF trava. Na retificação, se o S-1210 aceito só tem esta folha e as deduções dele (dependentes, pensão) diferem das do cálculo, trava (antes voltavam as antigas sem aviso).
+- **S-1210 reenviado:** os pagamentos do aceito só vêm do próprio recibo. Antes, um S-1210 reenviado pelo Consultor herdava os do download anterior, sem o que o reenvio acrescentou. Agora pede o download.
+- **Tela:** em produção, o passo 3 (S-1210) só libera com o S-1200 aceito. O S-2230 abre na produção restrita. Novo parâmetro "Simples com classTrib 03" (indSimples).
+- **Testes:** `services/esocial/__tests__/auditoriaEsocial.test.ts`.
+- **Fica para depois:** o motor ainda deduz o alimentando como dependente quando a ficha está marcada assim (a validação da ficha já recusa; entra no lote do motor).
