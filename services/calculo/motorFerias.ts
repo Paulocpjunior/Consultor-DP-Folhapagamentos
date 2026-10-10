@@ -24,7 +24,7 @@ import { inicioBeneficio } from '../cadastros/afastamentos';
 import { dataValida, reais } from '../cadastros/documentos';
 import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros/tabelasLegais';
 import { aniversario, diaUtilAnterior, diasEntre, somarDias, somarMeses } from '../prazos/calendario';
-import { diasDsr, salarioContratual, valorHorasExtras, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
+import { mediaDasVariaveis, salarioContratual, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
 
 export interface OpcoesFerias { simplificado: boolean; redutor: boolean }
 export const OPCOES_FERIAS_PADRAO: OpcoesFerias = { simplificado: true, redutor: true };
@@ -39,6 +39,8 @@ export interface EntradaFerias {
     /** Movimentos gravados da ficha, por competência (médias e faltas). */
     movimentos: Record<string, Movimento>;
     abonoDias?: number;
+    /** Pensão alimentícia descontada no recibo (centavos); sem ela, a gravada no gozo. Deduz no IRRF das férias. */
+    pensao?: number;
     /** Mês do pagamento (AAAA-MM). Padrão: o mês de 2 dias antes do início. */
     pagamento?: string;
     opcoes?: OpcoesFerias;
@@ -243,18 +245,11 @@ export function calcularFerias(e: EntradaFerias): ResultadoFerias {
     if (naConcessao.faixa) r.memoria.push(memoriaDoHistorico(naConcessao.faixa, `no início das férias (${br(gozo.dtInicio)})`, !!naConcessao.antesDoHistorico));
     if (naConcessao.antesDoHistorico) r.avisos.push('Data anterior ao histórico de salário da ficha: usado o salário mais antigo conhecido; confira.');
     const salarioHora = sc.mensal / sc.horasMes;
-    let somaVar = 0; let comMov = 0;
-    for (const c of meses) {
-        const mov = e.movimentos[c]; if (!mov) continue;
-        comMov++;
-        const he = valorHorasExtras(salarioHora, mov).valor;
-        if (!he) continue;
-        const { uteis, descanso } = diasDsr(c, mov.feriadosLocais);
-        somaVar += he + Math.round(he / uteis * descanso);
-    }
-    const media = Math.round(somaVar / 12);
-    if (media) r.memoria.push(`Média de horas extras com DSR no período: ${reais(somaVar)} ÷ 12 = ${reais(media)} (hora atual ${reais(Math.round(salarioHora))}).`);
-    r.avisos.push(`Média pelos movimentos gravados no Consultor (${comMov} de 12 meses do período com movimento); comissões e adicionais ainda não entram.`);
+    const comMov = meses.filter(c => e.movimentos[c]).length;
+    const mv = mediaDasVariaveis(salarioHora, e.movimentos, meses, 12, '12');
+    const media = mv.media;
+    r.memoria.push(...mv.memoria);
+    r.avisos.push(`Média pelos movimentos gravados no Consultor (${comMov} de 12 meses do período com movimento): horas extras com DSR e os lançamentos que entram na média.`);
     const remuneracao = sc.mensal + media;
     const diaria = remuneracao / 30;
 
@@ -311,14 +306,18 @@ export function calcularFerias(e: EntradaFerias): ResultadoFerias {
     else {
         const t = tIr.tabela;
         const nDep = ficha.dependentes.filter(x => x.irrf === 'S' && x.pensao !== 'S').length; // quem recebe pensão deduz só por ela (Lei 9.250/1995, art. 35, § 4º)
-        const legais = inssTotal + nDep * (t.valores.deducaoDependente ?? 0);
+        // Pensão alimentícia sobre as férias (decisão judicial): desconto no recibo e dedução no IRRF delas.
+        const pensao = Math.max(0, Math.round(e.pensao ?? Number(gozo.pensaoFerias || 0)));
+        if (pensao) verba({ codigo: 'PENSAOFER', descricao: 'Pensão alimentícia sobre férias', referencia: '', tipo: 'desconto', valor: pensao, inss: false, fgts: false, irrf: false });
+        const legais = inssTotal + nDep * (t.valores.deducaoDependente ?? 0) + pensao;
         const simpl = opcoes.simplificado ? t.valores.descontoSimplificado ?? 0 : 0;
         const usaSimpl = simpl > legais;
         const base = Math.max(0, tributavel - (usaSimpl ? simpl : legais));
         const faixa = t.faixas.find(f => f.ate === null || base <= f.ate) ?? t.faixas[t.faixas.length - 1];
         const calculado = Math.max(0, Math.round(base * faixa.aliquota / 100) - faixa.deducao);
         let ir = calculado; let red = 0; let dispensado = 0;
-        r.memoria.push(`IRRF das férias (em separado, tabela de ${rotuloCompetencia(t.vigencia)}): ${reais(tributavel)} − ${usaSimpl ? `desconto simplificado ${reais(simpl)}` : `INSS ${reais(inssTotal)}${nDep ? ` e ${nDep} dependente(s)` : ''}`} = base ${reais(base)} × ${pct(faixa.aliquota)} − ${reais(faixa.deducao)} = ${reais(ir)}.`);
+        r.memoria.push(`IRRF das férias (em separado, tabela de ${rotuloCompetencia(t.vigencia)}): ${reais(tributavel)} − ${usaSimpl ? `desconto simplificado ${reais(simpl)}` : `INSS ${reais(inssTotal)}${nDep ? ` e ${nDep} dependente(s)` : ''}${pensao ? ` e pensão ${reais(pensao)}` : ''}`} = base ${reais(base)} × ${pct(faixa.aliquota)} − ${reais(faixa.deducao)} = ${reais(ir)}.`);
+        r.deducoesIrrf = { simplificado: usaSimpl, dependentes: ficha.dependentes.filter(x => x.irrf === 'S' && x.pensao !== 'S').map(x => ({ cpf: x.cpf, nome: x.nome })), porDependente: t.valores.deducaoDependente ?? 0, pensao };
         r.avisos.push(`IRRF das férias ${opcoes.simplificado ? 'COM' : 'SEM'} desconto simplificado e ${opcoes.redutor ? 'COM' : 'SEM'} o redutor de 2026: confirme na conferência com o IOB.`);
         const v = t.valores;
         if (opcoes.redutor && ir > 0 && v.redutorAte && v.redutorMaximo && v.redutorLimite && v.redutorConstante && v.redutorCoeficiente) {

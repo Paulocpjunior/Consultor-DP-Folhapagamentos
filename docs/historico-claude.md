@@ -3412,3 +3412,14 @@ guias sindicais".
   - `testes-regras/folhaGravada.test.mjs`;
   - `services/calculo/__tests__/folhaGravada.test.ts`;
   - casos novos no `painelCalculo.test.tsx` e no `fimDeMes.test.tsx`.
+
+## 10/10/2026 — Item 3a: médias de variáveis e pensão em férias, 13º e rescisão
+
+- **Médias:**
+  - Cada lançamento do movimento tem a marca "Média". Sem marcar, entra o provento com INSS (comissão, adicional noturno, gratificação habitual) e fica de fora o que não tem INSS (reembolso, ajuda de custo). Dá para marcar ou desmarcar.
+  - Férias, 13º e rescisão somam à média de horas extras com DSR os lançamentos que entram na média (`variaveisDoMes` e `mediaDasVariaveis` em `motorMensal.ts`), com a memória separada.
+- **Pensão alimentícia:**
+  - Férias: valor gravado no gozo (`pensaoFerias`, como o abono). Desconta no recibo (PENSAOFER), deduz no IRRF das férias e vai no S-1210 como `penAlim` com tpRend 13, por alimentando.
+  - 13º: campo "Pensão sobre o 13º" no movimento do mês do pagamento (`pensao13`). Cada parcela desconta a sua (PENSAO13). O IRRF da 2ª deduz a de novembro e a de dezembro e vai no S-1210 anual (tpRend 12).
+  - Rescisão: a `pensao13` do mês do desligamento deduz no IRRF do 13º rescisório. A pensão sobre o saldo continua no campo de pensão do mês.
+- **Testes:** `services/calculo/__tests__/mediasPensao.test.ts`.

@@ -27,7 +27,7 @@ import type { EventoIobSage } from '../../services/folha/folhaTypes';
 import { afastamentoVazio, idAfastamento, validarAfastamento, type Afastamento } from '../../services/cadastros/afastamentos';
 import type { TabelaLegal } from '../../services/cadastros/tabelasLegais';
 import { centavosDeTexto, reais } from '../../services/cadastros/documentos';
-import { calcularMensal, salarioContratual, competenciaAnterior, competenciaSeguinte, dataSugeridaAdiantamento, noMes, travarAdiantamentoEntreContratos, type EntradaCalculo, type Lancamento, type Movimento, type ResultadoCalculo } from '../../services/calculo/motorMensal';
+import { calcularMensal, entraNaMedia, salarioContratual, competenciaAnterior, competenciaSeguinte, dataSugeridaAdiantamento, noMes, travarAdiantamentoEntreContratos, type EntradaCalculo, type Lancamento, type Movimento, type ResultadoCalculo } from '../../services/calculo/motorMensal';
 import { foraDoAdiantamento, valorDoAdiantamento } from '../../services/bancario/favorecidos';
 import { diaUtilAnterior, diaUtilSeguinte, quintoDiaUtilSalario, somarMeses } from '../../services/prazos/calendario';
 import ArquivoBancarioModal from '../bancario/ArquivoBancarioModal';
@@ -177,6 +177,9 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
     const [movsEmpresa, setMovsEmpresa] = useState<Record<string, Record<string, Movimento>> | null>(null);
     const [salvos, setSalvos] = useState(0);
     const [gravandoAbono, setGravandoAbono] = useState(false);
+    // Pensão sobre férias (centavos) digitada na tela, por gozo: vale no cálculo até gravar no afastamento.
+    const [pensoesFerias, setPensoesFerias] = useState<Record<string, number>>({});
+    const [gravandoPensaoFer, setGravandoPensaoFer] = useState(false);
 
     useEffect(() => { listarEmpresasVisiveis().then(setEmpresas).catch(e => { setErro(mensagemErro(e)); setEmpresas([]); }); }, []);
     useEffect(() => {
@@ -255,7 +258,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
     useEffect(() => { if (folhaInicial && folhaInicial !== 'mensal' && folhaInicial !== 'adiantamento') trocarFolha(folhaInicial); }, []); // eslint-disable-line react-hooks/exhaustive-deps
     function trocarFolha(f: Folha, a = ano) {
         setFolha(f); setAno(a); setAberto(''); setConferir(false);
-        if (f === 'ferias') setAbonos({});
+        if (f === 'ferias') { setAbonos({}); setPensoesFerias({}); }
         setPagamento(f === 'mensal' ? mesDoPagamento(parametrosFolha, competencia) : f === 'ferias' || f === 'rescisao' ? '' : `${a}-${f === '13-1a' ? '11' : '12'}`);
     }
 
@@ -333,7 +336,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
             const simulados = feriasSimuladas.filter(g => !gravados.has(g.id));
             return gozosNoMes([...dados.afastamentos, ...simulados], new Set(fichas.keys()), competencia).map(g => calcularFerias({
                 ficha: fichas.get(g.fichaId)!, gozo: g, afastamentos: dados.afastamentos.filter(a => a.fichaId === g.fichaId), tabelas: dados.tabelas,
-                movimentos: movsAno[g.fichaId] ?? {}, abonoDias: abonos[g.id], opcoes: opcoesFerias,
+                movimentos: movsAno[g.fichaId] ?? {}, abonoDias: abonos[g.id], pensao: pensoesFerias[g.id], opcoes: opcoesFerias,
             }));
         }
         if (!mensal) {
@@ -364,7 +367,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
             })
             : [], { tabelas: dados.tabelas, folhaPaga: id => { const f = porId.get(id); return f ? folhaPagaNoAdiantamento(f, competencia, pagamento) : null; } })
             .map((r, i) => arredondarDaEmpresa(r, doMes[i], competencia, movs[doMes[i].id]?.arredondamentoAnterior));
-    }, [dados, competencia, pagamento, movs, movsEmpresa, mensal, ferias, rescisao, paramsResc, movsAno, ano, folha, opcoes13, primeiras, abonos, opcoesFerias, feriasSimuladas, arredondarDaEmpresa, folhaPagaNoAdiantamento, parametrosFolha]);
+    }, [dados, competencia, pagamento, movs, movsEmpresa, mensal, ferias, rescisao, paramsResc, movsAno, ano, folha, opcoes13, primeiras, abonos, pensoesFerias, opcoesFerias, feriasSimuladas, arredondarDaEmpresa, folhaPagaNoAdiantamento, parametrosFolha]);
     // Competência encerrada com a folha gravada: telas, PDFs, Excel e eSocial usam o gravado; o cálculo de hoje só compara.
     const usandoGravada = mensal && encerrado && !!gravada;
     const resultados = usandoGravada ? gravada!.holerites : resultadosCalculados;
@@ -899,6 +902,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
 
             {sel && mensal && <Holerite key={`${sel.fichaId}-${versao}`} r={sel} mov={movs[sel.fichaId] ?? {}} gravado={gravados?.[sel.fichaId]} pendente={pendentes.includes(sel.fichaId)} arredonda={arredondaNoMes(parametrosFolha, competencia)} onMov={m => setMovs(x => ({ ...x, [sel.fichaId]: m }))}
                 salario={salarioSel} lancado={lancado?.fichaId === sel.fichaId ? lancado.mensagem : ''}
+                mostrarPensao13={/-(11|12)$/.test(competencia) || !!dados?.fichas.find(x => x.id === sel.fichaId)?.dados.dataDesligamento?.startsWith(competencia)}
                 onLancar={encerrado ? undefined : (m, mensagem) => { setMovs(x => ({ ...x, [sel.fichaId]: m })); setLancado({ fichaId: sel.fichaId, mensagem }); setVersao(n => n + 1); }} />}
             {sel && rescisao && (() => {
                 const t = sel as ResultadoRescisao;
@@ -1076,6 +1080,29 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                                     </label>
                                 );
                             })()}
+                            {(() => {
+                                const gozo = dados?.afastamentos.find(a => a.id === f.gozoId);
+                                const gravado = Number(gozo?.pensaoFerias || 0);
+                                const mudou = pensoesFerias[f.gozoId] !== undefined && pensoesFerias[f.gozoId] !== gravado;
+                                async function gravarPensao() {
+                                    if (!gozo) return;
+                                    setGravandoPensaoFer(true); setErro('');
+                                    try {
+                                        await salvarAfastamento(gozo, { ...gozo, pensaoFerias: pensoesFerias[f.gozoId] ? String(pensoesFerias[f.gozoId]) : '' }, usuario);
+                                        setPensoesFerias(x => { const y = { ...x }; delete y[f.gozoId]; return y; });
+                                        setRecarga(n => n + 1);
+                                    } catch (e) { setErro(mensagemErro(e)); }
+                                    finally { setGravandoPensaoFer(false); }
+                                }
+                                return (
+                                    <label className="block">Pensão alimentícia sobre as férias (R$)
+                                        <input aria-label="Pensão sobre as férias" className={`mt-0.5 block w-28 ${inp}`} defaultValue={pensoesFerias[f.gozoId] !== undefined ? (pensoesFerias[f.gozoId] / 100).toFixed(2).replace('.', ',') : gravado ? (gravado / 100).toFixed(2).replace('.', ',') : ''}
+                                            onChange={e => { const v = centavosDeTexto(e.target.value); setPensoesFerias(x => ({ ...x, [f.gozoId]: v ?? 0 })); }} />
+                                        <span className="text-slate-500">Desconto no recibo, deduzido no IRRF das férias e informado no S-1210 por alimentando. {gravado ? `Gravado no afastamento: ${reais(gravado)}.` : 'Nada gravado no afastamento.'}</span>
+                                        {mudou && gozo && <button type="button" className="mt-1 block rounded border border-slate-300 px-2 py-1 dark:border-slate-600" disabled={gravandoPensaoFer || encerrado} title={encerrado ? MSG_ENCERRADO(competencia) : undefined} onClick={gravarPensao}>{gravandoPensaoFer ? 'Gravando…' : 'Gravar pensão no afastamento'}</button>}
+                                    </label>
+                                );
+                            })()}
                             <p>Médias e faltas vêm dos movimentos gravados na folha mensal do período aquisitivo.</p>
                         </div>
                     </Holerite>
@@ -1143,7 +1170,7 @@ const LancarEvento: React.FC<{ mov: Movimento; salario: SalarioDoMes | null; lan
     );
 };
 
-const Holerite: React.FC<{ r: ResultadoCalculo; mov?: Movimento; gravado?: MovimentoGravado; pendente?: boolean; arredonda?: boolean; onMov?: (m: Movimento) => void; salario?: SalarioDoMes | null; lancado?: string; onLancar?: (m: Movimento, mensagem: string) => void; children?: React.ReactNode }> = ({ r, mov = {}, gravado, pendente = false, arredonda = false, onMov = () => {}, salario = null, lancado = '', onLancar, children }) => {
+const Holerite: React.FC<{ r: ResultadoCalculo; mov?: Movimento; gravado?: MovimentoGravado; pendente?: boolean; arredonda?: boolean; onMov?: (m: Movimento) => void; salario?: SalarioDoMes | null; lancado?: string; onLancar?: (m: Movimento, mensagem: string) => void; mostrarPensao13?: boolean; children?: React.ReactNode }> = ({ r, mov = {}, gravado, pendente = false, arredonda = false, onMov = () => {}, salario = null, lancado = '', onLancar, mostrarPensao13 = false, children }) => {
     const pdf = React.useContext(PdfContexto);
     const emHoras = (k: string) => k === 'horasExtras50' || k === 'horasExtras100' || k === 'atrasosHoras';
     const campo = (k: 'horasExtras50' | 'horasExtras100' | 'faltasDias' | 'dsrDescontadoDias' | 'atrasosHoras' | 'feriadosLocais', rotulo: string) => (
@@ -1211,6 +1238,10 @@ const Holerite: React.FC<{ r: ResultadoCalculo; mov?: Movimento; gravado?: Movim
                         <input aria-label="Pensão alimentícia" className={`mt-0.5 block w-28 ${inp}`} defaultValue={mov.pensaoAlimenticia ? (mov.pensaoAlimenticia / 100).toFixed(2).replace('.', ',') : ''}
                             onChange={e => onMov({ ...mov, pensaoAlimenticia: centavosDeTexto(e.target.value) ?? undefined })} />
                     </label>
+                    {(mostrarPensao13 || !!mov.pensao13) && <label className="text-xs dark:text-slate-200" title="Pensão sobre o 13º pago neste mês (1ª ou 2ª parcela, ou o 13º da rescisão): desconta e deduz no IRRF do 13º.">Pensão sobre o 13º (R$)
+                        <input aria-label="Pensão sobre o 13º" className={`mt-0.5 block w-28 ${inp}`} defaultValue={mov.pensao13 ? (mov.pensao13 / 100).toFixed(2).replace('.', ',') : ''}
+                            onChange={e => onMov({ ...mov, pensao13: centavosDeTexto(e.target.value) ?? undefined })} />
+                    </label>}
                     {/* Em branco, o motor calcula pela ficha (aba "Adiant. e VT"); preenchido, vale o valor (0 = nada no mês). */}
                     <label className="text-xs dark:text-slate-200" title="Em branco: o percentual da ficha sobre o salário do mês. Preencha com o valor pago (0 se não houve).">Adiantamento pago (R$)
                         <input aria-label="Adiantamento pago" placeholder="pela ficha" className={`mt-0.5 block w-28 ${inp}`} defaultValue={mov.adiantamento !== undefined ? (mov.adiantamento / 100).toFixed(2).replace('.', ',') : ''}
@@ -1233,11 +1264,12 @@ const Holerite: React.FC<{ r: ResultadoCalculo; mov?: Movimento; gravado?: Movim
                             <select aria-label={`Tipo do lançamento ${i + 1}`} className={inp} value={l.tipo} onChange={e => setLanc(i, { tipo: e.target.value as Lancamento['tipo'] })}><option value="provento">Provento</option><option value="desconto">Desconto</option></select>
                             <input aria-label={`Valor do lançamento ${i + 1}`} className={`w-24 ${inp}`} defaultValue={l.valor ? (l.valor / 100).toFixed(2).replace('.', ',') : ''} onChange={e => setLanc(i, { valor: centavosDeTexto(e.target.value) ?? 0 })} />
                             {(['inss', 'fgts', 'irrf'] as const).map(k => <label key={k} className="flex items-center gap-0.5"><input type="checkbox" checked={l[k]} onChange={e => setLanc(i, { [k]: e.target.checked })} />{k.toUpperCase()}</label>)}
+                            <label className="flex items-center gap-0.5" title="Entra na média de férias, 13º e rescisão (comissão, adicional noturno, gratificação habitual). Sem mexer: entra o provento com INSS."><input type="checkbox" aria-label={`Média do lançamento ${i + 1}`} checked={entraNaMedia(l)} onChange={e => setLanc(i, { media: e.target.checked })} />Média</label>
                             <button aria-label={`Remover lançamento ${i + 1}`} className="text-red-700 dark:text-red-300" onClick={() => onMov({ ...mov, lancamentos: lancs.filter((_, j) => j !== i) })}>remover</button>
                         </div>
                     ))}
                     <button className="mt-1 rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:text-white" onClick={() => onMov({ ...mov, lancamentos: [...lancs, { descricao: '', tipo: 'provento', valor: 0, inss: true, fgts: true, irrf: true }] })}>Adicionar lançamento</button>
-                    <p className="mt-1 text-xs text-slate-500">Marque onde o lançamento incide. Confira com a incidência da rubrica em Cadastros › Incidências.</p>
+                    <p className="mt-1 text-xs text-slate-500">Marque onde o lançamento incide (confira com a incidência da rubrica em Cadastros › Incidências) e se entra na média de férias, 13º e rescisão.</p>
                 </div>
             </div>}
         </section>

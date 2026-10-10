@@ -31,6 +31,8 @@ export interface Afastamento {
     perAquisFim: string;
     /** Férias (motivo 15): dias vendidos como abono pecuniário (CLT, art. 143). Só no Consultor; não vai ao eSocial. */
     abonoDias?: string;
+    /** Férias (motivo 15): pensão alimentícia descontada no recibo (centavos), deduzida no IRRF das férias. Só no Consultor. */
+    pensaoFerias?: string;
     origem: string;
     recibos: string[];
 }
@@ -111,6 +113,10 @@ export function validarAfastamento(a: Afastamento, ficha: FichaFuncionario | und
     if (a.abonoDias) {
         if (a.motivo !== '15') erros.push('Abono pecuniário só para férias (motivo 15).');
         else if (!/^\d{1,2}$/.test(a.abonoDias) || Number(a.abonoDias) > 10) erros.push('Abono pecuniário: de 1 a 10 dias (até 1/3 das férias, CLT art. 143).');
+    }
+    if (a.pensaoFerias) {
+        if (a.motivo !== '15') erros.push('Pensão sobre férias só para férias (motivo 15).');
+        else if (!/^\d{1,9}$/.test(a.pensaoFerias)) erros.push('Pensão sobre férias: valor inválido.');
     }
     if (ficha && dataValida(a.dtInicio)) {
         if (ficha.dados.admissao && a.dtInicio < ficha.dados.admissao) erros.push('Início anterior à admissão.');

@@ -26,7 +26,14 @@ import { diaSemana, diaUtilAnterior, feriados, somarDias, somarMeses } from '../
 export type TipoVerba = 'provento' | 'desconto';
 export interface Incidencias { inss: boolean; fgts: boolean; irrf: boolean }
 export interface Verba extends Incidencias { codigo: string; descricao: string; referencia: string; tipo: TipoVerba; valor: number }
-export interface Lancamento extends Incidencias { descricao: string; tipo: TipoVerba; valor: number }
+export interface Lancamento extends Incidencias {
+    descricao: string; tipo: TipoVerba; valor: number;
+    /** Entra na média de férias, 13º e rescisão (comissão, adicional noturno…). Sem marcar: provento com INSS entra. */
+    media?: boolean;
+}
+
+/** Lançamento que entra nas médias: o marcado, ou o provento de natureza salarial (com INSS) quando não marcado. */
+export const entraNaMedia = (l: Lancamento) => l.media ?? (l.tipo === 'provento' && l.inss);
 
 /** Movimento do mês digitado pela equipe. Horas em decimal (1,5 = 1h30); valores em centavos. */
 export interface Movimento {
@@ -41,6 +48,8 @@ export interface Movimento {
     /** Feriados estaduais/municipais no mês (entram como descanso no DSR das horas extras). */
     feriadosLocais?: number;
     pensaoAlimenticia?: number;
+    /** Pensão alimentícia sobre o 13º pago no mês (centavos): 1ª ou 2ª parcela, ou o 13º da rescisão; deduz no IRRF do 13º. */
+    pensao13?: number;
     /** Adiantamento salarial pago no mês (centavos): substitui o calculado pelo percentual da ficha. 0 = não pago. */
     adiantamento?: number;
     /** Vale-transporte descontado no mês (centavos): substitui o calculado pela ficha (holerite do IOB). */
@@ -630,6 +639,35 @@ export function valorHorasExtras(salarioHora: number, mov: Movimento): { valor: 
     let horas = (mov.horasExtras50 ?? 0) + (mov.horasExtras100 ?? 0);
     for (const [p, h] of outrasHorasExtras(mov)) { valor += Math.round(salarioHora * (1 + p / 100) * h); horas += h; }
     return { valor, horas };
+}
+
+/**
+ * Variáveis do mês para as médias de férias, 13º e rescisão, pelo salário-hora dado: horas extras com o DSR
+ * e os lançamentos que entram na média (comissões, adicional noturno, gratificações habituais…).
+ */
+export function variaveisDoMes(salarioHora: number, mov: Movimento, competencia: string): { horasExtras: number; horas: number; outras: number } {
+    const { valor: he, horas } = valorHorasExtras(salarioHora, mov);
+    let horasExtras = 0;
+    if (he) { const { uteis, descanso } = diasDsr(competencia, mov.feriadosLocais); horasExtras = he + Math.round(he / uteis * descanso); }
+    const outras = (mov.lancamentos ?? []).filter(entraNaMedia).reduce((s, l) => s + (l.tipo === 'provento' ? l.valor : -l.valor), 0);
+    return { horasExtras, horas, outras: Math.max(0, outras) };
+}
+
+/** Média das variáveis nos meses dados, dividida pelo divisor, com a memória do cálculo. */
+export function mediaDasVariaveis(salarioHora: number, movimentos: Record<string, Movimento>, comps: string[], divisor: number, rotuloDivisor: string): { media: number; horasExtras: number; outras: number; horas: number; memoria: string[] } {
+    let horasExtras = 0; let outras = 0; let horas = 0;
+    for (const c of comps) {
+        const mov = movimentos[c]; if (!mov) continue;
+        const v = variaveisDoMes(salarioHora, mov, c);
+        horasExtras += v.horasExtras; outras += v.outras; horas += v.horas;
+    }
+    const d = Math.max(1, divisor);
+    const media = Math.round((horasExtras + outras) / d);
+    const memoria: string[] = [];
+    const brl = (c: number) => (c / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    if (horasExtras && !outras) memoria.push(`Média de horas extras com DSR: ${brl(horasExtras)}${horas ? ` em ${horas.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} h` : ''} ÷ ${rotuloDivisor} = ${brl(media)} (hora atual ${brl(Math.round(salarioHora))}).`);
+    else if (outras) memoria.push(`Média das variáveis: ${horasExtras ? `horas extras com DSR ${brl(horasExtras)} + ` : ''}lançamentos que entram na média (comissões, adicionais…) ${brl(outras)} = ${brl(horasExtras + outras)} ÷ ${rotuloDivisor} = ${brl(media)}.`);
+    return { media, horasExtras, outras, horas, memoria };
 }
 
 /** Data sugerida do adiantamento: dia 20 da competência, ou o dia útil anterior (20/09/2026 caiu num domingo e o IOB pagou em 18/09). */

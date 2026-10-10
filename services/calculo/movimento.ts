@@ -18,16 +18,16 @@ export interface MovimentoGravado {
 
 export const idMovimento = (fichaId: string, competencia: string) => `${fichaId}_${competencia}`;
 
-const NUMERICOS = ['horasExtras50', 'horasExtras100', 'faltasDias', 'dsrDescontadoDias', 'atrasosHoras', 'feriadosLocais', 'pensaoAlimenticia', 'adiantamento', 'valeTransporte', 'arredondamentoAnterior', 'arredondamentoFechado', 'irrfRendimentos', 'irrfDeducoes', 'irrfRetido'] as const;
+const NUMERICOS = ['horasExtras50', 'horasExtras100', 'faltasDias', 'dsrDescontadoDias', 'atrasosHoras', 'feriadosLocais', 'pensaoAlimenticia', 'pensao13', 'adiantamento', 'valeTransporte', 'arredondamentoAnterior', 'arredondamentoFechado', 'irrfRendimentos', 'irrfDeducoes', 'irrfRetido'] as const;
 /** Valores em centavos que sobrepõem a ficha: 0 é informação ("não houve no mês") e fica gravado. */
 const SOBREPOEM_FICHA: readonly CampoNumerico[] = ['adiantamento', 'valeTransporte', 'arredondamentoAnterior', 'arredondamentoFechado', 'irrfRendimentos', 'irrfDeducoes', 'irrfRetido'];
-const EM_CENTAVOS: readonly CampoNumerico[] = ['pensaoAlimenticia', 'adiantamento', 'valeTransporte', 'arredondamentoAnterior', 'arredondamentoFechado', 'irrfRendimentos', 'irrfDeducoes', 'irrfRetido'];
+const EM_CENTAVOS: readonly CampoNumerico[] = ['pensaoAlimenticia', 'pensao13', 'adiantamento', 'valeTransporte', 'arredondamentoAnterior', 'arredondamentoFechado', 'irrfRendimentos', 'irrfDeducoes', 'irrfRetido'];
 export type CampoNumerico = typeof NUMERICOS[number];
 const HORAS: readonly CampoNumerico[] = ['horasExtras50', 'horasExtras100', 'atrasosHoras'];
 
 export const ROTULO_MOVIMENTO: Record<CampoNumerico | 'lancamentos', string> = {
     horasExtras50: 'Horas extras 50%', horasExtras100: 'Horas extras 100%', faltasDias: 'Faltas (dias)',
-    dsrDescontadoDias: 'DSR descontado (dias)', atrasosHoras: 'Faltas e atrasos (horas)', feriadosLocais: 'Feriados locais no mês', pensaoAlimenticia: 'Pensão alimentícia',
+    dsrDescontadoDias: 'DSR descontado (dias)', atrasosHoras: 'Faltas e atrasos (horas)', feriadosLocais: 'Feriados locais no mês', pensaoAlimenticia: 'Pensão alimentícia', pensao13: 'Pensão sobre o 13º',
     adiantamento: 'Adiantamento pago', valeTransporte: 'Vale-transporte descontado', arredondamentoAnterior: 'Arredondamento anterior', arredondamentoFechado: 'Arredondamento atual do mês',
     irrfRendimentos: 'Rendimentos do IRRF (gravado)', irrfDeducoes: 'Deduções do IRRF (gravado)', irrfRetido: 'IRRF retido (gravado)',
     lancamentos: 'Lançamentos avulsos',
@@ -50,7 +50,7 @@ export function limparMovimento(m: Movimento): Movimento {
         .sort((a, b) => Number(a[0]) - Number(b[0])).map(([p, h]) => [p, Math.round(h * 10000) / 10000] as const);
     if (pct.length) out.horasExtrasPct = Object.fromEntries(pct);
     const lancs: Lancamento[] = (m.lancamentos ?? [])
-        .map(l => ({ descricao: l.descricao.trim().replace(/\s+/g, ' '), tipo: l.tipo, valor: Math.round(l.valor), inss: !!l.inss, fgts: !!l.fgts, irrf: !!l.irrf }))
+        .map(l => ({ descricao: l.descricao.trim().replace(/\s+/g, ' '), tipo: l.tipo, valor: Math.round(l.valor), inss: !!l.inss, fgts: !!l.fgts, irrf: !!l.irrf, ...(typeof l.media === 'boolean' ? { media: l.media } : {}) }))
         .filter(l => l.descricao || l.valor);
     if (lancs.length) out.lancamentos = lancs;
     return out;

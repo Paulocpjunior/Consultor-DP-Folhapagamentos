@@ -94,6 +94,8 @@ const SUGESTAO: Record<string, { naturezas: string[]; dica?: RegExp; evita?: Reg
     IRRF: { naturezas: ['9203'], evita: /13|FERIAS/ },
     SF: { naturezas: ['1409'] },
     PENSAO: { naturezas: ['9213'] },
+    PENSAO13: { naturezas: ['9213'] },
+    PENSAOFER: { naturezas: ['9213'] },
     // Adiantamento salarial: no demonstrativo próprio, a rubrica de provento do adiantamento (a natureza varia
     // no S-1010 de cada empresa: vai pela descrição); na folha, o desconto (9200). Vale-transporte: 9216.
     // Só adiantamento de salário (ou "vale", "quinzena"): comissão, gorjeta, férias e 13º têm rubricas próprias (Codex #115).
@@ -386,6 +388,8 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
         const dmDevs: string[] = []; const pagamentos: { mes: string; xml: string }[] = []; const ides = new Set<string>();
         // Dedução de dependentes no IRRF das férias (tpRend 13), no S-1210 do mês de cada recibo.
         const dedFerias = new Map<string, Map<string, number>>(); const infoDepFerias = new Map<string, Map<string, Dependente>>();
+        // Pensão alimentícia descontada nos recibos de férias (tpRend 13), por mês do pagamento e alimentando.
+        const penFerias = new Map<string, Map<string, number>>();
         const unico = (base: string) => { let ide = base; for (let n = 2; ides.has(ide); n++) ide = `${base.slice(0, 30 - String(n).length - 1)}-${n}`; ides.add(ide); return ide; };
         const avisoNatureza = new Set<string>();
         /** Itens por rubrica (a mesma rubrica não se repete no demonstrativo). */
@@ -516,10 +520,24 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                 dmDevs.push(dmDev(ideF, categ, f, itensDe(verbasDoReciboFerias(rf))));
                 pagamentos.push({ mes: dataPagamento.slice(0, 7), xml: infoPgto(dataPagamento, ideF, rf.totais.liquido) });
                 t.liquido += rf.totais.liquido; t.recibosFerias++;
+                const pensaoRec = rf.verbas.find(v => v.codigo === 'PENSAOFER')?.valor ?? 0;
+                if (pensaoRec > 0 && rf.irrf && !rf.irrf.usouSimplificado) {
+                    const rateio = ratearPensao(f, pensaoRec);
+                    const m = dataPagamento.slice(0, 7);
+                    const pen = penFerias.get(m) ?? new Map<string, number>(); const inf = infoDepFerias.get(m) ?? new Map<string, Dependente>();
+                    if (rateio.erro) t.erros.push(rateio.erro);
+                    else for (const { dependente: dep, valor: v } of rateio.itens) {
+                        const cpfDep = digitos(dep.cpf);
+                        if (cpfDep.length !== 11 || cpfDep === cpf) { t.erros.push(`Alimentando ${dep.nome || '?'} sem CPF válido na ficha.`); continue; }
+                        if (v > 0) pen.set(cpfDep, (pen.get(cpfDep) ?? 0) + v);
+                        if (!depNoEsocial(f, dep)) inf.set(cpfDep, dep);
+                    }
+                    penFerias.set(m, pen); infoDepFerias.set(m, inf);
+                }
                 if (rf.irrf && !rf.irrf.usouSimplificado && rf.irrf.dependentes > 0) {
-                    // Por dependente: as deduções legais menos o INSS do recibo, divididas pelos dependentes.
+                    // Por dependente: as deduções legais menos o INSS e a pensão do recibo, divididas pelos dependentes.
                     const inssRec = rf.verbas.find(v => v.codigo === 'INSSFER')?.valor ?? 0;
-                    const porDep = Math.round((rf.irrf.deducoes - inssRec) / rf.irrf.dependentes);
+                    const porDep = Math.round((rf.irrf.deducoes - inssRec - pensaoRec) / rf.irrf.dependentes);
                     const m = dataPagamento.slice(0, 7);
                     const ded = dedFerias.get(m) ?? new Map<string, number>(); const inf = infoDepFerias.get(m) ?? new Map<string, Dependente>();
                     for (const dep of f.dependentes.filter(x => x.irrf === 'S')) {
@@ -586,7 +604,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                 const fd = f.dependentes.find(x => digitos(x.cpf) === cpfDep);
                 if (fd && !depNoEsocial(f, fd)) infoDepAdi.set(cpfDep, fd);
             }
-            const pensao = r.verbas.filter(v => v.codigo === 'PENSAO').reduce((soma, v) => soma + v.valor, 0);
+            const pensao = r.verbas.filter(v => v.codigo === 'PENSAO' || v.codigo === 'PENSAO13').reduce((soma, v) => soma + v.valor, 0);
             if (pensao <= 0) continue;
             const rateio = ratearPensao(f, pensao);
             if (rateio.erro) { t.erros.push(rateio.erro); continue; }
@@ -636,6 +654,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                 ...[...dedDepMes].map(([c, v]) => `<dedDepen><tpRend>${daFolha ? tpRendFolha : '11'}</tpRend><cpfDep>${c}</cpfDep><vlrDedDep>${valor(v)}</vlrDedDep></dedDepen>`),
                 ...[...dedF].map(([c, v]) => `<dedDepen><tpRend>13</tpRend><cpfDep>${c}</cpfDep><vlrDedDep>${valor(v)}</vlrDedDep></dedDepen>`),
                 ...(daFolha ? [...penAlim].map(([c, v]) => `<penAlim><tpRend>${tpRendFolha}</tpRend><cpfDep>${c}</cpfDep><vlrDedPenAlim>${valor(v)}</vlrDedPenAlim></penAlim>`) : []),
+                ...[...(penFerias.get(m) ?? [])].map(([c, v]) => `<penAlim><tpRend>13</tpRend><cpfDep>${c}</cpfDep><vlrDedPenAlim>${valor(v)}</vlrDedPenAlim></penAlim>`),
             ];
             const deps = new Map<string, Dependente>([...(daFolha ? infoDep : doAdiant ? infoDepAdi : []), ...(infoDepFerias.get(m) ?? [])]);
             const deduz = (c: string) => dedDepMes.has(c) || dedF.has(c);
