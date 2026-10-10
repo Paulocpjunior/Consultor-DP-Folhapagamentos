@@ -3295,3 +3295,36 @@ guias sindicais".
   - O texto do corpo deixou de ser negrito por padrão.
   - Fundo levemente cinza.
 - **Próximo:** Fim de mês (encerrar o período com trava e pedido de reabertura ao gestor), já com lugar no cabeçalho para a situação do período.
+
+## 10/10/2026 — Fim de mês (encerramento obrigatório com trava e reabertura pelo gestor)
+
+- **Paulo:** "função obrigatória chamada fim de mês, onde qualquer alteração no período já encerrado o gestor do departamento deve ser acionado". Escolheu: trava, com pedido de reabertura ao gestor.
+- **Menu Fim de mês:**
+  - **Fechamento do mês:** lista de conferência obrigatória, com seis itens:
+    - movimento salvo;
+    - holerites e resumo conferidos;
+    - pagamentos feitos;
+    - eSocial transmitido (S-1200, S-1210, S-1299);
+    - guias (DCTFWeb, FGTS Digital);
+    - pacote ao cliente.
+
+    Depois vem "Encerrar MM/AAAA", e o histórico da empresa fica registrado (quem encerrou e reabriu, quando e por quê).
+  - **Pedidos de reabertura.**
+  - **Aviso de pendência:** as competências desde a ativação do motor até o mês anterior que ainda não foram encerradas aparecem como "Fim de mês pendente".
+- **Trava (regras do Firestore):**
+  - Com `fechamentos/{empresa}_{AAAA-MM}` encerrado, o movimento do mês (`calculo_movimentos`) e os afastamentos que começam no mês (`cadastro_afastamentos`) não mudam, nem pelo gestor, enquanto o período não for reaberto.
+  - Encerra quem trabalha na empresa; só o gestor reabre, com o motivo; nada se apaga.
+  - No Cálculo, uma faixa "Competência encerrada" aparece e "Salvar movimento", "Lançar evento" e "Gravar em Afastamentos" ficam travados.
+  - Em Afastamentos, a recusa diz que o mês está encerrado.
+- **Reabertura:**
+  - O colaborador pede com o motivo (`fechamentos_pedidos`), e o gestor do DP é avisado:
+    - por e-mail (pelo escritório, via CFI, para o e-mail master);
+    - no Consultor: número no menu Fim de mês e faixa "pedidos aguardando você".
+  - O gestor aprova (reabre) ou recusa com resposta.
+  - Depois da alteração, encerra-se de novo.
+- **Cabeçalho:** selo da competência ativa (aberta, encerrada ou reaberta) ao lado do período. O clique abre o Fim de mês.
+- **Testes:**
+  - `services/fimDeMes/__tests__/fimDeMes.test.tsx`;
+  - `testes-regras/fimDeMes.test.mjs` (emulador);
+  - caso novo no `painelCalculo.test.tsx`.
+- **Fica para depois:** afastamento que começa antes e atravessa o mês encerrado não é travado; alterações na ficha (salário) e nos parâmetros da folha não são travadas (têm histórico próprio).

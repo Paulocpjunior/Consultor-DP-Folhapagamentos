@@ -36,6 +36,8 @@ const hol = vi.hoisted(() => ({ lerHolerites: vi.fn(), registrarLeitura: vi.fn()
 vi.mock('../holeritesService', () => hol);
 const pdf = vi.hoisted(() => ({ save: vi.fn(), holeritesPdf: vi.fn(), resumoPdf: vi.fn() }));
 vi.mock('../../relatorios/holeritePdf', () => ({ holeritesPdf: pdf.holeritesPdf, resumoPdf: pdf.resumoPdf }));
+const fim = vi.hoisted(() => ({ fechamento: null as unknown }));
+vi.mock('../../fimDeMes/fechamentoService', () => ({ lerFechamento: async () => fim.fechamento }));
 vi.mock('../catalogoEventos', () => ({ carregarEventosIob: async () => (await import('../../../data/eventos-iob-sage.json')).default.eventos }));
 const USER = { uid: 'u1', email: 'dp@escritorio.com.br', role: 'colaborador' } as never;
 
@@ -46,6 +48,7 @@ beforeEach(() => {
     movs.listarMovimentosDaEmpresa.mockReset().mockResolvedValue({});
     cad.afastamentos = [];
     cad.enquadramentos = [];
+    fim.fechamento = null;
     cad.erroEnq = '';
     pdf.save.mockReset(); pdf.holeritesPdf.mockReset().mockReturnValue({ save: pdf.save }); pdf.resumoPdf.mockReset().mockReturnValue({ save: pdf.save });
 });
@@ -148,6 +151,22 @@ describe('aba Cálculo', () => {
         await waitFor(() => expect(screen.getByRole('dialog', { name: /Cálculo de adiantamentos/i })).toBeTruthy());
         for (const g of ['Conferir', 'Relatórios', 'Pagamento', 'Envios']) expect(screen.getByText(g, { selector: 'summary' })).toBeTruthy();
         expect(screen.getByText('Holerites (PDF)').closest('details')!.textContent).toContain('Relatórios');
+    });
+
+    it('competência encerrada no Fim de mês: aviso, "Salvar movimento" e "Lançar evento" travados', async () => {
+        fim.fechamento = { id: 'emp1_2026-03', empresaId: 'emp1', competencia: '2026-03', situacao: 'encerrado', encerradoPorEmail: 'dp@escritorio.com.br', checklist: {} };
+        render(<CalculoPanel currentUser={USER} />);
+        await waitFor(() => expect(screen.getByRole('option', { name: /0229/ })).toBeTruthy());
+        fireEvent.change(screen.getByLabelText('Competência'), { target: { value: '2026-03' } });
+        fireEvent.change(screen.getByLabelText('Empresa'), { target: { value: 'emp1' } });
+        await waitFor(() => expect(screen.getByRole('note').textContent).toContain('Competência encerrada por dp@escritorio.com.br'));
+        fireEvent.click(screen.getByText('ANA'));
+        const h = screen.getByRole('region', { name: 'Holerite de ANA' });
+        expect(within(h).queryByLabelText('Código do evento')).toBeNull();
+        fireEvent.change(within(h).getByLabelText('Horas extras 50%'), { target: { value: '10' } });
+        const salvar = await screen.findByRole('button', { name: /Salvar movimento/ });
+        expect((salvar as HTMLButtonElement).disabled).toBe(true);
+        expect(salvar.getAttribute('title')).toContain('03/2026 está encerrada');
     });
 
     it('carrega o movimento gravado, valida e salva só o que mudou', async () => {

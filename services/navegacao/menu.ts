@@ -4,7 +4,7 @@
 // depois os cadastros, a folha do mês, as conferências, o eSocial, os prazos e o fim de mês;
 // as configurações ficam à direita. Cada item leva a uma tela (aba) e, quando há, à sub-aba dela.
 
-export type Aba = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin';
+export type Aba = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin' | 'fimdemes';
 
 export type SubFolha = 'eventos' | 'apontamento' | 'validador-ponto' | 'implantacao' | 'conferencia';
 export type SubCadastroMenu = 'funcionarios' | 'horarios' | 'afastamentos' | 'incidencias' | 'enquadramento' | 'sindicatos' | 'tabelas';
@@ -16,10 +16,11 @@ export type Destino =
     | { aba: 'cadastros'; sub: SubCadastroMenu }
     | { aba: 'esocial'; sub: SubEsocial }
     | { aba: 'calculo'; folha: FolhaCalculo }
+    | { aba: 'fimdemes'; sub: 'fechamento' | 'pedidos' }
     | { aba: 'empresas' | 'certificados' | 'prazos' | 'iobsage' | 'admin' }
     | { aba: 'trocar' };
 
-export type Icone = 'empresa' | 'cadastro' | 'folha' | 'conferencia' | 'esocial' | 'prazo' | 'config';
+export type Icone = 'empresa' | 'cadastro' | 'folha' | 'conferencia' | 'esocial' | 'prazo' | 'fim' | 'config';
 
 export interface ItemMenu { id: string; rotulo: string; descricao: string; destino: Destino; soAdmin?: boolean }
 export interface GrupoMenu { id: string; rotulo: string; icone: Icone; itens: ItemMenu[]; direita?: boolean }
@@ -69,6 +70,10 @@ export const MENU: GrupoMenu[] = [
     { id: 'prazos', rotulo: 'Prazos', icone: 'prazo', itens: [
         { id: 'prazos', rotulo: 'Prazos do DP', descricao: 'Obrigações do mês e prazos dos funcionários', destino: { aba: 'prazos' } },
         { id: 'calendario', rotulo: 'Calendário do eSocial', descricao: 'Vencimentos por competência', destino: { aba: 'esocial', sub: 'calendario' } },
+    ] },
+    { id: 'fimdemes', rotulo: 'Fim de mês', icone: 'fim', itens: [
+        { id: 'fechamento', rotulo: 'Fechamento do mês', descricao: 'Conferir e encerrar a competência (fica somente leitura)', destino: { aba: 'fimdemes', sub: 'fechamento' } },
+        { id: 'pedidos', rotulo: 'Pedidos de reabertura', descricao: 'Alterar um período encerrado: o gestor do DP aprova', destino: { aba: 'fimdemes', sub: 'pedidos' } },
     ] },
     { id: 'config', rotulo: 'Configurações', icone: 'config', direita: true, itens: [
         { id: 'iobsage', rotulo: 'IOB SAGE', descricao: 'Backup, restauração e menus do IOB × Consultor', destino: { aba: 'iobsage' } },

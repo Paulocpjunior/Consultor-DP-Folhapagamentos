@@ -19,6 +19,8 @@ import type { User } from '../../types';
 import { fichaNaCompetencia, type FichaFuncionario } from '../../services/cadastros/funcionarios';
 import { eventoPorCodigo, lancarEvento, lerReferencia, tipoDaReferencia, type SalarioDoMes } from '../../services/calculo/lancarEvento';
 import { carregarEventosIob } from '../../services/calculo/catalogoEventos';
+import { lerFechamento } from '../../services/fimDeMes/fechamentoService';
+import { MSG_ENCERRADO, type Fechamento } from '../../services/fimDeMes/fechamento';
 import type { EventoIobSage } from '../../services/folha/folhaTypes';
 import { afastamentoVazio, idAfastamento, validarAfastamento, type Afastamento } from '../../services/cadastros/afastamentos';
 import type { TabelaLegal } from '../../services/cadastros/tabelasLegais';
@@ -136,6 +138,16 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
     const [progFerias, setProgFerias] = useState({ fichaId: '', inicio: '', dias: '30', abono: '' });
     const [feriasSimuladas, setFeriasSimuladas] = useState<Afastamento[]>([]);
     const [gravandoGozo, setGravandoGozo] = useState(false);
+    // Fim de mês: competência encerrada fica somente leitura (as regras do Firestore também recusam).
+    const [fechamento, setFechamento] = useState<Fechamento | null>(null);
+    useEffect(() => {
+        setFechamento(null);
+        if (!empresaId || !/^\d{4}-\d{2}$/.test(competencia)) return;
+        let vivo = true;
+        lerFechamento(empresaId, competencia).then(f => { if (vivo) setFechamento(f); }).catch(() => { /* sem leitura: as regras ainda travam */ });
+        return () => { vivo = false; };
+    }, [empresaId, competencia]);
+    const encerrado = fechamento?.situacao === 'encerrado';
     // Lotes do eSocial da empresa: situação do S-2230 de cada gozo gravado.
     const [enviosEsocial, setEnviosEsocial] = useState<Envio[] | null>(null);
     const [recargaEnvios, setRecargaEnvios] = useState(0);
@@ -518,7 +530,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
     }
 
     async function salvar() {
-        if (!gravados) return;
+        if (!gravados || encerrado) return;
         const itens = pendentes.map(id => ({ fichaId: id, antes: gravados[id]?.movimento ?? null, depois: limparMovimento(movsParaSalvar[id] ?? {}) }));
         const erros = itens.flatMap(i => validarMovimento(i.depois, diasNoMes(competencia)).map(e => `${nomeDe(i.fichaId)}: ${e}`));
         setErrosMov(erros); setAviso('');
@@ -593,6 +605,11 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                     {podeHomologar && empresa && <button className="ml-auto rounded bg-green-700 px-3 py-1.5 text-xs font-medium text-white" title="Empresa conferida com o IOB: os documentos passam a sair sem a marca de prévia, a partir da competência da tela." onClick={() => ativarMotor(true)}>Ativar o motor para esta empresa</button>}
                 </div>
             )}
+            {encerrado && (mensal || ferias) && (
+                <div role="note" className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-100">
+                    <span>🔒 <strong>Competência encerrada</strong>{fechamento?.encerradoPorEmail ? ` por ${fechamento.encerradoPorEmail}` : ''}: somente leitura. Para alterar, peça a reabertura ao gestor do DP em Fim de mês › Fechamento do mês.</span>
+                </div>
+            )}
             <div className="flex flex-wrap items-end gap-3">
                 {ativa ? (embutido ? null : <EmpresaAtivaFixa />) : <label className="text-sm dark:text-white">Empresa
                     <select aria-label="Empresa" className={`ml-2 ${inp}`} value={empresaId} onChange={e => { const v = e.target.value; seguro(() => setEmpresaId(v)); }}>
@@ -627,7 +644,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                         </select></label>
                     <button className={btn} aria-pressed={verBeneficios} onClick={() => setVerBeneficios(x => !x)}>Benefícios ({parametrosFolha?.beneficios?.length ?? 0})</button>
                 </span>}
-                {mensal && <button className="ml-auto rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={!pendentes.length || salvando || !gravados} onClick={salvar}>
+                {mensal && <button className="ml-auto rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={!pendentes.length || salvando || !gravados || encerrado} title={encerrado ? MSG_ENCERRADO(competencia) : undefined} onClick={salvar}>
                     {salvando ? 'Salvando…' : `Salvar movimento${pendentes.length ? ` (${pendentes.length})` : ''}`}
                 </button>}
                 <div className={`flex flex-wrap items-center gap-2 ${mensal ? '' : 'ml-auto'}`}>
@@ -836,7 +853,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
 
             {sel && mensal && <Holerite key={`${sel.fichaId}-${versao}`} r={sel} mov={movs[sel.fichaId] ?? {}} gravado={gravados?.[sel.fichaId]} pendente={pendentes.includes(sel.fichaId)} arredonda={arredondaNoMes(parametrosFolha, competencia)} onMov={m => setMovs(x => ({ ...x, [sel.fichaId]: m }))}
                 salario={salarioSel} lancado={lancado?.fichaId === sel.fichaId ? lancado.mensagem : ''}
-                onLancar={(m, mensagem) => { setMovs(x => ({ ...x, [sel.fichaId]: m })); setLancado({ fichaId: sel.fichaId, mensagem }); setVersao(n => n + 1); }} />}
+                onLancar={encerrado ? undefined : (m, mensagem) => { setMovs(x => ({ ...x, [sel.fichaId]: m })); setLancado({ fichaId: sel.fichaId, mensagem }); setVersao(n => n + 1); }} />}
             {sel && rescisao && (() => {
                 const t = sel as ResultadoRescisao;
                 const p: ParamRescisao = paramsResc[t.fichaId] ?? { data: t.data, tipo: t.tipo, aviso: 'indenizado', simulada: false };
@@ -984,7 +1001,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                                     <div className="rounded bg-amber-50 p-2 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">
                                         <p><strong>Simulação:</strong> férias programadas aqui, ainda não gravadas em Afastamentos.</p>
                                         <div className="mt-1 flex flex-wrap gap-2">
-                                            <button type="button" className="rounded bg-green-700 px-2 py-1 text-white disabled:opacity-50" disabled={gravandoGozo || !!f.erros?.length} onClick={gravarGozo}>{gravandoGozo ? 'Gravando…' : 'Gravar em Afastamentos'}</button>
+                                            <button type="button" className="rounded bg-green-700 px-2 py-1 text-white disabled:opacity-50" disabled={gravandoGozo || !!f.erros?.length || encerrado} title={encerrado ? MSG_ENCERRADO(competencia) : undefined} onClick={gravarGozo}>{gravandoGozo ? 'Gravando…' : 'Gravar em Afastamentos'}</button>
                                             <button type="button" className="rounded border border-slate-300 px-2 py-1 dark:border-slate-600" onClick={() => { setFeriasSimuladas(xs => xs.filter(x => x.id !== simulado.id)); setAberto(''); }}>Remover simulação</button>
                                         </div>
                                     </div>
@@ -1009,7 +1026,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                                         <input aria-label="Dias de abono" className={`mt-0.5 block w-20 ${inp}`} defaultValue={String(abonos[f.gozoId] ?? (gravado || ''))}
                                             onChange={e => { const t = e.target.value.trim(); const n = Number(t || 0); setAbonos(x => { const y = { ...x }; if (t && Number.isInteger(n) && n >= 0) y[f.gozoId] = n; else if (!t) y[f.gozoId] = 0; else delete y[f.gozoId]; return y; }); }} />
                                         <span className="text-slate-500">Até 1/3 dos dias de direito. {gravado ? `Gravado no afastamento: ${gravado} dia(s).` : 'Nada gravado no afastamento.'} O abono gravado desconta do saldo do período nas próximas férias.</span>
-                                        {mudou && gozo && <button type="button" className="mt-1 block rounded border border-slate-300 px-2 py-1 dark:border-slate-600" disabled={gravandoAbono} onClick={gravarAbono}>{gravandoAbono ? 'Gravando…' : 'Gravar abono no afastamento'}</button>}
+                                        {mudou && gozo && <button type="button" className="mt-1 block rounded border border-slate-300 px-2 py-1 dark:border-slate-600" disabled={gravandoAbono || encerrado} title={encerrado ? MSG_ENCERRADO(competencia) : undefined} onClick={gravarAbono}>{gravandoAbono ? 'Gravando…' : 'Gravar abono no afastamento'}</button>}
                                     </label>
                                 );
                             })()}
