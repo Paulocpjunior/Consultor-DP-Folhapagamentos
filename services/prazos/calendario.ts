@@ -20,6 +20,11 @@ export const somarMeses = (s: Data, n: number) => {
     const ultimo = new Date(Date.UTC(alvo.getUTCFullYear(), alvo.getUTCMonth() + 1, 0)).getUTCDate();
     return fmt(new Date(Date.UTC(alvo.getUTCFullYear(), alvo.getUTCMonth(), Math.min(d, ultimo))));
 };
+/**
+ * Aniversário de uma data depois de `anos` anos. Sem o dia no mês (29/02 em ano comum), é o dia seguinte (01/03):
+ * o período de quem foi admitido em 29/02 vai até 28/02, sem perder um dia.
+ */
+export const aniversario = (s: Data, anos: number) => { const x = somarMeses(s, 12 * anos); return x.slice(8) === s.slice(8) ? x : somarDias(x, 1); };
 export const br = (s: Data) => s.split('-').reverse().join('/');
 
 /** Domingo de Páscoa (algoritmo de Meeus/Jones/Butcher, calendário gregoriano). */

@@ -23,8 +23,8 @@ import type { Afastamento } from '../cadastros/afastamentos';
 import { inicioBeneficio } from '../cadastros/afastamentos';
 import { dataValida, reais } from '../cadastros/documentos';
 import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros/tabelasLegais';
-import { diaUtilAnterior, diasEntre, somarDias, somarMeses } from '../prazos/calendario';
-import { diasDsr, salarioContratual, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
+import { aniversario, diaUtilAnterior, diasEntre, somarDias, somarMeses } from '../prazos/calendario';
+import { diasDsr, salarioContratual, valorHorasExtras, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
 
 export interface OpcoesFerias { simplificado: boolean; redutor: boolean }
 export const OPCOES_FERIAS_PADRAO: OpcoesFerias = { simplificado: true, redutor: true };
@@ -83,6 +83,9 @@ export function mesesDoPeriodo(inicio: string, fim: string): string[] {
     return out;
 }
 
+/** Afastamentos que suspendem o contrato e adiam o fim do período aquisitivo. */
+const SUSPENSAO = ['21', '29', '44', '45'];
+
 /** Dias do intervalo [de, ate] que caem em [ini, fim]. */
 const intersecao = (de: string, ate: string, ini: string, fim: string) => { const a = de > ini ? de : ini; const b = ate < fim ? ate : fim; return a > b ? 0 : diasEntre(a, b) + 1; };
 
@@ -93,6 +96,8 @@ export interface PeriodoAquisitivo {
     inicio: string; fim: string; fimConcessivo: string;
     /** Motivo da perda do direito (art. 133), ou ''. */
     perdido: string;
+    /** Dias de contrato suspenso no período: o fim foi adiado por eles. */
+    suspensos?: number;
     faltas: number; direito: number;
     /** Dias já usados: gozos anteriores + abonos vendidos. */
     consumido: number;
@@ -108,9 +113,18 @@ export interface PeriodoAquisitivo {
 export function periodosAquisitivos(admissao: string, ate: string, fichaId: string, afastamentos: Afastamento[], movimentos: Record<string, Movimento>, gozosAnteriores: Afastamento[]): PeriodoAquisitivo[] {
     const ps: PeriodoAquisitivo[] = [];
     let inicio = admissao;
+    const daFicha = (a: Afastamento) => !a.fichaId || a.fichaId === fichaId;
     for (let guarda = 0; inicio <= ate && guarda < 100; guarda++) {
-        const fim = somarDias(somarMeses(inicio, 12), -1);
-        const fimConcessivo = somarDias(somarMeses(inicio, 24), -1);
+        // Contrato suspenso (licença não remunerada, serviço militar, suspensões dos motivos 44 e 45) não conta no período
+        // aquisitivo: o fim é adiado pelos dias suspensos (o adiamento pode alcançar outra suspensão; refaz até parar).
+        let fim = somarDias(aniversario(inicio, 1), -1); let suspensos = 0;
+        for (let k = 0; k < 10; k++) {
+            const n = afastamentos.filter(a => daFicha(a) && SUSPENSAO.includes(a.motivo))
+                .reduce((t, a) => t + intersecao(a.dtInicio, a.dtFim && dataValida(a.dtFim) ? a.dtFim : ate, inicio, fim), 0);
+            if (n === suspensos) break;
+            suspensos = n; fim = somarDias(somarDias(aniversario(inicio, 1), -1), n);
+        }
+        const fimConcessivo = somarDias(aniversario(somarDias(fim, 1), 1), -1);
         let diasInss = 0; let diasLicenca = 0; let fimInss = ''; let fimLicenca = ''; let semFimInss = false; let semFimLicenca = false;
         for (const a of afastamentos) {
             if (a.fichaId && a.fichaId !== fichaId) continue;
@@ -134,8 +148,10 @@ export function periodosAquisitivos(admissao: string, ate: string, fichaId: stri
             inicio = somarDias(perdaInss ? fimInss : fimLicenca, 1);
             continue;
         }
-        const faltas = mesesDoPeriodo(inicio, fim).reduce((s, c) => s + Math.floor(movimentos[c]?.faltasDias ?? 0), 0);
-        ps.push({ inicio, fim, fimConcessivo, perdido: '', faltas, direito: diasDeDireito(faltas), consumido: 0 });
+        // Suspensão disciplinar (motivo 30) conta como falta injustificada (art. 130).
+        const disciplinar = afastamentos.filter(a => daFicha(a) && a.motivo === '30').reduce((t, a) => t + intersecao(a.dtInicio, a.dtFim && dataValida(a.dtFim) ? a.dtFim : ate, inicio, fim), 0);
+        const faltas = mesesDoPeriodo(inicio, fim).reduce((s, c) => s + Math.floor(movimentos[c]?.faltasDias ?? 0), 0) + disciplinar;
+        ps.push({ inicio, fim, fimConcessivo, perdido: '', faltas, direito: diasDeDireito(faltas), consumido: 0, ...(suspensos ? { suspensos } : {}) });
         inicio = somarDias(fim, 1);
     }
     for (const g of [...gozosAnteriores].sort((a, b) => a.dtInicio.localeCompare(b.dtInicio))) {
@@ -202,6 +218,7 @@ export function calcularFerias(e: EntradaFerias): ResultadoFerias {
     if (!gozo.perAquisInicio) r.avisos.push(`Período aquisitivo não informado no afastamento: usado o mais antigo com saldo (${br(p.inicio)} a ${br(p.fim)}). Se as férias anteriores não estão lançadas em Afastamentos, informe o período aquisitivo no afastamento.`);
     for (const x of perdidos) r.memoria.push(`Período ${br(x.inicio)} a ${br(x.fim)} perdido: ${x.perdido}; o seguinte começa na volta.`);
     r.periodo = { inicio: p.inicio, fim: p.fim, fimConcessivo: p.fimConcessivo };
+    if (p.suspensos) r.memoria.push(`Período aquisitivo adiado em ${p.suspensos} dia(s) de contrato suspenso (licença não remunerada, serviço militar ou suspensão).`);
     r.memoria.push(`Período aquisitivo ${br(p.inicio)} a ${br(p.fim)}; concessivo até ${br(p.fimConcessivo)}. Gozo de ${br(gozo.dtInicio)} a ${br(gozo.dtFim)} (${diasGozo} dias); pagamento até ${br(pagarAte)}.`);
 
     // Direito pelas faltas do período (movimentos gravados) e saldo (gozos e abonos anteriores).
@@ -230,7 +247,7 @@ export function calcularFerias(e: EntradaFerias): ResultadoFerias {
     for (const c of meses) {
         const mov = e.movimentos[c]; if (!mov) continue;
         comMov++;
-        const he = Math.round(salarioHora * 1.5 * (mov.horasExtras50 ?? 0)) + Math.round(salarioHora * 2 * (mov.horasExtras100 ?? 0));
+        const he = valorHorasExtras(salarioHora, mov).valor;
         if (!he) continue;
         const { uteis, descanso } = diasDsr(c, mov.feriadosLocais);
         somaVar += he + Math.round(he / uteis * descanso);

@@ -24,8 +24,8 @@ import { fichaNaData, memoriaDoHistorico, type FichaFuncionario } from '../cadas
 import type { Afastamento } from '../cadastros/afastamentos';
 import { dataValida, reais } from '../cadastros/documentos';
 import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros/tabelasLegais';
-import { diasEntre, somarDias, somarMeses } from '../prazos/calendario';
-import { calcularMensal, diasDsr, salarioContratual, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
+import { aniversario, diasEntre, somarDias, somarMeses } from '../prazos/calendario';
+import { calcularMensal, competenciaAnterior, diasDsr, salarioContratual, valorHorasExtras, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
 import { avosDoAno } from './motor13';
 import { folhaPagaAntes } from './arredondamento';
 import { diasDeDireito, feriasDaCompetencia, mesesDoPeriodo, periodosAquisitivos } from './motorFerias';
@@ -93,7 +93,7 @@ const ALIQUOTA_FGTS = 8;
 const ALIQUOTA_FGTS_APRENDIZ = 2;
 const br = (d: string) => d.split('-').reverse().join('/');
 const num = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
-const anosCompletos = (de: string, ate: string) => { let n = 0; while (somarMeses(de, 12 * (n + 1)) <= somarDias(ate, 1)) n++; return n; };
+const anosCompletos = (de: string, ate: string) => { let n = 0; while (aniversario(de, n + 1) <= somarDias(ate, 1)) n++; return n; };
 
 /** Dias de aviso prévio pago pelo empregador (Lei 12.506/2011). */
 export function diasDeAviso(admissao: string, data: string): number {
@@ -146,7 +146,7 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
     let somaVar = 0;
     for (const c of ultimos12) {
         const mov = e.movimentos[c]; if (!mov) continue;
-        const he = Math.round(salarioHora * 1.5 * (mov.horasExtras50 ?? 0)) + Math.round(salarioHora * 2 * (mov.horasExtras100 ?? 0));
+        const he = valorHorasExtras(salarioHora, mov).valor;
         if (!he) continue;
         const { uteis, descanso } = diasDsr(c, mov.feriadosLocais);
         somaVar += he + Math.round(he / uteis * descanso);
@@ -169,6 +169,13 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
         feriasDoMes: feriasDaCompetencia(fichaDeslig, e.afastamentos, e.tabelas, e.movimentos, comp), folhaPagaAntesNoMes });
     if (mes.situacao === 'erro') { r.erros.push(...mes.erros); r.situacao = 'erro'; }
     for (const v of mes.verbas) r.verbas.push(v.codigo === 'SAL' ? { ...v, descricao: 'Saldo de salário' } : v.codigo === 'INSS' ? { ...v, descricao: 'INSS sobre saldo de salário' } : v.codigo === 'IRRF' ? { ...v, descricao: 'IRRF sobre saldo de salário' } : v);
+    // Arredondamento do mês anterior (o que a folha passada pagou a mais para fechar o real): volta na rescisão,
+    // que não arredonda de novo. O informado no movimento do mês vale sobre o gravado no mês anterior.
+    const arredAnt = e.movimentos[comp]?.arredondamentoAnterior ?? e.movimentos[competenciaAnterior(comp)]?.arredondamentoFechado ?? 0;
+    if (arredAnt > 0 && arredAnt <= 99) {
+        verba({ codigo: 'ARREDANT', descricao: 'Arredondamento anterior', referencia: '', tipo: 'desconto', valor: arredAnt, inss: false, fgts: false, irrf: false });
+        r.memoria.push(`Arredondamento anterior: ${reais(arredAnt)} pagos a mais na folha passada, descontados (a rescisão não arredonda).`);
+    }
     r.memoria.push(...mes.memoria.map(m => `Mês: ${m}`));
     r.avisos.push(...mes.avisos.filter(a => !a.startsWith('Desligado em')));
     // Do mensal, só as férias no mês deixam a rescisão incompleta (o desligamento é tratado aqui).

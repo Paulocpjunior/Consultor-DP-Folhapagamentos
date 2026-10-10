@@ -134,7 +134,9 @@ export function sugerirDePara(resultados: ResultadoCalculo[], rubricas: Rubrica[
         if (itens.has(chave) || v.valor <= 0) continue;
         const tp = v.tipo === 'provento' ? '1' : '2';
         const doTipo = vigentes.filter(x => x.v!.dados.tpRubr === tp);
-        const s = SUGESTAO[v.codigo];
+        // Hora extra com outro adicional (HE60, HE75…): natureza 1003, pelo percentual na descrição.
+        const outraHe = /^HE\d+(_\d+)?$/.test(v.codigo) && !SUGESTAO[v.codigo] ? v.codigo.slice(2).replace('_', '.') : '';
+        const s = SUGESTAO[v.codigo] ?? (outraHe ? { naturezas: ['1003'], dica: new RegExp(`\\b${outraHe.replace('.', '[.,]')}\\b`) } : undefined);
         // Sem natureza na sugestão, só a descrição (dica) aponta a rubrica.
         let cand = !s ? doTipo.filter(x => normalizar(x.v!.dados.dscRubr) === normalizar(v.descricao))
             : s.naturezas.length ? doTipo.filter(x => s.naturezas.includes(x.v!.dados.natRubr))

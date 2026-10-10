@@ -22,9 +22,9 @@ export interface HoleriteIob {
     avisos: string[];
 }
 
-export type Classe = 'SAL' | 'MAT' | 'HE50' | 'HE100' | 'DSRHE' | 'FALTA' | 'DSRF' | 'ATRASO' | 'SF' | 'PENSAO' | 'ADIANT' | 'VT' | 'ARRED' | 'INSS' | 'IRRF' | 'FERMES' | 'FERPAGO' | 'OUTRO';
+export type Classe = 'SAL' | 'MAT' | 'HE50' | 'HE100' | 'HEOUT' | 'DSRHE' | 'FALTA' | 'DSRF' | 'ATRASO' | 'SF' | 'PENSAO' | 'ADIANT' | 'VT' | 'ARRED' | 'INSS' | 'IRRF' | 'FERMES' | 'FERPAGO' | 'OUTRO';
 export const ROTULO_CLASSE: Record<Classe, string> = {
-    SAL: 'Salário', MAT: 'Salário-maternidade', HE50: 'Horas extras 50%', HE100: 'Horas extras 100%', DSRHE: 'DSR sobre horas extras',
+    SAL: 'Salário', MAT: 'Salário-maternidade', HE50: 'Horas extras 50%', HE100: 'Horas extras 100%', HEOUT: 'Horas extras (outros adicionais)', DSRHE: 'DSR sobre horas extras',
     FALTA: 'Faltas', DSRF: 'DSR descontado', ATRASO: 'Faltas e atrasos (horas)', SF: 'Salário-família', PENSAO: 'Pensão alimentícia', ADIANT: 'Adiantamento salarial', VT: 'Vale-transporte', ARRED: 'Arredondamento', INSS: 'INSS', IRRF: 'IRRF',
     FERMES: 'Férias + 1/3 do mês', FERPAGO: 'Férias pagas no recibo', OUTRO: 'Outros',
 };
@@ -53,6 +53,9 @@ export function classificarVerba(v: VerbaHolerite): Classe {
     // qualificação ("D.S.R.", "REFLEXO DSR"); DSR sobre comissões, adicional
     // noturno etc. fica em "outros" e vira lançamento avulso.
     if (/D\.?S\.?R|REPOUSO|DESCANSO SEMANAL|\bRSR\b/.test(d)) return desconto ? 'DSRF' : extra || !/S\/|SOBRE/.test(d) ? 'DSRHE' : 'OUTRO';
+    // Pelo percentual impresso ("H.E. 60%", "HE 150%"): 50% e 100% têm campo próprio; os outros, o campo dos adicionais.
+    const pct = extra ? percentualDaHoraExtra(d) : null;
+    if (pct !== null) return pct === 100 ? 'HE100' : pct === 50 ? 'HE50' : 'HEOUT';
     if (extra && /100/.test(d)) return 'HE100';
     if (extra && /50/.test(d)) return 'HE50';
     // Em horas ("FALTAS E ATRASOS (T/H)" do IOB, ref. 8,00 = 8 horas): não são dias de falta.
@@ -60,6 +63,25 @@ export function classificarVerba(v: VerbaHolerite): Classe {
     if (desconto && /FALTA|AUSENCIA/.test(d)) return 'FALTA';
     if (!desconto && /^SAL(ARIO|\.)|SALDO DE SAL|HORAS NORMAIS|DIAS? TRABALHADOS|SALARIO (MENSAL|BASE|NORMAL|HORA)|^ORDENADO/.test(d)) return 'SAL';
     return 'OUTRO';
+}
+
+/**
+ * Incidências de proventos conhecidos que não seguem a regra "provento incide em tudo": abono pecuniário de férias
+ * (isento, art. 144 da CLT), adiantamento do 13º (só FGTS: INSS e IRRF no pagamento final), ajuda de custo e
+ * reembolso (indenizatórios). null = não conhecido.
+ */
+export function incidenciasConhecidas(descricao: string): { inss: boolean; fgts: boolean; irrf: boolean } | null {
+    const d = norm(descricao);
+    if (/ABONO PEC|ABONO DE FERIAS|1\/3 (DO |S\/ ?)?ABONO/.test(d)) return { inss: false, fgts: false, irrf: false };
+    if (/ADIANT\w*\.? ?(DO |DE )?13|13\S* ?(SAL\w*\.? )?ADIANT|1A\.? PARC\w* ?13|PRIMEIRA PARCELA (DO )?13/.test(d)) return { inss: false, fgts: true, irrf: false };
+    if (/AJUDA DE CUSTO|REEMBOLSO/.test(d)) return { inss: false, fgts: false, irrf: false };
+    return null;
+}
+
+/** Percentual de uma hora extra pela descrição ("H.E. 75%", "HORA EXTRA 62,5%"); null sem "%". */
+export function percentualDaHoraExtra(descricao: string): number | null {
+    const m = /(\d{2,3}(?:[.,]\d{1,2})?)\s*%/.exec(descricao);
+    return m ? Number(m[1].replace(',', '.')) : null;
 }
 
 const semZeros = (s: string) => s.trim().replace(/^0+(?=.)/, '');
@@ -83,7 +105,7 @@ export interface ConferenciaFuncionario {
 }
 
 const TOLERANCIA = 1; // centavo
-const ITENS: Classe[] = ['SAL', 'MAT', 'HE50', 'HE100', 'DSRHE', 'FALTA', 'DSRF', 'ATRASO', 'SF', 'PENSAO', 'ADIANT', 'VT', 'FERMES', 'FERPAGO', 'INSS', 'IRRF'];
+const ITENS: Classe[] = ['SAL', 'MAT', 'HE50', 'HE100', 'HEOUT', 'DSRHE', 'FALTA', 'DSRF', 'ATRASO', 'SF', 'PENSAO', 'ADIANT', 'VT', 'FERMES', 'FERPAGO', 'INSS', 'IRRF'];
 
 export function somaPorClasse(h: HoleriteIob): Record<Classe, number> {
     const s = Object.fromEntries([...ITENS, 'ARRED', 'OUTRO'].map(c => [c, 0])) as Record<Classe, number>;
@@ -118,7 +140,8 @@ export function conferirHolerite(r: ResultadoCalculo | undefined, h: HoleriteIob
     }
     const iob = somaPorClasse(h);
     // INSS e IRRF do motor incluem o que foi retido no recibo de férias (o IOB pode imprimir em linhas separadas).
-    const codigos: Partial<Record<Classe, string[]>> = { INSS: ['INSS', 'INSSFERRET'], IRRF: ['IRRF', 'IRRFFERRET'], FERMES: ['FERMES', 'FERMES13'] };
+    const codigos: Partial<Record<Classe, string[]>> = { INSS: ['INSS', 'INSSFERRET'], IRRF: ['IRRF', 'IRRFFERRET'], FERMES: ['FERMES', 'FERMES13'],
+        HEOUT: r.verbas.filter(v => /^HE\d/.test(v.codigo) && v.codigo !== 'HE50' && v.codigo !== 'HE100').map(v => v.codigo) };
     const motor = (c: Classe) => r.verbas.filter(v => (codigos[c] ?? [c]).includes(v.codigo)).reduce((s, v) => s + v.valor, 0);
     const linha = (item: string, m: number, i: number): LinhaConferencia => ({ item, motor: m, iob: i, diferenca: m - i, ok: Math.abs(m - i) <= TOLERANCIA });
     const doIob = ITENS.filter(c => iob[c]);
@@ -174,6 +197,12 @@ export function movimentoDoHolerite(h: HoleriteIob, beneficios?: Beneficio[]): {
         const c = classificarVerba(v);
         if (c === 'HE50') somar('horasExtras50', v);
         else if (c === 'HE100') somar('horasExtras100', v);
+        else if (c === 'HEOUT') {
+            const p = percentualDaHoraExtra(norm(v.descricao)); const q = quantidadeDaReferencia(v.referencia);
+            if (!q || p === null) { avisos.push(`${v.descricao}: referência "${v.referencia}" ilegível; informe as horas.`); continue; }
+            const k = String(p);
+            mov.horasExtrasPct = { ...mov.horasExtrasPct, [k]: Math.round(((mov.horasExtrasPct?.[k] ?? 0) + q) * 10000) / 10000 };
+        }
         else if (c === 'FALTA') somar('faltasDias', v);
         else if (c === 'DSRF') somar('dsrDescontadoDias', v);
         else if (c === 'ATRASO') somar('atrasosHoras', v);
@@ -187,7 +216,8 @@ export function movimentoDoHolerite(h: HoleriteIob, beneficios?: Beneficio[]): {
         else if (c === 'OUTRO' && ehBeneficio(beneficios, v.codigo ?? '', v.descricao)) continue;
         else if (c === 'OUTRO') {
             const provento = v.provento > 0;
-            lancamentos.push({ descricao: `${v.codigo ? `${v.codigo} ` : ''}${v.descricao}`.trim(), tipo: provento ? 'provento' : 'desconto', valor: v.provento || v.desconto, inss: provento, fgts: provento, irrf: provento });
+            const inc = incidenciasConhecidas(v.descricao) ?? { inss: provento, fgts: provento, irrf: provento };
+            lancamentos.push({ descricao: `${v.codigo ? `${v.codigo} ` : ''}${v.descricao}`.trim(), tipo: provento ? 'provento' : 'desconto', valor: v.provento || v.desconto, ...(provento ? inc : { inss: false, fgts: false, irrf: false }) });
         }
     }
     // Sem adiantamento ou VT no holerite do IOB, o mês não teve: 0 explícito, senão o motor volta à ficha e

@@ -32,6 +32,8 @@ export interface Lancamento extends Incidencias { descricao: string; tipo: TipoV
 export interface Movimento {
     horasExtras50?: number;
     horasExtras100?: number;
+    /** Horas extras com outros adicionais da convenção (60%, 70%, 75%…): percentual → horas. */
+    horasExtrasPct?: Record<string, number>;
     faltasDias?: number;
     dsrDescontadoDias?: number;
     /** Faltas e atrasos em horas (o "FALTAS E ATRASOS (T/H)" do IOB): salário-hora × horas, com INSS, FGTS e IRRF. */
@@ -168,9 +170,10 @@ function feriadoNacional(d: string): boolean {
 }
 
 /** Dias úteis (segunda a sábado) e de descanso (domingos e feriados nacionais) do mês, para o DSR. */
-export function diasDsr(competencia: string, feriadosLocais = 0): { uteis: number; descanso: number } {
+export function diasDsr(competencia: string, feriadosLocais = 0, de = `${competencia}-01`, ate = ultimoDia(competencia)): { uteis: number; descanso: number } {
     let uteis = 0; let descanso = 0;
-    for (let d = `${competencia}-01`; d <= ultimoDia(competencia); d = somarDias(d, 1)) {
+    // Mês parcial (admissão ou desligamento): só os dias do vínculo.
+    for (let d = de; d <= ate; d = somarDias(d, 1)) {
         if (diaSemana(d) === 0 || feriadoNacional(d)) descanso++; else uteis++;
     }
     const n = Math.max(0, Math.min(feriadosLocais, uteis));
@@ -354,8 +357,13 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
         verba({ codigo: 'HE100', descricao: 'Horas extras 100%', referencia: `${num(he100)} h`, tipo: 'provento', valor: v, inss: true, fgts: true, irrf: true });
         r.memoria.push(`Horas extras 100%: ${num(he100)} h × ${reais(Math.round(salarioHora))}/h × 2 = ${reais(v)}.`);
     }
+    for (const [p, h] of outrasHorasExtras(mov)) {
+        const v = Math.round(salarioHora * (1 + p / 100) * h); totalHe += v;
+        verba({ codigo: `HE${String(p).replace('.', '_')}`, descricao: `Horas extras ${num(p)}%`, referencia: `${num(h)} h`, tipo: 'provento', valor: v, inss: true, fgts: true, irrf: true });
+        r.memoria.push(`Horas extras ${num(p)}%: ${num(h)} h × ${reais(Math.round(salarioHora))}/h × ${num(1 + p / 100)} = ${reais(v)}.`);
+    }
     if (totalHe) {
-        const { uteis, descanso } = diasDsr(competencia, mov.feriadosLocais);
+        const { uteis, descanso } = diasDsr(competencia, mov.feriadosLocais, de, ate);
         const v = Math.round(totalHe / uteis * descanso);
         verba({ codigo: 'DSRHE', descricao: 'DSR sobre horas extras', referencia: `${descanso}/${uteis}`, tipo: 'provento', valor: v, inss: true, fgts: true, irrf: true });
         r.memoria.push(`DSR sobre horas extras: ${reais(totalHe)} ÷ ${uteis} dias úteis × ${descanso} domingos e feriados = ${reais(v)}${mov.feriadosLocais ? ` (com ${mov.feriadosLocais} feriado(s) local(is))` : ' (só feriados nacionais; informe os locais)'}.`);
@@ -374,7 +382,10 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     }
     (mov.lancamentos ?? []).forEach((l, i) => verba({ ...l, codigo: `LAN${i + 1}`, referencia: '', valor: Math.round(l.valor) }));
     const ben = verbasDosBeneficios(e.beneficios, ficha.beneficios, competencia);
-    ben.verbas.forEach(verba); r.memoria.push(...ben.memoria);
+    // Sem salário no mês (afastado o mês todo pelo INSS, licença não remunerada): o desconto do benefício deixaria o
+    // líquido negativo; fica de fora, com aviso, para ser cobrado à parte.
+    if (ben.verbas.length && !diasPagos && !diasMatTotal) r.avisos.push(`Sem salário no mês: ${ben.verbas.map(b => b.descricao).join(', ')} não ${ben.verbas.length > 1 ? 'foram lançados' : 'foi lançado'}. Cobre à parte, se for o caso.`);
+    else { ben.verbas.forEach(verba); r.memoria.push(...ben.memoria); }
 
     // Vale-transporte: desconto de 6% do salário básico do mês (Lei 7.418/1985, art. 4º, parágrafo único;
     // Decreto 10.854/2021, art. 114), sem adicionais; nunca acima do custo do benefício, quando informado.
@@ -600,6 +611,20 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     r.totais.liquido = r.totais.proventos - r.totais.descontos;
     if (r.totais.liquido < 0) r.avisos.push('Líquido negativo: confira os descontos.');
     return r;
+}
+
+/** Horas extras com outros adicionais (percentual, horas), em ordem; 50% e 100% têm campos próprios. */
+export function outrasHorasExtras(mov: Pick<Movimento, 'horasExtrasPct'>): [number, number][] {
+    return Object.entries(mov.horasExtrasPct ?? {}).map(([p, h]) => [Number(p), Number(h)] as [number, number])
+        .filter(([p, h]) => p > 0 && p !== 50 && p !== 100 && h > 0).sort((a, b) => a[0] - b[0]);
+}
+
+/** Valor das horas extras do mês (50%, 100% e os outros adicionais) pelo salário-hora dado, sem o DSR: base das médias. */
+export function valorHorasExtras(salarioHora: number, mov: Movimento): { valor: number; horas: number } {
+    let valor = Math.round(salarioHora * 1.5 * (mov.horasExtras50 ?? 0)) + Math.round(salarioHora * 2 * (mov.horasExtras100 ?? 0));
+    let horas = (mov.horasExtras50 ?? 0) + (mov.horasExtras100 ?? 0);
+    for (const [p, h] of outrasHorasExtras(mov)) { valor += Math.round(salarioHora * (1 + p / 100) * h); horas += h; }
+    return { valor, horas };
 }
 
 /** Data sugerida do adiantamento: dia 20 da competência, ou o dia útil anterior (20/09/2026 caiu num domingo e o IOB pagou em 18/09). */
