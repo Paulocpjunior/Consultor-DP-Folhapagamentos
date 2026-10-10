@@ -8,6 +8,8 @@ import type { Usuario } from '../cadastros/cadastrosService';
 import { consultarLote } from './transmissao';
 import { listarPendentes, registrarConsulta, type Envio } from './transmissaoService';
 import { alertasDaFila, consultaVencida, type Alerta } from './filaEnvios';
+import { consultarIdentificadores } from './downloadEventos';
+import { conciliar, EVENTOS_CONCILIADOS, type Conciliacao, type IdentificadoresDoGoverno } from './anomalias';
 
 export interface RodadaVigia { pendentes: Envio[]; consultados: number; mudaram: number; alertas: Alerta[]; erro?: string }
 
@@ -25,4 +27,19 @@ export async function rodadaDoVigia(empresa: { id: string; cnpj: string }, usuar
     }
     if (consultados) pendentes = await listarPendentes(empresa.id);
     return { pendentes, consultados, mudaram, alertas: alertasDaFila(pendentes, Date.now()), ...(erro ? { erro } : {}) };
+}
+
+/**
+ * Conciliação da competência com o eSocial (produção): os identificadores de S-1200, S-1210, S-1299 e S-1298
+ * do período, sem baixar os XMLs. Devolve também quantos pedidos de download a empresa já fez hoje.
+ */
+export async function conciliarComEsocial(empresa: { id: string; cnpj: string }, perApur: string, envios: Envio[]): Promise<{ conciliacao: Conciliacao; pedidosHoje: number | null }> {
+    const governo: IdentificadoresDoGoverno = {};
+    let pedidosHoje: number | null = null;
+    for (const tpEvt of EVENTOS_CONCILIADOS) {
+        const r = await consultarIdentificadores({ cnpj: empresa.cnpj, tipo: 'empregador', tpEvt, perApur, certificado: 'escritorio' });
+        governo[tpEvt] = r.identificadores;
+        pedidosHoje = r.pedidosHoje ?? pedidosHoje;
+    }
+    return { conciliacao: conciliar(envios, governo, perApur, 1), pedidosHoje };
 }

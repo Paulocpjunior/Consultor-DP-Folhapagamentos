@@ -3538,3 +3538,19 @@ guias sindicais".
 - **PDF (`informePdf.ts`):** um trabalhador por página, quadros 1 a 8; mais Excel (uma linha por trabalhador) e envio ao cliente.
 - **Ainda não:** rendimentos recebidos acumuladamente (quadro 6).
 - **Testes:** `services/relatorios/__tests__/informe.test.ts`.
+
+## 10/10/2026 — Saúde do eSocial, etapa 3: anomalias e conciliação
+
+- **Conciliação com o eSocial (`services/esocial/anomalias.ts`, `conciliarComEsocial` em `vigiaEsocial.ts`):**
+  - Usa os identificadores do governo (Id e recibo) de S-1200, S-1210, S-1299 e S-1298 da competência, em produção, pelo túnel do CFI. Não baixa os XMLs nem gasta a cota de download; a tela mostra os pedidos do dia.
+  - Lote "sem resposta" com o evento no governo: o recibo é gravado ("Gravar os recibos") e o lote se resolve sem reenvio.
+  - Evento aceito pelo Consultor que não aparece no governo vira anomalia crítica (excluído ou retificado por outro sistema).
+  - Eventos no governo que não passaram pelo Consultor (IOB ou outro sistema) aparecem como informação.
+- **Anomalias:**
+  - Folha gravada da competência sem S-1200 aceito: atenção até o prazo, crítico depois. Lote ainda sem resultado não conta.
+  - Competência com S-1200 aceito e sem S-1299 depois do prazo (dia 15 do mês seguinte).
+  - O mesmo evento do trabalhador recusado duas vezes ou mais em 30 dias.
+  - Certificado da empresa no cofre vencido ou vencendo (30 e 15 dias).
+  - Ocorrências que mais se repetem em 30 dias, por código.
+- **Tela:** seção "Anomalias e conciliação" na Saúde do eSocial (`components/esocial/AnomaliasEsocial.tsx`), com a ação de cada achado.
+- **Testes:** `anomalias.test.ts` e caso de conciliação na `saudeEsocialTela.test.tsx`.

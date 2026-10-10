@@ -14,6 +14,7 @@ import { ESPERA_LIBERAR_MS, ROTULO_ETAPA, alertasDaFila, etapaDoEnvio, podeLiber
 import { baixarEventos } from '../../services/esocial/downloadEventos';
 import { rodadaDoVigia } from '../../services/esocial/vigiaEsocial';
 import { ROTULO_VERSAO_XSD } from '../../services/esocial/validadorXsd';
+import AnomaliasEsocial from './AnomaliasEsocial';
 
 interface Props { usuario?: Usuario }
 
@@ -154,6 +155,9 @@ const SaudeEsocialPanel: React.FC<Props> = ({ usuario }) => {
                     </div>
                 ))}
             </section>
+
+            {envios && <AnomaliasEsocial empresa={{ id: ativa.id, cnpj: ativa.cnpj, nome: ativa.nome, competencia: ativa.competencia }} envios={envios} usuario={usuario} onMudou={carregar}
+                onVerLote={id => { setFiltro('todos'); setAberto(id); }} />}
 
             <section aria-label="Lotes" className="space-y-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">

@@ -12,7 +12,11 @@ const sv = vi.hoisted(() => ({
 }));
 vi.mock('../transmissaoService', async orig => ({ ...(await orig<typeof import('../transmissaoService')>()), listarEnvios: async () => sv.envios, listarPendentes: async () => sv.pendentes,
     registrarVerificacao: (...a: unknown[]) => sv.verificar(...a), liberarReenvio: (...a: unknown[]) => sv.liberar(...a), registrarConsulta: (...a: unknown[]) => sv.registrarConsulta(...a) }));
-vi.mock('../downloadEventos', async orig => ({ ...(await orig<typeof import('../downloadEventos')>()), baixarEventos: (...a: unknown[]) => sv.baixar(...a) }));
+vi.mock('../downloadEventos', async orig => ({ ...(await orig<typeof import('../downloadEventos')>()), baixarEventos: (...a: unknown[]) => sv.baixar(...a),
+    consultarIdentificadores: async (p: { tpEvt: string }) => ({ cdResposta: 201, descResposta: '', qtdeTotal: 0, dhUltimoEvtRetornado: '', pedidosHoje: 3, identificadores: p.tpEvt === 'S-1200' ? [{ id: 'ID1', nrRec: '1.1.0000000000000000055' }] : [] }) }));
+vi.mock('../../calculo/folhaGravadaService', () => ({ lerFolhaGravada: async () => null }));
+vi.mock('../../cadastros/cadastrosService', async orig => ({ ...(await orig<typeof import('../../cadastros/cadastrosService')>()), listarFuncionarios: async () => [] }));
+vi.mock('../../certificados/cofreCertificados', async orig => ({ ...(await orig<typeof import('../../certificados/cofreCertificados')>()), cofreDaMinhaCarteira: async () => { throw new Error('offline'); } }));
 vi.mock('../transmissao', async orig => ({ ...(await orig<typeof import('../transmissao')>()), consultarLote: (...a: unknown[]) => sv.consultar(...a) }));
 import SaudeEsocialPanel from '../../../components/esocial/SaudeEsocialPanel';
 import { EmpresaAtivaProvider } from '../../empresaAtiva/empresaAtivaContext';
@@ -62,6 +66,19 @@ describe('Saúde do eSocial: tela', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Consultar agora' }));
         await waitFor(() => expect(sv.registrarConsulta).toHaveBeenCalled());
         expect(sv.consultar.mock.calls[0][0]).toMatchObject({ protocolo: 'P1', tpAmb: 1 });
+    });
+});
+
+describe('Saúde do eSocial: conciliação', () => {
+    it('concilia a competência e resolve o lote sem resposta com o recibo achado no eSocial', async () => {
+        sv.envios = [lote({ id: 'S', situacao: 'sem-resposta', protocolo: '', enviadoEm: iso(5), eventos: [{ id: 'ID1', tipo: 'S-1200', perApur: '2026-09' }] })];
+        montar();
+        fireEvent.click(await screen.findByRole('button', { name: 'Conciliar com o eSocial' }));
+        await waitFor(() => expect(screen.getByText(/1 evento\(s\) "sem resposta" estão no eSocial/)).toBeTruthy());
+        expect(screen.getByText(/Pedidos de download hoje nesta empresa: 3/)).toBeTruthy();
+        fireEvent.click(screen.getByRole('button', { name: 'Gravar os recibos' }));
+        await waitFor(() => expect(sv.verificar).toHaveBeenCalled());
+        expect(sv.verificar.mock.calls[0][1]).toEqual({ ID1: '1.1.0000000000000000055' });
     });
 });
 
