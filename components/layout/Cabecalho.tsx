@@ -6,26 +6,13 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import Logo from '../Logo';
-import { ondeEsta, type Destino, type GrupoMenu, type Icone } from '../../services/navegacao/menu';
+import { corDoGrupo } from './cores';
+import { ondeEsta, type Destino, type GrupoMenu } from '../../services/navegacao/menu';
+import { ICONES, type NomeIcone } from './icones';
 import { competenciaBr, type EmpresaAtiva } from '../../services/empresaAtiva/empresaAtiva';
 
-const PATH: Record<Icone | 'chevron' | 'sol' | 'lua' | 'sair' | 'trocar', string> = {
-    empresa: 'M3 21h18M5 21V7l7-4 7 4v14M9 9h1m4 0h1M9 13h1m4 0h1M9 17h1m4 0h1',
-    cadastro: 'M4 6h16M4 12h16M4 18h10M18 16l2 2-2 2',
-    folha: 'M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6',
-    conferencia: 'M9 12l2 2 4-4M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z',
-    esocial: 'M4 12a8 8 0 0116 0M7 12a5 5 0 0110 0M12 12v8M9 20h6',
-    prazo: 'M12 7v5l3 3M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
-    fim: 'M5 11h14v10H5zM8 11V7a4 4 0 018 0v4M12 15v2',
-    config: 'M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z',
-    chevron: 'M6 9l6 6 6-6',
-    sol: 'M12 4V2m0 20v-2m8-8h2M2 12h2m13.7-5.7l1.4-1.4M4.9 19.1l1.4-1.4m11.4 0l1.4 1.4M4.9 4.9l1.4 1.4M16 12a4 4 0 11-8 0 4 4 0 018 0z',
-    lua: 'M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z',
-    sair: 'M15 12H3m0 0l4-4m-4 4l4 4M13 4h6a2 2 0 012 2v12a2 2 0 01-2 2h-6',
-    trocar: 'M7 16l-4-4 4-4M3 12h14M17 8l4 4-4 4',
-};
-export const Ico: React.FC<{ nome: keyof typeof PATH; className?: string }> = ({ nome, className = 'h-4 w-4' }) => (
-    <svg aria-hidden viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" className={className}><path d={PATH[nome]} /></svg>
+export const Ico: React.FC<{ nome: NomeIcone; className?: string }> = ({ nome, className = 'h-4 w-4' }) => (
+    <svg aria-hidden viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" className={className}><path d={ICONES[nome]} /></svg>
 );
 
 interface Props {
@@ -78,9 +65,12 @@ const Cabecalho: React.FC<Props> = ({ menu, destino, onNavegar, ativa, onTrocar,
                 const aqui = atual?.item.id === i.id && atual.grupo.id === g.id;
                 return (
                     <button key={i.id} role="menuitem" disabled={!!motivo} title={motivo} onClick={() => ir(i.destino)}
-                        className={`block w-full rounded-lg px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${aqui ? 'bg-blue-50 dark:bg-blue-500/15' : 'hover:bg-slate-100 dark:hover:bg-white/5'}`}>
-                        <span className={`block text-sm ${aqui ? 'font-semibold text-blue-700 dark:text-blue-300' : 'font-medium'}`}>{i.rotulo}</span>
-                        <span className="block text-xs text-slate-500 dark:text-slate-400">{motivo ?? i.descricao}</span>
+                        className={`flex w-full items-start gap-3 rounded-lg px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${aqui ? 'bg-slate-100 dark:bg-white/10' : 'hover:bg-slate-100 dark:hover:bg-white/5'}`}>
+                        <span aria-hidden className={`mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg ${corDoGrupo(g.id).claro}`}><Ico nome={i.icone} className="h-[18px] w-[18px]" /></span>
+                        <span className="min-w-0">
+                            <span className={`block text-sm ${aqui ? `font-semibold ${corDoGrupo(g.id).barra}` : 'font-medium'}`}>{i.rotulo}</span>
+                            <span className="block text-xs text-slate-500 dark:text-slate-400">{motivo ?? i.descricao}</span>
+                        </span>
                     </button>
                 );
             })}
@@ -103,7 +93,7 @@ const Cabecalho: React.FC<Props> = ({ menu, destino, onNavegar, ativa, onTrocar,
                 <div aria-label="Empresa e período ativos" className="order-3 flex min-w-0 flex-1 basis-full items-center gap-3 rounded-xl bg-white/5 px-3 py-1.5 ring-1 ring-white/10 md:order-none md:basis-auto">
                     {ativa ? (
                         <>
-                            <Ico nome="empresa" className="h-4 w-4 shrink-0 text-blue-300" />
+                            <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg text-white ${corDoGrupo('empresas').solido}`}><Ico nome="empresa" className="h-4 w-4" /></span>
                             <div className="min-w-0 leading-tight">
                                 <div className="truncate text-sm font-medium text-white" title={ativa.nome}>{ativa.nome}</div>
                                 <div className="truncate text-[11px] text-slate-400">CNPJ {ativa.cnpj} · SAGE {ativa.codigoSage}</div>
@@ -146,8 +136,8 @@ const Cabecalho: React.FC<Props> = ({ menu, destino, onNavegar, ativa, onTrocar,
                         return (
                             <li key={g.id} className={`relative ${g.direita ? 'ml-auto' : ''}`}>
                                 <button aria-haspopup="menu" aria-expanded={aberto === g.id} onClick={() => setAberto(a => (a === g.id ? null : g.id))}
-                                    className={`flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm transition-colors ${ativo ? 'border-blue-400 font-medium text-white' : 'border-transparent text-slate-300 hover:text-white'}`}>
-                                    <Ico nome={g.icone} className={`h-4 w-4 ${ativo ? 'text-blue-300' : 'text-slate-400'}`} />
+                                    className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2 text-sm transition-colors ${ativo ? `${corDoGrupo(g.id).ativo} font-medium text-white` : 'border-transparent text-slate-300 hover:text-white'}`}>
+                                    <span className={`grid h-6 w-6 place-items-center rounded-md text-white shadow-sm ${corDoGrupo(g.id).solido} ${ativo ? 'ring-2 ring-white/40' : ''}`}><Ico nome={g.icone} className="h-3.5 w-3.5" /></span>
                                     {g.rotulo}
                                     {!!contadores[g.id] && <span aria-label={`${contadores[g.id]} pendente(s)`} className="rounded-full bg-amber-400 px-1.5 text-[10px] font-bold leading-4 text-slate-900">{contadores[g.id]}</span>}
                                     <Ico nome="chevron" className={`h-3 w-3 opacity-60 transition-transform ${aberto === g.id ? 'rotate-180' : ''}`} />
