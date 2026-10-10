@@ -412,6 +412,30 @@ service cloud.firestore {
                     && !periodoEncerrado(resource.data.empresaId, resource.data.competencia);
     }
 
+    // ===== Folha gravada =====
+    // Holerites do mês guardados (como o processamento do SAGE): grava quem trabalha na empresa, só com a competência
+    // aberta no Fim de mês; encerrada, a folha gravada fica como está. Id: empresa_AAAA-MM.
+    match /folhas_gravadas/{folhaId} {
+      allow read: if podeEmpresa(folhaId.split('_')[0]);
+      allow create, update: if podeEmpresa(request.resource.data.empresaId)
+                    && folhaId == request.resource.data.empresaId + '_' + request.resource.data.competencia
+                    && request.resource.data.competencia.matches('^[0-9]{4}-(0[1-9]|1[0-2])$')
+                    && request.resource.data.gravadoPor == request.auth.uid
+                    && !periodoEncerrado(request.resource.data.empresaId, request.resource.data.competencia);
+      allow delete: if false;
+      match /holerites/{fichaId} {
+        allow read: if podeEmpresa(folhaId.split('_')[0]);
+        allow create, update: if podeEmpresa(folhaId.split('_')[0])
+                      && request.resource.data.empresaId == folhaId.split('_')[0]
+                      && request.resource.data.competencia == folhaId.split('_')[1]
+                      && request.resource.data.fichaId == fichaId
+                      && fichaId.split('_')[0] == request.resource.data.empresaId
+                      && request.resource.data.resultado is map
+                      && !periodoEncerrado(folhaId.split('_')[0], folhaId.split('_')[1]);
+        allow delete: if podeEmpresa(folhaId.split('_')[0]) && !periodoEncerrado(folhaId.split('_')[0], folhaId.split('_')[1]);
+      }
+    }
+
     // ===== CRM do DP (Jotform) =====
     // Gravado só pelo job de sincronização (conta de serviço). A empresa: quem pode no CNPJ; o CRM inteiro e o resumo:
     // gestor e admin (montam as carteiras). A ligação responsável do CRM → usuário: gestor e admin.

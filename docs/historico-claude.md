@@ -55,8 +55,8 @@ piloto em paralelo provar o cálculo próprio.
 - **Pontos fortes do SAGE a construir no Consultor, nesta ordem** (Paulo,
   10/10/2026: "memorize os pontos fortes da SAGE e vamos construir na sequência"):
   1. Paridade de cálculo provada (divergências da 09/2026 da 1200).
-  2. Resultado da folha gravado no encerramento do mês (o SAGE guarda o
-     processamento; hoje recalculamos e uma mudança na ficha altera o passado).
+  2. ~~Resultado da folha gravado no encerramento do mês~~ — feito em 10/10/2026
+     ("Gravar a folha do mês"; o Fim de mês exige a folha gravada).
   3. Médias de variáveis (adicionais, comissões, lançamentos) em férias, 13º e
      rescisão; insalubridade e periculosidade automáticas; pensão no IRRF de
      férias, 13º e rescisão.
@@ -3395,3 +3395,20 @@ guias sindicais".
   - `crm_dp`: a empresa é lida por quem pode no CNPJ; a lista inteira, pelo gestor e pelo admin.
   - Só o job grava.
   - A ligação dos responsáveis é feita pelo gestor e pelo admin.
+
+## 10/10/2026 — Folha do mês gravada (item 2 dos pontos fortes do SAGE)
+
+- **Antes:** a folha era recalculada a cada abertura. Mudar a ficha (salário, dependente) depois do mês alterava holerites já pagos e enviados.
+- **Agora:**
+  - Em Folha do mês › Cálculo mensal, "Gravar a folha do mês" guarda os holerites do mês, com verbas, bases, totais e memória, em `folhas_gravadas/{empresa}_{AAAA-MM}/holerites/{ficha}`. Funcionários com erro de cálculo ficam fora, com confirmação.
+  - Com a competência aberta, dá para regravar.
+- **Fim de mês:** com o motor ativo na competência, encerrar exige a folha gravada. A tela mostra quem gravou, quando, quantos holerites e o líquido.
+- **Competência encerrada:**
+  - Telas, PDFs, Excel, arquivo bancário e S-1200/S-1210 usam a folha gravada.
+  - O cálculo de hoje só compara: a lista mostra quem mudou (líquido, bases, FGTS, quem entrou ou saiu).
+  - Com a competência aberta e diferença, o aviso é para regravar antes de encerrar.
+- **Regras:** grava e apaga holerite quem trabalha na empresa, só com a competência aberta. Encerrada, a folha gravada não muda, nem pelo gestor (precisa reabrir).
+- **Testes:**
+  - `testes-regras/folhaGravada.test.mjs`;
+  - `services/calculo/__tests__/folhaGravada.test.ts`;
+  - casos novos no `painelCalculo.test.tsx` e no `fimDeMes.test.tsx`.

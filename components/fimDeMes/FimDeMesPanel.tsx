@@ -18,6 +18,10 @@ import {
 } from '../../services/fimDeMes/fechamentoService';
 
 import { SeloSituacao } from './SeloSituacao';
+import { lerFolhaGravada } from '../../services/calculo/folhaGravadaService';
+import type { FolhaGravada } from '../../services/calculo/folhaGravada';
+import { motorHomologadoNoMes, type ParametrosFolha } from '../../services/calculo/arredondamento';
+import { reais } from '../../services/cadastros/documentos';
 
 const br = (c: string) => c.split('-').reverse().join('/');
 const quando = (d?: Date) => (d ? d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '');
@@ -38,6 +42,8 @@ const FimDeMesPanel: React.FC<Props> = ({ currentUser, sub = 'fechamento', onMud
     const [fech, setFech] = useState<Fechamento | null | undefined>(undefined);
     const [todos, setTodos] = useState<Fechamento[]>([]);
     const [desde, setDesde] = useState<string | undefined>();
+    const [parametros, setParametros] = useState<ParametrosFolha | undefined>();
+    const [gravada, setGravada] = useState<FolhaGravada | null | undefined>(undefined);
     const [pedidos, setPedidos] = useState<PedidoReabertura[] | null>(null);
     const [check, setCheck] = useState<Record<string, boolean>>({});
     const [motivo, setMotivo] = useState('');
@@ -50,12 +56,14 @@ const FimDeMesPanel: React.FC<Props> = ({ currentUser, sub = 'fechamento', onMud
         if (!ativa) return;
         setErro('');
         try {
-            const [f, l, emps, ps] = await Promise.all([
+            const [f, l, emps, ps, g] = await Promise.all([
                 lerFechamento(ativa.id, ativa.competencia), listarFechamentos(ativa.id), listarEmpresasVisiveis(),
                 sub === 'pedidos' && gestor ? listarPedidosPendentes() : listarPedidosDaEmpresa(ativa.id),
+                lerFolhaGravada(ativa.id, ativa.competencia).catch(() => null),
             ]);
-            setFech(f); setTodos(l); setPedidos(ps);
-            setDesde(emps.find(e => e.id === ativa.id)?.parametrosFolha?.motorHomologado?.desde);
+            setFech(f); setTodos(l); setPedidos(ps); setGravada(g);
+            const pf = emps.find(e => e.id === ativa.id)?.parametrosFolha;
+            setParametros(pf); setDesde(pf?.motorHomologado?.desde);
             setCheck(f?.situacao === 'reaberto' ? {} : f?.checklist ?? {});
         } catch (e) { setErro(mensagemErro(e)); setFech(null); setPedidos([]); }
     }, [ativa, sub, gestor]);
@@ -71,6 +79,9 @@ const FimDeMesPanel: React.FC<Props> = ({ currentUser, sub = 'fechamento', onMud
     const pendentes = competenciasPendentes(desde, todos, hoje).filter(c => c !== ativa.competencia);
     const pedidoAberto = (pedidos ?? []).find(p => p.empresaId === ativa.id && p.competencia === ativa.competencia && p.situacao === 'pendente');
     const comp = br(ativa.competencia);
+    // Motor ativo na competência: o encerramento exige a folha gravada no Cálculo (os holerites guardados).
+    const exigeFolha = motorHomologadoNoMes(parametros, ativa.competencia);
+    const faltaFolha = exigeFolha && !gravada;
 
     const mensagens = (
         <>
@@ -134,6 +145,11 @@ const FimDeMesPanel: React.FC<Props> = ({ currentUser, sub = 'fechamento', onMud
                 )}
                 {fech === undefined ? <p className="mt-3 text-sm text-slate-500">Carregando…</p> : (
                     <>
+                        <p className={`mt-3 rounded-lg p-3 text-sm ${gravada ? 'bg-emerald-50 text-emerald-900 dark:bg-emerald-900/20 dark:text-emerald-100' : exigeFolha ? 'bg-amber-50 text-amber-900 dark:bg-amber-900/20 dark:text-amber-100' : 'bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>
+                            {gravada ? `📁 Folha gravada por ${gravada.gravadoPorEmail}${gravada.gravadoEm ? ` em ${quando(gravada.gravadoEm)}` : ''}: ${gravada.totais.funcionarios} holerite(s), líquido ${reais(gravada.totais.liquido)}. Encerrada a competência, valem estes valores.`
+                                : exigeFolha ? 'Folha do mês ainda não gravada. Em Folha do mês › Cálculo mensal, salve o movimento e clique em "Gravar a folha do mês" antes de encerrar.'
+                                : 'Motor de cálculo não ativo nesta competência: a folha oficial é a do IOB (não há folha gravada no Consultor).'}
+                        </p>
                         <ul className="mt-4 grid gap-2 sm:grid-cols-2">
                             {ITENS_FECHAMENTO.map(i => (
                                 <li key={i.id}>
@@ -147,8 +163,8 @@ const FimDeMesPanel: React.FC<Props> = ({ currentUser, sub = 'fechamento', onMud
                         </ul>
                         {situacao !== 'encerrado' ? (
                             <div className="mt-4 flex flex-wrap items-center gap-3">
-                                <button className={btnP} disabled={ocupado || !checklistCompleto(check) || !podeEncerrar(ativa.competencia, hoje)}
-                                    title={!podeEncerrar(ativa.competencia, hoje) ? 'Competência futura: ainda não dá para encerrar.' : !checklistCompleto(check) ? 'Confira todos os itens antes de encerrar.' : undefined}
+                                <button className={btnP} disabled={ocupado || !checklistCompleto(check) || !podeEncerrar(ativa.competencia, hoje) || faltaFolha}
+                                    title={!podeEncerrar(ativa.competencia, hoje) ? 'Competência futura: ainda não dá para encerrar.' : faltaFolha ? 'Grave a folha do mês no Cálculo antes de encerrar.' : !checklistCompleto(check) ? 'Confira todos os itens antes de encerrar.' : undefined}
                                     onClick={() => { if (window.confirm(`Encerrar ${comp} de ${ativa.nome}? Movimentos e afastamentos do mês ficam somente leitura; alterar depois exige o gestor do DP.`)) void agir(async () => { await encerrarPeriodo(ativa.id, ativa.competencia, check, usuario); return `${comp} encerrada.`; }); }}>
                                     Encerrar {comp}
                                 </button>
