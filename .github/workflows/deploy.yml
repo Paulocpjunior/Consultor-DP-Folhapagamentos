@@ -56,6 +56,27 @@ jobs:
         with:
           path: ./dist
 
+  # Regras do Firestore e do Storage no emulador: acesso por carteira, auditoria, ids das empresas (auditoria de 10/2026).
+  regras:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Setup Java (emulador)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Install dependencies
+        run: npm ci
+      - name: Testes das regras
+        run: npm run test:regras
+
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment:

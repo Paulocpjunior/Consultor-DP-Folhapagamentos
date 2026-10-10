@@ -44,7 +44,7 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
 
     useEffect(() => {
         if (aba !== 'historico' || nova || hist) return;
-        historico('funcionarios', ficha.id).then(setHist).catch(e => setHistErro(mensagemErro(e)));
+        historico('funcionarios', ficha.id, ficha.empresaId).then(setHist).catch(e => setHistErro(mensagemErro(e)));
     }, [aba, nova, hist, ficha.id]);
 
     const setCampo = (c: CampoFicha, v: string) => setF(x => ({ ...x, dados: { ...x.dados, [c]: v } }));
