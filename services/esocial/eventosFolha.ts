@@ -129,6 +129,8 @@ const SUGESTAO: Record<string, { naturezas: string[]; dica?: RegExp; evita?: Reg
     IRRFFER: { naturezas: ['9203'], dica: /FERIAS/ },
 };
 
+const IRRF_FERIAS_DO_GOZO = new Set(['FERMES', 'FERMES13', 'FERPAGO']);
+
 /** Retido no recibo de férias, na folha do gozo × retido no próprio recibo: rubricas distintas (senão o tributo vai em dobro). */
 const PARES_FERIAS: [string, string][] = [['INSSFERRET', 'INSSFER'], ['IRRFFERRET', 'IRRFFER']];
 
@@ -381,6 +383,9 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
         if (!/^9\d$/.test(d.codIncCP) && !['25', '26'].includes(d.codIncCP) && BASE_CP.includes(d.codIncCP) !== esperado.inss) avisar('INSS', esperado.inss, rotuloCodigo(COD_INC_CP, d.codIncCP, 'tabela'));
         if (!/^9\d$/.test(d.codIncFGTS) && BASE_FGTS.includes(d.codIncFGTS) !== esperado.fgts) avisar('FGTS', esperado.fgts, rotuloCodigo(COD_INC_FGTS, d.codIncFGTS, 'tabela'));
         const cls = classeIrrf(d.codIncIRRF);
+        // Férias na folha do gozo: o MOS (S-1200, item 19) põe IRRF 13 nas férias, no 1/3 e no desconto do que foi
+        // pago no recibo (1016, 1017 e 9221), que se anulam; o IRRF das férias é o do recibo.
+        if (IRRF_FERIAS_DO_GOZO.has(v.codigo) && Number(d.codIncIRRF) === 13) return;
         if (v.codigo !== 'ADIANTPAG' && cls !== 'suspensa' && cls !== 'outra' && (cls === 'tributavel') !== v.irrf) avisar('IRRF', v.irrf, rotuloIrrf(d.codIncIRRF));
     };
     for (const [cpf, contratos] of grupos) {

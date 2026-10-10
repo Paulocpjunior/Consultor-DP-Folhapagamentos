@@ -545,6 +545,29 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ===== S-1010 pelo Consultor: pedidos de inclusão, alteração e exclusão de rubricas =====
+    // Id = empresa_auto. Quem pode na empresa cria e edita o rascunho; aplicado (aceito no eSocial) e descartado
+    // são finais; a empresa e o autor não mudam; nada se apaga.
+    function pedidoS1010Valido(id) {
+      let d = request.resource.data;
+      return d.empresaId is string && id.split('_')[0] == d.empresaId
+        && d.acao in ['inclusao', 'alteracao', 'exclusao']
+        && d.codRubr is string && d.codRubr.size() > 0 && d.codRubr.size() <= 30
+        && d.ideTabRubr is string && d.ideTabRubr.size() > 0 && d.ideTabRubr.size() <= 8
+        && d.iniValid is string && d.iniValid.matches('^[0-9]{4}-(0[1-9]|1[0-2])$')
+        && d.situacao in ['rascunho', 'aplicado', 'descartado'] && d.recibo is string
+        && d.atualizadoPor == request.auth.uid;
+    }
+    match /esocial_s1010/{id} {
+      allow read: if podeEmpresa(resource.data.empresaId);
+      allow create: if pedidoS1010Valido(id) && podeEmpresa(request.resource.data.empresaId)
+                    && request.resource.data.situacao == 'rascunho' && request.resource.data.criadoPor == request.auth.uid;
+      allow update: if pedidoS1010Valido(id) && podeEmpresa(resource.data.empresaId) && resource.data.situacao == 'rascunho'
+                    && request.resource.data.empresaId == resource.data.empresaId
+                    && request.resource.data.criadoPor == resource.data.criadoPor;
+      allow delete: if false;
+    }
+
     // ===== Fim de mês =====
     // Encerra quem trabalha na empresa (a lista de conferência fica gravada); só o gestor reabre, com o motivo.
     // Reencerrar depois da alteração: de novo quem trabalha na empresa. Nada se apaga.

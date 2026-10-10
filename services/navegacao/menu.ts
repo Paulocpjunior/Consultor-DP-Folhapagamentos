@@ -40,7 +40,7 @@ export const MENU: GrupoMenu[] = [
         { id: 'afastamentos', rotulo: 'Afastamentos e férias', descricao: 'Licenças, atestados e gozos de férias', icone: 'calendarioX', destino: { aba: 'cadastros', sub: 'afastamentos' } },
         { id: 'sindicatos', rotulo: 'Sindicatos', descricao: 'Convenções, pisos e contribuições', icone: 'sindicato', destino: { aba: 'cadastros', sub: 'sindicatos' } },
         { id: 'eventos', rotulo: 'Eventos IOB', descricao: 'Catálogo de eventos (código, rotina e incidências)', icone: 'lista', destino: { aba: 'folha', sub: 'eventos' } },
-        { id: 'incidencias', rotulo: 'Incidências', descricao: 'Eventos IOB × rubricas do S-1010', icone: 'elo', destino: { aba: 'cadastros', sub: 'incidencias' } },
+        { id: 'incidencias', rotulo: 'Incidências', descricao: 'Eventos IOB × rubricas do S-1010 e o S-1010 pelo Consultor', icone: 'elo', destino: { aba: 'cadastros', sub: 'incidencias' } },
         { id: 'enquadramento', rotulo: 'Enquadramento', descricao: 'FPAS, RAT/FAP e terceiros da empresa', icone: 'camadas', destino: { aba: 'cadastros', sub: 'enquadramento' } },
         { id: 'tabelas', rotulo: 'Tabelas legais', descricao: 'INSS, IRRF, salário-família e mínimo', icone: 'tabela', destino: { aba: 'cadastros', sub: 'tabelas' } },
         { id: 'implantacao', rotulo: 'Implantação de funcionários', descricao: 'Primeiro acesso: unificar eSocial e ficha', icone: 'pessoaMais', destino: { aba: 'folha', sub: 'implantacao' } },

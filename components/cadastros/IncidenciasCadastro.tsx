@@ -2,7 +2,8 @@
 //
 // Eventos do IOB × rubricas do eSocial (S-1010) da empresa: as marcas de
 // incidência do IOB (IN, IR, FG) conferidas com os códigos de incidência da
-// rubrica vigente na competência.
+// rubrica vigente na competência. Daqui sai também o S-1010 pelo Consultor
+// (components/esocial/TabelaRubricasEsocial.tsx): rubrica nova, correção e exclusão.
 
 import React, { useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
@@ -15,6 +16,7 @@ import {
 } from '../../services/cadastros/rubricas';
 import { gravarRubricasImportadas, listarRubricas, mensagemErro, salvarVinculoRubrica, type Usuario } from '../../services/cadastros/cadastrosService';
 import { fontesDosArquivos } from './lerArquivosXml';
+import TabelaRubricasEsocial, { type InicioS1010 } from '../esocial/TabelaRubricasEsocial';
 
 interface Props { empresa: Empresa; usuario: Usuario }
 
@@ -39,6 +41,7 @@ const IncidenciasCadastro: React.FC<Props> = ({ empresa, usuario }) => {
     const [filtro, setFiltro] = useState<'problemas' | 'todas'>('problemas');
     const [importar, setImportar] = useState(false);
     const [vincular, setVincular] = useState<Rubrica | null>(null);
+    const [s1010, setS1010] = useState<{ inicio: InicioS1010 | null } | null>(null);
 
     const carregar = () => {
         setErro(''); setRubricas(null);
@@ -82,6 +85,7 @@ const IncidenciasCadastro: React.FC<Props> = ({ empresa, usuario }) => {
             </p>
             <div className="flex flex-wrap items-center gap-2">
                 <button className="rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={!rubricas} onClick={() => setImportar(true)}>Importar S-1010 (XML)</button>
+                <button className={btn} disabled={!rubricas} onClick={() => setS1010({ inicio: null })}>S-1010 pelo Consultor</button>
                 <button className={btn} disabled={!linhas.length} onClick={exportar}>Exportar Excel</button>
                 <label className="ml-auto text-sm dark:text-white">Competência <input type="month" className="ml-1 rounded border border-slate-300 px-2 py-1.5 dark:border-slate-600 dark:bg-slate-900" value={competencia} onChange={e => setCompetencia(e.target.value)} aria-label="Competência das incidências" /></label>
                 <select className="rounded border border-slate-300 px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-white" value={filtro} onChange={e => setFiltro(e.target.value as typeof filtro)} aria-label="Filtro das incidências">
@@ -120,6 +124,7 @@ const IncidenciasCadastro: React.FC<Props> = ({ empresa, usuario }) => {
                                         <td className="p-2 text-xs">
                                             <span className={`rounded px-2 py-0.5 ${COR[l.situacao as SituacaoInc | 'sem']}`}>{ROTULO[l.situacao as SituacaoInc | 'sem']}</span>
                                             <ul className="mt-1 space-y-0.5">{l.itens.filter(i => i.situacao !== 'ok').map(i => <li key={i.tributo}><strong>{i.tributo}:</strong> {i.mensagem}</li>)}</ul>
+                                            {l.situacao !== 'ok' && <button className="mt-1 block text-blue-700 underline dark:text-blue-300" onClick={() => setS1010({ inicio: { acao: 'alteracao', rubrica: l.r, competencia } })}>Corrigir no eSocial (S-1010)</button>}
                                         </td>
                                     </tr>
                                 );
@@ -129,6 +134,7 @@ const IncidenciasCadastro: React.FC<Props> = ({ empresa, usuario }) => {
                 </div>
             )}
             {importar && rubricas && <ImportarS1010Modal empresa={empresa} existentes={rubricas} usuario={usuario} onFechar={() => setImportar(false)} onGravado={() => { setImportar(false); carregar(); }} />}
+            {s1010 && rubricas && <TabelaRubricasEsocial empresa={empresa} usuario={usuario} rubricas={rubricas} inicio={s1010.inicio} onFechar={() => setS1010(null)} onAtualizado={() => { listarRubricas(empresa.id).then(setRubricas).catch(e => setErro(mensagemErro(e))); }} />}
             {vincular && <VinculoModal r={vincular} eventos={porCodigo} usuario={usuario} onFechar={() => setVincular(null)} onSalvo={() => { setVincular(null); carregar(); }} />}
         </div>
     );
