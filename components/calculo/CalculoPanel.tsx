@@ -10,7 +10,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as XLSX from 'xlsx';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { atualizarParametrosFolha, listarEmpresasVisiveis } from '../../services/empresas/empresasService';
-import { anteriorEncadeado, arredondaNoMes, arredondar, folhaPagaAntes, mesDoPagamento, movimentoComFechado, movimentoComIrrf, movimentoComMesPagamento, semFechado, mudarRegime, regimeNoMes, type ParametrosFolha, type RegimePagamento } from '../../services/calculo/arredondamento';
+import { anteriorEncadeado, arredondaNoMes, motorHomologadoNoMes, arredondar, folhaPagaAntes, mesDoPagamento, movimentoComFechado, movimentoComIrrf, movimentoComMesPagamento, semFechado, mudarRegime, regimeNoMes, type ParametrosFolha, type RegimePagamento } from '../../services/calculo/arredondamento';
 import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
 import EmpresaAtivaFixa from '../empresaAtiva/EmpresaAtivaFixa';
 import { listarAfastamentos, listarEnquadramentos, listarFuncionarios, listarTabelas, mensagemErro, salvarAfastamento, type Usuario } from '../../services/cadastros/cadastrosService';
@@ -35,6 +35,7 @@ import { calcular13, com13, OPCOES_13_PADRAO, ultimoDiaDoMes, type Opcoes13 } fr
 import ConferenciaHolerites, { conferirTodos, type LeituraHolerites } from './ConferenciaHolerites';
 import ConferenciaEsocialIob from './ConferenciaEsocialIob';
 import EventosFolhaModal from '../esocial/EventosFolhaModal';
+import { ehAdmin, ehMaster } from '../../services/auth/papeis';
 import CalculoAdiantamentosModal from './CalculoAdiantamentosModal';
 import { recibosFeriasDaCompetencia } from '../../services/esocial/eventosFolha';
 import { contextoDoHolerite, definirContextoMia } from '../../services/mia/mia';
@@ -421,7 +422,21 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         : rescisao ? 'Rescisões: o INSS do saldo e do 13º e o FGTS rescisório entram na competência do desligamento, junto com a folha mensal.'
         : ferias ? 'Recibos de férias: o INSS e o FGTS de cada competência entram na folha mensal correspondente; aqui é só o valor dos recibos.'
         : 'Folha de 13º: a 2ª parcela tem INSS e IRRF próprios (apuração do 13º na DCTFWeb); a 1ª parcela só tem FGTS.');
-    const opcoesPdf = () => ({ empresa: { razaoSocial: empresa?.razaoSocial ?? '', cnpj: empresa?.cnpj ?? '', codigoSage: empresa?.codigoSage }, titulo: tituloFolha, previa: true });
+    // Motor homologado na empresa (a partir da competência ativada): documentos sem a marca de prévia.
+    const competenciaDoc = mensal || ferias || rescisao ? competencia : `${ano}-12`;
+    const homologado = motorHomologadoNoMes(parametrosFolha, competenciaDoc);
+    const podeHomologar = ehAdmin((currentUser as { role?: string }).role) || ehMaster(currentUser.email);
+    function ativarMotor(ativar: boolean) {
+        if (!empresa) return;
+        const desde = /^\d{4}-\d{2}$/.test(competencia) ? competencia : `${ano}-01`;
+        if (ativar && !window.confirm(`Ativar o motor de cálculo da ${empresa.nomeFantasia || empresa.razaoSocial} a partir de ${br(desde)}?\n\nOs holerites, recibos e resumos passam a sair sem a marca de PRÉVIA, como documentos da folha. Ative só com o cálculo conferido com o IOB (empresa homologada).`)) return;
+        if (!ativar && !window.confirm('Voltar o motor desta empresa para prévia? Os documentos voltam a sair com a marca de PRÉVIA.')) return;
+        gravarParametrosFolha(p => {
+            const { motorHomologado: _m, ...resto } = p ?? {};
+            return ativar ? { ...resto, motorHomologado: { desde, por: currentUser.email ?? usuario.id, em: new Date().toISOString() } } : resto;
+        });
+    }
+    const opcoesPdf = () => ({ empresa: { razaoSocial: empresa?.razaoSocial ?? '', cnpj: empresa?.cnpj ?? '', codigoSage: empresa?.codigoSage }, titulo: tituloFolha, previa: !homologado });
     async function pdfHolerites(lista: ResultadoCalculo[], nome: string) {
         if (!dados) return;
         try { (await relatoriosPdf()).holeritesPdf(lista, dados.fichas, opcoesPdf()).save(nome); }
@@ -539,9 +554,17 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     return (
         <PdfContexto.Provider value={r => pdfHolerites([r], `holerite-${empresa?.codigoSage ?? 'empresa'}-${sufixoArquivo}-${(nomeDe(r.fichaId) || r.fichaId).replace(/[^A-Za-z0-9]+/g, '-').toLowerCase()}.pdf`)}>
         <div className="space-y-4">
-            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-100">
-                <strong>Prévia do motor de cálculo (Fase 3).</strong> Não substitui o cálculo do IOB enquanto não for conferido contra ele. O movimento do mês é gravado quando você clica em "Salvar movimento"; o resultado do cálculo não é gravado, só o que o mês seguinte usa (o IRRF da folha paga no mês seguinte e o arredondamento). 13º, férias e rescisão usam as médias de horas extras dos movimentos gravados. Adicionais, comissões e outras médias ainda não estão no motor.
-            </div>
+            {homologado ? (
+                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-green-300 bg-green-50 p-3 text-sm text-green-900 dark:border-green-700 dark:bg-green-900/20 dark:text-green-100">
+                    <span><strong>Motor de cálculo ativo</strong> para {empresa?.nomeFantasia || empresa?.razaoSocial} desde {br(parametrosFolha!.motorHomologado!.desde)} (empresa homologada; ativado por {parametrosFolha!.motorHomologado!.por}). Holerites, recibos e resumos saem sem a marca de prévia. O movimento do mês é gravado em "Salvar movimento". Adicionais, comissões e outras médias ainda não estão no motor: lance como lançamento no movimento.</span>
+                    {podeHomologar && <button className="ml-auto rounded border border-green-400 px-2 py-1 text-xs dark:border-green-600" onClick={() => ativarMotor(false)}>Voltar para prévia</button>}
+                </div>
+            ) : (
+                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-100">
+                    <span><strong>Prévia do motor de cálculo.</strong> Não substitui o cálculo do IOB enquanto a empresa não for homologada: os documentos saem com a marca de PRÉVIA. O movimento do mês é gravado quando você clica em "Salvar movimento". 13º, férias e rescisão usam as médias de horas extras dos movimentos gravados. Adicionais, comissões e outras médias ainda não estão no motor.</span>
+                    {podeHomologar && empresa && <button className="ml-auto rounded bg-green-700 px-3 py-1.5 text-xs font-medium text-white" title="Empresa conferida com o IOB: os documentos passam a sair sem a marca de prévia, a partir da competência da tela." onClick={() => ativarMotor(true)}>Ativar o motor para esta empresa</button>}
+                </div>
+            )}
             <div className="flex flex-wrap items-end gap-3">
                 {ativa ? <EmpresaAtivaFixa /> : <label className="text-sm dark:text-white">Empresa
                     <select aria-label="Empresa" className={`ml-2 ${inp}`} value={empresaId} onChange={e => { const v = e.target.value; seguro(() => setEmpresaId(v)); }}>
@@ -838,7 +861,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                     }).sort((a, b) => a.inicio.localeCompare(b.inicio))
                     : eventosDaFolha({ folha: folha as Exclude<Folha, 'ferias'>, empresa: { nome: nomeEmp, cnpj: empresa.cnpj }, competencia, ano,
                         pagamento: rescisao ? (resultados[0]?.pagamento || competencia) : pagamento, dataPagamento: data, resultados, encargos: resumo.encargos }));
-                const recibos = mensal ? 'Holerites' : ferias ? 'Recibos de férias' : rescisao ? 'Rescisões (TRCT em prévia)' : 'Holerites do 13º';
+                const recibos = mensal ? 'Holerites' : ferias ? 'Recibos de férias' : rescisao ? (homologado ? 'Rescisões (TRCT)' : 'Rescisões (TRCT em prévia)') : 'Holerites do 13º';
                 return (
                     <PacoteClienteModal empresa={empresa} resultados={resultados} fichas={dados.fichas} titulo={tituloFolha} sufixo={sufixoArquivo}
                         dataSugerida={sugerida} dataPorResultado={dataDoRecibo} eventos={eventos} onFechar={() => setPacote(false)} onContasSalvas={contasSalvas}

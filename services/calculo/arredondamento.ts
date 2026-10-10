@@ -18,6 +18,11 @@ import { reais } from '../cadastros/documentos';
 
 /** Parâmetros da folha da empresa (empresas/{id}.parametrosFolha). */
 export interface ParametrosFolha {
+    /**
+     * Motor de cálculo homologado para a empresa (conferido com o IOB): a partir da competência `desde`, holerites,
+     * recibos e resumos saem sem a marca de prévia. Quem ativou e quando ficam registrados.
+     */
+    motorHomologado?: { desde: string; por: string; em: string };
     /** Arredondar o líquido ao real seguinte, com os centavos descontados no mês seguinte. */
     arredondarLiquido?: boolean;
     /** Competência (AAAA-MM) em que o arredondamento começou no Consultor: o "anterior" é encadeado a partir dela. */
@@ -61,6 +66,10 @@ export function mudarRegime(p: ParametrosFolha | undefined, desde: string, para:
 }
 
 /** A empresa arredonda nesta competência? Só a partir do mês de início (antes dele a folha fica como era; Codex #116). */
+/** O motor está homologado na competência (AAAA-MM; o 13º usa AAAA-12)? */
+export const motorHomologadoNoMes = (p: ParametrosFolha | undefined, competencia: string) =>
+    !!p?.motorHomologado && /^\d{4}-\d{2}$/.test(competencia) && competencia >= p.motorHomologado.desde;
+
 export const arredondaNoMes = (p: ParametrosFolha | undefined, competencia: string) =>
     !!p?.arredondarLiquido && (!p.arredondarDesde || competencia >= p.arredondarDesde);
 

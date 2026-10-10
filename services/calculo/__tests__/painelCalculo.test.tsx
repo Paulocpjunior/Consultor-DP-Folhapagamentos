@@ -9,8 +9,10 @@ import type { TabelaLegal } from '../../cadastros/tabelasLegais';
 
 const xlsx = vi.hoisted(() => ({ writeFile: vi.fn() }));
 vi.mock('xlsx', async orig => ({ ...(await orig<typeof import('xlsx')>()), writeFile: xlsx.writeFile }));
+const emp = vi.hoisted(() => ({ parametrosFolha: undefined as unknown, atualizar: vi.fn() }));
 vi.mock('../../empresas/empresasService', () => ({
-    listarEmpresasVisiveis: async () => [{ id: 'emp1', cnpj: '11222333000181', razaoSocial: 'EMPRESA UM', nomeFantasia: 'Um', codigoSage: '0229', criadoPor: 'u' }],
+    listarEmpresasVisiveis: async () => [{ id: 'emp1', cnpj: '11222333000181', razaoSocial: 'EMPRESA UM', nomeFantasia: 'Um', codigoSage: '0229', criadoPor: 'u', ...(emp.parametrosFolha ? { parametrosFolha: emp.parametrosFolha } : {}) }],
+    atualizarParametrosFolha: async (_id: string, mudar: (p: unknown) => unknown) => { const novo = mudar(emp.parametrosFolha); emp.atualizar(novo); return novo; },
 }));
 const EMP = { id: 'emp1', cnpj: '11222333000181' };
 const ficha = (id: string, nome: string, dados: FichaFuncionario['dados']): FichaFuncionario => ({ ...fichaVazia(EMP), id, cpf: '52998224725', matriculaEsocial: id, situacao: 'ativo', dados: { nome, admissao: '2024-01-02', unidadeSalario: '5', horasSemanais: '44', categoria: '101', ...dados } });
@@ -350,6 +352,42 @@ describe('aba Cálculo', () => {
         fireEvent.change(screen.getByLabelText('Empresa'), { target: { value: 'emp1' } });
         await waitFor(() => expect(screen.getByText(/Movimentos gravados não carregados/)).toBeTruthy());
         expect(screen.getByText('ANA').closest('tr')!.textContent).toContain('incompleto');
+    });
+
+    it('motor homologado na empresa: documentos sem a marca de prévia; o admin ativa e volta para prévia', async () => {
+        emp.parametrosFolha = { motorHomologado: { desde: '2026-03', por: 'gestor@x', em: '2026-10-10T10:00:00Z' } };
+        try {
+            render(<CalculoPanel currentUser={USER} />);
+            await waitFor(() => expect(screen.getByRole('option', { name: /0229/ })).toBeTruthy());
+            fireEvent.change(screen.getByLabelText('Competência'), { target: { value: '2026-03' } });
+            fireEvent.change(screen.getByLabelText('Empresa'), { target: { value: 'emp1' } });
+            await waitFor(() => expect(screen.getByText('ANA')).toBeTruthy());
+            expect(screen.getByText('Motor de cálculo ativo')).toBeTruthy();
+            await clicarGerando(screen.getByText('Holerites (PDF)'), pdf.save);
+            expect(pdf.holeritesPdf.mock.calls.at(-1)![2]).toMatchObject({ previa: false });
+            // Competência antes da ativação: prévia.
+            vi.spyOn(window, 'confirm').mockReturnValue(true);
+            fireEvent.change(screen.getByLabelText('Competência'), { target: { value: '2026-02' } });
+            await waitFor(() => expect(screen.getByText('Prévia do motor de cálculo.')).toBeTruthy());
+            cleanup();
+            // Admin ativa a partir da competência da tela.
+            emp.parametrosFolha = undefined;
+            render(<CalculoPanel currentUser={{ ...(USER as object), role: 'admin' } as never} />);
+            await waitFor(() => expect(screen.getByRole('option', { name: /0229/ })).toBeTruthy());
+            fireEvent.change(screen.getByLabelText('Competência'), { target: { value: '2026-03' } });
+            fireEvent.change(screen.getByLabelText('Empresa'), { target: { value: 'emp1' } });
+            fireEvent.click(await screen.findByText('Ativar o motor para esta empresa'));
+            await waitFor(() => expect(emp.atualizar).toHaveBeenCalledWith(expect.objectContaining({ motorHomologado: expect.objectContaining({ desde: '2026-03', por: 'dp@escritorio.com.br' }) })));
+            await waitFor(() => expect(screen.getByText('Motor de cálculo ativo')).toBeTruthy());
+        } finally { emp.parametrosFolha = undefined; vi.restoreAllMocks(); }
+    });
+
+    it('colaborador não vê o botão de ativar o motor', async () => {
+        render(<CalculoPanel currentUser={USER} />);
+        await waitFor(() => expect(screen.getByRole('option', { name: /0229/ })).toBeTruthy());
+        fireEvent.change(screen.getByLabelText('Empresa'), { target: { value: 'emp1' } });
+        await waitFor(() => expect(screen.getByText('Prévia do motor de cálculo.')).toBeTruthy());
+        expect(screen.queryByText('Ativar o motor para esta empresa')).toBeNull();
     });
 
     it('relatórios: resumo da folha na tela, holerites e resumo em PDF', async () => {

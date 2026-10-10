@@ -3253,3 +3253,9 @@ guias sindicais".
 - **Antes:** a aba do 13º calculava o IRRF sem o desconto simplificado (padrão), e a rescisão com ele.
 - **Regra:** a IN RFB 2.141/2023 alterou a IN RFB 1.500/2014 para a fonte pagadora usar o desconto simplificado mensal, quando mais benéfico, também no 13º e nas férias.
 - **Agora:** o 13º usa o desconto simplificado e o redutor de 2026 por padrão (as duas opções continuam na tela; fora do padrão, aviso).
+
+## 10/10/2026 — Motor de cálculo ativo por empresa (homologação)
+
+- **Paulo:** "o motor deve estar ativado... saímos do ambiente de teste, a empresa 1200 está sendo piloto porém tudo homologado".
+- **Antes:** todo PDF (holerites, recibos, resumo, pacote) saía com a marca d'água "PRÉVIA" e o aviso "confira com o IOB antes de qualquer uso"; a tela mostrava "Prévia do motor".
+- **Agora:** parâmetro da folha `motorHomologado` (competência inicial, quem ativou e quando). Na aba Cálculo, admin ou gestor clica em "Ativar o motor para esta empresa" (a partir da competência da tela, com confirmação); a faixa fica verde ("Motor de cálculo ativo") e os documentos saem sem a marca de prévia nas competências a partir dela (13º pelo dezembro do ano). "Voltar para prévia" desfaz. Colaborador não vê os botões.
