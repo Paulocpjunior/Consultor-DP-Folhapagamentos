@@ -2,7 +2,7 @@
 //
 // Retorno visual do eSocial para um registro do Consultor (Paulo, 07/10/2026:
 // "devemos criar um visual para os colaboradores que tenha um retorno visual
-// do evento"). Hoje: o S-2230 de cada afastamento. A situação sai dos lotes
+// do evento"). O S-2230 de cada afastamento e o S-2299 de cada desligamento. A situação sai dos lotes
 // transmitidos pelo cofre (esocial_envios, evento ligado ao afastamento por
 // `ref`) ou, sem envio pelo Consultor, do recibo que veio do IOB.
 
@@ -47,18 +47,24 @@ function pelaLista(lista: { envio: Envio; evento: EventoEnviado }[]): Situacao |
 }
 
 /**
- * Situação do S-2230 de um afastamento. `envios` como vem de listarEnvios (mais recente primeiro).
- * A situação é a da produção: um teste na produção restrita aparece à parte e
- * não esconde o envio de verdade.
+ * Situação do evento de um registro do Consultor (por `ref` e tipo). `envios` como vem de listarEnvios (mais
+ * recente primeiro). A situação é a da produção: um teste na produção restrita aparece à parte e não esconde o
+ * envio de verdade. `iob`: o evento veio transmitido pelo IOB (recibo ou origem importada).
  */
-export function statusS2230(a: Pick<Afastamento, 'id' | 'recibos'>, envios: Envio[]): StatusEvento {
+export function statusPorRef(ref: string, tipo: string, envios: Envio[], iob?: { recibo: string; detalhe: string } | null): StatusEvento {
     // "Não recebido": o lote não chegou ao governo (liberado para reenvio), não conta como envio.
-    const historico = envios.filter(envio => envio.situacao !== 'nao-recebido').flatMap(envio => envio.eventos.filter(e => e.ref === a.id && e.tipo === 'S-2230').map(evento => ({ envio, evento })))
+    const historico = envios.filter(envio => envio.situacao !== 'nao-recebido').flatMap(envio => envio.eventos.filter(e => e.ref === ref && e.tipo === tipo).map(evento => ({ envio, evento })))
         .sort((x, y) => (y.envio.enviadoEm ?? '').localeCompare(x.envio.enviadoEm ?? ''));
     const teste = pelaLista(historico.filter(x => x.envio.tpAmb !== 1));
     const producao = pelaLista(historico.filter(x => x.envio.tpAmb === 1));
     if (producao) return { ...producao, historico, teste };
     const vazio = { envio: null, evento: null, historico, teste };
-    if (a.recibos?.length) return { ...vazio, situacao: 'iob', rotulo: ROTULO_SITUACAO_EVENTO.iob, recibo: a.recibos[a.recibos.length - 1], detalhe: `Recibo ${a.recibos[a.recibos.length - 1]} (importado do IOB)` };
-    return { ...vazio, situacao: 'nao-enviado', rotulo: ROTULO_SITUACAO_EVENTO['nao-enviado'], recibo: '', detalhe: 'S-2230 ainda não transmitido à produção do eSocial.' };
+    if (iob) return { ...vazio, situacao: 'iob', rotulo: ROTULO_SITUACAO_EVENTO.iob, recibo: iob.recibo, detalhe: iob.detalhe };
+    return { ...vazio, situacao: 'nao-enviado', rotulo: ROTULO_SITUACAO_EVENTO['nao-enviado'], recibo: '', detalhe: `${tipo} ainda não transmitido à produção do eSocial.` };
+}
+
+/** Situação do S-2230 de um afastamento. */
+export function statusS2230(a: Pick<Afastamento, 'id' | 'recibos'>, envios: Envio[]): StatusEvento {
+    const ultimo = a.recibos?.length ? a.recibos[a.recibos.length - 1] : '';
+    return statusPorRef(a.id, 'S-2230', envios, ultimo ? { recibo: ultimo, detalhe: `Recibo ${ultimo} (importado do IOB)` } : null);
 }

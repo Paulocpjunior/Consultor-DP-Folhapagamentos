@@ -49,6 +49,7 @@ import { contextoDoHolerite, definirContextoMia } from '../../services/mia/mia';
 import { resumirFolha } from '../../services/relatorios/resumoFolha';
 import { listarEnvios, type Envio } from '../../services/esocial/transmissaoService';
 import StatusEsocialAfastamento from '../esocial/StatusEsocialAfastamento';
+import DesligamentoEsocial from '../esocial/DesligamentoEsocial';
 import ConviteAgenda from '../agenda/ConviteAgenda';
 import { eventosDoReciboFerias } from '../../services/agenda/convite';
 import BeneficiosEmpresa from './BeneficiosEmpresa';
@@ -170,7 +171,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
     const [pacote, setPacote] = useState(false);
     const [eventosFolha, setEventosFolha] = useState(false);
     const [verAdiantamentos, setVerAdiantamentos] = useState(folhaInicial === 'adiantamento');
-    useEffect(() => { setEnviosEsocial(null); if (!empresaId || folha !== 'ferias') return; listarEnvios(empresaId).then(setEnviosEsocial).catch(() => setEnviosEsocial([])); }, [empresaId, folha, recargaEnvios]);
+    useEffect(() => { setEnviosEsocial(null); if (!empresaId || (folha !== 'ferias' && folha !== 'rescisao')) return; listarEnvios(empresaId).then(setEnviosEsocial).catch(() => setEnviosEsocial([])); }, [empresaId, folha, recargaEnvios]);
     const [opcoesFerias, setOpcoesFerias] = useState<OpcoesFerias>(OPCOES_FERIAS_PADRAO);
     const [recarga, setRecarga] = useState(0);
     // Folha mensal: movimentos de todos os meses, para os recibos de férias que tocam o mês (médias e faltas).
@@ -944,7 +945,12 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                             {reaisCampo('13º já adiantado no ano (R$)', 'adiantamento13')}
                             <p>{t.diasAviso ? `Aviso de ${t.diasAviso} dias · ` : ''}fim projetado {br(t.dataProjetada)} · pagar até <PagarAte data={t.pagarAte} /></p>
                             <p>Multa do FGTS{t.percentualMulta ? ` (${t.percentualMulta}%)` : ''}: <strong>{t.percentualMulta ? (t.multaFgts ? reais(t.multaFgts) : 'informe o saldo') : 'não há'}</strong> — paga por guia, fora do líquido. {t.saqueFgts}</p>
-                            <p className="text-slate-500">Nada aqui é gravado. O desligamento oficial é o S-2299; a data e o motivo vêm da ficha.</p>
+                            <p className="text-slate-500">{p.simulada ? 'Simulação: nada aqui é gravado nem vai ao eSocial. Para o S-2299, registre o desligamento na ficha (Cadastros › Funcionários › Ident. Adm.).' : 'Nada aqui é gravado. A data vem da ficha; o S-2299 sai abaixo, pela rescisão calculada.'}</p>
+                            {!p.simulada && empresa && (() => {
+                                const ficha = dados?.fichas.find(x => x.id === t.fichaId);
+                                return ficha ? <DesligamentoEsocial key={`${t.fichaId}-${t.data}`} empresa={empresa} ficha={ficha} rescisao={t} usuario={usuario} envios={enviosEsocial} onAtualizado={() => setRecargaEnvios(n => n + 1)}
+                                    onParametrosSalvos={pe => setEmpresas(l => l?.map(e => (e.id === empresa.id ? { ...e, esocialFolha: pe } : e)) ?? l)} /> : null;
+                            })()}
                             {p.simulada && <button className="rounded border border-slate-300 px-2 py-1 dark:border-slate-600" onClick={() => { setParamsResc(x => { const y = { ...x }; delete y[t.fichaId]; return y; }); setAberto(''); }}>Remover simulação</button>}
                         </div>
                     </Holerite>

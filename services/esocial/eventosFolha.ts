@@ -65,7 +65,7 @@ export const parametrosVazios = (cnpj = ''): ParametrosEsocialFolha => ({ nrInsc
 const digitos = (t: string | undefined) => (t ?? '').replace(/\D/g, '');
 const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const valor = (c: number) => (c / 100).toFixed(2);
-const normalizar = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9%]+/g, ' ').trim();
+export const normalizar = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9%]+/g, ' ').trim();
 
 /** Chave da verba no de/para: o código do motor; lançamento avulso, pela descrição. */
 export const chaveVerba = (v: Pick<Verba, 'codigo' | 'descricao'>) => (/^LAN\d+$/.test(v.codigo) ? `LAN:${normalizar(v.descricao)}` : v.codigo);
@@ -242,7 +242,7 @@ export function verbasDosRecibosParaDePara(recibos: ReciboFeriasEsocial[], compe
 }
 
 /** Quantidade da verba pela referência do motor ("10,5 h", "30 dias"). */
-function quantidade(referencia: string): string {
+export function quantidade(referencia: string): string {
     const m = (referencia ?? '').match(/^(\d+(?:[.,]\d+)?)\s*(h|dias?)\b/);
     if (!m) return '';
     const n = Number(m[1].replace(',', '.'));
