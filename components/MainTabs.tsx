@@ -23,7 +23,8 @@ import type { SubCadastro } from './cadastros/CadastrosPanel';
 import EmpresasPanel from './empresas/EmpresasPanel';
 import ESocialMonitorPanel from './esocial/ESocialMonitorPanel';
 import AlertaPendenciasPopup from './AlertaPendenciasPopup';
-import Cabecalho from './layout/Cabecalho';
+import Cabecalho, { Ico } from './layout/Cabecalho';
+import { corDoGrupo } from './layout/cores';
 import { menuDoPapel, ondeEsta, type Destino as DestinoMenu } from '../services/navegacao/menu';
 import UpdateBanner from './UpdateBanner';
 import MiaAssistente from './mia/MiaAssistente';
@@ -369,11 +370,16 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
             <main key={ativa ? `${ativa.id}_${ativa.competencia}` : 'sem-empresa'} className="max-w-7xl mx-auto p-4 sm:p-6">
                 {local && (
                     <div className="mb-5 border-b border-slate-200 pb-4 dark:border-slate-700/60">
-                        <nav aria-label="Você está em" className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-blue-700/80 dark:text-blue-300/80">
-                            <span>{local.grupo.rotulo}</span><span aria-hidden className="text-slate-300 dark:text-slate-600">/</span><span>{local.item.rotulo}</span>
-                        </nav>
-                        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">{local.item.rotulo}</h1>
-                        <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{local.item.descricao}</p>
+                        <div className="flex items-center gap-3">
+                            <span aria-hidden className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl text-white shadow-md ${corDoGrupo(local.grupo.id).solido}`}><Ico nome={local.item.icone} className="h-6 w-6" /></span>
+                            <div className="min-w-0">
+                                <nav aria-label="Você está em" className={`flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider ${corDoGrupo(local.grupo.id).barra}`}>
+                                    <span>{local.grupo.rotulo}</span><span aria-hidden className="text-slate-300 dark:text-slate-600">/</span><span>{local.item.rotulo}</span>
+                                </nav>
+                                <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">{local.item.rotulo}</h1>
+                            </div>
+                        </div>
+                        <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">{local.item.descricao}</p>
                     </div>
                 )}
                 {activeTab === 'folha' && (empresasCount && empresasCount > 0

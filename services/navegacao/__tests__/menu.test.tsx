@@ -4,6 +4,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import Cabecalho from '../../../components/layout/Cabecalho';
 import { MENU, menuDoPapel, ondeEsta } from '../menu';
+import { COR } from '../../../components/layout/cores';
+import { ICONES } from '../../../components/layout/icones';
 
 afterEach(cleanup);
 const ATIVA = { id: 'e1', nome: 'EMPRESA UM', cnpj: '11222333000181', codigoSage: '1200', competencia: '2026-09', ativadaPor: 'x', ativadaEm: 1 };
@@ -13,6 +15,15 @@ describe('menu do app', () => {
         expect(MENU.map(g => g.rotulo)).toEqual(['Empresas', 'Cadastros', 'Folha do mês', 'Conferência', 'eSocial', 'Prazos', 'Fim de mês', 'Configurações']);
         expect(MENU[0].itens[0].destino).toEqual({ aba: 'trocar' });
         for (const g of MENU) expect(new Set(g.itens.map(i => i.id)).size).toBe(g.itens.length);
+    });
+
+    it('cada grupo tem a sua cor e cada item, um ícone conhecido (cores diferentes entre os grupos)', () => {
+        for (const g of MENU) {
+            expect(COR).toHaveProperty(g.id);
+            expect(ICONES).toHaveProperty(g.icone);
+            for (const i of g.itens) expect(ICONES).toHaveProperty(i.icone);
+        }
+        expect(new Set(MENU.map(g => COR[g.id as keyof typeof COR].solido)).size).toBe(MENU.length);
     });
 
     it('Usuários só para admin', () => {

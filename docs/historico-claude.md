@@ -3328,3 +3328,23 @@ guias sindicais".
   - `testes-regras/fimDeMes.test.mjs` (emulador);
   - caso novo no `painelCalculo.test.tsx`.
 - **Fica para depois:** afastamento que começa antes e atravessa o mês encerrado não é travado; alterações na ficha (salário) e nos parâmetros da folha não são travadas (têm histórico próprio).
+
+## 10/10/2026 — Ícones coloridos no menu
+
+- **Paulo:** "os ícones podem e devem ser coloridos para que agora no começo fique mais fácil a memorização do colaborador".
+- **Cores (`components/layout/cores.ts`):** uma cor por grupo, igual em todo lugar:
+  - Empresas: azul-céu
+  - Cadastros: violeta
+  - Folha do mês: verde
+  - Conferência: âmbar
+  - eSocial: índigo
+  - Prazos: laranja
+  - Fim de mês: rosa
+  - Configurações: cinza
+- **Onde a cor aparece:** no ícone do menu (sólido), nos ícones dos itens do painel e no título da página.
+- **Ícones (`components/layout/icones.ts`):** cada item tem o seu. Exemplos:
+  - Funcionários: pessoas; Férias: sol; Rescisão: saída; 13º: presente.
+  - Adiantamento: cédula; Cálculo mensal: calculadora.
+  - Transmissão: avião de papel; FGTS: moeda.
+  - Fechamento: cadeado; Pedidos de reabertura: cadeado aberto.
+- **Teste:** todo grupo tem cor, todo item tem ícone e as cores dos grupos não se repetem.
