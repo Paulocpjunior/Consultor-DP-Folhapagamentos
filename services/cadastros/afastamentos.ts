@@ -33,6 +33,10 @@ export interface Afastamento {
     abonoDias?: string;
     /** Férias (motivo 15): pensão alimentícia descontada no recibo (centavos), deduzida no IRRF das férias. Só no Consultor. */
     pensaoFerias?: string;
+    /** Férias coletivas (motivo 15 ou a licença remunerada 16 do excedente): o início da coletiva (AAAA-MM-DD). Só no Consultor. */
+    coletiva?: string;
+    /** Férias coletivas de quem tem menos de 12 meses (CLT, art. 140): o período aquisitivo recomeça no início do gozo. */
+    novoPeriodo?: string;
     origem: string;
     recibos: string[];
 }
@@ -68,7 +72,7 @@ export const ACID_TRANSITO: Record<string, string> = { '1': 'Atropelamento', '2'
 export const idAfastamento = (fichaId: string, dtInicio: string) => `${fichaId}_${dtInicio}`;
 
 export function afastamentoVazio(): Afastamento {
-    return { id: '', empresaId: '', fichaId: '', cpf: '', matriculaEsocial: '', dtInicio: '', dtFim: '', motivo: '', infoMesmoMtv: '', tpAcidTransito: '', observacao: '', perAquisInicio: '', perAquisFim: '', abonoDias: '', origem: '', recibos: [] };
+    return { id: '', empresaId: '', fichaId: '', cpf: '', matriculaEsocial: '', dtInicio: '', dtFim: '', motivo: '', infoMesmoMtv: '', tpAcidTransito: '', observacao: '', perAquisInicio: '', perAquisFim: '', abonoDias: '', coletiva: '', novoPeriodo: '', origem: '', recibos: [] };
 }
 
 export const emAberto = (a: Afastamento, hoje: string) => a.dtInicio <= hoje && (!a.dtFim || a.dtFim >= hoje);

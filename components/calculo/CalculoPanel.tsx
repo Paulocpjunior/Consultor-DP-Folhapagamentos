@@ -13,6 +13,7 @@ import { atualizarParametrosFolha, listarEmpresasVisiveis } from '../../services
 import { anteriorEncadeado, arredondaNoMes, motorHomologadoNoMes, arredondar, folhaPagaAntes, mesDoPagamento, movimentoComFechado, movimentoComIrrf, movimentoComMesPagamento, semFechado, mudarRegime, regimeNoMes, type ParametrosFolha, type RegimePagamento } from '../../services/calculo/arredondamento';
 import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
 import EmpresaAtivaFixa from '../empresaAtiva/EmpresaAtivaFixa';
+import FeriasColetivasModal from '../ferias/FeriasColetivasModal';
 import { listarAfastamentos, listarEnquadramentos, listarFuncionarios, listarTabelas, mensagemErro, salvarAfastamento, type Usuario } from '../../services/cadastros/cadastrosService';
 import { enquadramentoVigente, type Enquadramento } from '../../services/cadastros/enquadramento';
 import type { User } from '../../types';
@@ -176,6 +177,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
     useEffect(() => { setEnviosEsocial(null); if (!empresaId || (folha !== 'ferias' && folha !== 'rescisao')) return; listarEnvios(empresaId).then(setEnviosEsocial).catch(() => setEnviosEsocial([])); }, [empresaId, folha, recargaEnvios]);
     const [opcoesFerias, setOpcoesFerias] = useState<OpcoesFerias>(OPCOES_FERIAS_PADRAO);
     const [recarga, setRecarga] = useState(0);
+    const [coletivas, setColetivas] = useState(false);
     // Folha mensal: movimentos de todos os meses, para os recibos de férias que tocam o mês (médias e faltas).
     const [movsEmpresa, setMovsEmpresa] = useState<Record<string, Record<string, Movimento>> | null>(null);
     const [salvos, setSalvos] = useState(0);
@@ -781,11 +783,17 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                             <label>Dias de gozo<input aria-label="Dias de gozo" inputMode="numeric" className={`ml-1 w-14 ${inp}`} value={progFerias.dias} onChange={e => setProgFerias(x => ({ ...x, dias: e.target.value.replace(/\D/g, '').slice(0, 2) }))} /></label>
                             <label>Abono (dias)<input aria-label="Dias de abono programados" inputMode="numeric" className={`ml-1 w-14 ${inp}`} value={progFerias.abono} onChange={e => setProgFerias(x => ({ ...x, abono: e.target.value.replace(/\D/g, '').slice(0, 2) }))} /></label>
                             <button className="rounded bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={!valido} onClick={programar}>Calcular</button>
+                            <button className="rounded border border-slate-300 px-3 py-1.5 disabled:opacity-50 dark:border-slate-600" disabled={!movsAno} onClick={() => setColetivas(true)}>Férias coletivas…</button>
                         </div>
                         <p className="text-slate-500 dark:text-slate-400">O período aquisitivo é o mais antigo com saldo, pela admissão e pelas férias já gozadas (Cadastros › Afastamentos). A programação é uma simulação até você gravar no detalhe do recibo.</p>
                     </div>
                 );
             })()}
+            {coletivas && dados && movsAno && empresa && (
+                <FeriasColetivasModal empresa={{ id: empresa.id, cnpj: empresa.cnpj, razaoSocial: empresa.razaoSocial || empresa.nomeFantasia || '', codigoSage: empresa.codigoSage }}
+                    fichas={dados.fichas} afastamentos={dados.afastamentos} movimentos={movsAno} usuario={usuario}
+                    onFechar={() => setColetivas(false)} onGravado={inicio => { setColetivas(false); setCompetencia(inicio.slice(0, 7)); setRecarga(n => n + 1); setAviso(`Férias coletivas gravadas em Cadastros › Afastamentos. Os recibos estão abaixo, na competência ${br(inicio.slice(0, 7))}.`); }} />
+            )}
             {ferias && (
                 <div className="flex flex-wrap items-center gap-4 rounded border border-slate-200 p-2 text-xs text-slate-700 dark:border-slate-700 dark:text-slate-200">
                     <span>Recibo de cada gozo lançado em Cadastros › Afastamentos (motivo 15) ou programado acima. Pagamento até 2 dias antes do início; o IRRF usa a tabela desse mês.</span>

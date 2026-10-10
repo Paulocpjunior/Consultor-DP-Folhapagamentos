@@ -3797,3 +3797,21 @@ Paulo: "pode seguir com provisão de férias e 13, lembrando que SST é com empr
 - **SST:** confirmado que ASO, CAT, S-2210, S-2220 e S-2240 ficam com a empresa de medicina e segurança do trabalho de cada cliente; o catálogo SAGE diz isso.
 - **Catálogo SAGE:** férias e 13º citam as provisões (continuam parciais: faltam férias coletivas e 13º complementar). Placar inalterado: 18 disponíveis, 21 parciais, 9 planejados, 3 fora.
 - **Testes:** posição (vencidas, dobra, proporcionais, faltas, 13º); movimento do mês com valores à mão (constituição, baixa por gozo, 13º em dezembro e janeiro, desligado, admitido, categorias); encargos por regime; lançamento; relatórios; tela da Central.
+
+## 10/10/2026 — Férias coletivas
+
+Paulo: "pode seguir com férias coletivas" (no mesmo pedido: sindicatos ligados à empresa com a convenção coletiva, conformidade com a convenção e salário mínimo federal e estadual nas tabelas — próximos lotes).
+
+- **Onde:** Cálculo › Férias › "Férias coletivas…" (`components/ferias/FeriasColetivasModal.tsx`).
+- **Plano** (`services/ferias/feriasColetivas.ts`), pela CLT:
+  - toda a empresa ou um setor (departamento, estabelecimento ou cargo da ficha);
+  - **art. 139:** até 2 por ano e nenhuma com menos de 10 dias (bloqueia); comunicação ao Ministério do Trabalho e ao sindicato 15 dias antes, com o prazo na tela (ME/EPP dispensada do Ministério: LC 123/2006, art. 51, V);
+  - **art. 134, § 3º:** início nos 2 dias antes de feriado bloqueia; antes de domingo avisa (repouso pode ser outro dia);
+  - **art. 140:** menos de 12 meses de contrato goza as proporcionais e o período aquisitivo recomeça no início do gozo;
+  - **12 meses ou mais:** o saldo dos períodos fechados, do mais antigo; o que passa vira licença remunerada (afastamento 16, salário normal na folha) ou, por escolha, antecipação do período em curso (um gozo por período);
+  - fora: quem já está afastado no período, desligado durante as coletivas e intermitente.
+- **Motor de férias:** o período aquisitivo fecha na véspera do gozo marcado como art. 140, com o direito proporcional (avos de 15 dias ou mais, faltas e suspensões); o seguinte começa no gozo. A média das variáveis do período proporcional é pelos meses dele. O plano calcula os dias proporcionais pelo próprio motor, para os dois baterem.
+- **Gravação:** os gozos (15) e as licenças (16) vão para Cadastros › Afastamentos marcados com a coletiva (sem sobrescrever nenhum existente); os recibos saem no Cálculo › Férias da competência do início. Reaberto, o plano mostra quem já foi gravado.
+- **Comunicação em PDF:** ao Ministério do Trabalho, ao sindicato e o aviso para afixar, com a tabela de dias de cada empregado.
+- **Catálogo SAGE:** férias passa a disponível. Placar: 19 disponíveis, 20 parciais, 9 planejados, 3 fora.
+- **Testes:** plano (saldo, art. 140, licença, antecipação, exclusões, regras e gravados), motor (recibo das proporcionais e novo período), tela e PDF.

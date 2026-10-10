@@ -95,6 +95,17 @@ const intersecao = (de: string, ate: string, ini: string, fim: string) => { cons
 const diasDoGozo = (a: Afastamento) => (a.dtFim && dataValida(a.dtFim) ? diasEntre(a.dtInicio, a.dtFim) + 1 : 0);
 export const abonoDoGozo = (a: Afastamento) => { const n = Number(a.abonoDias || 0); return Number.isInteger(n) && n > 0 ? n : 0; };
 
+/** Avos de um período aquisitivo até `ate` (o mês do período conta com 15 dias ou mais: CLT, art. 146, parágrafo único). */
+export function avosDoPeriodo(inicio: string, ate: string): number {
+    let avos = 0;
+    for (let m = 0; m < 12; m++) {
+        const ini = somarMeses(inicio, m); const fim = somarDias(somarMeses(inicio, m + 1), -1);
+        if (ini > ate) break;
+        if (ate >= fim || diasEntre(ini, ate) + 1 >= 15) avos++;
+    }
+    return avos;
+}
+
 export interface PeriodoAquisitivo {
     inicio: string; fim: string; fimConcessivo: string;
     /** Motivo da perda do direito (art. 133), ou ''. */
@@ -104,6 +115,8 @@ export interface PeriodoAquisitivo {
     faltas: number; direito: number;
     /** Dias já usados: gozos anteriores + abonos vendidos. */
     consumido: number;
+    /** Encerrado pelas férias coletivas de quem tinha menos de 12 meses (CLT, art. 140): direito proporcional. */
+    art140?: boolean;
 }
 
 /**
@@ -126,6 +139,19 @@ export function periodosAquisitivos(admissao: string, ate: string, fichaId: stri
                 .reduce((t, a) => t + intersecao(a.dtInicio, a.dtFim && dataValida(a.dtFim) ? a.dtFim : ate, inicio, fim), 0);
             if (n === suspensos) break;
             suspensos = n; fim = somarDias(somarDias(aniversario(inicio, 1), -1), n);
+        }
+        // Férias coletivas de quem tinha menos de 12 meses (CLT, art. 140): gozam as proporcionais e o período
+        // aquisitivo recomeça no início do gozo. O período em curso fecha na véspera, com o direito proporcional.
+        const reinicio = afastamentos.filter(a => daFicha(a) && a.motivo === '15' && a.novoPeriodo === 'S' && a.dtInicio > inicio && a.dtInicio <= fim && a.dtInicio <= ate)
+            .sort((a, b) => a.dtInicio.localeCompare(b.dtInicio))[0];
+        if (reinicio) {
+            const fimP = somarDias(reinicio.dtInicio, -1);
+            const avos = avosDoPeriodo(inicio, fimP);
+            const disc = afastamentos.filter(a => daFicha(a) && a.motivo === '30').reduce((t, a) => t + intersecao(a.dtInicio, a.dtFim && dataValida(a.dtFim) ? a.dtFim : fimP, inicio, fimP), 0);
+            const faltas = mesesDoPeriodo(inicio, fimP).reduce((s, c) => s + Math.floor(movimentos[c]?.faltasDias ?? 0), 0) + disc;
+            ps.push({ inicio, fim: fimP, fimConcessivo: somarDias(aniversario(reinicio.dtInicio, 1), -1), perdido: '', faltas, direito: Math.round(diasDeDireito(faltas) * avos / 12), consumido: 0, art140: true });
+            inicio = reinicio.dtInicio;
+            continue;
         }
         const fimConcessivo = somarDias(aniversario(somarDias(fim, 1), 1), -1);
         let diasInss = 0; let diasLicenca = 0; let fimInss = ''; let fimLicenca = ''; let semFimInss = false; let semFimLicenca = false;
@@ -216,12 +242,13 @@ export function calcularFerias(e: EntradaFerias): ResultadoFerias {
     const perdidos = periodos.filter(x => x.perdido);
     if (!p) {
         const ultimo = periodos[periodos.length - 1];
-        return erro(`Nenhum período aquisitivo completo com saldo antes do início.${perdidos.length ? ` Período perdido: ${perdidos.map(x => `${br(x.inicio)} a ${br(x.fim)} (${x.perdido})`).join('; ')}.` : ''}${ultimo && !ultimo.perdido ? ` O período atual (${br(ultimo.inicio)} a ${br(ultimo.fim)}) ainda não completou.` : ''} Férias antecipadas ou coletivas ainda não estão no motor.`);
+        return erro(`Nenhum período aquisitivo completo com saldo antes do início.${perdidos.length ? ` Período perdido: ${perdidos.map(x => `${br(x.inicio)} a ${br(x.fim)} (${x.perdido})`).join('; ')}.` : ''}${ultimo && !ultimo.perdido ? ` O período atual (${br(ultimo.inicio)} a ${br(ultimo.fim)}) ainda não completou.` : ''} Para férias coletivas, use Cálculo › Férias › Férias coletivas.`);
     }
     if (!gozo.perAquisInicio) r.avisos.push(`Período aquisitivo não informado no afastamento: usado o mais antigo com saldo (${br(p.inicio)} a ${br(p.fim)}). Se as férias anteriores não estão lançadas em Afastamentos, informe o período aquisitivo no afastamento.`);
     for (const x of perdidos) r.memoria.push(`Período ${br(x.inicio)} a ${br(x.fim)} perdido: ${x.perdido}; o seguinte começa na volta.`);
     r.periodo = { inicio: p.inicio, fim: p.fim, fimConcessivo: p.fimConcessivo };
     if (p.suspensos) r.memoria.push(`Período aquisitivo adiado em ${p.suspensos} dia(s) de contrato suspenso (licença não remunerada, serviço militar ou suspensão).`);
+    if (p.art140) r.memoria.push(`Férias coletivas com menos de 12 meses (CLT, art. 140): proporcionais do período ${br(p.inicio)} a ${br(p.fim)} (${avosDoPeriodo(p.inicio, p.fim)}/12); o novo período aquisitivo começa em ${br(gozo.dtInicio)}.`);
     r.memoria.push(`Período aquisitivo ${br(p.inicio)} a ${br(p.fim)}; concessivo até ${br(p.fimConcessivo)}. Gozo de ${br(gozo.dtInicio)} a ${br(gozo.dtFim)} (${diasGozo} dias); pagamento até ${br(pagarAte)}.`);
 
     // Direito pelas faltas do período (movimentos gravados) e saldo (gozos e abonos anteriores).
@@ -253,7 +280,9 @@ export function calcularFerias(e: EntradaFerias): ResultadoFerias {
     if (adic.adicional) r.memoria.push(adic.adicional.memoria);
     const salarioHora = (sc.mensal + adicional) / sc.horasMes;
     const comMov = meses.filter(c => e.movimentos[c]).length;
-    const mv = mediaDasVariaveis(salarioHora, e.movimentos, meses, 12, '12');
+    // Período proporcional (férias coletivas, art. 140): a média pelos meses do período.
+    const divisor = p.art140 ? Math.max(1, meses.length) : 12;
+    const mv = mediaDasVariaveis(salarioHora, e.movimentos, meses, divisor, String(divisor));
     const media = mv.media;
     r.memoria.push(...mv.memoria);
     r.avisos.push(`Média pelos movimentos gravados no Consultor (${comMov} de 12 meses do período com movimento): horas extras com DSR e os lançamentos que entram na média.`);
