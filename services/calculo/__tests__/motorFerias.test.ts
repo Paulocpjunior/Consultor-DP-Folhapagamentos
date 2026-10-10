@@ -101,7 +101,7 @@ describe('férias', () => {
 
     it('erros e gozos do mês', () => {
         expect(calc({ dtInicio: '2025-07-01', dtFim: '' }).erros).toEqual(['Informe o início e o término das férias no afastamento.']);
-        expect(calc({ dtInicio: '2024-06-01', dtFim: '2024-06-20' }).erros[0]).toContain('O período atual (02/01/2024 a 01/01/2025) ainda não completou. Férias antecipadas ou coletivas');
+        expect(calc({ dtInicio: '2024-06-01', dtFim: '2024-06-20' }).erros[0]).toContain('O período atual (02/01/2024 a 01/01/2025) ainda não completou. Para férias coletivas, use Cálculo › Férias › Férias coletivas');
         expect(calc({ dtInicio: '2025-07-01', dtFim: '2025-07-30', motivo: '03' }).situacao).toBe('erro');
         const lista = [af({ dtInicio: '2025-07-20' }), af({ dtInicio: '2025-07-01' }), af({ dtInicio: '2025-08-01' }), af({ dtInicio: '2025-07-05', motivo: '03' }), { ...af({ dtInicio: '2025-07-02' }), fichaId: 'outra' }];
         expect(gozosNoMes(lista, new Set(['f1']), '2025-07').map(a => a.dtInicio)).toEqual(['2025-07-01', '2025-07-20']);

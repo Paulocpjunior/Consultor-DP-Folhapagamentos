@@ -248,6 +248,20 @@ export async function gravarAfastamentosImportados(itens: MesclaAfastamento[], a
     }
 }
 
+/** Férias coletivas: grava os gozos e licenças do plano (afastamento + auditoria), sem sobrescrever nenhum existente. */
+export async function gravarAfastamentosColetiva(itens: Afastamento[], u: Usuario): Promise<void> {
+    const existentes = (await Promise.all(itens.map(a => getDoc(doc(db, AFA, a.id))))).filter(x => x.exists()).map(x => x.id);
+    if (existentes.length) throw new Error(`Já existe afastamento com a mesma data de início: ${existentes.join(', ')}. Atualize a tela e confira.`);
+    for (let i = 0; i < itens.length; i += 200) {
+        const lote = writeBatch(db);
+        for (const a of itens.slice(i, i + 200)) {
+            lote.set(doc(db, AFA, a.id), { ...limpo(semId(soCampos(a, afastamentoVazio()))), atualizadoPor: u.id, atualizadoPorEmail: u.email, atualizadoEm: serverTimestamp() });
+            auditar(lote, u, AFA, a.id, 'criar (férias coletivas)', diffObjeto(null, soCampos(a, afastamentoVazio())), { empresaId: a.empresaId });
+        }
+        await lote.commit();
+    }
+}
+
 export async function excluirAfastamento(a: Afastamento, u: Usuario): Promise<void> {
     const lote = writeBatch(db);
     lote.delete(doc(db, AFA, a.id));
