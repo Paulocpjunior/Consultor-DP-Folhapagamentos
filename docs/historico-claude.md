@@ -3593,3 +3593,19 @@ guias sindicais".
   - o segredo `FIREBASE_SERVICE_ACCOUNT` (o mesmo do CRM, com o papel "Usuário do Cloud Datastore");
   - opcional, `GEMINI_API_KEY` para os resumos.
 - **Não testado aqui:** o gov.br é bloqueado pela rede deste ambiente; a primeira execução no GitHub Actions valida a leitura da página real.
+
+## 10/10/2026 — Item 3b: insalubridade e periculosidade automáticas
+
+- **Ficha (aba Adicionais):** grau de insalubridade (10, 20 ou 40%); base (salário mínimo pelo art. 192 da CLT, o salário contratual ou um piso informado pela convenção); periculosidade (30% do salário-base, art. 193, § 1º).
+  - Base "valor informado" sem o valor é erro.
+  - Os dois juntos dão aviso: não se acumulam (art. 193, § 2º).
+- **Cálculo (`services/calculo/adicionais.ts`):**
+  - Insalubridade sobre o mínimo usa a tabela do salário mínimo vigente (Cadastros › Tabelas legais); sem ela, a folha fica incompleta e sem o adicional.
+  - Com os dois na ficha, vale o de maior valor, com aviso para conferir a opção do empregado.
+- **Motor mensal:**
+  - Verba INSALUB ou PERICUL com INSS, FGTS e IRRF, proporcional aos dias pagos.
+  - Integra o salário-hora das horas extras e dos atrasos (TST, OJ 47 da SDI-1 e Súmula 132) e a diária das faltas e do DSR descontado.
+  - Integra a licença-maternidade e a prorrogação (remuneração integral, Lei 8.213/1991, art. 72).
+- **Férias, 13º e rescisão:** a remuneração passa a ser salário + adicional + médias (TST, Súmula 139), e a hora das médias inclui o adicional. Na rescisão, o saldo de salário traz o adicional proporcional (pelo motor mensal) e o aviso indenizado, o 13º e as férias saem da remuneração com o adicional.
+- **S-1200:** de/para sugerido pela natureza da Tabela 03: 1202 insalubridade, 1203 periculosidade.
+- **Testes:** `services/calculo/__tests__/adicionaisRisco.test.ts`.

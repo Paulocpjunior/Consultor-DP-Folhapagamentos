@@ -73,6 +73,9 @@ export const chaveVerba = (v: Pick<Verba, 'codigo' | 'descricao'>) => (/^LAN\d+$
 /** Natureza (Tabela 03) e tipo (1 = provento, 2 = desconto) que cada verba do motor deve ter no S-1010. */
 const SUGESTAO: Record<string, { naturezas: string[]; dica?: RegExp; evita?: RegExp; codigos?: string[] }> = {
     SAL: { naturezas: ['1000'] },
+    // Tabela 03: 1202 adicional de insalubridade, 1203 adicional de periculosidade (item 3b).
+    INSALUB: { naturezas: ['1202'] },
+    PERICUL: { naturezas: ['1203'] },
     MAT: { naturezas: ['4050'] },
     HE50: { naturezas: ['1003'], evita: /100/ },
     HE100: { naturezas: ['1003'], dica: /100/ },

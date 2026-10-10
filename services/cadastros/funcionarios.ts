@@ -21,7 +21,8 @@ import { UFS, cnpjValido, cpfValido, dataValida, centavosDeTexto, pisValido } fr
 
 export type { Dependente };
 export type CampoExtra = 'codigoIob' | 'horario' | 'banco' | 'agencia' | 'conta' | 'tipoConta' | 'pix' | 'observacoes' | 'dataDesligamento' | 'motivoDesligamento' | 'dataProjetadaAviso' | 'grauExp'
-    | 'adiantamentoPct' | 'valeTransporte' | 'valeTransporteCusto' | 'horasMes';
+    | 'adiantamentoPct' | 'valeTransporte' | 'valeTransporteCusto' | 'horasMes'
+    | 'insalubridade' | 'baseInsalubridade' | 'baseInsalubridadeValor' | 'periculosidade';
 export type CampoFicha = Exclude<Campo, 'dependentes' | 'matriculaIob'> | CampoExtra;
 export type Situacao = 'ativo' | 'desligado';
 export type ChaveOrigem = CampoFicha | 'dependentes' | 'situacao';
@@ -67,6 +68,10 @@ export const ROTULO: Record<CampoFicha, string> = {
     horasMes: 'Horas mês (divisor do salário-hora)',
     valeTransporte: 'Vale-transporte (desconto de até 6%)',
     valeTransporteCusto: 'Custo mensal do vale-transporte (limita o desconto)',
+    insalubridade: 'Adicional de insalubridade (grau)',
+    baseInsalubridade: 'Base da insalubridade',
+    baseInsalubridadeValor: 'Valor da base da insalubridade (piso da convenção)',
+    periculosidade: 'Adicional de periculosidade',
 };
 
 /** Motivos de desligamento (Tabela 19 do eSocial) mais usados; outro código fica como está. */
@@ -97,6 +102,11 @@ const OPCOES: Partial<Record<CampoFicha, [string, string][]>> = {
     // Tabela 02 do eSocial; em branco o S-1200 vai com 1.
     grauExp: [['1', '1 · Não ensejador de aposentadoria especial'], ['2', '2 · Aposentadoria especial aos 15 anos (12%)'], ['3', '3 · Aposentadoria especial aos 20 anos (9%)'], ['4', '4 · Aposentadoria especial aos 25 anos (6%)']],
     valeTransporte: [['S', 'Sim: desconta 6% do salário do mês'], ['N', 'Não']],
+    // CLT, arts. 192 e 193: insalubridade de 10%, 20% ou 40% (sobre o salário mínimo, salvo convenção) e
+    // periculosidade de 30% do salário-base; não se acumulam (art. 193, § 2º).
+    insalubridade: [['10', 'Grau mínimo (10%)'], ['20', 'Grau médio (20%)'], ['40', 'Grau máximo (40%)']],
+    baseInsalubridade: [['minimo', 'Salário mínimo (CLT, art. 192)'], ['salario', 'Salário contratual (convenção ou acordo)'], ['valor', 'Valor informado (piso da convenção)']],
+    periculosidade: [['S', 'Sim: 30% do salário-base (CLT, art. 193, § 1º)'], ['N', 'Não']],
     tipoConta: [['corrente', 'Corrente'], ['poupanca', 'Poupança'], ['salario', 'Salário'], ['pagamento', 'Pagamento']],
     uf: UFS.map(u => [u, u]), ufCtps: UFS.map(u => [u, u]),
 };
@@ -115,6 +125,7 @@ export const ABAS: { id: string; titulo: string; campos: CampoFicha[] }[] = [
     { id: 'dados', titulo: 'Dados', campos: ['nome', 'nascimento', 'sexo', 'estadoCivil', 'raca', 'escolaridade', 'nacionalidade', 'paisNascimento', 'naturalidade', 'mae', 'pai', 'cep', 'logradouro', 'numero', 'complemento', 'bairro', 'municipio', 'uf', 'telefone', 'email'] },
     { id: 'identAdm', titulo: 'Ident. Adm.', campos: ['codigoIob', 'admissao', 'categoria', 'tipoContrato', 'fimContrato', 'cargo', 'cbo', 'funcao', 'cargoIob', 'departamentoIob', 'salario', 'unidadeSalario', 'horasSemanais', 'horasMes', 'horario', 'jornada', 'horarioTrabalho', 'horarioIntervalo', 'sindicato', 'sindicatoIob', 'estabelecimento', 'regimeTrabalhista', 'regimePrevidenciario', 'opcaoFgts', 'grauExp', 'dataDesligamento', 'motivoDesligamento', 'dataProjetadaAviso'] },
     { id: 'adiantVt', titulo: 'Adiant. e VT', campos: ['adiantamentoPct', 'valeTransporte', 'valeTransporteCusto'] },
+    { id: 'adicionais', titulo: 'Adicionais', campos: ['insalubridade', 'baseInsalubridade', 'baseInsalubridadeValor', 'periculosidade'] },
     { id: 'documentos', titulo: 'Documentos', campos: ['pis', 'cadastroPis', 'ctps', 'serieCtps', 'ufCtps', 'rg', 'orgaoRg', 'emissaoRg', 'tituloEleitor', 'zonaEleitoral', 'secaoEleitoral', 'documentoMilitar'] },
     { id: 'outros', titulo: 'Outros', campos: ['banco', 'agencia', 'conta', 'tipoConta', 'pix', 'deficiencia', 'enderecoExterior', 'observacoes'] },
 ];
@@ -235,7 +246,7 @@ export function normalizarFicha(f: FichaFuncionario): FichaFuncionario {
         if (['pis', 'cep', 'cbo'].includes(k)) t = t.replace(/\D/g, '');
         if (['uf', 'ufCtps'].includes(k)) t = t.toUpperCase();
         if (k === 'sindicato' || k === 'estabelecimento') t = t.toUpperCase().replace(/[.\-/\s]/g, '');
-        if ((k === 'salario' || k === 'valeTransporteCusto') && t) { const c = centavosDeTexto(t); if (c !== null) t = (c / 100).toFixed(2); }
+        if ((k === 'salario' || k === 'valeTransporteCusto' || k === 'baseInsalubridadeValor') && t) { const c = centavosDeTexto(t); if (c !== null) t = (c / 100).toFixed(2); }
         if (t) dados[k] = t;
     }
     return {
@@ -292,6 +303,8 @@ export function validarFicha(f: FichaFuncionario): Validacao {
     if (hm && !(/^\d{1,3}([.,]\d{1,2})?$/.test(hm) && Number(hm.replace(',', '.')) >= 1 && Number(hm.replace(',', '.')) <= 300)) erros.push('Horas mês: número de horas entre 1 e 300 (ex.: 220).');
     erros.push(...validarAdesoes(f.beneficios ?? []));
     if (d.valeTransporteCusto && !/^\d+(\.\d{1,2})?$/.test(d.valeTransporteCusto)) erros.push('Custo do vale-transporte inválido (valor com ponto decimal, ex.: 220.00).');
+    if (d.insalubridade && d.baseInsalubridade === 'valor' && !(Number(d.baseInsalubridadeValor) > 0)) erros.push('Insalubridade sobre valor informado: preencha o valor da base (piso da convenção).');
+    if (d.insalubridade && d.periculosidade === 'S') avisos.push('Insalubridade e periculosidade não se acumulam (CLT, art. 193, § 2º): o empregado escolhe uma; o cálculo usa a de maior valor.');
     if (d.cep && !/^\d{8}$/.test(d.cep)) erros.push('CEP deve ter 8 dígitos.');
     for (const k of ['uf', 'ufCtps'] as CampoFicha[]) if (d[k] && !UFS.includes(d[k]!)) erros.push(`${ROTULO[k]}: UF inválida.`);
     if (d.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email)) erros.push('E-mail inválido.');

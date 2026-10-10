@@ -21,6 +21,7 @@ import type { Afastamento } from '../cadastros/afastamentos';
 import { inicioBeneficio, rotuloMotivo } from '../cadastros/afastamentos';
 import { centavosDeTexto, dataValida, reais } from '../cadastros/documentos';
 import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros/tabelasLegais';
+import { adicionalDeRisco, adicionalProporcional } from './adicionais';
 import { diaSemana, diaUtilAnterior, feriados, somarDias, somarMeses } from '../prazos/calendario';
 
 export type TipoVerba = 'provento' | 'desconto';
@@ -274,8 +275,16 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     if (naCompetencia.faixa) r.memoria.push(memoriaDoHistorico(naCompetencia.faixa, 'na competência', !!naCompetencia.antesDoHistorico));
     if (naCompetencia.antesDoHistorico) r.avisos.push('Data anterior ao histórico de salário da ficha: usado o salário mais antigo conhecido; confira.');
     if (naCompetencia.alteradoNoMes) r.avisos.push(`Salário alterado em ${brData(naCompetencia.alteradoNoMes)}, no meio do mês: o motor usa o vigente no fim do mês; confira se o IOB pagou proporcional.`);
-    const salarioHora = mensal / horasMes;
+    // Insalubridade ou periculosidade da ficha: integra a hora extra, as faltas e a remuneração (TST, OJ 47 e Súmulas 132 e 139).
+    const adic = adicionalDeRisco(d, mensal, e.tabelas, competencia);
+    r.avisos.push(...adic.avisos);
+    if (adic.erro) incompleto(adic.erro);
+    const adicional = adic.erro ? null : adic.adicional;
+    if (adicional) r.memoria.push(adicional.memoria);
+    const salarioHora = (mensal + (adicional?.mensal ?? 0)) / horasMes;
     const diaria = mensal / 30;
+    const diariaComAdicional = (mensal + (adicional?.mensal ?? 0)) / 30;
+    if (adicional) r.memoria.push(`Salário-hora com o adicional: (${reais(mensal)} + ${reais(adicional.mensal)}) ÷ ${num(horasMes)} h = ${reais(Math.round(salarioHora))} (base das horas extras e dos atrasos).`);
 
     // 2. Dias do mês: vínculo e afastamentos.
     const de = d.admissao > ini ? d.admissao : ini;
@@ -348,13 +357,20 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     // 3. Proventos.
     const sal = diasPagos === 30 ? mensal : Math.round(diaria * diasPagos);
     verba({ codigo: 'SAL', descricao: 'Salário', referencia: `${diasPagos} dias`, tipo: 'provento', valor: sal, inss: true, fgts: true, irrf: true });
+    if (adicional && diasPagos > 0) {
+        const v = adicionalProporcional(adicional, diasPagos);
+        verba({ codigo: adicional.codigo, descricao: adicional.descricao, referencia: `${adicional.referencia} · ${diasPagos} dias`, tipo: 'provento', valor: v, inss: true, fgts: true, irrf: true });
+        if (diasPagos < 30) r.memoria.push(`${adicional.descricao}: ${reais(adicional.mensal)} ÷ 30 × ${diasPagos} dias = ${reais(v)}.`);
+    }
+    // Licença-maternidade: remuneração integral (Lei 8.213/1991, art. 72), com o adicional.
+    const mensalIntegral = mensal + (adicional?.mensal ?? 0);
     if (diasProrr) {
-        const v = diasProrr === 30 ? mensal : Math.round(diaria * diasProrr);
+        const v = diasProrr === 30 ? mensalIntegral : Math.round(diariaComAdicional * diasProrr);
         verba({ codigo: 'MATPRORR', descricao: 'Prorrogação da licença-maternidade (Empresa Cidadã)', referencia: `${diasProrr} dias`, tipo: 'provento', valor: v, inss: true, fgts: true, irrf: true });
         r.avisos.push('Prorrogação da licença-maternidade (Lei 11.770/2008): paga pela empresa, sem compensação na DCTFWeb (a dedução é no IRPJ). Média de variáveis não está no motor.');
     }
     if (diasMat) {
-        const v = diasMat === 30 ? mensal : Math.round(diaria * diasMat);
+        const v = diasMat === 30 ? mensalIntegral : Math.round(diariaComAdicional * diasMat);
         verba({ codigo: 'MAT', descricao: 'Salário-maternidade', referencia: `${diasMat} dias`, tipo: 'provento', valor: v, inss: true, fgts: true, irrf: true });
         r.avisos.push('Salário-maternidade pelo salário fixo; média de variáveis não está no motor. A empresa compensa o valor na DCTFWeb.');
     }
@@ -384,9 +400,9 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
 
     // 4. Descontos do movimento.
     const faltas = mov.faltasDias ?? 0; const dsrDesc = mov.dsrDescontadoDias ?? 0;
-    if (faltas > 0) verba({ codigo: 'FALTA', descricao: 'Faltas', referencia: `${num(faltas)} dias`, tipo: 'desconto', valor: Math.round(diaria * faltas), inss: true, fgts: true, irrf: true });
-    if (dsrDesc > 0) verba({ codigo: 'DSRF', descricao: 'DSR descontado (faltas)', referencia: `${num(dsrDesc)} dias`, tipo: 'desconto', valor: Math.round(diaria * dsrDesc), inss: true, fgts: true, irrf: true });
-    if (faltas > 0 || dsrDesc > 0) r.memoria.push(`Faltas e DSR: ${reais(Math.round(diaria))} por dia (salário ÷ 30).`);
+    if (faltas > 0) verba({ codigo: 'FALTA', descricao: 'Faltas', referencia: `${num(faltas)} dias`, tipo: 'desconto', valor: Math.round(diariaComAdicional * faltas), inss: true, fgts: true, irrf: true });
+    if (dsrDesc > 0) verba({ codigo: 'DSRF', descricao: 'DSR descontado (faltas)', referencia: `${num(dsrDesc)} dias`, tipo: 'desconto', valor: Math.round(diariaComAdicional * dsrDesc), inss: true, fgts: true, irrf: true });
+    if (faltas > 0 || dsrDesc > 0) r.memoria.push(`Faltas e DSR: ${reais(Math.round(diariaComAdicional))} por dia (${adicional ? 'salário + adicional' : 'salário'} ÷ 30).`);
     const atrasos = mov.atrasosHoras ?? 0;
     if (atrasos > 0) {
         const v = Math.round(salarioHora * atrasos);
