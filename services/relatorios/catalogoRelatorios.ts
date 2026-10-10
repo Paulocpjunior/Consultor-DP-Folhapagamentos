@@ -14,7 +14,7 @@ import { periodosFerias, prazosFuncionarios } from '../prazos/prazosFuncionarios
 import type { TabelaRelatorio } from './layoutPdf';
 
 export type GrupoRelatorio = 'Mensais' | 'Funcionários' | 'Férias' | 'Anuais';
-export type TipoRelatorio = 'tabela' | 'holerites' | 'resumo' | 'adiantamento' | 'ficha-financeira' | 'aviso-ferias';
+export type TipoRelatorio = 'tabela' | 'holerites' | 'resumo' | 'adiantamento' | 'ficha-financeira' | 'aviso-ferias' | 'informe';
 
 export interface ContextoRelatorio {
     competencia: string;
@@ -154,6 +154,7 @@ export const RELATORIOS: DefRelatorio[] = [
     { id: 'aviso-ferias', grupo: 'Férias', titulo: 'Aviso de férias', descricao: 'Comunicado ao empregado (CLT, art. 135), dos gozos que começam na competência ou no mês seguinte, com o ciente.', tipo: 'aviso-ferias', precisaFolha: false },
     { id: 'ferias-vencer', grupo: 'Férias', titulo: 'Férias a vencer e vencidas', descricao: 'Períodos aquisitivos em aberto e o último dia para iniciar o gozo.', tipo: 'tabela', precisaFolha: false, orientacao: 'paisagem', montar: feriasAVencer },
     { id: 'ficha-financeira', grupo: 'Anuais', titulo: 'Ficha financeira', descricao: 'O ano de cada funcionário mês a mês e verba a verba, com totais, bases e FGTS, pelas folhas gravadas.', tipo: 'ficha-financeira', precisaFolha: false, orientacao: 'paisagem' },
+    { id: 'informe', grupo: 'Anuais', titulo: 'Informe de rendimentos', descricao: 'Comprovante de rendimentos pagos e de IRRF (IN RFB 2.060/2021) de cada trabalhador, pelos S-5002 do ano-calendário baixados do eSocial.', tipo: 'informe', precisaFolha: false },
 ];
 
 export const GRUPOS_RELATORIO: GrupoRelatorio[] = ['Mensais', 'Funcionários', 'Férias', 'Anuais'];
