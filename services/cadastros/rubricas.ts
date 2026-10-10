@@ -8,7 +8,7 @@
 // Códigos: codIncCP e codIncFGTS são as enumerações do XSD oficial do S-1010
 // (leiaute S-1.3, nfephp-org/sped-esocial). codIncIRRF segue a Tabela 21,
 // que não está no XSD: só os códigos conferidos em busca pública
-// (04/10/2026) têm rótulo; os demais são aceitos e classificados pela faixa,
+// (04/10/2026; o 9 pelo MOS S-1.3, S-1010 item 12.1, e o 43 em 10/10/2026) têm rótulo; os demais são aceitos e classificados pela faixa,
 // e a faixa só decide a conferência quando é inequívoca.
 
 import { dataValida } from './documentos';
@@ -33,8 +33,9 @@ export const COD_INC_FGTS: Record<string, string> = {
     '31': 'Desconto eConsignado', '91': 'Suspensão judicial: FGTS mensal', '92': 'Suspensão judicial: FGTS 13º', '93': 'Suspensão judicial: FGTS aviso prévio indenizado',
 };
 export const COD_INC_IRRF: Record<string, string> = {
+    '9': 'Verba de natureza diversa de rendimento ou retenção/isenção/dedução de IR',
     '11': 'Remuneração mensal', '12': '13º salário', '13': 'Férias', '14': 'PLR',
-    '31': 'Retenção do IRRF: remuneração mensal', '41': 'Dedução: Previdência Social Oficial (mensal)', '51': 'Pensão alimentícia (mensal)',
+    '31': 'Retenção do IRRF: remuneração mensal', '41': 'Dedução: Previdência Social Oficial (mensal)', '43': 'Dedução: Previdência Social Oficial (férias)', '51': 'Pensão alimentícia (mensal)',
 };
 export const TP_RUBR: Record<string, string> = { '1': 'Vencimento', '2': 'Desconto', '3': 'Informativa', '4': 'Informativa dedutora' };
 

@@ -278,6 +278,18 @@ export async function gravarRubricasImportadas(itens: MesclaRubrica[], antes: Ru
     }
 }
 
+/**
+ * Rubrica depois do S-1010 do Consultor aceito em produção (services/esocial/tabelaRubricas.ts: aplicarPedido).
+ * `extra` grava no mesmo lote (o pedido marcado como aplicado), para os dois não divergirem.
+ */
+export async function gravarRubricaDoS1010(nova: Rubrica, antes: Rubrica | undefined, u: Usuario, recibo: string, extra?: (lote: WriteBatch) => void): Promise<void> {
+    const lote = writeBatch(db);
+    lote.set(doc(db, RUB, nova.id), { ...limpo(semId(soCampos(nova, rubricaVazia()))), atualizadoPor: u.id, atualizadoPorEmail: u.email, atualizadoEm: serverTimestamp() });
+    auditar(lote, u, RUB, nova.id, antes ? 'S-1010 aceito (atualizar)' : 'S-1010 aceito (novo)', diffObjeto(antes ? soCampos(antes, rubricaVazia()) : null, soCampos(nova, rubricaVazia())), { empresaId: nova.empresaId, origem: `S-1010 do Consultor, recibo ${recibo}` });
+    extra?.(lote);
+    await lote.commit();
+}
+
 /** Liga a rubrica a outro evento do IOB (ou volta ao vínculo pelo código, com vazio). */
 export async function salvarVinculoRubrica(r: Rubrica, eventoIob: string, u: Usuario): Promise<void> {
     const lote = writeBatch(db);

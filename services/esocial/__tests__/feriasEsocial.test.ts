@@ -7,6 +7,7 @@ import { calcularFerias, feriasDaCompetencia } from '../../calculo/motorFerias';
 import { fichaVazia, type FichaFuncionario } from '../../cadastros/funcionarios';
 import { afastamentoVazio, type Afastamento } from '../../cadastros/afastamentos';
 import type { TabelaLegal } from '../../cadastros/tabelasLegais';
+import { modeloDaVerba } from '../tabelaRubricas';
 import type { Rubrica } from '../../cadastros/rubricas';
 
 const INSS: TabelaLegal = { id: 'i', tipo: 'inss', vigencia: '2025-01', norma: 'Portaria de teste', observacao: '', valores: {},
@@ -159,6 +160,19 @@ describe('férias no S-1200 e no S-1210', () => {
         const outra = gera(comNat('FERMES13', '1020'));
         expect(outra.erros).toEqual([]);
         expect(outra.avisos).toEqual([expect.stringMatching(/Rubrica FERMES13 \(natureza 1020\) para .*o MOS \(S-1010, item 23\) indica 1017/)]);
+    });
+
+    it('rubricas pelos modelos do S-1010 do Consultor: nenhum aviso de incidência no recibo nem na folha do gozo (IRRF 13 do MOS)', () => {
+        const g = [gozo('2025-08-01', '2025-08-20')];
+        const pelosModelos = RUBRICAS.map(r => ({ ...r, vigencias: [{ ...r.vigencias[0], dados: { ...modeloDaVerba(r.id)!.dados, dscRubr: r.id } }] }));
+        for (const [competencia, pagamento] of [['2025-07', '2025-08-05'], ['2025-08', '2025-09-05']]) {
+            const fm = feriasDaCompetencia(FICHA, g, TABELAS, {}, competencia);
+            const r = calcularMensal({ competencia, pagamento: pagamento.slice(0, 7), ficha: FICHA, tabelas: TABELAS, afastamentos: g, feriasDoMes: fm });
+            const ger = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia, dataPagamento: pagamento, fichas: [FICHA], resultados: [r], rubricas: pelosModelos, parametros: PARAMS, recibosFerias: recibosFeriasDaCompetencia([FICHA], g, TABELAS, {}, competencia) });
+            expect(ger.trabalhadores[0].erros, competencia).toEqual([]);
+            expect(ger.trabalhadores[0].s1200, competencia).not.toBeNull();
+            expect(ger.avisos.filter(a => a.includes('o cálculo')), competencia).toEqual([]);
+        }
     });
 
     it('opções do IRRF do recibo (sem desconto simplificado) chegam à folha e ao eSocial (Codex #111)', () => {

@@ -3756,3 +3756,27 @@ Paulo: "pode seguir com item 3 consulta de fgts, lembrando que já existe um pop
   - situação, vencimento, aviso, extrato e procuração;
   - tela, com o SERPRO falso: 3 meses, um em aberto, IDs do aviso;
   - regras (`testes-regras/fgts.test.mjs`).
+
+## 10/10/2026 — S-1010 (tabela de rubricas) pelo Consultor
+
+Paulo: "pode seguir com s-1010".
+
+- **Onde:** Cadastros › Incidências, botão "S-1010 pelo Consultor" (`components/esocial/TabelaRubricasEsocial.tsx`). Em cada rubrica divergente ou a conferir, "Corrigir no eSocial (S-1010)" abre direto a alteração.
+- **Pedidos** (`services/esocial/tabelaRubricas.ts`): inclusão, alteração (inclusive fim de validade, pela `novaValidade`) e exclusão. Ficam como rascunho em `esocial_s1010/{empresa}_{auto}` (regras e teste: aplicado e descartado são finais, nada se apaga).
+- **Regras do MOS S-1.3 conferidas antes de gravar:**
+  - código sem "eSocial" no início e sem espaço nas pontas; tabela até 8 caracteres; validade AAAA-MM;
+  - mesma vigência = alteração; nova vigência = inclusão (o eSocial encerra a anterior no mês anterior); alteração e exclusão só de vigência que o Consultor conhece (senão, importar o S-1010 antes);
+  - incidência suspensa (9x) bloqueada: exige o processo do S-1070 no próprio S-1010;
+  - naturezas 9901 a 9908 com 00/00/9; eConsignado (9253) com desconto, FGTS 31, CP 00 e IRRF 9; codIncCP 31/32 só em desconto;
+  - avisos: exclusão (o eSocial recusa se a rubrica foi usada), mudança de natureza e alteração sem efeito nos S-1200 já enviados (retificar).
+- **Modelos para as verbas do Consultor** (folha, 13º, férias e rescisão): natureza e incidências pelas marcas de INSS, FGTS e IRRF do próprio motor e pelos exemplos do MOS (férias 1015/1016/1017/9221 com IRRF 13). Código sugerido `CDP<verba>` e a tabela mais usada pela empresa. Os códigos de isenção do IRRF (74 nas indenizações da rescisão, 79 no abono) aparecem como "conferir na Tabela 21": não consegui a Tabela 21 oficial daqui (gov.br bloqueado nesta rede).
+- **Transmissão:** lote de até 50, um pedido por rubrica, pelo pré-voo (XSD oficial) e `transmitirVerificado`, com a ref `s1010:{pedido}`.
+- **Aceito em produção:** "Atualizar a tabela de rubricas" grava a vigência na rubrica (mesma consolidação da importação, com o recibo; o vínculo com o evento do IOB fica) e marca o pedido como aplicado no mesmo lote. Se o pedido veio de uma verba sem rubrica no de/para, o de/para da empresa passa a usá-la.
+- **Conferência do S-1200:** IRRF 13 nas férias da folha do gozo (FERMES, FERMES13 e FERPAGO) deixou de gerar aviso: é o que o MOS manda e as três se anulam.
+- **Tabela 21:** rótulos do 9 (MOS, S-1010 item 12.1) e do 43 (dedução da previdência oficial nas férias).
+- **Catálogo SAGE:** "Relacionamento de Rubricas" passou a disponível.
+- **Testes:**
+  - XML dos três tipos no XSD oficial; validação; lote; aplicação no cadastro; situação pela ref;
+  - os modelos no XSD e coerentes com o motor; férias pelos modelos sem aviso de incidência no recibo e na folha do gozo;
+  - tela (aceito aplicado com de/para, rubrica pelo modelo, transmissão só do que falta, alteração vinda das incidências);
+  - regras (`testes-regras/s1010.test.mjs`).
