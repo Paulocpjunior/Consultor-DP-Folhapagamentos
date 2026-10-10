@@ -1,0 +1,40 @@
+name: Monitor do leiaute do eSocial
+
+# Saúde do eSocial, etapa 5: confere a documentação técnica do eSocial (leiautes, notas técnicas, XSD) e grava as
+# novidades no Firestore (esocial_monitor/documentacao) para o painel do Consultor. Dias úteis às 8h10 de Brasília,
+# ou pelo botão "Run workflow". Com GEMINI_API_KEY, cada novidade ganha um resumo de IA (para conferir).
+on:
+  schedule:
+    - cron: '10 11 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: esocial-leiaute
+  cancel-in-progress: false
+
+jobs:
+  monitorar:
+    runs-on: ubuntu-latest
+    env:
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    steps:
+      - name: Sem o segredo
+        if: env.FIREBASE_SERVICE_ACCOUNT == ''
+        run: echo "::warning::Segredo FIREBASE_SERVICE_ACCOUNT necessário - monitor do leiaute não gravado."
+      - name: Checkout
+        if: env.FIREBASE_SERVICE_ACCOUNT != ''
+        uses: actions/checkout@v5
+      - name: Setup Node.js
+        if: env.FIREBASE_SERVICE_ACCOUNT != ''
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Monitorar
+        if: env.FIREBASE_SERVICE_ACCOUNT != ''
+        run: |
+          mkdir -p "$RUNNER_TEMP/leiaute" && cd "$RUNNER_TEMP/leiaute" && npm init -y > /dev/null && npm i --no-audit --no-fund firebase-admin@13 > /dev/null
+          cp "$GITHUB_WORKSPACE"/scripts/esocial/*.mjs . && node monitorLeiaute.mjs

@@ -16,6 +16,7 @@ import { rodadaDoVigia } from '../../services/esocial/vigiaEsocial';
 import { ROTULO_VERSAO_XSD } from '../../services/esocial/validadorXsd';
 import AnomaliasEsocial from './AnomaliasEsocial';
 import DiagnosticoOcorrencia from './DiagnosticoOcorrencia';
+import MonitorLeiaute from './MonitorLeiaute';
 
 interface Props { usuario?: Usuario }
 
@@ -210,6 +211,8 @@ const SaudeEsocialPanel: React.FC<Props> = ({ usuario }) => {
                     );
                 })}
             </section>
+
+            <MonitorLeiaute />
 
             <section aria-label="Pré-voo" className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-700 dark:bg-slate-900/40">
                 <h3 className="font-semibold text-slate-800 dark:text-white">Pré-voo: o que é conferido antes de qualquer envio</h3>

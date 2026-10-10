@@ -21,6 +21,7 @@ const dg = vi.hoisted(() => ({
 }));
 vi.mock('../envioSeguro', async orig => ({ ...(await orig<typeof import('../envioSeguro')>()), verificarAntesDeEnviar: (p: never) => dg.verificar(p), transmitirVerificado: () => dg.transmitir() }));
 vi.mock('../../mia/mia', async orig => ({ ...(await orig<typeof import('../../mia/mia')>()), perguntarMia: (...a: unknown[]) => dg.mia(...(a as [])) }));
+vi.mock('../monitorLeiaute', async orig => ({ ...(await orig<typeof import('../monitorLeiaute')>()), lerMonitorLeiaute: async () => null }));
 vi.mock('../../calculo/folhaGravadaService', () => ({ lerFolhaGravada: async () => null }));
 vi.mock('../../cadastros/cadastrosService', async orig => ({ ...(await orig<typeof import('../../cadastros/cadastrosService')>()), listarFuncionarios: async () => [] }));
 vi.mock('../../certificados/cofreCertificados', async orig => ({ ...(await orig<typeof import('../../certificados/cofreCertificados')>()), cofreDaMinhaCarteira: async () => { throw new Error('offline'); } }));
