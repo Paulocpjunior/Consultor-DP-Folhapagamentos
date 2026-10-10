@@ -15,6 +15,7 @@ import { baixarEventos } from '../../services/esocial/downloadEventos';
 import { rodadaDoVigia } from '../../services/esocial/vigiaEsocial';
 import { ROTULO_VERSAO_XSD } from '../../services/esocial/validadorXsd';
 import AnomaliasEsocial from './AnomaliasEsocial';
+import DiagnosticoOcorrencia from './DiagnosticoOcorrencia';
 
 interface Props { usuario?: Usuario }
 
@@ -186,13 +187,21 @@ const SaudeEsocialPanel: React.FC<Props> = ({ usuario }) => {
                             </p>
                             {aberto === e.id && (
                                 <ul className="mt-2 space-y-1 text-xs">
-                                    {e.ocorrencias.map(o => <li key={`${o.codigo}${o.descricao}`} className="text-red-700 dark:text-red-300">Lote: {o.codigo} {o.descricao}</li>)}
+                                    {e.ocorrencias.map(o => (
+                                        <li key={`${o.codigo}${o.descricao}`} className="text-red-700 dark:text-red-300">Lote: {o.codigo} {o.descricao}
+                                            {o.tipo !== 2 && <DiagnosticoOcorrencia ocorrencia={o} tipoEvento={e.eventos[0]?.tipo ?? ''} perApur={e.eventos[0]?.perApur ?? null} envio={e} empresa={{ id: ativa.id, cnpj: ativa.cnpj, nome: ativa.nome }} envios={envios ?? []} usuario={usuario} onMudou={carregar} />}
+                                        </li>
+                                    ))}
                                     {e.eventos.map(x => (
                                         <li key={x.id} className="rounded bg-slate-50 p-2 dark:bg-slate-900/40">
                                             <strong>{x.tipo}</strong> {x.perApur && `· ${x.perApur}`} · <span className="font-mono">{x.id}</span>
                                             {x.nrRecibo && aceito({ cdResposta: x.cdResposta ?? null, nrRecibo: x.nrRecibo }) && <span className="block text-green-700 dark:text-green-300">Recibo {x.nrRecibo}</span>}
                                             {x.cdResposta != null && !x.nrRecibo && <span className="block text-red-700 dark:text-red-300">{x.cdResposta} {x.descResposta}</span>}
-                                            {x.ocorrencias?.map(o => <span key={`${o.codigo}${o.localizacao}`} className="block text-slate-600 dark:text-slate-300">{o.tipo === 2 ? 'Advertência' : 'Erro'} {o.codigo}: {o.descricao}{o.localizacao ? ` (${o.localizacao})` : ''}</span>)}
+                                            {x.ocorrencias?.map(o => (
+                                                <span key={`${o.codigo}${o.localizacao}`} className="block text-slate-600 dark:text-slate-300">{o.tipo === 2 ? 'Advertência' : 'Erro'} {o.codigo}: {o.descricao}{o.localizacao ? ` (${o.localizacao})` : ''}
+                                                    {o.tipo !== 2 && <DiagnosticoOcorrencia ocorrencia={o} tipoEvento={x.tipo} perApur={x.perApur} envio={e} empresa={{ id: ativa.id, cnpj: ativa.cnpj, nome: ativa.nome }} envios={envios ?? []} usuario={usuario} onMudou={carregar} />}
+                                                </span>
+                                            ))}
                                         </li>
                                     ))}
                                 </ul>

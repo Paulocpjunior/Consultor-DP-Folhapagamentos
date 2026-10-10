@@ -3554,3 +3554,23 @@ guias sindicais".
   - Ocorrências que mais se repetem em 30 dias, por código.
 - **Tela:** seção "Anomalias e conciliação" na Saúde do eSocial (`components/esocial/AnomaliasEsocial.tsx`), com a ação de cada achado.
 - **Testes:** `anomalias.test.ts` e caso de conciliação na `saudeEsocialTela.test.tsx`.
+
+## 10/10/2026 — Saúde do eSocial, etapa 4: diagnóstico e correção assistida
+
+- **Diagnóstico (`services/esocial/diagnostico.ts`):** cada ocorrência de recusa é reconhecida pelo texto do eSocial (sem acento e sem caixa; não depende de lista de códigos). Vira causa em português, passos e uma ação. Regras:
+  - período fechado → reabrir (S-1298);
+  - duplicidade ou evento já recebido → conciliar e achar o recibo;
+  - recibo divergente na retificação ou exclusão → conciliar;
+  - demonstrativo inexistente no S-1210 → S-1200 antes;
+  - rubrica fora do S-1010 → Incidências;
+  - trabalhador ou vínculo não cadastrado → Funcionários;
+  - estabelecimento ou lotação → Enquadramento;
+  - certificado ou procuração → cofre;
+  - schema ou leiaute → gerar de novo.
+- **Correção assistida:**
+  - "Reabrir o período (S-1298)" gera a reabertura da competência do evento, passa pelo pré-voo, pede confirmação e transmite pelo envio registrado.
+  - "Conciliar com o eSocial" mostra os recibos da competência no governo, para a retificação.
+  - Nada é corrigido sozinho.
+- **MIA (Gemini):** "Perguntar à MIA" em toda ocorrência; é o caminho padrão das que não têm regra. Vai a ocorrência e o diagnóstico do Consultor (CPF mascarado). A resposta aparece marcada como "sugestão para conferir; nada foi aplicado".
+- **Tela:** o diagnóstico aparece embaixo de cada erro, nos detalhes do lote, na Saúde do eSocial (`components/esocial/DiagnosticoOcorrencia.tsx`).
+- **Testes:** `diagnostico.test.ts` e casos de reabertura e MIA na `saudeEsocialTela.test.tsx`.
