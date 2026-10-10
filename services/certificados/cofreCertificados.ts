@@ -8,8 +8,8 @@
 // CFI e o Legal. Quem assina continua sendo o CFI.
 
 import { comTokenCfi, ehErroEmailNaoVerificado, erroCfi } from '../auth/tokenCfi';
+import { urlDoServico } from '../plataforma/servicos';
 
-const CFI_URL = 'https://consultor-fiscal-inteligente-zricstsjqa-uw.a.run.app';
 const soDigitos = (v: unknown) => String(v ?? '').replace(/\D/g, '');
 
 export type SituacaoCofre = 'apto-proprio' | 'apto-pela-raiz' | 'sem-certificado' | 'a3-nao-assina-em-nuvem' | 'cadastro-incompleto' | 'vencido';
@@ -122,7 +122,7 @@ export async function buscarCofre(getToken: () => Promise<string>, deps: { fetch
     const query = lista ? `?cnpjs=${lista.join(',')}` : '';
     let resp: Response;
     try {
-        resp = await doFetch(`${CFI_URL}/api/admin/cadastro/certificados${query}`, { headers: { Authorization: `Bearer ${token}` } });
+        resp = await doFetch(urlDoServico('cofre', `/api/admin/cadastro/certificados${query}`), { headers: { Authorization: `Bearer ${token}` } });
     } catch {
         throw new Error('Não foi possível falar com o cofre de certificados (Consultor Fiscal). Verifique a conexão e tente de novo.');
     }

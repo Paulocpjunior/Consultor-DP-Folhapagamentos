@@ -21,10 +21,10 @@ export interface EmpresaAtiva {
     ativadaEm: number;
 }
 
-export type AbaApp = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin' | 'fimdemes' | 'relatorios';
+export type AbaApp = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin' | 'fimdemes' | 'relatorios' | 'servicos';
 
 /** Abas que NÃO exigem empresa ativa. Lista curta e explícita: o padrão é exigir. */
-export const DISPENSAM_EMPRESA_ATIVA: AbaApp[] = ['admin', 'empresas', 'certificados'];
+export const DISPENSAM_EMPRESA_ATIVA: AbaApp[] = ['admin', 'empresas', 'certificados', 'servicos'];
 
 export const exigeEmpresaAtiva = (aba: AbaApp) => !DISPENSAM_EMPRESA_ATIVA.includes(aba);
 

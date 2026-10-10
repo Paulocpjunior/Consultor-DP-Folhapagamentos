@@ -48,6 +48,15 @@ jobs:
           # Gate de departamento em BLOQUEIO (Paulo, 08/08, após teste):
           # app estático — o modo entra no build.
           VITE_DEPARTAMENTO_GATE_MODO: bloqueio
+          # Serviços externos (services/plataforma/servicos.ts): vazios = CFI de sempre. Variáveis do repositório,
+          # não segredos — são endereços públicos; quem autoriza é o token do usuário.
+          VITE_PLATAFORMA_URL: ${{ vars.VITE_PLATAFORMA_URL }}
+          VITE_SERVICO_CADASTRO_URL: ${{ vars.VITE_SERVICO_CADASTRO_URL }}
+          VITE_SERVICO_COFRE_URL: ${{ vars.VITE_SERVICO_COFRE_URL }}
+          VITE_SERVICO_GOVERNO_URL: ${{ vars.VITE_SERVICO_GOVERNO_URL }}
+          VITE_SERVICO_MENSAGENS_URL: ${{ vars.VITE_SERVICO_MENSAGENS_URL }}
+          VITE_SERVICO_IA_URL: ${{ vars.VITE_SERVICO_IA_URL }}
+          VITE_PAINEL_MENSAGENS_URL: ${{ vars.VITE_PAINEL_MENSAGENS_URL }}
         run: npm run build
       - name: Setup Pages
         uses: actions/configure-pages@v4

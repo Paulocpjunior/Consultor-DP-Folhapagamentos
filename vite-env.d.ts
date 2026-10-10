@@ -7,6 +7,15 @@ interface ImportMetaEnv {
     readonly VITE_FIREBASE_STORAGE_BUCKET: string;
     readonly VITE_FIREBASE_MESSAGING_SENDER_ID: string;
     readonly VITE_FIREBASE_APP_ID: string;
+    readonly VITE_DEPARTAMENTO_GATE_MODO?: string;
+    /** Serviços externos (services/plataforma/servicos.ts); vazios = CFI. */
+    readonly VITE_PLATAFORMA_URL?: string;
+    readonly VITE_SERVICO_CADASTRO_URL?: string;
+    readonly VITE_SERVICO_COFRE_URL?: string;
+    readonly VITE_SERVICO_GOVERNO_URL?: string;
+    readonly VITE_SERVICO_MENSAGENS_URL?: string;
+    readonly VITE_SERVICO_IA_URL?: string;
+    readonly VITE_PAINEL_MENSAGENS_URL?: string;
 }
 
 interface ImportMeta {

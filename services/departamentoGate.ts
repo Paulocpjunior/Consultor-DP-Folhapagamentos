@@ -23,9 +23,10 @@
  *     CORS — nada disso pode trancar o escritório; vira log no console.
  */
 
+import { urlDoServico } from './plataforma/servicos';
+
 const MODULO_DESTE_APP = 'dp-folha';
 const MODULO_NOME = 'Consultor DP Folha de Pagamentos';
-const CFI_URL = 'https://consultor-fiscal-inteligente-zricstsjqa-uw.a.run.app';
 
 export interface VereditoHorario {
     permitido?: boolean;
@@ -116,7 +117,7 @@ export async function consultarGateDepartamento(
     const doFetch = deps.fetchImpl ?? fetch;
     try {
         const token = await getToken();
-        const url = `${CFI_URL}/api/admin/cadastro/usuarios/${encodeURIComponent(email.trim().toLowerCase())}`
+        const url = urlDoServico('cadastro', `/api/admin/cadastro/usuarios/${encodeURIComponent(email.trim().toLowerCase())}`)
             + `?modulo=${MODULO_DESTE_APP}`;
         const resp = await doFetch(url, { headers: { Authorization: `Bearer ${token}` } });
         const corpo = await resp.json().catch(() => ({}));

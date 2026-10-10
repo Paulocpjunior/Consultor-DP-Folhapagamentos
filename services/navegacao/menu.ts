@@ -4,7 +4,7 @@
 // depois os cadastros, a folha do mês, as conferências, o eSocial, os prazos e o fim de mês;
 // as configurações ficam à direita. Cada item leva a uma tela (aba) e, quando há, à sub-aba dela.
 
-export type Aba = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin' | 'fimdemes' | 'relatorios';
+export type Aba = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin' | 'fimdemes' | 'relatorios' | 'servicos';
 
 export type SubFolha = 'eventos' | 'apontamento' | 'validador-ponto' | 'implantacao' | 'conferencia';
 export type SubCadastroMenu = 'funcionarios' | 'horarios' | 'afastamentos' | 'incidencias' | 'enquadramento' | 'sindicatos' | 'tabelas';
@@ -18,7 +18,7 @@ export type Destino =
     | { aba: 'calculo'; folha: FolhaCalculo }
     | { aba: 'fimdemes'; sub: 'fechamento' | 'pedidos' }
     | { aba: 'relatorios'; sub: 'central' | 'modelos' }
-    | { aba: 'empresas' | 'certificados' | 'prazos' | 'iobsage' | 'admin' }
+    | { aba: 'empresas' | 'certificados' | 'prazos' | 'iobsage' | 'admin' | 'servicos' }
     | { aba: 'trocar' };
 
 import type { NomeIcone } from '../../components/layout/icones';
@@ -86,6 +86,7 @@ export const MENU: GrupoMenu[] = [
     { id: 'config', rotulo: 'Configurações', icone: 'config', direita: true, itens: [
         { id: 'iobsage', rotulo: 'IOB SAGE', descricao: 'Backup, restauração e menus do IOB × Consultor', icone: 'banco', destino: { aba: 'iobsage' } },
         { id: 'admin', rotulo: 'Usuários e carteiras', descricao: 'Papéis e empresas de cada pessoa', icone: 'pessoas', destino: { aba: 'admin' }, soAdmin: true },
+        { id: 'servicos', rotulo: 'Serviços externos', descricao: 'Quem atende o cofre, o governo, as mensagens e a IA (CFI, plataforma comum ou próprio do DP)', icone: 'elo', destino: { aba: 'servicos' } },
     ] },
 ];
 
