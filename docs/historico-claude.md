@@ -46,6 +46,32 @@ piloto em paralelo provar o cálculo próprio.
   BigQuery e região confirmada.
 - **Backup: todo o SaaS já nasceu com backup no UNAS Pro 4 do escritório**
   (Paulo, 03/10/2026). Não propor outra rotina de backup.
+- **Comparativo IOB SAGE × Consultor sempre atualizado** (Paulo, 10/10/2026:
+  "atualize sempre que houver necessidade, não precisa da minha autorização").
+  A cada entrega, revisar `services/iobSage/catalogoMenus.ts` (tela IOB SAGE).
+- **Carteiras do DP vêm do CRM no Jotform** (Paulo, 10/10/2026): tabela do
+  formulário "Controle DP RH_2022" (213255365041650), com empresa, código SAGE,
+  CNPJ, colaborador responsável e particularidades (observações do fechamento).
+- **Pontos fortes do SAGE a construir no Consultor, nesta ordem** (Paulo,
+  10/10/2026: "memorize os pontos fortes da SAGE e vamos construir na sequência"):
+  1. Paridade de cálculo provada (divergências da 09/2026 da 1200).
+  2. Resultado da folha gravado no encerramento do mês (o SAGE guarda o
+     processamento; hoje recalculamos e uma mudança na ficha altera o passado).
+  3. Médias de variáveis (adicionais, comissões, lançamentos) em férias, 13º e
+     rescisão; insalubridade e periculosidade automáticas; pensão no IRRF de
+     férias, 13º e rescisão.
+  4. Eventos não periódicos: S-2200, S-2206 e S-2299 gerados pelo Consultor.
+  5. Informe de rendimentos (prazo: fevereiro de 2027).
+  6. Atualização legal com rotina: tabelas de janeiro de 2027 (INSS, mínimo,
+     IRRF) e novo leiaute do eSocial.
+  7. Outros bancos no arquivo bancário (hoje só Itaú), conforme entrarem empresas.
+  8. Depois: folha complementar e dissídio, rescisão complementar e TRCT oficial,
+     aviso de férias, provisões e integração contábil (CCI), pró-labore,
+     autônomos, intermitente, consignado, ficha financeira, transferência de
+     funcionários e cálculo em lote de várias empresas.
+  Onde já somos superiores (manter): conferência pós-folha com SERPRO, memória
+  de cálculo, carteira e trilha de auditoria, Fim de mês com reabertura pelo
+  gestor, validação antes do envio ao eSocial, prazos do DP, pacote do cliente.
 
 ## Fase 1 — conferência pós-folha
 
