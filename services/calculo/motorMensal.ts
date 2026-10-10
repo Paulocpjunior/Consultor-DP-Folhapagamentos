@@ -130,6 +130,10 @@ export interface ResultadoCalculo {
     irrfApurado?: IrrfApurado;
     /** Adiantamento pago num mês e saldo da folha em outro: o IRRF retido no adiantamento (já fora da base da folha). */
     irrfAdiantamento?: number;
+    /** O que entrou no IRRF do adiantamento deste contrato, para somar os contratos do mesmo CPF. */
+    irrfAdiantamentoApuracao?: { rendimentos: number; deducoesLegais: number; jaRetido: number; adiantamento: number; dependentes: number };
+    /** IRRF do adiantamento apurado com os outros contratos do CPF (o valor é a parte deste contrato). */
+    irrfAdiantamentoCpf?: boolean;
     /** Competência da folha anterior somada no IRRF do adiantamento (paga antes dele, até o 5º dia útil). */
     irrfAdiantamentoFolha?: string;
     /** Incompleto só pelo IRRF do adiantamento (falta a folha paga antes dele): o IRRF da folha em si está completo e pode ser gravado. */
@@ -597,6 +601,7 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
                 + `${a.memoriaRedutor.length ? ` (${a.memoriaRedutor.join(' ')})` : ''}; menos ${reais(pagos.valor)} já retidos = ${reais(ir)}.`);
             if (ir > 0 && ir <= IRRF_MINIMO) { r.memoria.push(`IRRF do adiantamento de ${reais(ir)} não retido: até R$ 10,00 a retenção é dispensada (Lei 9.430/1996, art. 67).`); ir = 0; }
             r.irrfAdiantamento = ir;
+            r.irrfAdiantamentoApuracao = { rendimentos: pagos.rendimentos, deducoesLegais: pagos.deducoesLegais, jaRetido: pagos.valor, adiantamento: adiant, dependentes: nDep * (tA.tabela.valores.deducaoDependente ?? 0) };
             if (ant) r.irrfAdiantamentoFolha = ant.competencia;
             else if (!a.simplificado && nDep) r.deducoesAdiantamento = { dependentes: depsIrrf.map(x => ({ cpf: x.cpf, nome: x.nome })), porDependente: tA.tabela.valores.deducaoDependente ?? 0 };
         }
@@ -642,7 +647,8 @@ export const adiantamentoDoMes = (r: Pick<ResultadoCalculo, 'verbas'>) => r.verb
  * Consultor: desligado antes do adiantamento, conta, e o aviso manda conferir. `pagosNoMes`: contratos da competência anterior com folha paga no mês do adiantamento (um contrato
  * encerrado no mês passado também entra na conta do CPF); quem filtra é a tela, pelo valor pago (Codex #118).
  */
-export function travarAdiantamentoEntreContratos<R extends ResultadoCalculo>(resultados: R[], fichas: Pick<FichaFuncionario, 'id' | 'cpf' | 'dados'>[], pagosNoMes: Pick<FichaFuncionario, 'id' | 'cpf'>[] = []): R[] {
+export function travarAdiantamentoEntreContratos<R extends ResultadoCalculo>(resultados: R[], fichas: (Pick<FichaFuncionario, 'id' | 'cpf' | 'dados'> & Partial<Pick<FichaFuncionario, 'dependentes'>>)[], pagosNoMes: Pick<FichaFuncionario, 'id' | 'cpf'>[] = [],
+    soma?: { tabelas: TabelaLegal[]; folhaPaga: (fichaId: string) => (IrrfApurado & { competencia: string }) | { pendente: string } | null | undefined }): R[] {
     const cpfDe = new Map(fichas.map(f => [f.id, f.cpf.replace(/\D/g, '')]));
     const desligadoNoMes = new Map(fichas.map(f => [f.id, f.dados.dataDesligamento ?? '']));
     const contratosDoCpf = new Map<string, Set<string>>();
@@ -653,8 +659,51 @@ export function travarAdiantamentoEntreContratos<R extends ResultadoCalculo>(res
     }
     for (const f of pagosNoMes) somar(f.id, f.cpf.replace(/\D/g, ''));
     const porCpf = new Map([...contratosDoCpf].map(([c, ids]) => [c, ids.size]));
+    // Somar os contratos: o IRRF do mês é de tudo o que foi pago ao CPF (RIR/1999, art. 621). Precisa da apuração de
+    // cada contrato com adiantamento e da folha paga no mês dos que só têm ela; com rescisão no mês, ou o que faltar,
+    // continua travado (a data em que a rescisão foi paga não fica gravada).
+    const somados = new Map<string, Map<string, { valor: number; memoria: string }>>();
+    if (soma) for (const [c, ids] of contratosDoCpf) {
+        if (ids.size < 2) continue;
+        const doCpf = resultados.filter(r => ids.has(r.fichaId));
+        const comAdiant = doCpf.filter(r => adiantamentoDoMes(r) > 0);
+        if (comAdiant.some(r => !r.irrfAdiantamentoApuracao || r.situacao === 'erro')) continue;
+        if (doCpf.some(r => { const dl = desligadoNoMes.get(r.fichaId) ?? ''; return dl.startsWith(r.competencia) && dl <= dataSugeridaAdiantamento(r.competencia); })) continue;
+        const comp = comAdiant[0]?.competencia; if (!comp) continue;
+        const t = tabelaVigente(soma.tabelas, 'irrf', comp); if ('erro' in t) continue;
+        const ded = t.tabela.valores.deducaoDependente ?? 0;
+        // Só a folha paga no mês (contrato da competência anterior que não tem adiantamento agora).
+        const so = [...ids].filter(id => !comAdiant.some(r => r.fichaId === id)).map(id => ({ id, f: fichas.find(x => x.id === id), a: soma.folhaPaga(id) }));
+        if (so.some(x => x.a === undefined || (x.a && 'pendente' in x.a))) continue;
+        const partes = [...comAdiant.map(r => ({ ...r.irrfAdiantamentoApuracao! })),
+            ...so.filter(x => x.a).map(x => { const a = x.a as IrrfApurado; const dep = ded * (x.f?.dependentes?.filter(d => d.irrf === 'S' && d.pensao !== 'S').length ?? 0);
+                return { rendimentos: a.rendimentos, deducoesLegais: a.deducoesLegais, jaRetido: a.valor, adiantamento: 0, dependentes: Math.min(dep, a.deducoesLegais) }; })];
+        const R = partes.reduce((s, p) => s + p.rendimentos + p.adiantamento, 0);
+        // Dependentes uma vez só: cada contrato os deduziu na sua folha.
+        const L = partes.reduce((s, p) => s + p.deducoesLegais - p.dependentes, 0) + Math.max(0, ...partes.map(p => p.dependentes));
+        const retido = partes.reduce((s, p) => s + p.jaRetido, 0);
+        const a = apurarIrrf(t.tabela, R, L);
+        let ir = Math.max(0, a.valor - retido);
+        if (ir > 0 && ir <= IRRF_MINIMO) ir = 0;
+        // Cada contrato retém a parte proporcional ao seu adiantamento (o último leva o arredondamento).
+        const totalAdiant = comAdiant.reduce((s, r) => s + adiantamentoDoMes(r), 0);
+        const m = new Map<string, { valor: number; memoria: string }>(); let resto = ir;
+        comAdiant.forEach((r, i) => {
+            const v = i === comAdiant.length - 1 ? resto : Math.round(ir * adiantamentoDoMes(r) / Math.max(1, totalAdiant)); resto -= v;
+            m.set(r.fichaId, { valor: v, memoria: `IRRF do adiantamento somando os ${ids.size} contratos do CPF (RIR/1999, art. 621): pagos no mês ${reais(R)}; `
+                + `${a.simplificado ? `desconto simplificado ${reais(a.deducao)}` : `deduções legais ${reais(L)} (dependentes uma vez)`}; IRRF do mês ${reais(a.valor)} − ${reais(retido)} já retidos = ${reais(ir)}${ir === 0 && a.valor - retido > 0 ? ' (até R$ 10,00, dispensado)' : ''}; `
+                + `este contrato retém ${reais(v)} (proporcional ao adiantamento de ${reais(adiantamentoDoMes(r))}).` });
+        });
+        somados.set(c, m);
+    }
     return resultados.map(r => {
         const c = cpfDe.get(r.fichaId);
+        const s = c ? somados.get(c) : undefined;
+        if (s && r.irrfAdiantamento !== undefined) {
+            const x = s.get(r.fichaId);
+            if (x) return { ...r, irrfAdiantamento: x.valor, irrfAdiantamentoCpf: true, memoria: [...r.memoria, x.memoria] };
+        }
+        if (s) return r;
         if (!c || (porCpf.get(c) ?? 0) < 2 || r.irrfAdiantamento === undefined || r.situacao === 'erro') return r;
         // O IRRF por contrato está errado: sai do resultado, para não ir ao resumo nem ao lembrete do DARF (Codex #118).
         return { ...r, situacao: 'incompleto', irrfAdiantamento: undefined, irrfAdiantamentoFolha: undefined, deducoesAdiantamento: undefined, avisos: [...r.avisos, 'IRRF do adiantamento com mais de um contrato no CPF: o imposto do mês é de tudo o que foi pago ao CPF, e o Consultor ainda calcula cada contrato sozinho. Confira pelo IOB (um contrato desligado no mês conta pela rescisão, que pode ter sido paga antes do adiantamento).'] };

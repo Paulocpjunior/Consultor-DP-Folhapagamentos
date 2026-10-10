@@ -3225,3 +3225,11 @@ guias sindicais".
   - De/para: 13A → 5504, 13 → 5001, 13ADT → 9214, INSS13/IRRF13 pela descrição com "13" (o INSS e o IRRF da folha evitam as rubricas do 13º e das férias).
 - **Conferir antes de transmitir:** comparar com o que o IOB mandou em 11/2025 e no anual de 2025 (download do eSocial).
 - **Testes:** `services/esocial/__tests__/decimoTerceiroEsocial.test.ts`.
+
+## 10/10/2026 — IRRF do adiantamento com dois contratos no mesmo CPF
+
+- **Antes:** com mais de um contrato no CPF, o IRRF do adiantamento ficava incompleto (cada contrato era calculado sozinho).
+- **Agora:** soma tudo o que foi pago ao CPF no mês do adiantamento (as folhas anteriores pagas nele e os adiantamentos), com as deduções somadas e os dependentes uma vez; desconta o que as folhas já retiveram; a dispensa de até R$ 10,00 vale para o total; cada contrato retém a parte proporcional ao seu adiantamento (o último leva o arredondamento). O eSocial deixa de travar nesses casos.
+- **Continua travado:** contrato com rescisão no mês antes do adiantamento (a data em que a rescisão foi paga não fica gravada) e contrato que só tem a folha paga no mês sem o IRRF gravado.
+- **Tela:** a soma é feita antes do arredondamento (o arredondamento do adiantamento depende do IRRF dele).
+- **Testes:** caso novo em `services/esocial/__tests__/irrfAdiantamento.test.ts`.

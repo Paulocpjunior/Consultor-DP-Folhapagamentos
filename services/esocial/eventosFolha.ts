@@ -430,7 +430,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             const quem = contratos.length > 1 ? ` (matrícula ${f.matriculaEsocial || '?'})` : '';
             if (r.situacao !== 'calculado') { t.erros.push(`Cálculo ${r.situacao === 'erro' ? 'com erro' : 'incompleto'}${quem}: ${[...r.erros, ...r.avisos].join(' ') || 'confira o holerite'}.`); continue; }
             // IRRF do adiantamento é do CPF no mês; com dois contratos, cada um foi calculado sozinho (Codex #118).
-            if (contratos.length > 1 && r.irrfAdiantamento !== undefined) { t.erros.push(`IRRF do adiantamento com mais de um contrato no CPF${quem}: o Consultor ainda calcula cada contrato sozinho. Confira pelo IOB.`); continue; }
+            if (contratos.length > 1 && r.irrfAdiantamento !== undefined && !r.irrfAdiantamentoCpf) { t.erros.push(`IRRF do adiantamento com mais de um contrato no CPF${quem}: o Consultor ainda calcula cada contrato sozinho. Confira pelo IOB.`); continue; }
             if (!f.matriculaEsocial.trim()) t.erros.push(`Sem matrícula do eSocial na ficha${quem}.`);
             const categ = digitos(f.dados.categoria);
             if (!/^\d{3}$/.test(categ)) t.erros.push(`Categoria do eSocial (3 dígitos) em branco na ficha${quem}.`);
