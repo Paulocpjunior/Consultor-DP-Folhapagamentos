@@ -27,6 +27,7 @@ import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros
 import { diasEntre, somarDias, somarMeses } from '../prazos/calendario';
 import { calcularMensal, diasDsr, salarioContratual, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
 import { avosDoAno } from './motor13';
+import { folhaPagaAntes } from './arredondamento';
 import { diasDeDireito, feriasDaCompetencia, mesesDoPeriodo, periodosAquisitivos } from './motorFerias';
 import { inssDetalhado, irrfDetalhado, type OpcoesIrrf } from './tributos';
 
@@ -70,6 +71,11 @@ export interface EntradaRescisao {
     /** 13º já adiantado no ano (1ª parcela ou nas férias), em centavos. */
     adiantamento13?: number;
     opcoes?: OpcoesIrrf;
+    /**
+     * Mês em que a empresa paga a folha de cada competência (o regime dos parâmetros). Com a rescisão paga no próprio
+     * mês e a folha anterior paga nele, o IRRF soma as duas (regime de caixa). Sem ele, o IRRF é só da rescisão.
+     */
+    regimePagamento?: (competencia: string) => string;
 }
 
 export interface ResultadoRescisao extends ResultadoCalculo {
@@ -86,6 +92,7 @@ export interface ResultadoRescisao extends ResultadoCalculo {
 const ALIQUOTA_FGTS = 8;
 const ALIQUOTA_FGTS_APRENDIZ = 2;
 const br = (d: string) => d.split('-').reverse().join('/');
+const num = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
 const anosCompletos = (de: string, ate: string) => { let n = 0; while (somarMeses(de, 12 * (n + 1)) <= somarDias(ate, 1)) n++; return n; };
 
 /** Dias de aviso prévio pago pelo empregador (Lei 12.506/2011). */
@@ -120,6 +127,8 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
     if (data < d.admissao) return erro('Desligamento antes da admissão.');
     const categoria = d.categoria || '';
     if (categoria && !/^1\d\d$/.test(categoria)) return erro(`Categoria ${categoria}: esta versão só calcula empregados (categorias 1xx).`);
+    if (categoria === '104') return erro('Empregado doméstico (categoria 104): a rescisão tem regras próprias (sem multa de 40%; saque dos 3,2% da LC 150/2015). Calcule pelo IOB.');
+    if (categoria === '111') return erro('Intermitente (categoria 111): o motor ainda não calcula. Calcule pelo IOB.');
     const aliqFgts = categoria === '103' ? ALIQUOTA_FGTS_APRENDIZ : ALIQUOTA_FGTS;
     const justa = tipo === '01';
     if (motivoFicha && motivoFicha !== tipo && d.dataDesligamento === data) r.avisos.push(`O S-2299 informou o motivo ${motivoFicha}; o cálculo usa ${tipo}.`);
@@ -142,16 +151,22 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
         const { uteis, descanso } = diasDsr(c, mov.feriadosLocais);
         somaVar += he + Math.round(he / uteis * descanso);
     }
-    const media = Math.round(somaVar / 12);
+    // Pelos meses de vínculo dentro dos 12 (admitido há menos de um ano: os meses trabalhados), como no 13º.
+    const mesesMedia = Math.max(1, ultimos12.filter(c => c >= d.admissao.slice(0, 7)).length);
+    const media = Math.round(somaVar / mesesMedia);
     const remuneracao = sc.mensal + media;
     const diaria = remuneracao / 30;
-    r.memoria.push(`Remuneração para as verbas rescisórias: ${reais(sc.mensal)}${media ? ` + média de horas extras ${reais(media)} (12 meses ÷ 12)` : ''} = ${reais(remuneracao)}.`);
+    r.memoria.push(`Remuneração para as verbas rescisórias: ${reais(sc.mensal)}${media ? ` + média de horas extras ${reais(media)} (${reais(somaVar)} ÷ ${mesesMedia} ${mesesMedia === 1 ? 'mês' : 'meses'} de vínculo nos 12 anteriores)` : ''} = ${reais(remuneracao)}.`);
     if (ultimos12.some(c => e.movimentos[c])) r.avisos.push('Média de horas extras pelos movimentos gravados dos 12 meses anteriores; comissões e adicionais ainda não entram.');
 
     // 1. Saldo de salário e movimento do mês, pelo motor mensal.
     const fichaDeslig: FichaFuncionario = { ...ficha, dados: { ...d, dataDesligamento: data } };
-    const mes = calcularMensal({ competencia: data.slice(0, 7), pagamento, ficha: fichaDeslig, afastamentos: e.afastamentos, tabelas: e.tabelas, movimento: e.movimentos[data.slice(0, 7)],
-        feriasDoMes: feriasDaCompetencia(fichaDeslig, e.afastamentos, e.tabelas, e.movimentos, data.slice(0, 7)) });
+    const comp = data.slice(0, 7);
+    // Rescisão paga no próprio mês, com a folha anterior paga nele: o IRRF do saldo soma a folha (regime de caixa).
+    const folhaPagaAntesNoMes = pagamento === comp && e.regimePagamento
+        ? folhaPagaAntes(e.movimentos, comp, m => d.admissao.slice(0, 7) <= m, e.regimePagamento) : null;
+    const mes = calcularMensal({ competencia: comp, pagamento, ficha: fichaDeslig, afastamentos: e.afastamentos, tabelas: e.tabelas, movimento: e.movimentos[comp],
+        feriasDoMes: feriasDaCompetencia(fichaDeslig, e.afastamentos, e.tabelas, e.movimentos, comp), folhaPagaAntesNoMes });
     if (mes.situacao === 'erro') { r.erros.push(...mes.erros); r.situacao = 'erro'; }
     for (const v of mes.verbas) r.verbas.push(v.codigo === 'SAL' ? { ...v, descricao: 'Saldo de salário' } : v.codigo === 'INSS' ? { ...v, descricao: 'INSS sobre saldo de salário' } : v.codigo === 'IRRF' ? { ...v, descricao: 'IRRF sobre saldo de salário' } : v);
     r.memoria.push(...mes.memoria.map(m => `Mês: ${m}`));
@@ -165,17 +180,21 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
     if (tipo === '02' || tipo === '33') {
         const dias = diasDeAviso(d.admissao, data);
         r.diasAviso = dias;
+        // Dias pagos do aviso: no acordo (art. 484-A, I, "a"), a metade do indenizado, inclusive meio dia.
+        let pagos = 0;
         if (e.aviso === 'trabalhado') {
             indenizados = Math.max(0, dias - 30);
-            r.memoria.push(`Aviso prévio de ${dias} dias (Lei 12.506/2011): 30 trabalhados${indenizados ? ` e ${indenizados} indenizados` : ''}.`);
+            pagos = tipo === '33' ? indenizados / 2 : indenizados;
+            r.memoria.push(`Aviso prévio de ${dias} dias (Lei 12.506/2011): 30 trabalhados${indenizados ? ` e ${indenizados} indenizados${tipo === '33' ? `, pela metade no acordo = ${num(pagos)}` : ''}` : ''}.`);
         } else {
             indenizados = tipo === '33' ? Math.floor(dias / 2) : dias;
-            r.memoria.push(`Aviso prévio indenizado: ${dias} dias (Lei 12.506/2011)${tipo === '33' ? `, pela metade no acordo = ${indenizados}` : ''}.`);
+            pagos = tipo === '33' ? dias / 2 : dias;
+            r.memoria.push(`Aviso prévio indenizado: ${dias} dias (Lei 12.506/2011)${tipo === '33' ? `, pela metade no acordo = ${num(pagos)}` : ''}.`);
             if (e.aviso !== 'indenizado') r.avisos.push('Na dispensa pelo empregador, o aviso é trabalhado ou indenizado; calculado como indenizado.');
         }
-        if (indenizados) {
-            const v = Math.round(diaria * indenizados);
-            verba({ codigo: 'AVISO', descricao: 'Aviso prévio indenizado', referencia: `${indenizados} dias`, tipo: 'provento', valor: v, inss: false, fgts: true, irrf: false });
+        if (pagos) {
+            const v = Math.round(diaria * pagos);
+            verba({ codigo: 'AVISO', descricao: 'Aviso prévio indenizado', referencia: `${num(pagos)} dias`, tipo: 'provento', valor: v, inss: false, fgts: true, irrf: false });
             fgtsBase += v;
         }
         r.dataProjetada = somarDias(data, indenizados);
@@ -205,26 +224,27 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
         const prop = Math.round(remuneracao * avosReal / 12);
         const ind = Math.round(remuneracao * avosAviso / 12);
         verba({ codigo: '13PROP', descricao: '13º salário proporcional', referencia: `${avosReal}/12`, tipo: 'provento', valor: prop, inss: true, fgts: true, irrf: true });
-        verba({ codigo: '13IND', descricao: '13º sobre o aviso indenizado', referencia: `${avosAviso}/12`, tipo: 'provento', valor: ind, inss: false, fgts: true, irrf: true });
+        // O reflexo do aviso indenizado no 13º é remuneração: tem INSS (Nota PGFN/CRJ 485/2016).
+        verba({ codigo: '13IND', descricao: '13º sobre o aviso indenizado', referencia: `${avosAviso}/12`, tipo: 'provento', valor: ind, inss: true, fgts: true, irrf: true });
         r.memoria.push(`13º: ${reais(remuneracao)} × ${avosReal}/12 = ${reais(prop)}${ind ? `; projeção do aviso + ${avosAviso}/12${avosSeguinte ? ` (${avosSeguinte} de ${ano + 1})` : ''} = ${reais(ind)}` : ''}.`);
         const adiantado = e.adiantamento13 ?? 0;
         if (adiantado) verba({ codigo: '13ADT', descricao: 'Adiantamento do 13º', referencia: '', tipo: 'desconto', valor: adiantado, inss: false, fgts: false, irrf: false });
         else if (data.slice(5, 7) === '12') r.avisos.push('Desligamento em dezembro: se a 1ª parcela do 13º já foi paga, informe o adiantamento.');
+        else if (prop) r.avisos.push('Se o 13º foi adiantado no ano (nas férias, por exemplo), informe o adiantamento: senão ele sai inteiro.');
         // O adiantamento já teve FGTS quando foi pago: só o restante entra na base rescisória.
         fgtsBase += Math.max(0, prop - adiantado) + ind;
         if (adiantado) r.memoria.push(`FGTS do 13º: ${reais(Math.max(0, prop - adiantado))} (proporcional − adiantamento, que já teve FGTS) + ${reais(ind)}.`);
         const tInss = tabelaVigente(e.tabelas, 'inss', data.slice(0, 7));
         let inss13 = 0;
         if ('erro' in tInss) erro(tInss.erro);
-        else if (prop) { const x = inssDetalhado(prop, tInss.tabela); inss13 = x.valor; r.memoria.push(`INSS do 13º (em separado): ${x.memoria}.`); }
+        else if (prop + ind) { const x = inssDetalhado(prop + ind, tInss.tabela); inss13 = x.valor; r.memoria.push(`INSS do 13º (em separado, proporcional + aviso indenizado): ${x.memoria}.`); }
         verba({ codigo: 'INSS13', descricao: 'INSS sobre 13º', referencia: '', tipo: 'desconto', valor: inss13, inss: false, fgts: false, irrf: false });
         const tIr = tabelaVigente(e.tabelas, 'irrf', pagamento);
         if ('erro' in tIr) erro(`IRRF: ${tIr.erro}`);
         else if (prop + ind) {
-            const x = irrfDetalhado({ rendimento: prop + ind, inss: inss13, dependentes: ficha.dependentes.filter(y => y.irrf === 'S').length, tabela: tIr.tabela, opcoes, rotulo: 'IRRF do 13º (exclusivo na fonte)' });
+            const x = irrfDetalhado({ rendimento: prop + ind, inss: inss13, dependentes: ficha.dependentes.filter(y => y.irrf === 'S' && y.pensao !== 'S').length, tabela: tIr.tabela, opcoes, rotulo: 'IRRF do 13º (exclusivo na fonte)' });
             r.memoria.push(...x.memoria);
             verba({ codigo: 'IRRF13', descricao: 'IRRF sobre 13º', referencia: '', tipo: 'desconto', valor: x.valor, inss: false, fgts: false, irrf: false });
-            if (ind) r.avisos.push('13º sobre o aviso indenizado entrou no IRRF do 13º e fora do INSS: confirme com o IOB.');
         }
     } else r.memoria.push('Justa causa: sem 13º proporcional, férias proporcionais e aviso prévio.');
 

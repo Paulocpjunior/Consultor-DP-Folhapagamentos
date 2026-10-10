@@ -3161,3 +3161,23 @@ guias sindicais".
 - **Benefícios:** mudar numa competência anterior a outra mudança registrada é recusado (reescreveria os meses seguintes).
 - **Parâmetros:** os da folha mudam em transação sobre o gravado (benefícios e arredondamento de duas pessoas não se apagam). O de/para do eSocial só grava se o gravado ainda é o que a tela leu.
 - **Testes:** `services/bancario/__tests__/auditoriaBancoTelas.test.ts` e casos novos na tela do cálculo e no arquivo bancário.
+
+## 10/10/2026 — Auditoria do projeto, lote M (motor de cálculo)
+
+- **Paulo:** "pode seguir com o motor".
+- **Dias do mês:** fevereiro afastado o mês inteiro não paga mais 2 dias; doença desde 01/02 paga os 15 dias da empresa (antes 17); afastado até o fim de fevereiro, os dias trabalhados; licença-maternidade em fevereiro completa os 30 dias.
+- **Salário-família:** no benefício do INSS que começou em mês anterior, quem paga é o INSS (Decreto 3.048, art. 82); no mês em que começa, a empresa.
+- **Empresa Cidadã (motivo 18):** verba própria (MATPRORR), fora da compensação do salário-maternidade na DCTFWeb.
+- **Serviço militar (29):** FGTS sobre os dias afastados, como o acidente do trabalho.
+- **Adiantamento:** o automático usa o salário do mês como estava no dia do adiantamento (desligamento ou afastamento depois do dia 20 não muda o que já foi pago).
+- **Pensionista marcado como dependente no IRRF:** deduz só pela pensão (mensal, 13º, férias, rescisão), com aviso.
+- **Doméstico (104) e intermitente (111):** o motor recusa (regras próprias).
+- **"Mesmo motivo em 60 dias":** aviso para conferir se a empresa completa os 15 dias.
+- **Rescisão:**
+  - 13º sobre o aviso indenizado com INSS (Nota PGFN/CRJ 485/2016);
+  - média de horas extras pelos meses de vínculo dentro dos 12 (antes, sempre ÷ 12);
+  - acordo (484-A): metade do aviso com meio dia, também nos dias além de 30 do aviso trabalhado;
+  - paga no próprio mês, com a folha anterior paga nele: o IRRF soma a folha e desconta o já retido (folha e adiantamento);
+  - aviso para informar o 13º adiantado em qualquer mês.
+- **Testes:** `services/calculo/__tests__/auditoriaMotor.test.ts`; o INSS do 13º da rescisão de teste passou de 37,50 para 75,00.
+- **Fica para depois (P2/P3 da auditoria):** licença não remunerada prorrogando o período aquisitivo; HE com adicional diferente de 50/100%; verbas "OUTRO" do holerite com incidências; DSR das HE em mês parcial; admissão em 29/02; arredondamento na rescisão; pensão no IRRF de férias, 13º e rescisão; benefício descontado sem salário no mês.

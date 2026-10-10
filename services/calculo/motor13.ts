@@ -211,7 +211,7 @@ export function calcular13(e: Entrada13): ResultadoCalculo {
         if ('erro' in tIr) erro(`IRRF: ${tIr.erro}`);
         else {
             const t = tIr.tabela;
-            const nDep = ficha.dependentes.filter(x => x.irrf === 'S').length;
+            const nDep = ficha.dependentes.filter(x => x.irrf === 'S' && x.pensao !== 'S').length; // quem recebe pensão deduz só por ela (Lei 9.250/1995, art. 35, § 4º)
             const legais = inss + nDep * (t.valores.deducaoDependente ?? 0);
             const simpl = opcoes.simplificado ? t.valores.descontoSimplificado ?? 0 : 0;
             const usaSimpl = simpl > legais;
