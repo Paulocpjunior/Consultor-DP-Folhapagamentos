@@ -274,7 +274,9 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             return [...itens.entries()].flatMap(([id, p]) => {
                 const f = dados.fichas.find(x => x.id === id);
                 return f ? [calcularRescisao({ ficha: f, data: p.data, tipo: p.tipo, aviso: p.aviso, pagamento: p.pagamento, saldoFgts: p.saldoFgts, adiantamento13: p.adiantamento13, opcoes: opcoesFerias,
-                    afastamentos: dados.afastamentos.filter(a => a.fichaId === id), tabelas: dados.tabelas, movimentos: movsAno[id] ?? {} })] : [];
+                    afastamentos: dados.afastamentos.filter(a => a.fichaId === id), tabelas: dados.tabelas, movimentos: movsAno[id] ?? {},
+                    // Paga no próprio mês: com a folha anterior paga nele (regime "mês seguinte"), o IRRF soma as duas.
+                    regimePagamento: m => mesDoPagamento(parametrosFolha, m) })] : [];
             });
         }
         if (ferias) {

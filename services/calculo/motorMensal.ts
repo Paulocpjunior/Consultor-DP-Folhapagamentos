@@ -93,6 +93,12 @@ export interface EntradaCalculo {
      * antes não é conhecida (sem o IRRF gravado dela, por exemplo), com o que falta para o aviso.
      */
     folhaPagaNoAdiantamento?: IrrfApurado & { competencia: string } | { pendente: string } | null;
+    /**
+     * Pagamento no próprio mês da competência (rescisão paga no mês) com a folha anterior paga nele (empresa que paga
+     * no mês seguinte): o IRRF soma o que já foi pago no mês (a folha anterior e o adiantamento) e desconta o que já foi
+     * retido (RIR/1999, art. 621). `{ pendente }`: a folha anterior não é conhecida. Só vale com pagamento = competência.
+     */
+    folhaPagaAntesNoMes?: IrrfApurado & { competencia: string } | { pendente: string } | null;
     /** Benefícios da empresa (parâmetros da folha): os da ficha vigentes no mês entram como verbas. */
     beneficios?: Beneficio[];
 }
@@ -137,6 +143,10 @@ const ALIQUOTA_FGTS_APRENDIZ = 2;
 const IRRF_MINIMO = 1000;
 
 const MATERNIDADE = ['17', '18', '19', '20', '33', '35', '43'];
+/** Prorrogação da licença-maternidade (Empresa Cidadã, Lei 11.770/2008): a empresa paga e não compensa na DCTFWeb. */
+const PRORROGACAO = '18';
+/** Afastamentos com FGTS sobre a remuneração (Lei 8.036/1990, art. 15, § 5º): acidente do trabalho e serviço militar. */
+const FGTS_NO_AFASTAMENTO = ['01', '29'];
 const DOENCA = ['01', '03'];
 const REMUNERADO = ['16'];
 const FERIAS = ['15'];
@@ -188,7 +198,23 @@ export function salarioContratual(d: FichaFuncionario['dados']): SalarioContratu
     return { erro: `Unidade salarial ${unidade}: não calculada nesta versão (só mês, hora, dia e quinzena).`, avisos };
 }
 
-type Dia = 'pago' | 'maternidade' | 'ferias' | 'naoPago';
+type Dia = 'pago' | 'maternidade' | 'prorrogacao' | 'ferias' | 'naoPago';
+
+/**
+ * Dias de salário no mês comercial. Mês inteiro sem afastamento vale 30; com afastamento, os dias trabalhados (até 30).
+ * Em fevereiro (e com férias no mês), 30 menos os dias fora quando o afastamento acaba dentro do mês; afastado até o fim
+ * do mês, só os dias trabalhados, e sem nenhum dia trabalhado, nada (antes, fevereiro inteiro afastado pagava 2 dias, e a
+ * doença desde 01/02 pagava 17 em vez dos 15 da empresa; auditoria de 10/2026).
+ */
+function diasPagosNoMes(dias: Map<string, Dia>, mesInteiro: boolean, L: number): number {
+    const vals = [...dias.values()];
+    const realPago = vals.filter(v => v === 'pago').length;
+    if (realPago === 0) return 0;
+    const comFerias = vals.includes('ferias');
+    if (!mesInteiro || (L >= 30 && !comFerias)) return Math.min(30, realPago);
+    if (!comFerias && vals[vals.length - 1] !== 'pago') return realPago;
+    return Math.max(0, 30 - (L - realPago));
+}
 
 export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     const { competencia } = e;
@@ -217,6 +243,9 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     if (deslig && deslig < ini) return erro(`Desligado em ${brData(deslig)}, antes da competência.`);
     const categoria = d.categoria || '';
     if (categoria && !/^1\d\d$/.test(categoria)) return erro(`Categoria ${categoria}: esta versão só calcula empregados (categorias 1xx).`);
+    // Doméstico (FGTS de 3,2% da LC 150, sem multa de 40%) e intermitente (pago por convocação) têm regras próprias.
+    if (categoria === '104') return erro('Empregado doméstico (categoria 104): o motor ainda não calcula (FGTS com os 3,2% da LC 150/2015). Calcule pelo IOB.');
+    if (categoria === '111') return erro('Intermitente (categoria 111): o motor ainda não calcula a remuneração por convocação. Calcule pelo IOB.');
     if (!categoria) r.avisos.push('Ficha sem categoria do eSocial: calculado como empregado (101).');
     const aprendiz = categoria === '103';
 
@@ -242,6 +271,8 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     if (deslig && deslig <= ult) incompleto(`Desligado em ${brData(deslig)}: só o saldo de salário foi calculado; a rescisão não está no motor.`);
 
     let diasAcidenteInss = 0;
+    // Benefício do INSS (doença) que começou antes do mês: o salário-família é pago pelo INSS (Decreto 3.048/1999, art. 82).
+    let beneficioDeMesAnterior = false;
     // Dias pagos sem deslocamento (afastamento remunerado, 15 primeiros dias de doença): sem vale-transporte (Codex #115).
     const semTransporte = new Set<string>();
     for (const a of e.afastamentos) {
@@ -258,17 +289,21 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
         const beneficio = DOENCA.includes(a.motivo) ? (a.infoMesmoMtv === 'S' ? a.dtInicio : inicioBeneficio(a)) : null;
         for (let x = aIni; x <= aFim; x = somarDias(x, 1)) {
             if (DOENCA.includes(a.motivo)) {
-                if (beneficio && x >= beneficio) { dias.set(x, 'naoPago'); n++; if (a.motivo === '01') diasAcidenteInss++; }
+                if (beneficio && x >= beneficio) { dias.set(x, 'naoPago'); n++; if (FGTS_NO_AFASTAMENTO.includes(a.motivo)) diasAcidenteInss++; if (beneficio < ini) beneficioDeMesAnterior = true; }
                 else semTransporte.add(x);
-            } else if (MATERNIDADE.includes(a.motivo)) { dias.set(x, 'maternidade'); n++; }
+            } else if (a.motivo === PRORROGACAO) { dias.set(x, 'prorrogacao'); n++; }
+            else if (MATERNIDADE.includes(a.motivo)) { dias.set(x, 'maternidade'); n++; }
             else if (FERIAS.includes(a.motivo)) { dias.set(x, 'ferias'); n++; }
-            else { dias.set(x, 'naoPago'); n++; }
+            else { dias.set(x, 'naoPago'); n++; if (FGTS_NO_AFASTAMENTO.includes(a.motivo)) diasAcidenteInss++; }
         }
         if (DOENCA.includes(a.motivo)) {
             r.memoria.push(a.infoMesmoMtv === 'S'
                 ? `Afastamento ${rotulo} desde ${brData(a.dtInicio)}, mesmo motivo de afastamento anterior (60 dias): benefício do INSS desde o início; ${n} dia(s) sem salário no mês.`
                 : `Afastamento ${rotulo} desde ${brData(a.dtInicio)}: empresa paga os 15 primeiros dias; INSS a partir de ${brData(beneficio!)}; ${n} dia(s) sem salário no mês.`);
-        } else if (MATERNIDADE.includes(a.motivo)) r.memoria.push(`Afastamento ${rotulo}: ${n} dia(s) de salário-maternidade no mês.`);
+            // Afastamento anterior do mesmo motivo com menos de 15 dias: a empresa completa os 15 (Decreto 3.048/1999, art. 75, § 5º).
+            if (a.infoMesmoMtv === 'S') r.avisos.push(`Afastamento ${rotulo} com o mesmo motivo de outro nos últimos 60 dias: o motor põe o INSS desde o 1º dia. Se o anterior teve menos de 15 dias, a empresa completa os 15; confira e lance os dias no movimento.`);
+        } else if (a.motivo === PRORROGACAO) r.memoria.push(`Afastamento ${rotulo}: ${n} dia(s) de prorrogação da licença-maternidade no mês, pagos pela empresa (sem compensação na DCTFWeb).`);
+        else if (MATERNIDADE.includes(a.motivo)) r.memoria.push(`Afastamento ${rotulo}: ${n} dia(s) de salário-maternidade no mês.`);
         else if (FERIAS.includes(a.motivo)) {
             if (e.feriasDoMes) r.memoria.push(`Férias de ${brData(aIni)} a ${brData(aFim)} (${n} dia(s)): pagas no recibo de férias; esses dias saem do salário.`);
             else incompleto(`Férias de ${brData(aIni)} a ${brData(aFim)} (${n} dia(s)): o recibo de férias sai em Cálculo › Folha › Férias; sem ele, o INSS e o FGTS do mês não somam as férias.`);
@@ -283,17 +318,25 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     // pagam-se os dias trabalhados (até 30); em fevereiro, 30 menos os afastados.
     const L = Number(ult.slice(8));
     const base30 = mesInteiro ? 30 : Math.min(30, dias.size);
-    const realPago = contar('pago'); const realMat = contar('maternidade');
+    const realPago = contar('pago'); const realProrr = contar('prorrogacao'); const realMat = contar('maternidade') + realProrr;
     // Com férias no mês, salário + férias fecham 30 dias (o recibo paga os dias de férias): 30 − os dias fora.
     const comFerias = contar('ferias') > 0;
-    const diasPagos = !mesInteiro ? Math.min(30, realPago) : L >= 30 && !comFerias ? Math.min(30, realPago) : Math.max(0, 30 - (L - realPago));
-    const diasMat = Math.min(30 - diasPagos, realMat === dias.size ? base30 : realMat);
+    const diasPagos = diasPagosNoMes(dias, mesInteiro, L);
+    // Licença-maternidade até o fim do mês (ou o mês todo): completa o mês comercial (em fevereiro, os 2 dias que faltam).
+    const diasMatTotal = realMat && mesInteiro && !comFerias && contar('naoPago') === 0 ? 30 - diasPagos : Math.min(30 - diasPagos, realMat === dias.size ? base30 : realMat);
+    const diasProrr = !realProrr ? 0 : realProrr === realMat ? diasMatTotal : Math.min(diasMatTotal, realProrr);
+    const diasMat = diasMatTotal - diasProrr;
     if (!mesInteiro || realPago < dias.size) r.memoria.push(`Dias a pagar: ${diasPagos} (dias trabalhados no mês; mês inteiro vale 30).`);
     if (!mesInteiro) r.avisos.push('Mês parcial: salário proporcional aos dias do vínculo (máximo 30). Confira a regra com o IOB.');
 
     // 3. Proventos.
     const sal = diasPagos === 30 ? mensal : Math.round(diaria * diasPagos);
     verba({ codigo: 'SAL', descricao: 'Salário', referencia: `${diasPagos} dias`, tipo: 'provento', valor: sal, inss: true, fgts: true, irrf: true });
+    if (diasProrr) {
+        const v = diasProrr === 30 ? mensal : Math.round(diaria * diasProrr);
+        verba({ codigo: 'MATPRORR', descricao: 'Prorrogação da licença-maternidade (Empresa Cidadã)', referencia: `${diasProrr} dias`, tipo: 'provento', valor: v, inss: true, fgts: true, irrf: true });
+        r.avisos.push('Prorrogação da licença-maternidade (Lei 11.770/2008): paga pela empresa, sem compensação na DCTFWeb (a dedução é no IRPJ). Média de variáveis não está no motor.');
+    }
     if (diasMat) {
         const v = diasMat === 30 ? mensal : Math.round(diaria * diasMat);
         verba({ codigo: 'MAT', descricao: 'Salário-maternidade', referencia: `${diasMat} dias`, tipo: 'provento', valor: v, inss: true, fgts: true, irrf: true });
@@ -365,12 +408,31 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     // desligado antes, não recebeu (Codex #115). O valor pago num caso desses vai no movimento.
     const diaAdiant = dataSugeridaAdiantamento(competencia);
     const semVinculoNoDia = d.admissao > diaAdiant || (!!deslig && deslig < diaAdiant);
-    const adiant = mov.adiantamento !== undefined ? Math.max(0, Math.round(mov.adiantamento)) : semVinculoNoDia ? 0 : Math.round(sal * pctAd / 100);
+    // O automático é pelo salário do mês como estava no dia do adiantamento: desligamento ou afastamento que começa depois
+    // dele não muda o que já foi pago (antes, a rescisão de 27/03 descontava menos que os 40% pagos em 20/03).
+    const doFicha = (a: Afastamento) => !a.fichaId || a.fichaId === ficha.id;
+    const mudouDepois = (!!deslig && deslig > diaAdiant && deslig < ult) || e.afastamentos.some(a => doFicha(a) && a.dtInicio > diaAdiant && a.dtInicio <= ult);
+    const salNoDiaDoAdiantamento = () => {
+        const m = new Map<string, Dia>();
+        for (let x = de; x <= ult; x = somarDias(x, 1)) m.set(x, 'pago');
+        for (const a of e.afastamentos) {
+            if (!doFicha(a) || a.dtInicio > diaAdiant || REMUNERADO.includes(a.motivo)) continue;
+            const beneficio = DOENCA.includes(a.motivo) ? (a.infoMesmoMtv === 'S' ? a.dtInicio : inicioBeneficio(a)) : null;
+            for (let x = a.dtInicio > de ? a.dtInicio : de; x <= (a.dtFim && a.dtFim < ult ? a.dtFim : ult); x = somarDias(x, 1)) {
+                if (DOENCA.includes(a.motivo)) { if (beneficio && x >= beneficio) m.set(x, 'naoPago'); }
+                else m.set(x, a.motivo === PRORROGACAO ? 'prorrogacao' : MATERNIDADE.includes(a.motivo) ? 'maternidade' : FERIAS.includes(a.motivo) ? 'ferias' : 'naoPago');
+            }
+        }
+        const dp = diasPagosNoMes(m, de === ini, L);
+        return dp === 30 ? mensal : Math.round(diaria * dp);
+    };
+    const baseAdiant = mudouDepois ? salNoDiaDoAdiantamento() : sal;
+    const adiant = mov.adiantamento !== undefined ? Math.max(0, Math.round(mov.adiantamento)) : semVinculoNoDia ? 0 : Math.round(baseAdiant * pctAd / 100);
     if (mov.adiantamento !== undefined) r.adiantamentoInformado = true;
     if (pctAd > 0 && mov.adiantamento === undefined && semVinculoNoDia) r.memoria.push(`Adiantamento salarial: sem vínculo em ${brData(diaAdiant)} (dia do adiantamento), não calculado.`);
     if (adiant > 0) {
         verba({ codigo: 'ADIANT', descricao: 'Adiantamento salarial', referencia: mov.adiantamento !== undefined ? '' : `${num(pctAd)}%`, tipo: 'desconto', valor: adiant, inss: false, fgts: false, irrf: false });
-        r.memoria.push(mov.adiantamento !== undefined ? `Adiantamento salarial: ${reais(adiant)} pagos no mês (informado no movimento).` : `Adiantamento salarial: ${num(pctAd)}% de ${reais(sal)} (salário do mês) = ${reais(adiant)}, descontado aqui.`);
+        r.memoria.push(mov.adiantamento !== undefined ? `Adiantamento salarial: ${reais(adiant)} pagos no mês (informado no movimento).` : `Adiantamento salarial: ${num(pctAd)}% de ${reais(baseAdiant)} (salário do mês${mudouDepois ? ` como estava em ${brData(diaAdiant)}, dia do adiantamento` : ''}) = ${reais(adiant)}, descontado aqui.`);
     }
 
     // Férias do mês pagas no recibo: entram nas bases do INSS e do FGTS (não no IRRF, que foi em separado).
@@ -397,10 +459,10 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
         r.bases.irrf = Math.max(0, r.bases.irrf - adiant);
         r.memoria.push(`IRRF: o adiantamento de ${reais(adiant)} foi pago em ${rotuloCompetencia(competencia)} e tributado lá; sai dos rendimentos da folha paga em ${rotuloCompetencia(pagamento)}.`);
     }
-    const diasFgtsAcidente = Math.min(diasAcidenteInss, Math.max(0, 30 - diasPagos - diasMat));
+    const diasFgtsAcidente = Math.min(diasAcidenteInss, Math.max(0, 30 - diasPagos - diasMatTotal));
     const fgtsAcidente = Math.round(diaria * diasFgtsAcidente);
     r.bases.fgts = Math.max(0, soma(v => v.fgts)) + fgtsAcidente;
-    if (fgtsAcidente) r.memoria.push(`FGTS sobre ${diasFgtsAcidente} dia(s) de afastamento por acidente do trabalho: ${reais(fgtsAcidente)} somados à base (Lei 8.036/1990, art. 15, § 5º).`);
+    if (fgtsAcidente) r.memoria.push(`FGTS sobre ${diasFgtsAcidente} dia(s) de afastamento por acidente do trabalho ou serviço militar: ${reais(fgtsAcidente)} somados à base (Lei 8.036/1990, art. 15, § 5º).`);
 
     // 6. INSS do segurado (competência).
     const tInss = tabelaVigente(e.tabelas, 'inss', competencia);
@@ -439,7 +501,8 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
                 const quatorze = `${Number(x.nascimento.slice(0, 4)) + 14}${x.nascimento.slice(4, 7)}`;
                 return quatorze >= competencia; // devido até o mês em que completa 14 anos
             });
-            if (r.bases.inss > limite) r.memoria.push(`Salário-família: remuneração ${reais(r.bases.inss)} acima do limite ${reais(limite)}; sem direito.`);
+            if (beneficioDeMesAnterior) r.memoria.push('Salário-família: em benefício do INSS desde mês anterior; quem paga é o INSS (Decreto 3.048/1999, art. 82, § 2º).');
+            else if (r.bases.inss > limite) r.memoria.push(`Salário-família: remuneração ${reais(r.bases.inss)} acima do limite ${reais(limite)}; sem direito.`);
             else if (comDireito.length) {
                 const proporcional = !mesInteiro;
                 const v = proporcional ? Math.round(cota * comDireito.length * base30 / 30) : cota * comDireito.length;
@@ -456,16 +519,38 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
 
     // 9. IRRF (regime de caixa: tabela do mês do pagamento).
     const tIr = tabelaVigente(e.tabelas, 'irrf', pagamento);
-    const nDep = ficha.dependentes.filter(x => x.irrf === 'S').length;
+    // Quem recebe pensão não deduz também como dependente (Lei 9.250/1995, art. 35, § 4º): a pensão já deduz o valor pago.
+    const depsIrrf = ficha.dependentes.filter(x => x.irrf === 'S' && x.pensao !== 'S');
+    if (ficha.dependentes.some(x => x.irrf === 'S' && x.pensao === 'S')) r.avisos.push('Dependente marcado no IRRF que também recebe pensão: deduzido só pela pensão. Acerte a ficha (IRRF = Não).');
+    const nDep = depsIrrf.length;
     if ('erro' in tIr) erro(`IRRF: ${tIr.erro}`);
     else {
         const t = tIr.tabela;
         const dep = nDep * (t.valores.deducaoDependente ?? 0);
         const legais = inss + dep + pensao;
         r.irrfApurado = { rendimentos: r.bases.irrf, deducoesLegais: legais, valor: 0 };
-        if (r.bases.irrf > 0) {
+        // Pago no próprio mês, com a folha anterior paga nele (rescisão de quem recebe no mês seguinte): o IRRF é do mês
+        // inteiro (RIR/1999, art. 621), sobre a folha anterior + este pagamento, menos o que a folha anterior e o
+        // adiantamento do dia 20 já retiveram. Os dependentes contam uma vez (já estão nas deduções da folha anterior).
+        const entradaMes = pagamento === competencia ? e.folhaPagaAntesNoMes : null;
+        if (entradaMes && 'pendente' in entradaMes) incompleto(`IRRF: a folha anterior foi paga em ${rotuloCompetencia(pagamento)}, o mesmo mês deste pagamento, e o imposto soma as duas (${entradaMes.pendente}).`);
+        const antMes = entradaMes && !('pendente' in entradaMes) ? entradaMes : null;
+        const retidoAdiant = antMes && adiant > 0 ? (() => { const v = Math.max(0, apurarIrrf(t, antMes.rendimentos + adiant, antMes.deducoesLegais).valor - antMes.valor); return v <= IRRF_MINIMO ? 0 : v; })() : 0;
+        if (r.bases.irrf > 0 && antMes) {
+            const R = antMes.rendimentos + r.bases.irrf;
+            const L2 = antMes.deducoesLegais + inss + pensao;
+            const a = apurarIrrf(t, R, L2);
+            let ir = Math.max(0, a.valor - antMes.valor - retidoAdiant);
+            r.deducoesIrrf = { simplificado: a.simplificado, dependentes: depsIrrf.map(x => ({ cpf: x.cpf, nome: x.nome })), porDependente: t.valores.deducaoDependente ?? 0, pensao };
+            r.memoria.push(`IRRF do mês (pagamento em ${rotuloCompetencia(pagamento)}, tabela de ${rotuloCompetencia(t.vigencia)}): folha de ${rotuloCompetencia(antMes.competencia)} paga no mês ${reais(antMes.rendimentos)} + este pagamento ${reais(r.bases.irrf)} = ${reais(R)}; `
+                + `${a.simplificado ? `desconto simplificado ${reais(a.deducao)}` : `deduções legais ${reais(L2)}`}; base ${reais(a.base)} × ${pct(a.aliquota)} − ${reais(a.deducaoFaixa)} = ${reais(a.bruto)}`
+                + `${a.memoriaRedutor.length ? ` (${a.memoriaRedutor.join(' ')})` : ''}; menos ${reais(antMes.valor)} retidos na folha anterior${retidoAdiant ? ` e ${reais(retidoAdiant)} no adiantamento` : ''} = ${reais(ir)}.`);
+            if (ir > 0 && ir <= IRRF_MINIMO) { r.memoria.push(`IRRF de ${reais(ir)} não retido: até R$ 10,00 a retenção é dispensada (Lei 9.430/1996, art. 67).`); ir = 0; }
+            r.irrfApurado.valor = ir;
+            verba({ codigo: 'IRRF', descricao: 'IRRF', referencia: a.aliquota ? pct(a.aliquota) : '', tipo: 'desconto', valor: ir, inss: false, fgts: false, irrf: false });
+        } else if (r.bases.irrf > 0) {
             const a = apurarIrrf(t, r.bases.irrf, legais);
-            r.deducoesIrrf = { simplificado: a.simplificado, dependentes: ficha.dependentes.filter(x => x.irrf === 'S').map(x => ({ cpf: x.cpf, nome: x.nome })), porDependente: t.valores.deducaoDependente ?? 0, pensao };
+            r.deducoesIrrf = { simplificado: a.simplificado, dependentes: depsIrrf.map(x => ({ cpf: x.cpf, nome: x.nome })), porDependente: t.valores.deducaoDependente ?? 0, pensao };
             r.memoria.push(`IRRF (pagamento em ${rotuloCompetencia(pagamento)}, tabela de ${rotuloCompetencia(t.vigencia)}, ${t.norma}): rendimentos ${reais(r.bases.irrf)}; `
                 + (a.simplificado ? `desconto simplificado ${reais(a.deducao)} (maior que as deduções legais de ${reais(legais)})` : `deduções legais ${reais(legais)} (INSS ${reais(inss)}${nDep ? ` + ${nDep} dependente(s) ${reais(dep)}` : ''}${pensao ? ` + pensão ${reais(pensao)}` : ''})`)
                 + `; base ${reais(a.base)} × ${pct(a.aliquota)} − ${reais(a.deducaoFaixa)} = ${reais(a.bruto)}.`, ...a.memoriaRedutor);
@@ -502,7 +587,7 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
             if (ir > 0 && ir <= IRRF_MINIMO) { r.memoria.push(`IRRF do adiantamento de ${reais(ir)} não retido: até R$ 10,00 a retenção é dispensada (Lei 9.430/1996, art. 67).`); ir = 0; }
             r.irrfAdiantamento = ir;
             if (ant) r.irrfAdiantamentoFolha = ant.competencia;
-            else if (!a.simplificado && nDep) r.deducoesAdiantamento = { dependentes: ficha.dependentes.filter(x => x.irrf === 'S').map(x => ({ cpf: x.cpf, nome: x.nome })), porDependente: tA.tabela.valores.deducaoDependente ?? 0 };
+            else if (!a.simplificado && nDep) r.deducoesAdiantamento = { dependentes: depsIrrf.map(x => ({ cpf: x.cpf, nome: x.nome })), porDependente: tA.tabela.valores.deducaoDependente ?? 0 };
         }
     }
 

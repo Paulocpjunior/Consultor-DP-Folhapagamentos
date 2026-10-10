@@ -52,14 +52,14 @@ describe('rescisão', () => {
         expect(v(r, 'AVISO')).toBe(360000);
         expect(v(r, '13PROP')).toBe(50000); // jan, fev
         expect(v(r, '13IND')).toBe(50000); // mar, abr pela projeção
-        expect(v(r, 'INSS13')).toBe(3750);
+        expect(v(r, 'INSS13')).toBe(7500); // proporcional + aviso indenizado (Nota PGFN/CRJ 485/2016)
         expect(v(r, 'FV')).toBe(300000); // 2º período, 30 dias
         expect(v(r, 'FV13')).toBe(100000);
         expect(v(r, 'FP')).toBe(75000); // 3/12 do 3º período (até 15/04)
         expect(v(r, 'FP13')).toBe(25000);
         expect(r.fgts).toBe(44800); // (1.000 + 3.600 + 500 + 500) × 8%
         expect(r.multaFgts).toBe(Math.round((1000000 + 44800) * 0.4));
-        expect(r.totais).toEqual({ proventos: 1060000, descontos: 11250, liquido: 1048750 });
+        expect(r.totais).toEqual({ proventos: 1060000, descontos: 15000, liquido: 1045000 }); // INSS 75,00 + INSS do 13º 75,00
         expect(r.saqueFgts).toContain('Saque do saldo do FGTS liberado');
         expect(calc({}).avisos.join(' ')).toContain('Informe o saldo do FGTS');
     });
