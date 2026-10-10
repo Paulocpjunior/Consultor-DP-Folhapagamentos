@@ -455,6 +455,28 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ===== Contratos e modelos de documentos =====
+    // Do escritório (empresaId ''): todos os aprovados leem, gestor e admin gravam. Da empresa: quem pode na empresa.
+    // A gravação leva o autor e não troca o dono (escritório ↔ empresa) do modelo.
+    function modeloValido() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['titulo', 'categoria', 'corpo', 'empresaId', 'origem', 'atualizadoPor', 'atualizadoPorEmail', 'atualizadoEm'])
+        && d.titulo is string && d.titulo.size() > 0 && d.titulo.size() <= 120
+        && d.categoria in ['contrato', 'termo', 'disciplinar', 'desligamento', 'declaracao', 'outro']
+        && d.corpo is string && d.corpo.size() <= 200000
+        && d.origem in ['consultor', 'sage', 'base']
+        && d.empresaId is string
+        && d.atualizadoPor == request.auth.uid;
+    }
+    function gravaModelo(empId) { return empId == '' ? isAdmin() : podeEmpresa(empId); }
+    match /modelos_documentos/{id} {
+      allow read: if resource.data.empresaId == '' ? isApproved() : podeEmpresa(resource.data.empresaId);
+      allow create: if modeloValido() && gravaModelo(request.resource.data.empresaId);
+      allow update: if modeloValido() && gravaModelo(resource.data.empresaId)
+                    && request.resource.data.empresaId == resource.data.empresaId;
+      allow delete: if gravaModelo(resource.data.empresaId);
+    }
+
     // ===== Fim de mês =====
     // Encerra quem trabalha na empresa (a lista de conferência fica gravada); só o gestor reabre, com o motivo.
     // Reencerrar depois da alteração: de novo quem trabalha na empresa. Nada se apaga.
