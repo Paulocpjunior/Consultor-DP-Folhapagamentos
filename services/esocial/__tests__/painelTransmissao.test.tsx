@@ -4,9 +4,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 const t = vi.hoisted(() => ({ enviar: vi.fn(), consultar: vi.fn() }));
-const sv = vi.hoisted(() => ({ listar: vi.fn(), registrarEnvio: vi.fn(), registrarConsulta: vi.fn() }));
+const sv = vi.hoisted(() => ({ listar: vi.fn(), registrarIntencao: vi.fn(async (..._a: unknown[]) => 'env1'), concluirEnvio: vi.fn(async (..._a: unknown[]) => undefined), registrarFalhaEnvio: vi.fn(async (..._a: unknown[]) => 'sem-resposta'), registrarConsulta: vi.fn() }));
 vi.mock('../transmissao', async orig => ({ ...(await orig<typeof import('../transmissao')>()), enviarLote: t.enviar, consultarLote: t.consultar }));
-vi.mock('../transmissaoService', async orig => ({ ...(await orig<typeof import('../transmissaoService')>()), listarEnvios: sv.listar, registrarEnvio: sv.registrarEnvio, registrarConsulta: sv.registrarConsulta }));
+vi.mock('../transmissaoService', async orig => ({ ...(await orig<typeof import('../transmissaoService')>()), listarEnvios: sv.listar, registrarIntencao: sv.registrarIntencao, concluirEnvio: sv.concluirEnvio, registrarFalhaEnvio: sv.registrarFalhaEnvio, registrarConsulta: sv.registrarConsulta }));
+vi.mock('../validadorXsd', async orig => ({ ...(await orig<typeof import('../validadorXsd')>()), validarPeloXsd: async () => ({ valido: true, erros: [] }) }));
 import ESocialTransmissao from '../../../components/esocial/ESocialTransmissao';
 import { EmpresaAtivaProvider } from '../../empresaAtiva/empresaAtivaContext';
 
@@ -21,7 +22,6 @@ describe('tela de transmissão do eSocial', () => {
     it('transmite o S-1299 da competência ativa em produção restrita e registra o lote', async () => {
         sv.listar.mockResolvedValue([]);
         t.enviar.mockResolvedValue(retornoEnvio);
-        sv.registrarEnvio.mockResolvedValue('env1');
         vi.spyOn(window, 'confirm').mockReturnValue(true);
         montar();
         await waitFor(() => expect(sv.listar).toHaveBeenCalledWith('E1'));
@@ -34,7 +34,33 @@ describe('tela de transmissão do eSocial', () => {
         expect(p.eventos[0]).toContain('<perApur>2026-09</perApur><tpAmb>2</tpAmb>');
         expect(p.eventos[0]).toContain('<evtPgtos>N</evtPgtos>');
         await waitFor(() => expect(screen.getByRole('status').textContent).toContain('Protocolo 1.2.202610.0000000000012345'));
-        expect(sv.registrarEnvio).toHaveBeenCalledWith({ empresaId: 'E1', cnpj: '29463877000109', certificado: 'escritorio', retorno: retornoEnvio }, usuario);
+        // Registrado antes de sair (com os eventos) e completado com a resposta.
+        expect(sv.registrarIntencao).toHaveBeenCalledWith(expect.objectContaining({ empresaId: 'E1', cnpj: '29463877000109', certificado: 'escritorio', tpAmb: 2, grupo: 3, eventos: [expect.objectContaining({ tipo: 'S-1299', perApur: '2026-09' })] }), usuario);
+        expect(sv.concluirEnvio).toHaveBeenCalledWith('env1', retornoEnvio);
+        expect(sv.registrarIntencao.mock.invocationCallOrder[0]).toBeLessThan(t.enviar.mock.invocationCallOrder[0]);
+    });
+
+    it('sem resposta do envio: fica registrado como "sem resposta" e avisa para não reenviar', async () => {
+        sv.listar.mockResolvedValue([]);
+        t.enviar.mockRejectedValue(new TypeError('Failed to fetch'));
+        vi.spyOn(window, 'confirm').mockReturnValue(true);
+        montar();
+        fireEvent.click(screen.getByRole('button', { name: 'Transmitir fechamento (S-1299)' }));
+        await waitFor(() => expect(sv.registrarFalhaEnvio).toHaveBeenCalledWith('env1', expect.any(TypeError)));
+        await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('NÃO transmita de novo'));
+    });
+
+    it('pré-voo barra o S-1299 com a competência já fechada: nada sai para o governo', async () => {
+        const fechado = { id: 'f1', empresaId: 'E1', cnpj: '29463877000109', tpAmb: 2, grupo: 3, protocolo: '1.2', dhRecepcao: '', transmissor: '', certificado: 'escritorio', situacao: 'processado', cdResposta: 201, descResposta: '', ocorrencias: [], eventos: [{ id: 'ID1294638770000002026100512000000009', tipo: 'S-1299', perApur: '2026-09', cdResposta: 201, nrRecibo: '1.1.0000000000000000009' }], enviadoPorEmail: 'ana@x.com', enviadoEm: '2026-10-05T12:00:00Z', consultadoEm: null };
+        sv.listar.mockResolvedValue([fechado]);
+        const conf = vi.spyOn(window, 'confirm').mockReturnValue(true);
+        montar();
+        fireEvent.click(screen.getByRole('button', { name: 'Transmitir fechamento (S-1299)' }));
+        await waitFor(() => expect(screen.getByLabelText('Pré-voo do eSocial').textContent).toContain('a competência 09/2026 está fechada no eSocial'));
+        expect(screen.getByRole('alert').textContent).toContain('Nada foi enviado');
+        expect(t.enviar).not.toHaveBeenCalled();
+        expect(sv.registrarIntencao).not.toHaveBeenCalled();
+        expect(conf).not.toHaveBeenCalled();
     });
 
     it('produção exige a confirmação; vai com confirmoProducao', async () => {

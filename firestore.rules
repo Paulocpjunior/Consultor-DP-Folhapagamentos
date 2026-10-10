@@ -355,22 +355,42 @@ service cloud.firestore {
     // atualiza o resultado.
     match /esocial_envios/{envioId} {
       allow read, list: if podeEmpresa(resource.data.empresaId);
+      // Saúde do eSocial: o lote é registrado antes de sair ("transmitindo", sem protocolo).
       allow create: if podeEmpresa(request.resource.data.empresaId)
                     && request.resource.data.enviadoPor == request.auth.uid
                     && request.resource.data.empresaId is string
                     && request.resource.data.protocolo is string
                     && request.resource.data.tpAmb in [1, 2]
                     && request.resource.data.eventos is list
-                    && request.resource.data.eventos.size() <= 50;
-      // A consulta só completa o lote ainda sem resultado, sem tirar nem pôr eventos: o registro de uma entrega
-      // processada não muda (auditoria de 10/2026).
+                    && request.resource.data.eventos.size() <= 50
+                    && request.resource.data.situacao in ['transmitindo', 'enviado', 'recusado']
+                    && (request.resource.data.situacao != 'transmitindo' || request.resource.data.protocolo == '');
+      // 1) Resposta do envio: só quem transmitiu, uma vez, sem tirar nem pôr eventos.
+      // 2) Consulta: só completa o lote ainda sem resultado, sem tirar nem pôr eventos: o registro de uma entrega
+      //    processada não muda (auditoria de 10/2026).
+      // 3) Sem resposta: conferido no eSocial (recibos achados) ou liberado para reenvio depois de 30 min.
       allow update: if podeEmpresa(resource.data.empresaId)
-                    && resource.data.situacao in ['enviado', 'em-processamento']
                     && request.resource.data.eventos is list
                     && request.resource.data.eventos.size() == resource.data.eventos.size()
-                    && request.resource.data.consultadoPor == request.auth.uid
-                    && request.resource.data.diff(resource.data).affectedKeys()
-                         .hasOnly(['situacao', 'cdResposta', 'descResposta', 'ocorrencias', 'eventos', 'consultadoEm', 'consultadoPor', 'consultadoPorEmail']);
+                    && (
+                      (resource.data.situacao == 'transmitindo'
+                        && resource.data.enviadoPor == request.auth.uid
+                        && request.resource.data.situacao in ['enviado', 'recusado', 'sem-resposta', 'nao-recebido']
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                             .hasOnly(['situacao', 'protocolo', 'dhRecepcao', 'transmissor', 'grupo', 'cdResposta', 'descResposta', 'ocorrencias', 'respondidoEm', 'erroEnvio']))
+                      || (resource.data.situacao in ['enviado', 'em-processamento']
+                        && request.resource.data.situacao in ['enviado', 'em-processamento', 'processado', 'recusado']
+                        && request.resource.data.consultadoPor == request.auth.uid
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                             .hasOnly(['situacao', 'cdResposta', 'descResposta', 'ocorrencias', 'eventos', 'consultadoEm', 'consultadoPor', 'consultadoPorEmail', 'consultas']))
+                      || ((resource.data.situacao == 'sem-resposta'
+                           || (resource.data.situacao == 'transmitindo' && request.time > resource.data.enviadoEm + duration.value(3, 'm')))
+                        && request.resource.data.verificadoPor == request.auth.uid
+                        && (request.resource.data.situacao in ['sem-resposta', 'processado']
+                            || (request.resource.data.situacao == 'nao-recebido' && request.time > resource.data.enviadoEm + duration.value(30, 'm')))
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                             .hasOnly(['situacao', 'eventos', 'verificadoEm', 'verificadoPor', 'verificadoPorEmail']))
+                    );
       allow delete: if false;
     }
 

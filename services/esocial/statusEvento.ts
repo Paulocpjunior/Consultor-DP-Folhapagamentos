@@ -39,6 +39,7 @@ function pelaLista(lista: { envio: Envio; evento: EventoEnviado }[]): Situacao |
     const { envio, evento } = ultimo;
     const base = { envio, evento };
     const ocorr = [...(evento.ocorrencias ?? []), ...(envio.situacao === 'recusado' ? envio.ocorrencias : [])].map(o => `${o.codigo} ${o.descricao}`).join('; ');
+    if (envio.situacao === 'transmitindo' || envio.situacao === 'sem-resposta') return { ...base, situacao: 'aguardando', rotulo: ROTULO_SITUACAO_EVENTO.aguardando, recibo: '', detalhe: 'Envio sem resposta: pode ter chegado ao eSocial. Não transmita de novo; confira em eSocial › Saúde do eSocial.' };
     if (envio.situacao === 'recusado') return { ...base, situacao: 'recusado', rotulo: ROTULO_SITUACAO_EVENTO.recusado, recibo: '', detalhe: `Lote recusado: ${envio.cdResposta ?? ''} ${envio.descResposta}${ocorr ? ` — ${ocorr}` : ''}`.trim() };
     if (evento.cdResposta === undefined || evento.cdResposta === null) return { ...base, situacao: 'aguardando', rotulo: ROTULO_SITUACAO_EVENTO.aguardando, recibo: '', detalhe: `Protocolo ${envio.protocolo}. Consulte o retorno.` };
     if (aceito({ cdResposta: evento.cdResposta, nrRecibo: evento.nrRecibo ?? '' })) return { ...base, situacao: 'aceito', rotulo: ROTULO_SITUACAO_EVENTO.aceito, recibo: evento.nrRecibo ?? '', detalhe: `Recibo ${evento.nrRecibo} · protocolo ${envio.protocolo}` };
@@ -51,7 +52,8 @@ function pelaLista(lista: { envio: Envio; evento: EventoEnviado }[]): Situacao |
  * não esconde o envio de verdade.
  */
 export function statusS2230(a: Pick<Afastamento, 'id' | 'recibos'>, envios: Envio[]): StatusEvento {
-    const historico = envios.flatMap(envio => envio.eventos.filter(e => e.ref === a.id && e.tipo === 'S-2230').map(evento => ({ envio, evento })))
+    // "Não recebido": o lote não chegou ao governo (liberado para reenvio), não conta como envio.
+    const historico = envios.filter(envio => envio.situacao !== 'nao-recebido').flatMap(envio => envio.eventos.filter(e => e.ref === a.id && e.tipo === 'S-2230').map(evento => ({ envio, evento })))
         .sort((x, y) => (y.envio.enviadoEm ?? '').localeCompare(x.envio.enviadoEm ?? ''));
     const teste = pelaLista(historico.filter(x => x.envio.tpAmb !== 1));
     const producao = pelaLista(historico.filter(x => x.envio.tpAmb === 1));

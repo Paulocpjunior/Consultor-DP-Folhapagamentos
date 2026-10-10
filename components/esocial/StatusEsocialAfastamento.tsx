@@ -8,8 +8,10 @@
 import React, { useState } from 'react';
 import type { Afastamento } from '../../services/cadastros/afastamentos';
 import type { Usuario } from '../../services/cadastros/cadastrosService';
-import { ROTULO_AMBIENTE, consultarLote, enviarLote, gerarS2230, type Certificado, type TpAmb } from '../../services/esocial/transmissao';
-import { registrarConsulta, registrarEnvio, type Envio } from '../../services/esocial/transmissaoService';
+import { ROTULO_AMBIENTE, consultarLote, gerarS2230, type Certificado, type TpAmb } from '../../services/esocial/transmissao';
+import { registrarConsulta, type Envio } from '../../services/esocial/transmissaoService';
+import { mensagemDaTransmissao, transmitirVerificado, verificarAntesDeEnviar } from '../../services/esocial/envioSeguro';
+import { avisos, bloqueios, textoAchados } from '../../services/esocial/preVoo';
 import { statusS2230, type SituacaoEvento } from '../../services/esocial/statusEvento';
 
 const COR: Record<SituacaoEvento, string> = {
@@ -52,12 +54,17 @@ const StatusEsocialAfastamento: React.FC<Props> = ({ afastamento, empresa, usuar
         setErro('');
         let ev: { id: string; xml: string };
         try { ev = gerarS2230({ cnpj: empresa.cnpj, tpAmb, afastamento }); } catch (e) { setErro((e as Error).message); return; }
-        if (!window.confirm(`Transmitir o S-2230 (${afastamento.dtInicio.split('-').reverse().join('/')}${afastamento.dtFim ? ` a ${afastamento.dtFim.split('-').reverse().join('/')}` : ''}) de ${empresa.nome} em ${ROTULO_AMBIENTE[tpAmb].toUpperCase()}?${tpAmb === 1 ? '\n\nEntrega em produção vale para a empresa e não se desfaz.' : ''}`)) return;
-        setOcupado('Transmitindo o S-2230…');
+        setOcupado('Conferindo antes de enviar (pré-voo)…');
         try {
-            const r = await enviarLote({ empresaId: empresa.id, cnpj: empresa.cnpj, eventos: [ev.xml], tpAmb, certificado, ...(tpAmb === 1 ? { confirmoProducao: true } : {}) });
-            await registrarEnvio({ empresaId: empresa.id, cnpj: empresa.cnpj, certificado, retorno: r, refs: { [ev.id]: afastamento.id } }, usuario);
-            if (!r.recebido) setErro(`eSocial recusou o lote: ${r.cdResposta ?? ''} ${r.descResposta}`);
+            const emp = { id: empresa.id, cnpj: empresa.cnpj };
+            const pv = await verificarAntesDeEnviar({ empresa: emp, eventos: [{ xml: ev.xml, nome: 'S-2230', ref: afastamento.id }], tpAmb });
+            if (!pv.ok) { setErro(`O pré-voo barrou o envio (nada foi enviado):\n${textoAchados(bloqueios(pv.achados))}`); return; }
+            const av = avisos(pv.achados);
+            if (!window.confirm(`Transmitir o S-2230 (${afastamento.dtInicio.split('-').reverse().join('/')}${afastamento.dtFim ? ` a ${afastamento.dtFim.split('-').reverse().join('/')}` : ''}) de ${empresa.nome} em ${ROTULO_AMBIENTE[tpAmb].toUpperCase()}?${tpAmb === 1 ? '\n\nEntrega em produção vale para a empresa e não se desfaz.' : ''}${av.length ? `\n\nAvisos do pré-voo:\n${textoAchados(av)}` : ''}`)) return;
+            setOcupado('Transmitindo o S-2230…');
+            const r = await transmitirVerificado(pv, { empresa: emp, certificado, usuario });
+            const m = mensagemDaTransmissao(r);
+            if (!m.ok) setErro(m.texto);
             onAtualizado();
         } catch (e) { setErro((e as Error).message); }
         finally { setOcupado(''); }
@@ -83,12 +90,12 @@ const StatusEsocialAfastamento: React.FC<Props> = ({ afastamento, empresa, usuar
                 {s.envio && <span className="text-slate-500">{ROTULO_AMBIENTE[s.envio.tpAmb]}</span>}
             </div>
             <p className={s.situacao === 'recusado' ? 'text-red-700 dark:text-red-300' : 'text-slate-600 dark:text-slate-300'}>{s.detalhe}</p>
-            {s.situacao === 'aguardando' && s.envio && (
+            {s.situacao === 'aguardando' && s.envio?.protocolo && (
                 <button type="button" className="rounded border border-slate-300 px-2 py-1 disabled:opacity-50 dark:border-slate-600" disabled={!!ocupado || !usuario} onClick={() => consultar(s.envio!)}>Consultar retorno</button>
             )}
             {s.teste && (
                 <p className="text-slate-500 dark:text-slate-400">Teste na produção restrita: {s.teste.rotulo.toLowerCase()} · {s.teste.detalhe}
-                    {s.teste.situacao === 'aguardando' && s.teste.envio && <button type="button" className="ml-2 text-blue-700 underline disabled:opacity-50 dark:text-blue-300" disabled={!!ocupado || !usuario} onClick={() => consultar(s.teste!.envio!)}>Consultar retorno do teste</button>}
+                    {s.teste.situacao === 'aguardando' && s.teste.envio?.protocolo && <button type="button" className="ml-2 text-blue-700 underline disabled:opacity-50 dark:text-blue-300" disabled={!!ocupado || !usuario} onClick={() => consultar(s.teste!.envio!)}>Consultar retorno do teste</button>}
                 </p>
             )}
             {(s.situacao === 'nao-enviado' || s.situacao === 'recusado') && (
@@ -103,7 +110,7 @@ const StatusEsocialAfastamento: React.FC<Props> = ({ afastamento, empresa, usuar
                 </div>
             )}
             {ocupado && <p className="text-blue-700 dark:text-blue-300">{ocupado}</p>}
-            {erro && <p role="alert" className="text-red-700 dark:text-red-300">{erro}</p>}
+            {erro && <p role="alert" className="whitespace-pre-line text-red-700 dark:text-red-300">{erro}</p>}
             {s.historico.length > 0 && (
                 <div>
                     <button type="button" className="text-blue-700 underline dark:text-blue-300" onClick={() => setVerHistorico(v => !v)}>Histórico de protocolos ({s.historico.length})</button>

@@ -16,8 +16,9 @@ const sv = vi.hoisted(() => ({
 }));
 vi.mock('../../cadastros/cadastrosService', () => ({ listarRubricas: (id: string) => sv.rubricas(id), mensagemErro: (e: unknown) => String(e) }));
 vi.mock('../../empresas/empresasService', () => ({ salvarParametrosEsocialFolha: (...a: unknown[]) => sv.salvar(...a) }));
-vi.mock('../transmissaoService', async orig => ({ ...(await orig<typeof import('../transmissaoService')>()), registrarEnvio: (...a: unknown[]) => sv.registrar(...a), listarEnvios: async () => sv.envios,
+vi.mock('../transmissaoService', async orig => ({ ...(await orig<typeof import('../transmissaoService')>()), registrarIntencao: (...a: unknown[]) => sv.registrar(...a), concluirEnvio: async () => undefined, listarEnvios: async () => sv.envios,
     registrarConsulta: (...a: unknown[]) => sv.registrarConsulta(...a) }));
+vi.mock('../validadorXsd', async orig => ({ ...(await orig<typeof import('../validadorXsd')>()), validarPeloXsd: async () => ({ valido: true, erros: [] }) }));
 vi.mock('../transmissao', async orig => ({ ...(await orig<typeof import('../transmissao')>()), enviarLote: (p: { eventos: string[]; tpAmb: number }) => sv.enviar(p), consultarLote: (...a: unknown[]) => sv.consultar(...a) }));
 vi.mock('../../implantacao/zip', async orig => ({ ...(await orig<typeof import('../../implantacao/zip')>()), baixarBytes: (nome: string) => { sv.baixados.push(nome); } }));
 import EventosFolhaModal from '../../../components/esocial/EventosFolhaModal';
@@ -113,7 +114,7 @@ describe('tela S-1200 e S-1210', () => {
         expect(sv.baixados).toEqual(['S-1210-antes-da-exclusao-1200-2026-10.zip']);
         const p = sv.enviar.mock.calls[0][0];
         expect([p.tpAmb, p.eventos[0]]).toEqual([1, expect.stringContaining(`<nrRecEvt>${REC}</nrRecEvt>`)]);
-        const refs = (sv.registrar.mock.calls[0][0] as { refs: Record<string, string> }).refs;
+        const refs = Object.fromEntries((sv.registrar.mock.calls[0][0] as { eventos: { id: string; ref: string }[] }).eventos.map(e => [e.id, e.ref]));
         expect(Object.values(refs)).toEqual([`exclui:${REC}:52998224725:2026-10`]);
         // Consulta: o S-3000 aceito libera os passos 2 e 3; o S-1210 volta com o adiantamento.
         const idEv = Object.keys(refs)[0];
