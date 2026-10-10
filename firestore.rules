@@ -475,6 +475,13 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ===== Saúde do eSocial: monitor do leiaute =====
+    // Gravado só pelo job agendado (conta de serviço); todo aprovado lê.
+    match /esocial_monitor/{id} {
+      allow read: if isApproved();
+      allow write: if false;
+    }
+
     // ===== Contratos e modelos de documentos =====
     // Do escritório (empresaId ''): todos os aprovados leem, gestor e admin gravam. Da empresa: quem pode na empresa.
     // A gravação leva o autor e não troca o dono (escritório ↔ empresa) do modelo.

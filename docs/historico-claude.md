@@ -3574,3 +3574,22 @@ guias sindicais".
 - **MIA (Gemini):** "Perguntar à MIA" em toda ocorrência; é o caminho padrão das que não têm regra. Vai a ocorrência e o diagnóstico do Consultor (CPF mascarado). A resposta aparece marcada como "sugestão para conferir; nada foi aplicado".
 - **Tela:** o diagnóstico aparece embaixo de cada erro, nos detalhes do lote, na Saúde do eSocial (`components/esocial/DiagnosticoOcorrencia.tsx`).
 - **Testes:** `diagnostico.test.ts` e casos de reabertura e MIA na `saudeEsocialTela.test.tsx`.
+
+## 10/10/2026 — Saúde do eSocial, etapa 5: monitor do leiaute e das notas técnicas
+
+- **Job agendado (`.github/workflows/esocial-leiaute.yml`, `scripts/esocial/monitorLeiaute.mjs`):** dias úteis às 8h10 de Brasília, ou pelo botão "Run workflow".
+  - Lê a página da documentação técnica do eSocial (gov.br) e guarda os links de leiaute, nota técnica, XSD e manual, e as versões citadas (S-1.3, v_S_01_03_00…).
+  - Grava as novidades desde a verificação anterior em `esocial_monitor/documentacao`.
+  - Página sem nenhum link reconhecido é tratada como erro, sem apagar a lista boa.
+  - Parte pura em `scripts/esocial/leiauteEsocial.mjs`, testada no Vitest.
+- **Resumo de IA:** com o segredo `GEMINI_API_KEY` (modelo em `GEMINI_MODEL`, padrão gemini-2.5-flash), cada novidade ganha um resumo do que muda para a folha e o eSocial. Fica marcado como resumo de IA, para conferir no documento. Sem a chave, o monitor funciona sem o resumo.
+- **Painel (Saúde do eSocial › Leiaute e notas técnicas, `components/esocial/MonitorLeiaute.tsx`):**
+  - Mostra o leiaute em uso no pré-voo, a data da verificação, as versões citadas e as novidades com o resumo.
+  - Alertas: versão citada maior que a em uso (crítico, com o caminho da troca em `public/esocial-xsd/LEIAME.md`), última verificação com erro, monitor parado há mais de 8 dias, novidades dos últimos 30 dias.
+- **Nada é aplicado sozinho:** a troca de leiaute é feita por gente, com os testes.
+- **Regras:** `esocial_monitor` é lido por todo aprovado; só a conta de serviço grava.
+- **Testes:** `monitorLeiaute.test.ts`; regra em `testes-regras/envios.test.mjs`.
+- **Pendente do Paulo:**
+  - o segredo `FIREBASE_SERVICE_ACCOUNT` (o mesmo do CRM, com o papel "Usuário do Cloud Datastore");
+  - opcional, `GEMINI_API_KEY` para os resumos.
+- **Não testado aqui:** o gov.br é bloqueado pela rede deste ambiente; a primeira execução no GitHub Actions valida a leitura da página real.

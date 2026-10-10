@@ -90,3 +90,12 @@ describe('esocial_envios: saúde do eSocial (lote registrado antes de sair)', ()
     await assertFails(updateDoc(doc(fs('col'), 'esocial_envios/envA'), { situacao: 'nao-recebido', consultadoPor: 'col' }));
   });
 });
+
+describe('esocial_monitor (monitor do leiaute)', () => {
+  it('todo aprovado lê; ninguém grava pelo app', async () => {
+    await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), 'esocial_monitor/documentacao'), { versoes: ['S-1.3'] }));
+    await assertSucceeds(getDoc(doc(fs('col2'), 'esocial_monitor/documentacao')));
+    await assertFails(setDoc(doc(fs('ges'), 'esocial_monitor/documentacao'), { versoes: [] }));
+    await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), 'esocial_monitor/documentacao')));
+  });
+});
