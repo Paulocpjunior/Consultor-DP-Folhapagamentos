@@ -4,7 +4,7 @@
 // depois os cadastros, a folha do mês, as conferências, o eSocial, os prazos e o fim de mês;
 // as configurações ficam à direita. Cada item leva a uma tela (aba) e, quando há, à sub-aba dela.
 
-export type Aba = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin' | 'fimdemes' | 'relatorios' | 'servicos';
+export type Aba = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin' | 'fimdemes' | 'relatorios' | 'servicos' | 'demissoes';
 
 export type SubFolha = 'eventos' | 'apontamento' | 'validador-ponto' | 'implantacao' | 'conferencia';
 export type SubCadastroMenu = 'funcionarios' | 'horarios' | 'afastamentos' | 'incidencias' | 'enquadramento' | 'sindicatos' | 'tabelas';
@@ -18,7 +18,7 @@ export type Destino =
     | { aba: 'calculo'; folha: FolhaCalculo }
     | { aba: 'fimdemes'; sub: 'fechamento' | 'pedidos' }
     | { aba: 'relatorios'; sub: 'central' | 'modelos' }
-    | { aba: 'empresas' | 'certificados' | 'prazos' | 'iobsage' | 'admin' | 'servicos' }
+    | { aba: 'empresas' | 'certificados' | 'prazos' | 'iobsage' | 'admin' | 'servicos' | 'demissoes' }
     | { aba: 'trocar' };
 
 import type { NomeIcone } from '../../components/layout/icones';
@@ -51,6 +51,7 @@ export const MENU: GrupoMenu[] = [
         { id: 'mensal', rotulo: 'Cálculo mensal', descricao: 'Movimento, holerites e resumo da folha', icone: 'calculadora', destino: { aba: 'calculo', folha: 'mensal' } },
         { id: 'ferias', rotulo: 'Férias', descricao: 'Programar e calcular o recibo de férias', icone: 'sol', destino: { aba: 'calculo', folha: 'ferias' } },
         { id: 'rescisao', rotulo: 'Rescisão', descricao: 'Simular e calcular o TRCT', icone: 'saida', destino: { aba: 'calculo', folha: 'rescisao' } },
+        { id: 'demissoes', rotulo: 'Demissões (prévia)', descricao: 'Cenários de demissão lado a lado, custo para a empresa, PDF e envio ao cliente, sem ir ao eSocial', icone: 'saida', destino: { aba: 'demissoes' } },
         { id: '13-1a', rotulo: '13º salário — 1ª parcela', descricao: 'Adiantamento do 13º até 30/11', icone: 'presente', destino: { aba: 'calculo', folha: '13-1a' } },
         { id: '13-2a', rotulo: '13º salário — 2ª parcela', descricao: 'Parcela final até 20/12', icone: 'presente', destino: { aba: 'calculo', folha: '13-2a' } },
     ] },

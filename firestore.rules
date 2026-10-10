@@ -504,6 +504,29 @@ service cloud.firestore {
       allow delete: if gravaModelo(resource.data.empresaId);
     }
 
+    // ===== Demissões: histórico das prévias de rescisão =====
+    // Quem pode na empresa cria e muda a situação; os números da prévia não mudam depois de gravados; nada se apaga.
+    function previaValida() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['empresaId', 'fichaId', 'nome', 'cenarios', 'resumos', 'saldoFgts', 'adiantamento13', 'observacao', 'situacao', 'escolhido', 'criadoPor', 'criadoPorEmail', 'criadoEm', 'atualizadoPor', 'atualizadoPorEmail', 'atualizadoEm'])
+        && d.empresaId is string && d.fichaId is string && d.nome is string && d.nome.size() <= 120
+        && d.cenarios is list && d.cenarios.size() >= 1 && d.cenarios.size() <= 4
+        && d.resumos is list && d.resumos.size() == d.cenarios.size()
+        && (d.saldoFgts == null || d.saldoFgts is int) && (d.adiantamento13 == null || d.adiantamento13 is int)
+        && d.observacao is string && d.observacao.size() <= 1000
+        && d.situacao in ['previa', 'enviada', 'escolhida', 'descartada']
+        && (d.escolhido == null || (d.escolhido is int && d.escolhido >= 0 && d.escolhido < d.cenarios.size()));
+    }
+    match /demissoes_previas/{id} {
+      allow read: if podeEmpresa(resource.data.empresaId);
+      allow create: if previaValida() && podeEmpresa(request.resource.data.empresaId)
+                    && request.resource.data.criadoPor == request.auth.uid && request.resource.data.situacao == 'previa';
+      allow update: if previaValida() && podeEmpresa(resource.data.empresaId)
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['situacao', 'escolhido', 'atualizadoPor', 'atualizadoPorEmail', 'atualizadoEm'])
+                    && request.resource.data.atualizadoPor == request.auth.uid;
+      allow delete: if false;
+    }
+
     // ===== Fim de mês =====
     // Encerra quem trabalha na empresa (a lista de conferência fica gravada); só o gestor reabre, com o motivo.
     // Reencerrar depois da alteração: de novo quem trabalha na empresa. Nada se apaga.

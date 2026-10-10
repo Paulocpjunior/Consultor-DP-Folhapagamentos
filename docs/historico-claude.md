@@ -3677,3 +3677,36 @@ Item 1 do que falta para desligar o SAGE na folha. Paulo: "pode seguir".
   - Pré-voo e transmissão pelo cofre, XML para conferência.
 - **Situação dos eventos:** `statusPorRef` generaliza a do S-2230.
 - **Ainda não:** o S-1210 do pagamento da rescisão (`tpPgto` 2, com a junção ao S-1210 da folha paga no mesmo mês). É a próxima entrega.
+
+## 10/10/2026 — Demissões (prévia de rescisão)
+
+Paulo: "pode seguir com item 1 modal de demissões". É o item 1 das sugestões. Pedido original: prévia de rescisões com relatório, envio e impressão ao cliente, "sem a necessidade de validar a rescisão junto ao eSocial". Paulo confirmou que "a geração do seguro-desemprego é feita no site Empregador Web": quando a efetivação chegar, o Consultor entrega os dados e o atalho, sem imitar o formulário.
+
+- **Onde:** Folha do mês › Demissões (prévia), da empresa ativa.
+  - Funcionários com vínculo.
+  - Até 4 cenários (motivo, aviso, data). O padrão é dispensa, pedido e acordo.
+  - Saldo do FGTS (extrato) e 13º adiantado, por funcionário, opcionais.
+- **Cálculo (`services/demissoes/previa.ts`):** cada cenário é a rescisão do motor (a mesma do TRCT).
+  - **Custo da empresa:** proventos + FGTS do mês e rescisório + multa + encargos patronais pelo enquadramento vigente + indenização da data-base.
+  - **Multa do FGTS sem o extrato:** estimada pelos depósitos do contrato (salário pelo histórico × 8%, com 13º e 1/3), sem correção. Sempre marcada como estimativa.
+  - **Alertas:**
+    - afastado na data, com a regra do MOS e a estabilidade acidentária;
+    - contrato a termo (motivos 03, 04 e 06);
+    - férias em dobro;
+    - acordo (80% do FGTS, sem seguro);
+    - aviso não cumprido;
+    - data-base: dispensa nos 30 dias antes dela, contada a projeção do aviso, gera indenização adicional de um salário (Lei 7.238/1984, art. 9º; Súmulas 182 e 314 do TST), incluída no custo.
+- **PDF (`previaPdf.ts`):** um funcionário por página.
+  - Cenários lado a lado: verbas, líquido, FGTS, multa, encargos, custo total, prazo, FGTS e seguro-desemprego.
+  - Pontos de atenção.
+  - Marca PRÉVIA e "sem valor de quitação".
+  - Envio por e-mail e WhatsApp pelo mesmo componente da Central de relatórios.
+- **Histórico (`demissoes_previas`):**
+  - Grava os parâmetros e o resumo de cada cenário.
+  - A situação passa a enviada, cenário escolhido ou descartada; "Reabrir" recalcula com os dados de hoje.
+  - **Regras:** quem pode na empresa lê e cria (autor = quem grava; situação inicial "prévia"). Na atualização, só a situação e o escolhido mudam. Nada se apaga.
+- **Testes:**
+  - cálculo: custo, multa informada e estimada, alertas, data-base;
+  - PDF;
+  - tela: só vínculos ativos, comparativo, gravar e escolher;
+  - regras (`testes-regras/demissoes.test.mjs`).
