@@ -14,6 +14,13 @@ vi.mock('../transmissaoService', async orig => ({ ...(await orig<typeof import('
     registrarVerificacao: (...a: unknown[]) => sv.verificar(...a), liberarReenvio: (...a: unknown[]) => sv.liberar(...a), registrarConsulta: (...a: unknown[]) => sv.registrarConsulta(...a) }));
 vi.mock('../downloadEventos', async orig => ({ ...(await orig<typeof import('../downloadEventos')>()), baixarEventos: (...a: unknown[]) => sv.baixar(...a),
     consultarIdentificadores: async (p: { tpEvt: string }) => ({ cdResposta: 201, descResposta: '', qtdeTotal: 0, dhUltimoEvtRetornado: '', pedidosHoje: 3, identificadores: p.tpEvt === 'S-1200' ? [{ id: 'ID1', nrRec: '1.1.0000000000000000055' }] : [] }) }));
+const dg = vi.hoisted(() => ({
+    verificar: vi.fn(async (p: { eventos: { xml: string }[]; tpAmb: number }) => ({ ok: true, achados: [], eventos: p.eventos, tpAmb: p.tpAmb, empresaId: 'E1' })),
+    transmitir: vi.fn(async () => ({ situacao: 'enviado', envioId: 'N1', retorno: { protocolo: 'P9' } })),
+    mia: vi.fn(async () => ({ papel: 'mia', texto: 'Provável causa: rubrica sem vigência.', fontes: [] })),
+}));
+vi.mock('../envioSeguro', async orig => ({ ...(await orig<typeof import('../envioSeguro')>()), verificarAntesDeEnviar: (p: never) => dg.verificar(p), transmitirVerificado: () => dg.transmitir() }));
+vi.mock('../../mia/mia', async orig => ({ ...(await orig<typeof import('../../mia/mia')>()), perguntarMia: (...a: unknown[]) => dg.mia(...(a as [])) }));
 vi.mock('../../calculo/folhaGravadaService', () => ({ lerFolhaGravada: async () => null }));
 vi.mock('../../cadastros/cadastrosService', async orig => ({ ...(await orig<typeof import('../../cadastros/cadastrosService')>()), listarFuncionarios: async () => [] }));
 vi.mock('../../certificados/cofreCertificados', async orig => ({ ...(await orig<typeof import('../../certificados/cofreCertificados')>()), cofreDaMinhaCarteira: async () => { throw new Error('offline'); } }));
@@ -79,6 +86,31 @@ describe('Saúde do eSocial: conciliação', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Gravar os recibos' }));
         await waitFor(() => expect(sv.verificar).toHaveBeenCalled());
         expect(sv.verificar.mock.calls[0][1]).toEqual({ ID1: '1.1.0000000000000000055' });
+    });
+});
+
+describe('Saúde do eSocial: diagnóstico e correção assistida', () => {
+    const recusado = (descricao: string) => lote({ id: 'R', situacao: 'processado', eventos: [{ id: 'ID1', tipo: 'S-1200', perApur: '2026-09', cdResposta: 401, descResposta: 'Recusado', ocorrencias: [{ tipo: 1, codigo: '543', descricao, localizacao: '' }] }] });
+    it('período fechado: reabre com o S-1298 pelo pré-voo e com confirmação', async () => {
+        sv.envios = [recusado('O período de apuração já está fechado.')];
+        const conf = vi.spyOn(window, 'confirm').mockReturnValue(true);
+        montar();
+        fireEvent.click(await screen.findByRole('button', { name: 'Detalhes' }));
+        expect(screen.getByLabelText('Diagnóstico da ocorrência 543').textContent).toContain('A competência já está fechada no eSocial');
+        fireEvent.click(screen.getByRole('button', { name: 'Reabrir o período (S-1298)' }));
+        await waitFor(() => expect(dg.transmitir).toHaveBeenCalled());
+        expect(dg.verificar.mock.calls[0][0].eventos[0].xml).toContain('evtReabreEvPer');
+        expect(dg.verificar.mock.calls[0][0].eventos[0].xml).toContain('<perApur>2026-09</perApur><tpAmb>1</tpAmb>');
+        expect(conf.mock.calls[0][0]).toContain('REABERTURA (S-1298) da competência 2026-09');
+    });
+    it('ocorrência desconhecida: a MIA sugere, sem aplicar nada', async () => {
+        sv.envios = [recusado('Situação inesperada XPTO.')];
+        montar();
+        fireEvent.click(await screen.findByRole('button', { name: 'Detalhes' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Perguntar à MIA' }));
+        await waitFor(() => expect(screen.getByText(/Provável causa: rubrica sem vigência/)).toBeTruthy());
+        expect(screen.getByText(/sugestão para conferir; nada foi aplicado/)).toBeTruthy();
+        expect(dg.transmitir).not.toHaveBeenCalled();
     });
 });
 
