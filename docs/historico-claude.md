@@ -3733,3 +3733,26 @@ Paulo: "pode seguir com item 2 efetivador de rescisões". Ele também confirmou:
 - **Termo de acordo (art. 484-A):** novo modelo-base.
 - **Demissões:** a prévia com o cenário escolhido tem "Registrar desligamento na ficha". Grava data, motivo e fim projetado, com auditoria. Daí, Cálculo › Rescisão.
 - **Atalhos externos:** FGTS Digital (`fgtsdigital.sistema.gov.br`) e Empregador Web (`sd.maisemprego.mte.gov.br/sdweb/empregadorweb`). Não consegui conferir os endereços daqui (o gov.br é bloqueado nesta rede).
+
+## 10/10/2026 — Consulta de FGTS (item 3)
+
+Paulo: "pode seguir com item 3 consulta de fgts, lembrando que já existe um popup que sinaliza FGTS em aberto, não pago, pendente não enviado".
+
+- **Onde:** eSocial › FGTS Digital, no topo (`components/fgts/PainelFgts.tsx`), sempre da empresa ativa. Os registros antigos (avisos) continuam embaixo.
+- **Recolhimento mês a mês** (`services/fgts/consultaFgts.ts`):
+  - 3, 6, 12 ou 24 meses pelo SERPRO (FGTS Digital): devido × recolhido × FGTS da folha gravada no Consultor, mais o CRF.
+  - Vencimento no dia 20 do mês seguinte, antecipado ao dia útil anterior.
+  - Situações: recolhido, em parte, em aberto (vencido), a vencer, sem movimento e **folha sem declaração no eSocial**. Esta última é quando a folha tem FGTS e nada foi declarado depois do prazo do fechamento (dia 15).
+- **Popup de pendências sem duplicar:** a consulta grava um registro por empresa e mês (`esocial_fgts/serpro_<empresa>_<AAAA-MM>`, `gravarFgtsComId`). O "em dia" apaga o aviso.
+  - Novo status `nao_declarado` ("pendente de envio"), com uma linha própria no popup (`fgtsNaoDeclarados`).
+  - No resumo da empresa, `nao_declarado` conta como atrasado.
+- **Extrato por funcionário:**
+  - O FGTS de cada mês pela folha gravada e o declarado no S-5003 (upload do download do eSocial, pela matrícula), com a diferença e o total do período.
+  - A estimativa dos depósitos do contrato inteiro. O saldo da conta é da Caixa; o "para fins rescisórios", no FGTS Digital por CPF.
+- **Procuração do FGTS Digital por empresa** (`empresas.procuracaoFgts`: perfil consulta/edição, validade):
+  - Aviso de ausente, vencida ou vencendo (30 dias).
+  - A regra da empresa passou a aceitar o campo de quem a tem na carteira.
+- **Testes:**
+  - situação, vencimento, aviso, extrato e procuração;
+  - tela, com o SERPRO falso: 3 meses, um em aberto, IDs do aviso;
+  - regras (`testes-regras/fgts.test.mjs`).

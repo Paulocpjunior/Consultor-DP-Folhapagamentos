@@ -1,6 +1,7 @@
 import {
     collection, doc, getDocs, getDoc, setDoc, updateDoc, writeBatch, runTransaction,
     query, where, orderBy, serverTimestamp,
+    deleteField,
 } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import app, { db } from '../firebaseConfig';
@@ -230,6 +231,11 @@ export async function reservarNsa(empresaId: string, contaId: string, remessa?: 
 export async function salvarContatoEnvio(empresaId: string, contato: import('../pacoteCliente/envio').ContatoEnvio): Promise<void> {
     const limpo = Object.fromEntries(Object.entries(contato).map(([k, v]) => [k, (v ?? '').trim()]).filter(([, v]) => v));
     await updateDoc(doc(db, 'empresas', empresaId), { contatoEnvio: limpo, atualizadoEm: serverTimestamp() });
+}
+
+/** Procuração do FGTS Digital da empresa (perfil e validade); sem validade, apaga. */
+export async function salvarProcuracaoFgts(empresaId: string, p: import('../fgts/consultaFgts').ProcuracaoFgts | null): Promise<void> {
+    await updateDoc(doc(db, 'empresas', empresaId), { procuracaoFgts: p && p.validaAte ? { perfil: p.perfil, validaAte: p.validaAte, observacao: (p.observacao ?? '').trim().slice(0, 200) } : deleteField(), atualizadoEm: serverTimestamp() });
 }
 
 /**

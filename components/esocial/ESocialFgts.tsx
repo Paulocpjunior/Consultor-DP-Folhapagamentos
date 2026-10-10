@@ -5,11 +5,13 @@ import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext
 import type { FgtsDigitalRegistro, FgtsStatus } from '../../services/esocial/esocialTypes';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { consultarFgtsRecolhimento, consultarCrfFgts } from '../../services/serpro/serproIntegrationService';
+import PainelFgts from '../fgts/PainelFgts';
 
 const FGTS_STATUS_BADGE: Record<FgtsStatus, { label: string; cls: string }> = {
     em_dia:   { label: 'Em dia',   cls: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' },
     atrasado: { label: 'Atrasado', cls: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' },
     parcial:  { label: 'Parcial',  cls: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300' },
+    nao_declarado: { label: 'Não declarado', cls: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300' },
 };
 
 const ESocialFgts: React.FC = () => {
@@ -175,6 +177,9 @@ const ESocialFgts: React.FC = () => {
 
     return (
         <div className="space-y-4">
+            {/* Consulta de FGTS da empresa ativa: recolhimentos, extrato por funcionário e procuração (item 3). */}
+            <PainelFgts />
+            <h3 className="pt-2 text-sm font-semibold text-slate-700 dark:text-slate-300">Registros de FGTS (avisos de pendência)</h3>
             {/* Resumo financeiro */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div className="p-3 rounded-lg border bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700">
