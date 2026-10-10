@@ -48,7 +48,8 @@ export async function buscarLayout(cnpj: string, cadastroSAGE: string): Promise<
 /** Salva (cria ou substitui) o layout da empresa. */
 export async function salvarLayout(layout: LayoutPonto): Promise<void> {
   const id = montarIdLayout(layout.cnpj, layout.cadastroSAGE);
-  const payload = { ...layout, updatedAt: Date.now() };
+  // CNPJ só com dígitos: as regras conferem a empresa dona pelo CNPJ do id.
+  const payload = { ...layout, cnpj: soDigitos(layout.cnpj), updatedAt: Date.now() };
   await setDoc(doc(db, COLLECTION, id), payload, { merge: false });
 }
 

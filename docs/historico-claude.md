@@ -3181,3 +3181,22 @@ guias sindicais".
   - aviso para informar o 13º adiantado em qualquer mês.
 - **Testes:** `services/calculo/__tests__/auditoriaMotor.test.ts`; o INSS do 13º da rescisão de teste passou de 37,50 para 75,00.
 - **Fica para depois (P2/P3 da auditoria):** licença não remunerada prorrogando o período aquisitivo; HE com adicional diferente de 50/100%; verbas "OUTRO" do holerite com incidências; DSR das HE em mês parcial; admissão em 29/02; arredondamento na rescisão; pensão no IRRF de férias, 13º e rescisão; benefício descontado sem salário no mês.
+
+## 10/10/2026 — Auditoria do projeto, lote S2 (restante de segurança)
+
+- **Paulo:** "pode seguir com restante de seguranca".
+- **Regras do Firestore (precisam ser publicadas):**
+  - `folha_mapeamentos`, `folha_selecoes_eventos`, `folha_perfis_colunas` e `folha_historico` (por CNPJ) e `ponto_layouts` (CNPJ_código): só quem pode na empresa dona do CNPJ (pela chave `empresas_unicos/cnpj_…`). CNPJ sem chave reservada: só o admin. Modelos com nome (EDUCATI, "default"): lê quem é aprovado, grava o admin.
+  - Tabelas legais (valem para todas as empresas): criar, alterar e apagar só o admin.
+  - Sindicatos: o novo qualquer aprovado cadastra; alterar o existente é do admin.
+  - `empresas_unicos`: o dono da chave só para quem pode na empresa dona (a chave livre continua consultável).
+  - `esocial_envios`: a consulta só completa lote ainda sem resultado, sem mudar a quantidade de eventos.
+  - `esocial_audit` (todas as empresas): só o admin lê; a tela avisa.
+- **Código:** layouts de ponto gravam o CNPJ só com dígitos; a checagem de chave única trata a chave de outra empresa fora da carteira como "em uso".
+- **Limpeza:** apagados o login antigo (senha em base64 no localStorage), `firestore.rules.bkp-pre-v2.2.0`, `PATCH-firestore-rules-ponto.md`, a variável `VITE_GEMINI_API_KEY` e a dependência `express` (sem uso).
+- **Testes das regras:** `testes-regras/seguranca2.test.mjs` e ajustes (64 no emulador).
+- **Ficou pendente:**
+  - `xlsx` 0.18.5 (prototype pollution e ReDoS): o pacote corrigido está no CDN do SheetJS, bloqueado pela rede deste ambiente. Decidir entre liberar `cdn.sheetjs.com` ou usar o espelho do npm (`@e965/xlsx`).
+  - E-mail verificado em `isApproved`, CSP e App Check: mudam o login de quem já usa; ficam para combinar.
+  - Cloud Functions antigas: aguarda o `gcloud functions list` do Paulo.
+  - Dados pessoais versionados e limpeza do histórico: lote próprio (o histórico depende do "pode" do Paulo).

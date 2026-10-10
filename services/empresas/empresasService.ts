@@ -12,9 +12,16 @@ import { chaveCnpj, chaveSage, mensagemConflito, normalizarSage, repetidas, type
 // lote da gravação; as regras do Firestore recusam a chave já reservada.
 const UNICOS = 'empresas_unicos';
 
+/** Empresa dona da chave (null se livre). A de outra empresa fora da carteira as regras não mostram: vem OUTRA_EMPRESA. */
+const OUTRA_EMPRESA = '(outra empresa)';
 async function donoDaChave(chave: string): Promise<string | null> {
-    const s = await getDoc(doc(db, UNICOS, chave));
-    return s.exists() ? (s.data() as ChaveUnica).empresaId : null;
+    try {
+        const s = await getDoc(doc(db, UNICOS, chave));
+        return s.exists() ? (s.data() as ChaveUnica).empresaId : null;
+    } catch (e) {
+        if ((e as { code?: string })?.code === 'permission-denied') return OUTRA_EMPRESA;
+        throw e;
+    }
 }
 
 /** Recusa antes de gravar, com mensagem clara (as regras recusam de qualquer jeito). */

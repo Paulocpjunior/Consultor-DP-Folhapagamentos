@@ -61,7 +61,11 @@ describe('código SAGE e CNPJ únicos', () => {
     await assertSucceeds(setDoc(doc(fs('col'), 'empresas_unicos/sage_0300'), chave('sage_0300', 'L1', 'col')));
     await assertFails(setDoc(doc(fs('col'), 'empresas_unicos/sage_0300'), chave('sage_0300', 'L2', 'col')));
     await assertFails(setDoc(doc(fs('col'), 'empresas_unicos/sage_0999'), chave('sage_0999', 'L1', 'col')));
-    await assertSucceeds(getDoc(doc(fs('col2'), 'empresas_unicos/sage_0300')));
+    // O dono da chave só para quem pode na empresa dona; a chave livre todos consultam (auditoria de 10/2026).
+    await assertSucceeds(getDoc(doc(fs('col'), 'empresas_unicos/sage_0300')));
+    await assertFails(getDoc(doc(fs('col2'), 'empresas_unicos/sage_0300')));
+    await assertSucceeds(getDoc(doc(fs('col2'), 'empresas_unicos/sage_0998')));
+    await assertSucceeds(getDoc(doc(fs('ges'), 'empresas_unicos/sage_0300')));
   });
   it('excluir a empresa (gestor) libera as chaves no mesmo lote', async () => {
     const db = fs('ges');
