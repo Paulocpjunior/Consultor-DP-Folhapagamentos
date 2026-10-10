@@ -3446,3 +3446,27 @@ guias sindicais".
   - Orientação (padrão do modelo, retrato ou paisagem).
   - "Enviar ao cliente": e-mail pelo escritório (CFI) para o contato cadastrado da empresa, com mensagem editável e o PDF anexo, e opção de gravar o contato. WhatsApp oficial (SP Connect, template do DP com o PDF) ou, sem template, o WhatsApp deste computador.
 - **Testes:** `services/relatorios/__tests__/centralRelatorios.test.tsx`.
+
+## 10/10/2026 — Relatórios, fase R2: Contratos e modelos
+
+- **Menu Relatórios › Contratos e modelos (`components/relatorios/ModelosPanel.tsx`):** os "Textos" do SAGE (Cadastros › Genéricos › Textos) no Consultor.
+- **Modelos (`services/modelos/`):**
+  - Modelos-base (`modelosBase.ts`): contrato de experiência, prorrogação, advertência, suspensão, aviso prévio do empregador, pedido de demissão, declaração de dependentes e opção de vale-transporte. Não ficam no banco: "Personalizar (cópia)" grava uma cópia editável.
+  - Personalizados do escritório (valem para todas as empresas; grava gestor ou admin) ou de uma empresa (grava quem trabalha nela), em `modelos_documentos`.
+  - Marcação simples: "# " título, "## " cláusula, linha em branco separa parágrafos, `{{assinaturas}}` para empregador, empregado e testemunhas.
+  - Campos (`CAMPOS_MODELO`): funcionário (nome, CPF, RG, CTPS, PIS, nascimento, estado civil, nacionalidade, endereço, matrícula), contrato (cargo, CBO, admissão, salário e salário por extenso, horas, jornada, dias e fim da experiência, fim da prorrogação, fim do contrato, desligamento), empresa, data de hoje (e por extenso) e os digitados na hora (motivo, dias, data, cidade).
+  - Campo sem dado na ficha sai com uma linha para preencher à mão, e a tela avisa quais são.
+- **Documento do funcionário:** prévia na tela, visualizar, imprimir, baixar PDF no layout do Consultor (`modeloPdf.ts`: título, cláusulas, texto justificado, assinaturas e testemunhas opcionais) e "Enviar ao cliente" (e-mail do escritório e WhatsApp, como na Central).
+- **Importação do SAGE (`ImportarTextosSageModal.tsx`):**
+  - Abre o .zip do FolhaWin, o .backup da folha ou o .dbf dos textos pelo mesmo leitor da restauração.
+  - Mostra as tabelas que parecem de textos (pelo nome ou por coluna de texto/memo), com "Mostrar todas" para quando o nome for outro.
+  - `textosDaTabela`: acha a coluna do texto (RTF ou a mais longa) e a do título; texto gravado em várias linhas é juntado pela sequência.
+  - `rtfParaTexto`: lê o RTF por grupos (ignora fontes, cores, estilos e `\*`), converte `\'hh` (Windows-1252) e `\uN`.
+  - Marcadores do SAGE (#NOME#, @NOME@, <<NOME>>, [NOME]) ligados aos campos do Consultor com sugestão pelo nome; sem ligação, ficam como estão.
+  - Categoria sugerida pelo título; grava como modelo do escritório ou da empresa, com origem "Importado do SAGE".
+- **Regras:** `modelos_documentos` — do escritório, lê quem é aprovado e grava gestor ou admin; da empresa, lê e grava quem pode na empresa. Formato conferido (campos, categoria, origem, título até 120 e texto até 200 mil caracteres), autor obrigatório e sem trocar o dono.
+- **Comparativo SAGE:** item novo "Cadastros › Genéricos › Textos" disponível; listagens e envio por e-mail apontam para a Central de relatórios.
+- **Testes:**
+  - `services/modelos/__tests__/modelos.test.ts` (extenso, campos, blocos, RTF, marcadores, tabela de textos);
+  - `services/modelos/__tests__/modelosTela.test.tsx` (gerar, e-mail, personalizar, importar do SAGE);
+  - `testes-regras/modelos.test.mjs`.

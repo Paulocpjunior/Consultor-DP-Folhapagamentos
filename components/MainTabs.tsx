@@ -17,6 +17,7 @@ const CalculoPanel = lazy(() => import('./calculo/CalculoPanel'));
 const CofreCertificadosPanel = lazy(() => import('./certificados/CofreCertificadosPanel'));
 const FimDeMesPanel = lazy(() => import('./fimDeMes/FimDeMesPanel'));
 const RelatoriosPanel = lazy(() => import('./relatorios/RelatoriosPanel'));
+const ModelosPanel = lazy(() => import('./relatorios/ModelosPanel'));
 import { SeloSituacao } from './fimDeMes/SeloSituacao';
 import { lerFechamento, listarPedidosPendentes } from '../services/fimDeMes/fechamentoService';
 import { situacaoDe, type SituacaoPeriodo } from '../services/fimDeMes/fechamento';
@@ -415,6 +416,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                             const cad = SUB_CADASTRO[d];
                             if (sub) irFolha(sub);
                             else if (cad) irCadastro(cad);
+                            else if (d === 'relatorios:central' || d === 'relatorios:modelos') navegar({ aba: 'relatorios', sub: d === 'relatorios:modelos' ? 'modelos' : 'central' });
                             else if (d === 'empresas' || d === 'esocial' || d === 'calculo') setActiveTab(d);
                         }} />
                     </Suspense>
@@ -443,7 +445,9 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                 )}
                 {activeTab === 'relatorios' && (
                     <Suspense fallback={<div className="py-12 text-center text-sm text-slate-500">Carregando…</div>}>
-                        <RelatoriosPanel key={`rel-${nav.n}`} currentUser={currentUser} />
+                        {nav.d.aba === 'relatorios' && nav.d.sub === 'modelos'
+                            ? <ModelosPanel key={`mod-${nav.n}`} currentUser={currentUser} />
+                            : <RelatoriosPanel key={`rel-${nav.n}`} currentUser={currentUser} />}
                     </Suspense>
                 )}
                 {activeTab === 'certificados' && (

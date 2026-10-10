@@ -17,7 +17,7 @@ export type Destino =
     | { aba: 'esocial'; sub: SubEsocial }
     | { aba: 'calculo'; folha: FolhaCalculo }
     | { aba: 'fimdemes'; sub: 'fechamento' | 'pedidos' }
-    | { aba: 'relatorios'; sub: 'central' }
+    | { aba: 'relatorios'; sub: 'central' | 'modelos' }
     | { aba: 'empresas' | 'certificados' | 'prazos' | 'iobsage' | 'admin' }
     | { aba: 'trocar' };
 
@@ -61,6 +61,7 @@ export const MENU: GrupoMenu[] = [
     ] },
     { id: 'relatorios', rotulo: 'Relatórios', icone: 'grafico', itens: [
         { id: 'central', rotulo: 'Central de relatórios', descricao: 'Folha, holerites, resumo, relação bancária, funcionários, férias: imprimir, PDF, Excel, e-mail e WhatsApp', icone: 'grafico', destino: { aba: 'relatorios', sub: 'central' } },
+        { id: 'modelos', rotulo: 'Contratos e modelos', descricao: 'Contrato de experiência, prorrogação, advertência, suspensão, aviso, declarações: personalizar, importar do SAGE e enviar', icone: 'contrato', destino: { aba: 'relatorios', sub: 'modelos' } },
     ] },
     { id: 'esocial', rotulo: 'eSocial', icone: 'esocial', itens: [
         { id: 'dashboard', rotulo: 'Painel', descricao: 'Situação dos eventos e pendências', icone: 'painel', destino: { aba: 'esocial', sub: 'dashboard' } },
