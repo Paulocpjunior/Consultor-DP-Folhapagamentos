@@ -3213,3 +3213,15 @@ guias sindicais".
 - **Benefício da empresa:** sem salário no mês, não é descontado (aviso para cobrar à parte).
 - **Testes:** `services/calculo/__tests__/motorItensMenores.test.ts`.
 - **Ficou:** a diferença do desconto simplificado no IRRF do 13º (13º separado sem, rescisão com) precisa de conferência com o IOB antes de mexer; pensão no IRRF de férias, 13º e rescisão só faz sentido quando o motor calcular a pensão desses pagamentos.
+
+## 10/10/2026 — 13º no eSocial (1ª parcela e S-1200 anual)
+
+- **Paulo:** bancos ficam para depois (a 1200 só usa Itaú). Pediu, nesta ordem: o 13º da 1200, as divergências da rodada 09/2026 e os dois contratos no mesmo CPF; e um modal "Cálculo de Adiantamentos".
+- **Regra (MOS S-1.3, conferida em fontes):** a 1ª parcela vai no S-1200 mensal do mês em que é paga (natureza 5504, só FGTS); a parcela final vai no S-1200 anual (indApuracao 2, perApur AAAA), com o 13º (5001), o desconto do adiantamento (9214, só FGTS), o INSS e o IRRF do 13º; o pagamento, no S-1210 do mês (perRef AAAA).
+- **Consultor:**
+  - S-1200 de novembro: a tela oferece "1ª parcela do 13º" (marcada), com a data (padrão 30/11 ou o dia útil anterior): demonstrativo próprio (13ADI…), pago no S-1210 do mês dele.
+  - Aba 13º › 2ª parcela: botão "S-1200 anual e S-1210" (demonstrativo 13SAL…, pagamento padrão 20/12 ou o dia útil anterior). O S-1210 de dezembro já aceito (folha de novembro) é excluído e volta com o 13º, como nos outros pagamentos.
+  - IRRF do 13º: dependentes deduzidos vão no dedDepen com tpRend 12.
+  - De/para: 13A → 5504, 13 → 5001, 13ADT → 9214, INSS13/IRRF13 pela descrição com "13" (o INSS e o IRRF da folha evitam as rubricas do 13º e das férias).
+- **Conferir antes de transmitir:** comparar com o que o IOB mandou em 11/2025 e no anual de 2025 (download do eSocial).
+- **Testes:** `services/esocial/__tests__/decimoTerceiroEsocial.test.ts`.

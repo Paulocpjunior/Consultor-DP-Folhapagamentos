@@ -82,9 +82,16 @@ const SUGESTAO: Record<string, { naturezas: string[]; dica?: RegExp; evita?: Reg
     DSRF: { naturezas: ['9207'], dica: /DSR|REPOUSO/ },
     // Faltas e atrasos em horas: no IOB, o evento 5850 "FALTAS E ATRASOS (T/H)".
     // Natureza 9207 ou 9211 (a que o histórico do IOB também lê como falta; Codex #120).
+    // 13º: a 1ª parcela no S-1200 do mês do pagamento (5504, só FGTS); no anual, o 13º (5001), o desconto do adiantamento
+    // (9214) e o INSS e o IRRF do 13º (as mesmas naturezas da folha, pela descrição).
+    '13A': { naturezas: ['5504'] },
+    '13': { naturezas: ['5001'] },
+    '13ADT': { naturezas: ['9214'] },
+    INSS13: { naturezas: ['9201'], dica: /13/ },
+    IRRF13: { naturezas: ['9203'], dica: /13/ },
     ATRASO: { naturezas: ['9207', '9211'], dica: /ATRAS|\bT H\b|HORA/, evita: /DSR|REPOUSO/, codigos: ['5850'] },
-    INSS: { naturezas: ['9201'] },
-    IRRF: { naturezas: ['9203'] },
+    INSS: { naturezas: ['9201'], evita: /13|FERIAS/ },
+    IRRF: { naturezas: ['9203'], evita: /13|FERIAS/ },
     SF: { naturezas: ['1409'] },
     PENSAO: { naturezas: ['9213'] },
     // Adiantamento salarial: no demonstrativo próprio, a rubrica de provento do adiantamento (a natureza varia
@@ -156,8 +163,10 @@ export function sugerirDePara(resultados: ResultadoCalculo[], rubricas: Rubrica[
     return [...itens.values()];
 }
 
-/** Identificador do demonstrativo: o mesmo no S-1200 e no S-1210. */
-export const ideDmDev = (perApur: string, matricula: string) => `FOLHA${perApur.replace('-', '')}-${matricula}`.slice(0, 30);
+/** Identificador do demonstrativo: o mesmo no S-1200 e no S-1210. No anual (AAAA), o do 13º. */
+export const ideDmDev = (perApur: string, matricula: string) => `${/^\d{4}$/.test(perApur) ? `13SAL${perApur}` : `FOLHA${perApur.replace('-', '')}`}-${matricula}`.slice(0, 30);
+/** Demonstrativo da 1ª parcela do 13º no S-1200 do mês em que foi paga. */
+export const ideDmDev13Adiantamento = (ano: string, matricula: string) => `13ADI${ano}-${matricula}`.slice(0, 30);
 /** Demonstrativo do adiantamento salarial da competência (MOS S-1200, item 3.4: parcela paga em data própria). */
 export const ideDmDevAdiantamento = (perApur: string, matricula: string) => `ADI${perApur.replace('-', '')}-${matricula}`.slice(0, 30);
 export { dataSugeridaAdiantamento };
@@ -260,7 +269,7 @@ export interface EventosDoTrabalhador extends Pagamentos1210 {
 
 /** indRetif 1 (original) ou 2 com o nrRecibo do evento que está valendo. */
 const retif = (r?: ReciboEvento) => (r ? `<indRetif>2</indRetif><nrRecibo>${r.nrRecibo}</nrRecibo>` : '<indRetif>1</indRetif>');
-const mes = (c: string) => `${c.slice(5)}/${c.slice(0, 4)}`;
+const mes = (c: string) => (/^\d{4}$/.test(c) ? `13º de ${c}` : `${c.slice(5)}/${c.slice(0, 4)}`);
 const quintoDiaUtilDe = (c: string) => quintoDiaUtilSalario(Number(c.slice(0, 4)), Number(c.slice(5, 7)));
 const br = (d: string) => d.split('-').reverse().join('/');
 
@@ -285,6 +294,8 @@ export interface EntradaEventosFolha {
     recibosFerias?: ReciboFeriasEsocial[];
     /** Data do adiantamento salarial (AAAA-MM-DD), para quem tem ADIANT na folha. Padrão: dataSugeridaAdiantamento. */
     dataAdiantamento?: string;
+    /** 1ª parcela do 13º paga na competência (calcular13, parcela 1ª), com a data do pagamento: demonstrativo próprio. */
+    primeiraParcela13?: { r: ResultadoCalculo; dataPagamento: string }[];
     agora?: Date;
 }
 
@@ -300,7 +311,11 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
     const estab = digitos(p.nrInscEstab);
     if (estab.length !== 14) erros.push('Informe o CNPJ do estabelecimento (14 dígitos).');
     if (!p.codLotacao.trim()) erros.push('Informe o código da lotação tributária (S-1020).');
-    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(e.competencia)) erros.push('Competência inválida.');
+    // Competência AAAA: o S-1200 anual do 13º (indApuracao 2), com a 2ª parcela nos resultados (calcular13).
+    const anual = /^\d{4}$/.test(e.competencia);
+    // Rendimento das deduções do IRRF no S-1210: 11 (folha mensal) ou 12 (13º).
+    const tpRendFolha = anual ? '12' : '11';
+    if (!anual && !/^\d{4}-(0[1-9]|1[0-2])$/.test(e.competencia)) erros.push('Competência inválida.');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(e.dataPagamento)) erros.push('Informe a data do pagamento.');
     const dataAdiant = e.dataAdiantamento || dataSugeridaAdiantamento(e.competencia);
     const comAdiantamento = e.resultados.some(r => adiantamentoDoMes(r) > 0);
@@ -485,6 +500,16 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                 t.liquido += pago;
             }
 
+            // 1ª parcela do 13º paga na competência: demonstrativo próprio (natureza 5504, só FGTS), pago na data dela.
+            for (const { r: r13, dataPagamento: d13 } of (e.primeiraParcela13 ?? []).filter(x => x.r.fichaId === f.id && x.r.situacao === 'calculado')) {
+                if (!/^\d{4}-\d{2}-\d{2}$/.test(d13)) { t.erros.push(`1ª parcela do 13º${quem} sem data de pagamento.`); continue; }
+                if (d13.slice(0, 7) !== e.competencia) { t.erros.push(`1ª parcela do 13º${quem} paga em ${br(d13)}: vai no S-1200 do mês do pagamento, não em ${mes(e.competencia)}.`); continue; }
+                const ide13 = unico(ideDmDev13Adiantamento(e.competencia.slice(0, 4), mat));
+                dmDevs.push(dmDev(ide13, categ, f, itensDe(r13.verbas)));
+                pagamentos.push({ mes: d13.slice(0, 7), xml: infoPgto(d13, ide13, r13.totais.liquido) });
+                t.liquido += r13.totais.liquido;
+            }
+
             // Recibos de férias pagos na competência: demonstrativo próprio, pago na data do recibo.
             for (const { r: rf, dataPagamento } of pagosNoMes) {
                 const ideF = unico(ideDmDevFerias(dataPagamento, mat));
@@ -593,7 +618,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             if (pm.perApur !== perPgto || !ex?.irComplem?.length || pm.outros.length) continue;
             const aceito = ex.irComplem.join('');
             const doAceito = (tag: string, vlr: string) => [...aceito.matchAll(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`, 'g'))]
-                .map(x => x[1]).filter(x => /<tpRend>11<\/tpRend>/.test(x))
+                .map(x => x[1]).filter(x => new RegExp(`<tpRend>${tpRendFolha}</tpRend>`).test(x))
                 .map(x => `${/<cpfDep>(\d+)<\/cpfDep>/.exec(x)?.[1] ?? ''}=${Number(new RegExp(`<${vlr}>([^<]*)</${vlr}>`).exec(x)?.[1] ?? 0).toFixed(2)}`).sort().join(',');
             const agora = (m: Map<string, number>) => [...m].map(([c, v]) => `${c}=${valor(v)}`).sort().join(',');
             if (doAceito('dedDepen', 'vlrDedDep') !== agora(dedDep) || doAceito('penAlim', 'vlrDedPenAlim') !== agora(penAlim))
@@ -608,9 +633,9 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             const dedDepMes = daFolha ? dedDep : doAdiant ? dedDepAdi : new Map<string, number>();
             const dedF = dedFerias.get(m) ?? new Map<string, number>();
             const irCR = [
-                ...[...dedDepMes].map(([c, v]) => `<dedDepen><tpRend>11</tpRend><cpfDep>${c}</cpfDep><vlrDedDep>${valor(v)}</vlrDedDep></dedDepen>`),
+                ...[...dedDepMes].map(([c, v]) => `<dedDepen><tpRend>${daFolha ? tpRendFolha : '11'}</tpRend><cpfDep>${c}</cpfDep><vlrDedDep>${valor(v)}</vlrDedDep></dedDepen>`),
                 ...[...dedF].map(([c, v]) => `<dedDepen><tpRend>13</tpRend><cpfDep>${c}</cpfDep><vlrDedDep>${valor(v)}</vlrDedDep></dedDepen>`),
-                ...(daFolha ? [...penAlim].map(([c, v]) => `<penAlim><tpRend>11</tpRend><cpfDep>${c}</cpfDep><vlrDedPenAlim>${valor(v)}</vlrDedPenAlim></penAlim>`) : []),
+                ...(daFolha ? [...penAlim].map(([c, v]) => `<penAlim><tpRend>${tpRendFolha}</tpRend><cpfDep>${c}</cpfDep><vlrDedPenAlim>${valor(v)}</vlrDedPenAlim></penAlim>`) : []),
             ];
             const deps = new Map<string, Dependente>([...(daFolha ? infoDep : doAdiant ? infoDepAdi : []), ...(infoDepFerias.get(m) ?? [])]);
             const deduz = (c: string) => dedDepMes.has(c) || dedF.has(c);
@@ -620,7 +645,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
         };
         const id1200 = idEvento(e.cnpj, agora, ++seq);
         t.s1200 = { id: id1200, xml: `<eSocial xmlns="${NS}/evtRemun/${VERSAO}"><evtRemun Id="${id1200}">`
-            + `<ideEvento>${retif(t.retifica1200)}<indApuracao>1</indApuracao><perApur>${e.competencia}</perApur><tpAmb>${e.tpAmb}</tpAmb><procEmi>1</procEmi><verProc>${VER_PROC}</verProc></ideEvento>`
+            + `<ideEvento>${retif(t.retifica1200)}<indApuracao>${anual ? 2 : 1}</indApuracao><perApur>${e.competencia}</perApur><tpAmb>${e.tpAmb}</tpAmb><procEmi>1</procEmi><verProc>${VER_PROC}</verProc></ideEvento>`
             + ideEmpregador + `<ideTrabalhador><cpfTrab>${cpf}</cpfTrab></ideTrabalhador>` + dmDevs.join('') + '</evtRemun></eSocial>' };
         for (const pm of porMes) {
             const ex = pm.existente1210;
@@ -638,7 +663,8 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             // que não vale mais). Em outro mês, o aceito tem recibos de outra competência e o tpRend 13 dele fica.
             const doAdiantamento = pm.perApur === e.competencia && pm.perApur !== perPgto;
             const ir = ex?.irComplem?.length ? mesclarIRFerias(ex.irComplem.join(''), novo, pm.perApur === e.competencia, doAdiantamento,
-                doAdiantamento && contratos.some(c => adiantamentoDoMes(c.r) > 0 && c.r.irrfAdiantamento !== undefined) && !contratos.some(c => c.r.irrfAdiantamentoFolha)) : novo;
+                doAdiantamento && contratos.some(c => adiantamentoDoMes(c.r) > 0 && c.r.irrfAdiantamento !== undefined) && !contratos.some(c => c.r.irrfAdiantamentoFolha),
+                anual && pm.perApur === perPgto ? '12' : undefined) : novo;
             if (ex?.irComplem?.length && novo) t.avisos.push(`As deduções do IRRF (dependentes e pensão) voltam como estavam no S-1210 de ${mes(pm.perApur)} aceito, com as das férias deste envio; confira se mudaram.`);
             const id1210 = idEvento(e.cnpj, agora, ++seq);
             pm.s1210 = { id: id1210, xml: `<eSocial xmlns="${NS}/evtPgtos/${VERSAO}"><evtPgtos Id="${id1210}">`
@@ -664,13 +690,14 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
  * cálculo sai: recibo corrigido que passou ao desconto simplificado ou deixou de deduzir alguém (Codex #111).
  * Nada mais do aceito muda. Ordem do leiaute: infoDep antes de infoIRCR; dedDepen logo após tpCR.
  */
-export function mesclarIRFerias(aceito: string, novo: string, completo = false, comAdiantamento = false, reconciliarAdiantamento = false): string {
+export function mesclarIRFerias(aceito: string, novo: string, completo = false, comAdiantamento = false, reconciliarAdiantamento = false, rend13?: string): string {
     const blocos = (xml: string, tag: string) => xml.match(new RegExp(`<${tag}>[\\s\\S]*?</${tag}>`, 'g')) ?? [];
     const campo = (xml: string, tag: string) => new RegExp(`<${tag}>([^<]*)</${tag}>`).exec(xml)?.[1] ?? '';
     // tpRend 13 (férias) e, no mês do adiantamento sem folha anterior, o tpRend 11 deduzido nele (Codex #118).
-    const mescla = (d: string) => campo(d, 'tpRend') === '13' || (comAdiantamento && campo(d, 'tpRend') === '11');
+    // E o tpRend 12 do 13º, no S-1210 do mês em que ele é pago (o cálculo tem o 13º inteiro: o do aceito é trocado ou sai).
+    const mescla = (d: string) => campo(d, 'tpRend') === '13' || (comAdiantamento && campo(d, 'tpRend') === '11') || (!!rend13 && campo(d, 'tpRend') === rend13);
     const novos = blocos(novo, 'dedDepen').filter(mescla);
-    if (!novos.length && !completo) return aceito;
+    if (!novos.length && !completo && !rend13) return aceito;
     const chave = (d: string) => `${campo(d, 'tpRend')}|${campo(d, 'cpfDep')}`;
     const porCpf = new Map(novos.map(d => [chave(d), d]));
     let r = aceito;
@@ -681,7 +708,7 @@ export function mesclarIRFerias(aceito: string, novo: string, completo = false, 
         const k = chave(d);
         if (porCpf.has(k)) { r = r.replace(d, porCpf.get(k)!); porCpf.delete(k); }
         // Sem folha anterior no mês, as tpRend 11 do aceito são do adiantamento: as que não valem mais saem (Codex #118).
-        else if (completo && (campo(d, 'tpRend') === '13' || (reconciliarAdiantamento && campo(d, 'tpRend') === '11'))) r = r.replace(d, '');
+        else if ((completo && (campo(d, 'tpRend') === '13' || (reconciliarAdiantamento && campo(d, 'tpRend') === '11'))) || (!!rend13 && campo(d, 'tpRend') === rend13)) r = r.replace(d, '');
     }
     // infoIRCR que ficou só com o código da receita não informa nada.
     r = r.replace(/<infoIRCR><tpCR>\d+<\/tpCR><\/infoIRCR>/g, '').replace(/<infoIRComplem><\/infoIRComplem>/g, '');
