@@ -3522,3 +3522,19 @@ guias sindicais".
   - Marca de PRÉVIA enquanto o motor não está ativo.
 - **Onde:** Cálculo › Rescisão › "TRCT (PDF)", e no Pacote do cliente da rescisão. O antigo "Rescisões (TRCT)" passa a se chamar "Recibos da rescisão".
 - **Testes:** `services/relatorios/__tests__/trct.test.ts`.
+
+## 10/10/2026 — Relatórios, fase R3c: informe de rendimentos
+
+- **Base:** Comprovante de Rendimentos Pagos e de IRRF da IN RFB 2.060/2021 (modelo no Anexo I), entregue até o último dia útil de fevereiro, pelo regime de caixa (o que foi pago no ano).
+- **Fonte: os S-5002 do ano-calendário** (eSocial › Download), não as folhas do Consultor. O eSocial devolve um por trabalhador e mês de pagamento, com o que foi transmitido pelo Consultor e pelo IOB (folha, férias, 13º, rescisão).
+  - O leitor dos totalizadores (`services/conferencia/totalizadores.ts`) passou a ler também os isentos de `consolidApurMen` (vlrIndResContrato, vlrAbonoPec, vlrDiarias…) e o `infoIRComplem` (dependentes, dedução de dependentes, pensão por alimentando e tpRend, previdência complementar, plano de saúde).
+- **Montagem (`services/relatorios/informeRendimentos.ts`):**
+  - Um S-5002 por trabalhador e mês; retificado, vale o de recibo mais recente (com aviso). Só o ano e a empresa ativos.
+  - Quadro 3: rendimentos tributáveis (sem a PLR), previdência oficial, previdência complementar, pensão (mensal e férias) e IRRF.
+  - Quadro 4: as nove linhas, com indenizações rescisórias, juros de mora, 65 anos, moléstia grave e "outros" (abono pecuniário, auxílio-moradia…).
+  - Quadro 5: 13º líquido (bruto − previdência − dependentes − pensão do 13º − previdência complementar), IRRF do 13º e PLR pelo líquido.
+  - Quadro 7: pensão por alimentando, previdência complementar por entidade, plano de saúde por operadora (titular e dependentes), a conta do 13º, a PLR, os isentos de "outros" e os dependentes.
+  - Avisa quando faltam meses de S-5002.
+- **PDF (`informePdf.ts`):** um trabalhador por página, quadros 1 a 8; mais Excel (uma linha por trabalhador) e envio ao cliente.
+- **Ainda não:** rendimentos recebidos acumuladamente (quadro 6).
+- **Testes:** `services/relatorios/__tests__/informe.test.ts`.

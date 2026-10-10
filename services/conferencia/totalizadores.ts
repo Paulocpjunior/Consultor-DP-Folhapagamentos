@@ -78,9 +78,21 @@ export interface ApuracaoIrrf {
     rendTrib: number; rendTrib13: number;
     prevOficial: number; prevOficial13: number;
     irrf: number; irrf13: number;
+    /** Rendimentos isentos do mês (vlrParcIsenta65, vlrDiarias, vlrIndResContrato, vlrAbonoPec…), para o informe de rendimentos. */
+    isentos?: Record<string, number>;
+    descRendimento?: string;
+}
+/** infoIRComplem do S-5002: deduções e informações do trabalhador (informe de rendimentos, quadro 7). */
+export interface ComplementoIrrf {
+    dependentes: { cpf: string; nome: string; tpDep: string }[];
+    dedDepen: { tpRend: string; cpf: string; valor: number }[];
+    penAlim: { tpRend: string; cpf: string; valor: number }[];
+    previdCompl: { tpPrev: string; cnpj: string; valor: number; valor13: number }[];
+    planSaude: { cnpj: string; regANS: string; titular: number; dependentes: { cpf: string; valor: number }[] }[];
 }
 export interface S5002 extends Cabecalho {
     tipo: 'S-5002'; cpf: string; apuracoes: ApuracaoIrrf[];
+    complemento?: ComplementoIrrf;
     /** consolidado = totInfoIR/consolidApurMen; demonstrativos = soma de dmDev/totApurMen (leiaute sem o consolidado). */
     fonte: 'consolidado' | 'demonstrativos';
 }
@@ -195,13 +207,35 @@ function lerS5013(ev: Element, arquivo: string): S5013 {
     return { ...cab, tipo: 'S-5013', indExistInfo: texto(info, 'indExistInfo'), bases };
 }
 
+export const CAMPOS_ISENTOS = ['vlrParcIsenta65', 'vlrParcIsenta65Dec', 'vlrDiarias', 'vlrAjudaCusto', 'vlrIndResContrato', 'vlrAbonoPec', 'vlrRendMoleGrave', 'vlrRendMoleGrave13', 'vlrAuxMoradia', 'vlrBolsaMedico', 'vlrBolsaMedico13', 'vlrJurosMora', 'vlrIsenOutros'] as const;
+
 function apuracaoIrrf(e: Element): ApuracaoIrrf {
+    const isentos: Record<string, number> = {};
+    for (const c of CAMPOS_ISENTOS) { const v = valor(e, c); if (v) isentos[c] = v; }
+    const desc = texto(e, 'descRendimento');
     return {
         crMen: texto(e, 'CRMen'),
         rendTrib: valor(e, 'vlrRendTrib'), rendTrib13: valor(e, 'vlrRendTrib13'),
         prevOficial: valor(e, 'vlrPrevOficial'), prevOficial13: valor(e, 'vlrPrevOficial13'),
         irrf: valor(e, 'vlrCRMen'), irrf13: valor(e, 'vlrCR13Men'),
+        ...(Object.keys(isentos).length ? { isentos } : {}), ...(desc ? { descRendimento: desc } : {}),
     };
+}
+
+function complementoIrrf(trab: Element): ComplementoIrrf | undefined {
+    const comps = filhos(trab, 'infoIRComplem');
+    if (!comps.length) return undefined;
+    const c: ComplementoIrrf = { dependentes: [], dedDepen: [], penAlim: [], previdCompl: [], planSaude: [] };
+    for (const ic of comps) {
+        for (const d of filhos(ic, 'ideDep')) c.dependentes.push({ cpf: texto(d, 'cpfDep'), nome: texto(d, 'nome'), tpDep: texto(d, 'tpDep') });
+        for (const cr of filhos(ic, 'infoIRCR')) {
+            for (const d of filhos(cr, 'dedDepen')) c.dedDepen.push({ tpRend: texto(d, 'tpRend'), cpf: texto(d, 'cpfDep'), valor: valor(d, 'vlrDedDep') });
+            for (const p of filhos(cr, 'penAlim')) c.penAlim.push({ tpRend: texto(p, 'tpRend'), cpf: texto(p, 'cpfDep'), valor: valor(p, 'vlrDedPenAlim') });
+            for (const p of filhos(cr, 'previdCompl')) c.previdCompl.push({ tpPrev: texto(p, 'tpPrev'), cnpj: texto(p, 'cnpjEntidPC'), valor: valor(p, 'vlrDedPC'), valor13: valor(p, 'vlrDedPC13') });
+        }
+        for (const ps of filhos(ic, 'planSaude')) c.planSaude.push({ cnpj: texto(ps, 'cnpjOper'), regANS: texto(ps, 'regANS'), titular: valor(ps, 'vlrSaudeTit'), dependentes: filhos(ps, 'infoDepSau').map(d => ({ cpf: texto(d, 'cpfDep'), valor: valor(d, 'vlrSaudeDep') })) });
+    }
+    return c;
 }
 
 function lerS5002(ev: Element, arquivo: string): S5002 {
@@ -210,7 +244,9 @@ function lerS5002(ev: Element, arquivo: string): S5002 {
     const trab = filho(ev, 'ideTrabalhador') ?? ev;
     const cpf = texto(trab, 'cpfBenef');
     const consolidado = filho(trab, 'totInfoIR');
-    if (consolidado) return { ...cab, tipo: 'S-5002', cpf, apuracoes: filhos(consolidado, 'consolidApurMen').map(apuracaoIrrf), fonte: 'consolidado' };
+    const complemento = complementoIrrf(trab);
+    const comp = complemento ? { complemento } : {};
+    if (consolidado) return { ...cab, tipo: 'S-5002', cpf, apuracoes: filhos(consolidado, 'consolidApurMen').map(apuracaoIrrf), fonte: 'consolidado', ...comp };
     // Sem o consolidado, soma os totais de cada demonstrativo por código de receita.
     const porCr = new Map<string, ApuracaoIrrf>();
     for (const dm of filhos(trab, 'dmDev')) for (const t of filhos(dm, 'totApurMen')) {
@@ -220,9 +256,16 @@ function lerS5002(ev: Element, arquivo: string): S5002 {
             crMen: a.crMen, rendTrib: atual.rendTrib + a.rendTrib, rendTrib13: atual.rendTrib13 + a.rendTrib13,
             prevOficial: atual.prevOficial + a.prevOficial, prevOficial13: atual.prevOficial13 + a.prevOficial13,
             irrf: atual.irrf + a.irrf, irrf13: atual.irrf13 + a.irrf13,
+            ...(atual.isentos || a.isentos ? { isentos: somarIsentos(atual.isentos, a.isentos) } : {}),
         } : a);
     }
-    return { ...cab, tipo: 'S-5002', cpf, apuracoes: [...porCr.values()], fonte: 'demonstrativos' };
+    return { ...cab, tipo: 'S-5002', cpf, apuracoes: [...porCr.values()], fonte: 'demonstrativos', ...comp };
+}
+
+function somarIsentos(a: Record<string, number> = {}, b: Record<string, number> = {}): Record<string, number> {
+    const out = { ...a };
+    for (const [k, v] of Object.entries(b)) out[k] = (out[k] ?? 0) + v;
+    return out;
 }
 
 function lerS5012(ev: Element, arquivo: string): S5012 {

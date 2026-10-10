@@ -16,6 +16,8 @@ import type { Afastamento } from '../../services/cadastros/afastamentos';
 import type { Enquadramento } from '../../services/cadastros/enquadramento';
 import { enquadramentoVigente } from '../../services/cadastros/enquadramento';
 import { lerFolhaGravada, lerFolhasDoAno } from '../../services/calculo/folhaGravadaService';
+import { lerTotalizadores, type S5002 } from '../../services/conferencia/totalizadores';
+import { montarInformes } from '../../services/relatorios/informeRendimentos';
 import { avisosDeFerias, fichasFinanceiras, MESES_CURTOS, mesesSemFolha, type FolhaDoMes } from '../../services/relatorios/relatoriosAnuais';
 import type { FolhaGravada } from '../../services/calculo/folhaGravada';
 import { motorHomologadoNoMes } from '../../services/calculo/arredondamento';
@@ -26,6 +28,7 @@ import EntregaRelatorio, { type ArquivoRelatorio } from './EntregaRelatorio';
 
 const relatoriosPdf = () => import('../../services/relatorios/holeritePdf');
 const anuaisPdf = () => import('../../services/relatorios/relatoriosAnuaisPdf');
+const informePdfMod = () => import('../../services/relatorios/informePdf');
 const btn = 'rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700';
 const ICONE_GRUPO: Record<string, string> = { Mensais: '🧾', 'Funcionários': '👥', 'Férias': '🌴', Anuais: '📅' };
 const brData = (d: string) => d.split('-').reverse().join('/');
@@ -43,6 +46,8 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const [ano, setAno] = useState(() => ativa?.competencia.slice(0, 4) ?? String(new Date().getFullYear()));
     const [fichaAnual, setFichaAnual] = useState('');
     const [folhasAno, setFolhasAno] = useState<FolhaDoMes[] | null>(null);
+    const [s5002, setS5002] = useState<{ eventos: S5002[]; arquivos: number; avisos: string[] } | null>(null);
+    const [lendoS5002, setLendoS5002] = useState(false);
 
     useEffect(() => {
         if (!ativa) return;
@@ -69,7 +74,18 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     if (!ativa) return <p className="text-sm text-slate-500">Ative uma empresa e um período.</p>;
 
     const comp = ativa.competencia.split('-').reverse().join('/');
-    const faltaFolha = (sel.precisaFolha && !dados?.folha) || (sel.tipo === 'ficha-financeira' && !folhasAno);
+    const faltaFolha = (sel.precisaFolha && !dados?.folha) || (sel.tipo === 'ficha-financeira' && !folhasAno) || (sel.tipo === 'informe' && !s5002?.eventos.length);
+    const informes = s5002 && dados ? montarInformes(ano, s5002.eventos, ativa.cnpj, new Map(dados.fichas.map(f => [f.cpf, f.dados.nome ?? '']))) : null;
+    async function lerS5002(lista: File[]) {
+        if (!lista.length) return;
+        setLendoS5002(true); setErro('');
+        try {
+            const r = await lerTotalizadores(await Promise.all(lista.map(async f => ({ nome: f.name, bytes: new Uint8Array(await f.arrayBuffer()) }))));
+            const eventos = r.totalizadores.filter((t): t is S5002 => t.tipo === 'S-5002');
+            setS5002({ eventos, arquivos: lista.length, avisos: r.avisos ?? [] });
+            if (!eventos.length) setErro('Nenhum S-5002 nos arquivos. Baixe os eventos do trabalhador em eSocial › Download (S-5002) e abra o .zip aqui.');
+        } catch (e) { setErro((e as Error).message); } finally { setLendoS5002(false); }
+    }
     const fichas = folhasAno ? fichasFinanceiras(ano, folhasAno, fichaAnual || undefined) : [];
     const semFolha = folhasAno ? mesesSemFolha(ano, folhasAno, ativa.competencia) : [];
     const avisos = dados && sel.tipo === 'aviso-ferias' ? avisosDeFerias(ativa.competencia, new Date().toLocaleDateString('sv-SE'), dados.fichas, dados.afastamentos) : [];
@@ -82,7 +98,7 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         titulo: d.titulo, previa: d.precisaFolha && !motorHomologadoNoMes(dados?.empresa?.parametrosFolha, ativa.competencia), emitidoPor: currentUser.email,
         orientacao: orientacao === 'auto' ? d.orientacao ?? 'retrato' : orientacao,
     });
-    const nomeArquivo = (d: DefRelatorio) => `${d.id}-${ativa.codigoSage || 'empresa'}-${d.tipo === 'ficha-financeira' ? ano : ativa.competencia}.pdf`;
+    const nomeArquivo = (d: DefRelatorio) => `${d.id}-${ativa.codigoSage || 'empresa'}-${d.tipo === 'ficha-financeira' || d.tipo === 'informe' ? ano : ativa.competencia}.pdf`;
 
     async function gerarPdf(d: DefRelatorio) {
         if (!ctx || !dados) throw new Error('Carregando os dados da empresa…');
@@ -92,6 +108,7 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             const obs = `Pelas folhas mensais gravadas (Folha do mês › Cálculo mensal › Gravar a folha do mês).${semFolha.length ? ` Meses sem folha gravada: ${semFolha.join(', ')}.` : ''} Férias, 13º e rescisão pagos fora da folha mensal ainda não entram.`;
             return (await anuaisPdf()).fichaFinanceiraPdf(fichas, ano, o, obs, dadosDaFicha);
         }
+        if (d.tipo === 'informe') return (await informePdfMod()).informePdf(informes?.informes ?? [], { ...o, previa: false });
         if (d.tipo === 'aviso-ferias') return (await anuaisPdf()).avisoFeriasPdf(avisos, { ...o, previa: false }, { razaoSocial: dados.empresa?.razaoSocial || ativa!.nome });
         const p = await relatoriosPdf();
         const folha = dados.folha?.holerites ?? [];
@@ -109,6 +126,14 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             const linhas = fichas.flatMap(f => f.linhas.map(l => [f.nome, l.codigo, l.descricao, ...l.meses.map(v => (v === null ? '' : v / 100)), l.total / 100]));
             const ws = XLSX.utils.aoa_to_sheet([[sel.titulo, '', `Ano ${ano}`], [dados?.empresa?.razaoSocial || ativa.nome], [], ['Funcionário', 'Código', 'Descrição', ...MESES_CURTOS, 'Total'], ...linhas]);
             const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Ficha financeira');
+            XLSX.writeFile(wb, nomeArquivo(sel).replace(/\.pdf$/, '.xlsx'));
+            return;
+        }
+        if (sel.tipo === 'informe') {
+            const cab = ['CPF', 'Nome', 'Rendimentos tributáveis', 'Previdência oficial', 'Previdência complementar', 'Pensão alimentícia', 'IRRF', 'Isentos', '13º líquido', 'IRRF 13º', 'PLR líquida', 'Meses'];
+            const linhas = (informes?.informes ?? []).map(x => [x.cpf, x.nome, ...x.quadro3.map(l => l.valor / 100), x.quadro4.reduce((t, l) => t + l.valor, 0) / 100, ...x.quadro5.map(l => l.valor / 100), x.meses.join(' ')]);
+            const ws = XLSX.utils.aoa_to_sheet([[sel.titulo, '', `Ano-calendário ${ano}`], [dados?.empresa?.razaoSocial || ativa.nome], [], cab, ...linhas]);
+            const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Informes');
             XLSX.writeFile(wb, nomeArquivo(sel).replace(/\.pdf$/, '.xlsx'));
             return;
         }
@@ -167,6 +192,28 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                         {folhasAno && <span className="text-xs text-slate-500">{12 - mesesSemFolha(ano, folhasAno, `${ano}-12`).length} mês(es) com folha gravada{semFolha.length ? ` · sem folha: ${semFolha.join(', ')}` : ''}</span>}
                     </div>
                 )}
+                {sel.tipo === 'informe' && (
+                    <div className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
+                        <div className="flex flex-wrap items-end gap-3">
+                            <label className="text-xs">Ano-calendário
+                                <select aria-label="Ano-calendário" className="mt-0.5 block rounded-lg border border-slate-300 px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-950" value={ano} onChange={e => setAno(e.target.value)}>
+                                    {Array.from({ length: 4 }, (_, i) => String(Number(ativa.competencia.slice(0, 4)) - i)).map(a => <option key={a} value={a}>{a}</option>)}
+                                </select>
+                            </label>
+                            <label className="text-xs">S-5002 do ano (XML ou .zip do Download do eSocial)
+                                <input aria-label="Arquivos do S-5002" type="file" multiple accept=".xml,.zip" className="mt-0.5 block text-sm" disabled={lendoS5002} onChange={e => lerS5002(Array.from(e.target.files ?? []))} />
+                            </label>
+                        </div>
+                        <p className="text-xs text-slate-500">O eSocial devolve o S-5002 por trabalhador e mês de pagamento (regime de caixa): ele traz o que foi transmitido pelo Consultor e pelo IOB, inclusive férias, 13º e rescisões. Prazo de entrega ao trabalhador: último dia útil de fevereiro.</p>
+                        {lendoS5002 && <p>Lendo os arquivos…</p>}
+                        {informes && <p>{informes.informes.length} informe(s) de {ano} · {s5002?.eventos.length} S-5002 lido(s).</p>}
+                        {informes && (informes.avisos.length > 0 || informes.informes.some(x => x.avisos.length)) && (
+                            <ul className="list-disc rounded-lg bg-amber-50 p-2 pl-6 text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">
+                                {[...informes.avisos, ...informes.informes.flatMap(x => x.avisos.map(a => `${x.nome || x.cpf}: ${a}`))].slice(0, 12).map((a, i) => <li key={i}>{a}</li>)}
+                            </ul>
+                        )}
+                    </div>
+                )}
                 {sel.tipo === 'aviso-ferias' && dados && (
                     <div className="text-sm text-slate-600 dark:text-slate-300">
                         {avisos.length ? <p>{avisos.length} aviso(s): {avisos.map(a => `${a.nome} (${brData(a.inicio)})`).join(', ')}.</p> : <p>Nenhum gozo de férias começa em {comp} ou no mês seguinte (Cadastros › Afastamentos, motivo 15).</p>}
@@ -183,12 +230,12 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                     <button className={btn} disabled={!dados || faltaFolha || gerando} onClick={() => abrir(false)}>Visualizar</button>
                     <button className={btn} disabled={!dados || faltaFolha || gerando} onClick={() => abrir(true)}>Imprimir</button>
                     <button className={btn} disabled={!dados || faltaFolha || gerando} onClick={baixar}>Baixar PDF</button>
-                    {(sel.tipo === 'tabela' || sel.tipo === 'ficha-financeira') && <button className={btn} disabled={!dados || faltaFolha || gerando} onClick={excel}>Excel</button>}
+                    {(sel.tipo === 'tabela' || sel.tipo === 'ficha-financeira' || sel.tipo === 'informe') && <button className={btn} disabled={!dados || faltaFolha || gerando} onClick={excel}>Excel</button>}
                     <button className="rounded-lg bg-teal-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-teal-500 disabled:opacity-50" disabled={!dados || faltaFolha} aria-pressed={enviar} onClick={() => setEnviar(x => !x)}>Enviar ao cliente</button>
                 </div>
                 {enviar && dados && !faltaFolha && (
                     <EntregaRelatorio key={sel.id} empresa={{ id: ativa.id, cnpj: ativa.cnpj.replace(/\D/g, ''), nome: dados.empresa?.nomeFantasia || dados.empresa?.razaoSocial || ativa.nome, codigoSage: ativa.codigoSage, contatoEnvio: dados.empresa?.contatoEnvio }}
-                        titulo={sel.titulo} competencia={sel.tipo === 'ficha-financeira' ? `${ano}-12` : ativa.competencia} gerar={arquivo} />
+                        titulo={sel.titulo} competencia={sel.tipo === 'ficha-financeira' || sel.tipo === 'informe' ? `${ano}-12` : ativa.competencia} gerar={arquivo} />
                 )}
             </section>
         </div>
