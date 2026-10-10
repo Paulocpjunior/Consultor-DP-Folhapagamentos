@@ -17,6 +17,8 @@ vi.mock('../fechamentoService', () => ({
     encerrarPeriodo: (...a: unknown[]) => srv.encerrar(...a), reabrirPeriodo: (...a: unknown[]) => srv.reabrir(...a),
     pedirReabertura: (...a: unknown[]) => srv.pedir(...a), recusarPedido: (...a: unknown[]) => srv.recusar(...a),
 }));
+const fg = vi.hoisted(() => ({ gravada: null as unknown }));
+vi.mock('../../calculo/folhaGravadaService', () => ({ lerFolhaGravada: async () => fg.gravada }));
 vi.mock('../../empresas/empresasService', () => ({ listarEmpresasVisiveis: async () => [{ id: 'emp1', parametrosFolha: { motorHomologado: { desde: '2026-06', por: 'x', em: 'y' } } }] }));
 
 const ATIVA = { id: 'emp1', nome: 'EMPRESA UM', cnpj: '11222333000181', codigoSage: '1200', competencia: '2026-09', ativadaPor: 'x', ativadaEm: 1 };
@@ -27,6 +29,7 @@ const ENCERRADO = { id: 'emp1_2026-09', empresaId: 'emp1', competencia: '2026-09
 
 beforeEach(() => {
     srv.fech = null; srv.todos = []; srv.pedidos = [];
+    fg.gravada = { empresaId: 'emp1', competencia: '2026-09', pagamento: '2026-10', gravadoPorEmail: 'dp@escritorio.com.br', totais: { funcionarios: 3, proventos: 0, descontos: 0, liquido: 650000, fgts: 0 }, holerites: [] };
     for (const f of [srv.encerrar, srv.reabrir, srv.pedir, srv.recusar]) f.mockClear();
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-10-10T12:00:00'));
@@ -54,6 +57,7 @@ describe('fim de mês: tela', () => {
     it('encerra só com a lista completa; avisa os meses pendentes', async () => {
         tela(COL);
         await waitFor(() => expect(screen.getByText(/Fim de mês pendente nesta empresa: 06\/2026, 07\/2026, 08\/2026/)).toBeTruthy());
+        expect(screen.getByText(/Folha gravada por dp@escritorio.com.br: 3 holerite\(s\), líquido R\$\s6\.500,00/)).toBeTruthy();
         const botao = screen.getByRole('button', { name: 'Encerrar 09/2026' }) as HTMLButtonElement;
         expect(botao.disabled).toBe(true);
         for (const i of ITENS_FECHAMENTO) fireEvent.click(screen.getByLabelText(i.rotulo));
@@ -61,6 +65,16 @@ describe('fim de mês: tela', () => {
         fireEvent.click(botao);
         await waitFor(() => expect(srv.encerrar).toHaveBeenCalledWith('emp1', '2026-09', expect.objectContaining({ movimento: true, cliente: true }), { id: 'c1', email: 'dp@escritorio.com.br' }));
         expect(screen.getByRole('status').textContent).toContain('09/2026 encerrada');
+    });
+
+    it('motor ativo na competência: sem a folha gravada não encerra', async () => {
+        fg.gravada = null;
+        tela(COL);
+        await waitFor(() => expect(screen.getByText(/Folha do mês ainda não gravada/)).toBeTruthy());
+        for (const i of ITENS_FECHAMENTO) fireEvent.click(screen.getByLabelText(i.rotulo));
+        const botao = screen.getByRole('button', { name: 'Encerrar 09/2026' }) as HTMLButtonElement;
+        expect(botao.disabled).toBe(true);
+        expect(botao.title).toContain('Grave a folha do mês');
     });
 
     it('encerrado: o colaborador pede a reabertura com motivo (o gestor é avisado)', async () => {

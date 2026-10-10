@@ -21,6 +21,8 @@ import { eventoPorCodigo, lancarEvento, lerReferencia, tipoDaReferencia, type Sa
 import { carregarEventosIob } from '../../services/calculo/catalogoEventos';
 import { lerFechamento } from '../../services/fimDeMes/fechamentoService';
 import { MSG_ENCERRADO, type Fechamento } from '../../services/fimDeMes/fechamento';
+import { gravarFolha, lerFolhaGravada } from '../../services/calculo/folhaGravadaService';
+import { diferencasDaGravada, errosParaGravar, type FolhaGravada } from '../../services/calculo/folhaGravada';
 import type { EventoIobSage } from '../../services/folha/folhaTypes';
 import { afastamentoVazio, idAfastamento, validarAfastamento, type Afastamento } from '../../services/cadastros/afastamentos';
 import type { TabelaLegal } from '../../services/cadastros/tabelasLegais';
@@ -148,6 +150,17 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
         return () => { vivo = false; };
     }, [empresaId, competencia]);
     const encerrado = fechamento?.situacao === 'encerrado';
+    // Folha do mês gravada (holerites guardados); encerrada a competência, é ela que vale.
+    const [gravada, setGravada] = useState<FolhaGravada | null>(null);
+    const [versaoGravada, setVersaoGravada] = useState(0);
+    const [gravandoFolha, setGravandoFolha] = useState(false);
+    useEffect(() => {
+        setGravada(null);
+        if (!empresaId || !/^\d{4}-\d{2}$/.test(competencia)) return;
+        let vivo = true;
+        lerFolhaGravada(empresaId, competencia).then(g => { if (vivo) setGravada(g); }).catch(() => { /* sem leitura: segue com o cálculo */ });
+        return () => { vivo = false; };
+    }, [empresaId, competencia, versaoGravada]);
     // Lotes do eSocial da empresa: situação do S-2230 de cada gozo gravado.
     const [enviosEsocial, setEnviosEsocial] = useState<Envio[] | null>(null);
     const [recargaEnvios, setRecargaEnvios] = useState(0);
@@ -297,7 +310,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
             m => salvos[m]?.arredondamentoAnterior, m => (salvos[m]?.arredondamentoDesde === desde ? salvos[m]?.arredondamentoFechado : undefined));
         return typeof anterior === 'number' ? arredondar(r, anterior) : travar(anterior.erro);
     }, [parametrosFolha, dados, movsEmpresa, opcoesFerias, folhaPagaNoAdiantamento]);
-    const resultados = useMemo(() => {
+    const resultadosCalculados = useMemo(() => {
         if (!dados) return [];
         if (rescisao) {
             if (!movsAno || !/^\d{4}-\d{2}$/.test(competencia)) return [];
@@ -352,6 +365,22 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
             : [], { tabelas: dados.tabelas, folhaPaga: id => { const f = porId.get(id); return f ? folhaPagaNoAdiantamento(f, competencia, pagamento) : null; } })
             .map((r, i) => arredondarDaEmpresa(r, doMes[i], competencia, movs[doMes[i].id]?.arredondamentoAnterior));
     }, [dados, competencia, pagamento, movs, movsEmpresa, mensal, ferias, rescisao, paramsResc, movsAno, ano, folha, opcoes13, primeiras, abonos, opcoesFerias, feriasSimuladas, arredondarDaEmpresa, folhaPagaNoAdiantamento, parametrosFolha]);
+    // Competência encerrada com a folha gravada: telas, PDFs, Excel e eSocial usam o gravado; o cálculo de hoje só compara.
+    const usandoGravada = mensal && encerrado && !!gravada;
+    const resultados = usandoGravada ? gravada!.holerites : resultadosCalculados;
+    const diferencas = useMemo(() => (mensal && gravada && dados ? diferencasDaGravada(gravada.holerites, resultadosCalculados) : []), [mensal, gravada, dados, resultadosCalculados]);
+    async function gravarFolhaDoMes() {
+        if (!empresaId || encerrado) return;
+        const erros = errosParaGravar(resultadosCalculados);
+        if (erros.length && !window.confirm(`${erros.length} funcionário(s) com erro de cálculo ficam fora da folha gravada:\n${erros.slice(0, 5).join('\n')}\n\nGravar assim mesmo?`)) return;
+        if (gravada && !window.confirm('Regravar a folha do mês? A gravação anterior é substituída.')) return;
+        setGravandoFolha(true); setErro('');
+        try {
+            await gravarFolha(empresaId, competencia, pagamento, resultadosCalculados, usuario, gravada?.holerites.map(h => h.fichaId));
+            setAviso('Folha do mês gravada.'); setVersaoGravada(n => n + 1);
+        } catch (e) { setErro(`Folha não gravada: ${mensagemErro(e)}`); }
+        finally { setGravandoFolha(false); }
+    }
     // O movimento a gravar leva o arredondamento atual do mês calculado (o anterior do mês seguinte): assim o encadeamento
     // não refaz este mês com a ficha de amanhã (Codex #116). Mudou o atual, o funcionário fica "não salvo"; sem cálculo
     // completo, fica o que já estava gravado.
@@ -605,6 +634,19 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                     {podeHomologar && empresa && <button className="ml-auto rounded bg-green-700 px-3 py-1.5 text-xs font-medium text-white" title="Empresa conferida com o IOB: os documentos passam a sair sem a marca de prévia, a partir da competência da tela." onClick={() => ativarMotor(true)}>Ativar o motor para esta empresa</button>}
                 </div>
             )}
+            {mensal && empresa && (gravada || encerrado) && (
+                <div aria-label="Folha gravada" className={`rounded-lg border p-3 text-sm ${diferencas.length && !encerrado ? 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-100' : 'border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200'}`}>
+                    {gravada ? (
+                        <p>📁 <strong>Folha gravada</strong> por {gravada.gravadoPorEmail}{gravada.gravadoEm ? ` em ${quando(gravada.gravadoEm)}` : ''}: {gravada.totais.funcionarios} holerite(s), líquido {reais(gravada.totais.liquido)}.{usandoGravada ? ' Competência encerrada: valem os valores gravados.' : ''}</p>
+                    ) : <p>Competência encerrada sem folha gravada: os valores abaixo são recalculados.</p>}
+                    {diferencas.length > 0 && (
+                        <details className="mt-1">
+                            <summary className="cursor-pointer">{encerrado ? `O cálculo de hoje daria diferente em ${diferencas.length} funcionário(s) (vale a folha gravada).` : `O cálculo de hoje difere da folha gravada em ${diferencas.length} funcionário(s): grave de novo antes de encerrar o mês.`}</summary>
+                            <ul className="mt-1 list-disc pl-5 text-xs">{diferencas.slice(0, 30).map(d => <li key={d.fichaId}>{d.nome}: {d.detalhe}</li>)}</ul>
+                        </details>
+                    )}
+                </div>
+            )}
             {encerrado && (mensal || ferias) && (
                 <div role="note" className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-100">
                     <span>🔒 <strong>Competência encerrada</strong>{fechamento?.encerradoPorEmail ? ` por ${fechamento.encerradoPorEmail}` : ''}: somente leitura. Para alterar, peça a reabertura ao gestor do DP em Fim de mês › Fechamento do mês.</span>
@@ -647,6 +689,10 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                 {mensal && <button className="ml-auto rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={!pendentes.length || salvando || !gravados || encerrado} title={encerrado ? MSG_ENCERRADO(competencia) : undefined} onClick={salvar}>
                     {salvando ? 'Salvando…' : `Salvar movimento${pendentes.length ? ` (${pendentes.length})` : ''}`}
                 </button>}
+                {mensal && <button className="rounded border border-blue-700 px-3 py-2 text-sm font-medium text-blue-800 disabled:opacity-50 dark:border-blue-400 dark:text-blue-200"
+                    disabled={!empresa || encerrado || gravandoFolha || pendentes.length > 0 || !gravados || !resultadosCalculados.some(r => r.situacao !== 'erro')}
+                    title={encerrado ? MSG_ENCERRADO(competencia) : pendentes.length ? 'Salve o movimento antes de gravar a folha.' : 'Guarda os holerites do mês como estão (o Fim de mês exige a folha gravada).'}
+                    onClick={gravarFolhaDoMes}>{gravandoFolha ? 'Gravando…' : gravada ? 'Regravar a folha do mês' : 'Gravar a folha do mês'}</button>}
                 <div className={`flex flex-wrap items-center gap-2 ${mensal ? '' : 'ml-auto'}`}>
                 {mensal && <GrupoAcoes rotulo="Conferir">
                     {mensal && <button className={btn} disabled={!resultados.length} aria-pressed={conferir} onClick={() => setConferir(c => !c)}>Conferir com holerites do IOB</button>}

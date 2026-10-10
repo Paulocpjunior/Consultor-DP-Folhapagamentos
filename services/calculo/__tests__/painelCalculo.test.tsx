@@ -38,6 +38,8 @@ const pdf = vi.hoisted(() => ({ save: vi.fn(), holeritesPdf: vi.fn(), resumoPdf:
 vi.mock('../../relatorios/holeritePdf', () => ({ holeritesPdf: pdf.holeritesPdf, resumoPdf: pdf.resumoPdf }));
 const fim = vi.hoisted(() => ({ fechamento: null as unknown }));
 vi.mock('../../fimDeMes/fechamentoService', () => ({ lerFechamento: async () => fim.fechamento }));
+const fg = vi.hoisted(() => ({ gravada: null as unknown, gravar: vi.fn(async (..._a: unknown[]) => undefined) }));
+vi.mock('../folhaGravadaService', () => ({ lerFolhaGravada: async () => fg.gravada, gravarFolha: (...a: unknown[]) => fg.gravar(...a) }));
 vi.mock('../catalogoEventos', () => ({ carregarEventosIob: async () => (await import('../../../data/eventos-iob-sage.json')).default.eventos }));
 const USER = { uid: 'u1', email: 'dp@escritorio.com.br', role: 'colaborador' } as never;
 
@@ -49,6 +51,7 @@ beforeEach(() => {
     cad.afastamentos = [];
     cad.enquadramentos = [];
     fim.fechamento = null;
+    fg.gravada = null; fg.gravar.mockClear();
     cad.erroEnq = '';
     pdf.save.mockReset(); pdf.holeritesPdf.mockReset().mockReturnValue({ save: pdf.save }); pdf.resumoPdf.mockReset().mockReturnValue({ save: pdf.save });
 });
@@ -167,6 +170,43 @@ describe('aba Cálculo', () => {
         const salvar = await screen.findByRole('button', { name: /Salvar movimento/ });
         expect((salvar as HTMLButtonElement).disabled).toBe(true);
         expect(salvar.getAttribute('title')).toContain('03/2026 está encerrada');
+    });
+
+    it('grava a folha do mês; encerrada, valem os holerites gravados e o cálculo de hoje só compara', async () => {
+        vi.spyOn(window, 'confirm').mockReturnValue(true);
+        const { unmount } = render(<CalculoPanel currentUser={USER} />);
+        await waitFor(() => expect(screen.getByRole('option', { name: /0229/ })).toBeTruthy());
+        fireEvent.change(screen.getByLabelText('Competência'), { target: { value: '2026-03' } });
+        fireEvent.change(screen.getByLabelText('Empresa'), { target: { value: 'emp1' } });
+        await waitFor(() => expect(screen.getByText('ANA')).toBeTruthy());
+        const gravar = await screen.findByRole('button', { name: 'Gravar a folha do mês' });
+        // Movimento por salvar: primeiro "Salvar movimento" (a folha gravada sai do movimento gravado).
+        const salvar = screen.getByRole('button', { name: /Salvar movimento/ }) as HTMLButtonElement;
+        movs.salvarMovimentos.mockImplementation(async (_e: string, c: string, itens: { fichaId: string; depois: unknown }[]) => {
+            movs.listarMovimentos.mockResolvedValue(itens.map(i => ({ id: `${i.fichaId}_${c}`, empresaId: 'emp1', fichaId: i.fichaId, competencia: c, movimento: i.depois })));
+        });
+        if (!salvar.disabled) { fireEvent.click(salvar); await waitFor(() => expect(movs.salvarMovimentos).toHaveBeenCalled()); }
+        await waitFor(() => expect((gravar as HTMLButtonElement).disabled).toBe(false));
+        fireEvent.click(gravar);
+        await waitFor(() => expect(fg.gravar).toHaveBeenCalled());
+        const [emp, comp, , rs] = fg.gravar.mock.calls[0] as [string, string, string, { nome: string }[]];
+        expect([emp, comp]).toEqual(['emp1', '2026-03']);
+        expect(rs.map(r => r.nome)).toContain('ANA');
+        unmount();
+
+        // Encerrada com a folha gravada: o líquido da ANA é o gravado, e a diferença do cálculo de hoje aparece.
+        const ana = (rs as unknown as { nome: string; totais: { liquido: number } }[]).find(r => r.nome === 'ANA')!;
+        fg.gravada = { empresaId: 'emp1', competencia: '2026-03', pagamento: '2026-04', gravadoPorEmail: 'dp@escritorio.com.br', totais: { funcionarios: 1, proventos: 0, descontos: 0, liquido: 123400, fgts: 0 },
+            holerites: [{ ...ana, totais: { ...ana.totais, liquido: 123400 } }] };
+        fim.fechamento = { id: 'emp1_2026-03', empresaId: 'emp1', competencia: '2026-03', situacao: 'encerrado', checklist: {} };
+        render(<CalculoPanel currentUser={USER} />);
+        await waitFor(() => expect(screen.getByRole('option', { name: /0229/ })).toBeTruthy());
+        fireEvent.change(screen.getByLabelText('Competência'), { target: { value: '2026-03' } });
+        fireEvent.change(screen.getByLabelText('Empresa'), { target: { value: 'emp1' } });
+        await waitFor(() => expect(screen.getByLabelText('Folha gravada').textContent).toContain('valem os valores gravados'));
+        expect(screen.getByText('ANA').closest('tr')!.textContent).toContain('1.234,00');
+        expect(screen.getByLabelText('Folha gravada').textContent).toContain('O cálculo de hoje daria diferente em');
+        expect((screen.getByRole('button', { name: 'Regravar a folha do mês' }) as HTMLButtonElement).disabled).toBe(true);
     });
 
     it('carrega o movimento gravado, valida e salva só o que mudou', async () => {
