@@ -14,7 +14,7 @@ beforeEach(async () => {
     for (const [u, role] of [['ges', 'gestor'], ['col', 'colaborador'], ['col2', 'colaborador']]) await setDoc(doc(db, `users/${u}`), { uid: u, role });
     for (const e of ['A', 'B']) await setDoc(doc(db, `empresas/${e}`), { cnpj: e, criadoPor: 'ges' });
     await setDoc(doc(db, 'carteira_acessos/col'), { uid: 'col', empresaIds: ['A'], atualizadoPor: 'ges' });
-    for (const e of ['A', 'B']) await setDoc(doc(db, `esocial_envios/env${e}`), { empresaId: e, protocolo: 'p', tpAmb: 2, eventos: [], situacao: 'enviado', enviadoPor: 'ges', enviadoEm: 1 });
+    for (const e of ['A', 'B']) await setDoc(doc(db, `esocial_envios/env${e}`), { empresaId: e, protocolo: 'p', tpAmb: 2, eventos: [{ id: 'X' }], situacao: 'enviado', enviadoPor: 'ges', enviadoEm: 1 });
   });
 });
 afterAll(async () => env?.cleanup());
@@ -42,5 +42,11 @@ describe('esocial_envios', () => {
     await assertFails(updateDoc(doc(fs('col'), 'esocial_envios/envB'), { situacao: 'processado', consultadoPor: 'col' }));
     await assertFails(deleteDoc(doc(fs('col'), 'esocial_envios/envA')));
     await assertFails(deleteDoc(doc(fs('ges'), 'esocial_envios/envA')));
+  });
+  it('lote já processado não muda; a consulta não tira nem põe eventos (auditoria de 10/2026)', async () => {
+    await assertFails(updateDoc(doc(fs('col'), 'esocial_envios/envA'), { situacao: 'processado', eventos: [], consultadoPor: 'col' }));
+    await assertFails(updateDoc(doc(fs('col'), 'esocial_envios/envA'), { situacao: 'processado', eventos: [{ id: 'X' }, { id: 'Y' }], consultadoPor: 'col' }));
+    await assertSucceeds(updateDoc(doc(fs('col'), 'esocial_envios/envA'), { situacao: 'processado', eventos: [{ id: 'X', nrRecibo: '1' }], consultadoPor: 'col' }));
+    await assertFails(updateDoc(doc(fs('col'), 'esocial_envios/envA'), { situacao: 'processado', eventos: [{ id: 'X', nrRecibo: '2' }], consultadoPor: 'col' }));
   });
 });

@@ -41,9 +41,10 @@ describe('regras dos cadastros', () => {
     await assertFails(deleteDoc(doc(col(), 'cadastro_sindicatos/11222333000181')));
     await assertSucceeds(deleteDoc(doc(adm(), 'cadastro_sindicatos/11222333000181')));
   });
-  it('tabelas legais: criar com norma; alterar e apagar só admin', async () => {
-    await assertSucceeds(setDoc(doc(col(), 'cadastro_tabelas_legais/t2'), { tipo: 'irrf', vigencia: '2026-01', norma: 'Lei Y de 2025', atualizadoPor: 'col' }));
-    await assertFails(setDoc(doc(col(), 'cadastro_tabelas_legais/t3'), { tipo: 'irrf', vigencia: '2026-01', norma: '', atualizadoPor: 'col' }));
+  it('tabelas legais: criar, alterar e apagar só admin, com norma (valem para todas as empresas)', async () => {
+    await assertFails(setDoc(doc(col(), 'cadastro_tabelas_legais/t2'), { tipo: 'irrf', vigencia: '2026-01', norma: 'Lei Y de 2025', atualizadoPor: 'col' }));
+    await assertSucceeds(setDoc(doc(adm(), 'cadastro_tabelas_legais/t2'), { tipo: 'irrf', vigencia: '2026-01', norma: 'Lei Y de 2025', atualizadoPor: 'adm' }));
+    await assertFails(setDoc(doc(adm(), 'cadastro_tabelas_legais/t3'), { tipo: 'irrf', vigencia: '2026-01', norma: '', atualizadoPor: 'adm' }));
     await assertFails(setDoc(doc(col(), 'cadastro_tabelas_legais/t1'), { tipo: 'inss', vigencia: '2026-02', norma: 'Portaria X', atualizadoPor: 'col' }));
     await assertFails(deleteDoc(doc(col(), 'cadastro_tabelas_legais/t1')));
     await assertSucceeds(setDoc(doc(adm(), 'cadastro_tabelas_legais/t1'), { tipo: 'inss', vigencia: '2026-02', norma: 'Portaria X', atualizadoPor: 'adm' }));

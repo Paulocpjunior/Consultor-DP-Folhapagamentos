@@ -17,13 +17,18 @@ const ESocialAuditLog: React.FC = () => {
     const [logs, setLogs] = useState<AuditLog[]>([]);
     const [loading, setLoading] = useState(true);
     const [limite, setLimite] = useState(50);
+    const [semAcesso, setSemAcesso] = useState(false);
 
     const reload = async () => {
         setLoading(true);
         try {
             const result = await listarAuditLogs(limite);
-            setLogs(result);
-        } catch (e) { console.error(e); }
+            setLogs(result); setSemAcesso(false);
+        } catch (e) {
+            // O log reúne todas as empresas: só o admin lê (auditoria de 10/2026).
+            if ((e as { code?: string })?.code === 'permission-denied') setSemAcesso(true);
+            else console.error(e);
+        }
         finally { setLoading(false); }
     };
 
@@ -53,7 +58,11 @@ const ESocialAuditLog: React.FC = () => {
                 </select>
             </div>
 
-            {logs.length === 0 ? (
+            {semAcesso ? (
+                <div className="text-center py-8 text-slate-500 dark:text-slate-400 text-sm">
+                    O histórico reúne as ações de todas as empresas: só o admin vê.
+                </div>
+            ) : logs.length === 0 ? (
                 <div className="text-center py-8 text-slate-500 dark:text-slate-400 text-sm">
                     Nenhum registro de auditoria encontrado.
                 </div>

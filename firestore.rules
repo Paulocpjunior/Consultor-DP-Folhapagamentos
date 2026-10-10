@@ -97,6 +97,14 @@ service cloud.firestore {
       allow delete: if isGestor();
     }
 
+    // Documento por CNPJ (folha_*, ponto_layouts): a empresa dona do CNPJ pela chave única (empresas_unicos/cnpj_…).
+    // Sem a chave reservada, só o admin. Chave que não é CNPJ (modelos como "EDUCATI"): lê quem é aprovado, grava o admin.
+    function unicoCnpj(c) { return /databases/$(database)/documents/empresas_unicos/$('cnpj_' + c); }
+    function podeCnpj(c) { return isGestor() || (isApproved() && c is string && c.matches('^[0-9]{14}$') && exists(unicoCnpj(c)) && podeEmpresa(get(unicoCnpj(c)).data.empresaId))
+                                  || (isAdmin() && c is string && c.matches('^[0-9]{14}$') && !exists(unicoCnpj(c))); }
+    function leCliente(c) { return c.matches('^[0-9]{14}$') ? podeCnpj(c) : isApproved(); }
+    function gravaCliente(c) { return c.matches('^[0-9]{14}$') ? podeCnpj(c) : isAdmin(); }
+
     // Código SAGE e CNPJ únicos (06/10/2026): empresas_unicos/{sage_0000 | cnpj_…}
     // aponta a empresa dona. A chave nasce no mesmo lote da empresa, não troca
     // de dono e só é liberada quando a empresa deixa de usá-la (ou é excluída).
@@ -110,7 +118,9 @@ service cloud.firestore {
         return existsAfter(/databases/$(database)/documents/empresas/$(empId))
             && (chave == 'sage_' + empresaDepois(empId).codigoSage || chave == 'cnpj_' + empresaDepois(empId).cnpj);
       }
-      allow get:    if isApproved();
+      // O dono só para quem pode na empresa dona (senão a chave virava consulta CNPJ/SAGE → id de qualquer empresa).
+      // A chave que não existe pode ser consultada (é o que diz que o CNPJ ou o código está livre).
+      allow get:    if isApproved() && (resource == null || isAdmin() || podeEmpresa(resource.data.empresaId));
       allow list:   if isGestor();
       allow create: if isApproved()
                     && request.resource.data.chave == chave
@@ -148,19 +158,23 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Seleção, mapeamento e histórico do apontamento: por cliente (o CNPJ), só da carteira (auditoria de 10/2026).
     match /folha_selecoes_eventos/{cliente} {
-      allow read, write: if isApproved();
+      allow read:   if leCliente(cliente);
+      allow create, update: if gravaCliente(cliente);
+      allow delete: if isAdmin() && gravaCliente(cliente);
     }
 
     match /folha_mapeamentos/{cliente} {
-      allow read, write: if isApproved();
+      allow read:   if leCliente(cliente);
+      allow create, update: if gravaCliente(cliente);
+      allow delete: if isAdmin() && gravaCliente(cliente);
     }
 
-
     match /folha_historico/{cliente}/exportacoes/{logId} {
-      allow read:   if isApproved();
-      allow create: if isApproved();
-      allow update, delete: if isAdmin();
+      allow read:   if leCliente(cliente);
+      allow create: if leCliente(cliente);
+      allow update, delete: if isAdmin() && gravaCliente(cliente);
     }
 
     match /users/{uid}/cache/{key} {
@@ -174,8 +188,9 @@ service cloud.firestore {
     }
 
     match /folha_perfis_colunas/{cnpj} {
-      allow read: if isApproved();
-      allow write: if isApproved();
+      allow read:   if leCliente(cnpj);
+      allow create, update: if gravaCliente(cnpj);
+      allow delete: if isAdmin() && gravaCliente(cnpj);
     }
     // ===== Ponto Eletronico =====
 
@@ -191,12 +206,12 @@ service cloud.firestore {
 
     // Layouts de ponto por empresa (CNPJ + cadastro SAGE).
     // Mesma logica de empresas: usuario aprovado le e escreve.
+    // Id = CNPJ_códigoSAGE: só da carteira (pela empresa dona do CNPJ).
     match /ponto_layouts/{layoutId} {
-      allow read:   if isApproved();
-      allow list:   if isApproved();
-      allow create: if isApproved();
-      allow update: if isApproved();
-      allow delete: if isApproved();
+      allow get:    if podeCnpj(layoutId.split('_')[0]);
+      allow list:   if podeCnpj(resource.data.cnpj);
+      allow create, update: if podeCnpj(layoutId.split('_')[0]) && request.resource.data.cnpj == layoutId.split('_')[0];
+      allow delete: if isAdmin() && podeCnpj(layoutId.split('_')[0]);
     }
 
 
@@ -224,8 +239,9 @@ service cloud.firestore {
       allow delete:     if isAdmin() && podeEmpresa(resource.data.empresaId);
     }
 
+    // O log lista todas as empresas: só o admin (auditoria de 10/2026).
     match /esocial_audit/{logId} {
-      allow read, list: if isApproved();
+      allow read, list: if isAdmin();
       allow create:     if isApproved();
       allow update, delete: if false;
     }
@@ -250,17 +266,22 @@ service cloud.firestore {
 
     match /cadastro_sindicatos/{cnpj} {
       allow read, list: if isApproved();
-      allow create, update: if isApproved()
+      // Sindicato é de todas as empresas: o novo qualquer aprovado cadastra; mudar o existente é do admin.
+      allow create: if isApproved()
+                    && request.resource.data.atualizadoPor == request.auth.uid
+                    && request.resource.data.cnpj == cnpj
+                    && request.resource.data.nome is string;
+      allow update: if isAdmin()
                     && request.resource.data.atualizadoPor == request.auth.uid
                     && request.resource.data.cnpj == cnpj
                     && request.resource.data.nome is string;
       allow delete: if isAdmin();
     }
 
-    // Tabela legal sem norma não entra; corrigir ou apagar tabela é do admin.
+    // Tabela legal vale para todas as empresas: criar, corrigir ou apagar é do admin; sem norma não entra.
     match /cadastro_tabelas_legais/{tabelaId} {
       allow read, list: if isApproved();
-      allow create: if isApproved()
+      allow create: if isAdmin()
                     && request.resource.data.atualizadoPor == request.auth.uid
                     && request.resource.data.norma is string
                     && request.resource.data.norma.size() >= 5
@@ -332,7 +353,12 @@ service cloud.firestore {
                     && request.resource.data.tpAmb in [1, 2]
                     && request.resource.data.eventos is list
                     && request.resource.data.eventos.size() <= 50;
+      // A consulta só completa o lote ainda sem resultado, sem tirar nem pôr eventos: o registro de uma entrega
+      // processada não muda (auditoria de 10/2026).
       allow update: if podeEmpresa(resource.data.empresaId)
+                    && resource.data.situacao in ['enviado', 'em-processamento']
+                    && request.resource.data.eventos is list
+                    && request.resource.data.eventos.size() == resource.data.eventos.size()
                     && request.resource.data.consultadoPor == request.auth.uid
                     && request.resource.data.diff(resource.data).affectedKeys()
                          .hasOnly(['situacao', 'cdResposta', 'descResposta', 'ocorrencias', 'eventos', 'consultadoEm', 'consultadoPor', 'consultadoPorEmail']);
