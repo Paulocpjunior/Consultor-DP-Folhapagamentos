@@ -10,7 +10,10 @@ import type { User } from '../../types';
 import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
 import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
 import type { Empresa } from '../../services/empresas/empresasTypes';
-import { listarAfastamentos, listarEnquadramentos, listarFuncionarios, mensagemErro } from '../../services/cadastros/cadastrosService';
+import { listarAfastamentos, listarEnquadramentos, listarFuncionarios, listarTabelas, mensagemErro } from '../../services/cadastros/cadastrosService';
+import { listarMovimentosDaEmpresa } from '../../services/calculo/movimentosService';
+import type { TabelaLegal } from '../../services/cadastros/tabelasLegais';
+import type { Movimento } from '../../services/calculo/motorMensal';
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
 import type { Afastamento } from '../../services/cadastros/afastamentos';
 import type { Enquadramento } from '../../services/cadastros/enquadramento';
@@ -48,6 +51,7 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const [folhasAno, setFolhasAno] = useState<FolhaDoMes[] | null>(null);
     const [s5002, setS5002] = useState<{ eventos: S5002[]; arquivos: number; avisos: string[] } | null>(null);
     const [lendoS5002, setLendoS5002] = useState(false);
+    const [calc, setCalc] = useState<{ empresaId: string; tabelas: TabelaLegal[]; movimentos: Record<string, Record<string, Movimento>> } | null>(null);
 
     useEffect(() => {
         if (!ativa) return;
@@ -68,13 +72,25 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         lerFolhasDoAno(ativa.id, ano).then(l => { if (vivo) setFolhasAno(l.map(f => ({ competencia: f.competencia, holerites: f.holerites }))); }).catch(e => { if (vivo) { setErro(mensagemErro(e)); setFolhasAno([]); } });
         return () => { vivo = false; };
     }, [ativa, sel.tipo, ano]);
+    // Provisões: tabelas legais e movimentos gravados (médias e faltas), lidos quando o relatório é aberto.
+    useEffect(() => {
+        if (!ativa || !sel.precisaCalculo || calc?.empresaId === ativa.id) return;
+        let vivo = true;
+        setCalc(null);
+        Promise.all([listarTabelas(), listarMovimentosDaEmpresa(ativa.id)])
+            .then(([tabelas, movimentos]) => { if (vivo) setCalc({ empresaId: ativa.id, tabelas, movimentos }); })
+            .catch(e => { if (vivo) setErro(`Tabelas ou movimentos não carregados: ${mensagemErro(e)}`); });
+        return () => { vivo = false; };
+    }, [ativa, sel.precisaCalculo, calc?.empresaId]);
     const ctx = useMemo((): ContextoRelatorio | null => (ativa && dados ? {
         competencia: ativa.competencia, hoje: new Date().toLocaleDateString('sv-SE'), fichas: dados.fichas, afastamentos: dados.afastamentos, folha: dados.folha?.holerites ?? null,
-    } : null), [ativa, dados]);
+        ...(calc && calc.empresaId === ativa.id ? { calculo: { ...calc, enquadramentos: dados.enquadramentos } } : {}),
+    } : null), [ativa, dados, calc]);
     if (!ativa) return <p className="text-sm text-slate-500">Ative uma empresa e um período.</p>;
 
     const comp = ativa.competencia.split('-').reverse().join('/');
-    const faltaFolha = (sel.precisaFolha && !dados?.folha) || (sel.tipo === 'ficha-financeira' && !folhasAno) || (sel.tipo === 'informe' && !s5002?.eventos.length);
+    const faltaCalculo = !!sel.precisaCalculo && !ctx?.calculo;
+    const faltaFolha = (sel.precisaFolha && !dados?.folha) || faltaCalculo || (sel.tipo === 'ficha-financeira' && !folhasAno) || (sel.tipo === 'informe' && !s5002?.eventos.length);
     const informes = s5002 && dados ? montarInformes(ano, s5002.eventos, ativa.cnpj, new Map(dados.fichas.map(f => [f.cpf, f.dados.nome ?? '']))) : null;
     async function lerS5002(lista: File[]) {
         if (!lista.length) return;
@@ -170,7 +186,8 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 </div>
                 {erro && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
                 {!dados && !erro && <p className="text-sm text-slate-500">Carregando os dados da empresa…</p>}
-                {dados && faltaFolha && (
+                {dados && faltaCalculo && <p className="text-sm text-slate-500">Lendo as tabelas legais e os movimentos gravados (médias e faltas)…</p>}
+                {dados && faltaFolha && !faltaCalculo && (
                     <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">
                         A folha de {comp} ainda não foi gravada. Em Folha do mês › Cálculo mensal, salve o movimento e clique em "Gravar a folha do mês": os relatórios da folha saem dela.
                     </p>
