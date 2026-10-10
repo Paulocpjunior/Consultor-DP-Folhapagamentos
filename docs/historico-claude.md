@@ -3114,3 +3114,19 @@ guias sindicais".
 - **eSocial:** a verba do benefício aparece no de/para pelo nome. Ligue-a à rubrica do evento (7001) na primeira vez.
 - **Revisão do Codex no #122 (P1 e P2):** cada benefício guarda as definições anteriores (`historico`, cada uma até a competência `ate`). Mudar valor, tipo, incidências ou ativo vale da competência da tela em diante, e os meses passados, reabertos ou retificados, usam o que valia neles (`definicaoNoMes`, `comHistorico`). O holerite em que só a linha do benefício foi lida não fica mais "ilegível".
 - **Revisão do Codex no #122 (P1):** a ficha guarda um registro por período de cada benefício. Quando o número de vidas muda, o período atual é fechado com "até" e outro é aberto a partir do mês seguinte, e os meses passados continuam com as vidas da época. Períodos do mesmo benefício que se sobrepõem são recusados.
+
+## 10/10/2026 — Auditoria do projeto, lote S (segurança das regras do Firestore)
+
+- **Paulo:** pediu para começar auditando o projeto. Quatro auditores rodaram em paralelo: motor de cálculo, eSocial, segurança/LGPD e banco/pacote/telas.
+- **Confirmado no emulador antes de corrigir:**
+  - **Auditoria de cadastros (`cadastro_audit`):** qualquer usuário aprovado lia o registro de todas as empresas, e na criação de ficha esse registro guarda a ficha inteira.
+  - **Lista de usuários:** qualquer conta logada, inclusive pendente, listava e-mails, nomes e papéis.
+  - **Troca de empresa:** dava para criar uma empresa com id `.*` e "puxar" fichas e movimentos de outra empresa. A regra montava uma expressão regular com o id escolhido pelo cliente e não conferia a empresa antiga na alteração.
+- **Mudanças nas regras:**
+  - `cadastro_audit` só é lido por quem pode na empresa do registro. Sindicatos e tabelas legais todos leem; a carteira, só o admin. Gravar com empresa fora da carteira é recusado.
+  - `users` só é listado pelo admin. O perfil novo leva o e-mail do próprio login.
+  - Os ids de ficha, movimento, horário, afastamento e rubrica são comparados por partes (`split`), sem expressão regular. Na alteração, o documento não muda de empresa, e é preciso poder na empresa antiga (`gravaNaEmpresa`).
+  - Empresa nova só com id automático (20 letras e números), CNPJ de 14 dígitos e código SAGE numérico. O `criadoPor` não muda, a não ser pelo gestor.
+- **Código:** `historico()` consulta a auditoria filtrando pela empresa (ou pela coleção, nos globais).
+- **Testes das regras versionados:** em `testes-regras/` (46 que já existiam fora do repositório e 10 novos de ataque), rodados com `npm run test:regras` (emulador, Java) e no CI (job `regras`).
+- **Precisa publicar** as regras depois do merge.

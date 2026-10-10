@@ -109,9 +109,15 @@ export async function excluirFuncionario(f: FichaFuncionario, u: Usuario): Promi
 
 export interface RegistroAuditoria { id: string; acao: string; alteracoes: Alteracao[]; totalAlteracoes: number; autorEmail: string; origem?: string; quando?: Date }
 
-export async function historico(colecao: 'funcionarios' | 'sindicatos' | 'tabelas' | 'horarios' | 'afastamentos' | 'rubricas' | 'enquadramentos', docId: string): Promise<RegistroAuditoria[]> {
+/**
+ * Histórico de um documento. A auditoria só é lida pela carteira (regras de 10/2026): o que é da empresa vai filtrado
+ * pela empresa; sindicatos e tabelas legais, pela coleção.
+ */
+export async function historico(colecao: 'funcionarios' | 'sindicatos' | 'tabelas' | 'horarios' | 'afastamentos' | 'rubricas' | 'enquadramentos', docId: string, empresaId?: string): Promise<RegistroAuditoria[]> {
     const nome = { funcionarios: FUNC, sindicatos: SIND, tabelas: TAB, horarios: HOR, afastamentos: AFA, rubricas: RUB, enquadramentos: ENQ }[colecao];
-    const snap = await getDocs(query(collection(db, AUDIT), where('docId', '==', docId)));
+    const global = colecao === 'sindicatos' || colecao === 'tabelas';
+    if (!global && !empresaId) throw new Error('Histórico sem a empresa do documento.');
+    const snap = await getDocs(query(collection(db, AUDIT), global ? where('colecao', '==', nome) : where('empresaId', '==', empresaId), where('docId', '==', docId)));
     return snap.docs.map(d => {
         const x = d.data();
         return { id: d.id, acao: x.acao, alteracoes: x.alteracoes ?? [], totalAlteracoes: x.totalAlteracoes ?? 0, autorEmail: x.autorEmail ?? '', origem: x.origem, quando: x.quando?.toDate?.(), colecao: x.colecao };

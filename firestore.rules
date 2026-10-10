@@ -21,13 +21,22 @@ service cloud.firestore {
                                     && get(/databases/$(database)/documents/empresas/$(empId)).data.criadoPor == request.auth.uid; }
     function podeEmpresa(empId) { return isGestor()
                                     || (isApproved() && empId is string && (naCarteira(empId) || criouEmpresa(empId))); }
+    // Id gravado nos documentos da empresa: o automático do Firestore (20 letras e números). Ids com outros caracteres
+    // virariam expressão regular nas regras dos documentos que começam pelo id da empresa (auditoria de 10/2026).
+    function idEmpresaValido(empId) { return empId is string && empId.matches('^[A-Za-z0-9]{20}$'); }
+    // Documento por empresa: cria e altera só quem pode na empresa, e a alteração não troca a empresa do documento.
+    function gravaNaEmpresa() { return podeEmpresa(request.resource.data.empresaId)
+                                    && (resource == null || (podeEmpresa(resource.data.empresaId)
+                                                             && request.resource.data.empresaId == resource.data.empresaId)); }
 
     match /users/{uid} {
       allow read:   if isSignedIn() && (request.auth.uid == uid || isAdmin());
-      allow list:   if isSignedIn();
-      // Perfil novo nasce pendente; só o master nasce gestor.
+      // Lista (e-mails, nomes e papéis da equipe) só para quem aprova usuários (auditoria de 10/2026).
+      allow list:   if isAdmin();
+      // Perfil novo nasce pendente; só o master nasce gestor. O e-mail é o do login (não dá para se passar por outro).
       allow create: if isSignedIn() && request.auth.uid == uid
                     && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.get('email', '') == request.auth.token.get('email', '')
                     && (request.resource.data.role == 'pendente'
                         || (request.resource.data.role == 'gestor' && isMaster()));
       // Gestor muda qualquer outro; admin só aprova/rebaixa entre pendente e
@@ -55,8 +64,11 @@ service cloud.firestore {
       allow list:   if isGestor()
                     || (isApproved() && resource.data.criadoPor == request.auth.uid);
       allow create: if isApproved()
+                    && idEmpresaValido(empresaId)
                     && request.resource.data.criadoPor == request.auth.uid
                     && request.resource.data.cnpj is string
+                    && request.resource.data.cnpj.matches('^[0-9]{14}$')
+                    && request.resource.data.codigoSage.matches('^[0-9]{1,6}$')
                     && request.resource.data.razaoSocial is string
                     && request.resource.data.nomeFantasia is string
                     && request.resource.data.codigoSage is string
@@ -74,7 +86,10 @@ service cloud.firestore {
                     || (podeEmpresa(empresaId)
                         && request.resource.data.diff(resource.data).affectedKeys()
                              .hasOnly(['contasPagamento', 'contatoEnvio', 'esocialFolha', 'parametrosFolha', 'atualizadoEm'])))
-                    // Trocar o código SAGE ou o CNPJ exige reservar a chave nova.
+                    // Quem cadastrou não muda (dá acesso permanente; auditoria de 10/2026), a não ser pelo gestor.
+                    && (request.resource.data.get('criadoPor', null) == resource.data.get('criadoPor', null) || isGestor())
+                    // Trocar o código SAGE ou o CNPJ exige reservar a chave nova, no formato certo.
+                    && (request.resource.data.cnpj == resource.data.cnpj || request.resource.data.cnpj.matches('^[0-9]{14}$'))
                     && (request.resource.data.codigoSage == resource.data.codigoSage
                         || chaveDaEmpresa('sage_' + request.resource.data.codigoSage, empresaId))
                     && (request.resource.data.cnpj == resource.data.cnpj
@@ -218,14 +233,18 @@ service cloud.firestore {
     // ===== Cadastros (Arquivos do IOB Office) =====
     // Toda gravação leva o autor; a auditoria é só inclusão.
 
+    // Ids que começam pelo id da empresa: comparados por partes (split), nunca como expressão regular montada
+    // com dado do cliente (auditoria de 10/2026).
     match /cadastro_funcionarios/{fichaId} {
       allow read, list: if podeEmpresa(resource.data.empresaId);
-      allow create, update: if podeEmpresa(request.resource.data.empresaId)
+      allow create, update: if gravaNaEmpresa()
                     && request.resource.data.atualizadoPor == request.auth.uid
                     && request.resource.data.empresaId is string
                     && request.resource.data.cpf is string
                     && request.resource.data.matriculaEsocial is string
-                    && fichaId.matches('^' + request.resource.data.empresaId + '_' + request.resource.data.cpf + '_.+$');
+                    && fichaId.split('_').size() >= 3
+                    && fichaId.split('_')[0] == request.resource.data.empresaId
+                    && fichaId.split('_')[1] == request.resource.data.cpf;
       allow delete: if isAdmin() && podeEmpresa(resource.data.empresaId);
     }
 
@@ -252,39 +271,45 @@ service cloud.firestore {
     // Horários e afastamentos: id começa pelo id da empresa (empresa_código, empresa_cpf_matrícula_data).
     match /cadastro_horarios/{horarioId} {
       allow read, list: if podeEmpresa(resource.data.empresaId);
-      allow create, update: if podeEmpresa(request.resource.data.empresaId)
+      allow create, update: if gravaNaEmpresa()
                     && request.resource.data.atualizadoPor == request.auth.uid
                     && request.resource.data.empresaId is string
                     && request.resource.data.codigo is string
-                    && horarioId.matches('^' + request.resource.data.empresaId + '_.+$');
+                    && horarioId.split('_').size() >= 2
+                    && horarioId.split('_')[0] == request.resource.data.empresaId;
       allow delete: if isAdmin() && podeEmpresa(resource.data.empresaId);
     }
 
     match /cadastro_afastamentos/{afastamentoId} {
       allow read, list: if podeEmpresa(resource.data.empresaId);
-      allow create, update: if podeEmpresa(request.resource.data.empresaId)
+      allow create, update: if gravaNaEmpresa()
                     && request.resource.data.atualizadoPor == request.auth.uid
                     && request.resource.data.empresaId is string
                     && request.resource.data.dtInicio is string
-                    && afastamentoId.matches('^' + request.resource.data.empresaId + '_' + request.resource.data.cpf + '_.+_' + request.resource.data.dtInicio + '$');
+                    && request.resource.data.dtInicio.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+                    && afastamentoId.split('_').size() >= 4
+                    && afastamentoId.split('_')[0] == request.resource.data.empresaId
+                    && afastamentoId.split('_')[1] == request.resource.data.cpf
+                    && afastamentoId.split('_')[afastamentoId.split('_').size() - 1] == request.resource.data.dtInicio;
       allow delete: if isAdmin() && podeEmpresa(resource.data.empresaId);
     }
 
     // Rubricas do S-1010 por empresa: empresa_tabela_código.
     match /cadastro_rubricas/{rubricaId} {
       allow read, list: if podeEmpresa(resource.data.empresaId);
-      allow create, update: if podeEmpresa(request.resource.data.empresaId)
+      allow create, update: if gravaNaEmpresa()
                     && request.resource.data.atualizadoPor == request.auth.uid
                     && request.resource.data.empresaId is string
                     && request.resource.data.codRubr is string
-                    && rubricaId.matches('^' + request.resource.data.empresaId + '_.+$');
+                    && rubricaId.split('_').size() >= 2
+                    && rubricaId.split('_')[0] == request.resource.data.empresaId;
       allow delete: if isAdmin() && podeEmpresa(resource.data.empresaId);
     }
 
     // Enquadramento previdenciário por empresa e vigência: empresa_AAAA-MM.
     match /cadastro_enquadramentos/{enqId} {
       allow read, list: if podeEmpresa(resource.data.empresaId);
-      allow create, update: if podeEmpresa(request.resource.data.empresaId)
+      allow create, update: if gravaNaEmpresa()
                     && request.resource.data.atualizadoPor == request.auth.uid
                     && request.resource.data.empresaId is string
                     && request.resource.data.vigencia is string
@@ -320,7 +345,7 @@ service cloud.firestore {
     // é a de trabalho (a do 13º anual leva só o ano no id da obrigação).
     match /obrigacoes_status/{marcacaoId} {
       allow read, list: if podeEmpresa(resource.data.empresaId);
-      allow create, update: if podeEmpresa(request.resource.data.empresaId)
+      allow create, update: if gravaNaEmpresa()
                     && request.resource.data.atualizadoPor == request.auth.uid
                     && request.resource.data.empresaId is string
                     && request.resource.data.obrigacao is string
@@ -336,7 +361,7 @@ service cloud.firestore {
     // Movimento do mês por funcionário: id = idDaFicha_AAAA-MM; a ficha começa pelo id da empresa.
     match /calculo_movimentos/{movId} {
       allow read, list: if podeEmpresa(resource.data.empresaId);
-      allow create, update: if podeEmpresa(request.resource.data.empresaId)
+      allow create, update: if gravaNaEmpresa()
                     && request.resource.data.atualizadoPor == request.auth.uid
                     && request.resource.data.empresaId is string
                     && request.resource.data.fichaId is string
@@ -344,7 +369,8 @@ service cloud.firestore {
                     && request.resource.data.competencia.matches('^[0-9]{4}-(0[1-9]|1[0-2])$')
                     && request.resource.data.movimento is map
                     && movId == request.resource.data.fichaId + '_' + request.resource.data.competencia
-                    && request.resource.data.fichaId.matches('^' + request.resource.data.empresaId + '_.+$');
+                    && request.resource.data.fichaId.split('_').size() >= 3
+                    && request.resource.data.fichaId.split('_')[0] == request.resource.data.empresaId;
       allow delete: if isAdmin() && podeEmpresa(resource.data.empresaId);
     }
 
@@ -365,9 +391,15 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // A auditoria guarda os valores alterados (a ficha inteira na criação): lê quem pode na empresa do registro.
+    // Sindicatos e tabelas legais (sem empresa) todos leem; o resto (carteira) só o admin (auditoria de 10/2026).
     match /cadastro_audit/{logId} {
-      allow read, list: if isApproved();
-      allow create: if isApproved() && request.resource.data.autor == request.auth.uid;
+      allow read, list: if isGestor()
+                    || (resource.data.empresaId is string && podeEmpresa(resource.data.empresaId))
+                    || (resource.data.colecao in ['cadastro_sindicatos', 'cadastro_tabelas_legais'] && isApproved())
+                    || (resource.data.colecao == 'carteira_acessos' && isAdmin());
+      allow create: if isApproved() && request.resource.data.autor == request.auth.uid
+                    && (request.resource.data.get('empresaId', null) == null || podeEmpresa(request.resource.data.empresaId));
       allow update, delete: if false;
     }
 

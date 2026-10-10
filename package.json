@@ -14,12 +14,14 @@
     "start": "node server.js",
     "lint": "tsc --noEmit",
     "test": "vitest run",
+    "test:regras": "npx --yes firebase-tools@14 emulators:exec --only firestore,storage --project demo-dp --config firebase.testes-regras.json \"npx vitest run --config testes-regras/vitest.config.mjs\"",
     "dev:server": "node server.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
     "@testing-library/dom": "10.4.1",
     "@testing-library/jest-dom": "^6.4.5",
     "@testing-library/react": "^16.0.0",
