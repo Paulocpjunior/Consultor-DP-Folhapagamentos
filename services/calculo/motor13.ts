@@ -28,7 +28,7 @@ import { inicioBeneficio } from '../cadastros/afastamentos';
 import { dataValida, reais } from '../cadastros/documentos';
 import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros/tabelasLegais';
 import { somarDias } from '../prazos/calendario';
-import { diasDsr, salarioContratual, valorHorasExtras, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
+import { mediaDasVariaveis, salarioContratual, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
 
 export type Parcela13 = '1a' | '2a';
 export interface Opcoes13 { simplificado: boolean; redutor: boolean }
@@ -147,24 +147,21 @@ export function calcular13(e: Entrada13): ResultadoCalculo {
     // Média de horas extras dos meses antes do pagamento, com o valor da hora atual.
     // Divisor: os meses do período que dão avo (15 dias ou mais trabalhados).
     const periodo = meses.filter(m => m.competencia < pagamento && m.conta);
-    let somaVar = 0; let horas = 0;
-    for (const m of periodo) {
-        const mov = e.movimentos[m.competencia]; if (!mov) continue;
-        const { valor: he, horas: h } = valorHorasExtras(salarioHora, mov);
-        if (!he) continue;
-        const { uteis, descanso } = diasDsr(m.competencia, mov.feriadosLocais);
-        somaVar += he + Math.round(he / uteis * descanso);
-        horas += h;
-    }
-    const media = periodo.length ? Math.round(somaVar / periodo.length) : 0;
-    if (media) r.memoria.push(`Média de horas extras com DSR: ${reais(somaVar)} em ${num(horas)} h nos movimentos de ${periodo.length} mês(es) ÷ ${periodo.length} = ${reais(media)} (hora atual ${reais(Math.round(salarioHora))}).`);
-    if (periodo.length) r.avisos.push(`Média pelos movimentos gravados no Consultor (${periodo.filter(m => e.movimentos[m.competencia]).length} de ${periodo.length} mês(es) com movimento). Meses sem movimento contam como sem horas extras; outras variáveis (comissões, adicionais) ainda não entram.`);
+    const mv = mediaDasVariaveis(salarioHora, e.movimentos, periodo.map(m => m.competencia), periodo.length, `${periodo.length} mês(es)`);
+    const media = periodo.length ? mv.media : 0;
+    if (media) r.memoria.push(...mv.memoria);
+    if (periodo.length) r.avisos.push(`Média pelos movimentos gravados no Consultor (${periodo.filter(m => e.movimentos[m.competencia]).length} de ${periodo.length} mês(es) com movimento): horas extras com DSR e os lançamentos que entram na média. Meses sem movimento contam como sem variáveis.`);
 
     const remuneracao = sc.mensal + media;
     const integral = Math.round(remuneracao * avos / 12);
     r.memoria.push(`13º integral: (${reais(sc.mensal)}${media ? ` + ${reais(media)}` : ''}) × ${avos}/12 = ${reais(integral)}.`);
     const primeiraCalculada = Math.round(remuneracao * avos1 / 12 / 2);
     const aliqFgts = aprendiz ? ALIQUOTA_FGTS_APRENDIZ : ALIQUOTA_FGTS;
+
+    // Pensão alimentícia sobre o 13º (informada no movimento do mês do pagamento): desconto na parcela e dedução no IRRF do 13º,
+    // que é apurado na 2ª sobre o integral (a pensão descontada na 1ª, em novembro, também deduz).
+    const pensaoParcela = Math.max(0, Math.round(e.movimentos[pagamento]?.pensao13 ?? 0));
+    if (pensaoParcela) r.memoria.push(`Pensão alimentícia sobre o 13º (movimento de ${rotuloCompetencia(pagamento)}): ${reais(pensaoParcela)}.`);
 
     if (parcela === '1a') {
         verba({ codigo: '13A', descricao: '13º salário — 1ª parcela', referencia: `${avos1}/12`, tipo: 'provento', valor: primeiraCalculada, inss: false, fgts: true, irrf: false });
@@ -213,16 +210,18 @@ export function calcular13(e: Entrada13): ResultadoCalculo {
         else {
             const t = tIr.tabela;
             const nDep = ficha.dependentes.filter(x => x.irrf === 'S' && x.pensao !== 'S').length; // quem recebe pensão deduz só por ela (Lei 9.250/1995, art. 35, § 4º)
-            const legais = inss + nDep * (t.valores.deducaoDependente ?? 0);
+            const novembro = `${ano}-11`;
+            const pensao = pensaoParcela + (pagamento !== novembro ? Math.max(0, Math.round(e.movimentos[novembro]?.pensao13 ?? 0)) : 0);
+            const legais = inss + nDep * (t.valores.deducaoDependente ?? 0) + pensao;
             const simpl = opcoes.simplificado ? t.valores.descontoSimplificado ?? 0 : 0;
             const usaSimpl = simpl > legais;
             const deducao = usaSimpl ? simpl : legais;
             const base = Math.max(0, integral - deducao);
             // Dependentes deduzidos no IRRF do 13º: vão no S-1210 (dedDepen, tpRend 12).
-            r.deducoesIrrf = { simplificado: usaSimpl, dependentes: ficha.dependentes.filter(x => x.irrf === 'S' && x.pensao !== 'S').map(x => ({ cpf: x.cpf, nome: x.nome })), porDependente: t.valores.deducaoDependente ?? 0, pensao: 0 };
+            r.deducoesIrrf = { simplificado: usaSimpl, dependentes: ficha.dependentes.filter(x => x.irrf === 'S' && x.pensao !== 'S').map(x => ({ cpf: x.cpf, nome: x.nome })), porDependente: t.valores.deducaoDependente ?? 0, pensao };
             const faixa = t.faixas.find(f => f.ate === null || base <= f.ate) ?? t.faixas[t.faixas.length - 1];
             let ir = Math.max(0, Math.round(base * faixa.aliquota / 100) - faixa.deducao);
-            r.memoria.push(`IRRF do 13º (exclusivo na fonte, tabela de ${rotuloCompetencia(t.vigencia)}): ${reais(integral)} − ${usaSimpl ? `desconto simplificado ${reais(simpl)}` : `INSS ${reais(inss)}${nDep ? ` e ${nDep} dependente(s)` : ''}`} = base ${reais(base)} × ${pct(faixa.aliquota)} − ${reais(faixa.deducao)} = ${reais(ir)}.`);
+            r.memoria.push(`IRRF do 13º (exclusivo na fonte, tabela de ${rotuloCompetencia(t.vigencia)}): ${reais(integral)} − ${usaSimpl ? `desconto simplificado ${reais(simpl)}` : `INSS ${reais(inss)}${nDep ? ` e ${nDep} dependente(s)` : ''}${pensao ? ` e pensão ${reais(pensao)}` : ''}`} = base ${reais(base)} × ${pct(faixa.aliquota)} − ${reais(faixa.deducao)} = ${reais(ir)}.`);
             if (!opcoes.simplificado || !opcoes.redutor) r.avisos.push(`IRRF do 13º ${opcoes.simplificado ? 'COM' : 'SEM'} desconto simplificado e ${opcoes.redutor ? 'COM' : 'SEM'} o redutor de 2026 (opção da tela; o padrão é com os dois).`);
             const v = t.valores;
             if (opcoes.redutor && ir > 0 && v.redutorAte && v.redutorMaximo && v.redutorLimite && v.redutorConstante && v.redutorCoeficiente) {
@@ -236,6 +235,7 @@ export function calcular13(e: Entrada13): ResultadoCalculo {
         }
     }
 
+    if (pensaoParcela) verba({ codigo: 'PENSAO13', descricao: 'Pensão alimentícia sobre 13º', referencia: '', tipo: 'desconto', valor: pensaoParcela, inss: false, fgts: false, irrf: false });
     r.fgts = Math.round(r.bases.fgts * aliqFgts / 100);
     r.memoria.push(`FGTS: ${reais(r.bases.fgts)} × ${aliqFgts}% = ${reais(r.fgts)}${parcela === '2a' ? ' (13º menos a 1ª parcela, que já teve FGTS)' : ''}.`);
     r.totais.proventos = r.verbas.filter(v => v.tipo === 'provento').reduce((s, v) => s + v.valor, 0);

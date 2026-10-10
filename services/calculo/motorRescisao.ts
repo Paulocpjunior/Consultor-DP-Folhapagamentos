@@ -25,7 +25,7 @@ import type { Afastamento } from '../cadastros/afastamentos';
 import { dataValida, reais } from '../cadastros/documentos';
 import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros/tabelasLegais';
 import { aniversario, diasEntre, somarDias, somarMeses } from '../prazos/calendario';
-import { calcularMensal, competenciaAnterior, diasDsr, salarioContratual, valorHorasExtras, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
+import { calcularMensal, competenciaAnterior, mediaDasVariaveis, salarioContratual, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
 import { avosDoAno } from './motor13';
 import { folhaPagaAntes } from './arredondamento';
 import { diasDeDireito, feriasDaCompetencia, mesesDoPeriodo, periodosAquisitivos } from './motorFerias';
@@ -143,21 +143,16 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
     if (naExtincao.antesDoHistorico) r.avisos.push('Data anterior ao histórico de salário da ficha: usado o salário mais antigo conhecido; confira.');
     const salarioHora = sc.mensal / sc.horasMes;
     const ultimos12 = Array.from({ length: 12 }, (_, i) => somarMeses(`${data.slice(0, 7)}-01`, -(i + 1)).slice(0, 7));
-    let somaVar = 0;
-    for (const c of ultimos12) {
-        const mov = e.movimentos[c]; if (!mov) continue;
-        const he = valorHorasExtras(salarioHora, mov).valor;
-        if (!he) continue;
-        const { uteis, descanso } = diasDsr(c, mov.feriadosLocais);
-        somaVar += he + Math.round(he / uteis * descanso);
-    }
     // Pelos meses de vínculo dentro dos 12 (admitido há menos de um ano: os meses trabalhados), como no 13º.
     const mesesMedia = Math.max(1, ultimos12.filter(c => c >= d.admissao.slice(0, 7)).length);
-    const media = Math.round(somaVar / mesesMedia);
+    const mv = mediaDasVariaveis(salarioHora, e.movimentos, ultimos12, mesesMedia, `${mesesMedia}`);
+    const somaVar = mv.horasExtras + mv.outras;
+    const media = mv.media;
     const remuneracao = sc.mensal + media;
     const diaria = remuneracao / 30;
-    r.memoria.push(`Remuneração para as verbas rescisórias: ${reais(sc.mensal)}${media ? ` + média de horas extras ${reais(media)} (${reais(somaVar)} ÷ ${mesesMedia} ${mesesMedia === 1 ? 'mês' : 'meses'} de vínculo nos 12 anteriores)` : ''} = ${reais(remuneracao)}.`);
-    if (ultimos12.some(c => e.movimentos[c])) r.avisos.push('Média de horas extras pelos movimentos gravados dos 12 meses anteriores; comissões e adicionais ainda não entram.');
+    const oQue = mv.outras ? (mv.horasExtras ? 'média das variáveis (horas extras com DSR e lançamentos)' : 'média dos lançamentos variáveis') : 'média de horas extras';
+    r.memoria.push(`Remuneração para as verbas rescisórias: ${reais(sc.mensal)}${media ? ` + ${oQue} ${reais(media)} (${reais(somaVar)} ÷ ${mesesMedia} ${mesesMedia === 1 ? 'mês' : 'meses'} de vínculo nos 12 anteriores)` : ''} = ${reais(remuneracao)}.`);
+    if (ultimos12.some(c => e.movimentos[c])) r.avisos.push('Média pelos movimentos gravados dos 12 meses anteriores: horas extras com DSR e os lançamentos que entram na média.');
 
     // 1. Saldo de salário e movimento do mês, pelo motor mensal.
     const fichaDeslig: FichaFuncionario = { ...ficha, dados: { ...d, dataDesligamento: data } };
@@ -249,7 +244,10 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
         const tIr = tabelaVigente(e.tabelas, 'irrf', pagamento);
         if ('erro' in tIr) erro(`IRRF: ${tIr.erro}`);
         else if (prop + ind) {
-            const x = irrfDetalhado({ rendimento: prop + ind, inss: inss13, dependentes: ficha.dependentes.filter(y => y.irrf === 'S' && y.pensao !== 'S').length, tabela: tIr.tabela, opcoes, rotulo: 'IRRF do 13º (exclusivo na fonte)' });
+            // Pensão sobre o 13º da rescisão (movimento do mês do desligamento): desconto e dedução no IRRF do 13º.
+            const pensao13 = Math.max(0, Math.round(e.movimentos[comp]?.pensao13 ?? 0));
+            if (pensao13) verba({ codigo: 'PENSAO13', descricao: 'Pensão alimentícia sobre 13º', referencia: '', tipo: 'desconto', valor: pensao13, inss: false, fgts: false, irrf: false });
+            const x = irrfDetalhado({ rendimento: prop + ind, inss: inss13, dependentes: ficha.dependentes.filter(y => y.irrf === 'S' && y.pensao !== 'S').length, pensao: pensao13, tabela: tIr.tabela, opcoes, rotulo: 'IRRF do 13º (exclusivo na fonte)' });
             r.memoria.push(...x.memoria);
             verba({ codigo: 'IRRF13', descricao: 'IRRF sobre 13º', referencia: '', tipo: 'desconto', valor: x.valor, inss: false, fgts: false, irrf: false });
         }
