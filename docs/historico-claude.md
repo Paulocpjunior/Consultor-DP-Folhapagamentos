@@ -3246,3 +3246,4 @@ guias sindicais".
 - **Paulo:** "publique as regras" / "você tem acesso total ao GitHub, pode publicar".
 - **Situação:** o GitHub do projeto só tem a configuração web do Firebase (chave pública), que não publica regras; esta sessão não tem login no Firebase. As regras foram mandadas ao Paulo para publicar pelo console.
 - **CI:** job `publicar-regras` no `deploy.yml`, depois dos testes das regras, a cada push na main (ou "Run workflow"). Usa o segredo `FIREBASE_SERVICE_ACCOUNT` (chave JSON de uma conta de serviço com "Administrador de regras do Firebase"); sem ele, só avisa.
+- **10/10/2026:** Paulo criou a conta de serviço `github-regras` (Administrador de regras do Firebase e Consumidor do Service Usage) e o segredo `FIREBASE_SERVICE_ACCOUNT` no GitHub. A partir daqui, o merge na main publica as regras.
