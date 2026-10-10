@@ -16,6 +16,7 @@ const PATH: Record<Icone | 'chevron' | 'sol' | 'lua' | 'sair' | 'trocar', string
     conferencia: 'M9 12l2 2 4-4M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z',
     esocial: 'M4 12a8 8 0 0116 0M7 12a5 5 0 0110 0M12 12v8M9 20h6',
     prazo: 'M12 7v5l3 3M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+    fim: 'M5 11h14v10H5zM8 11V7a4 4 0 018 0v4M12 15v2',
     config: 'M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z',
     chevron: 'M6 9l6 6 6-6',
     sol: 'M12 4V2m0 20v-2m8-8h2M2 12h2m13.7-5.7l1.4-1.4M4.9 19.1l1.4-1.4m11.4 0l1.4 1.4M4.9 4.9l1.4 1.4M16 12a4 4 0 11-8 0 4 4 0 018 0z',
@@ -42,9 +43,11 @@ interface Props {
     bloqueados?: Partial<Record<string, string>>;
     /** Faixa da situação do período (Fim de mês), ao lado da competência. */
     situacaoPeriodo?: React.ReactNode;
+    /** Número no grupo do menu (ex.: pedidos de reabertura esperando o gestor). */
+    contadores?: Partial<Record<string, number>>;
 }
 
-const Cabecalho: React.FC<Props> = ({ menu, destino, onNavegar, ativa, onTrocar, usuario, papel, escuro, onTema, onSair, bloqueados = {}, situacaoPeriodo }) => {
+const Cabecalho: React.FC<Props> = ({ menu, destino, onNavegar, ativa, onTrocar, usuario, papel, escuro, onTema, onSair, bloqueados = {}, situacaoPeriodo, contadores = {} }) => {
     const [aberto, setAberto] = useState<string | null>(null);
     const ref = useRef<HTMLElement>(null);
     const atual = ondeEsta(destino, menu);
@@ -146,6 +149,7 @@ const Cabecalho: React.FC<Props> = ({ menu, destino, onNavegar, ativa, onTrocar,
                                     className={`flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm transition-colors ${ativo ? 'border-blue-400 font-medium text-white' : 'border-transparent text-slate-300 hover:text-white'}`}>
                                     <Ico nome={g.icone} className={`h-4 w-4 ${ativo ? 'text-blue-300' : 'text-slate-400'}`} />
                                     {g.rotulo}
+                                    {!!contadores[g.id] && <span aria-label={`${contadores[g.id]} pendente(s)`} className="rounded-full bg-amber-400 px-1.5 text-[10px] font-bold leading-4 text-slate-900">{contadores[g.id]}</span>}
                                     <Ico nome="chevron" className={`h-3 w-3 opacity-60 transition-transform ${aberto === g.id ? 'rotate-180' : ''}`} />
                                 </button>
                                 {aberto === g.id && !estreito && painel(g, `absolute top-full mt-1 w-80 ${g.direita ? 'right-0' : 'left-0'}`)}

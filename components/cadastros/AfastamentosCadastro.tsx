@@ -10,6 +10,8 @@ import {
     lerXmlAfastamentos, mesclarAfastamentos, rotuloMotivo, validarAfastamento, type Afastamento, type MesclaAfastamento,
 } from '../../services/cadastros/afastamentos';
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
+import { lerFechamento } from '../../services/fimDeMes/fechamentoService';
+import { MSG_ENCERRADO } from '../../services/fimDeMes/fechamento';
 import { excluirAfastamento, gravarAfastamentosImportados, listarFuncionarios, mensagemErro, salvarAfastamento, type Usuario } from '../../services/cadastros/cadastrosService';
 import { fontesDosArquivos } from './lerArquivosXml';
 import { esocialDoBackup } from '../../services/cadastros/esocialDoBackup';
@@ -100,6 +102,17 @@ const AfastamentoModal: React.FC<{ antes: Afastamento | null; inicial: Afastamen
     const v = validarAfastamento(a, ficha, todos);
     const beneficio = inicioBeneficio(a);
 
+    // Recusado pelas regras: se o mês do início (ou o do início antigo) está encerrado no Fim de mês, diz isso.
+    async function motivoDoErro(e: unknown, datas: string[]): Promise<string> {
+        if ((e as { code?: string })?.code === 'permission-denied' && ficha) {
+            for (const d of datas.filter(Boolean)) {
+                const f = await lerFechamento(ficha.empresaId, d.slice(0, 7)).catch(() => null);
+                if (f?.situacao === 'encerrado') return MSG_ENCERRADO(d.slice(0, 7));
+            }
+        }
+        return mensagemErro(e);
+    }
+
     async function salvar() {
         if (v.erros.length) { setErros(v.erros); return; }
         const pronto: Afastamento = {
@@ -109,14 +122,14 @@ const AfastamentoModal: React.FC<{ antes: Afastamento | null; inicial: Afastamen
         };
         setSalvando(true); setErros([]);
         try { await salvarAfastamento(antes, pronto, usuario); onSalvo(); }
-        catch (e) { setErros([mensagemErro(e)]); setSalvando(false); }
+        catch (e) { setErros([await motivoDoErro(e, [pronto.dtInicio, antes?.dtInicio ?? ''])]); setSalvando(false); }
     }
 
     async function excluir() {
         if (!antes || !window.confirm('Excluir este afastamento? A exclusão fica no histórico.')) return;
         setSalvando(true);
         try { await excluirAfastamento(antes, usuario); onSalvo(); }
-        catch (e) { setErros([mensagemErro(e)]); setSalvando(false); }
+        catch (e) { setErros([await motivoDoErro(e, [antes.dtInicio])]); setSalvando(false); }
     }
 
     return (

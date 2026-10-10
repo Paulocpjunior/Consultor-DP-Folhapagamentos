@@ -10,7 +10,7 @@ const ATIVA = { id: 'e1', nome: 'EMPRESA UM', cnpj: '11222333000181', codigoSage
 
 describe('menu do app', () => {
     it('em ordem: começa por Empresas, configurações por último; ids únicos', () => {
-        expect(MENU.map(g => g.rotulo)).toEqual(['Empresas', 'Cadastros', 'Folha do mês', 'Conferência', 'eSocial', 'Prazos', 'Configurações']);
+        expect(MENU.map(g => g.rotulo)).toEqual(['Empresas', 'Cadastros', 'Folha do mês', 'Conferência', 'eSocial', 'Prazos', 'Fim de mês', 'Configurações']);
         expect(MENU[0].itens[0].destino).toEqual({ aba: 'trocar' });
         for (const g of MENU) expect(new Set(g.itens.map(i => i.id)).size).toBe(g.itens.length);
     });

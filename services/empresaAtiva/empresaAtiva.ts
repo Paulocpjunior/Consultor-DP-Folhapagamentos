@@ -21,7 +21,7 @@ export interface EmpresaAtiva {
     ativadaEm: number;
 }
 
-export type AbaApp = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin';
+export type AbaApp = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin' | 'fimdemes';
 
 /** Abas que NÃO exigem empresa ativa. Lista curta e explícita: o padrão é exigir. */
 export const DISPENSAM_EMPRESA_ATIVA: AbaApp[] = ['admin', 'empresas', 'certificados'];

@@ -15,6 +15,10 @@ const CadastrosPanel = lazy(() => import('./cadastros/CadastrosPanel'));
 const PrazosPanel = lazy(() => import('./prazos/PrazosPanel'));
 const CalculoPanel = lazy(() => import('./calculo/CalculoPanel'));
 const CofreCertificadosPanel = lazy(() => import('./certificados/CofreCertificadosPanel'));
+const FimDeMesPanel = lazy(() => import('./fimDeMes/FimDeMesPanel'));
+import { SeloSituacao } from './fimDeMes/SeloSituacao';
+import { lerFechamento, listarPedidosPendentes } from '../services/fimDeMes/fechamentoService';
+import { situacaoDe, type SituacaoPeriodo } from '../services/fimDeMes/fechamento';
 import type { SubCadastro } from './cadastros/CadastrosPanel';
 import EmpresasPanel from './empresas/EmpresasPanel';
 import ESocialMonitorPanel from './esocial/ESocialMonitorPanel';
@@ -34,7 +38,7 @@ import {
     gravarEmpresaAtiva, lerEmpresaAtiva, limparEmpresaAtiva, type EmpresaAtiva,
 } from '../services/empresaAtiva/empresaAtiva';
 
-type Tab = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin';
+type Tab = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin' | 'fimdemes';
 
 /** Tema escuro guardado no navegador (preferência de cada pessoa). */
 const CHAVE_TEMA = 'consultor-dp:tema';
@@ -82,9 +86,14 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
     const navegar = useCallback((d: DestinoMenu) => { if (d.aba !== 'trocar') setNav(x => ({ d, n: x.n + 1 })); }, []);
     const setActiveTab = useCallback((t: Tab) => navegar(
         t === 'folha' ? { aba: 'folha', sub: 'apontamento' } : t === 'cadastros' ? { aba: 'cadastros', sub: 'funcionarios' }
-            : t === 'esocial' ? { aba: 'esocial', sub: 'dashboard' } : t === 'calculo' ? { aba: 'calculo', folha: 'mensal' } : { aba: t }), [navegar]);
+            : t === 'esocial' ? { aba: 'esocial', sub: 'dashboard' } : t === 'calculo' ? { aba: 'calculo', folha: 'mensal' }
+                : t === 'fimdemes' ? { aba: 'fimdemes', sub: 'fechamento' } : { aba: t }), [navegar]);
     const irFolha = (sub: SubTabFolha) => navegar({ aba: 'folha', sub });
     const irCadastro = (sub: SubCadastro) => navegar({ aba: 'cadastros', sub });
+    // Fim de mês: situação da competência ativa (no cabeçalho) e pedidos de reabertura esperando o gestor.
+    const [situacaoPeriodo, setSituacaoPeriodo] = useState<SituacaoPeriodo | null>(null);
+    const [pedidosGestor, setPedidosGestor] = useState(0);
+    const [versaoFim, setVersaoFim] = useState(0);
     const [escuro, setEscuro] = useState(temaGuardado);
     useEffect(() => {
         document.documentElement.classList.toggle('dark', escuro);
@@ -177,6 +186,22 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
         try { await authService.logout(); } catch {}
         setCurrentUser(null);
     };
+
+    const ehGestorDp = !!currentUser && (ehMaster(currentUser.email) || papelEfetivo(currentUser.role) === 'gestor');
+    useEffect(() => {
+        setSituacaoPeriodo(null);
+        if (!ativa) return;
+        let vivo = true;
+        lerFechamento(ativa.id, ativa.competencia).then(f => { if (vivo) setSituacaoPeriodo(situacaoDe(f)); }).catch(() => { /* sem leitura: sem selo */ });
+        return () => { vivo = false; };
+    }, [ativa, versaoFim]);
+    useEffect(() => {
+        setPedidosGestor(0);
+        if (!ehGestorDp) return;
+        let vivo = true;
+        listarPedidosPendentes().then(l => { if (vivo) setPedidosGestor(l.length); }).catch(() => {});
+        return () => { vivo = false; };
+    }, [ehGestorDp, versaoFim, nav]);
 
     const ativarEmpresa = (e: EmpresaAtiva) => {
         gravarEmpresaAtiva(uidAtual, e);
@@ -321,7 +346,17 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
             )}
             <Cabecalho menu={menu} destino={nav.d} onNavegar={navegar} ativa={ativa} onTrocar={abrirTroca}
                 usuario={currentUser.name || currentUser.email} papel={isAdmin ? ROTULO_PAPEL[papelEfetivo(currentUser.role)] : undefined}
-                escuro={escuro} onTema={() => setEscuro(e => !e)} onSair={handleLogout} bloqueados={bloqueados} />
+                escuro={escuro} onTema={() => setEscuro(e => !e)} onSair={handleLogout} bloqueados={bloqueados}
+                situacaoPeriodo={situacaoPeriodo ? <button onClick={() => navegar({ aba: 'fimdemes', sub: 'fechamento' })} title="Fim de mês desta competência"><SeloSituacao situacao={situacaoPeriodo} /></button> : undefined}
+                contadores={pedidosGestor ? { fimdemes: pedidosGestor } : undefined} />
+            {pedidosGestor > 0 && nav.d.aba !== 'fimdemes' && (
+                <div className="border-b border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20">
+                    <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-4 py-2 text-sm text-amber-900 dark:text-amber-100">
+                        <span>{pedidosGestor} pedido(s) de reabertura de período encerrado aguardando você.</span>
+                        <button className="rounded-lg border border-amber-400 px-2 py-0.5 text-xs font-medium" onClick={() => navegar({ aba: 'fimdemes', sub: 'pedidos' })}>Ver pedidos</button>
+                    </div>
+                </div>
+            )}
             {isAdmin && (
                 <div className="mx-auto flex max-w-7xl justify-end px-4 pt-2 sm:px-6">
                     <a href="https://consultor-fiscal-inteligente-631239634290.us-west1.run.app/?painel=comunicacao&departamento=dp-folha" target="_blank" rel="noopener noreferrer"
@@ -390,6 +425,11 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                     <Suspense fallback={<div className="py-12 text-center text-sm text-slate-500">Carregando…</div>}>
                         <CadastrosPanel key={`cadastros-${nav.n}`} currentUser={currentUser} subInicial={nav.d.aba === 'cadastros' ? nav.d.sub : undefined} embutido
                             onAbrirEventos={() => irFolha('eventos')} />
+                    </Suspense>
+                )}
+                {activeTab === 'fimdemes' && (
+                    <Suspense fallback={<div className="py-12 text-center text-sm text-slate-500">Carregando…</div>}>
+                        <FimDeMesPanel key={`fim-${nav.n}`} currentUser={currentUser} sub={nav.d.aba === 'fimdemes' ? nav.d.sub : 'fechamento'} onMudou={() => setVersaoFim(v => v + 1)} />
                     </Suspense>
                 )}
                 {activeTab === 'certificados' && (

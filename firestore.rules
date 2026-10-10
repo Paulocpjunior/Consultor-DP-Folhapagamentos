@@ -29,6 +29,12 @@ service cloud.firestore {
                                     && (resource == null || (podeEmpresa(resource.data.empresaId)
                                                              && request.resource.data.empresaId == resource.data.empresaId)); }
 
+    // Fim de mês: período encerrado (fechamentos/{empresa}_{AAAA-MM}) fica somente leitura até o gestor reabrir.
+    function fechamentoPath(empId, comp) { return /databases/$(database)/documents/fechamentos/$(empId + '_' + comp); }
+    function periodoEncerrado(empId, comp) { return comp is string && exists(fechamentoPath(empId, comp))
+                                    && get(fechamentoPath(empId, comp)).data.situacao == 'encerrado'; }
+    function mesDaData(d) { return d is string && d.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') ? d.split('-')[0] + '-' + d.split('-')[1] : ''; }
+
     match /users/{uid} {
       allow read:   if isSignedIn() && (request.auth.uid == uid || isAdmin());
       // Lista (e-mails, nomes e papéis da equipe) só para quem aprova usuários (auditoria de 10/2026).
@@ -311,8 +317,11 @@ service cloud.firestore {
                     && afastamentoId.split('_').size() >= 4
                     && afastamentoId.split('_')[0] == request.resource.data.empresaId
                     && afastamentoId.split('_')[1] == request.resource.data.cpf
-                    && afastamentoId.split('_')[afastamentoId.split('_').size() - 1] == request.resource.data.dtInicio;
-      allow delete: if isAdmin() && podeEmpresa(resource.data.empresaId);
+                    && afastamentoId.split('_')[afastamentoId.split('_').size() - 1] == request.resource.data.dtInicio
+                    && !periodoEncerrado(request.resource.data.empresaId, mesDaData(request.resource.data.dtInicio))
+                    && (resource == null || !periodoEncerrado(resource.data.empresaId, mesDaData(resource.data.dtInicio)));
+      allow delete: if isAdmin() && podeEmpresa(resource.data.empresaId)
+                    && !periodoEncerrado(resource.data.empresaId, mesDaData(resource.data.dtInicio));
     }
 
     // Rubricas do S-1010 por empresa: empresa_tabela_código.
@@ -396,8 +405,50 @@ service cloud.firestore {
                     && request.resource.data.movimento is map
                     && movId == request.resource.data.fichaId + '_' + request.resource.data.competencia
                     && request.resource.data.fichaId.split('_').size() >= 3
-                    && request.resource.data.fichaId.split('_')[0] == request.resource.data.empresaId;
-      allow delete: if isAdmin() && podeEmpresa(resource.data.empresaId);
+                    && request.resource.data.fichaId.split('_')[0] == request.resource.data.empresaId
+                    && !periodoEncerrado(request.resource.data.empresaId, request.resource.data.competencia)
+                    && (resource == null || !periodoEncerrado(resource.data.empresaId, resource.data.competencia));
+      allow delete: if isAdmin() && podeEmpresa(resource.data.empresaId)
+                    && !periodoEncerrado(resource.data.empresaId, resource.data.competencia);
+    }
+
+    // ===== Fim de mês =====
+    // Encerra quem trabalha na empresa (a lista de conferência fica gravada); só o gestor reabre, com o motivo.
+    // Reencerrar depois da alteração: de novo quem trabalha na empresa. Nada se apaga.
+    match /fechamentos/{fechId} {
+      allow get: if podeEmpresa(fechId.split('_')[0]);
+      allow list: if podeEmpresa(resource.data.empresaId);
+      allow create, update: if podeEmpresa(request.resource.data.empresaId)
+                    && fechId == request.resource.data.empresaId + '_' + request.resource.data.competencia
+                    && request.resource.data.competencia.matches('^[0-9]{4}-(0[1-9]|1[0-2])$')
+                    && (resource == null || (resource.data.empresaId == request.resource.data.empresaId
+                                             && resource.data.competencia == request.resource.data.competencia))
+                    && (
+                      (request.resource.data.situacao == 'encerrado'
+                        && (resource == null || resource.data.situacao == 'reaberto')
+                        && request.resource.data.encerradoPor == request.auth.uid
+                        && request.resource.data.checklist is map)
+                      || (request.resource.data.situacao == 'reaberto' && resource != null && resource.data.situacao == 'encerrado'
+                        && isGestor()
+                        && request.resource.data.reabertoPor == request.auth.uid
+                        && request.resource.data.motivoReabertura is string && request.resource.data.motivoReabertura.size() >= 10)
+                    );
+      allow delete: if false;
+    }
+    // Pedido de reabertura: quem trabalha na empresa pede (período encerrado, com motivo); o gestor aprova ou recusa.
+    match /fechamentos_pedidos/{pedidoId} {
+      allow read, list: if podeEmpresa(resource.data.empresaId);
+      allow create: if podeEmpresa(request.resource.data.empresaId)
+                    && periodoEncerrado(request.resource.data.empresaId, request.resource.data.competencia)
+                    && request.resource.data.situacao == 'pendente'
+                    && request.resource.data.pedidoPor == request.auth.uid
+                    && request.resource.data.motivo is string && request.resource.data.motivo.size() >= 10
+                    && request.resource.data.keys().hasOnly(['empresaId', 'empresaNome', 'competencia', 'motivo', 'situacao', 'pedidoPor', 'pedidoPorEmail', 'pedidoEm']);
+      allow update: if isGestor() && resource.data.situacao == 'pendente'
+                    && request.resource.data.situacao in ['aprovado', 'recusado']
+                    && request.resource.data.decididoPor == request.auth.uid
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['situacao', 'decididoPor', 'decididoPorEmail', 'decididoEm', 'resposta']);
+      allow delete: if false;
     }
 
     // Registro de guarda dos backups do IOB SAGE: inventário (nome, tamanho,
