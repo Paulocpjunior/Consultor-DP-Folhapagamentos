@@ -16,6 +16,7 @@ const PrazosPanel = lazy(() => import('./prazos/PrazosPanel'));
 const CalculoPanel = lazy(() => import('./calculo/CalculoPanel'));
 const CofreCertificadosPanel = lazy(() => import('./certificados/CofreCertificadosPanel'));
 const FimDeMesPanel = lazy(() => import('./fimDeMes/FimDeMesPanel'));
+const RelatoriosPanel = lazy(() => import('./relatorios/RelatoriosPanel'));
 import { SeloSituacao } from './fimDeMes/SeloSituacao';
 import { lerFechamento, listarPedidosPendentes } from '../services/fimDeMes/fechamentoService';
 import { situacaoDe, type SituacaoPeriodo } from '../services/fimDeMes/fechamento';
@@ -40,7 +41,7 @@ import {
     gravarEmpresaAtiva, lerEmpresaAtiva, limparEmpresaAtiva, type EmpresaAtiva,
 } from '../services/empresaAtiva/empresaAtiva';
 
-type Tab = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin' | 'fimdemes';
+type Tab = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin' | 'fimdemes' | 'relatorios';
 
 /** Tema escuro guardado no navegador (preferência de cada pessoa). */
 const CHAVE_TEMA = 'consultor-dp:tema';
@@ -89,7 +90,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
     const setActiveTab = useCallback((t: Tab) => navegar(
         t === 'folha' ? { aba: 'folha', sub: 'apontamento' } : t === 'cadastros' ? { aba: 'cadastros', sub: 'funcionarios' }
             : t === 'esocial' ? { aba: 'esocial', sub: 'dashboard' } : t === 'calculo' ? { aba: 'calculo', folha: 'mensal' }
-                : t === 'fimdemes' ? { aba: 'fimdemes', sub: 'fechamento' } : { aba: t }), [navegar]);
+                : t === 'fimdemes' ? { aba: 'fimdemes', sub: 'fechamento' } : t === 'relatorios' ? { aba: 'relatorios', sub: 'central' } : { aba: t }), [navegar]);
     const irFolha = (sub: SubTabFolha) => navegar({ aba: 'folha', sub });
     const irCadastro = (sub: SubCadastro) => navegar({ aba: 'cadastros', sub });
     // Fim de mês: situação da competência ativa (no cabeçalho) e pedidos de reabertura esperando o gestor.
@@ -438,6 +439,11 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                 {activeTab === 'fimdemes' && (
                     <Suspense fallback={<div className="py-12 text-center text-sm text-slate-500">Carregando…</div>}>
                         <FimDeMesPanel key={`fim-${nav.n}`} currentUser={currentUser} sub={nav.d.aba === 'fimdemes' ? nav.d.sub : 'fechamento'} onMudou={() => setVersaoFim(v => v + 1)} />
+                    </Suspense>
+                )}
+                {activeTab === 'relatorios' && (
+                    <Suspense fallback={<div className="py-12 text-center text-sm text-slate-500">Carregando…</div>}>
+                        <RelatoriosPanel key={`rel-${nav.n}`} currentUser={currentUser} />
                     </Suspense>
                 )}
                 {activeTab === 'certificados' && (

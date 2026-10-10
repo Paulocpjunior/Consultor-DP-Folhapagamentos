@@ -4,7 +4,7 @@
 // para o colaborador associar a cor ao grupo (Folha do mês verde, Fim de mês rosa…).
 // As classes ficam escritas por inteiro para o Tailwind gerá-las.
 
-export type CorGrupo = 'empresas' | 'cadastros' | 'folha' | 'conferencia' | 'esocial' | 'prazos' | 'fimdemes' | 'config';
+export type CorGrupo = 'empresas' | 'cadastros' | 'folha' | 'conferencia' | 'relatorios' | 'esocial' | 'prazos' | 'fimdemes' | 'config';
 
 interface Classes { solido: string; ativo: string; claro: string; barra: string }
 
@@ -13,6 +13,7 @@ export const COR: Record<CorGrupo, Classes> = {
     cadastros:   { solido: 'bg-gradient-to-br from-violet-400 to-violet-600',    ativo: 'border-violet-400',  claro: 'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300', barra: 'text-violet-700 dark:text-violet-300' },
     folha:       { solido: 'bg-gradient-to-br from-emerald-400 to-emerald-600', ativo: 'border-emerald-400', claro: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300', barra: 'text-emerald-700 dark:text-emerald-300' },
     conferencia: { solido: 'bg-gradient-to-br from-amber-400 to-amber-600',       ativo: 'border-amber-400',   claro: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',     barra: 'text-amber-700 dark:text-amber-300' },
+    relatorios:  { solido: 'bg-gradient-to-br from-teal-400 to-teal-600', ativo: 'border-teal-400', claro: 'bg-teal-100 text-teal-700 dark:bg-teal-500/15 dark:text-teal-300', barra: 'text-teal-700 dark:text-teal-300' },
     esocial:     { solido: 'bg-gradient-to-br from-indigo-400 to-indigo-600',    ativo: 'border-indigo-400',  claro: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300', barra: 'text-indigo-700 dark:text-indigo-300' },
     prazos:      { solido: 'bg-gradient-to-br from-orange-400 to-orange-600',    ativo: 'border-orange-400',  claro: 'bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300', barra: 'text-orange-700 dark:text-orange-300' },
     fimdemes:    { solido: 'bg-gradient-to-br from-rose-400 to-rose-600',          ativo: 'border-rose-400',    claro: 'bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300',         barra: 'text-rose-700 dark:text-rose-300' },
