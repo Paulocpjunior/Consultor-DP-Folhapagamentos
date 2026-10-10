@@ -13,8 +13,8 @@
 
 import { comTokenCfi, erroCfi } from '../auth/tokenCfi';
 import { callFiscal } from '../serpro/serproIntegrationService';
+import { urlDoServico } from '../plataforma/servicos';
 
-const CFI_URL = 'https://consultor-fiscal-inteligente-zricstsjqa-uw.a.run.app';
 /** Departamento do Pessoal no SP Connect (fila "Gestão - Departamento Pessoal"). */
 export const DEPARTAMENTO_DP = 'dp-folha';
 
@@ -34,7 +34,7 @@ const recusa = (corpo: Record<string, unknown>, status: number) =>
 /** Templates ativos do DP que levam arquivo (cabeçalho de documento). */
 export async function templatesDoDp(fetchImpl: Fetch = fetch): Promise<TemplateWhatsApp[]> {
     return comTokenCfi(async token => {
-        const r = await fetchImpl(`${CFI_URL}/api/admin/whatsapp/templates?departamento=${DEPARTAMENTO_DP}`, { headers: { Authorization: `Bearer ${token}` } });
+        const r = await fetchImpl(urlDoServico('mensagens', `/api/admin/whatsapp/templates?departamento=${DEPARTAMENTO_DP}`), { headers: { Authorization: `Bearer ${token}` } });
         const corpo = await json(r);
         if (!r.ok || corpo.ok === false) throw recusa(corpo, r.status);
         return ((corpo.templates as TemplateWhatsApp[]) ?? []).filter(t => t.ativo !== false && t.temDocumento);
@@ -59,7 +59,7 @@ export interface EnvioSpConnect {
 export async function enviarPeloSpConnect(e: EnvioSpConnect, fetchImpl: Fetch = fetch): Promise<ResultadoEnvio> {
     const corpo = JSON.stringify({ departamento: DEPARTAMENTO_DP, template: e.template, para: e.para, variaveis: e.variaveis, pdfBase64: paraBase64(e.pdf.bytes), nomeArquivo: e.pdf.nome, referencia: e.referencia });
     return comTokenCfi(async token => {
-        const r = await fetchImpl(`${CFI_URL}/api/admin/whatsapp/enviar`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: corpo });
+        const r = await fetchImpl(urlDoServico('mensagens', '/api/admin/whatsapp/enviar'), { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: corpo });
         const resp = await json(r);
         if (!r.ok || resp.ok !== true) throw recusa(resp, r.status);
         return { messageId: String(resp.messageId ?? ''), numeroEnviado: String(resp.numeroEnviado ?? ''), template: String(resp.template ?? e.template) };

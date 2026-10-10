@@ -11,28 +11,14 @@
  * IMPORTANTE: usuário precisa existir tanto no DP quanto no Fiscal
  * com mesmo email para que o token seja aceito.
  */
-import { comTokenCfi, erroCfi } from '../auth/tokenCfi';
+import { PREFIXO_INTEGRACAO, postarNoServico, servicoDaRota } from '../plataforma/servicos';
 
-const FISCAL_API_BASE = 'https://consultor-fiscal-inteligente-631239634290.us-west1.run.app/api/dp-integration';
-
+/**
+ * Rota do túnel /api/dp-integration no serviço que a atende (services/plataforma/servicos.ts): sem
+ * configuração, o CFI de sempre. Rota sem dono cai no serviço do governo, o dono da maior parte delas.
+ */
 export async function callFiscal<T>(path: string, body: object): Promise<T> {
-    return comTokenCfi(token => chamarFiscal<T>(path, body, token));
-}
-
-async function chamarFiscal<T>(path: string, body: object, token: string): Promise<T> {
-    const resp = await fetch(`${FISCAL_API_BASE}${path}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(body),
-    });
-    if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}));
-        throw erroCfi(err.error || `HTTP ${resp.status}`, resp.status);
-    }
-    return resp.json();
+    return postarNoServico<T>(servicoDaRota(path) ?? 'governo', `${PREFIXO_INTEGRACAO}${path}`, body);
 }
 
 // ─── FGTS ────────────────────────────────────────────────────────────────

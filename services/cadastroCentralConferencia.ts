@@ -19,7 +19,8 @@
  * em silêncio é melhor que alarme falso para a tela inteira.
  */
 
-const CFI_URL = 'https://consultor-fiscal-inteligente-zricstsjqa-uw.a.run.app';
+import { urlDoServico } from './plataforma/servicos';
+
 
 const soDigitos = (v: unknown) => String(v ?? '').replace(/\D/g, '');
 
@@ -83,7 +84,7 @@ export async function buscarCadastroCentral(
     const doFetch = deps.fetchImpl ?? fetch;
     try {
         const token = await getToken();
-        const resp = await doFetch(`${CFI_URL}/api/admin/cadastro/empresas`, {
+        const resp = await doFetch(urlDoServico('cadastro', '/api/admin/cadastro/empresas'), {
             headers: { Authorization: `Bearer ${token}` },
         });
         const corpo = await resp.json().catch(() => ({}));

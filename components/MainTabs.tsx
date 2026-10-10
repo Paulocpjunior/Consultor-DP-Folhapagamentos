@@ -37,13 +37,15 @@ import { esquecerEscopo } from '../services/carteira/carteiraService';
 import type { Empresa } from '../services/empresas/empresasTypes';
 import type { User } from '../types';
 import AtivarEmpresaScreen from './empresaAtiva/AtivarEmpresaScreen';
+import ServicosExternosPanel from './plataforma/ServicosExternosPanel';
+import { painelDeMensagens } from '../services/plataforma/servicos';
 import { EmpresaAtivaProvider } from '../services/empresaAtiva/empresaAtivaContext';
 import {
     ativacaoAindaValida, competenciaBr, competenciaPadrao, exigeEmpresaAtiva,
     gravarEmpresaAtiva, lerEmpresaAtiva, limparEmpresaAtiva, type EmpresaAtiva,
 } from '../services/empresaAtiva/empresaAtiva';
 
-type Tab = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin' | 'fimdemes' | 'relatorios';
+type Tab = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin' | 'fimdemes' | 'relatorios' | 'servicos';
 
 /** Tema escuro guardado no navegador (preferência de cada pessoa). */
 const CHAVE_TEMA = 'consultor-dp:tema';
@@ -371,7 +373,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
             )}
             {isAdmin && (
                 <div className="mx-auto flex max-w-7xl justify-end px-4 pt-2 sm:px-6">
-                    <a href="https://consultor-fiscal-inteligente-631239634290.us-west1.run.app/?painel=comunicacao&departamento=dp-folha" target="_blank" rel="noopener noreferrer"
+                    <a href={painelDeMensagens()} target="_blank" rel="noopener noreferrer"
                         className="text-xs font-medium text-blue-700 hover:underline dark:text-blue-300" title="Administração central de comunicação (templates e agendamentos) — acesso de admin no CFI">Templates e agendamentos ↗</a>
                 </div>
             )}
@@ -463,6 +465,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                     </Suspense>
                 )}
                 {activeTab === 'admin' && isAdmin && <AdminUsersPanel currentUser={currentUser as any} embutido />}
+                {activeTab === 'servicos' && <ServicosExternosPanel />}
             </main>
             <MiaAssistente aba={local?.item.rotulo ?? activeTab} />
             </EmpresaAtivaProvider>

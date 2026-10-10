@@ -3609,3 +3609,29 @@ guias sindicais".
 - **Férias, 13º e rescisão:** a remuneração passa a ser salário + adicional + médias (TST, Súmula 139), e a hora das médias inclui o adicional. Na rescisão, o saldo de salário traz o adicional proporcional (pelo motor mensal) e o aviso indenizado, o 13º e as férias saem da remuneração com o adicional.
 - **S-1200:** de/para sugerido pela natureza da Tabela 03: 1202 insalubridade, 1203 periculosidade.
 - **Testes:** `services/calculo/__tests__/adicionaisRisco.test.ts`.
+
+## 10/10/2026 — Autonomia dos módulos, passo 3: serviços externos com endereço configurável
+
+Paulo: "pode seguir com passo 3 da autonomia". O passo 3 é o primeiro da recomendação dada à pergunta "cada módulo do SaaS não pode ser autônomo e não depender do CFI?". A recomendação completa:
+1. Criar uma plataforma comum (cofre, mensagens, governo, IA).
+2. Dar ao DP Cloud Functions próprias.
+3. Primeiro, pôr as chamadas externas atrás de um adaptador com endereço configurável.
+
+- **`services/plataforma/servicos.ts`:** cinco serviços (cadastro, cofre, governo, mensagens, ia).
+  - Sem configuração: os mesmos hosts e rotas do CFI de antes. Os dois endereços do Cloud Run do CFI foram mantidos como estavam.
+  - `VITE_PLATAFORMA_URL` leva todos os serviços; `VITE_SERVICO_<NOME>_URL` leva só um.
+  - Endereço que não seja https (fora do localhost) é ignorado com aviso: o token nunca vai para outro lugar.
+- **Chamadas migradas:**
+  - `callFiscal` encaminha pela rota (`SERVICO_DA_ROTA`);
+  - gate de departamento, cadastro central, cofre, WhatsApp e o link de templates (`VITE_PAINEL_MENSAGENS_URL`).
+  - Nenhum host do CFI ficou fora do adaptador.
+- **Tela:** Configurações › Serviços externos mostra quem atende cada serviço, o endereço, os avisos e um teste de alcance (GET no-cors, sem login).
+- **Build:** `deploy.yml` passa as variáveis do repositório (`vars.*`); vazias, vale o CFI.
+- **Contrato:** `docs/plataforma-servicos.md` lista as rotas e os requisitos de qualquer provedor (token Firebase deste projeto, CORS, formato dos erros).
+- **Testes:** `services/plataforma/__tests__/servicos.test.ts`.
+  - Os endereços padrão continuam iguais aos de antes.
+  - Precedência, validação e chamadas.
+  - Varredura do código: toda rota do túnel tem dono.
+- **Próximos passos (decisão do Paulo):**
+  - passo 1: a plataforma comum, que o DP adota criando `VITE_PLATAFORMA_URL`;
+  - passo 2: Cloud Functions do DP para o vigia do eSocial com o app fechado e os webhooks.
