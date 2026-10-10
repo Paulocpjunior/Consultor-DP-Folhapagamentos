@@ -3654,3 +3654,26 @@ Paulo: "atualize nosso status de pendencias, evidencie com relacao a SAGE e pode
   - Serviço próprio (`sp-plataforma`) no mesmo projeto GCP, Firestore e Secret Manager. Nenhuma migração: o cofre fica onde está.
   - Ordem por risco: IA, cadastro, e-mail, governo.
   - Fases P0 a P5, riscos e a divisão do que é do Paulo e do que é meu.
+
+## 10/10/2026 — S-2299 (desligamento) pelo Consultor
+
+Item 1 do que falta para desligar o SAGE na folha. Paulo: "pode seguir".
+
+- **`services/esocial/desligamento.ts`:** monta o S-2299 a partir da rescisão calculada (leiaute S-1.3, `evtDeslig.xsd`, e MOS S-1.3).
+  - **Motivo e data:** motivo da Tabela 19 pelo tipo da rescisão; data do desligamento.
+  - **Aviso prévio:** com parte indenizada (inteira ou mista, item 3.1 do MOS), `indPagtoAPI` S e o fim projetado. Com parte trabalhada, pede a data do aviso (`dtAvPrv`).
+  - **Pensão sobre o FGTS:** `pensAlim` obrigatório para celetista (0 a 3, com percentual e valor).
+  - **Verbas:** num demonstrativo (`RESC<data>-<matrícula>`, o mesmo do S-1210), uma linha por rubrica, `indApurIR` 0 e grau de exposição.
+  - **Prazo:** 10 dias, antecipado ao dia útil anterior.
+  - **Sem evento quando:** a rescisão tem erro ou está incompleta; ou falta rubrica, CPF, matrícula, categoria, estabelecimento, lotação ou motivo; ou o desligamento passa de hoje + 10 dias (regra do leiaute).
+  - **Retificação:** pelo recibo.
+- **De/para da rescisão:** grava na empresa junto com o da folha.
+  - A verba que também existe na folha (saldo, INSS, IRRF, HE) usa a rubrica dela, a não ser que tenha uma própria (`RESC:`).
+  - As verbas só da rescisão têm chave própria: aviso, 13º proporcional e indenizado, férias vencidas, dobra e proporcionais com 1/3, art. 479.
+  - Sugestão pela descrição do S-1010 e, quando a descrição é ambígua, pela natureza da Tabela 03.
+- **Tela:** Cálculo › Rescisão, no desligamento registrado na ficha (a simulação não vira S-2299).
+  - Mostra a situação no eSocial (pelo envio do Consultor ou importado do IOB) e o prazo.
+  - Campos de aviso, pensão e observação, mais o de/para.
+  - Pré-voo e transmissão pelo cofre, XML para conferência.
+- **Situação dos eventos:** `statusPorRef` generaliza a do S-2230.
+- **Ainda não:** o S-1210 do pagamento da rescisão (`tpPgto` 2, com a junção ao S-1210 da folha paga no mesmo mês). É a próxima entrega.
