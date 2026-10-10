@@ -3,7 +3,7 @@
 // conferido com o S-1200 e o S-1210 do IOB de 08/2026 (adiantamento em 20/08, folha paga em 04/09). Dados
 // trocados: os eventos do IOB não vão ao repositório; ficam os valores.
 import { describe, expect, it } from 'vitest';
-import { calcularMensal, travarAdiantamentoEntreContratos, type Lancamento } from '../../calculo/motorMensal';
+import { apurarIrrf, calcularMensal, travarAdiantamentoEntreContratos, type Lancamento } from '../../calculo/motorMensal';
 import { arredondar, folhaPagaAntes, movimentoComIrrf, movimentoComMesPagamento, semFechado } from '../../calculo/arredondamento';
 import { limparMovimento } from '../../calculo/movimento';
 import { resumirFolha } from '../../relatorios/resumoFolha';
@@ -219,5 +219,26 @@ describe('IRRF do adiantamento com a folha paga no mês seguinte', () => {
         // E não no da folha (09), em que o IRRF foi pelo simplificado ou pelo INSS.
         const s1210Set = [tAlto, ...tAlto.outrosMeses].find(x => x.perApur === '2026-09')!.s1210!.xml;
         expect(s1210Set.includes('<tpRend>11</tpRend>')).toBe(s1210Set.includes('dedDepen'));
+    });
+
+    it('dois contratos no mesmo CPF: o IRRF do adiantamento soma tudo o que foi pago ao CPF no mês e reparte pelo adiantamento', () => {
+        const f2: FichaFuncionario = { ...FICHA, id: 'f2', matriculaEsocial: 'M2', dados: { ...FICHA.dados, salario: '3000.00' } };
+        const julho2 = calcularMensal({ competencia: '2026-07', pagamento: '2026-08', ficha: f2, tabelas: TAB, afastamentos: [], folhaPagaNoAdiantamento: null });
+        const agosto2 = calcularMensal({ competencia: '2026-08', pagamento: '2026-09', ficha: f2, tabelas: TAB, afastamentos: [], folhaPagaNoAdiantamento: { ...julho2.irrfApurado!, competencia: '2026-07' } });
+        const folhas: Record<string, typeof julho.irrfApurado> = { f1: julho.irrfApurado, f2: julho2.irrfApurado };
+        const [a1, a2] = travarAdiantamentoEntreContratos([agosto, agosto2], [FICHA, f2], [], { tabelas: TAB, folhaPaga: id => ({ ...folhas[id]!, competencia: '2026-07' }) });
+        expect([a1.situacao, a2.situacao, a1.irrfAdiantamentoCpf, a2.irrfAdiantamentoCpf]).toEqual(['calculado', 'calculado', true, true]);
+        // O IRRF do mês do CPF: as duas folhas de julho + os dois adiantamentos, deduções somadas (sem dependentes aqui).
+        const t = TAB.find(x => x.tipo === 'irrf' && x.vigencia <= '2026-08')!;
+        const R = julho.irrfApurado!.rendimentos + julho2.irrfApurado!.rendimentos + agosto.irrfAdiantamentoApuracao!.adiantamento + agosto2.irrfAdiantamentoApuracao!.adiantamento;
+        const L = julho.irrfApurado!.deducoesLegais + julho2.irrfApurado!.deducoesLegais;
+        const devido = Math.max(0, apurarIrrf(t, R, L).valor - julho.irrfApurado!.valor - julho2.irrfApurado!.valor);
+        expect(a1.irrfAdiantamento! + a2.irrfAdiantamento!).toBe(devido > 1000 ? devido : 0);
+        expect(a1.irrfAdiantamento!).toBeGreaterThan(a2.irrfAdiantamento!);
+        expect(a1.memoria.join(' ')).toMatch(/somando os 2 contratos do CPF/);
+        // Sem a folha paga de um contrato que só tem ela, continua travado.
+        const f3 = { ...FICHA, id: 'f3', matriculaEsocial: 'M3' };
+        const trav = travarAdiantamentoEntreContratos([agosto], [FICHA, f3], [f3], { tabelas: TAB, folhaPaga: id => (id === 'f3' ? { pendente: 'sem IRRF gravado' } : { ...julho.irrfApurado!, competencia: '2026-07' }) });
+        expect(trav[0].situacao).toBe('incompleto');
     });
 });
