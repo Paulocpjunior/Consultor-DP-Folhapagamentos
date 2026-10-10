@@ -38,8 +38,8 @@ export const COD_INC_IRRF: Record<string, string> = {
 };
 export const TP_RUBR: Record<string, string> = { '1': 'Vencimento', '2': 'Desconto', '3': 'Informativa', '4': 'Informativa dedutora' };
 
-const BASE_CP = ['11', '12', '13', '14', '15', '16', '21', '22', '25', '26'];
-const BASE_FGTS = ['11', '12', '21'];
+export const BASE_CP = ['11', '12', '13', '14', '15', '16', '21', '22', '25', '26'];
+export const BASE_FGTS = ['11', '12', '21'];
 
 export type ClasseIrrf = 'tributavel' | 'retencao' | 'deducao' | 'pensao' | 'suspensa' | 'outra';
 /** Faixa do código da Tabela 21: 1x tributável, 3x retenção, 4x dedução previdenciária, 5x pensão, 9xxx suspensão. */

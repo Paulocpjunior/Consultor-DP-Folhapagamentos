@@ -27,6 +27,9 @@ describe('situação do S-2230 na tela', () => {
         const onAtualizado = vi.fn();
         render(<StatusEsocialAfastamento afastamento={gozo} empresa={empresa} usuario={usuario} envios={[]} onAtualizado={onAtualizado} />);
         expect(screen.getByText(/Não enviado/)).toBeTruthy();
+        // Abre na produção restrita: a produção é escolhida.
+        expect((screen.getByLabelText('Ambiente do eSocial') as HTMLSelectElement).value).toBe('2');
+        fireEvent.change(screen.getByLabelText('Ambiente do eSocial'), { target: { value: '1' } });
         fireEvent.click(screen.getByRole('button', { name: 'Transmitir S-2230' }));
         await waitFor(() => expect(sv.registrarEnvio).toHaveBeenCalled());
         const p = t.enviar.mock.calls[0][0];

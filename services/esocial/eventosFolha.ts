@@ -36,9 +36,9 @@ import { depNoEsocial, ratearPensao, type FichaFuncionario } from '../cadastros/
 import type { Afastamento } from '../cadastros/afastamentos';
 import type { TabelaLegal } from '../cadastros/tabelasLegais';
 import type { Dependente } from '../implantacao/unificacao';
-import { vigenciaEm, type Rubrica } from '../cadastros/rubricas';
+import { BASE_CP, BASE_FGTS, COD_INC_CP, COD_INC_FGTS, classeIrrf, rotuloCodigo, rotuloIrrf, vigenciaEm, type Rubrica } from '../cadastros/rubricas';
 import { diaUtilAnterior } from '../prazos/calendario';
-import { reais } from '../cadastros/documentos';
+import { cpfValido, reais } from '../cadastros/documentos';
 import { idEvento, VER_PROC, type TpAmb } from './transmissao';
 import type { ReciboEvento } from './recibosEsocial';
 
@@ -54,6 +54,11 @@ export interface ParametrosEsocialFolha {
     codLotacao: string;
     /** De/para: chave da verba do motor → rubrica do S-1010. */
     rubricas: Record<string, RubricaEsocial>;
+    /**
+     * Só no Simples com a CPP substituída e não substituída ao mesmo tempo (classTrib 03): indSimples do S-1200
+     * (1 substituída, 2 não substituída, 3 as duas). Nas demais classificações não vai.
+     */
+    indSimples?: '' | '1' | '2' | '3';
 }
 export const parametrosVazios = (cnpj = ''): ParametrosEsocialFolha => ({ nrInscEstab: cnpj.replace(/\D/g, ''), codLotacao: '', rubricas: {} });
 
@@ -112,6 +117,9 @@ const SUGESTAO: Record<string, { naturezas: string[]; dica?: RegExp; evita?: Reg
     IRRFFER: { naturezas: ['9203'], dica: /FERIAS/ },
 };
 
+/** Retido no recibo de férias, na folha do gozo × retido no próprio recibo: rubricas distintas (senão o tributo vai em dobro). */
+const PARES_FERIAS: [string, string][] = [['INSSFERRET', 'INSSFER'], ['IRRFFERRET', 'IRRFFER']];
+
 /** Naturezas que o MOS (S-1010, item 23, opção 1) fixa para as verbas de férias. */
 const NATUREZA_MOS: Record<string, string> = { FERMES: '1016', FERMES13: '1017', FERPAGO: '9221', FERADI: '1015', FERADI13: '1015' };
 
@@ -136,6 +144,12 @@ export function sugerirDePara(resultados: ResultadoCalculo[], rubricas: Rubrica[
         if (s?.evita && cand.some(x => !s.evita!.test(normalizar(x.v!.dados.dscRubr)))) cand = cand.filter(x => !s.evita!.test(normalizar(x.v!.dados.dscRubr)));
         const r = cand.length === 1 ? cand[0].r : null;
         itens.set(chave, { chave, descricao: v.descricao, tipo: v.tipo, sugestao: r ? { codRubr: r.codRubr, ideTabRubr: r.ideTabRubr } : null });
+    }
+    // O retido no recibo de férias (na folha do gozo) e o do próprio recibo não podem cair na mesma rubrica: o INSS e o
+    // IRRF iriam em dobro ao eSocial. Com a mesma sugestão, a da folha fica para a equipe escolher.
+    for (const [folha, recibo] of PARES_FERIAS) {
+        const a = itens.get(folha)?.sugestao; const b = itens.get(recibo)?.sugestao;
+        if (a && b && a.codRubr === b.codRubr && a.ideTabRubr === b.ideTabRubr) itens.set(folha, { ...itens.get(folha)!, sugestao: null });
     }
     return [...itens.values()];
 }
@@ -311,12 +325,47 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
     const raiz = digitos(e.cnpj).slice(0, 8);
     const ideEmpregador = `<ideEmpregador><tpInsc>1</tpInsc><nrInsc>${raiz}</nrInsc></ideEmpregador>`;
     const trabalhadores: EventosDoTrabalhador[] = [];
+    // Férias: o retido no recibo vai no demonstrativo dele (INSSFER, IRRFFER) e de novo, como desconto, na folha do gozo
+    // (INSSFERRET, IRRFFERRET). Só um dos dois pode recolher: senão o INSS e o IRRF vão em dobro ao eSocial.
+    const errosFerias = new Map<string, string>();
+    const daRubrica = (chave: string) => { const rub = p.rubricas[chave]; return rub ? { rub, dados: tipoDa.get(`${rub.ideTabRubr}|${rub.codRubr}`) } : undefined; };
+    for (const [folha, recibo] of PARES_FERIAS) {
+        const a = daRubrica(folha); const b = daRubrica(recibo);
+        const tributo = folha.startsWith('INSS') ? 'INSS' : 'IRRF';
+        let msg = '';
+        if (a && b && a.rub.codRubr === b.rub.codRubr && a.rub.ideTabRubr === b.rub.ideTabRubr)
+            msg = `A rubrica ${a.rub.codRubr} está no de/para do ${tributo} do recibo de férias e do ${tributo} das férias na folha do gozo: o ${tributo} iria em dobro ao eSocial. Use rubricas distintas (a da folha sem recolhimento).`;
+        else if (tributo === 'INSS' && a?.dados?.codIncCP === '31' && b?.dados?.codIncCP === '31')
+            msg = `As rubricas ${b.rub.codRubr} (INSS do recibo de férias) e ${a.rub.codRubr} (INSS das férias na folha do gozo) têm codIncCP 31: a contribuição iria em dobro. O INSS das férias é da folha do gozo: no S-1010, a do recibo fica sem incidência (00).`;
+        else if (tributo === 'IRRF' && a?.dados && classeIrrf(a.dados.codIncIRRF) === 'retencao')
+            msg = `A rubrica ${a.rub.codRubr} (IRRF das férias na folha do gozo) tem codIncIRRF ${a.dados.codIncIRRF} (retenção): o IRRF das férias é retido no recibo e iria em dobro. No S-1010, use uma rubrica sem retenção (por exemplo, 09) para o desconto na folha.`;
+        if (msg) { errosFerias.set(folha, msg); errosFerias.set(recibo, msg); }
+    }
+    // Incidências do cálculo × S-1010: aviso uma vez por rubrica e tributo. O adiantamento de férias (natureza 1015) não é
+    // base do INSS nem do FGTS no recibo (a base é a folha do gozo); o IRRF do adiantamento salarial varia com o mês do saldo.
+    const avisosIncidencia = new Set<string>();
+    const semGrauExp: string[] = [];
+    const INC_RECIBO: Record<string, { inss?: boolean; fgts?: boolean }> = { FERADI: { inss: false, fgts: false }, FERADI13: { inss: false, fgts: false } };
+    const conferirIncidencia = (v: Verba, rub: RubricaEsocial, d: { codIncCP: string; codIncFGTS: string; codIncIRRF: string }) => {
+        const esperado = { inss: v.inss, fgts: v.fgts, ...INC_RECIBO[v.codigo] };
+        const avisar = (tributo: string, calculo: boolean, rotulo: string) => {
+            const k = `${rub.ideTabRubr}|${rub.codRubr}|${tributo}`;
+            if (avisosIncidencia.has(k)) return;
+            avisosIncidencia.add(k);
+            avisos.push(`Rubrica ${rub.codRubr} ("${v.descricao}"): o cálculo ${calculo ? 'soma' : 'não soma'} à base do ${tributo}, e no S-1010 ela está como ${rotulo}. Confira o de/para ou o S-1010.`);
+        };
+        if (!/^9\d$/.test(d.codIncCP) && !['25', '26'].includes(d.codIncCP) && BASE_CP.includes(d.codIncCP) !== esperado.inss) avisar('INSS', esperado.inss, rotuloCodigo(COD_INC_CP, d.codIncCP, 'tabela'));
+        if (!/^9\d$/.test(d.codIncFGTS) && BASE_FGTS.includes(d.codIncFGTS) !== esperado.fgts) avisar('FGTS', esperado.fgts, rotuloCodigo(COD_INC_FGTS, d.codIncFGTS, 'tabela'));
+        const cls = classeIrrf(d.codIncIRRF);
+        if (v.codigo !== 'ADIANTPAG' && cls !== 'suspensa' && cls !== 'outra' && (cls === 'tributavel') !== v.irrf) avisar('IRRF', v.irrf, rotuloIrrf(d.codIncIRRF));
+    };
     for (const [cpf, contratos] of grupos) {
         const t: EventosDoTrabalhador = { cpf, nome: contratos[0].r.nome, fichaIds: contratos.map(c => c.ficha.id), s1200: null, liquido: 0, erros: [], avisos: [],
             retifica1200: e.retificacao?.s1200.get(cpf), perApur: perPgto, s1210: null, exclusao1210: null, existente1210: e.retificacao?.s1210.get(cpf), outrosPagamentos: 0,
             outrosMeses: [], recibosFerias: 0 };
         trabalhadores.push(t);
-        if (cpf.length !== 11) t.erros.push('CPF inválido na ficha.');
+        if (!cpfValido(cpf)) t.erros.push('CPF inválido na ficha.');
+        const errosFeriasDele = new Set<string>();
         const dmDevs: string[] = []; const pagamentos: { mes: string; xml: string }[] = []; const ides = new Set<string>();
         // Dedução de dependentes no IRRF das férias (tpRend 13), no S-1210 do mês de cada recibo.
         const dedFerias = new Map<string, Map<string, number>>(); const infoDepFerias = new Map<string, Map<string, Dependente>>();
@@ -331,6 +380,9 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                 if (!rub) { t.erros.push(`"${v.descricao}" sem rubrica no de/para.`); continue; }
                 const dados = tipoDa.get(`${rub.ideTabRubr}|${rub.codRubr}`);
                 if (!dados) { t.erros.push(`Rubrica ${rub.codRubr} (de "${v.descricao}") sem S-1010 vigente em ${e.competencia}.`); continue; }
+                const emDobro = errosFerias.get(v.codigo);
+                if (emDobro && !errosFeriasDele.has(emDobro)) { errosFeriasDele.add(emDobro); t.erros.push(emDobro); }
+                conferirIncidencia(v, rub, dados);
                 // Provento só em rubrica de vencimento (1) e desconto só em rubrica de desconto (2); informativa (3, 4) não entra no líquido.
                 // Natureza que o MOS fixa para as férias (S-1010, item 23, opção 1). FERMES era férias + 1/3 em 1020
                 // antes do #111: o de/para gravado assim mudou de sentido e precisa ser refeito (Codex #111).
@@ -350,7 +402,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
         };
         const dmDev = (ide: string, categ: string, f: FichaFuncionario, itens: ReturnType<typeof itensDe>) =>
             `<dmDev><ideDmDev>${esc(ide)}</ideDmDev><codCateg>${categ}</codCateg><infoPerApur><ideEstabLot><tpInsc>1</tpInsc><nrInsc>${estab}</nrInsc><codLotacao>${esc(p.codLotacao.trim())}</codLotacao>`
-            + `<remunPerApur><matricula>${esc(f.matriculaEsocial.trim())}</matricula>`
+            + `<remunPerApur><matricula>${esc(f.matriculaEsocial.trim())}</matricula>${p.indSimples ? `<indSimples>${p.indSimples}</indSimples>` : ''}`
             // indApurIR 0 (apuração normal): obrigatório desde 07/2021 na folha mensal.
             + itens.map(i => `<itensRemun><codRubr>${esc(i.rub.codRubr)}</codRubr><ideTabRubr>${esc(i.rub.ideTabRubr)}</ideTabRubr>${i.qtd > 0 ? `<qtdRubr>${i.qtd.toFixed(2)}</qtdRubr>` : ''}<vrRubr>${valor(i.valor)}</vrRubr><indApurIR>0</indApurIR></itensRemun>`).join('')
             // Grau de exposição (Tabela 02): obrigatório para empregados (1XX, 2XX, 3XX) e 731/734/738; padrão 1.
@@ -365,6 +417,11 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             if (!f.matriculaEsocial.trim()) t.erros.push(`Sem matrícula do eSocial na ficha${quem}.`);
             const categ = digitos(f.dados.categoria);
             if (!/^\d{3}$/.test(categ)) t.erros.push(`Categoria do eSocial (3 dígitos) em branco na ficha${quem}.`);
+            // O Consultor informa um estabelecimento só (o dos parâmetros): quem trabalha em outro (localTrabGeral do S-2200)
+            // iria no CNPJ errado.
+            const localTrab = digitos(f.dados.estabelecimento);
+            if (localTrab.length === 14 && localTrab !== estab) t.erros.push(`O local de trabalho da ficha${quem} é o CNPJ ${localTrab}, e o estabelecimento dos parâmetros é ${estab}: o Consultor gera um estabelecimento só. Confira a ficha e os parâmetros, ou transmita pelo IOB.`);
+            if (/^[123]\d\d$|^73[148]$/.test(categ) && !/^[1-4]$/.test(f.dados.grauExp ?? '')) semGrauExp.push(`${r.nome}${quem}`);
             if (r.totais.liquido < 0) t.erros.push(`Líquido negativo${quem}.`);
             // O IRRF do cálculo segue a tabela do mês do pagamento usado nele: com outra data de pagamento na tela, o S-1210
             // sairia num mês e o imposto, pelo outro (Codex #115).
@@ -522,6 +579,24 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
         for (const [c, dep] of infoDep) if (dedDep.has(c)) conferirTipo(c, dep);
         for (const [c, dep] of infoDepAdi) conferirTipo(c, dep);
         for (const [m, inf] of infoDepFerias) for (const [c, dep] of inf) if (dedFerias.get(m)?.has(c)) conferirTipo(c, dep);
+        // A mesma pessoa não deduz como dependente e como alimentando no mesmo rendimento (Lei 9.250/1995, art. 35, § 4º; IN RFB 1.500/2014, art. 90, § 4º).
+        for (const c of penAlim.keys()) if (dedDep.has(c) || dedDepAdi.has(c)) {
+            const nome = contratos.flatMap(x => x.ficha.dependentes).find(d => digitos(d.cpf) === c)?.nome || c;
+            t.erros.push(`${nome} é alimentando (pensão) e também dependente no IRRF: as duas deduções não se somam. Desmarque o IRRF do dependente na ficha e recalcule.`);
+        }
+        // O S-1210 aceito volta com as deduções dele (dependentes e pensão). Só com os pagamentos desta folha, as de agora
+        // são as que valem: diferentes, o reenvio manteria as antigas.
+        for (const pm of porMes) {
+            const ex = pm.existente1210;
+            if (pm.perApur !== perPgto || !ex?.irComplem?.length || pm.outros.length) continue;
+            const aceito = ex.irComplem.join('');
+            const doAceito = (tag: string, vlr: string) => [...aceito.matchAll(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`, 'g'))]
+                .map(x => x[1]).filter(x => /<tpRend>11<\/tpRend>/.test(x))
+                .map(x => `${/<cpfDep>(\d+)<\/cpfDep>/.exec(x)?.[1] ?? ''}=${Number(new RegExp(`<${vlr}>([^<]*)</${vlr}>`).exec(x)?.[1] ?? 0).toFixed(2)}`).sort().join(',');
+            const agora = (m: Map<string, number>) => [...m].map(([c, v]) => `${c}=${valor(v)}`).sort().join(',');
+            if (doAceito('dedDepen', 'vlrDedDep') !== agora(dedDep) || doAceito('penAlim', 'vlrDedPenAlim') !== agora(penAlim))
+                t.erros.push(`O S-1210 de ${mes(pm.perApur)} aceito (recibo ${ex.nrRecibo}) tem deduções do IRRF (dependentes ou pensão) diferentes das deste cálculo: o reenvio manteria as antigas. Confira o cálculo ou retifique pelo IOB.`);
+        }
         if (t.erros.length || !dmDevs.length) continue;
         /** Informações de IR do mês: as da folha (tpRend 11) no mês do pagamento dela e as dos recibos de férias (tpRend 13) no mês de cada um. */
         const irDoMes = (m: string) => {
@@ -574,6 +649,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             else t.outrosMeses.push(pm);
         }
     }
+    if (semGrauExp.length) avisos.push(`Grau de exposição a agentes nocivos em branco na ficha de ${semGrauExp.join(', ')}: vai 1 (sem exposição). Confira com o S-2240.`);
     trabalhadores.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
     return { trabalhadores, erros, avisos };
 }

@@ -37,7 +37,8 @@ interface Props {
 }
 
 const StatusEsocialAfastamento: React.FC<Props> = ({ afastamento, empresa, usuario, envios, onAtualizado }) => {
-    const [tpAmb, setTpAmb] = useState<TpAmb>(1);
+    // Abre na produção restrita: a produção é escolhida a cada envio (não se desfaz).
+    const [tpAmb, setTpAmb] = useState<TpAmb>(2);
     const [certificado, setCertificado] = useState<Certificado>('escritorio');
     const [ocupado, setOcupado] = useState('');
     const [erro, setErro] = useState('');
