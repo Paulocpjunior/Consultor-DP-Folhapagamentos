@@ -77,6 +77,34 @@ jobs:
       - name: Testes das regras
         run: npm run test:regras
 
+  # Publica as regras do Firestore depois dos testes delas, a cada push na main (ou pelo "Run workflow"). Precisa do
+  # segredo FIREBASE_SERVICE_ACCOUNT: a chave JSON de uma conta de serviço do projeto com o papel "Administrador de
+  # regras do Firebase". Sem ele, o passo só avisa (as regras continuam as publicadas pelo console).
+  publicar-regras:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: regras
+    runs-on: ubuntu-latest
+    env:
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+    steps:
+      - name: Checkout
+        if: env.FIREBASE_SERVICE_ACCOUNT != ''
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        if: env.FIREBASE_SERVICE_ACCOUNT != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Publicar as regras do Firestore
+        if: env.FIREBASE_SERVICE_ACCOUNT != ''
+        run: |
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/conta.json"
+          GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/conta.json" npx --yes firebase-tools@14 deploy --only firestore:rules --project consultor-dp-folha --non-interactive
+          rm -f "$RUNNER_TEMP/conta.json"
+      - name: Sem a credencial
+        if: env.FIREBASE_SERVICE_ACCOUNT == ''
+        run: echo "::warning::Segredo FIREBASE_SERVICE_ACCOUNT ausente - as regras do Firestore nao foram publicadas (publique pelo console)."
+
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment:

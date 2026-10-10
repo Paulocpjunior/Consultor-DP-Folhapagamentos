@@ -3240,3 +3240,9 @@ guias sindicais".
 - **Tela (Cálculo › folha mensal › "Cálculo de adiantamentos"):** por funcionário, o percentual da ficha (ou "informado" no movimento), o adiantamento, o IRRF dele (quando o saldo da folha é pago no mês seguinte; "(CPF)" quando soma os contratos do mesmo CPF), o arredondamento, o que se paga no dia e a situação (ok, incompleto, erro ou fora do arquivo pela data); totais.
 - **Ações:** fixar no movimento o valor pago (grava o "Adiantamento pago": desligamento, afastamento ou reajuste depois do dia 20 não mudam o desconto na folha; depois, "Salvar movimento"); recibos (PDF); arquivo bancário (bloqueado como o da tela: movimento por salvar ou leitura do mês pendente); exportar Excel.
 - **Testes:** `services/calculo/__tests__/calculoAdiantamentosModal.test.tsx`.
+
+## 10/10/2026 — Publicação das regras pelo CI
+
+- **Paulo:** "publique as regras" / "você tem acesso total ao GitHub, pode publicar".
+- **Situação:** o GitHub do projeto só tem a configuração web do Firebase (chave pública), que não publica regras; esta sessão não tem login no Firebase. As regras foram mandadas ao Paulo para publicar pelo console.
+- **CI:** job `publicar-regras` no `deploy.yml`, depois dos testes das regras, a cada push na main (ou "Run workflow"). Usa o segredo `FIREBASE_SERVICE_ACCOUNT` (chave JSON de uma conta de serviço com "Administrador de regras do Firebase"); sem ele, só avisa.
