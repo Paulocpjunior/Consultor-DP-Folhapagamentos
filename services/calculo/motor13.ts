@@ -217,6 +217,8 @@ export function calcular13(e: Entrada13): ResultadoCalculo {
             const usaSimpl = simpl > legais;
             const deducao = usaSimpl ? simpl : legais;
             const base = Math.max(0, integral - deducao);
+            // Dependentes deduzidos no IRRF do 13º: vão no S-1210 (dedDepen, tpRend 12).
+            r.deducoesIrrf = { simplificado: usaSimpl, dependentes: ficha.dependentes.filter(x => x.irrf === 'S' && x.pensao !== 'S').map(x => ({ cpf: x.cpf, nome: x.nome })), porDependente: t.valores.deducaoDependente ?? 0, pensao: 0 };
             const faixa = t.faixas.find(f => f.ate === null || base <= f.ate) ?? t.faixas[t.faixas.length - 1];
             let ir = Math.max(0, Math.round(base * faixa.aliquota / 100) - faixa.deducao);
             r.memoria.push(`IRRF do 13º (exclusivo na fonte, tabela de ${rotuloCompetencia(t.vigencia)}): ${reais(integral)} − ${usaSimpl ? `desconto simplificado ${reais(simpl)}` : `INSS ${reais(inss)}${nDep ? ` e ${nDep} dependente(s)` : ''}`} = base ${reais(base)} × ${pct(faixa.aliquota)} − ${reais(faixa.deducao)} = ${reais(ir)}.`);

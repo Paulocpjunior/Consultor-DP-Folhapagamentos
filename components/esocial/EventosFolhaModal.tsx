@@ -22,9 +22,10 @@ import { listarEnvios, registrarConsulta, registrarEnvio, resumoEnvio, type Envi
 import { exclusoesDosEnvios, lerRecibosArquivos, recibosDosEnvios, recibosVigentes, type ReciboEvento } from '../../services/esocial/recibosEsocial';
 import { baixarBytes, gerarZip } from '../../services/implantacao/zip';
 import { reais } from '../../services/cadastros/documentos';
+import { diaUtilAnterior } from '../../services/prazos/calendario';
 
 const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
-const comp = (c: string) => `${c.slice(5)}/${c.slice(0, 4)}`;
+const comp = (c: string) => (/^\d{4}$/.test(c) ? `13º de ${c}` : `${c.slice(5)}/${c.slice(0, 4)}`);
 const chaveRub = (r: RubricaEsocial) => `${r.ideTabRubr}|${r.codRubr}`;
 
 interface Props {
@@ -34,13 +35,15 @@ interface Props {
     resultados: ResultadoCalculo[];
     /** Recibos de férias pagos na competência ou com gozo nela. */
     recibosFerias?: ReciboFeriasEsocial[];
+    /** 1ª parcela do 13º calculada para a competência (novembro): demonstrativo próprio, se marcada. */
+    primeirasParcelas13?: ResultadoCalculo[];
     dataSugerida: string;
     usuario: Usuario;
     onFechar: () => void;
     onParametrosSalvos?: (p: ParametrosEsocialFolha) => void;
 }
 
-const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resultados, recibosFerias, dataSugerida, usuario, onFechar, onParametrosSalvos }) => {
+const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resultados, recibosFerias, primeirasParcelas13, dataSugerida, usuario, onFechar, onParametrosSalvos }) => {
     const [gravados, setGravados] = useState<ParametrosEsocialFolha>(() => empresa.esocialFolha ?? parametrosVazios(empresa.cnpj));
     // O gravado no banco quando a tela abriu (ou na última gravação dela): outro usuário gravou depois, a gravação é recusada.
     const lido = useRef(empresa.esocialFolha);
@@ -50,6 +53,11 @@ const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resu
     // Adiantamento salarial (desconto ADIANT na folha): demonstrativo próprio, pago nesta data.
     const comAdiantamento = useMemo(() => resultados.some(r => r.situacao === 'calculado' && r.verbas.some(v => v.codigo === 'ADIANT' && v.valor > 0)), [resultados]);
     const [dataAdiant, setDataAdiant] = useState(() => dataSugeridaAdiantamento(competencia));
+    // 1ª parcela do 13º: entra no S-1200 do mês em que foi paga (natureza 5504, só FGTS), com a data dela.
+    const com13 = (primeirasParcelas13 ?? []).filter(r => r.situacao === 'calculado' && r.totais.liquido > 0);
+    const [incluir13, setIncluir13] = useState(com13.length > 0);
+    const [data13, setData13] = useState(() => (/^\d{4}-11$/.test(competencia) ? diaUtilAnterior(`${competencia}-30`) : ''));
+    const primeiras13 = useMemo(() => (incluir13 ? com13.map(r => ({ r, dataPagamento: data13 })) : undefined), [incluir13, data13, primeirasParcelas13]); // eslint-disable-line react-hooks/exhaustive-deps
     const [tpAmb, setTpAmb] = useState<TpAmb>(2);
     const [certificado, setCertificado] = useState<Certificado>('escritorio');
     const [confirmoProducao, setConfirmoProducao] = useState(false);
@@ -67,7 +75,7 @@ const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resu
         return () => { vivo = false; };
     }, [empresa.id]);
 
-    const dePara = useMemo(() => (rubricas ? sugerirDePara([...resultados.filter(r => r.situacao === 'calculado'), ...verbasDoAdiantamentoParaDePara(resultados), ...verbasDosRecibosParaDePara(recibosFerias ?? [], competencia)], rubricas, competencia) : []), [rubricas, resultados, recibosFerias, competencia]);
+    const dePara = useMemo(() => (rubricas ? sugerirDePara([...resultados.filter(r => r.situacao === 'calculado'), ...verbasDoAdiantamentoParaDePara(resultados), ...verbasDosRecibosParaDePara(recibosFerias ?? [], competencia), ...(primeiras13 ?? []).map(x => x.r)], rubricas, competencia) : []), [rubricas, resultados, recibosFerias, competencia, primeiras13]);
     // Vazio no de/para gravado = a sugestão entra até a equipe gravar.
     const efetivos = useMemo<ParametrosEsocialFolha>(() => {
         const r = { ...params.rubricas };
@@ -99,7 +107,7 @@ const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resu
         } catch (e) { setErro(`Não foi possível ler os arquivos: ${(e as Error).message}`); }
         finally { setLendoRecibos(false); }
     }
-    const geracao = useMemo(() => (rubricas ? gerarEventosFolha({ cnpj: empresa.cnpj, tpAmb, competencia, dataPagamento: data, dataAdiantamento: dataAdiant, fichas, resultados, rubricas, parametros: efetivos, retificacao, recibosFerias }) : null), [rubricas, empresa.cnpj, tpAmb, competencia, data, dataAdiant, fichas, resultados, efetivos, retificacao, recibosFerias]);
+    const geracao = useMemo(() => (rubricas ? gerarEventosFolha({ cnpj: empresa.cnpj, tpAmb, competencia, dataPagamento: data, dataAdiantamento: dataAdiant, fichas, resultados, rubricas, parametros: efetivos, retificacao, recibosFerias, primeiraParcela13: primeiras13 }) : null), [rubricas, empresa.cnpj, tpAmb, competencia, data, dataAdiant, fichas, resultados, efetivos, retificacao, recibosFerias, primeiras13]);
     const prontos = geracao?.trabalhadores.filter(t => t.s1200) ?? [];
     // Cada S-1210 do trabalhador (o do mês da folha e o dos recibos de férias, se for outro mês).
     const s1210s = prontos.flatMap(t => pagamentos1210(t).map(pm => ({ t, pm })));
@@ -205,6 +213,8 @@ const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resu
                         <option value="">Não se aplica</option><option value="1">1 - CPP substituída</option><option value="2">2 - CPP não substituída</option><option value="3">3 - Substituída e não substituída</option>
                     </select></label>
                     <label>Data do pagamento<input aria-label="Data do pagamento" type="date" className={`block w-full ${inp}`} value={data} onChange={e => setData(e.target.value)} /></label>
+                    {com13.length > 0 && <label className="flex items-center gap-1"><input type="checkbox" aria-label="Incluir a 1ª parcela do 13º" checked={incluir13} onChange={e => setIncluir13(e.target.checked)} />1ª parcela do 13º ({com13.length})</label>}
+                    {com13.length > 0 && incluir13 && <label>Data da 1ª parcela<input aria-label="Data da 1ª parcela do 13º" type="date" className={`block w-full ${inp}`} value={data13} onChange={e => setData13(e.target.value)} /></label>}
                     {comAdiantamento && <label>Data do adiantamento<input aria-label="Data do adiantamento" type="date" className={`block w-full ${inp}`} value={dataAdiant} onChange={e => setDataAdiant(e.target.value)} /></label>}
                     <p className="self-end text-slate-500">O S-1210 vai no mês do pagamento ({data ? comp(data.slice(0, 7)) : '—'}).{comFerias.length ? ` Recibos de férias pagos em ${comp(competencia)}: demonstrativo próprio, pago na data do recibo (S-1210 de ${comp(competencia)}).` : ''}{comAdiantamento ? ` Adiantamento salarial: demonstrativo próprio, pago na data do adiantamento (S-1210 de ${dataAdiant ? comp(dataAdiant.slice(0, 7)) : '—'}); a folha desconta o que ele pagou.` : ''}</p>
                 </section>

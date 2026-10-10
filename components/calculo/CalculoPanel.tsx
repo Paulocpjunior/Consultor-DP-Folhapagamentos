@@ -395,6 +395,11 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const enqVigente = vigente && 'enquadramento' in vigente ? vigente.enquadramento : undefined;
     const resumo = useMemo(() => resumirFolha(resultados, enqVigente), [resultados, enqVigente]);
     // S-1200/S-1210: recibos de férias pagos na competência ou com gozo nela (as mesmas contas da folha do mês).
+    // 1ª parcela do 13º no S-1200 de novembro (paga no mês): calculada como na aba do 13º, com os movimentos gravados.
+    const primeiras13Esocial = useMemo(() => (mensal && eventosFolha && dados && movsEmpresa && /^\d{4}-11$/.test(competencia)
+        ? com13(dados.fichas, Number(competencia.slice(0, 4)), ultimoDiaDoMes(competencia)).map(f => calcular13({ ano: Number(competencia.slice(0, 4)), parcela: '1a', pagamento: competencia, ficha: f,
+            tabelas: dados.tabelas, opcoes: opcoes13, afastamentos: dados.afastamentos.filter(a => a.fichaId === f.id), movimentos: movsEmpresa[f.id] ?? {} }))
+        : undefined), [mensal, eventosFolha, dados, movsEmpresa, competencia, opcoes13]);
     const recibosFeriasEsocial = useMemo(() => (mensal && eventosFolha && dados && movsEmpresa && /^\d{4}-\d{2}$/.test(competencia)
         ? recibosFeriasDaCompetencia(dados.fichas, dados.afastamentos, dados.tabelas, movsEmpresa, competencia, opcoesFerias) : undefined), [mensal, eventosFolha, dados, movsEmpresa, competencia, opcoesFerias]);
     const tituloFolha = mensal ? `Folha mensal ${br(competencia)}` : ferias ? `Recibos de férias ${br(competencia)}` : rescisao ? `Rescisões ${br(competencia)}` : `13º salário ${ano} — ${folha === '13-1a' ? '1ª' : '2ª'} parcela`;
@@ -578,6 +583,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 {mensal && resultados.some(r => valorDoAdiantamento(r) > 0) && <button className={btn} disabled={!dados || !movsLidos} title={movsLidos ? `Recibo do adiantamento salarial de cada funcionário, pago em ${br(dataAdiantamento)}, para assinatura.` : 'Sem os movimentos gravados do mês (carregando ou com erro na leitura): um adiantamento informado no movimento muda o valor.'} onClick={pdfAdiantamento}>Recibos do adiantamento (PDF)</button>}
                 <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado') || !!bloqueioPagamento} title={bloqueioPagamento || undefined} onClick={() => setPacote(true)}>Pacote do cliente</button>
                 {mensal && <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado') || pendentes.length > 0} title={pendentes.length ? 'Salve o movimento antes: o S-1200 sai do movimento gravado.' : undefined} onClick={() => setEventosFolha(true)}>S-1200 e S-1210</button>}
+                {folha === '13-2a' && <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado')} title="13º no eSocial: S-1200 anual e o pagamento no S-1210 do mês da 2ª parcela. A 1ª parcela vai no S-1200 de novembro." onClick={() => setEventosFolha(true)}>S-1200 anual e S-1210</button>}
                 <button className={btn} disabled={!resultados.length} onClick={exportar}>Exportar Excel</button>
             </div>
             {mensal && empresa && verBeneficios && <BeneficiosEmpresa key={`${empresa.id}-${competencia}`} beneficios={parametrosFolha?.beneficios ?? []} competencia={competencia} onFechar={() => setVerBeneficios(false)}
@@ -737,9 +743,12 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 </section>
             )}
 
-            {mensal && eventosFolha && empresa && dados && (() => {
+            {(mensal || folha === '13-2a') && eventosFolha && empresa && dados && (() => {
                 const [pa, pm] = (/^\d{4}-\d{2}$/.test(pagamento) ? pagamento : competenciaSeguinte(competencia)).split('-').map(Number);
-                return <EventosFolhaModal empresa={empresa} competencia={competencia} fichas={dados.fichas} resultados={resultados} recibosFerias={recibosFeriasEsocial} dataSugerida={quintoDiaUtilSalario(pa, pm)} usuario={usuario}
+                // 2ª parcela do 13º: o S-1200 anual (AAAA) e o pagamento no S-1210 do mês dela (até 20/12).
+                if (folha === '13-2a') return <EventosFolhaModal empresa={empresa} competencia={String(ano)} fichas={dados.fichas} resultados={resultados} dataSugerida={diaUtilAnterior(`${ano}-12-20`)} usuario={usuario}
+                    onFechar={() => setEventosFolha(false)} onParametrosSalvos={esocialFolha => setEmpresas(l => l?.map(e => (e.id === empresa.id ? { ...e, esocialFolha } : e)) ?? l)} />;
+                return <EventosFolhaModal empresa={empresa} competencia={competencia} fichas={dados.fichas} resultados={resultados} recibosFerias={recibosFeriasEsocial} primeirasParcelas13={primeiras13Esocial} dataSugerida={quintoDiaUtilSalario(pa, pm)} usuario={usuario}
                     onFechar={() => setEventosFolha(false)} onParametrosSalvos={esocialFolha => setEmpresas(l => l?.map(e => (e.id === empresa.id ? { ...e, esocialFolha } : e)) ?? l)} />;
             })()}
             {mensal && conferirEsocial && empresa && dados && movsEmpresa && (
