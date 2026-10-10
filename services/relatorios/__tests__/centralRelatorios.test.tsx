@@ -64,7 +64,7 @@ describe('central de relatórios: modelos', () => {
 const srv = vi.hoisted(() => ({ folha: null as unknown, emailEnviado: vi.fn(async (..._a: unknown[]) => ({ remetente: 'dp@escritorio.com.br', fonteRemetente: 'colaborador', copiaPara: [] })) }));
 vi.mock('../../empresas/empresasService', () => ({ listarEmpresasVisiveis: async () => [{ id: 'emp1', cnpj: EMP.cnpj, razaoSocial: 'EMPRESA UM LTDA', codigoSage: '1200', contatoEnvio: { nome: 'Rita', email: 'rita@cliente.com.br' } }], salvarContatoEnvio: vi.fn() }));
 vi.mock('../../cadastros/cadastrosService', () => ({ listarFuncionarios: async () => FICHAS, listarAfastamentos: async () => [], listarEnquadramentos: async () => [], mensagemErro: (e: unknown) => String(e) }));
-vi.mock('../../calculo/folhaGravadaService', () => ({ lerFolhaGravada: async () => srv.folha }));
+vi.mock('../../calculo/folhaGravadaService', () => ({ lerFolhaGravada: async () => srv.folha, lerFolhasDoAno: async (_e: string, ano: string) => (ano === '2026' ? [{ competencia: '2026-09', holerites: folha }] : []) }));
 vi.mock('../../pacoteCliente/spConnect', async orig => ({ ...(await orig<typeof import('../../pacoteCliente/spConnect')>()), templatesDoDp: async () => [], enviarEmailPeloEscritorio: (...a: unknown[]) => srv.emailEnviado(...a) }));
 import RelatoriosPanel from '../../../components/relatorios/RelatoriosPanel';
 import { EmpresaAtivaProvider } from '../../empresaAtiva/empresaAtivaContext';
@@ -97,5 +97,15 @@ describe('central de relatórios: tela', () => {
         expect(env.anexos[0]).toMatchObject({ nome: 'folha-analitica-1200-2026-09.pdf', mime: 'application/pdf' });
         expect(env.assunto).toContain('Folha mensal (analítica) · 09/2026');
         await waitFor(() => expect(screen.getByRole('status').textContent).toContain('E-mail enviado'));
+    });
+    it('ficha financeira: lê as folhas do ano, filtra o funcionário e envia', async () => {
+        tela();
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Ficha financeira' })).toBeTruthy());
+        fireEvent.click(screen.getByRole('button', { name: 'Ficha financeira' }));
+        await waitFor(() => expect(screen.getByText(/1 mês\(es\) com folha gravada/)).toBeTruthy());
+        expect(screen.getByText(/sem folha: Jan, Fev, Mar, Abr, Mai, Jun, Jul, Ago/)).toBeTruthy();
+        expect((screen.getByLabelText('Funcionário') as HTMLSelectElement).options.length).toBe(4);
+        expect((screen.getByRole('button', { name: 'Baixar PDF' }) as HTMLButtonElement).disabled).toBe(false);
+        expect(screen.getByRole('button', { name: 'Excel' })).toBeTruthy();
     });
 });

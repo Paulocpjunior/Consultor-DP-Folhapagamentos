@@ -3493,3 +3493,20 @@ guias sindicais".
   - casos novos nas telas de transmissão e do S-2230;
   - `testes-regras/envios.test.mjs`.
 - **Conferido no Chromium:** o validador roda no build de produção (worker e wasm emitidos) e devolve o erro do XSD traduzido.
+
+## 10/10/2026 — Relatórios, fase R3a: ficha financeira e aviso de férias
+
+- **Paulo:** "pode seguir com R3 e demais". A R3 foi dividida em três entregas: R3a (ficha financeira e aviso de férias), R3b (TRCT no modelo oficial) e R3c (informe de rendimentos).
+- **Ficha financeira (Central › Anuais):**
+  - O ano de cada funcionário mês a mês (Jan a Dez) e verba a verba, com total do ano.
+  - Linhas de total de proventos, total de descontos, líquido, bases do INSS, IRRF e FGTS, e FGTS do mês.
+  - Vem das folhas mensais GRAVADAS do ano escolhido (`lerFolhasDoAno`). Mostra os meses sem folha gravada.
+  - Filtro por funcionário. PDF em paisagem (um funcionário por página, dados do contrato no topo), Excel e envio ao cliente.
+  - Ainda não entram férias, 13º e rescisão pagos fora da folha mensal, nem os anos anteriores ao Consultor.
+- **Aviso de férias (Central › Férias, CLT art. 135):**
+  - Um aviso por gozo lançado em Afastamentos (motivo 15) que começa na competência ou no mês seguinte.
+  - Traz período aquisitivo, gozo, dias, retorno, abono pecuniário (art. 143) e pagamento até 2 dias antes (art. 145).
+  - Datado 30 dias antes do início. Se esse dia já passou, sai com a data de hoje e a tela avisa quem está fora do prazo; o aviso no papel não leva essa nota.
+  - Tem campo de "ciente" do empregado.
+- **Arquivos:** `services/relatorios/relatoriosAnuais.ts` e `relatoriosAnuaisPdf.ts`.
+- **Testes:** `relatoriosAnuais.test.ts` e caso novo na `centralRelatorios.test.tsx`.
