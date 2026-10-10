@@ -17,8 +17,11 @@ import { vigenciaEm, type Rubrica } from '../../services/cadastros/rubricas';
 import { listarRubricas, mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
 import { salvarParametrosEsocialFolha } from '../../services/empresas/empresasService';
 import { dataSugeridaAdiantamento, emLotes, gerarEventosFolha, pagamentos1210, parametrosVazios, sugerirDePara, verbasDoAdiantamentoParaDePara, verbasDosRecibosParaDePara, type ParametrosEsocialFolha, type ReciboFeriasEsocial, type RubricaEsocial } from '../../services/esocial/eventosFolha';
-import { ROTULO_AMBIENTE, consultarLote, enviarLote, type Certificado, type TpAmb } from '../../services/esocial/transmissao';
-import { listarEnvios, registrarConsulta, registrarEnvio, resumoEnvio, type Envio } from '../../services/esocial/transmissaoService';
+import { ROTULO_AMBIENTE, consultarLote, type Certificado, type TpAmb } from '../../services/esocial/transmissao';
+import { listarEnvios, registrarConsulta, resumoEnvio, type Envio } from '../../services/esocial/transmissaoService';
+import { mensagemDaTransmissao, transmitirVerificado, verificarAntesDeEnviar, type ResultadoPreVoo } from '../../services/esocial/envioSeguro';
+import { avisos, textoAchados, type Achado } from '../../services/esocial/preVoo';
+import AchadosPreVoo from './AchadosPreVoo';
 import { exclusoesDosEnvios, lerRecibosArquivos, recibosDosEnvios, recibosVigentes, type ReciboEvento } from '../../services/esocial/recibosEsocial';
 import { baixarBytes, gerarZip } from '../../services/implantacao/zip';
 import { reais } from '../../services/cadastros/documentos';
@@ -62,6 +65,7 @@ const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resu
     const [certificado, setCertificado] = useState<Certificado>('escritorio');
     const [confirmoProducao, setConfirmoProducao] = useState(false);
     const [ocupado, setOcupado] = useState(''); const [erro, setErro] = useState(''); const [msg, setMsg] = useState('');
+    const [achados, setAchados] = useState<Achado[]>([]);
     const [enviados, setEnviados] = useState<string[]>([]);
     // Retificação: recibos dos eventos já aceitos (envios do Consultor e download do eSocial com o que o IOB transmitiu).
     const [envios, setEnvios] = useState<Envio[]>([]);
@@ -145,22 +149,34 @@ const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resu
             ? `\n\nO S-1210 de ${mesesExcluidos} desses trabalhadores sai do eSocial e volta no passo 3 com todos os pagamentos do mês. Antes do envio, baixa uma cópia dos S-1210 excluídos: guarde-a até o passo 3.`
             : tipo === 'S-1210' ? '\n\nTransmita o S-1210 só depois que o S-1200 da competência for aceito ("Consultar resultado").' : '';
         const titulo = tipo === 'S-3000' ? `a exclusão (S-3000) de ${eventos.length} S-1210` : `${eventos.length} ${tipo} da competência ${comp(competencia)}`;
-        if (!window.confirm(`Transmitir ${titulo} em ${ROTULO_AMBIENTE[tpAmb]}?${aviso}`)) return;
+        setOcupado('Conferindo antes de enviar (pré-voo: XSD oficial e ordem dos eventos)…'); setErro(''); setMsg(''); setAchados([]);
+        const emp = { id: empresa.id, cnpj: empresa.cnpj };
+        const verificados: ResultadoPreVoo[] = [];
+        try {
+            const historico = await listarEnvios(empresa.id);
+            for (const lote of emLotes(eventos)) verificados.push(await verificarAntesDeEnviar({ empresa: emp, eventos: lote.map(x => ({ xml: x.ev.xml, ref: x.fichaId })), tpAmb, historico }));
+        } catch (e) { setErro(`Pré-voo: ${(e as Error).message}`); setOcupado(''); return; }
+        const todos = verificados.flatMap(v => v.achados);
+        setAchados(todos);
+        if (verificados.some(v => !v.ok)) { setErro('O pré-voo barrou o envio: corrija os pontos abaixo. Nada foi enviado ao eSocial.'); setOcupado(''); return; }
+        const av = avisos(todos);
+        if (!window.confirm(`Transmitir ${titulo} em ${ROTULO_AMBIENTE[tpAmb]}?${aviso}${av.length ? `\n\nAvisos do pré-voo:\n${textoAchados(av)}` : ''}`)) { setOcupado(''); return; }
         if (tipo === 'S-3000') {
             const copias = aExcluir.filter(x => x.pm.existente1210?.xmlOrigem).map(({ t, pm }) => ({ nome: `S-1210_${t.cpf}_${pm.perApur}_${pm.existente1210!.nrRecibo}.xml`, conteudo: `<?xml version="1.0" encoding="UTF-8"?><copiaS1210>${pm.existente1210!.xmlOrigem}</copiaS1210>` }));
             if (copias.length) baixarBytes(`S-1210-antes-da-exclusao-${empresa.codigoSage || 'empresa'}-${[...new Set(aExcluir.map(x => x.pm.perApur))].sort().join('_')}.zip`, gerarZip(copias), 'application/zip');
         }
-        setOcupado(`Transmitindo ${tipo}…`); setErro(''); setMsg('');
+        setOcupado(`Transmitindo ${tipo}…`);
         const protocolos: string[] = [];
         try {
-            for (const lote of emLotes(eventos)) {
-                const r = await enviarLote({ empresaId: empresa.id, cnpj: empresa.cnpj, eventos: lote.map(x => x.ev.xml), tpAmb, certificado, ...(tpAmb === 1 ? { confirmoProducao: true } : {}) });
-                const id = await registrarEnvio({ empresaId: empresa.id, cnpj: empresa.cnpj, certificado, retorno: r, refs: Object.fromEntries(lote.map(x => [x.ev.id, x.fichaId])) }, usuario);
-                if (r.recebido) setMeusEnvios(x => [...x, id]);
-                protocolos.push(r.recebido ? `${tipo}: lote recebido, protocolo ${r.protocolo}` : `${tipo}: lote recusado (${r.cdResposta ?? ''} ${r.descResposta})`);
+            for (const pv of verificados) {
+                const r = await transmitirVerificado(pv, { empresa: emp, certificado, usuario });
+                if (r.situacao === 'enviado') setMeusEnvios(x => [...x, r.envioId]);
+                const m = mensagemDaTransmissao(r);
+                protocolos.push(r.situacao === 'enviado' ? `${tipo}: lote recebido, protocolo ${r.retorno.protocolo}` : `${tipo}: ${m.texto}`);
+                if (r.situacao === 'sem-resposta') break;
             }
             setEnviados(x => [...x, ...protocolos]);
-            setMsg('Envio registrado. Aguarde alguns instantes e clique em "Consultar resultado".');
+            setMsg('Envio registrado. O resultado é consultado automaticamente; para ver aqui, clique em "Consultar resultado".');
         } catch (e) { setErro(`${tipo}: ${(e as Error).message}`); if (protocolos.length) setEnviados(x => [...x, ...protocolos]); }
         finally { setOcupado(''); }
     }
@@ -300,6 +316,7 @@ const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resu
                 </section>
                 {ocupado && <p role="status" className="text-blue-700 dark:text-blue-300">{ocupado}</p>}
                 {erro && <p role="alert" className="rounded bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+                <AchadosPreVoo achados={achados} />
                 {msg && <p role="status" className="rounded bg-green-50 p-2 text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
                 {enviados.length > 0 && <ul className="list-disc pl-5 text-xs">{enviados.map((x, i) => <li key={i}>{x}</li>)}</ul>}
             </div>

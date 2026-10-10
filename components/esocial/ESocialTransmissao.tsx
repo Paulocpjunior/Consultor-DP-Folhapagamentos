@@ -10,10 +10,13 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
 import type { Usuario } from '../../services/cadastros/cadastrosService';
 import {
-    ROTULO_AMBIENTE, ROTULO_GRUPO, aceito, consultarLote, enviarLote, gerarS1298, gerarS1299, lerEventoXml,
+    ROTULO_AMBIENTE, ROTULO_GRUPO, aceito, consultarLote, gerarS1298, gerarS1299, lerEventoXml,
     type Certificado, type EventoLido, type InfoFech, type TpAmb,
 } from '../../services/esocial/transmissao';
-import { listarEnvios, registrarConsulta, registrarEnvio, resumoEnvio, type Envio } from '../../services/esocial/transmissaoService';
+import { listarEnvios, registrarConsulta, resumoEnvio, type Envio } from '../../services/esocial/transmissaoService';
+import { mensagemDaTransmissao, transmitirVerificado, verificarAntesDeEnviar } from '../../services/esocial/envioSeguro';
+import { avisos, textoAchados, type Achado } from '../../services/esocial/preVoo';
+import AchadosPreVoo from './AchadosPreVoo';
 
 interface Props { usuario?: Usuario }
 
@@ -22,6 +25,9 @@ const btnP = 'rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white disab
 const br = (d?: string | null) => (d ? new Date(d).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '—');
 const compBr = (c: string) => (c.length === 7 ? `${c.slice(5)}/${c.slice(0, 4)}` : c);
 const COR = {
+    transmitindo: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200',
+    'sem-resposta': 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200',
+    'nao-recebido': 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200',
     enviado: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200',
     'em-processamento': 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200',
     processado: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200',
@@ -33,7 +39,7 @@ const lerTexto = (f: File) => new Promise<string>((ok, falha) => {
     r.onerror = () => falha(r.error);
     r.readAsText(f);
 });
-const ROTULO_SITUACAO = { enviado: 'enviado (consultar)', 'em-processamento': 'em processamento', processado: 'processado', recusado: 'recusado' } as const;
+const ROTULO_SITUACAO = { transmitindo: 'transmitindo', 'sem-resposta': 'sem resposta do envio', 'nao-recebido': 'não recebido (liberado)', enviado: 'enviado (consultar)', 'em-processamento': 'em processamento', processado: 'processado', recusado: 'recusado' } as const;
 
 const INDICADORES: { k: keyof InfoFech; rotulo: string }[] = [
     { k: 'evtRemun', rotulo: 'Houve remuneração no período (S-1200/S-1202/S-1207)' },
@@ -57,6 +63,7 @@ const ESocialTransmissao: React.FC<Props> = ({ usuario }) => {
     const [ocupado, setOcupado] = useState('');
     const [erro, setErro] = useState('');
     const [msg, setMsg] = useState('');
+    const [achados, setAchados] = useState<Achado[]>([]);
 
     const carregar = useCallback(() => {
         if (!ativa) return;
@@ -71,17 +78,22 @@ const ESocialTransmissao: React.FC<Props> = ({ usuario }) => {
     const perApur = anual ? ativa.competencia.slice(0, 4) : ativa.competencia;
     const podeEnviar = !!usuario && !ocupado && (tpAmb === 2 || confirmo);
 
-    async function transmitir(eventos: { xml: string; tipo: string }[], descricao: string) {
+    async function transmitir(eventos: { xml: string; tipo: string; nome?: string }[], descricao: string) {
         if (!usuario || !ativa) return;
         const amb = ROTULO_AMBIENTE[tpAmb];
-        if (!window.confirm(`Transmitir ${descricao} de ${ativa.nome} em ${amb.toUpperCase()}?${tpAmb === 1 ? '\n\nEntrega em produção vale para a empresa e não se desfaz.' : ''}`)) return;
-        setOcupado(`Transmitindo ${descricao}…`); setErro(''); setMsg('');
+        setOcupado('Conferindo antes de enviar (pré-voo: XSD oficial e ordem dos eventos)…'); setErro(''); setMsg(''); setAchados([]);
         try {
-            const r = await enviarLote({ empresaId: ativa.id, cnpj: ativa.cnpj, eventos: eventos.map(e => e.xml), tpAmb, certificado, ...(tpAmb === 1 ? { confirmoProducao: true } : {}) });
-            await registrarEnvio({ empresaId: ativa.id, cnpj: ativa.cnpj, certificado, retorno: r }, usuario);
-            if (r.recebido) setMsg(`Lote recebido pelo eSocial. Protocolo ${r.protocolo}. Consulte o resultado em alguns segundos.`);
-            else setErro(`eSocial recusou o lote: ${r.cdResposta ?? ''} ${r.descResposta}${r.ocorrencias.length ? ` — ${r.ocorrencias.map(o => `${o.codigo} ${o.descricao}`).join('; ')}` : ''}`);
-            setArquivos([]);
+            const empresa = { id: ativa.id, cnpj: ativa.cnpj };
+            const pv = await verificarAntesDeEnviar({ empresa, eventos, tpAmb });
+            setAchados(pv.achados);
+            if (!pv.ok) { setErro('O pré-voo barrou o envio: corrija os pontos abaixo. Nada foi enviado ao eSocial.'); return; }
+            const av = avisos(pv.achados);
+            if (!window.confirm(`Transmitir ${descricao} de ${ativa.nome} em ${amb.toUpperCase()}?${tpAmb === 1 ? '\n\nEntrega em produção vale para a empresa e não se desfaz.' : ''}${av.length ? `\n\nAvisos do pré-voo:\n${textoAchados(av)}` : ''}`)) return;
+            setOcupado(`Transmitindo ${descricao}…`);
+            const r = await transmitirVerificado(pv, { empresa, certificado, usuario });
+            const m = mensagemDaTransmissao(r);
+            if (m.ok) setMsg(m.texto); else setErro(m.texto);
+            if (r.situacao !== 'nao-recebido') setArquivos([]);
             carregar();
         } catch (e) { setErro((e as Error).message); }
         finally { setOcupado(''); }
@@ -143,6 +155,7 @@ const ESocialTransmissao: React.FC<Props> = ({ usuario }) => {
             {erro && <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
             {msg && <p role="status" className="rounded bg-green-50 p-3 text-sm text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
             {ocupado && <p className="text-sm text-slate-500">{ocupado}</p>}
+            <AchadosPreVoo achados={achados} />
 
             <section className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
                 <h3 className="font-semibold text-slate-800 dark:text-white">Fechamento da folha (S-1299) e reabertura (S-1298)</h3>
@@ -179,7 +192,7 @@ const ESocialTransmissao: React.FC<Props> = ({ usuario }) => {
                 )}
                 {erroArquivos && <p className="mt-1 text-xs text-red-700 dark:text-red-300">{erroArquivos}</p>}
                 <button className={`${btnP} mt-2`} disabled={!podeEnviar || !validos.length || !!erroArquivos}
-                    onClick={() => transmitir(validos.map(a => ({ xml: a.xml, tipo: a.tipo })), `${validos.length} evento(s)`)}>Transmitir {validos.length || ''} evento(s)</button>
+                    onClick={() => transmitir(validos.map(a => ({ xml: a.xml, tipo: a.tipo, nome: a.nome })), `${validos.length} evento(s)`)}>Transmitir {validos.length || ''} evento(s)</button>
             </section>
 
             <section className="space-y-2">
@@ -195,12 +208,12 @@ const ESocialTransmissao: React.FC<Props> = ({ usuario }) => {
                                 <strong>{[...new Set(e.eventos.map(x => x.tipo))].join(', ')}</strong>
                                 <span className="text-xs text-slate-500">{e.eventos.length} evento(s) · {ROTULO_AMBIENTE[e.tpAmb]} · {br(e.enviadoEm)} · {e.enviadoPorEmail}</span>
                                 <span className="ml-auto flex gap-2">
-                                    {e.protocolo && e.situacao !== 'processado' && <button className={btn} disabled={!usuario || !!ocupado} onClick={() => consultar(e)}>Consultar resultado</button>}
+                                    {e.protocolo && (e.situacao === 'enviado' || e.situacao === 'em-processamento') && <button className={btn} disabled={!usuario || !!ocupado} onClick={() => consultar(e)}>Consultar resultado</button>}
                                     <button className={btn} onClick={() => setAberto(aberto === e.id ? '' : e.id)}>{aberto === e.id ? 'Fechar' : 'Detalhes'}</button>
                                 </span>
                             </div>
                             <p className="mt-1 text-xs text-slate-500">
-                                {e.protocolo ? `Protocolo ${e.protocolo}` : 'Sem protocolo'} · {e.cdResposta ?? ''} {e.descResposta}
+                                {e.protocolo ? `Protocolo ${e.protocolo}` : 'Sem protocolo'} · {e.cdResposta ?? ''} {e.descResposta}{e.erroEnvio ? ` ${e.erroEnvio}` : ''}
                                 {e.consultadoEm && ` · consultado ${br(e.consultadoEm)}`} · aceitos {r.aceitos}, recusados {r.recusados}{r.aguardando ? `, sem resultado ${r.aguardando}` : ''}
                             </p>
                             {aberto === e.id && (

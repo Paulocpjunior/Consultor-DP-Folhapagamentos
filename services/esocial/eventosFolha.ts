@@ -339,8 +339,10 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
     for (const [fichaId, lista] of recibosDa) if (!e.resultados.some(r => r.fichaId === fichaId) && lista.some(x => x.dataPagamento.slice(0, 7) === e.competencia))
         avisos.push(`Recibo de férias de ${lista[0].r.nome} pago em ${mes(e.competencia)} sem a folha do mês calculada: o demonstrativo dele não vai.`);
     const perPgto = e.dataPagamento.slice(0, 7);
-    let seq = 0;
     const agora = e.agora ?? new Date();
+    // O Id leva o segundo da geração e um sequencial. Começar pelo milésimo evita o mesmo Id em duas gerações no
+    // mesmo segundo (ex.: o S-3000 e, gerado de novo depois, o S-1210 do mesmo trabalhador) — o pré-voo barraria.
+    let seq = e.agora ? 0 : agora.getMilliseconds() * 10;
     const raiz = digitos(e.cnpj).slice(0, 8);
     const ideEmpregador = `<ideEmpregador><tpInsc>1</tpInsc><nrInsc>${raiz}</nrInsc></ideEmpregador>`;
     const trabalhadores: EventosDoTrabalhador[] = [];

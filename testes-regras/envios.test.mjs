@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
-import { doc, setDoc, updateDoc, deleteDoc, getDoc, getDocs, collection, query, where, orderBy, serverTimestamp } from 'firebase/firestore';
+import { Timestamp, doc, setDoc, updateDoc, deleteDoc, getDoc, getDocs, collection, query, where, orderBy, serverTimestamp } from 'firebase/firestore';
 import { describe, it, beforeAll, afterAll, beforeEach } from 'vitest';
 
 let env;
@@ -48,5 +48,45 @@ describe('esocial_envios', () => {
     await assertFails(updateDoc(doc(fs('col'), 'esocial_envios/envA'), { situacao: 'processado', eventos: [{ id: 'X' }, { id: 'Y' }], consultadoPor: 'col' }));
     await assertSucceeds(updateDoc(doc(fs('col'), 'esocial_envios/envA'), { situacao: 'processado', eventos: [{ id: 'X', nrRecibo: '1' }], consultadoPor: 'col' }));
     await assertFails(updateDoc(doc(fs('col'), 'esocial_envios/envA'), { situacao: 'processado', eventos: [{ id: 'X', nrRecibo: '2' }], consultadoPor: 'col' }));
+  });
+});
+
+describe('esocial_envios: saúde do eSocial (lote registrado antes de sair)', () => {
+  const agora = () => Timestamp.fromMillis(Date.now());
+  const antes = min => Timestamp.fromMillis(Date.now() - min * 60_000);
+  const intencao = (u, extra = {}) => novo('A', u, { protocolo: '', situacao: 'transmitindo', enviadoEm: agora(), ...extra });
+  it('cria "transmitindo" sem protocolo; com protocolo, não', async () => {
+    await assertSucceeds(setDoc(doc(fs('col'), 'esocial_envios/t1'), intencao('col')));
+    await assertFails(setDoc(doc(fs('col'), 'esocial_envios/t2'), intencao('col', { protocolo: '1.2' })));
+    await assertFails(setDoc(doc(fs('col'), 'esocial_envios/t3'), intencao('col', { situacao: 'processado' })));
+    await assertFails(setDoc(doc(fs('col'), 'esocial_envios/t4'), intencao('col', { situacao: 'sem-resposta' })));
+  });
+  it('a resposta do envio é gravada por quem transmitiu, uma vez', async () => {
+    await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), 'esocial_envios/t1'), intencao('col')));
+    await assertFails(updateDoc(doc(fs('ges'), 'esocial_envios/t1'), { situacao: 'enviado', protocolo: '1.2' }));
+    await assertFails(updateDoc(doc(fs('col'), 'esocial_envios/t1'), { situacao: 'processado', protocolo: '1.2' }));
+    await assertFails(updateDoc(doc(fs('col'), 'esocial_envios/t1'), { situacao: 'enviado', protocolo: '1.2', enviadoPor: 'ges' }));
+    await assertSucceeds(updateDoc(doc(fs('col'), 'esocial_envios/t1'), { situacao: 'enviado', protocolo: '1.2', dhRecepcao: 'x', cdResposta: 201, respondidoEm: serverTimestamp() }));
+    await assertFails(updateDoc(doc(fs('col'), 'esocial_envios/t1'), { situacao: 'recusado', protocolo: '' }));
+    await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), 'esocial_envios/t2'), intencao('col')));
+    await assertSucceeds(updateDoc(doc(fs('col'), 'esocial_envios/t2'), { situacao: 'sem-resposta', erroEnvio: 'Failed to fetch', respondidoEm: serverTimestamp() }));
+  });
+  it('sem resposta: confere no eSocial e só libera o reenvio depois de 30 min', async () => {
+    await env.withSecurityRulesDisabled(async c => {
+      await setDoc(doc(c.firestore(), 'esocial_envios/s1'), intencao('col', { situacao: 'sem-resposta', enviadoEm: antes(10) }));
+      await setDoc(doc(c.firestore(), 'esocial_envios/s2'), intencao('col', { situacao: 'sem-resposta', enviadoEm: antes(40) }));
+      await setDoc(doc(c.firestore(), 'esocial_envios/s3'), intencao('col', { situacao: 'transmitindo', enviadoEm: antes(1) }));
+    });
+    await assertFails(updateDoc(doc(fs('col'), 'esocial_envios/s1'), { situacao: 'nao-recebido', verificadoPor: 'col' }));
+    await assertSucceeds(updateDoc(doc(fs('col'), 'esocial_envios/s1'), { situacao: 'processado', eventos: [{ id: 'X', tipo: 'S-1299', nrRecibo: '1.1.1' }], verificadoPor: 'col' }));
+    await assertSucceeds(updateDoc(doc(fs('ges'), 'esocial_envios/s2'), { situacao: 'nao-recebido', verificadoPor: 'ges' }));
+    await assertFails(updateDoc(doc(fs('col2'), 'esocial_envios/s2'), { situacao: 'sem-resposta', verificadoPor: 'col2' }));
+    // Transmitindo recente é de quem está enviando: ninguém mexe pela verificação.
+    await assertFails(updateDoc(doc(fs('ges'), 'esocial_envios/s3'), { situacao: 'sem-resposta', verificadoPor: 'ges' }));
+    await assertFails(updateDoc(doc(fs('col'), 'esocial_envios/s2'), { situacao: 'processado', protocolo: '9', verificadoPor: 'col' }));
+  });
+  it('a consulta conta as tentativas e não volta o lote para trás', async () => {
+    await assertSucceeds(updateDoc(doc(fs('col'), 'esocial_envios/envA'), { situacao: 'em-processamento', consultadoPor: 'col', consultas: 1 }));
+    await assertFails(updateDoc(doc(fs('col'), 'esocial_envios/envA'), { situacao: 'nao-recebido', consultadoPor: 'col' }));
   });
 });

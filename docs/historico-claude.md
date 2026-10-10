@@ -3470,3 +3470,26 @@ guias sindicais".
   - `services/modelos/__tests__/modelos.test.ts` (extenso, campos, blocos, RTF, marcadores, tabela de textos);
   - `services/modelos/__tests__/modelosTela.test.tsx` (gerar, e-mail, personalizar, importar do SAGE);
   - `testes-regras/modelos.test.mjs`.
+
+## 10/10/2026 — Saúde do eSocial, etapas 1 e 2: fila acompanhada e pré-voo
+
+- **Paulo:** problema comum no SAGE: o envio e o retorno dos eventos travam, e o suporte entra na máquina para editar XML e "limpar". Pediu um painel para evitar, não corrigir depois: monitor de eventos, análise, indicador de anomalias e autocorreção. Ordem combinada: 1) consulta automática e monitor da fila; 2) pré-voo; depois 3) anomalias e conciliação; 4) autocorreção assistida e diagnóstico pelo Gemini; 5) monitor de leiaute e notas técnicas. Etapas 1 e 2 antes da R3 dos relatórios.
+- **Etapa 1, a fila (`services/esocial/filaEnvios.ts`, `envioSeguro.ts`, `vigiaEsocial.ts`):**
+  - O lote é gravado ANTES de sair ("transmitindo"), com os eventos (Id, tipo, período, CPF, registro de origem). A resposta completa o registro.
+  - Sem resposta (rede, CFI ou governo fora): o lote fica "sem resposta", nunca some. Recusa do próprio CFI (4xx) é "não recebido" (nada saiu). "Transmitindo" há mais de 3 min conta como sem resposta.
+  - Sem resposta não se reenvia às cegas: "Conferir no eSocial" baixa os eventos pelo Id (produção) e grava os recibos achados; com todos, o lote fica processado. Não achado, "Liberar reenvio" só depois de 30 min (regra também no Firestore).
+  - Consulta automática dos protocolos da empresa ativa enquanto o Consultor está aberto: 15 s, 30 s, 1, 2, 5, 10 e depois a cada 30 min (contador `consultas`).
+  - Alertas: sem resposta (crítico), parado há mais de 30 min (atenção) ou 24 h (crítico), recusas dos últimos 7 dias. O número aparece no menu eSocial.
+  - Tela eSocial › Saúde do eSocial (`components/esocial/SaudeEsocialPanel.tsx`): cartões por etapa, alertas com a ação de cada um, lotes com próxima consulta, consultas feitas e quem conferiu.
+- **Etapa 2, o pré-voo (`services/esocial/preVoo.ts`, `validadorXsd.ts`):**
+  - XSD oficial S-1.3 (`public/esocial-xsd/v_S_01_03_00`) validado no navegador pelo libxml2 em WebAssembly (`xmllint-wasm`), com o erro em português e o campo apontado. A falta da assinatura não conta (quem assina é o CFI). Evento em leiaute antigo é barrado com a explicação. Sem o XSD (offline), vira aviso.
+  - Regras pelo histórico da empresa: Id já transmitido; mesmo evento do trabalhador ainda sem resultado (ou sem resposta); competência fechada (S-1299 aceito) só com S-1298 antes; S-1299 espera os periódicos da competência; S-1210 espera o S-1200 do trabalhador; retificação sem recibo; lote com mais de 50 eventos ou grupos misturados. Avisos: S-1299 sem S-1200 aceito pelo Consultor, S-1298 sem S-1299 (podem ter ido pelo IOB).
+  - As três telas que transmitem (Transmissão, S-1200/S-1210 do Cálculo e S-2230 do afastamento) passam por `verificarAntesDeEnviar` e `transmitirVerificado`. Bloqueio: nada sai para o governo; aviso: entra na confirmação.
+  - O pré-voo achou um caso real: gerado de novo no mesmo segundo, o S-1210 podia sair com o mesmo Id do S-3000 do trabalhador. O sequencial do Id agora começa pelo milésimo da geração.
+- **Regras (`esocial_envios`):** cria "transmitindo" sem protocolo; a resposta só por quem transmitiu e uma vez; a consulta não volta o lote para trás; a conferência e a liberação com autor, e a liberação só depois de 30 min.
+- **Testes:**
+  - `services/esocial/__tests__/saudeEsocial.test.ts` (XSD oficial, traduções, regras, fila, falhas);
+  - `saudeEsocialTela.test.tsx` (painel e vigia);
+  - casos novos nas telas de transmissão e do S-2230;
+  - `testes-regras/envios.test.mjs`.
+- **Conferido no Chromium:** o validador roda no build de produção (worker e wasm emitidos) e devolve o erro do XSD traduzido.

@@ -1,7 +1,7 @@
 import { limparSessaoImplantacao } from '../services/implantacao/sessao';
 import { ROTULO_PAPEL, ehAdmin, ehMaster, papelEfetivo } from '../services/auth/papeis';
 import { VerificarEmail, VerificarMaster } from './auth/PendingScreen';
-import React, { useState, useEffect, useRef, useCallback, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense, lazy } from 'react';
 import * as authService from '../services/auth/authService';
 import { consultarGateDepartamento, type GateDepartamento } from '../services/departamentoGate';
 import { getAuth } from 'firebase/auth';
@@ -24,6 +24,7 @@ import { situacaoDe, type SituacaoPeriodo } from '../services/fimDeMes/fechament
 import type { SubCadastro } from './cadastros/CadastrosPanel';
 import EmpresasPanel from './empresas/EmpresasPanel';
 import ESocialMonitorPanel from './esocial/ESocialMonitorPanel';
+import { useVigiaEsocial } from './esocial/useVigiaEsocial';
 import AlertaPendenciasPopup from './AlertaPendenciasPopup';
 import Cabecalho, { Ico } from './layout/Cabecalho';
 import { corDoGrupo } from './layout/cores';
@@ -207,6 +208,12 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
         return () => { vivo = false; };
     }, [ehGestorDp, versaoFim, nav]);
 
+    // Saúde do eSocial: consulta sozinho os protocolos da empresa ativa; lote parado ou sem resposta vira alerta no menu.
+    const usuarioVigia = useMemo(() => (uidAtual && currentUser?.email ? { id: uidAtual, email: currentUser.email } : null), [uidAtual, currentUser?.email]);
+    const empresaVigia = useMemo(() => (ativa ? { id: ativa.id, cnpj: ativa.cnpj } : null), [ativa]);
+    const vigia = useVigiaEsocial(empresaVigia, usuarioVigia);
+    const alertasEsocial = vigia?.alertas.length ?? 0;
+
     const ativarEmpresa = (e: EmpresaAtiva) => {
         gravarEmpresaAtiva(uidAtual, e);
         setAtiva(e);
@@ -352,7 +359,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                 usuario={currentUser.name || currentUser.email} papel={isAdmin ? ROTULO_PAPEL[papelEfetivo(currentUser.role)] : undefined}
                 escuro={escuro} onTema={() => setEscuro(e => !e)} onSair={handleLogout} bloqueados={bloqueados}
                 situacaoPeriodo={situacaoPeriodo ? <button onClick={() => navegar({ aba: 'fimdemes', sub: 'fechamento' })} title="Fim de mês desta competência"><SeloSituacao situacao={situacaoPeriodo} /></button> : undefined}
-                contadores={pedidosGestor ? { fimdemes: pedidosGestor } : undefined}
+                contadores={{ ...(pedidosGestor ? { fimdemes: pedidosGestor } : {}), ...(alertasEsocial ? { esocial: alertasEsocial } : {}) }}
                 extraEmpresa={ativa ? <ParticularidadesEmpresa cnpj={ativa.cnpj} /> : undefined} />
             {pedidosGestor > 0 && nav.d.aba !== 'fimdemes' && (
                 <div className="border-b border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20">

@@ -8,7 +8,7 @@ export type Aba = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' 
 
 export type SubFolha = 'eventos' | 'apontamento' | 'validador-ponto' | 'implantacao' | 'conferencia';
 export type SubCadastroMenu = 'funcionarios' | 'horarios' | 'afastamentos' | 'incidencias' | 'enquadramento' | 'sindicatos' | 'tabelas';
-export type SubEsocial = 'dashboard' | 'eventos' | 'transmissao' | 'download' | 'fgts' | 'calendario' | 'teses' | 'ponto' | 'ponto_eletronico' | 'relatorio' | 'audit';
+export type SubEsocial = 'dashboard' | 'saude' | 'eventos' | 'transmissao' | 'download' | 'fgts' | 'calendario' | 'teses' | 'ponto' | 'ponto_eletronico' | 'relatorio' | 'audit';
 export type FolhaCalculo = 'mensal' | 'adiantamento' | '13-1a' | '13-2a' | 'ferias' | 'rescisao';
 
 export type Destino =
@@ -65,6 +65,7 @@ export const MENU: GrupoMenu[] = [
     ] },
     { id: 'esocial', rotulo: 'eSocial', icone: 'esocial', itens: [
         { id: 'dashboard', rotulo: 'Painel', descricao: 'Situação dos eventos e pendências', icone: 'painel', destino: { aba: 'esocial', sub: 'dashboard' } },
+        { id: 'saude', rotulo: 'Saúde do eSocial', descricao: 'Fila dos lotes, consulta automática, alertas e pré-voo', icone: 'saude', destino: { aba: 'esocial', sub: 'saude' } },
         { id: 'transmissao', rotulo: 'Transmissão', descricao: 'Enviar lotes, S-1299 e S-1298', icone: 'enviar', destino: { aba: 'esocial', sub: 'transmissao' } },
         { id: 'eventos', rotulo: 'Eventos', descricao: 'Eventos registrados e recibos', icone: 'lista', destino: { aba: 'esocial', sub: 'eventos' } },
         { id: 'download', rotulo: 'Download', descricao: 'Baixar eventos do governo', icone: 'baixar', destino: { aba: 'esocial', sub: 'download' } },

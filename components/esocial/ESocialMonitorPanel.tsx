@@ -9,11 +9,12 @@ import ESocialRelatorio from './ESocialRelatorio';
 import ESocialAuditLog from './ESocialAuditLog';
 import ESocialDownload from './ESocialDownload';
 import ESocialTransmissao from './ESocialTransmissao';
+import SaudeEsocialPanel from './SaudeEsocialPanel';
 import PontoEditorPanel from '../ponto/PontoEditorPanel';
 import PontoPanel from '../ponto/PontoPanel';
 import type { User } from '../../types';
 
-export type SubTab = 'dashboard' | 'eventos' | 'transmissao' | 'download' | 'fgts' | 'calendario' | 'certificados' | 'teses' | 'ponto' | 'ponto_eletronico' | 'relatorio' | 'audit';
+export type SubTab = 'dashboard' | 'saude' | 'eventos' | 'transmissao' | 'download' | 'fgts' | 'calendario' | 'certificados' | 'teses' | 'ponto' | 'ponto_eletronico' | 'relatorio' | 'audit';
 
 interface Props {
     currentUser: User;
@@ -28,6 +29,7 @@ const ESocialMonitorPanel: React.FC<Props> = ({ currentUser, subInicial, embutid
     const tabs: { id: SubTab; label: string; icon: string }[] = [
         { id: 'dashboard',    label: 'Dashboard',    icon: '📊' },
         { id: 'eventos',      label: 'Eventos',      icon: '📄' },
+        { id: 'saude',        label: 'Saúde do eSocial', icon: '🩺' },
         { id: 'transmissao',  label: 'Transmissão',  icon: '📤' },
         { id: 'download',     label: 'Download',     icon: '⬇️' },
         { id: 'fgts',         label: 'FGTS Digital', icon: '💰' },
@@ -70,6 +72,7 @@ const ESocialMonitorPanel: React.FC<Props> = ({ currentUser, subInicial, embutid
 
             {subTab === 'dashboard' && <ESocialDashboard />}
             {subTab === 'eventos' && <ESocialEventos currentUser={currentUser} onIrParaTransmissao={() => setSubTab('transmissao')} />}
+            {subTab === 'saude' && <SaudeEsocialPanel usuario={currentUser ? { id: (currentUser as { uid?: string }).uid ?? currentUser.id, email: currentUser.email } : undefined} />}
             {subTab === 'transmissao' && <ESocialTransmissao usuario={currentUser ? { id: (currentUser as { uid?: string }).uid ?? currentUser.id, email: currentUser.email } : undefined} />}
             {subTab === 'download' && <ESocialDownload />}
             {subTab === 'fgts' && <ESocialFgts />}
