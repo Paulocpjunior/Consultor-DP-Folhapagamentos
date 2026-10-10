@@ -527,6 +527,24 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ===== Efetivação das rescisões: passos manuais (pagamento, guia do FGTS, seguro, documentos) =====
+    // Id = ficha_data. Quem pode na empresa marca; a empresa e o desligamento não mudam; nada se apaga.
+    function efetivacaoValida(id) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['empresaId', 'fichaId', 'data', 'passos', 'atualizadoPor', 'atualizadoEm'])
+        && d.empresaId is string && d.fichaId is string && d.data is string && d.data.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && id == d.fichaId + '_' + d.data
+        && d.passos is map && d.passos.keys().hasOnly(['ficha', 's2299', 'pagamento', 's1210', 'fgts', 'seguro', 'documentos'])
+        && d.atualizadoPor == request.auth.uid;
+    }
+    match /rescisoes_efetivacao/{id} {
+      allow read: if podeEmpresa(resource.data.empresaId);
+      allow create: if efetivacaoValida(id) && podeEmpresa(request.resource.data.empresaId);
+      allow update: if efetivacaoValida(id) && podeEmpresa(resource.data.empresaId)
+                    && request.resource.data.empresaId == resource.data.empresaId;
+      allow delete: if false;
+    }
+
     // ===== Fim de mês =====
     // Encerra quem trabalha na empresa (a lista de conferência fica gravada); só o gestor reabre, com o motivo.
     // Reencerrar depois da alteração: de novo quem trabalha na empresa. Nada se apaga.

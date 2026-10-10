@@ -9,7 +9,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
 import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
 import type { Empresa } from '../../services/empresas/empresasTypes';
-import { listarAfastamentos, listarEnquadramentos, listarFuncionarios, listarSindicatos, listarTabelas, mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
+import { listarAfastamentos, listarEnquadramentos, listarFuncionarios, listarSindicatos, listarTabelas, mensagemErro, salvarFuncionario, type Usuario } from '../../services/cadastros/cadastrosService';
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
 import type { Afastamento } from '../../services/cadastros/afastamentos';
 import type { TabelaLegal } from '../../services/cadastros/tabelasLegais';
@@ -106,6 +106,23 @@ const DemissoesPanel: React.FC<Props> = ({ usuario }) => {
     }
     async function situacao(p: PreviaGravada, s: PreviaGravada['situacao'], escolhido: number | null = null) {
         try { await mudarSituacaoPrevia(p.id, s, usuario, escolhido); setRecarga(n => n + 1); } catch (e) { setErro(`Não foi possível atualizar: ${mensagemErro(e)}`); }
+    }
+    /** O cenário escolhido vira o desligamento da ficha (com auditoria). Daí em diante: Folha do mês › Rescisão (S-2299, S-1210, efetivação). */
+    async function registrarNaFicha(p: PreviaGravada) {
+        const ficha = dados?.fichas.find(f => f.id === p.fichaId);
+        const c = p.escolhido !== null ? p.cenarios[p.escolhido] : undefined;
+        if (!dados || !ficha || !c) return;
+        const [x] = calcularPrevia({ ficha, afastamentos: dados.afastamentos, tabelas: dados.tabelas, movimentos: dados.movimentos[ficha.id] ?? {}, cenarios: [{ ...c, id: 'e' }], opcoes: OPCOES_FERIAS_PADRAO });
+        if (!window.confirm(`Registrar na ficha de ${p.nome} o desligamento em ${br(c.data)}, motivo ${c.tipo} (${rotuloCenario(c)})?\n\nIsso ainda não vai ao eSocial: o S-2299 sai em Folha do mês › Rescisão (competência ${c.data.slice(5, 7)}/${c.data.slice(0, 4)}), junto com o S-1210 e o roteiro da efetivação.`)) return;
+        setOcupado('Registrando o desligamento…'); setErro(''); setMsg('');
+        try {
+            const nova = { ...ficha, situacao: c.data <= hojeSp() ? 'desligado' as const : ficha.situacao,
+                dados: { ...ficha.dados, dataDesligamento: c.data, motivoDesligamento: c.tipo, dataProjetadaAviso: x.r.dataProjetada > c.data ? x.r.dataProjetada : '' } };
+            await salvarFuncionario(ficha, nova, usuario);
+            setDados(d => (d ? { ...d, fichas: d.fichas.map(f => (f.id === ficha.id ? nova : f)) } : d));
+            setMsg(`Desligamento de ${p.nome} registrado na ficha. Próximo passo: Folha do mês › Rescisão, competência ${c.data.slice(5, 7)}/${c.data.slice(0, 4)}.`);
+        } catch (e) { setErro(`Não foi possível registrar: ${mensagemErro(e)}`); }
+        finally { setOcupado(''); }
     }
     function reabrir(p: PreviaGravada) {
         setSelecionados(dados?.fichas.some(f => f.id === p.fichaId) ? [p.fichaId] : []);
@@ -210,6 +227,14 @@ const DemissoesPanel: React.FC<Props> = ({ usuario }) => {
                                     {p.situacao === 'previa' && <button className="text-blue-700 underline dark:text-blue-300" onClick={() => situacao(p, 'enviada')}>Enviada</button>}
                                     {p.situacao !== 'descartada' && p.resumos.map((_, i) => <button key={i} className="text-green-700 underline dark:text-green-300" onClick={() => situacao(p, 'escolhida', i)}>Escolher {i + 1}</button>)}
                                     {p.situacao !== 'descartada' && <button className="text-red-700 underline dark:text-red-300" onClick={() => situacao(p, 'descartada')}>Descartar</button>}
+                                    {p.situacao === 'escolhida' && p.escolhido !== null && (() => {
+                                        const f = dados?.fichas.find(x => x.id === p.fichaId);
+                                        const c = p.cenarios[p.escolhido];
+                                        if (!f || !c) return null;
+                                        return f.dados.dataDesligamento === c.data
+                                            ? <span className="text-green-700 dark:text-green-300">desligamento na ficha</span>
+                                            : <button className="font-medium text-blue-700 underline dark:text-blue-300" disabled={!!ocupado} onClick={() => registrarNaFicha(p)}>Registrar desligamento na ficha</button>;
+                                    })()}
                                 </td>
                             </tr>
                         ))}</tbody>

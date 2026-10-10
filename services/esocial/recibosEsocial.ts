@@ -127,7 +127,9 @@ export function recibosDosEnvios(envios: Envio[], fichas: FichaFuncionario[]): R
         for (const ev of e.eventos) {
             if ((ev.tipo !== 'S-1200' && ev.tipo !== 'S-1210') || !ev.nrRecibo || !reciboValido(ev.nrRecibo) || !ev.perApur) continue;
             if (ev.cdResposta !== 201 && ev.cdResposta !== 202) continue;
-            const f = ev.ref ? porFicha.get(ev.ref) : undefined;
+            // O S-1210 do pagamento da rescisão leva a ref "pgto-resc:ficha:data" (pagamentoRescisao.ts): é da mesma ficha.
+            const fichaId = ev.ref?.startsWith('pgto-resc:') ? ev.ref.split(':')[1] : ev.ref;
+            const f = fichaId ? porFicha.get(fichaId) : undefined;
             if (!f) continue;
             r.push({ tipo: ev.tipo, cpf: digitos(f.cpf), perApur: ev.perApur, nrRecibo: ev.nrRecibo, processadoEm: e.consultadoEm ?? e.enviadoEm ?? '', origem: `transmitido pelo Consultor (protocolo ${e.protocolo})` });
         }

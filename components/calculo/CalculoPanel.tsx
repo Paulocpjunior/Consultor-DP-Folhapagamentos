@@ -50,6 +50,8 @@ import { resumirFolha } from '../../services/relatorios/resumoFolha';
 import { listarEnvios, type Envio } from '../../services/esocial/transmissaoService';
 import StatusEsocialAfastamento from '../esocial/StatusEsocialAfastamento';
 import DesligamentoEsocial from '../esocial/DesligamentoEsocial';
+import PagamentoRescisaoEsocial from '../esocial/PagamentoRescisaoEsocial';
+import EfetivacaoRescisao from '../demissoes/EfetivacaoRescisao';
 import ConviteAgenda from '../agenda/ConviteAgenda';
 import { eventosDoReciboFerias } from '../../services/agenda/convite';
 import BeneficiosEmpresa from './BeneficiosEmpresa';
@@ -948,8 +950,12 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                             <p className="text-slate-500">{p.simulada ? 'Simulação: nada aqui é gravado nem vai ao eSocial. Para o S-2299, registre o desligamento na ficha (Cadastros › Funcionários › Ident. Adm.).' : 'Nada aqui é gravado. A data vem da ficha; o S-2299 sai abaixo, pela rescisão calculada.'}</p>
                             {!p.simulada && empresa && (() => {
                                 const ficha = dados?.fichas.find(x => x.id === t.fichaId);
-                                return ficha ? <DesligamentoEsocial key={`${t.fichaId}-${t.data}`} empresa={empresa} ficha={ficha} rescisao={t} usuario={usuario} envios={enviosEsocial} onAtualizado={() => setRecargaEnvios(n => n + 1)}
-                                    onParametrosSalvos={pe => setEmpresas(l => l?.map(e => (e.id === empresa.id ? { ...e, esocialFolha: pe } : e)) ?? l)} /> : null;
+                                return ficha ? <>
+                                    <DesligamentoEsocial key={`${t.fichaId}-${t.data}`} empresa={empresa} ficha={ficha} rescisao={t} usuario={usuario} envios={enviosEsocial} onAtualizado={() => setRecargaEnvios(n => n + 1)}
+                                        onParametrosSalvos={pe => setEmpresas(l => l?.map(e => (e.id === empresa.id ? { ...e, esocialFolha: pe } : e)) ?? l)} />
+                                    <PagamentoRescisaoEsocial key={`p-${t.fichaId}-${t.data}`} empresa={empresa} ficha={ficha} rescisao={t} usuario={usuario} envios={enviosEsocial} onAtualizado={() => setRecargaEnvios(n => n + 1)} />
+                                    <EfetivacaoRescisao key={`e-${t.fichaId}-${t.data}`} empresa={empresa} ficha={ficha} rescisao={t} usuario={usuario} envios={enviosEsocial} />
+                                </> : null;
                             })()}
                             {p.simulada && <button className="rounded border border-slate-300 px-2 py-1 dark:border-slate-600" onClick={() => { setParamsResc(x => { const y = { ...x }; delete y[t.fichaId]; return y; }); setAberto(''); }}>Remover simulação</button>}
                         </div>
