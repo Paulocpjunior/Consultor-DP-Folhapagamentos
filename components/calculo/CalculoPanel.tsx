@@ -16,11 +16,14 @@ import EmpresaAtivaFixa from '../empresaAtiva/EmpresaAtivaFixa';
 import { listarAfastamentos, listarEnquadramentos, listarFuncionarios, listarTabelas, mensagemErro, salvarAfastamento, type Usuario } from '../../services/cadastros/cadastrosService';
 import { enquadramentoVigente, type Enquadramento } from '../../services/cadastros/enquadramento';
 import type { User } from '../../types';
-import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
+import { fichaNaCompetencia, type FichaFuncionario } from '../../services/cadastros/funcionarios';
+import { eventoPorCodigo, lancarEvento, lerReferencia, tipoDaReferencia, type SalarioDoMes } from '../../services/calculo/lancarEvento';
+import { carregarEventosIob } from '../../services/calculo/catalogoEventos';
+import type { EventoIobSage } from '../../services/folha/folhaTypes';
 import { afastamentoVazio, idAfastamento, validarAfastamento, type Afastamento } from '../../services/cadastros/afastamentos';
 import type { TabelaLegal } from '../../services/cadastros/tabelasLegais';
 import { centavosDeTexto, reais } from '../../services/cadastros/documentos';
-import { calcularMensal, competenciaAnterior, competenciaSeguinte, dataSugeridaAdiantamento, noMes, travarAdiantamentoEntreContratos, type EntradaCalculo, type Lancamento, type Movimento, type ResultadoCalculo } from '../../services/calculo/motorMensal';
+import { calcularMensal, salarioContratual, competenciaAnterior, competenciaSeguinte, dataSugeridaAdiantamento, noMes, travarAdiantamentoEntreContratos, type EntradaCalculo, type Lancamento, type Movimento, type ResultadoCalculo } from '../../services/calculo/motorMensal';
 import { foraDoAdiantamento, valorDoAdiantamento } from '../../services/bancario/favorecidos';
 import { diaUtilAnterior, diaUtilSeguinte, quintoDiaUtilSalario, somarMeses } from '../../services/prazos/calendario';
 import ArquivoBancarioModal from '../bancario/ArquivoBancarioModal';
@@ -393,6 +396,15 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     }, [dados, movsEmpresa, opcoesFerias]);
     const total = (f: (r: ResultadoCalculo) => number) => resultados.reduce((s, r) => s + f(r), 0);
     const sel = resultados.find(r => chave(r) === aberto);
+    // Salário do mês da ficha aberta, para o "Lançar evento" calcular horas, dias e % como o motor.
+    const salarioSel = useMemo((): SalarioDoMes | null => {
+        const f = sel && dados?.fichas.find(x => x.id === sel.fichaId);
+        if (!f) return null;
+        const sc = salarioContratual(fichaNaCompetencia(f, competencia).ficha.dados);
+        return 'erro' in sc ? null : { mensal: sc.mensal, horasMes: sc.horasMes };
+    }, [sel, dados, competencia]);
+    const [lancado, setLancado] = useState<{ fichaId: string; mensagem: string } | null>(null);
+    useEffect(() => setLancado(null), [aberto, competencia]);
     const nomeDe = (id: string) => dados?.fichas.find(f => f.id === id)?.dados.nome || id;
     const [verResumo, setVerResumo] = useState(false);
     // Competência da parte patronal: a do mês; o 13º na de dezembro; recibos de férias não (entram na folha do mês).
@@ -796,7 +808,9 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                     onAplicarMovimento={(id, m) => { setMovs(x => ({ ...x, [id]: m })); setVersao(n => n + 1); setAviso(''); }} />
             )}
 
-            {sel && mensal && <Holerite key={`${sel.fichaId}-${versao}`} r={sel} mov={movs[sel.fichaId] ?? {}} gravado={gravados?.[sel.fichaId]} pendente={pendentes.includes(sel.fichaId)} arredonda={arredondaNoMes(parametrosFolha, competencia)} onMov={m => setMovs(x => ({ ...x, [sel.fichaId]: m }))} />}
+            {sel && mensal && <Holerite key={`${sel.fichaId}-${versao}`} r={sel} mov={movs[sel.fichaId] ?? {}} gravado={gravados?.[sel.fichaId]} pendente={pendentes.includes(sel.fichaId)} arredonda={arredondaNoMes(parametrosFolha, competencia)} onMov={m => setMovs(x => ({ ...x, [sel.fichaId]: m }))}
+                salario={salarioSel} lancado={lancado?.fichaId === sel.fichaId ? lancado.mensagem : ''}
+                onLancar={(m, mensagem) => { setMovs(x => ({ ...x, [sel.fichaId]: m })); setLancado({ fichaId: sel.fichaId, mensagem }); setVersao(n => n + 1); }} />}
             {sel && rescisao && (() => {
                 const t = sel as ResultadoRescisao;
                 const p: ParamRescisao = paramsResc[t.fichaId] ?? { data: t.data, tipo: t.tipo, aviso: 'indenizado', simulada: false };
@@ -1000,7 +1014,47 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
 
 const PdfContexto = React.createContext<((r: ResultadoCalculo) => void) | null>(null);
 
-const Holerite: React.FC<{ r: ResultadoCalculo; mov?: Movimento; gravado?: MovimentoGravado; pendente?: boolean; arredonda?: boolean; onMov?: (m: Movimento) => void; children?: React.ReactNode }> = ({ r, mov = {}, gravado, pendente = false, arredonda = false, onMov = () => {}, children }) => {
+/** "Lançar evento" como no Sage: código do evento do IOB + referência; o Consultor calcula e põe no movimento. */
+const LancarEvento: React.FC<{ mov: Movimento; salario: SalarioDoMes | null; lancado: string; onLancar: (m: Movimento, mensagem: string) => void }> = ({ mov, salario, lancado, onLancar }) => {
+    const [eventos, setEventos] = useState<EventoIobSage[] | null>(null);
+    const [codigo, setCodigo] = useState('');
+    const [ref, setRef] = useState('');
+    const [erro, setErro] = useState('');
+    const carregar = () => { if (!eventos) carregarEventosIob().then(setEventos).catch(() => setErro('Não foi possível carregar o catálogo de eventos do IOB.')); };
+    const ev = eventos ? eventoPorCodigo(eventos, codigo) : null;
+    const tipo = ev ? tipoDaReferencia(ev) : null;
+    const rotulo = { horas: 'Horas (8,5 ou 8:30)', dias: 'Dias', percentual: '%', valor: 'Valor (R$)' };
+    const lancar = async () => {
+        setErro('');
+        const lista = eventos ?? await carregarEventosIob().catch(() => null);
+        if (!lista) { setErro('Não foi possível carregar o catálogo de eventos do IOB.'); return; }
+        if (!eventos) setEventos(lista);
+        const e = eventoPorCodigo(lista, codigo);
+        if (!e) { setErro(codigo.trim() ? `Evento ${codigo.trim()} não está no catálogo do IOB (Cadastros › Eventos IOB).` : 'Informe o código do evento.'); return; }
+        const n = lerReferencia(ref, tipoDaReferencia(e));
+        if (n === null) { setErro('Referência inválida.'); return; }
+        const res = lancarEvento(e, n, salario, mov);
+        if ('erro' in res) setErro(res.erro);
+        else onLancar(res.movimento, res.mensagem);
+    };
+    return (
+        <div>
+            <p className="text-xs font-medium text-slate-600 dark:text-slate-300">Lançar evento do IOB</p>
+            <form className="mt-1 flex flex-wrap items-end gap-2 text-xs dark:text-slate-200" onSubmit={e => { e.preventDefault(); void lancar(); }}>
+                <label>Evento<input aria-label="Código do evento" className={`mt-0.5 block w-20 ${inp}`} value={codigo} inputMode="numeric" placeholder="0810"
+                    onFocus={carregar} onChange={e => { setCodigo(e.target.value); setErro(''); }} /></label>
+                <label>{tipo ? rotulo[tipo] : 'Referência'}<input aria-label="Referência do evento" className={`mt-0.5 block w-24 ${inp}`} value={ref} onChange={e => { setRef(e.target.value); setErro(''); }} /></label>
+                <button type="submit" className="rounded border border-slate-300 px-2 py-1 dark:border-slate-600 dark:text-white">Lançar</button>
+                {ev && <span className="pb-1 text-slate-500 dark:text-slate-400">{ev.descricao} · {ev.tipo === 'V' ? 'provento' : ev.tipo === 'D' ? 'desconto' : 'informativo'}</span>}
+            </form>
+            {erro && <p role="alert" className="mt-1 text-xs text-red-700 dark:text-red-300">{erro}</p>}
+            {lancado && !erro && <p role="status" className="mt-1 text-xs text-green-700 dark:text-green-300">{lancado}</p>}
+            <p className="mt-1 text-xs text-slate-500">Horas extras, faltas, atrasos, DSR, pensão, adiantamento e vale-transporte vão para o campo do movimento; os demais viram lançamento avulso com as incidências do evento.</p>
+        </div>
+    );
+};
+
+const Holerite: React.FC<{ r: ResultadoCalculo; mov?: Movimento; gravado?: MovimentoGravado; pendente?: boolean; arredonda?: boolean; onMov?: (m: Movimento) => void; salario?: SalarioDoMes | null; lancado?: string; onLancar?: (m: Movimento, mensagem: string) => void; children?: React.ReactNode }> = ({ r, mov = {}, gravado, pendente = false, arredonda = false, onMov = () => {}, salario = null, lancado = '', onLancar, children }) => {
     const pdf = React.useContext(PdfContexto);
     const emHoras = (k: string) => k === 'horasExtras50' || k === 'horasExtras100' || k === 'atrasosHoras';
     const campo = (k: 'horasExtras50' | 'horasExtras100' | 'faltasDias' | 'dsrDescontadoDias' | 'atrasosHoras' | 'feriadosLocais', rotulo: string) => (
@@ -1045,6 +1099,7 @@ const Holerite: React.FC<{ r: ResultadoCalculo; mov?: Movimento; gravado?: Movim
                             : gravado ? `Salvo por ${gravado.atualizadoPorEmail ?? '—'}${gravado.atualizadoEm ? ` em ${quando(gravado.atualizadoEm)}` : ''}.` : 'Sem movimento gravado.'}
                     </p>
                 </div>
+                {onLancar && <LancarEvento mov={mov} salario={salario} lancado={lancado} onLancar={onLancar} />}
                 <div className="flex flex-wrap gap-3">
                     {campo('horasExtras50', 'Horas extras 50%')}
                     {campo('horasExtras100', 'Horas extras 100%')}
