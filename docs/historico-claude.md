@@ -3635,3 +3635,22 @@ Paulo: "pode seguir com passo 3 da autonomia". O passo 3 é o primeiro da recome
 - **Próximos passos (decisão do Paulo):**
   - passo 1: a plataforma comum, que o DP adota criando `VITE_PLATAFORMA_URL`;
   - passo 2: Cloud Functions do DP para o vigia do eSocial com o app fechado e os webhooks.
+
+## 10/10/2026 — Status × SAGE e autonomia passo 1 (plataforma comum)
+
+Paulo: "atualize nosso status de pendencias, evidencie com relacao a SAGE e pode seguir com o passo 1".
+
+- **Catálogo IOB × Consultor** (`services/iobSage/catalogoMenus.ts`), itens que estavam atrás do que já foi entregue:
+  - **13º:** médias e pensão no IRRF já entregues (item 3a); falta só a provisão.
+  - **Eventos:** a "Média" entra nas médias.
+  - **DIRF/Informe:** a DIRF foi extinta e o informe está disponível.
+  - **E-mail:** pelo serviço de e-mail.
+  - **Tabelas legais:** usadas pelo motor.
+  - Resultado: 17 disponíveis, 22 parciais, 9 planejados, 3 fora do escopo.
+- **Adaptador:** "mensagens" virou `email` e `whatsapp`.
+  - O WhatsApp não vai para a plataforma comum: o dono do canal é o SP Connect. Só `VITE_SERVICO_WHATSAPP_URL` o leva.
+  - `VITE_SERVICO_MENSAGENS_URL` saiu antes de ser usado.
+- **Plano do passo 1:** `docs/plataforma-comum.md`, no modelo da separação do SP Connect.
+  - Serviço próprio (`sp-plataforma`) no mesmo projeto GCP, Firestore e Secret Manager. Nenhuma migração: o cofre fica onde está.
+  - Ordem por risco: IA, cadastro, e-mail, governo.
+  - Fases P0 a P5, riscos e a divisão do que é do Paulo e do que é meu.

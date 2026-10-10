@@ -2,10 +2,12 @@
 //
 // Serviços externos do DP atrás de um endereço configurável (autonomia dos módulos, passo 3 — Paulo, 10/10/2026:
 // "cada módulo do SaaS não pode ser autônomo e não depender do CFI?"). Hoje tudo o que sai do navegador para
-// fora do Firebase vai ao CFI: cadastro central, cofre do A1, governo (eSocial, SERPRO), mensagens (e-mail e
-// WhatsApp SP Connect) e IA (MIA, leitura de holerites). Aqui cada um vira um SERVIÇO com endereço próprio:
+// fora do Firebase vai ao CFI: cadastro central, cofre do A1, governo (eSocial, SERPRO), e-mail, WhatsApp
+// (SP Connect) e IA (MIA, leitura de holerites). E-mail e WhatsApp são serviços separados porque vão para
+// donos diferentes (passo 1, docs/plataforma-comum.md): o e-mail para a plataforma comum; o WhatsApp para o
+// SP Connect, que já está saindo do CFI (separação própria, dona da conta da Meta). Aqui cada um vira um SERVIÇO com endereço próprio:
 // - sem configuração, tudo continua exatamente no CFI de hoje (mesmos hosts, mesmas rotas);
-// - VITE_PLATAFORMA_URL leva todos para a plataforma comum, quando ela existir;
+// - VITE_PLATAFORMA_URL leva todos para a plataforma comum, menos o WhatsApp (dono: o SP Connect);
 // - VITE_SERVICO_<NOME>_URL leva só aquele serviço (ex.: o DP com o próprio gateway do governo).
 // O caminho de cada rota não muda: o novo provedor implementa as mesmas rotas (docs/plataforma-servicos.md),
 // aceita o token Firebase deste projeto e libera o CORS deste app. O endereço entra no build (app estático);
@@ -13,7 +15,7 @@
 
 import { comTokenCfi, erroCfi } from '../auth/tokenCfi';
 
-export type Servico = 'cadastro' | 'cofre' | 'governo' | 'mensagens' | 'ia';
+export type Servico = 'cadastro' | 'cofre' | 'governo' | 'email' | 'whatsapp' | 'ia';
 export type Origem = 'cfi' | 'plataforma' | 'proprio';
 
 /** Host do CFI das rotas /api/admin (cadastro central, cofre, WhatsApp). */
@@ -28,11 +30,12 @@ export const SERVICOS: Record<Servico, { titulo: string; descricao: string; vari
     cadastro: { titulo: 'Cadastro central', descricao: 'Departamento e horário de acesso de cada pessoa; empresas do escritório', variavel: 'VITE_SERVICO_CADASTRO_URL' },
     cofre: { titulo: 'Cofre de certificados', descricao: 'Panorama do A1 de cada empresa (vencimento e renovação)', variavel: 'VITE_SERVICO_COFRE_URL' },
     governo: { titulo: 'Governo', descricao: 'eSocial (envio, consulta e download), FGTS Digital, DCTFWeb e SERPRO, assinados com o A1 do cofre', variavel: 'VITE_SERVICO_GOVERNO_URL' },
-    mensagens: { titulo: 'Mensagens', descricao: 'E-mail pelo escritório e WhatsApp oficial (SP Connect)', variavel: 'VITE_SERVICO_MENSAGENS_URL' },
+    email: { titulo: 'E-mail', descricao: 'E-mail pelo escritório (Microsoft 365), com anexos e auditoria', variavel: 'VITE_SERVICO_EMAIL_URL' },
+    whatsapp: { titulo: 'WhatsApp', descricao: 'WhatsApp oficial (SP Connect): templates do DP e envio com PDF', variavel: 'VITE_SERVICO_WHATSAPP_URL' },
     ia: { titulo: 'Inteligência artificial', descricao: 'MIA (Gemini) e leitura dos holerites do IOB', variavel: 'VITE_SERVICO_IA_URL' },
 };
-export const ORDEM_SERVICOS: Servico[] = ['cadastro', 'cofre', 'governo', 'mensagens', 'ia'];
-export const ROTULO_ORIGEM: Record<Origem, string> = { cfi: 'CFI', plataforma: 'Plataforma comum', proprio: 'Próprio do DP' };
+export const ORDEM_SERVICOS: Servico[] = ['cadastro', 'cofre', 'governo', 'email', 'whatsapp', 'ia'];
+export const ROTULO_ORIGEM: Record<Origem, string> = { cfi: 'CFI', plataforma: 'Plataforma comum', proprio: 'Endereço próprio' };
 
 /**
  * Serviço de cada rota do túnel /api/dp-integration (o callFiscal), pelo primeiro trecho do caminho.
@@ -40,7 +43,7 @@ export const ROTULO_ORIGEM: Record<Origem, string> = { cfi: 'CFI', plataforma: '
  */
 export const SERVICO_DA_ROTA: Record<string, Servico> = {
     esocial: 'governo', fgts: 'governo', dctfweb: 'governo', 'empresa-completo': 'governo',
-    email: 'mensagens',
+    email: 'email',
     assistente: 'ia', holerites: 'ia',
 };
 export function servicoDaRota(caminho: string): Servico | null {
@@ -71,6 +74,8 @@ export function configuracaoDoServico(servico: Servico, env: Env = envDoBuild())
     const proprio = enderecoValido(env[SERVICOS[servico].variavel]);
     if (proprio.aviso) avisos.push(`${SERVICOS[servico].variavel} ignorado: ${proprio.aviso}.`);
     if (proprio.url) return { servico, origem: 'proprio', base: proprio.url, avisos };
+    // O WhatsApp não vai para a plataforma: o dono do canal é o SP Connect (só a variável própria o leva).
+    if (servico === 'whatsapp') return { servico, origem: 'cfi', base: null, avisos };
     const plataforma = enderecoValido(env.VITE_PLATAFORMA_URL);
     if (plataforma.aviso) avisos.push(`VITE_PLATAFORMA_URL ignorado: ${plataforma.aviso}.`);
     if (plataforma.url) return { servico, origem: 'plataforma', base: plataforma.url, avisos };
@@ -93,7 +98,7 @@ export function painelDeMensagens(env: Env = envDoBuild()): string {
 /** Endereço que a tela mostra e testa: a base configurada, ou o host do CFI que atende o serviço. */
 export function enderecoExibido(c: Configuracao): string {
     if (c.base) return c.base;
-    return c.servico === 'cadastro' || c.servico === 'cofre' ? HOST_CFI : HOST_CFI_INTEGRACAO;
+    return c.servico === 'cadastro' || c.servico === 'cofre' || c.servico === 'whatsapp' ? HOST_CFI : HOST_CFI_INTEGRACAO;
 }
 
 /**
