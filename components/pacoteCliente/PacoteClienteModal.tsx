@@ -14,7 +14,7 @@ import type { Empresa } from '../../services/empresas/empresasTypes';
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
 import type { ResultadoCalculo } from '../../services/calculo/motorMensal';
 import { reservarNsa, salvarContatoEnvio } from '../../services/empresas/empresasService';
-import { PERFIS_BANCO, ROTULO_FORMA, avisoConferencia, gerarRemessa, type ContaPagamento, type ResultadoRemessa } from '../../services/bancario/cnab240';
+import { PERFIS_BANCO, ROTULO_FORMA, avisoConferencia, avisoRemessaRepetida, chaveRemessa, gerarRemessa, type ContaPagamento, type ResultadoRemessa } from '../../services/bancario/cnab240';
 import { emailValido, linkEmail, linkWhatsApp, mensagemEnvio, numeroWhatsApp, type ContatoEnvio } from '../../services/pacoteCliente/envio';
 import { favorecidosDaFolha } from '../../services/bancario/favorecidos';
 import { gerarIcs, type EventoAgenda } from '../../services/agenda/convite';
@@ -94,7 +94,12 @@ const PacoteClienteModal: React.FC<Props> = ({ empresa, resultados, fichas, titu
         // O número do arquivo bancário é reservado antes de montar: sem a reserva gravada, o próximo sairia repetido.
         if (r && conta) {
             try {
-                const res = await reservarNsa(empresa.id, conta.id);
+                const registro = { chave: chaveRemessa(titulo, r), quantidade: r.incluidos.length, total: r.total };
+                let res = await reservarNsa(empresa.id, conta.id, registro);
+                if (res.repetida) {
+                    if (!window.confirm(avisoRemessaRepetida(titulo, res.repetida))) { setGerando(false); return; }
+                    res = await reservarNsa(empresa.id, conta.id, registro, true);
+                }
                 onContasSalvas?.(res.contas);
                 r = gerarRemessa({ conta: { ...conta, proximoNsa: res.nsa }, cnpj: empresa.cnpj, razaoSocial: empresa.razaoSocial, favorecidos, preferirPix });
             } catch (e) { setErro(`Pacote não montado: não foi possível reservar o número do arquivo bancário (${(e as Error).message}).`); setGerando(false); return; }

@@ -8,7 +8,7 @@ import { collection, doc, getDocs, query, serverTimestamp, where, writeBatch } f
 import { db } from '../firebaseConfig';
 import { auditar, diffObjeto, limpo, type Usuario } from '../cadastros/cadastrosService';
 import type { Movimento } from './motorMensal';
-import { idMovimento, limparMovimento, type MovimentoGravado } from './movimento';
+import { idMovimento, limparMovimento, mesmoMovimento, type MovimentoGravado } from './movimento';
 
 const MOV = 'calculo_movimentos';
 
@@ -22,8 +22,21 @@ export async function listarMovimentos(empresaId: string, competencia: string): 
 
 export interface MovimentoParaGravar { fichaId: string; antes: Movimento | null; depois: Movimento }
 
-/** Grava os movimentos alterados (movimento + auditoria = 2 escritas cada), em lotes. */
+/**
+ * Grava os movimentos alterados (movimento + auditoria = 2 escritas cada), em lotes. Antes, relê o mês: se alguém
+ * gravou outro movimento depois da leitura da tela (`antes`), nada é gravado e o erro pede para recarregar, em vez
+ * de a última gravação apagar a outra em silêncio.
+ */
 export async function salvarMovimentos(empresaId: string, competencia: string, itens: MovimentoParaGravar[], u: Usuario): Promise<void> {
+    const atuais = new Map((await listarMovimentos(empresaId, competencia)).map(g => [g.fichaId, g]));
+    const mudaram = itens.filter(({ fichaId, antes }) => {
+        const atual = atuais.get(fichaId);
+        return !!atual !== !!antes || (atual && !mesmoMovimento(atual.movimento, antes ?? undefined));
+    });
+    if (mudaram.length) {
+        const quem = [...new Set(mudaram.map(i => atuais.get(i.fichaId)?.atualizadoPorEmail).filter(Boolean))].join(', ');
+        throw new Error(`O movimento de ${mudaram.length} funcionário(s) foi alterado por outra gravação${quem ? ` (${quem})` : ''} depois que a tela leu o mês. Nada foi gravado: anote o que mudou, recarregue a competência e lance de novo.`);
+    }
     for (let i = 0; i < itens.length; i += 200) {
         const lote = writeBatch(db);
         for (const { fichaId, antes, depois } of itens.slice(i, i + 200)) {

@@ -5,21 +5,30 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 const sv = vi.hoisted(() => {
-    const salvar = vi.fn(async (..._a: unknown[]) => undefined);
-    // Reserva do número em transação: lê as contas gravadas (a última gravação) e devolve o número, gravando o seguinte.
-    const reservar = vi.fn(async (_empresaId: string, contaId: string) => {
-        const contas = (salvar.mock.calls.at(-1)?.[1] ?? []) as { id: string; proximoNsa: number }[];
-        const nsa = contas.find(c => c.id === contaId)?.proximoNsa ?? 1;
-        return { nsa, contas: contas.map(c => (c.id === contaId ? { ...c, proximoNsa: nsa + 1 } : c)) };
+    type Conta = { id: string; proximoNsa: number; remessas?: { chave: string; nsa: number; em: string; quantidade: number; total: number }[] };
+    const banco = { contas: [] as Conta[] };
+    // Gravação da conta em transação, sobre a lista do banco.
+    const salvar = vi.fn(async (_empresaId: string, conta: Conta, _nsaEditado: boolean) => {
+        banco.contas = [...banco.contas.filter(c => c.id !== conta.id), conta];
+        return banco.contas;
     });
-    return { salvar, reservar };
+    // Reserva do número em transação: lê as contas gravadas e devolve o número, gravando o seguinte (e a remessa gerada).
+    const reservar = vi.fn(async (_empresaId: string, contaId: string, remessa?: { chave: string; quantidade: number; total: number }, aceitar = false) => {
+        const conta = banco.contas.find(c => c.id === contaId)!;
+        const repetida = remessa && conta.remessas?.find(x => x.chave === remessa.chave);
+        if (repetida && !aceitar) return { nsa: 0, contas: banco.contas, repetida };
+        const nsa = conta.proximoNsa;
+        banco.contas = banco.contas.map(c => (c.id === contaId ? { ...c, proximoNsa: nsa + 1, remessas: [...(remessa ? [{ ...remessa, nsa, em: '2026-10-10T10:00:00.000Z' }] : []), ...(c.remessas ?? [])] } : c));
+        return { nsa, contas: banco.contas };
+    });
+    return { salvar, reservar, banco };
 });
-vi.mock('../../empresas/empresasService', () => ({ salvarContasPagamento: (...a: unknown[]) => sv.salvar(...a), reservarNsa: (e: string, c: string) => sv.reservar(e, c) }));
+vi.mock('../../empresas/empresasService', () => ({ gravarContaPagamento: (...a: [string, never, boolean]) => sv.salvar(...a), reservarNsa: (...a: [string, string]) => sv.reservar(...a) }));
 import ArquivoBancarioModal from '../../../components/bancario/ArquivoBancarioModal';
 import { fichaVazia } from '../../cadastros/funcionarios';
 import type { ResultadoCalculo } from '../../calculo/motorMensal';
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); vi.clearAllMocks(); vi.restoreAllMocks(); sv.banco.contas = []; });
 
 const empresa = { id: 'E1', cnpj: '44388152000189', razaoSocial: 'S&P ASSESSORIA CONTABIL S/S', nomeFantasia: 'SP', codigoSage: '1200', criadoPor: 'g' };
 const ficha = (id: string, nome: string, dados: Record<string, string>) => ({ ...fichaVazia({ id: 'E1', cnpj: empresa.cnpj }), id, cpf: '52998224725', matriculaEsocial: id, situacao: 'ativo' as const, dados: { nome, ...dados } });
@@ -40,7 +49,7 @@ describe('modal Arquivo Bancário', () => {
         fireEvent.change(screen.getByLabelText('Convênio'), { target: { value: '123456' } });
         fireEvent.click(screen.getByText('Gravar conta'));
         await waitFor(() => expect(sv.salvar).toHaveBeenCalledTimes(1));
-        expect((sv.salvar.mock.calls[0][1] as { banco: string; conta: string }[])[0]).toMatchObject({ banco: '237', conta: '12345-6', convenio: '123456', proximoNsa: 1 });
+        expect(sv.salvar.mock.calls[0][1]).toMatchObject({ banco: '237', conta: '12345-6', convenio: '123456', proximoNsa: 1 });
         await waitFor(() => expect(screen.getByText(/Crédito em conta \(mesmo banco\): 1/)).toBeTruthy());
         expect(screen.getByText(/ainda não conferido com o arquivo gerado pela SAGE/)).toBeTruthy();
         const fora = screen.getByText(/Fora do arquivo \(2\)/).parentElement!;
@@ -51,6 +60,33 @@ describe('modal Arquivo Bancário', () => {
         await waitFor(() => expect(criar).toHaveBeenCalledTimes(1));
         expect((await sv.reservar.mock.results[0].value).contas[0].proximoNsa).toBe(2);
         expect(screen.getByRole('status').textContent).toMatch(/PG\d{4}01\.REM baixado: 1 pagamento/);
+        // De novo, com os mesmos pagamentos: pergunta antes (os dois arquivos no banco pagariam duas vezes).
+        let gerarDeNovo = false;
+        const confirmar = vi.spyOn(window, 'confirm').mockImplementation(m => !/já foi gerado/.test(m ?? '') || gerarDeNovo);
+        fireEvent.click(screen.getByText('Gerar arquivo (.REM)'));
+        await waitFor(() => expect(confirmar).toHaveBeenCalledWith(expect.stringMatching(/O arquivo nº 1 de Folha mensal 10\/2026 já foi gerado .* com os mesmos 1 pagamento\(s\)/)));
+        expect(criar).toHaveBeenCalledTimes(1);
+        expect(sv.banco.contas[0].proximoNsa).toBe(2);
+        gerarDeNovo = true;
+        fireEvent.click(screen.getByText('Gerar arquivo (.REM)'));
+        await waitFor(() => expect(criar).toHaveBeenCalledTimes(2));
+        expect(sv.banco.contas[0].proximoNsa).toBe(3);
+    });
+
+    it('editar a conta não devolve o próximo número a um já usado por outro arquivo', async () => {
+        const contaGravada = { id: 'c1', banco: '237', agencia: '1234-5', agenciaDv: '', conta: '12345-6', contaDv: '', convenio: '123456', proximoNsa: 5 };
+        sv.banco.contas = [contaGravada];
+        render(<ArquivoBancarioModal empresa={{ ...empresa, contasPagamento: [contaGravada] }} resultados={[res('f1', 'ANA', 300000)]} fichas={fichas} titulo="Folha mensal 10/2026" dataSugerida="2026-11-06" onFechar={() => {}} />);
+        fireEvent.click(await screen.findByText('Editar conta'));
+        fireEvent.change(screen.getByLabelText('Convênio'), { target: { value: '999' } });
+        fireEvent.click(screen.getByText('Gravar conta'));
+        await waitFor(() => expect(sv.salvar).toHaveBeenCalledTimes(1));
+        expect(sv.salvar.mock.calls[0][2]).toBe(false);
+        fireEvent.click(screen.getByText('Editar conta'));
+        fireEvent.change(screen.getByLabelText('Próximo número do arquivo'), { target: { value: '9' } });
+        fireEvent.click(screen.getByText('Gravar conta'));
+        await waitFor(() => expect(sv.salvar).toHaveBeenCalledTimes(2));
+        expect(sv.salvar.mock.calls[1][2]).toBe(true);
     });
 
     it('no Safari o .REM vai dentro de um .zip e a tela diz por quê (Itaú recusou "PG081010.REM.txt")', async () => {
@@ -61,6 +97,7 @@ describe('modal Arquivo Bancário', () => {
         vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) { baixados.push(this.download); });
         vi.spyOn(window, 'confirm').mockReturnValue(true);
         const contaGravada = { id: 'c1', banco: '237', agencia: '1234-5', agenciaDv: '', conta: '12345-6', contaDv: '', convenio: '123456', proximoNsa: 5 };
+        sv.banco.contas = [contaGravada];
         render(<ArquivoBancarioModal empresa={{ ...empresa, contasPagamento: [contaGravada] }} resultados={[res('f1', 'ANA', 300000)]} fichas={fichas} titulo="Folha mensal 10/2026" dataSugerida="2026-11-06" onFechar={() => {}} />);
         fireEvent.click(await screen.findByText('Gerar arquivo (.REM)'));
         await waitFor(() => expect(baixados).toHaveLength(1));
@@ -74,6 +111,7 @@ describe('modal Arquivo Bancário', () => {
         Object.assign(URL, { createObjectURL: criar, revokeObjectURL: vi.fn() });
         sv.reservar.mockRejectedValueOnce(new Error('Missing or insufficient permissions.'));
         const contaGravada = { id: 'c1', banco: '237', agencia: '1234-5', agenciaDv: '', conta: '12345-6', contaDv: '', convenio: '123456', proximoNsa: 5 };
+        sv.banco.contas = [contaGravada];
         vi.spyOn(window, 'confirm').mockReturnValue(true);
         render(<ArquivoBancarioModal empresa={{ ...empresa, contasPagamento: [contaGravada] }} resultados={[res('f1', 'ANA', 300000)]} fichas={fichas} titulo="Folha mensal 10/2026" dataSugerida="2026-11-06" onFechar={() => {}} />);
         fireEvent.click(await screen.findByText('Gerar arquivo (.REM)'));
@@ -83,6 +121,7 @@ describe('modal Arquivo Bancário', () => {
 
     it('arquivo do adiantamento: o valor de cada um vem de fora (não o líquido) e quem não tem fica fora sem aviso', async () => {
         const contaGravada = { id: 'c1', banco: '237', agencia: '1234-5', agenciaDv: '', conta: '12345-6', contaDv: '', convenio: '123456', proximoNsa: 5 };
+        sv.banco.contas = [contaGravada];
         const fichas2 = [...fichas, ficha('f3', 'CAIO', { banco: '237', agencia: '0987', conta: '44444-0', tipoConta: 'corrente' })];
         const valor = (r: ResultadoCalculo) => (r.fichaId === 'f1' ? 100000 : 0);
         render(<ArquivoBancarioModal empresa={{ ...empresa, contasPagamento: [contaGravada] }} resultados={[res('f1', 'ANA', 300000), res('f3', 'CAIO', 200000)]} fichas={fichas2}

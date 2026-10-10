@@ -9,7 +9,7 @@
 // Recibos de férias pagos na competência vão em demonstrativo próprio, com o
 // S-1210 do mês do recibo (que pode não ser o mês do pagamento da folha).
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
 import type { ResultadoCalculo } from '../../services/calculo/motorMensal';
@@ -42,6 +42,8 @@ interface Props {
 
 const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resultados, recibosFerias, dataSugerida, usuario, onFechar, onParametrosSalvos }) => {
     const [gravados, setGravados] = useState<ParametrosEsocialFolha>(() => empresa.esocialFolha ?? parametrosVazios(empresa.cnpj));
+    // O gravado no banco quando a tela abriu (ou na última gravação dela): outro usuário gravou depois, a gravação é recusada.
+    const lido = useRef(empresa.esocialFolha);
     const [params, setParams] = useState<ParametrosEsocialFolha>(gravados);
     const [rubricas, setRubricas] = useState<Rubrica[] | null>(null);
     const [data, setData] = useState(dataSugerida);
@@ -112,7 +114,7 @@ const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resu
 
     async function gravar() {
         setOcupado('Gravando…'); setErro('');
-        try { await salvarParametrosEsocialFolha(empresa.id, efetivos); setGravados(efetivos); setParams(efetivos); onParametrosSalvos?.(efetivos); setMsg('Parâmetros e de/para gravados na empresa.'); }
+        try { await salvarParametrosEsocialFolha(empresa.id, efetivos, lido.current); lido.current = efetivos; setGravados(efetivos); setParams(efetivos); onParametrosSalvos?.(efetivos); setMsg('Parâmetros e de/para gravados na empresa.'); }
         catch (e) { setErro(`Não foi possível gravar (${mensagemErro(e)}).`); }
         finally { setOcupado(''); }
     }

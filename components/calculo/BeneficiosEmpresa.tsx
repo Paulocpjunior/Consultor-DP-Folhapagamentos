@@ -5,7 +5,7 @@
 // (Cadastros › Funcionários › aba "Benefícios").
 
 import React, { useState } from 'react';
-import { comHistorico, novoBeneficio, validarBeneficios, type Beneficio } from '../../services/calculo/beneficios';
+import { comHistorico, edicaoRetroativa, novoBeneficio, validarBeneficios, type Beneficio } from '../../services/calculo/beneficios';
 import { centavosDeTexto } from '../../services/cadastros/documentos';
 
 const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
@@ -18,7 +18,7 @@ const BeneficiosEmpresa: React.FC<{ beneficios: Beneficio[]; competencia: string
     const set = (id: string, m: Partial<Beneficio>) => setLista(l => l.map(b => (b.id === id ? { ...b, ...m } : b)));
     const salvar = () => {
         const limpa = lista.map(b => ({ ...b, nome: b.nome.trim().replace(/\s+/g, ' '), codigoIob: (b.codigoIob ?? '').trim() }));
-        const e = validarBeneficios(limpa);
+        const e = [...validarBeneficios(limpa), ...edicaoRetroativa(beneficios, limpa, competencia)];
         setErros(e);
         // Mudança de valor, tipo, incidência ou ativo vale desta competência em diante; os meses anteriores ficam com a de antes.
         if (!e.length) onSalvar(comHistorico(beneficios, limpa, competencia));

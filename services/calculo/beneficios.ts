@@ -55,6 +55,24 @@ export function comHistorico(antes: Beneficio[], depois: Beneficio[], aPartirDe:
     });
 }
 
+/**
+ * Mudança numa competência anterior a outra mudança já registrada: o histórico só acrescenta faixas no fim, e gravar
+ * apagaria as definições dos meses seguintes (já calculados com elas). A mudança tem de ser feita na competência
+ * mais recente (auditoria de 10/2026).
+ */
+export function edicaoRetroativa(antes: Beneficio[], depois: Beneficio[], aPartirDe: string): string[] {
+    if (!COMPETENCIA.test(aPartirDe)) return [];
+    const ate = mesAnterior(aPartirDe);
+    const porId = new Map(antes.map(b => [b.id, b]));
+    return depois.flatMap(b => {
+        const a = porId.get(b.id);
+        if (!a || JSON.stringify(definicao(a)) === JSON.stringify(definicao(b))) return [];
+        const depoisDela = (a.historico ?? []).filter(x => x.ate > ate).map(x => x.ate).sort().at(-1);
+        return depoisDela ? [`${b.nome || 'Benefício'}: já há mudança valendo a partir de ${mesSeguinteBr(depoisDela)}. Mude a partir dessa competência (ou de uma mais recente), senão os meses seguintes seriam reescritos.`] : [];
+    });
+}
+const mesSeguinteBr = (c: string) => { const [a, m] = c.split('-').map(Number); return m === 12 ? `01/${a + 1}` : `${String(m + 1).padStart(2, '0')}/${a}`; };
+
 export interface AdesaoBeneficio {
     beneficioId: string;
     /** Quantidade de vidas (titular e dependentes no plano). */
