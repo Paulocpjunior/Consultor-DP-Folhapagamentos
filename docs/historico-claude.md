@@ -3710,3 +3710,26 @@ Paulo: "pode seguir com item 1 modal de demissões". É o item 1 das sugestões.
   - PDF;
   - tela: só vínculos ativos, comparativo, gravar e escolher;
   - regras (`testes-regras/demissoes.test.mjs`).
+
+## 10/10/2026 — Efetivador de rescisões (item 2)
+
+Paulo: "pode seguir com item 2 efetivador de rescisões". Ele também confirmou: "a geração do seguro-desemprego é feita no site Empregador Web".
+
+- **S-1210 do pagamento da rescisão** (`services/esocial/pagamentoRescisao.ts`, MOS S-2299 item 1.2):
+  - **O que leva:** `tpPgto` 2, `perRef` do desligamento e o `ideDmDev` do S-2299, no mês do pagamento.
+  - **IR:** deduções de dependentes do saldo (tpRend 11) e do 13º (tpRend 12) quando o cálculo não usou o simplificado, e a pensão por alimentando. O motor da rescisão passou a guardar `deducoesIrrf` (do saldo) e `deducoes13`; `irrfDetalhado` devolve `simplificado`.
+  - **Com S-1210 já aceito no mês** (a folha anterior paga no mesmo mês): S-3000 e reenvio com todos os pagamentos. As informações de IR do aceito voltam, com as da rescisão (`mesclarIRFerias` para tpRend 11 e 12; a pensão entra no `infoIRCR`).
+  - **Recusas com o motivo:** aceito sem download; o pagamento já no aceito; pensão nos dois; data antes do desligamento ou de outro mês do cálculo. Pagamento depois do prazo dá aviso da multa do art. 477, § 8º.
+  - **Tela:** `PagamentoRescisaoEsocial`, em Cálculo › Rescisão. Só depois do S-2299 aceito; S-2299 pelo IOB, então S-1210 pelo IOB.
+  - `recibosDosEnvios` reconhece a ref `pgto-resc:` como da ficha, para a folha não mandar outro S-1210 original no mês.
+- **Roteiro de efetivação** (`services/demissoes/efetivacao.ts`, `components/demissoes/EfetivacaoRescisao.tsx`):
+  - **Passos:** ficha, S-2299, pagamento, S-1210, guia rescisória do FGTS (FGTS Digital), seguro-desemprego (Empregador Web) e documentos, com o prazo de cada um.
+  - **Automáticos** pelo eSocial: ficha, S-2299 e S-1210. Os **manuais** são marcados com quem, quando e uma observação (`rescisoes_efetivacao`, regras e teste: nada se apaga).
+- **Seguro-desemprego** (Lei 7.998/1990, red. Lei 13.134/2015):
+  - Meses deste vínculo (fração de 15 dias conta) por solicitação: 12, 9 ou 6 meses; 3 a 5 parcelas.
+  - A média dos três últimos salários pela ficha. O valor da parcela fica com a tabela do Codefat.
+  - Os dados para o Empregador Web (copiar) e o atalho.
+- **Orientações ao trabalhador** (`orientacoesPdf.ts`): o que recebe e até quando, o saque do FGTS pelo app, o seguro (do 7º ao 120º dia) e os documentos.
+- **Termo de acordo (art. 484-A):** novo modelo-base.
+- **Demissões:** a prévia com o cenário escolhido tem "Registrar desligamento na ficha". Grava data, motivo e fim projetado, com auditoria. Daí, Cálculo › Rescisão.
+- **Atalhos externos:** FGTS Digital (`fgtsdigital.sistema.gov.br`) e Empregador Web (`sd.maisemprego.mte.gov.br/sdweb/empregadorweb`). Não consegui conferir os endereços daqui (o gov.br é bloqueado nesta rede).

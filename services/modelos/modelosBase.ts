@@ -133,6 +133,28 @@ ${LOCAL}
 {{assinaturas}}`,
     },
     {
+        id: 'base-acordo-484a', categoria: 'desligamento', titulo: 'Termo de extinção do contrato por acordo (art. 484-A)',
+        corpo: `# TERMO DE EXTINÇÃO DO CONTRATO DE TRABALHO POR ACORDO
+
+${PARTES}
+
+As partes, de comum acordo e por livre manifestação de vontade, extinguem o contrato de trabalho iniciado em {{contrato.admissao}}, na função de {{contrato.cargo}}, com último dia de trabalho em {{digitado.data}}, nos termos do art. 484-A da CLT, com as consequências abaixo, das quais o(a) EMPREGADO(A) declara ciência:
+
+1. São devidos pela metade o aviso prévio, se indenizado, e a indenização sobre o saldo do FGTS, de 20% (art. 484-A, I, e art. 18, § 1º, da Lei nº 8.036/1990).
+
+2. São devidas integralmente as demais verbas trabalhistas: saldo de salário, 13º salário proporcional e férias vencidas e proporcionais, com o terço constitucional (art. 484-A, II).
+
+3. O(A) EMPREGADO(A) poderá movimentar até 80% do saldo da sua conta vinculada do FGTS (art. 484-A, § 1º).
+
+4. A extinção do contrato por acordo não autoriza o ingresso no Programa de Seguro-Desemprego (art. 484-A, § 2º).
+
+As verbas rescisórias serão pagas até 10 (dez) dias contados do término do contrato (art. 477, § 6º, da CLT), conforme o Termo de Rescisão do Contrato de Trabalho.
+
+${LOCAL}
+
+{{assinaturas}}`,
+    },
+    {
         id: 'base-declaracao-dependentes', categoria: 'declaracao', titulo: 'Declaração de dependentes (IRRF e salário-família)',
         corpo: `# DECLARAÇÃO DE DEPENDENTES
 

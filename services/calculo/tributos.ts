@@ -29,7 +29,7 @@ export function inssDetalhado(base: number, t: TabelaLegal): { valor: number; me
 export interface OpcoesIrrf { simplificado: boolean; redutor: boolean }
 
 /** IRRF sobre um rendimento, com INSS, dependentes e pensão; simplificado e redutor conforme as opções. */
-export function irrfDetalhado(p: { rendimento: number; inss: number; dependentes: number; pensao?: number; tabela: TabelaLegal; opcoes: OpcoesIrrf; rotulo: string }): { valor: number; aliquota: number; memoria: string[] } {
+export function irrfDetalhado(p: { rendimento: number; inss: number; dependentes: number; pensao?: number; tabela: TabelaLegal; opcoes: OpcoesIrrf; rotulo: string }): { valor: number; aliquota: number; memoria: string[]; simplificado: boolean } {
     const t = p.tabela; const v = t.valores;
     const memoria: string[] = [];
     const legais = p.inss + p.dependentes * (v.deducaoDependente ?? 0) + (p.pensao ?? 0);
@@ -46,5 +46,5 @@ export function irrfDetalhado(p: { rendimento: number; inss: number; dependentes
         if (red) { ir -= red; memoria.push(`Redutor sobre ${reais(p.rendimento)}: −${reais(red)}. IRRF ${reais(ir)}.`); }
     }
     if (ir > 0 && ir <= IRRF_MINIMO) { memoria.push(`IRRF de ${reais(ir)} não retido: até R$ 10,00 a retenção é dispensada.`); ir = 0; }
-    return { valor: ir, aliquota: faixa.aliquota, memoria };
+    return { valor: ir, aliquota: faixa.aliquota, memoria, simplificado: usaSimpl };
 }

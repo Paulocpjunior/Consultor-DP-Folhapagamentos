@@ -88,6 +88,8 @@ export interface ResultadoRescisao extends ResultadoCalculo {
     multaFgts: number;
     percentualMulta: number;
     saqueFgts: string;
+    /** Deduções do IRRF do 13º da rescisão (tributação exclusiva, tpRend 12 no S-1210). As do saldo vêm em deducoesIrrf. */
+    deducoes13?: { simplificado: boolean; dependentes: { cpf: string; nome: string }[]; porDependente: number; pensao: number };
 }
 
 const ALIQUOTA_FGTS = 8;
@@ -177,6 +179,8 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
         r.memoria.push(`Arredondamento anterior: ${reais(arredAnt)} pagos a mais na folha passada, descontados (a rescisão não arredonda).`);
     }
     r.memoria.push(...mes.memoria.map(m => `Mês: ${m}`));
+    // Deduções do IRRF do saldo (tpRend 11 no S-1210 do pagamento da rescisão).
+    if (mes.deducoesIrrf) r.deducoesIrrf = mes.deducoesIrrf;
     r.avisos.push(...mes.avisos.filter(a => !a.startsWith('Desligado em')));
     // Do mensal, só as férias no mês deixam a rescisão incompleta (o desligamento é tratado aqui).
     if (mes.situacao === 'incompleto' && mes.avisos.some(a => a.startsWith('Férias de'))) r.situacao = 'incompleto';
@@ -254,6 +258,8 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
             if (pensao13) verba({ codigo: 'PENSAO13', descricao: 'Pensão alimentícia sobre 13º', referencia: '', tipo: 'desconto', valor: pensao13, inss: false, fgts: false, irrf: false });
             const x = irrfDetalhado({ rendimento: prop + ind, inss: inss13, dependentes: ficha.dependentes.filter(y => y.irrf === 'S' && y.pensao !== 'S').length, pensao: pensao13, tabela: tIr.tabela, opcoes, rotulo: 'IRRF do 13º (exclusivo na fonte)' });
             r.memoria.push(...x.memoria);
+            const deps13 = ficha.dependentes.filter(y => y.irrf === 'S' && y.pensao !== 'S');
+            r.deducoes13 = { simplificado: x.simplificado, dependentes: deps13.map(y => ({ cpf: y.cpf, nome: y.nome })), porDependente: tIr.tabela.valores.deducaoDependente ?? 0, pensao: pensao13 };
             verba({ codigo: 'IRRF13', descricao: 'IRRF sobre 13º', referencia: '', tipo: 'desconto', valor: x.valor, inss: false, fgts: false, irrf: false });
         }
     } else r.memoria.push('Justa causa: sem 13º proporcional, férias proporcionais e aviso prévio.');
