@@ -4,7 +4,7 @@
 // depois os cadastros, a folha do mês, as conferências, o eSocial, os prazos e o fim de mês;
 // as configurações ficam à direita. Cada item leva a uma tela (aba) e, quando há, à sub-aba dela.
 
-export type Aba = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin' | 'fimdemes';
+export type Aba = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin' | 'fimdemes' | 'relatorios';
 
 export type SubFolha = 'eventos' | 'apontamento' | 'validador-ponto' | 'implantacao' | 'conferencia';
 export type SubCadastroMenu = 'funcionarios' | 'horarios' | 'afastamentos' | 'incidencias' | 'enquadramento' | 'sindicatos' | 'tabelas';
@@ -17,6 +17,7 @@ export type Destino =
     | { aba: 'esocial'; sub: SubEsocial }
     | { aba: 'calculo'; folha: FolhaCalculo }
     | { aba: 'fimdemes'; sub: 'fechamento' | 'pedidos' }
+    | { aba: 'relatorios'; sub: 'central' }
     | { aba: 'empresas' | 'certificados' | 'prazos' | 'iobsage' | 'admin' }
     | { aba: 'trocar' };
 
@@ -57,6 +58,9 @@ export const MENU: GrupoMenu[] = [
         { id: 'pos-folha', rotulo: 'Conferência pós-folha', descricao: 'Totalizadores do eSocial, DCTFWeb e FGTS', icone: 'conferencia', destino: { aba: 'folha', sub: 'conferencia' } },
         { id: 'ponto', rotulo: 'Validador de ponto (ACJEF)', descricao: 'Arquivo do ponto eletrônico', icone: 'checkCirculo', destino: { aba: 'folha', sub: 'validador-ponto' } },
         { id: 'relatorio', rotulo: 'Relatório do eSocial', descricao: 'Eventos por competência', icone: 'grafico', destino: { aba: 'esocial', sub: 'relatorio' } },
+    ] },
+    { id: 'relatorios', rotulo: 'Relatórios', icone: 'grafico', itens: [
+        { id: 'central', rotulo: 'Central de relatórios', descricao: 'Folha, holerites, resumo, relação bancária, funcionários, férias: imprimir, PDF, Excel, e-mail e WhatsApp', icone: 'grafico', destino: { aba: 'relatorios', sub: 'central' } },
     ] },
     { id: 'esocial', rotulo: 'eSocial', icone: 'esocial', itens: [
         { id: 'dashboard', rotulo: 'Painel', descricao: 'Situação dos eventos e pendências', icone: 'painel', destino: { aba: 'esocial', sub: 'dashboard' } },

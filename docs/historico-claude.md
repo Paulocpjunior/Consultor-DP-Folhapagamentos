@@ -3423,3 +3423,26 @@ guias sindicais".
   - 13º: campo "Pensão sobre o 13º" no movimento do mês do pagamento (`pensao13`). Cada parcela desconta a sua (PENSAO13). O IRRF da 2ª deduz a de novembro e a de dezembro e vai no S-1210 anual (tpRend 12).
   - Rescisão: a `pensao13` do mês do desligamento deduz no IRRF do 13º rescisório. A pensão sobre o saldo continua no campo de pensão do mês.
 - **Testes:** `services/calculo/__tests__/mediasPensao.test.ts`.
+
+## 10/10/2026 — Relatórios, fase R1: Central de relatórios
+
+- **Paulo:** "não localizei o modelo de relatórios; deve ser criado conforme o que já tínhamos da SAGE com todas as melhorias do Consultor, modelos sempre usando nosso layout, opções de impressão, envio direto para o e-mail cadastrado, idem ao CFI e CCI, opção de envio por WhatsApp; temos também os contratos e modelos que podem ser personalizados; os contratos já existentes estão disponíveis no backup SAGE".
+- **Fases:**
+  - R1 (esta): central e layout.
+  - R2: contratos e modelos personalizáveis, com importação dos "Textos" do backup do SAGE.
+  - R3: ficha financeira, TRCT oficial, aviso de férias e informe.
+- **Layout único (`services/relatorios/layoutPdf.ts`):**
+  - Cabeçalho com a marca SP, empresa (razão, CNPJ, código) e título.
+  - Rodapé com "Consultor DP · SP Assessoria Contábil · Departamento Pessoal", data, hora e usuário da emissão, e "Página x de y".
+  - Marca de PRÉVIA enquanto o motor não está ativo.
+  - Holerites, recibos do adiantamento e resumo passaram a usar o mesmo layout.
+- **Menu Relatórios › Central de relatórios (`components/relatorios/RelatoriosPanel.tsx`), modelos:**
+  - Mensais: folha analítica, holerites, resumo, relação bancária, admitidos e demitidos.
+  - Funcionários: relação de funcionários, contratos de experiência, aniversariantes.
+  - Férias: a vencer e vencidas.
+  - Os da folha usam a folha gravada do mês.
+- **Ações:**
+  - Visualizar, imprimir (diálogo de impressão do navegador), baixar PDF e Excel.
+  - Orientação (padrão do modelo, retrato ou paisagem).
+  - "Enviar ao cliente": e-mail pelo escritório (CFI) para o contato cadastrado da empresa, com mensagem editável e o PDF anexo, e opção de gravar o contato. WhatsApp oficial (SP Connect, template do DP com o PDF) ou, sem template, o WhatsApp deste computador.
+- **Testes:** `services/relatorios/__tests__/centralRelatorios.test.tsx`.

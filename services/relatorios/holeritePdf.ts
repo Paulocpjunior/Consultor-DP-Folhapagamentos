@@ -16,47 +16,16 @@ import type { InfoIrrfFerias } from '../calculo/motorFerias';
 import { verbasDoAdiantamento } from '../esocial/eventosFolha';
 import { foraDoAdiantamento } from '../bancario/favorecidos';
 
-export interface CabecalhoEmpresa { razaoSocial: string; cnpj: string; codigoSage?: string }
-export interface OpcoesPdf { empresa: CabecalhoEmpresa; titulo: string; previa: boolean }
+import { cabecalhoPadrao, finalizar, textoPdf, type OpcoesPdf } from './layoutPdf';
+export { textoPdf, type CabecalhoEmpresa, type OpcoesPdf } from './layoutPdf';
 
-/** A fonte padrão do PDF (WinAnsi) não tem alguns sinais: troca pelos equivalentes. */
-export const textoPdf = (t: string) => t.replace(/[−–]/g, '-').replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/…/g, '...').replace(/[^\x20-\x7e\xa0-\xff—•]/g, '');
 const brl = (c: number) => (c / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const cnpjFmt = (c: string) => (c.length === 14 ? `${c.slice(0, 2)}.${c.slice(2, 5)}.${c.slice(5, 8)}/${c.slice(8, 12)}-${c.slice(12)}` : c);
 const cpfFmt = (c: string) => (c.length === 11 ? `${c.slice(0, 3)}.${c.slice(3, 6)}.${c.slice(6, 9)}-${c.slice(9)}` : c);
 const br = (d?: string) => (d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d.split('-').reverse().join('/') : d ?? '');
 
-/** Marca d'água por cima de tudo (semitransparente), em todas as páginas. */
-function marcaPrevia(doc: jsPDF) {
-    const { width, height } = doc.internal.pageSize;
-    for (let p = 1; p <= doc.getNumberOfPages(); p++) {
-        doc.setPage(p);
-        doc.saveGraphicsState();
-        doc.setGState(new (doc as unknown as { GState: new (o: { opacity: number }) => unknown }).GState({ opacity: 0.18 }) as never);
-        doc.setTextColor(150, 150, 150);
-        doc.setFontSize(64);
-        doc.text('PRÉVIA', width / 2, height / 2, { align: 'center', angle: 35 });
-        doc.restoreGraphicsState();
-    }
-    doc.setTextColor(0, 0, 0);
-}
 const direita = (t: string) => ({ content: t, styles: { halign: 'right' as const } });
 
-function cabecalho(doc: jsPDF, o: OpcoesPdf, subtitulo: string) {
-    doc.setFontSize(12); doc.setFont('helvetica', 'bold');
-    doc.text(textoPdf(o.empresa.razaoSocial), 14, 16);
-    doc.setFontSize(9); doc.setFont('helvetica', 'normal');
-    doc.text(textoPdf(`CNPJ ${cnpjFmt(o.empresa.cnpj)}${o.empresa.codigoSage ? ` · código ${o.empresa.codigoSage}` : ''}`), 14, 21);
-    doc.setFontSize(11); doc.setFont('helvetica', 'bold');
-    doc.text(textoPdf(o.titulo), 196, 16, { align: 'right' });
-    doc.setFontSize(9); doc.setFont('helvetica', 'normal');
-    doc.text(textoPdf(subtitulo), 196, 21, { align: 'right' });
-    if (o.previa) {
-        doc.setTextColor(180, 0, 0);
-        doc.text(textoPdf('Prévia do Consultor DP — confira com o IOB antes de qualquer uso.'), 14, 27);
-        doc.setTextColor(0, 0, 0);
-    }
-}
+const cabecalho = (doc: jsPDF, o: OpcoesPdf, subtitulo: string) => cabecalhoPadrao(doc, o, subtitulo);
 
 /** Uma página por funcionário (os resultados com erro ficam de fora). */
 /** IRRF das férias no recibo em PDF, também quando não há retenção (o desconto zerado não vira verba). */
@@ -121,8 +90,7 @@ export function holeritesPdf(resultados: ResultadoCalculo[], fichas: FichaFuncio
         assinatura(doc, y, r.nome);
     });
     if (!validos.length) { cabecalho(doc, o, ''); doc.text('Nenhum holerite calculado.', 14, 40); }
-    if (o.previa) marcaPrevia(doc);
-    return doc;
+    return finalizar(doc, o);
 }
 
 /**
@@ -179,8 +147,7 @@ export function recibosAdiantamentoPdf(resultados: ResultadoCalculo[], fichas: F
         });
     }
     if (!paginas && !fora.length) { cabecalho(doc, o, ''); doc.text('Nenhum adiantamento no mês.', 14, 40); }
-    if (o.previa) marcaPrevia(doc);
-    return doc;
+    return finalizar(doc, o);
 }
 
 /** Resumo da folha em uma ou mais páginas. */
@@ -222,6 +189,5 @@ export function resumoPdf(resumo: ResumoFolha, o: OpcoesPdf, observacao: string)
     const y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
     doc.setFontSize(8);
     doc.text(doc.splitTextToSize(textoPdf(observacao), 182), 14, y);
-    if (o.previa) marcaPrevia(doc);
-    return doc;
+    return finalizar(doc, o);
 }
