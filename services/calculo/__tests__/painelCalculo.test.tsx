@@ -36,6 +36,7 @@ const hol = vi.hoisted(() => ({ lerHolerites: vi.fn(), registrarLeitura: vi.fn()
 vi.mock('../holeritesService', () => hol);
 const pdf = vi.hoisted(() => ({ save: vi.fn(), holeritesPdf: vi.fn(), resumoPdf: vi.fn() }));
 vi.mock('../../relatorios/holeritePdf', () => ({ holeritesPdf: pdf.holeritesPdf, resumoPdf: pdf.resumoPdf }));
+vi.mock('../catalogoEventos', () => ({ carregarEventosIob: async () => (await import('../../../data/eventos-iob-sage.json')).default.eventos }));
 const USER = { uid: 'u1', email: 'dp@escritorio.com.br', role: 'colaborador' } as never;
 
 beforeEach(() => {
@@ -95,6 +96,44 @@ describe('aba Cálculo', () => {
 
         await clicarGerando(screen.getByText('Exportar Excel'), xlsx.writeFile);
         expect(xlsx.writeFile).toHaveBeenCalledWith(expect.anything(), 'calculo-0229-2026-03.xlsx');
+    });
+
+    it('lançar evento: código do IOB e referência, como no Sage', async () => {
+        render(<CalculoPanel currentUser={USER} />);
+        await waitFor(() => expect(screen.getByRole('option', { name: /0229/ })).toBeTruthy());
+        fireEvent.change(screen.getByLabelText('Competência'), { target: { value: '2026-03' } });
+        fireEvent.change(screen.getByLabelText('Empresa'), { target: { value: 'emp1' } });
+        await waitFor(() => expect(screen.getByText('ANA')).toBeTruthy());
+        fireEvent.click(screen.getByText('ANA'));
+        const lancar = async (codigo: string, ref: string) => {
+            const h = screen.getByRole('region', { name: 'Holerite de ANA' });
+            fireEvent.focus(within(h).getByLabelText('Código do evento'));
+            fireEvent.change(within(h).getByLabelText('Código do evento'), { target: { value: codigo } });
+            fireEvent.change(within(h).getByLabelText('Referência do evento'), { target: { value: ref } });
+            fireEvent.click(within(h).getByText('Lançar'));
+        };
+
+        // Hora extra 50%: vai para o campo do movimento (entra no DSR), com o mesmo valor de digitar as horas.
+        await lancar('810', '10');
+        await waitFor(() => expect(screen.getByRole('status').textContent).toContain('0810 HORA EXTRA 50%: 10 h em "Horas extras 50%"'));
+        let h = screen.getByRole('region', { name: 'Holerite de ANA' });
+        expect((within(h).getByLabelText('Horas extras 50%') as HTMLInputElement).value).toBe('10');
+        expect(within(h).getByText('Horas extras 50%', { selector: 'td' }).closest('tr')!.textContent).toContain('150,00');
+        expect(within(h).getByText('DSR sobre horas extras').closest('tr')!.textContent).toContain('28,85');
+        expect(screen.getByText('(não salvo)')).toBeTruthy();
+
+        // Adicional noturno 25%: lançamento avulso calculado (10 h × R$ 10,00 × 0,25) com as incidências do evento.
+        await lancar('0211', '10');
+        await waitFor(() => expect(screen.getByText('0211 ADICIONAL NOTURNO 25%', { selector: 'td' })).toBeTruthy());
+        h = screen.getByRole('region', { name: 'Holerite de ANA' });
+        expect(within(h).getByText('0211 ADICIONAL NOTURNO 25%', { selector: 'td' }).closest('tr')!.textContent).toContain('25,00');
+        expect((within(h).getByLabelText('Descrição do lançamento 1') as HTMLInputElement).value).toBe('0211 ADICIONAL NOTURNO 25%');
+
+        // O que o Consultor calcula sozinho não se lança.
+        await lancar('5700', '10');
+        await waitFor(() => expect(screen.getByText(/INSS, IRRF, FGTS e as bases saem do cálculo do Consultor/)).toBeTruthy());
+        await lancar('12345', '1');
+        await waitFor(() => expect(screen.getByText(/Evento 12345 não está no catálogo/)).toBeTruthy());
     });
 
     it('carrega o movimento gravado, valida e salva só o que mudou', async () => {
