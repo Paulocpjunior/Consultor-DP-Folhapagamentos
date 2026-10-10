@@ -25,6 +25,7 @@ eventos-ocr.pdf
 # Scripts de extração (uso interno) — exceção: scripts de build versionados
 scripts/*
 !scripts/genVersion.mjs
+!scripts/crm/
 # version.json é gerado pelo prebuild a cada build de produção
 public/version.json
 # Cloud Run / Docker (não usado em GitHub Pages)
