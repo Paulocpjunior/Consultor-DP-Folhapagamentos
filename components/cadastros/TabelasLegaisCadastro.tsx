@@ -6,7 +6,7 @@
 
 import React, { useState } from 'react';
 import {
-    DEF_TABELAS, TIPOS_TABELA, coeficienteDeTexto, inssProgressivo, rotuloCompetencia, tabelaVazia, tabelaVigente, tetoInss, textoCoeficiente, validarTabela,
+    DEF_TABELAS, TIPOS_TABELA, UFS, coeficienteDeTexto, inssProgressivo, rotuloCompetencia, tabelaVazia, tabelaVigente, tetoInss, textoCoeficiente, validarTabela,
     type ChaveValor, type DefValor, type TabelaLegal, type TipoTabela,
 } from '../../services/cadastros/tabelasLegais';
 import { excluirTabela, gravarTabelaOficial, mensagemErro, salvarTabela, type Usuario } from '../../services/cadastros/cadastrosService';
@@ -22,7 +22,8 @@ const mostrarValor = (v: DefValor, n: number) => (v.formato === 'coeficiente' ? 
 const pct = (n: number) => `${n.toLocaleString('pt-BR', { maximumFractionDigits: 4 })}%`;
 
 interface FaixaTexto { ate: string; aliquota: string; deducao: string }
-interface Edicao { antes: TabelaLegal | null; t: TabelaLegal; faixas: FaixaTexto[]; valores: Partial<Record<ChaveValor, string>> }
+interface PisoTexto { descricao: string; valor: string }
+interface Edicao { antes: TabelaLegal | null; t: TabelaLegal; faixas: FaixaTexto[]; valores: Partial<Record<ChaveValor, string>>; pisos: PisoTexto[] }
 
 function paraEdicao(antes: TabelaLegal | null, tipo: TipoTabela): Edicao {
     const t = antes ?? tabelaVazia(tipo);
@@ -30,6 +31,7 @@ function paraEdicao(antes: TabelaLegal | null, tipo: TipoTabela): Edicao {
         antes, t,
         faixas: t.faixas.map(f => ({ ate: txt(f.ate), aliquota: f.aliquota ? String(f.aliquota).replace('.', ',') : '', deducao: f.deducao ? txt(f.deducao) : '' })),
         valores: Object.fromEntries(Object.entries(t.valores).map(([k, v]) => [k, ehCoef(tipo, k) ? textoCoeficiente(v) : txt(v)])),
+        pisos: (t.pisos ?? []).map(x => ({ descricao: x.descricao, valor: x.valor ? txt(x.valor) : '' })),
     };
 }
 
@@ -50,7 +52,13 @@ function deEdicao(e: Edicao): { t: TabelaLegal; erros: string[] } {
         const c = ehCoef(e.t.tipo, k) ? coeficienteDeTexto(v) : centavosDeTexto(v);
         if (c === null) erros.push(`Valor inválido: ${v}.`); else valores[k] = c;
     }
-    return { t: { ...e.t, faixas, valores, norma: e.t.norma.trim(), observacao: e.t.observacao.trim() }, erros };
+    const estadual = DEF_TABELAS[e.t.tipo].estadual;
+    const pisos = e.pisos.map((x, i) => {
+        const valor = centavosDeTexto(x.valor);
+        if (x.valor.trim() && valor === null) erros.push(`Piso ${i + 1}: valor inválido.`);
+        return { descricao: x.descricao.trim(), valor: valor ?? 0 };
+    });
+    return { t: { ...e.t, faixas, valores, norma: e.t.norma.trim(), observacao: e.t.observacao.trim(), ...(estadual ? { pisos } : {}) }, erros };
 }
 
 const TabelasLegaisCadastro: React.FC<Props> = ({ tabelas, erroLista, usuario, isAdmin, onRecarregar }) => {
@@ -127,25 +135,35 @@ const TabelasLegaisCadastro: React.FC<Props> = ({ tabelas, erroLista, usuario, i
 
             {tabelas && TIPOS_TABELA.map(tipo => {
                 const lista = tabelas.filter(t => t.tipo === tipo);
+                const estadual = DEF_TABELAS[tipo].estadual;
                 const vig = tabelaVigente(tabelas, tipo, competenciaAtual);
+                const ufsComTabela = [...new Set(lista.map(t => t.uf ?? ''))].filter(Boolean).sort();
                 return (
                     <section key={tipo} className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                             <h3 className="font-semibold text-slate-800 dark:text-white">{DEF_TABELAS[tipo].titulo}</h3>
                             <button className="rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600 dark:text-white" onClick={() => { setErros([]); setEdicao(paraEdicao(null, tipo)); }}>Nova vigência</button>
                         </div>
-                        <p className={`mt-1 text-xs ${'erro' in vig ? 'text-red-700 dark:text-red-300' : 'text-green-700 dark:text-green-400'}`}>
-                            {'erro' in vig ? vig.erro : `Vigente em ${rotuloCompetencia(competenciaAtual)}: a de ${rotuloCompetencia(vig.tabela.vigencia)} (${vig.tabela.norma}).`}
-                        </p>
+                        {estadual ? (
+                            <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                                {ufsComTabela.length ? ufsComTabela.map(uf => { const v = tabelaVigente(tabelas, tipo, competenciaAtual, uf); return `${uf}: ${'erro' in v ? 'nenhuma vigente' : `a de ${rotuloCompetencia(v.tabela.vigencia)}`}`; }).join(' · ')
+                                    : 'Só nas UFs que têm piso regional (LC 103/2000), como SP, PR, RJ, RS e SC. A UF da empresa decide qual vale; vale para quem não tem piso em lei federal, convenção ou acordo coletivo.'}
+                            </p>
+                        ) : (
+                            <p className={`mt-1 text-xs ${'erro' in vig ? 'text-red-700 dark:text-red-300' : 'text-green-700 dark:text-green-400'}`}>
+                                {'erro' in vig ? vig.erro : `Vigente em ${rotuloCompetencia(competenciaAtual)}: a de ${rotuloCompetencia(vig.tabela.vigencia)} (${vig.tabela.norma}).`}
+                            </p>
+                        )}
                         {lista.length > 0 && (
                             <ul className="mt-2 divide-y divide-slate-100 text-sm dark:divide-slate-700">
                                 {lista.map(t => (
                                     <li key={t.id}>
                                         <button className="w-full py-2 text-left hover:bg-blue-50 dark:text-slate-100 dark:hover:bg-slate-700" onClick={() => { setErros([]); setEdicao(paraEdicao(t, tipo)); }}>
-                                            <strong>A partir de {rotuloCompetencia(t.vigencia)}</strong> · {t.norma}
+                                            <strong>{t.uf ? `${t.uf} · ` : ''}A partir de {rotuloCompetencia(t.vigencia)}</strong> · {t.norma}
                                             <span className="block text-xs text-slate-500 dark:text-slate-400">
                                                 {t.faixas.length > 0 && t.faixas.map(f => `${f.ate === null ? 'acima' : `até ${reais(f.ate)}`}: ${pct(f.aliquota)}${f.deducao ? ` − ${reais(f.deducao)}` : ''}`).join(' · ')}
                                                 {DEF_TABELAS[tipo].valores.map(v => t.valores[v.chave] != null ? ` · ${v.rotulo}: ${mostrarValor(v, t.valores[v.chave]!)}` : '').join('')}
+                                                {(t.pisos ?? []).map(x => `${x.descricao}: ${reais(x.valor)}`).join(' · ')}
                                                 {tipo === 'inss' && tetoInss(t) !== null && ` · contribuição no teto: ${reais(inssProgressivo(tetoInss(t)!, t))}`}
                                             </span>
                                         </button>
@@ -190,6 +208,26 @@ const TabelasLegaisCadastro: React.FC<Props> = ({ tabelas, erroLista, usuario, i
                                     </table>
                                     <button className="rounded border border-slate-300 px-3 py-1 text-sm dark:border-slate-600 dark:text-white" onClick={() => setEdicao({ ...edicao, faixas: [...edicao.faixas, { ate: '', aliquota: '', deducao: '' }] })}>Adicionar faixa</button>
                                     {tetoPrevia !== null && previa && <p className="text-xs text-slate-600 dark:text-slate-300">Conferência: contribuição no teto de {reais(tetoPrevia)} = <strong>{reais(inssProgressivo(tetoPrevia, previa.t))}</strong>. Compare com o valor máximo publicado na norma.</p>}
+                                </div>
+                            )}
+                            {def.estadual && (
+                                <div className="space-y-1">
+                                    <label className="block w-40"><span className="text-xs font-medium text-slate-600 dark:text-slate-300">UF</span>
+                                        <select className={inp} value={edicao.t.uf ?? ''} onChange={e => setEdicao({ ...edicao, t: { ...edicao.t, uf: e.target.value } })} aria-label="UF do salário mínimo estadual">
+                                            <option value="">—</option>{UFS.map(x => <option key={x} value={x}>{x}</option>)}
+                                        </select></label>
+                                    <table className="w-full text-sm">
+                                        <thead><tr className="text-left text-xs text-slate-500 dark:text-slate-400"><th className="p-1">Categoria (como na lei estadual)</th><th className="p-1">Piso mensal (R$)</th><th /></tr></thead>
+                                        <tbody>{edicao.pisos.map((x, i) => (
+                                            <tr key={i}>
+                                                <td className="p-1"><input className={inp} value={x.descricao} onChange={e => setEdicao({ ...edicao, pisos: edicao.pisos.map((y, j) => (j === i ? { ...y, descricao: e.target.value } : y)) })} aria-label={`Categoria do piso ${i + 1}`} /></td>
+                                                <td className="p-1"><input className={inp} value={x.valor} onChange={e => setEdicao({ ...edicao, pisos: edicao.pisos.map((y, j) => (j === i ? { ...y, valor: e.target.value } : y)) })} aria-label={`Valor do piso ${i + 1}`} /></td>
+                                                <td className="p-1"><button className="text-xs text-red-600 underline" onClick={() => setEdicao({ ...edicao, pisos: edicao.pisos.filter((_, j) => j !== i) })}>Remover</button></td>
+                                            </tr>
+                                        ))}</tbody>
+                                    </table>
+                                    <button className="rounded border border-slate-300 px-3 py-1 text-sm dark:border-slate-600 dark:text-white" onClick={() => setEdicao({ ...edicao, pisos: [...edicao.pisos, { descricao: '', valor: '' }] })}>Adicionar piso</button>
+                                    <p className="text-xs text-slate-600 dark:text-slate-300">São Paulo hoje tem um piso único; outras UFs (PR, RS, SC, RJ) têm faixas por categoria. A conferência da folha usa o menor piso e pede para conferir a categoria.</p>
                                 </div>
                             )}
                             {def.valores.length > 0 && (

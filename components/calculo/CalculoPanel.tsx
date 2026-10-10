@@ -14,6 +14,7 @@ import { anteriorEncadeado, arredondaNoMes, motorHomologadoNoMes, arredondar, fo
 import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
 import EmpresaAtivaFixa from '../empresaAtiva/EmpresaAtivaFixa';
 import FeriasColetivasModal from '../ferias/FeriasColetivasModal';
+import { conferirSalarioMinimo } from '../../services/conformidade/salarioMinimo';
 import { listarAfastamentos, listarEnquadramentos, listarFuncionarios, listarTabelas, mensagemErro, salvarAfastamento, type Usuario } from '../../services/cadastros/cadastrosService';
 import { enquadramentoVigente, type Enquadramento } from '../../services/cadastros/enquadramento';
 import type { User } from '../../types';
@@ -809,6 +810,17 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                     <label className="flex items-center gap-1"><input type="checkbox" checked={opcoes13.simplificado} onChange={e => setOpcoes13(o => ({ ...o, simplificado: e.target.checked }))} />aplicar o desconto simplificado</label>
                 </div>
             )}
+            {mensal && dados && empresa && (() => {
+                const c = conferirSalarioMinimo(dados.fichas, dados.tabelas, empresa.uf ?? '', competencia);
+                if (!c.alertas.length && !c.avisos.length) return null;
+                return (
+                    <section aria-label="Salário mínimo" className="space-y-1 rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-100">
+                        <p className="font-medium">Salário mínimo federal e estadual</p>
+                        {c.alertas.length > 0 && <ul className="list-disc pl-5">{c.alertas.map(a => <li key={a.fichaId + a.regra} className={a.nivel === 'erro' ? 'text-red-800 dark:text-red-200' : ''}><strong>{a.nome}:</strong> {a.mensagem}</li>)}</ul>}
+                        {c.avisos.map(a => <p key={a}>{a}</p>)}
+                    </section>
+                );
+            })()}
             {errosMov.length > 0 && <ul role="alert" aria-label="Erros do movimento" className="list-disc rounded bg-red-50 p-2 pl-6 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{errosMov.map(e => <li key={e}>{e}</li>)}</ul>}
             {aviso && <p role="status" className="rounded bg-green-50 p-2 text-sm text-green-800 dark:bg-green-900/30 dark:text-green-200">{aviso}</p>}
 
