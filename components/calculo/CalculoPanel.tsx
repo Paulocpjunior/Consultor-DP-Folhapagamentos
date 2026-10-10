@@ -35,6 +35,7 @@ import { calcular13, com13, OPCOES_13_PADRAO, ultimoDiaDoMes, type Opcoes13 } fr
 import ConferenciaHolerites, { conferirTodos, type LeituraHolerites } from './ConferenciaHolerites';
 import ConferenciaEsocialIob from './ConferenciaEsocialIob';
 import EventosFolhaModal from '../esocial/EventosFolhaModal';
+import CalculoAdiantamentosModal from './CalculoAdiantamentosModal';
 import { recibosFeriasDaCompetencia } from '../../services/esocial/eventosFolha';
 import { contextoDoHolerite, definirContextoMia } from '../../services/mia/mia';
 import { resumirFolha } from '../../services/relatorios/resumoFolha';
@@ -125,6 +126,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const [verBeneficios, setVerBeneficios] = useState(false);
     const [pacote, setPacote] = useState(false);
     const [eventosFolha, setEventosFolha] = useState(false);
+    const [verAdiantamentos, setVerAdiantamentos] = useState(false);
     useEffect(() => { setEnviosEsocial(null); if (!empresaId || folha !== 'ferias') return; listarEnvios(empresaId).then(setEnviosEsocial).catch(() => setEnviosEsocial([])); }, [empresaId, folha, recargaEnvios]);
     const [opcoesFerias, setOpcoesFerias] = useState<OpcoesFerias>(OPCOES_FERIAS_PADRAO);
     const [recarga, setRecarga] = useState(0);
@@ -582,6 +584,7 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 <button className={`${mensal ? '' : 'ml-auto '}${btn}`} disabled={!resultados.length} aria-pressed={verResumo} onClick={() => setVerResumo(x => !x)}>Resumo da folha</button>
                 <button className={btn} disabled={!resultados.some(r => r.situacao !== 'erro')} onClick={() => pdfHolerites(resultados, `holerites-${empresa?.codigoSage ?? 'empresa'}-${sufixoArquivo}.pdf`)}>Holerites (PDF)</button>
                 <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado') || !!bloqueioPagamento} title={bloqueioPagamento || undefined} onClick={() => setArquivoBancario('folha')}>Arquivo bancário</button>
+                {mensal && <button className={btn} disabled={!dados || !resultados.length} title="Adiantamento salarial do mês por funcionário: valores, IRRF, arredondamento, recibos e arquivo bancário." onClick={() => setVerAdiantamentos(true)}>Cálculo de adiantamentos</button>}
                 {mensal && resultados.some(r => r.situacao === 'calculado' && valorDoAdiantamento(r) > 0) && <button className={btn} disabled={!empresa || !movsLidos || !!bloqueioPagamento} title={bloqueioPagamento || (movsLidos ? 'Remessa do adiantamento salarial do mês (dia 20 ou o dia útil anterior), com o valor de cada um.' : 'Sem os movimentos gravados do mês (carregando ou com erro na leitura): um adiantamento informado no movimento muda o valor.')} onClick={() => setArquivoBancario('adiantamento')}>Arquivo do adiantamento</button>}
                 {mensal && resultados.some(r => valorDoAdiantamento(r) > 0) && <button className={btn} disabled={!dados || !movsLidos} title={movsLidos ? `Recibo do adiantamento salarial de cada funcionário, pago em ${br(dataAdiantamento)}, para assinatura.` : 'Sem os movimentos gravados do mês (carregando ou com erro na leitura): um adiantamento informado no movimento muda o valor.'} onClick={pdfAdiantamento}>Recibos do adiantamento (PDF)</button>}
                 <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado') || !!bloqueioPagamento} title={bloqueioPagamento || undefined} onClick={() => setPacote(true)}>Pacote do cliente</button>
@@ -746,6 +749,13 @@ const CalculoPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 </section>
             )}
 
+            {mensal && verAdiantamentos && dados && (
+                <CalculoAdiantamentosModal empresaNome={empresa ? empresa.nomeFantasia || empresa.razaoSocial : ''} competencia={competencia} dataAdiantamento={dataAdiantamento}
+                    resultados={resultados} fichas={dados.fichas} movs={movs} pendentes={pendentes.length}
+                    bloqueio={!empresa ? 'Escolha a empresa.' : !movsLidos ? 'Sem os movimentos gravados do mês (carregando ou com erro na leitura).' : bloqueioPagamento || undefined}
+                    onFixar={valores => { setMovs(x => ({ ...x, ...Object.fromEntries(Object.entries(valores).map(([id, v]) => [id, { ...x[id], adiantamento: v }])) })); setAviso(`Adiantamento de ${Object.keys(valores).length} funcionário(s) fixado no movimento: clique em "Salvar movimento".`); }}
+                    onRecibos={pdfAdiantamento} onArquivo={() => { setVerAdiantamentos(false); setArquivoBancario('adiantamento'); }} onFechar={() => setVerAdiantamentos(false)} />
+            )}
             {(mensal || folha === '13-2a') && eventosFolha && empresa && dados && (() => {
                 const [pa, pm] = (/^\d{4}-\d{2}$/.test(pagamento) ? pagamento : competenciaSeguinte(competencia)).split('-').map(Number);
                 // 2ª parcela do 13º: o S-1200 anual (AAAA) e o pagamento no S-1210 do mês dela (até 20/12).

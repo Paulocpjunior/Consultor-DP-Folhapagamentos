@@ -3233,3 +3233,10 @@ guias sindicais".
 - **Continua travado:** contrato com rescisão no mês antes do adiantamento (a data em que a rescisão foi paga não fica gravada) e contrato que só tem a folha paga no mês sem o IRRF gravado.
 - **Tela:** a soma é feita antes do arredondamento (o arredondamento do adiantamento depende do IRRF dele).
 - **Testes:** caso novo em `services/esocial/__tests__/irrfAdiantamento.test.ts`.
+
+## 10/10/2026 — Modal "Cálculo de Adiantamentos"
+
+- **Paulo:** pediu um modal "Calculo de Adiantamentos".
+- **Tela (Cálculo › folha mensal › "Cálculo de adiantamentos"):** por funcionário, o percentual da ficha (ou "informado" no movimento), o adiantamento, o IRRF dele (quando o saldo da folha é pago no mês seguinte; "(CPF)" quando soma os contratos do mesmo CPF), o arredondamento, o que se paga no dia e a situação (ok, incompleto, erro ou fora do arquivo pela data); totais.
+- **Ações:** fixar no movimento o valor pago (grava o "Adiantamento pago": desligamento, afastamento ou reajuste depois do dia 20 não mudam o desconto na folha; depois, "Salvar movimento"); recibos (PDF); arquivo bancário (bloqueado como o da tela: movimento por salvar ou leitura do mês pendente); exportar Excel.
+- **Testes:** `services/calculo/__tests__/calculoAdiantamentosModal.test.tsx`.
