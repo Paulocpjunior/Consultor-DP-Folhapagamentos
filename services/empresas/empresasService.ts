@@ -76,6 +76,8 @@ export async function criarEmpresa(uid: string, input: EmpresaInput): Promise<st
         razaoSocial: input.razaoSocial.trim(),
         nomeFantasia: input.nomeFantasia.trim(),
         codigoSage,
+        ...(input.uf ? { uf: input.uf } : {}),
+        ...(input.municipio?.trim() ? { municipio: input.municipio.trim() } : {}),
         criadoPor: uid,
         criadoEm: serverTimestamp(),
         atualizadoEm: serverTimestamp(),
@@ -97,6 +99,8 @@ export async function atualizarEmpresa(id: string, input: Partial<EmpresaInput> 
     if (input.razaoSocial  !== undefined) patch.razaoSocial  = input.razaoSocial.trim();
     if (input.nomeFantasia !== undefined) patch.nomeFantasia = input.nomeFantasia.trim();
     if (input.codigoSage   !== undefined) patch.codigoSage   = normalizarSage(input.codigoSage);
+    if (input.uf           !== undefined) patch.uf           = input.uf;
+    if (input.municipio    !== undefined) patch.municipio    = input.municipio.trim();
     if ('certificado' in input) patch.certificado = input.certificado;
     const trocas: { tipo: 'sage' | 'cnpj'; antes: string; depois: string }[] = [];
     // Compara com o gravado como está: empresa antiga com "93" passa a "0093" e precisa da chave.

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { consultarCnpj, validaCnpj, formatCnpj } from '../../services/brasilApiService';
 import { criarEmpresa, atualizarEmpresa } from '../../services/empresas/empresasService';
 import type { Empresa } from '../../services/empresas/empresasTypes';
+import { UFS } from '../../services/cadastros/tabelasLegais';
 import type { User } from '../../types';
 
 interface Props {
@@ -17,6 +18,8 @@ const EmpresaForm: React.FC<Props> = ({ currentUser, empresaParaEditar, onSalvo,
     const [razaoSocial, setRazaoSocial]   = useState(empresaParaEditar?.razaoSocial ?? '');
     const [nomeFantasia, setNomeFantasia] = useState(empresaParaEditar?.nomeFantasia ?? '');
     const [codigoSage, setCodigoSage]     = useState(empresaParaEditar?.codigoSage ?? '');
+    const [uf, setUf]                     = useState(empresaParaEditar?.uf ?? '');
+    const [municipio, setMunicipio]       = useState(empresaParaEditar?.municipio ?? '');
     const [busy, setBusy]                 = useState(false);
     const [erro, setErro]                 = useState('');
     const [info, setInfo]                 = useState('');
@@ -27,6 +30,8 @@ const EmpresaForm: React.FC<Props> = ({ currentUser, empresaParaEditar, onSalvo,
             setRazaoSocial(empresaParaEditar.razaoSocial);
             setNomeFantasia(empresaParaEditar.nomeFantasia);
             setCodigoSage(empresaParaEditar.codigoSage);
+            setUf(empresaParaEditar.uf ?? '');
+            setMunicipio(empresaParaEditar.municipio ?? '');
         }
     }, [empresaParaEditar]);
 
@@ -38,6 +43,8 @@ const EmpresaForm: React.FC<Props> = ({ currentUser, empresaParaEditar, onSalvo,
             const dados = await consultarCnpj(cnpj);
             setRazaoSocial(dados.razao_social ?? '');
             setNomeFantasia(dados.nome_fantasia ?? dados.razao_social ?? '');
+            if (dados.uf && UFS.includes(dados.uf)) setUf(dados.uf);
+            if (dados.municipio) setMunicipio(dados.municipio);
             setInfo('OK ' + dados.razao_social + (dados.municipio ? ' - ' + dados.municipio + '/' + dados.uf : ''));
         } catch (e: any) {
             setErro(e?.message ?? 'Erro ao consultar CNPJ.');
@@ -57,9 +64,9 @@ const EmpresaForm: React.FC<Props> = ({ currentUser, empresaParaEditar, onSalvo,
         setBusy(true);
         try {
             if (editando && empresaParaEditar) {
-                await atualizarEmpresa(empresaParaEditar.id, { cnpj, razaoSocial, nomeFantasia, codigoSage });
+                await atualizarEmpresa(empresaParaEditar.id, { cnpj, razaoSocial, nomeFantasia, codigoSage, uf, municipio });
             } else {
-                await criarEmpresa((currentUser as any).uid, { cnpj, razaoSocial, nomeFantasia, codigoSage });
+                await criarEmpresa((currentUser as any).uid, { cnpj, razaoSocial, nomeFantasia, codigoSage, uf, municipio });
             }
             onSalvo();
         } catch (e: any) {
@@ -112,6 +119,23 @@ const EmpresaForm: React.FC<Props> = ({ currentUser, empresaParaEditar, onSalvo,
                     placeholder="0229" maxLength={4}
                     className="w-32 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded" />
             </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-[8rem_1fr] gap-3">
+                <div>
+                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1" htmlFor="empresa-uf">UF do local de trabalho</label>
+                    <select id="empresa-uf" value={uf} onChange={(e) => setUf(e.target.value)}
+                        className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded">
+                        <option value="">—</option>
+                        {UFS.map(x => <option key={x} value={x}>{x}</option>)}
+                    </select>
+                </div>
+                <div>
+                    <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1" htmlFor="empresa-municipio">Município</label>
+                    <input id="empresa-municipio" type="text" value={municipio} onChange={(e) => setMunicipio(e.target.value)}
+                        className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded" />
+                </div>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">A UF decide o salário mínimo estadual (piso regional, como o de São Paulo) conferido na folha.</p>
 
             {info && <p className="text-sm text-green-700 dark:text-green-400">{info}</p>}
             {erro && <p className="text-sm text-red-700 dark:text-red-400">{erro}</p>}

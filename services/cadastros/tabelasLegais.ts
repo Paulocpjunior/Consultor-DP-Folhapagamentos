@@ -1,7 +1,8 @@
 // services/cadastros/tabelasLegais.ts
 //
 // Tabelas legais com vigência (Cadastros › Genéricos › Tabelas Legais do SGC):
-// INSS do segurado, IRRF mensal, salário mínimo e salário-família.
+// INSS do segurado, IRRF mensal, salário mínimo federal, salário mínimo estadual
+// (piso regional da LC 103/2000, por UF, com os pisos de cada categoria) e salário-família.
 //
 // Nenhum valor vem pré-carregado: quem cadastra digita a tabela da norma
 // oficial e informa a norma (portaria, lei, IN). Sem norma não grava. A tabela
@@ -11,7 +12,7 @@
 // tabela do IRRF, como campos opcionais: tabela anterior a 2026 não tem.
 // O cálculo em si fica no motor (services/calculo).
 
-export type TipoTabela = 'inss' | 'irrf' | 'salario_minimo' | 'salario_familia';
+export type TipoTabela = 'inss' | 'irrf' | 'salario_minimo' | 'salario_minimo_estadual' | 'salario_familia';
 export type ChaveValor = 'deducaoDependente' | 'descontoSimplificado' | 'salarioMinimo' | 'cotaSalarioFamilia' | 'limiteSalarioFamilia'
     | 'redutorAte' | 'redutorMaximo' | 'redutorLimite' | 'redutorConstante' | 'redutorCoeficiente';
 
@@ -26,7 +27,14 @@ export interface TabelaLegal {
     valores: Partial<Record<ChaveValor, number>>;
     norma: string;
     observacao: string;
+    /** Salário mínimo estadual: a UF e os pisos (centavos) de cada categoria, como na lei estadual. */
+    uf?: string;
+    pisos?: PisoEstadual[];
 }
+
+export interface PisoEstadual { descricao: string; valor: number }
+
+export const UFS = ['AC', 'AL', 'AM', 'AP', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MG', 'MS', 'MT', 'PA', 'PB', 'PE', 'PI', 'PR', 'RJ', 'RN', 'RO', 'RR', 'RS', 'SC', 'SE', 'SP', 'TO'];
 
 /**
  * Valores em centavos, menos o formato 'coeficiente', guardado em milionésimos
@@ -34,7 +42,7 @@ export interface TabelaLegal {
  * mesmo grupo vêm todos ou nenhum.
  */
 export interface DefValor { chave: ChaveValor; rotulo: string; formato?: 'reais' | 'coeficiente'; grupo?: string }
-export interface DefTabela { titulo: string; faixas: false | { deducao: boolean; ultimaAberta: boolean }; valores: DefValor[] }
+export interface DefTabela { titulo: string; faixas: false | { deducao: boolean; ultimaAberta: boolean }; valores: DefValor[]; /** Por UF, com os pisos das categorias. */ estadual?: boolean }
 
 export const DEF_TABELAS: Record<TipoTabela, DefTabela> = {
     inss: { titulo: 'INSS do segurado (progressiva)', faixas: { deducao: false, ultimaAberta: false }, valores: [] },
@@ -49,7 +57,8 @@ export const DEF_TABELAS: Record<TipoTabela, DefTabela> = {
             { chave: 'redutorCoeficiente', rotulo: 'Redutor parcial: coeficiente sobre os rendimentos', formato: 'coeficiente', grupo: 'redutor' },
         ],
     },
-    salario_minimo: { titulo: 'Salário mínimo nacional', faixas: false, valores: [{ chave: 'salarioMinimo', rotulo: 'Salário mínimo mensal' }] },
+    salario_minimo: { titulo: 'Salário mínimo federal (todo o território nacional)', faixas: false, valores: [{ chave: 'salarioMinimo', rotulo: 'Salário mínimo mensal' }] },
+    salario_minimo_estadual: { titulo: 'Salário mínimo estadual (piso regional da UF)', faixas: false, valores: [], estadual: true },
     salario_familia: {
         titulo: 'Salário-família', faixas: false,
         valores: [{ chave: 'cotaSalarioFamilia', rotulo: 'Valor da cota por filho' }, { chave: 'limiteSalarioFamilia', rotulo: 'Remuneração máxima para ter direito' }],
@@ -60,7 +69,8 @@ export const TIPOS_TABELA = Object.keys(DEF_TABELAS) as TipoTabela[];
 
 export function tabelaVazia(tipo: TipoTabela): TabelaLegal {
     const def = DEF_TABELAS[tipo];
-    return { id: '', tipo, vigencia: '', faixas: def.faixas ? [{ ate: null, aliquota: 0, deducao: 0 }] : [], valores: {}, norma: '', observacao: '' };
+    return { id: '', tipo, vigencia: '', faixas: def.faixas ? [{ ate: null, aliquota: 0, deducao: 0 }] : [], valores: {}, norma: '', observacao: '',
+        ...(def.estadual ? { uf: '', pisos: [{ descricao: '', valor: 0 }] } : {}) };
 }
 
 const competenciaValida = (c: string) => /^\d{4}-(0[1-9]|1[0-2])$/.test(c);
@@ -71,7 +81,16 @@ export function validarTabela(t: TabelaLegal, existentes: TabelaLegal[] = []): s
     if (!def) return ['Tipo de tabela desconhecido.'];
     if (!competenciaValida(t.vigencia)) erros.push('Vigência deve ser um mês no formato AAAA-MM.');
     if (t.norma.trim().length < 5) erros.push('Informe a norma de onde saíram os valores (ex.: portaria, lei, instrução normativa).');
-    if (existentes.some(e => e.id !== t.id && e.tipo === t.tipo && e.vigencia === t.vigencia)) erros.push('Já existe uma tabela deste tipo com esta vigência.');
+    if (existentes.some(e => e.id !== t.id && e.tipo === t.tipo && e.vigencia === t.vigencia && (e.uf ?? '') === (t.uf ?? ''))) erros.push(`Já existe uma tabela deste tipo com esta vigência${def.estadual ? ` para ${t.uf}` : ''}.`);
+    if (def.estadual) {
+        if (!UFS.includes(t.uf ?? '')) erros.push('Escolha a UF do salário mínimo estadual.');
+        const pisos = t.pisos ?? [];
+        if (!pisos.length) erros.push('Informe ao menos um piso.');
+        pisos.forEach((x, i) => {
+            if (x.descricao.trim().length < 3) erros.push(`Piso ${i + 1}: informe a categoria (como na lei estadual).`);
+            if (!Number.isInteger(x.valor) || x.valor <= 0) erros.push(`Piso ${i + 1}: valor inválido.`);
+        });
+    }
     const cfg = def.faixas;
     if (cfg) {
         if (!t.faixas.length) erros.push('Informe as faixas.');
@@ -105,10 +124,10 @@ export function validarTabela(t: TabelaLegal, existentes: TabelaLegal[] = []): s
 export type ResultadoVigencia = { tabela: TabelaLegal } | { erro: string };
 
 /** Tabela que vale na competência: a de maior vigência até ela. */
-export function tabelaVigente(tabelas: TabelaLegal[], tipo: TipoTabela, competencia: string): ResultadoVigencia {
+export function tabelaVigente(tabelas: TabelaLegal[], tipo: TipoTabela, competencia: string, uf?: string): ResultadoVigencia {
     if (!competenciaValida(competencia)) return { erro: 'Competência inválida.' };
-    const candidatas = tabelas.filter(t => t.tipo === tipo && t.vigencia <= competencia);
-    if (!candidatas.length) return { erro: `Nenhuma tabela de ${DEF_TABELAS[tipo].titulo} vigente em ${rotuloCompetencia(competencia)}.` };
+    const candidatas = tabelas.filter(t => t.tipo === tipo && t.vigencia <= competencia && (!DEF_TABELAS[tipo].estadual || t.uf === uf));
+    if (!candidatas.length) return { erro: `Nenhuma tabela de ${DEF_TABELAS[tipo].titulo}${DEF_TABELAS[tipo].estadual ? ` de ${uf || '(UF não informada)'}` : ''} vigente em ${rotuloCompetencia(competencia)}.` };
     const maior = candidatas.reduce((m, t) => (t.vigencia > m ? t.vigencia : m), '');
     const mesma = candidatas.filter(t => t.vigencia === maior);
     if (mesma.length > 1) return { erro: `Duas tabelas de ${DEF_TABELAS[tipo].titulo} com vigência ${rotuloCompetencia(maior)}: corrija antes de usar.` };

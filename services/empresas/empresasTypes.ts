@@ -19,6 +19,9 @@ export interface Empresa {
     razaoSocial: string;
     nomeFantasia: string;
     codigoSage: string;        // 4 dígitos zero-fill (ex: "0229")
+    /** UF e município do local de trabalho (salário mínimo estadual, feriados e comunicações). */
+    uf?: string;
+    municipio?: string;
     criadoPor: string;         // uid do usuário que cadastrou
     criadoEm?: any;            // serverTimestamp
     atualizadoEm?: any;
@@ -40,4 +43,6 @@ export interface EmpresaInput {
     razaoSocial: string;
     nomeFantasia: string;
     codigoSage: string;
+    uf?: string;
+    municipio?: string;
 }

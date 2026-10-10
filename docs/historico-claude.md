@@ -3815,3 +3815,18 @@ Paulo: "pode seguir com férias coletivas" (no mesmo pedido: sindicatos ligados 
 - **Comunicação em PDF:** ao Ministério do Trabalho, ao sindicato e o aviso para afixar, com a tabela de dias de cada empregado.
 - **Catálogo SAGE:** férias passa a disponível. Placar: 19 disponíveis, 20 parciais, 9 planejados, 3 fora.
 - **Testes:** plano (saldo, art. 140, licença, antecipação, exclusões, regras e gravados), motor (recibo das proporcionais e novo período), tela e PDF.
+
+## 10/10/2026 — Salário mínimo federal e estadual
+
+Paulo: no modal de cadastros (tabelas), os campos "Salário Mínimo Federal" (todo o território nacional) e "Salário Mínimo Estadual" (como o de São Paulo, diferente do federal).
+
+- **Cadastros › Tabelas legais:**
+  - "Salário mínimo nacional" passou a "Salário mínimo federal (todo o território nacional)";
+  - nova tabela **"Salário mínimo estadual (piso regional da UF)"**, com vigência, norma, UF e os pisos de cada categoria (SP hoje tem piso único; PR, RS, SC e RJ têm faixas). A mesma vigência pode existir em UFs diferentes; a vigente é a da UF. Nenhum valor vem pronto (norma obrigatória, como nas outras).
+- **Empresa:** UF e município do local de trabalho no cadastro (preenchidos pela consulta do CNPJ). A UF decide qual mínimo estadual vale.
+- **Conferência** (`services/conformidade/salarioMinimo.ts`), na folha mensal (Cálculo › Mensal), com o salário vigente na competência pelo histórico:
+  - abaixo do federal: erro (CF, art. 7º, IV), proporcional à jornada menor que 220 h (TST, OJ 358) e também para o aprendiz;
+  - abaixo do menor piso estadual da UF: aviso, porque o piso estadual vale para quem não tem piso em lei federal, convenção ou acordo coletivo (LC 103/2000) — com a convenção cadastrada (próximo lote), o piso dela prevalece;
+  - fora: quem não é empregado e o intermitente; sem UF na empresa ou sem tabela federal, avisa.
+- **Catálogo SAGE:** Tabelas legais cita o mínimo estadual e a conferência.
+- **Testes:** tabela estadual (UF, pisos, vigência por UF), mínimos vigentes, conferência (federal, estadual, jornada parcial, salário por hora, histórico, quem fica fora).
