@@ -3774,7 +3774,7 @@ Paulo: "pode seguir com s-1010".
 - **Aceito em produção:** "Atualizar a tabela de rubricas" grava a vigência na rubrica (mesma consolidação da importação, com o recibo; o vínculo com o evento do IOB fica) e marca o pedido como aplicado no mesmo lote. Se o pedido veio de uma verba sem rubrica no de/para, o de/para da empresa passa a usá-la.
 - **Conferência do S-1200:** IRRF 13 nas férias da folha do gozo (FERMES, FERMES13 e FERPAGO) deixou de gerar aviso: é o que o MOS manda e as três se anulam.
 - **Tabela 21:** rótulos do 9 (MOS, S-1010 item 12.1) e do 43 (dedução da previdência oficial nas férias).
-- **Catálogo SAGE:** "Relacionamento de Rubricas" passou a disponível.
+- **Catálogo SAGE (de/para com o SAGE):** "Relacionamento de Rubricas" passou a disponível; periódicos e consignado citam o S-1010. Placar: 18 disponíveis, 21 parciais, 9 planejados, 3 fora (51 itens).
 - **Testes:**
   - XML dos três tipos no XSD oficial; validação; lote; aplicação no cadastro; situação pela ref;
   - os modelos no XSD e coerentes com o motor; férias pelos modelos sem aviso de incidência no recibo e na folha do gozo;
