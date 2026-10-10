@@ -522,6 +522,11 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
         try { (await relatoriosPdf()).recibosAdiantamentoPdf(resultados, dados.fichas, opcoesPdfAdiantamento(), dataAdiantamento).save(`adiantamento-${empresa?.codigoSage ?? 'empresa'}-${competencia}.pdf`); }
         catch (e) { setErrosMov([`PDF não gerado: ${(e as Error).message}`]); }
     }
+    async function pdfTrct(lista: ResultadoCalculo[], nome: string) {
+        if (!dados) return;
+        try { (await import('../../services/relatorios/trctPdf')).trctPdf(lista as ResultadoRescisao[], dados.fichas, { ...opcoesPdf(), titulo: 'TRCT' }).save(nome); }
+        catch (e) { setErrosMov([`PDF não gerado: ${(e as Error).message}`]); }
+    }
     async function pdfResumo() {
         try { (await relatoriosPdf()).resumoPdf(resumo, opcoesPdf(), observacaoResumo).save(`resumo-${empresa?.codigoSage ?? 'empresa'}-${sufixoArquivo}.pdf`); }
         catch (e) { setErrosMov([`PDF não gerado: ${(e as Error).message}`]); }
@@ -703,7 +708,8 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                 </GrupoAcoes>}
                 <GrupoAcoes rotulo="Relatórios">
                     <button className={btn} disabled={!resultados.length} aria-pressed={verResumo} onClick={() => setVerResumo(x => !x)}>Resumo da folha</button>
-                    <button className={btn} disabled={!resultados.some(r => r.situacao !== 'erro')} onClick={() => pdfHolerites(resultados, `holerites-${empresa?.codigoSage ?? 'empresa'}-${sufixoArquivo}.pdf`)}>Holerites (PDF)</button>
+                    <button className={btn} disabled={!resultados.some(r => r.situacao !== 'erro')} onClick={() => pdfHolerites(resultados, `holerites-${empresa?.codigoSage ?? 'empresa'}-${sufixoArquivo}.pdf`)}>{rescisao ? 'Recibos (PDF)' : 'Holerites (PDF)'}</button>
+                    {rescisao && <button className={btn} disabled={!resultados.some(r => r.situacao !== 'erro')} title="Termo de rescisão (modelo do empregador): empregador, trabalhador, contrato, verbas, deduções, FGTS e quitação (CLT, art. 477, § 2º)." onClick={() => pdfTrct(resultados, `trct-${empresa?.codigoSage ?? 'empresa'}-${sufixoArquivo}.pdf`)}>TRCT (PDF)</button>}
                     <button className={btn} disabled={!resultados.length} onClick={exportar}>Exportar Excel</button>
                 </GrupoAcoes>
                 <GrupoAcoes rotulo="Pagamento">
@@ -968,7 +974,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                     }).sort((a, b) => a.inicio.localeCompare(b.inicio))
                     : eventosDaFolha({ folha: folha as Exclude<Folha, 'ferias'>, empresa: { nome: nomeEmp, cnpj: empresa.cnpj }, competencia, ano,
                         pagamento: rescisao ? (resultados[0]?.pagamento || competencia) : pagamento, dataPagamento: data, resultados, encargos: resumo.encargos }));
-                const recibos = mensal ? 'Holerites' : ferias ? 'Recibos de férias' : rescisao ? (homologado ? 'Rescisões (TRCT)' : 'Rescisões (TRCT em prévia)') : 'Holerites do 13º';
+                const recibos = mensal ? 'Holerites' : ferias ? 'Recibos de férias' : rescisao ? (homologado ? 'Recibos da rescisão' : 'Recibos da rescisão (prévia)') : 'Holerites do 13º';
                 return (
                     <PacoteClienteModal empresa={empresa} resultados={resultados} fichas={dados.fichas} titulo={tituloFolha} sufixo={sufixoArquivo}
                         dataSugerida={sugerida} dataPorResultado={dataDoRecibo} eventos={eventos} onFechar={() => setPacote(false)} onContasSalvas={contasSalvas}
@@ -979,6 +985,8 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                             ...(mensal && movsLidos && resultados.some(r => r.situacao === 'calculado' && valorDoAdiantamento(r) > 0) ? [{ id: 'adiantamento', rotulo: 'Recibos do adiantamento (PDF)', nome: `adiantamento-${cod}-${competencia}.pdf`,
                                 descricao: `recibos do adiantamento salarial pago em ${br(dataAdiantamento)}, para assinatura dos funcionários`,
                                 gerar: async () => (await relatoriosPdf()).recibosAdiantamentoPdf(resultados, dados.fichas, opcoesPdfAdiantamento(), dataAdiantamento).output('arraybuffer') }] : []),
+                            ...(rescisao ? [{ id: 'trct', rotulo: 'TRCT (PDF)', nome: `trct-${cod}-${sufixoArquivo}.pdf`, descricao: 'termo de rescisão de cada desligado, para assinatura',
+                                gerar: async () => (await import('../../services/relatorios/trctPdf')).trctPdf(resultados as ResultadoRescisao[], dados.fichas, { ...opcoesPdf(), titulo: 'TRCT' }).output('arraybuffer') }] : []),
                             { id: 'resumo', rotulo: 'Resumo da folha (PDF)', nome: `resumo-${cod}-${sufixoArquivo}.pdf`, descricao: 'resumo da folha com os valores para conferir as guias',
                                 gerar: async () => (await relatoriosPdf()).resumoPdf(resumo, opcoesPdf(), observacaoResumo).output('arraybuffer') },
                         ]} />

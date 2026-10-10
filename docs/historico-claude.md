@@ -3510,3 +3510,15 @@ guias sindicais".
   - Tem campo de "ciente" do empregado.
 - **Arquivos:** `services/relatorios/relatoriosAnuais.ts` e `relatoriosAnuaisPdf.ts`.
 - **Testes:** `relatoriosAnuais.test.ts` e caso novo na `centralRelatorios.test.tsx`.
+
+## 10/10/2026 — Relatórios, fase R3b: TRCT
+
+- **Pesquisa antes de fazer:** o modelo oficial único do TRCT (Portaria MTE 1.621/2010, alterada pelas 2.685/2011 e 1.057/2012) foi revogado pela Portaria MTP 671/2021. O TRCT continua obrigatório, em modelo do empregador, com a natureza e o valor de cada parcela discriminados (CLT, art. 477, § 2º). A numeração de campos do modelo revogado (50 saldo de salário, 112.1 INSS etc.) não foi usada: só parte dela pôde ser conferida em fontes, e ela não é mais exigida.
+- **TRCT (`services/relatorios/trctPdf.ts`):**
+  - Seções: empregador; trabalhador (CPF, PIS, CTPS, nascimento, mãe, endereço, matrícula); contrato (cargo e CBO, categoria, admissão, desligamento, causa com o motivo da Tabela 19, aviso prévio com dias e projeção, salário, sindicato, prazo de pagamento do art. 477, § 6º).
+  - Verbas rescisórias e deduções com referência e valor, total bruto, total das deduções e líquido.
+  - FGTS e bases: INSS, IRRF, base do FGTS rescisório, FGTS da rescisão, multa (40% ou 20%) e saque.
+  - Quitação limitada às parcelas e valores especificados, local e data, assinaturas do empregador e do trabalhador (ou responsável legal).
+  - Marca de PRÉVIA enquanto o motor não está ativo.
+- **Onde:** Cálculo › Rescisão › "TRCT (PDF)", e no Pacote do cliente da rescisão. O antigo "Rescisões (TRCT)" passa a se chamar "Recibos da rescisão".
+- **Testes:** `services/relatorios/__tests__/trct.test.ts`.
