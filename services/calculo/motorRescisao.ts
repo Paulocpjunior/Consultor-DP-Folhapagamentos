@@ -30,6 +30,7 @@ import { avosDoAno } from './motor13';
 import { folhaPagaAntes } from './arredondamento';
 import { diasDeDireito, feriasDaCompetencia, mesesDoPeriodo, periodosAquisitivos } from './motorFerias';
 import { inssDetalhado, irrfDetalhado, type OpcoesIrrf } from './tributos';
+import { adicionalDeRisco } from './adicionais';
 
 /** Motivos do desligamento (Tabela 19 do eSocial) cobertos nesta versão. */
 export const TIPOS_RESCISAO = {
@@ -141,17 +142,21 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
     if ('erro' in sc) return erro(sc.erro);
     if (naExtincao.faixa) r.memoria.push(memoriaDoHistorico(naExtincao.faixa, `no desligamento (${br(data)})`, !!naExtincao.antesDoHistorico));
     if (naExtincao.antesDoHistorico) r.avisos.push('Data anterior ao histórico de salário da ficha: usado o salário mais antigo conhecido; confira.');
-    const salarioHora = sc.mensal / sc.horasMes;
+    // Insalubridade ou periculosidade: integra a remuneração das verbas rescisórias (TST, Súmula 139) e a hora das médias.
+    const adic = adicionalDeRisco(d, sc.mensal, e.tabelas, data.slice(0, 7));
+    if (adic.erro) return erro(adic.erro);
+    const adicional = adic.adicional?.mensal ?? 0;
+    const salarioHora = (sc.mensal + adicional) / sc.horasMes;
     const ultimos12 = Array.from({ length: 12 }, (_, i) => somarMeses(`${data.slice(0, 7)}-01`, -(i + 1)).slice(0, 7));
     // Pelos meses de vínculo dentro dos 12 (admitido há menos de um ano: os meses trabalhados), como no 13º.
     const mesesMedia = Math.max(1, ultimos12.filter(c => c >= d.admissao.slice(0, 7)).length);
     const mv = mediaDasVariaveis(salarioHora, e.movimentos, ultimos12, mesesMedia, `${mesesMedia}`);
     const somaVar = mv.horasExtras + mv.outras;
     const media = mv.media;
-    const remuneracao = sc.mensal + media;
+    const remuneracao = sc.mensal + adicional + media;
     const diaria = remuneracao / 30;
     const oQue = mv.outras ? (mv.horasExtras ? 'média das variáveis (horas extras com DSR e lançamentos)' : 'média dos lançamentos variáveis') : 'média de horas extras';
-    r.memoria.push(`Remuneração para as verbas rescisórias: ${reais(sc.mensal)}${media ? ` + ${oQue} ${reais(media)} (${reais(somaVar)} ÷ ${mesesMedia} ${mesesMedia === 1 ? 'mês' : 'meses'} de vínculo nos 12 anteriores)` : ''} = ${reais(remuneracao)}.`);
+    r.memoria.push(`Remuneração para as verbas rescisórias: ${reais(sc.mensal)}${adicional ? ` + ${adic.adicional!.descricao.toLowerCase()} ${reais(adicional)}` : ''}${media ? ` + ${oQue} ${reais(media)} (${reais(somaVar)} ÷ ${mesesMedia} ${mesesMedia === 1 ? 'mês' : 'meses'} de vínculo nos 12 anteriores)` : ''} = ${reais(remuneracao)}.`);
     if (ultimos12.some(c => e.movimentos[c])) r.avisos.push('Média pelos movimentos gravados dos 12 meses anteriores: horas extras com DSR e os lançamentos que entram na média.');
 
     // 1. Saldo de salário e movimento do mês, pelo motor mensal.

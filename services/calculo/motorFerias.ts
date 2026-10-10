@@ -23,6 +23,7 @@ import type { Afastamento } from '../cadastros/afastamentos';
 import { inicioBeneficio } from '../cadastros/afastamentos';
 import { dataValida, reais } from '../cadastros/documentos';
 import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros/tabelasLegais';
+import { adicionalDeRisco } from './adicionais';
 import { aniversario, diaUtilAnterior, diasEntre, somarDias, somarMeses } from '../prazos/calendario';
 import { mediaDasVariaveis, salarioContratual, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
 
@@ -244,13 +245,19 @@ export function calcularFerias(e: EntradaFerias): ResultadoFerias {
     r.memoria.push(sc.memoria);
     if (naConcessao.faixa) r.memoria.push(memoriaDoHistorico(naConcessao.faixa, `no início das férias (${br(gozo.dtInicio)})`, !!naConcessao.antesDoHistorico));
     if (naConcessao.antesDoHistorico) r.avisos.push('Data anterior ao histórico de salário da ficha: usado o salário mais antigo conhecido; confira.');
-    const salarioHora = sc.mensal / sc.horasMes;
+    // Insalubridade ou periculosidade: integra a remuneração das férias (TST, Súmula 139) e a hora das médias.
+    const adic = adicionalDeRisco(d, sc.mensal, e.tabelas, gozo.dtInicio.slice(0, 7));
+    r.avisos.push(...adic.avisos);
+    if (adic.erro) return erro(adic.erro);
+    const adicional = adic.adicional?.mensal ?? 0;
+    if (adic.adicional) r.memoria.push(adic.adicional.memoria);
+    const salarioHora = (sc.mensal + adicional) / sc.horasMes;
     const comMov = meses.filter(c => e.movimentos[c]).length;
     const mv = mediaDasVariaveis(salarioHora, e.movimentos, meses, 12, '12');
     const media = mv.media;
     r.memoria.push(...mv.memoria);
     r.avisos.push(`Média pelos movimentos gravados no Consultor (${comMov} de 12 meses do período com movimento): horas extras com DSR e os lançamentos que entram na média.`);
-    const remuneracao = sc.mensal + media;
+    const remuneracao = sc.mensal + adicional + media;
     const diaria = remuneracao / 30;
 
     // Dias por competência e dias em dobro (depois do fim do concessivo).
@@ -260,7 +267,7 @@ export function calcularFerias(e: EntradaFerias): ResultadoFerias {
 
     const ferias = Math.round(diaria * diasGozo);
     const terco = Math.round(ferias / 3);
-    r.memoria.push(`Férias: (${reais(sc.mensal)}${media ? ` + ${reais(media)}` : ''}) ÷ 30 × ${diasGozo} = ${reais(ferias)}; 1/3 constitucional ${reais(terco)}.`);
+    r.memoria.push(`Férias: (${reais(sc.mensal)}${adicional ? ` + ${adic.adicional!.descricao.toLowerCase()} ${reais(adicional)}` : ''}${media ? ` + ${reais(media)}` : ''}) ÷ 30 × ${diasGozo} = ${reais(ferias)}; 1/3 constitucional ${reais(terco)}.`);
     verba({ codigo: 'FER', descricao: 'Férias', referencia: `${diasGozo} dias`, tipo: 'provento', valor: ferias, inss: true, fgts: true, irrf: true });
     verba({ codigo: 'FER13', descricao: '1/3 constitucional de férias', referencia: '', tipo: 'provento', valor: terco, inss: true, fgts: true, irrf: true });
     if (r.diasDobra) {

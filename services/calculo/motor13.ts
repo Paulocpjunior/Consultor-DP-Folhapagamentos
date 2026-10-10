@@ -27,6 +27,7 @@ import type { Afastamento } from '../cadastros/afastamentos';
 import { inicioBeneficio } from '../cadastros/afastamentos';
 import { dataValida, reais } from '../cadastros/documentos';
 import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros/tabelasLegais';
+import { adicionalDeRisco } from './adicionais';
 import { somarDias } from '../prazos/calendario';
 import { mediaDasVariaveis, salarioContratual, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
 
@@ -127,7 +128,13 @@ export function calcular13(e: Entrada13): ResultadoCalculo {
     r.memoria.push(sc.memoria);
     if (naData.faixa) r.memoria.push(memoriaDoHistorico(naData.faixa, parcela === '2a' ? `em dezembro de ${ano}` : `no mês anterior ao adiantamento (${brData(dataSalario).slice(3)})`, !!naData.antesDoHistorico));
     if (naData.antesDoHistorico) r.avisos.push('Data anterior ao histórico de salário da ficha: usado o salário mais antigo conhecido; confira.');
-    const salarioHora = sc.mensal / sc.horasMes;
+    // Insalubridade ou periculosidade: integra a remuneração do 13º (TST, Súmula 139) e a hora das médias.
+    const adic = adicionalDeRisco(d, sc.mensal, e.tabelas, parcela === '2a' ? `${ano}-12` : pagamento);
+    r.avisos.push(...adic.avisos);
+    if (adic.erro) return erro(adic.erro);
+    const adicional = adic.adicional?.mensal ?? 0;
+    if (adic.adicional) r.memoria.push(adic.adicional.memoria);
+    const salarioHora = (sc.mensal + adicional) / sc.horasMes;
 
     // Avos: na 1ª parcela, os meses depois do pagamento são projetados como trabalhados.
     const meses = avosDoAno(ano, ficha, e.afastamentos, e.movimentos);
@@ -152,9 +159,9 @@ export function calcular13(e: Entrada13): ResultadoCalculo {
     if (media) r.memoria.push(...mv.memoria);
     if (periodo.length) r.avisos.push(`Média pelos movimentos gravados no Consultor (${periodo.filter(m => e.movimentos[m.competencia]).length} de ${periodo.length} mês(es) com movimento): horas extras com DSR e os lançamentos que entram na média. Meses sem movimento contam como sem variáveis.`);
 
-    const remuneracao = sc.mensal + media;
+    const remuneracao = sc.mensal + adicional + media;
     const integral = Math.round(remuneracao * avos / 12);
-    r.memoria.push(`13º integral: (${reais(sc.mensal)}${media ? ` + ${reais(media)}` : ''}) × ${avos}/12 = ${reais(integral)}.`);
+    r.memoria.push(`13º integral: (${reais(sc.mensal)}${adicional ? ` + ${adic.adicional!.descricao.toLowerCase()} ${reais(adicional)}` : ''}${media ? ` + ${reais(media)}` : ''}) × ${avos}/12 = ${reais(integral)}.`);
     const primeiraCalculada = Math.round(remuneracao * avos1 / 12 / 2);
     const aliqFgts = aprendiz ? ALIQUOTA_FGTS_APRENDIZ : ALIQUOTA_FGTS;
 
