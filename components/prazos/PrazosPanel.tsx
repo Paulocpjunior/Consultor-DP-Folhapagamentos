@@ -28,9 +28,9 @@ const quando = (data: string, hoje: string) => {
     return d === 0 ? 'hoje' : d === 1 ? 'amanhã' : d > 0 ? `em ${d} dias` : d === -1 ? 'ontem' : `há ${-d} dias`;
 };
 
-interface Props { onAbrirCadastros?: () => void; onAbrirConferencia?: () => void; usuario?: Usuario }
+interface Props { onAbrirCadastros?: () => void; onAbrirConferencia?: () => void; usuario?: Usuario; /** Aberto pelo menu do app: o título vem do cabeçalho da página. */ embutido?: boolean }
 
-const PrazosPanel: React.FC<Props> = ({ onAbrirCadastros, onAbrirConferencia, usuario }) => {
+const PrazosPanel: React.FC<Props> = ({ onAbrirCadastros, onAbrirConferencia, usuario, embutido = false }) => {
     const hoje = new Date().toLocaleDateString('sv-SE'); // data local, AAAA-MM-DD
     const [horizonte, setHorizonte] = useState(60);
     // Abre na empresa ativa; dá para ver a carteira inteira escolhendo "todas".
@@ -72,7 +72,7 @@ const PrazosPanel: React.FC<Props> = ({ onAbrirCadastros, onAbrirConferencia, us
     return (
         <div className="space-y-5">
             <header>
-                <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Prazos do DP</h2>
+                {!embutido && <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Prazos do DP</h2>}
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Vencimentos do mês com ajuste de dia útil e os prazos que saem dos cadastros de todas as empresas.</p>
             </header>
 

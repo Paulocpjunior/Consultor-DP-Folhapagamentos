@@ -37,9 +37,9 @@ const ROTULO_DESTINO: Record<Destino, string> = {
     'iobsage:restaurar': 'Abrir a restauração do backup',
 };
 
-interface Props { onNavegar?: (destino: Destino) => void; usuario?: Usuario; ehGestor?: boolean; ehAdmin?: boolean }
+interface Props { onNavegar?: (destino: Destino) => void; usuario?: Usuario; ehGestor?: boolean; ehAdmin?: boolean; /** Aberto pelo menu do app: o título vem do cabeçalho da página. */ embutido?: boolean }
 
-const IobSagePanel: React.FC<Props> = ({ onNavegar, usuario, ehGestor = false, ehAdmin = false }) => {
+const IobSagePanel: React.FC<Props> = ({ onNavegar, usuario, ehGestor = false, ehAdmin = false, embutido = false }) => {
     const [menuId, setMenuId] = useState(MENUS_IOB[0].id);
     const [filtro, setFiltro] = useState<Situacao | ''>('');
     const [item, setItem] = useState<ItemMenu | null>(null);
@@ -58,7 +58,7 @@ const IobSagePanel: React.FC<Props> = ({ onNavegar, usuario, ehGestor = false, e
         <div className="space-y-4">
             <header className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <h2 className="text-2xl font-bold text-slate-800 dark:text-white">IOB SAGE — menus da folha × Consultor DP</h2>
+                    {!embutido && <h2 className="text-2xl font-bold text-slate-800 dark:text-white">IOB SAGE — menus da folha × Consultor DP</h2>}
                     <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
                         Cada item dos menus da folha IOB/SAGE, com a situação real no Consultor DP. Fonte: ajuda online da IOB (títulos e resumos de busca) e prints do IOB Office.
                     </p>

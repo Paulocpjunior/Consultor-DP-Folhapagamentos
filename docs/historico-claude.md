@@ -3269,3 +3269,29 @@ guias sindicais".
 - **Avulso pela rotina do evento:** horas (020/120/999) = salário-hora × coeficiente × horas; dias (080) = salário ÷ 30 × coeficiente × dias; % do salário (040) = coeficiente 0,4 é 40%, 10 é 10% × referência, 0 é a referência como %; valor (rv V) = a referência em R$. Tipo V/D vira provento/desconto e INSS, FGTS e IRRF vêm das incidências do evento. Relançar o mesmo código substitui o avulso.
 - **Não lança (com a razão na tela):** salário (rotina 000), INSS, IRRF, FGTS e bases, arredondamento atual, eventos informativos (N) ou com tipo fora do padrão no catálogo (S), coeficiente zero, coeficiente que não confere com o % da descrição (ex.: 1112 ADICIONAL NOTURNO 20% com coeficiente 1), rotinas sem cálculo aqui (140 % do bruto, 010, 160, 180) e % acima de 100.
 - **Testes:** `services/calculo/__tests__/lancarEvento.test.ts` e caso novo no `painelCalculo.test.tsx`.
+
+## 10/10/2026 — Layout: menu no topo em grupos, na ordem do trabalho
+
+- **Paulo:** "várias abas e botões soltos com muita informação na mesma tela; layout mais elegante, sofisticado e tecnológico, com opções que façam mais sentido e por ordem, começando pelo menu, que deve começar por Empresas". Escolheu manter o menu no topo, refinado.
+- **Menu** (`services/navegacao/menu.ts`), em ordem:
+  1. Empresas: ativar empresa e período, cadastro de empresas, certificados.
+  2. Cadastros: funcionários, horários, afastamentos, sindicatos, eventos IOB, incidências, enquadramento, tabelas legais, implantação.
+  3. Folha do mês: apontamento, adiantamento, cálculo mensal, férias, rescisão, 13º 1ª e 2ª parcelas.
+  4. Conferência: pós-folha, validador de ponto, relatório do eSocial.
+  5. eSocial.
+  6. Prazos.
+  7. Configurações, à direita: IOB SAGE e usuários.
+  - Cada grupo abre um painel com os itens e a descrição de cada um.
+- **Cabeçalho** (`components/layout/Cabecalho.tsx`):
+  - Faixa escura com a marca e a empresa e competência ativas sempre à vista, com o botão "Trocar".
+  - Tema claro/escuro (guardado no navegador), usuário e sair.
+  - No celular, o menu fica numa linha com rolagem e os itens abrem em largura total.
+- **Página:** título e caminho ("Folha do mês / Férias") no topo. As telas abertas pelo menu não repetem o título, as abas internas nem o quadro da empresa ativa (prop `embutido`).
+- **Cálculo:**
+  - Entra direto na folha escolhida no menu; "Adiantamento" abre o Cálculo de adiantamentos.
+  - Os 13 botões viraram "Salvar movimento" mais quatro grupos: Conferir, Relatórios, Pagamento e Envios.
+- **Visual:**
+  - Fonte Inter (Google Fonts).
+  - O texto do corpo deixou de ser negrito por padrão.
+  - Fundo levemente cinza.
+- **Próximo:** Fim de mês (encerrar o período com trava e pedido de reabertura ao gestor), já com lugar no cabeçalho para a situação do período.

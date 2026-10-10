@@ -11,9 +11,9 @@ import { ROTULO_SITUACAO, cofreDaMinhaCarteira, diasDaLinha, precisaAtencao, typ
 import { buscarCadastroCentral, conferirEmpresas, type ConferenciaCadastroCentral } from '../../services/cadastroCentralConferencia';
 import { tokenParaCfi } from '../../services/auth/tokenCfi';
 
-interface Props { currentUser: User; }
+interface Props { currentUser: User; /** Aberto pelo menu do app: o título vem do cabeçalho da página. */ embutido?: boolean }
 
-const EmpresasPanel: React.FC<Props> = ({ currentUser }) => {
+const EmpresasPanel: React.FC<Props> = ({ currentUser, embutido = false }) => {
     const [empresas, setEmpresas] = useState<Empresa[]>([]);
     const [loading, setLoading]   = useState(true);
     const [erro, setErro]         = useState('');
@@ -118,7 +118,7 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser }) => {
             )}
             <header className="mb-4 flex items-center justify-between flex-wrap gap-2">
                 <div>
-                    <h2 className="text-xl font-bold text-slate-800 dark:text-white">🏢 Empresas</h2>
+                    {!embutido && <h2 className="text-xl font-bold text-slate-800 dark:text-white">🏢 Empresas</h2>}
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                         {empresas.length} empresa(s) {isGestor ? '(todas — gestor)' : '(sua carteira e as que você cadastrou)'}
                     </p>

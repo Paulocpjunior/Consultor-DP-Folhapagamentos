@@ -10,9 +10,9 @@ import CarteiraModal from './CarteiraModal';
 import { VerificarMaster } from './PendingScreen';
 import { ehMaster } from '../../services/auth/papeis';
 
-interface Props { currentUser: User; }
+interface Props { currentUser: User; /** Aberto pelo menu do app: o título vem do cabeçalho da página. */ embutido?: boolean }
 
-const AdminUsersPanel: React.FC<Props> = ({ currentUser }) => {
+const AdminUsersPanel: React.FC<Props> = ({ currentUser, embutido = false }) => {
     const [users, setUsers] = useState<authService.UserDoc[]>([]);
     const [loading, setLoading] = useState(true);
     const [erro, setErro] = useState('');
@@ -84,7 +84,7 @@ const AdminUsersPanel: React.FC<Props> = ({ currentUser }) => {
         <div>
             <header className="mb-4 flex items-center justify-between">
                 <div>
-                    <h2 className="text-xl font-bold text-slate-800 dark:text-white">👥 Gerenciar usuários</h2>
+                    {!embutido && <h2 className="text-xl font-bold text-slate-800 dark:text-white">👥 Gerenciar usuários</h2>}
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{users.length} usuário(s) cadastrado(s) · você é {ROTULO_PAPEL[ator].toLowerCase()}</p>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Gestor administra admins e gestores e exclui empresas; admin aprova e administra colaboradores.</p>
                 </div>

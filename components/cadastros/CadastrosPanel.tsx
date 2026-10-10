@@ -26,7 +26,7 @@ import EnquadramentoCadastro from './EnquadramentoCadastro';
 
 export type SubCadastro = 'funcionarios' | 'horarios' | 'afastamentos' | 'incidencias' | 'enquadramento' | 'sindicatos' | 'tabelas';
 
-interface Props { currentUser: User; subInicial?: SubCadastro; onAbrirEventos?: () => void }
+interface Props { currentUser: User; subInicial?: SubCadastro; onAbrirEventos?: () => void; /** Aberto pelo menu do app: sem título, abas e empresa repetidos. */ embutido?: boolean }
 
 const SUBS: { id: SubCadastro; titulo: string; caminho: string }[] = [
     { id: 'funcionarios', titulo: 'Funcionários', caminho: 'Arquivos › Funcionários › Cadastro Básico' },
@@ -38,7 +38,7 @@ const SUBS: { id: SubCadastro; titulo: string; caminho: string }[] = [
     { id: 'tabelas', titulo: 'Tabelas legais', caminho: 'Cadastros › Genéricos › Tabelas Legais (SGC)' },
 ];
 
-const CadastrosPanel: React.FC<Props> = ({ currentUser, subInicial, onAbrirEventos }) => {
+const CadastrosPanel: React.FC<Props> = ({ currentUser, subInicial, onAbrirEventos, embutido = false }) => {
     const [sub, setSub] = useState<SubCadastro>(subInicial ?? 'funcionarios');
     const [empresas, setEmpresas] = useState<Empresa[] | null>(null);
     const { ativa } = useEmpresaAtiva();
@@ -77,7 +77,7 @@ const CadastrosPanel: React.FC<Props> = ({ currentUser, subInicial, onAbrirEvent
 
     return (
         <div className="space-y-4">
-            <header>
+            {!embutido && <><header>
                 <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Cadastros</h2>
                 <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Os cadastros do menu Arquivos do IOB Office, mantidos no Consultor DP. Cada gravação fica no histórico com autor e data.</p>
             </header>
@@ -90,12 +90,12 @@ const CadastrosPanel: React.FC<Props> = ({ currentUser, subInicial, onAbrirEvent
                     </button>
                 ))}
                 {onAbrirEventos && <button onClick={onAbrirEventos} className="-mb-px border-b-2 border-transparent px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400" title="Abre Folha › Catálogo de Eventos">Eventos ↗</button>}
-            </nav>
+            </nav></>}
             <p className="text-xs text-slate-500 dark:text-slate-400">No IOB: {atual.caminho}</p>
 
             {porEmpresa && (
                 <div className="space-y-3">
-                    {ativa ? <EmpresaAtivaFixa /> : <label className="block max-w-md text-sm font-medium text-slate-700 dark:text-slate-200">Empresa
+                    {ativa ? (embutido ? null : <EmpresaAtivaFixa />) : <label className="block max-w-md text-sm font-medium text-slate-700 dark:text-slate-200">Empresa
                         <select className="mt-1 block w-full rounded border border-slate-300 px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-white" value={empresaId} onChange={e => setEmpresaId(e.target.value)} aria-label="Empresa">
                             <option value="">{empresas ? 'Selecione a empresa' : 'Carregando…'}</option>
                             {empresas?.map(e => <option key={e.id} value={e.id}>{e.codigoSage} · {e.nomeFantasia || e.razaoSocial}</option>)}
