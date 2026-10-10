@@ -21,12 +21,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           # Histórico para o version.json listar as novidades do aviso de atualização.
           fetch-depth: 60
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -61,14 +61,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
       - name: Setup Java (emulador)
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 21
@@ -89,10 +89,10 @@ jobs:
     steps:
       - name: Checkout
         if: env.FIREBASE_SERVICE_ACCOUNT != ''
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Setup Node.js
         if: env.FIREBASE_SERVICE_ACCOUNT != ''
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
       - name: Publicar as regras do Firestore
