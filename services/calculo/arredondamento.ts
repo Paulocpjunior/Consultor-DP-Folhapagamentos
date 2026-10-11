@@ -39,6 +39,8 @@ export interface ParametrosFolha {
     mudancasPagamento?: { desde: string; de: RegimePagamento; para: RegimePagamento }[];
     /** Benefícios da empresa com desconto (ou provento) fixo na folha; a ficha diz quem aderiu. */
     beneficios?: import('./beneficios').Beneficio[];
+    /** Contribuição sindical patronal: adesão, capital social, tabela, entidade e filiais (services/sindicatos/sindicalPatronal.ts). */
+    sindicalPatronal?: import('../sindicatos/sindicalPatronal').ConfigSindicalPatronal;
 }
 export type RegimePagamento = NonNullable<ParametrosFolha['pagamentoFolha']>;
 

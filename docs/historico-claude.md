@@ -4439,3 +4439,24 @@ Paulo: "atualiza nosso status e pode seguir". Quarto dos itens planejados do cat
   - S-1010 com processo no XSD e a leitura de volta;
   - S-1005 e S-1020 com processo no XSD;
   - a tela, do cadastro à transmissão; regras do Firestore.
+
+## 11/10/2026 — Contribuição sindical patronal
+
+Quinto dos itens planejados do catálogo do SAGE.
+
+- **Regra** (`services/sindicatos/sindicalPatronal.ts`):
+  - facultativa desde a Lei 13.467/2017: só de quem aderiu, prévia e expressamente (CLT, arts. 578, 579 e 587; STF, ADI 5794);
+  - proporcional ao capital social, pela tabela da confederação (CLT, art. 580, III);
+  - recolhida no último dia útil de janeiro, na GRCSU, com o código da entidade (art. 587);
+  - filiais em outra base territorial recolhem ao sindicato delas sobre a parte do capital (art. 581);
+  - atraso: multa de 10% nos 30 primeiros dias e mais 2% por mês seguinte, juros de 1% ao mês (art. 600); a correção monetária fica de fora, com aviso;
+  - Simples Nacional dispensado (LC 123/2006, art. 13, § 3º; STF, ADI 4033);
+  - sem empregados: aviso, pelo entendimento do TST de que só o empregador deve.
+- **Tabela pronta:** a do comércio (CNC) de 2026, como publicada pelos sindicatos da categoria (Sincor-SP, Sinog, Sincopetro, Sincomaco).
+  - classes: até R$ 42.312,75, mínimo de R$ 338,50; até R$ 84.625,50, 0,8%; até R$ 846.255,00, 0,2% + R$ 507,75; até R$ 84.625.500,00, 0,1% + R$ 1.354,01; até R$ 451.336.000,00, 0,02% + R$ 69.054,41; acima, máximo de R$ 159.321,61;
+  - as classes se encadeiam sem salto (conferido nos testes);
+  - outras confederações: faixas próprias informadas na tela; tabela de outro ano usada gera aviso.
+- **Tela** (Folha do mês › Contribuição sindical patronal): adesão, capital social, tabela, entidade, CNPJ e código da GRCSU, filiais com a parte do capital, a data do pagamento para o atraso, o valor de cada guia e a memória. Gravação em `parametrosFolha.sindicalPatronal` da empresa.
+- **Calendário de obrigações:** o vencimento de janeiro na competência de dezembro, com a condição "só se a empresa aderiu".
+- **Catálogo SAGE:** `trib-sindical` passa a disponível. Agora são 29 disponíveis, 21 parciais, 1 planejado (importação de valores, à espera do layout) e 2 fora.
+- **Testes:** as classes da tabela, a guia com o vencimento, as filiais, o atraso, as dispensas e faltas, o calendário e a tela.

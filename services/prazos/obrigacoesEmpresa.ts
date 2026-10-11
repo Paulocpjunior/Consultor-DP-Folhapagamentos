@@ -16,6 +16,8 @@
 //   fevereiro (IN RFB 2.060/2021).
 // - Guia sindical da convenção (assistencial/negocial): dia e meses vêm do
 //   cadastro do sindicato; sem esses dados, não se inventa data.
+// - Contribuição sindical patronal: em janeiro (CLT, art. 587), na competência de dezembro, só para a empresa que
+//   aderiu (facultativa desde a Lei 13.467/2017); o cálculo está em Folha do mês › Contribuição sindical patronal.
 
 import { diaUtilAnterior, diaUtilSeguinte, feriado, type Data } from './calendario';
 import { proximaCompetencia, vencimentosDaCompetencia, type Ajuste, type Vencimento } from './obrigacoes';
@@ -78,6 +80,9 @@ export function obrigacoesDaEmpresa(p: { competencia: string; temEmpregados: boo
 
     if (m === 3) {
         r.push({ ...venc('sindical-anual', competencia, 'Contribuição sindical dos empregados: recolhimento (desconto na folha de março)', `${a}-04-30`, 'antecipa', 'CLT arts. 578, 579, 582 e 583 (Lei 13.467/2017)'), responsavel: 'DP', condicao: 'só de quem autorizou prévia e expressamente' });
+    }
+    if (m === 12) {
+        r.push({ ...venc('sindical-patronal', competencia, `Contribuição sindical patronal de ${a + 1} (GRCSU)`, `${a + 1}-01-31`, 'antecipa', 'CLT arts. 580, III, e 587 (Lei 13.467/2017)', 'cálculo em Folha do mês › Contribuição sindical patronal'), responsavel: 'DP', condicao: 'só se a empresa aderiu; Simples Nacional dispensado' });
     }
     if (m === 1) {
         r.push({ ...venc('informe-rendimentos', competencia, `Comprovante de rendimentos de ${a - 1} aos empregados`, `${a}-02-${pad(ultimoDia(a, 2))}`, 'antecipa', 'IN RFB 2.060/2021', 'último dia útil de fevereiro'), responsavel: 'DP', condicao: semEmpregados });
