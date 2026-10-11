@@ -74,6 +74,12 @@ export const chaveVerba = (v: Pick<Verba, 'codigo' | 'descricao'>) => (/^LAN\d+$
 /** Natureza (Tabela 03) e tipo (1 = provento, 2 = desconto) que cada verba do motor deve ter no S-1010. */
 const SUGESTAO: Record<string, { naturezas: string[]; dica?: RegExp; evita?: RegExp; codigos?: string[] }> = {
     SAL: { naturezas: ['1000'] },
+    // Intermitente (CLT, art. 452-A, § 6º): horas, DSR, férias proporcionais com 1/3 e 13º proporcional da convocação.
+    INTERM: { naturezas: ['1000'], dica: /INTERMIT/ },
+    DSRINT: { naturezas: ['1002'], dica: /INTERMIT/ },
+    FERINT: { naturezas: ['1016', '1020'], dica: /INTERMIT/, evita: /1\/3|TERCO/ },
+    FERINT13: { naturezas: ['1017', '1020'], dica: /INTERMIT|1\/3|TERCO/ },
+    '13INT': { naturezas: ['5001'], dica: /INTERMIT|PROP/ },
     // Tabela 03: 1202 adicional de insalubridade, 1203 adicional de periculosidade (item 3b).
     INSALUB: { naturezas: ['1202'] },
     PERICUL: { naturezas: ['1203'] },
@@ -431,6 +437,8 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
         if (!cpfValido(cpf)) t.erros.push('CPF inválido na ficha.');
         const errosFeriasDele = new Set<string>();
         const dmDevs: string[] = []; const pagamentos: { mes: string; xml: string }[] = []; const ides = new Set<string>();
+        // Intermitente: dias trabalhados no mês (ideTrabalhador/infoInterm, obrigatório para a categoria 111).
+        const diasInterm = new Map<number, number>();
         // Dedução de dependentes no IRRF das férias (tpRend 13), no S-1210 do mês de cada recibo.
         const dedFerias = new Map<string, Map<string, number>>(); const infoDepFerias = new Map<string, Map<string, Dependente>>();
         // Pensão alimentícia descontada nos recibos de férias (tpRend 13), por mês do pagamento e alimentando.
@@ -518,6 +526,13 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                 continue;
             }
             if (r.situacao !== 'calculado') { t.erros.push(`Cálculo ${r.situacao === 'erro' ? 'com erro' : 'incompleto'}${quem}: ${[...r.erros, ...r.avisos].join(' ') || 'confira o holerite'}.`); continue; }
+            // Intermitente sem convocação no mês: sem remuneração, sem demonstrativo.
+            if (r.diasIntermitente && !r.verbas.length) { t.avisos.push(`Intermitente sem convocação paga em ${mes(e.competencia)}${quem}: sem demonstrativo.`); continue; }
+            if (digitos(f.dados.categoria) === '111') {
+                if (anual) { t.erros.push(`Intermitente${quem}: o 13º proporcional é pago a cada convocação, no S-1200 mensal; não vai no do 13º.`); continue; }
+                if (!r.diasIntermitente?.length) { t.erros.push(`Intermitente${quem}: o cálculo não tem os dias trabalhados (infoInterm). Recalcule pela tela do cálculo, com as convocações.`); continue; }
+                for (const x of r.diasIntermitente) diasInterm.set(x.dia, (diasInterm.get(x.dia) ?? 0) + x.horas);
+            }
             // IRRF do adiantamento é do CPF no mês; com dois contratos, cada um foi calculado sozinho (Codex #118).
             if (contratos.length > 1 && r.irrfAdiantamento !== undefined && !r.irrfAdiantamentoCpf) { t.erros.push(`IRRF do adiantamento com mais de um contrato no CPF${quem}: o Consultor ainda calcula cada contrato sozinho. Confira pelo IOB.`); continue; }
             if (!f.matriculaEsocial.trim()) t.erros.push(`Sem matrícula do eSocial na ficha${quem}.`);
@@ -675,6 +690,8 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
         // IR do mês por CPF: dedução de dependentes (quando o motor não usou o desconto simplificado) e
         // pensão alimentícia de cada alimentando (penAlim). Quem não está no S-2200/S-2205 vai no infoDep.
         const dedDep = new Map<string, number>(); const penAlim = new Map<string, number>(); const infoDep = new Map<string, Dependente>();
+        // Intermitente: o 13º proporcional (tpRend 12) apurado em separado na folha do mês; as férias (tpRend 13) vão com as dos recibos.
+        const dedDep13 = new Map<string, number>(); const penAlim13 = new Map<string, number>();
         // Dependentes deduzidos no IRRF do adiantamento sem folha anterior no mês: vão no S-1210 do mês do adiantamento (Codex #118).
         const dedDepAdi = new Map<string, number>(); const infoDepAdi = new Map<string, Dependente>();
         for (const { ficha: f, r } of contratos) {
@@ -695,15 +712,35 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                 const fd = f.dependentes.find(x => digitos(x.cpf) === cpfDep);
                 if (fd && !depNoEsocial(f, fd)) infoDepAdi.set(cpfDep, fd);
             }
-            const pensao = r.verbas.filter(v => v.codigo === 'PENSAO' || v.codigo === 'PENSAO13').reduce((soma, v) => soma + v.valor, 0);
-            if (pensao <= 0) continue;
-            const rateio = ratearPensao(f, pensao);
-            if (rateio.erro) { t.erros.push(rateio.erro); continue; }
-            for (const { dependente: dep, valor: v } of rateio.itens) {
-                const cpfDep = digitos(dep.cpf);
-                if (cpfDep.length !== 11 || cpfDep === cpf) { t.erros.push(`Alimentando ${dep.nome || '?'} sem CPF válido na ficha.`); continue; }
-                if (v > 0) penAlim.set(cpfDep, (penAlim.get(cpfDep) ?? 0) + v);
-                if (!depNoEsocial(f, dep)) infoDep.set(cpfDep, dep);
+            const di = r.deducoesIntermitente;
+            if (di) for (const [mapa, ded, rotulo] of [[dedDep13, di.decimo, '13º'], [null, di.ferias, 'férias']] as const) {
+                if (ded.simplificado || !(ded.porDependente > 0)) continue;
+                for (const dep of ded.dependentes) {
+                    const cpfDep = digitos(dep.cpf);
+                    if (cpfDep.length !== 11) { t.avisos.push(`Dependente ${dep.nome || '?'} sem CPF: a dedução do IRRF ${rotulo === '13º' ? 'do 13º' : 'das férias'} do intermitente não vai no S-1210.`); continue; }
+                    if (mapa) mapa.set(cpfDep, ded.porDependente);
+                    else {
+                        const m = dedFerias.get(perPgto) ?? new Map<string, number>();
+                        m.set(cpfDep, (m.get(cpfDep) ?? 0) + ded.porDependente); dedFerias.set(perPgto, m);
+                    }
+                    const fd = f.dependentes.find(x => digitos(x.cpf) === cpfDep);
+                    if (fd && !depNoEsocial(f, fd)) {
+                        if (mapa) infoDep.set(cpfDep, fd);
+                        else { const inf = infoDepFerias.get(perPgto) ?? new Map<string, Dependente>(); inf.set(cpfDep, fd); infoDepFerias.set(perPgto, inf); }
+                    }
+                }
+            }
+            for (const [codigos, destino] of (di ? [[['PENSAO'], penAlim], [['PENSAO13'], penAlim13]] : [[['PENSAO', 'PENSAO13'], penAlim]]) as [string[], Map<string, number>][]) {
+                const pensao = r.verbas.filter(v => codigos.includes(v.codigo)).reduce((soma, v) => soma + v.valor, 0);
+                if (pensao <= 0) continue;
+                const rateio = ratearPensao(f, pensao);
+                if (rateio.erro) { t.erros.push(rateio.erro); continue; }
+                for (const { dependente: dep, valor: v } of rateio.itens) {
+                    const cpfDep = digitos(dep.cpf);
+                    if (cpfDep.length !== 11 || cpfDep === cpf) { t.erros.push(`Alimentando ${dep.nome || '?'} sem CPF válido na ficha.`); continue; }
+                    if (v > 0) destino.set(cpfDep, (destino.get(cpfDep) ?? 0) + v);
+                    if (!depNoEsocial(f, dep)) infoDep.set(cpfDep, dep);
+                }
             }
         }
         const semTipo = new Set<string>();
@@ -756,11 +793,13 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             const irCR = [
                 ...[...dedDepMes].map(([c, v]) => `<dedDepen><tpRend>${daFolha ? tpRendFolha : '11'}</tpRend><cpfDep>${c}</cpfDep><vlrDedDep>${valor(v)}</vlrDedDep></dedDepen>`),
                 ...[...dedF].map(([c, v]) => `<dedDepen><tpRend>13</tpRend><cpfDep>${c}</cpfDep><vlrDedDep>${valor(v)}</vlrDedDep></dedDepen>`),
+                ...(daFolha ? [...dedDep13].map(([c, v]) => `<dedDepen><tpRend>12</tpRend><cpfDep>${c}</cpfDep><vlrDedDep>${valor(v)}</vlrDedDep></dedDepen>`) : []),
                 ...(daFolha ? [...penAlim].map(([c, v]) => `<penAlim><tpRend>${tpRendFolha}</tpRend><cpfDep>${c}</cpfDep><vlrDedPenAlim>${valor(v)}</vlrDedPenAlim></penAlim>`) : []),
+                ...(daFolha ? [...penAlim13].map(([c, v]) => `<penAlim><tpRend>12</tpRend><cpfDep>${c}</cpfDep><vlrDedPenAlim>${valor(v)}</vlrDedPenAlim></penAlim>`) : []),
                 ...[...(penFerias.get(m) ?? [])].map(([c, v]) => `<penAlim><tpRend>13</tpRend><cpfDep>${c}</cpfDep><vlrDedPenAlim>${valor(v)}</vlrDedPenAlim></penAlim>`),
             ];
             const deps = new Map<string, Dependente>([...(daFolha ? infoDep : doAdiant ? infoDepAdi : []), ...(infoDepFerias.get(m) ?? [])]);
-            const deduz = (c: string) => dedDepMes.has(c) || dedF.has(c);
+            const deduz = (c: string) => dedDepMes.has(c) || dedF.has(c) || (daFolha && dedDep13.has(c));
             const infoDepXml = [...deps].map(([c, dep]) => `<infoDep><cpfDep>${c}</cpfDep>${/^\d{4}-\d{2}-\d{2}$/.test(dep.nascimento) ? `<dtNascto>${dep.nascimento}</dtNascto>` : ''}`
                 + `${dep.nome ? `<nome>${esc(dep.nome.slice(0, 70))}</nome>` : ''}${deduz(c) ? `<depIRRF>S</depIRRF><tpDep>${dep.tipo}</tpDep>` : ''}</infoDep>`);
             const planosMes = daFolha ? planSaudeXml : '';
@@ -770,7 +809,8 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
         const id1200 = idEvento(e.cnpj, agora, ++seq);
         t.s1200 = { id: id1200, xml: `<eSocial xmlns="${NS}/evtRemun/${VERSAO}"><evtRemun Id="${id1200}">`
             + `<ideEvento>${retif(t.retifica1200)}<indApuracao>${anual ? 2 : 1}</indApuracao><perApur>${e.competencia}</perApur><tpAmb>${e.tpAmb}</tpAmb><procEmi>1</procEmi><verProc>${VER_PROC}</verProc></ideEvento>`
-            + ideEmpregador + `<ideTrabalhador><cpfTrab>${cpf}</cpfTrab></ideTrabalhador>` + dmDevs.join('') + '</evtRemun></eSocial>' };
+            + ideEmpregador + `<ideTrabalhador><cpfTrab>${cpf}</cpfTrab>${[...diasInterm.keys()].sort((a, b) => a - b).map(dia => `<infoInterm><dia>${dia}</dia></infoInterm>`).join('')}</ideTrabalhador>`
+            + dmDevs.join('') + '</evtRemun></eSocial>' };
         for (const pm of porMes) {
             const ex = pm.existente1210;
             if (ex && !ex.excluidoEm) {

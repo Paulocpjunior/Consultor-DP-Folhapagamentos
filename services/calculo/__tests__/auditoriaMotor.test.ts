@@ -72,10 +72,10 @@ describe('adiantamento já pago e IRRF', () => {
         expect(r.avisos.join(' ')).toMatch(/deduzido só pela pensão/);
     });
 
-    it('categorias com regra própria: intermitente trava; doméstico calcula com os 3,2% (LC 150/2015)', () => {
+    it('categorias com regra própria: intermitente sem as convocações fica incompleto; doméstico calcula com os 3,2% (LC 150/2015)', () => {
         const dom = mensal('2026-03', [], ficha({ categoria: '104' }));
         expect([dom.situacao, dom.fgtsIndenizacao]).toEqual(['calculado', Math.round(dom.bases.fgts * 0.032)]);
-        expect(mensal('2026-03', [], ficha({ categoria: '111' })).situacao).toBe('erro');
+        expect(mensal('2026-03', [], ficha({ categoria: '111' })).situacao).toBe('incompleto');
     });
 });
 

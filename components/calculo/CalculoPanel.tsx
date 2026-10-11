@@ -15,6 +15,8 @@ import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext
 import EmpresaAtivaFixa from '../empresaAtiva/EmpresaAtivaFixa';
 import FeriasColetivasModal from '../ferias/FeriasColetivasModal';
 import { conferirSalarioMinimo } from '../../services/conformidade/salarioMinimo';
+import { listarConvocacoes } from '../../services/calculo/convocacoesService';
+import type { Convocacao } from '../../services/calculo/intermitente';
 import { listarAfastamentos, listarEnquadramentos, listarFuncionarios, listarTabelas, mensagemErro, salvarAfastamento, type Usuario } from '../../services/cadastros/cadastrosService';
 import { enquadramentoVigente, type Enquadramento } from '../../services/cadastros/enquadramento';
 import type { User } from '../../types';
@@ -93,7 +95,11 @@ const PagarAte: React.FC<{ data: string }> = ({ data }) => {
     return <><strong>{br(util)}</strong>{util !== data && <span className="text-slate-500"> ({br(data)} não é dia útil)</span>}</>;
 };
 
-interface Dados { fichas: FichaFuncionario[]; afastamentos: Afastamento[]; tabelas: TabelaLegal[] }
+interface Dados {
+    fichas: FichaFuncionario[]; afastamentos: Afastamento[]; tabelas: TabelaLegal[];
+    /** Convocações do trabalho intermitente (categoria 111). */
+    convocacoes?: Convocacao[];
+}
 
 const diasNoMes = (c: string) => { const [a, m] = c.split('-').map(Number); return new Date(Date.UTC(a, m, 0)).getUTCDate(); };
 const quando = (d?: Date) => (d ? d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '');
@@ -199,8 +205,9 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
         setDados(null); setMovs({}); setAberto('');
         if (!empresaId) return;
         setErro('');
-        Promise.all([listarFuncionarios(empresaId), listarAfastamentos(empresaId), listarTabelas()])
-            .then(([fichas, afastamentos, tabelas]) => setDados({ fichas, afastamentos, tabelas }))
+        // Convocações do intermitente: sem elas (erro de leitura), quem é da categoria 111 fica incompleto.
+        Promise.all([listarFuncionarios(empresaId), listarAfastamentos(empresaId), listarTabelas(), listarConvocacoes(empresaId).catch(() => undefined)])
+            .then(([fichas, afastamentos, tabelas, convocacoes]) => setDados({ fichas, afastamentos, tabelas, convocacoes }))
             .catch(e => { setErro(mensagemErro(e)); setDados({ fichas: [], afastamentos: [], tabelas: [] }); });
     }, [empresaId, recarga]);
     // Enquadramento previdenciário (parte patronal do resumo); sem ele, o resumo mostra só os segurados.
@@ -329,7 +336,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                 const pag = salvos[m]?.mesPagamento ?? salvos[m]?.arredondamentoPagamento ?? mesDoPagamento(parametrosFolha, m);
                 return calcularMensal({ competencia: m, pagamento: pag, ficha: f, tabelas: dados.tabelas, movimento: salvos[m], afastamentos: afs,
                     feriasDoMes: feriasDaCompetencia(f, afs, dados.tabelas, salvos, m, opcoesFerias), folhaPagaNoAdiantamento: folhaPagaNoAdiantamento(f, m, pag), beneficios: parametrosFolha?.beneficios,
-                    contribuicoesSindicais: convencaoDe(f, `${m}-01`)?.contribuicoes });
+                    contribuicoesSindicais: convencaoDe(f, `${m}-01`)?.contribuicoes, convocacoes: dados.convocacoes });
             },
             // O atual gravado só vale se foi encadeado do mesmo mês de início. O mês do pagamento gravado com ele é o que foi
             // usado de fato: mudar o regime depois não reescreve mês fechado (para isso, reabra o mês e salve de novo; Codex #116).
@@ -382,7 +389,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                 competencia, pagamento, ficha: f, tabelas: dados.tabelas, movimento: movs[f.id], afastamentos: afs,
                 feriasDoMes: movsEmpresa ? feriasDaCompetencia(f, afs, dados.tabelas, movsEmpresa[f.id] ?? {}, competencia, opcoesFerias) : undefined,
                 folhaPagaNoAdiantamento: folhaPagaNoAdiantamento(f, competencia, pagamento), beneficios: parametrosFolha?.beneficios,
-                contribuicoesSindicais: convencaoDe(f, `${competencia}-01`)?.contribuicoes,
+                contribuicoesSindicais: convencaoDe(f, `${competencia}-01`)?.contribuicoes, convocacoes: dados.convocacoes,
             });
         }), dados.fichas, pagamento !== competencia
             // Só os contratos da competência anterior com folha paga neste mês (pelo mês gravado ou pelo regime) e com valor:
@@ -473,7 +480,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
             const pag = movsEmpresa[f.id]?.[c]?.mesPagamento ?? movsEmpresa[f.id]?.[c]?.arredondamentoPagamento ?? mesDoPagamento(parametrosFolha, c);
             const r = calcularMensal({ competencia: c, pagamento: pag, ficha: f, tabelas: dados.tabelas, movimento: movsEmpresa[f.id]?.[c], afastamentos: afs,
                 feriasDoMes: feriasDaCompetencia(f, afs, dados.tabelas, movsEmpresa[f.id] ?? {}, c, opcoesFerias), folhaPagaNoAdiantamento: folhaPagaNoAdiantamento(f, c, pag), beneficios: parametrosFolha?.beneficios,
-                contribuicoesSindicais: convencaoDe(f, `${c}-01`)?.contribuicoes });
+                contribuicoesSindicais: convencaoDe(f, `${c}-01`)?.contribuicoes, convocacoes: dados.convocacoes });
             return arredondarDaEmpresa(r, f, c, movsEmpresa[f.id]?.[c]?.arredondamentoAnterior);
         });
     }, [dados, movsEmpresa, opcoesFerias, arredondarDaEmpresa, parametrosFolha, folhaPagaNoAdiantamento, convencaoDe]);

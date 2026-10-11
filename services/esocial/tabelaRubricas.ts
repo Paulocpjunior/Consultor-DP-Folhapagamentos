@@ -85,6 +85,13 @@ const m = (chave: string, dscRubr: string, natRubr: string, tpRubr: '1' | '2', c
  */
 export const MODELOS: ModeloRubrica[] = [
     m('SAL', 'Salário', '1000', '1', '11', '11', '11'),
+    // Intermitente (CLT, art. 452-A, § 6º): as parcelas pagas a cada convocação. Férias como gozadas (INSS e FGTS) e IRRF
+    // em separado (13); o 13º com as incidências do 13º (12), no S-1200 mensal.
+    m('INTERM', 'Remuneração do trabalho intermitente', '1000', '1', '11', '11', '11'),
+    m('DSRINT', 'DSR do trabalho intermitente', '1002', '1', '11', '11', '11'),
+    m('FERINT', 'Férias proporcionais do intermitente', '1016', '1', '11', '13', '11', 'Férias do intermitente pagas a cada convocação: tratadas como gozadas (INSS e FGTS). Confira com a contabilidade.'),
+    m('FERINT13', '1/3 das férias do intermitente', '1017', '1', '11', '13', '11', 'Férias do intermitente pagas a cada convocação: tratadas como gozadas (INSS e FGTS). Confira com a contabilidade.'),
+    m('13INT', '13º salário proporcional do intermitente', '5001', '1', '12', '12', '12'),
     m('INSALUB', 'Adicional de insalubridade', '1202', '1', '11', '11', '11'),
     m('PERICUL', 'Adicional de periculosidade', '1203', '1', '11', '11', '11'),
     m('MAT', 'Salário-maternidade pago pelo empregador', '4050', '1', '21', '11', '11'),
