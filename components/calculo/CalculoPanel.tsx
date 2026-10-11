@@ -17,6 +17,8 @@ import FeriasColetivasModal from '../ferias/FeriasColetivasModal';
 import { conferirSalarioMinimo } from '../../services/conformidade/salarioMinimo';
 import { listarConvocacoes } from '../../services/calculo/convocacoesService';
 import { listarLotacoes } from '../../services/obras/lotacoesService';
+import { listarDepartamentos } from '../../services/departamentos/departamentosService';
+import { departamentoDa, type Departamento } from '../../services/departamentos/departamentos';
 import type { Lotacao } from '../../services/obras/lotacoes';
 import type { Convocacao } from '../../services/calculo/intermitente';
 import { listarAfastamentos, listarEnquadramentos, listarFuncionarios, listarTabelas, mensagemErro, salvarAfastamento, type Usuario } from '../../services/cadastros/cadastrosService';
@@ -221,6 +223,17 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
         listarLotacoes(empresaId).then(l => { if (vivo) setLotacoes(l); }).catch(() => undefined);
         return () => { vivo = false; };
     }, [empresaId, recarga]);
+    // Departamentos (Cadastros › Departamentos): a folha, os holerites e o resumo por departamento.
+    const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
+    useEffect(() => {
+        setDepartamentos([]); setFiltro('');
+        if (!empresaId) return;
+        let vivo = true;
+        listarDepartamentos(empresaId).then(d => { if (vivo) setDepartamentos(d); }).catch(() => undefined);
+        return () => { vivo = false; };
+    }, [empresaId, recarga]);
+    /** Folha por departamento ou por obra: '' (toda a empresa), 'depto:COD' ou 'obra:COD'. Só a tela, os PDFs e o resumo; o eSocial e a gravação são da empresa toda. */
+    const [filtro, setFiltro] = useState('');
     // Enquadramento previdenciário (parte patronal do resumo); sem ele, o resumo mostra só os segurados.
     const [enquadramentos, setEnquadramentos] = useState<Enquadramento[]>([]);
     const [erroEnq, setErroEnq] = useState('');
@@ -516,7 +529,19 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
     const competenciaPatronal = mensal || rescisao ? competencia : ferias ? '' : `${ano}-12`;
     const vigente = competenciaPatronal && empresaId ? enquadramentoVigente(enquadramentos, empresaId, competenciaPatronal) : null;
     const enqVigente = vigente && 'enquadramento' in vigente ? vigente.enquadramento : undefined;
-    const resumo = useMemo(() => resumirFolha(resultados, enqVigente, { lotacoes, lotacaoPadrao: empresa?.esocialFolha?.codLotacao }), [resultados, enqVigente, lotacoes, empresa]);
+    // Folha por departamento ou obra: quem é do departamento (ficha) ou trabalhou na obra no mês (rateio ou ficha).
+    const visiveis = useMemo(() => {
+        if (!filtro || !dados) return resultados;
+        const porId = new Map(dados.fichas.map(f => [f.id, f]));
+        const padrao = empresa?.esocialFolha?.codLotacao ?? '';
+        return resultados.filter(r => {
+            const f = porId.get(r.fichaId);
+            if (filtro.startsWith('depto:')) return !!f && departamentoDa(f) === filtro.slice(6);
+            const obras = (r as ResultadoCalculo).lotacoes?.map(l => l.codigo) ?? (f?.dados.lotacao ? [f.dados.lotacao] : [padrao]);
+            return obras.includes(filtro.slice(5));
+        });
+    }, [filtro, dados, resultados, empresa]);
+    const resumo = useMemo(() => resumirFolha(visiveis, enqVigente, { lotacoes, lotacaoPadrao: empresa?.esocialFolha?.codLotacao }), [visiveis, enqVigente, lotacoes, empresa]);
     // S-1200/S-1210: recibos de férias pagos na competência ou com gozo nela (as mesmas contas da folha do mês).
     // 1ª parcela do 13º no S-1200 de novembro (paga no mês): calculada como na aba do 13º, com os movimentos gravados.
     const primeiras13Esocial = useMemo(() => (mensal && eventosFolha && dados && movsEmpresa && /^\d{4}-11$/.test(competencia)
@@ -525,7 +550,10 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
         : undefined), [mensal, eventosFolha, dados, movsEmpresa, competencia, opcoes13]);
     const recibosFeriasEsocial = useMemo(() => (mensal && eventosFolha && dados && movsEmpresa && /^\d{4}-\d{2}$/.test(competencia)
         ? recibosFeriasDaCompetencia(dados.fichas, dados.afastamentos, dados.tabelas, movsEmpresa, competencia, opcoesFerias) : undefined), [mensal, eventosFolha, dados, movsEmpresa, competencia, opcoesFerias]);
-    const tituloFolha = mensal ? `Folha mensal ${br(competencia)}` : ferias ? `Recibos de férias ${br(competencia)}` : rescisao ? `Rescisões ${br(competencia)}` : `13º salário ${ano} — ${folha === '13-1a' ? '1ª' : '2ª'} parcela`;
+    const rotuloFiltro = !filtro ? '' : filtro.startsWith('depto:')
+        ? ` — Departamento ${filtro.slice(6)}${departamentos.find(d => d.codigo === filtro.slice(6)) ? ` (${departamentos.find(d => d.codigo === filtro.slice(6))!.nome})` : ''}`
+        : ` — Obra ${filtro.slice(5)}${lotacoes.find(l => l.codigo === filtro.slice(5)) ? ` (${lotacoes.find(l => l.codigo === filtro.slice(5))!.descricao})` : ''}`;
+    const tituloFolha = (mensal ? `Folha mensal ${br(competencia)}` : ferias ? `Recibos de férias ${br(competencia)}` : rescisao ? `Rescisões ${br(competencia)}` : `13º salário ${ano} — ${folha === '13-1a' ? '1ª' : '2ª'} parcela`) + rotuloFiltro;
     const sufixoArquivo = mensal ? competencia : ferias ? `ferias-${competencia}` : rescisao ? `rescisao-${competencia}` : `${ano}-13-${folha === '13-1a' ? '1a' : '2a'}-parcela`;
     // MiA: o holerite aberto (ou a lista da folha) vai como contexto da pergunta.
     useEffect(() => {
@@ -628,14 +656,14 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
     }
 
     function exportar() {
-        const planilha = resultados.map(r => ({
+        const planilha = visiveis.map(r => ({
             Nome: r.nome, Situação: r.situacao, Proventos: r.totais.proventos / 100, INSS: inssDe(r) / 100, IRRF: irrfDe(r) / 100,
             'Salário-família': v(r, 'SF') / 100, Descontos: r.totais.descontos / 100, Líquido: r.totais.liquido / 100,
             'Base INSS': r.bases.inss / 100, 'Base FGTS': r.bases.fgts / 100, 'Rendimentos IRRF': r.bases.irrf / 100, FGTS: r.fgts / 100,
             'Erros e avisos': [...r.erros, ...r.avisos].join(' | '),
         }));
-        const verbas = resultados.flatMap(r => r.verbas.map(x => ({ Nome: r.nome, Código: x.codigo, Descrição: x.descricao, Referência: x.referencia, Tipo: x.tipo, Valor: x.valor / 100 })));
-        const memoria = resultados.flatMap(r => r.memoria.map(m => ({ Nome: r.nome, Passo: m })));
+        const verbas = visiveis.flatMap(r => r.verbas.map(x => ({ Nome: r.nome, Código: x.codigo, Descrição: x.descricao, Referência: x.referencia, Tipo: x.tipo, Valor: x.valor / 100 })));
+        const memoria = visiveis.flatMap(r => r.memoria.map(m => ({ Nome: r.nome, Passo: m })));
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(planilha), 'Resumo');
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(verbas), 'Verbas');
@@ -757,7 +785,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                 </GrupoAcoes>}
                 <GrupoAcoes rotulo="Relatórios">
                     <button className={btn} disabled={!resultados.length} aria-pressed={verResumo} onClick={() => setVerResumo(x => !x)}>Resumo da folha</button>
-                    <button className={btn} disabled={!resultados.some(r => r.situacao !== 'erro')} onClick={() => pdfHolerites(resultados, `holerites-${empresa?.codigoSage ?? 'empresa'}-${sufixoArquivo}.pdf`)}>{rescisao ? 'Recibos (PDF)' : 'Holerites (PDF)'}</button>
+                    <button className={btn} disabled={!visiveis.some(r => r.situacao !== 'erro')} onClick={() => pdfHolerites(visiveis, `holerites-${empresa?.codigoSage ?? 'empresa'}-${sufixoArquivo}${filtro ? `-${filtro.replace(':', '-')}` : ''}.pdf`)}>{rescisao ? 'Recibos (PDF)' : 'Holerites (PDF)'}</button>
                     {rescisao && <button className={btn} disabled={!resultados.some(r => r.situacao !== 'erro')} title="Termo de rescisão (modelo do empregador): empregador, trabalhador, contrato, verbas, deduções, FGTS e quitação (CLT, art. 477, § 2º)." onClick={() => pdfTrct(resultados, `trct-${empresa?.codigoSage ?? 'empresa'}-${sufixoArquivo}.pdf`)}>TRCT (PDF)</button>}
                     <button className={btn} disabled={!resultados.length} onClick={exportar}>Exportar Excel</button>
                 </GrupoAcoes>
@@ -883,6 +911,17 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
             {dados && !mensal && !movsAno && !erro && <p className="text-sm text-slate-500">Carregando os movimentos gravados…</p>}
             {dados && !resultados.length && (mensal || movsAno) && <p className="rounded border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-600">{mensal ? 'Nenhum funcionário com vínculo nesta competência. Confira o cadastro em Cadastros › Funcionários.' : rescisao ? `Nenhum desligamento em ${br(competencia)}. Use "Simular rescisão" para calcular a de um funcionário ativo.` : ferias ? `Nenhum gozo de férias começando em ${br(competencia).slice(0, 7)}. Use "Programar férias" acima ou lance em Cadastros › Afastamentos (motivo 15 — gozo de férias).` : `Nenhum funcionário com 13º em ${ano} (desligados recebem na rescisão). Confira o cadastro em Cadastros › Funcionários.`}</p>}
 
+            {resultados.length > 0 && (departamentos.length > 0 || lotacoes.length > 0) && (
+                <div className="flex flex-wrap items-center gap-2 text-sm dark:text-slate-200">
+                    <label htmlFor="filtro-folha" className="text-xs font-medium">Ver a folha de</label>
+                    <select id="filtro-folha" aria-label="Filtrar a folha" className={inp} value={filtro} onChange={e => setFiltro(e.target.value)}>
+                        <option value="">Toda a empresa</option>
+                        {departamentos.length > 0 && <optgroup label="Departamento">{departamentos.map(d => <option key={d.codigo} value={`depto:${d.codigo}`}>{d.codigo} · {d.nome}</option>)}</optgroup>}
+                        {lotacoes.length > 0 && <optgroup label="Obra / lotação">{lotacoes.map(l => <option key={l.codigo} value={`obra:${l.codigo}`}>{l.codigo} · {l.descricao}</option>)}</optgroup>}
+                    </select>
+                    {filtro && <span className="text-xs text-slate-500">{visiveis.length} de {resultados.length} · holerites, resumo e Excel deste filtro{filtro.startsWith('obra:') ? '; quem tem rateio entra com o holerite inteiro (a parte da obra está nos encargos por obra do resumo)' : ''}. O eSocial e a gravação são da empresa toda.</span>}
+                </div>
+            )}
             {resultados.length > 0 && (
                 <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
                     <table className="w-full text-sm">
@@ -890,7 +929,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                             <tr><th className="p-2">Nome</th><th className="p-2 text-right">Proventos</th><th className="p-2 text-right">INSS</th><th className="p-2 text-right">IRRF</th><th className="p-2 text-right">Sal.-família</th><th className="p-2 text-right">Líquido</th><th className="p-2 text-right">FGTS</th><th className="p-2">Situação</th></tr>
                         </thead>
                         <tbody>
-                            {resultados.map(r => (
+                            {visiveis.map(r => (
                                 <tr key={chave(r)} className={`cursor-pointer border-t border-slate-100 hover:bg-blue-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-700 ${aberto === chave(r) ? 'bg-blue-50 dark:bg-slate-700' : ''}`} onClick={() => setAberto(a => (a === chave(r) ? '' : chave(r)))}>
                                     <td className="p-2 font-medium">{r.nome}{!mensal ? null : pendentes.includes(r.fichaId) ? <span className="ml-1 text-xs text-amber-700 dark:text-amber-300">(não salvo)</span> : !movimentoVazio(movs[r.fichaId]) && <span className="ml-1 text-xs text-blue-700 dark:text-blue-300">(com movimento)</span>}</td>
                                     <td className="p-2 text-right">{real(r.totais.proventos)}</td>

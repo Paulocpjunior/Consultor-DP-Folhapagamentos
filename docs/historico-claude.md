@@ -4258,3 +4258,19 @@ Continuação do lote anterior (obras e lotações), com as respostas do Paulo: 
   - rateio e movimento;
   - encargos por obra;
   - S-1200 com duas obras no XSD, lotação fora do cadastro e falta de recibo.
+
+## 11/10/2026 — Folha por departamento e por obra (parte 3)
+
+Pedido do Paulo: "gerar folha de pagamentos por Departamentos e Obras dentro da mesma empresa", com cadastro próprio de departamentos.
+
+- **Departamentos** (`services/departamentos/`):
+  - coleção `departamentos/{empresa}_{código}`, com regra e teste de regras;
+  - cada um tem código, nome, centro de custo e se está ativo;
+  - o departamento do funcionário é o da ficha (novo campo "Departamento") ou, sem ele, o do IOB;
+  - Cadastros › Departamentos lista a contagem de ativos por departamento, e "Trazer das fichas" cria de uma vez os códigos que vieram do IOB.
+- **Cálculo mensal:** "Ver a folha de": toda a empresa, um departamento ou uma obra.
+  - A lista, os holerites em PDF, o resumo (com os encargos) e o Excel saem do filtro, com o título indicando o departamento ou a obra.
+  - Na obra, quem tem rateio entra com o holerite inteiro; a parte da obra está nos encargos por obra.
+  - O eSocial e a gravação seguem sendo da empresa toda.
+- **Catálogo SAGE:** `arq-obras` passa a disponível. Agora são 24 disponíveis, 21 parciais, 6 planejados e 2 fora.
+- **Testes:** departamentos (o da ficha × o do IOB, trazer das fichas, validação), a tela, o filtro no cálculo e as regras.
