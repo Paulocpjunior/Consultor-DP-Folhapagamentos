@@ -3959,3 +3959,28 @@ Paulo: "pode seguir com desconto sindical e aviso prévio da convenção".
 - **eSocial:** o de/para sugere as rubricas pela descrição (SINDIC, ASSIST/NEGOC, CONFED, MENSAL/ASSOCIA). A natureza da Tabela 03 não foi confirmada em fonte confiável, então não é fixada.
 - **Catálogo SAGE:** Sindicatos passa a disponível (20 disponíveis, 20 parciais, 8 planejados, 3 fora).
 - **Testes:** regras de cada contribuição, validação, folha (bases iguais e líquido menor; afastado), aviso (melhor regra, indenizado, trabalhado, pedido, acordo), convenção da ficha e a tela da convenção.
+
+## 11/10/2026 — Pró-labore e RPA
+
+Paulo: "pode seguir com pró-labore e RPA".
+
+- **Onde:** Folha do mês › Pró-labore e autônomos (RPA), da empresa ativa (`components/contribuintes/ContribuintesPanel.tsx`).
+- **Cadastro** (`contribuintes_individuais/{empresa}_{cpf}`; não se apaga, fica inativo):
+  - categoria 701 (autônomo), 722 (diretor sem FGTS) ou 723 (sócio);
+  - CBO, NIT, S-2300 enviado (com a matrícula), inscrito no município (ISS) e dependentes para o IRRF.
+  - Sócio e diretor exigem o S-2300 antes do S-1200; o autônomo não (MOS, S-1200, item 23).
+- **Cálculo** (`services/contribuintes/contribuinteIndividual.ts`), um lançamento por pessoa no mês:
+  - INSS de 11% até o teto. Com remuneração em outras fontes, só até completar o teto, e o S-1200 leva o infoMV (1, 2 ou 3; MOS, item 5);
+  - 20% da empresa sobre a remuneração (Lei 8.212/1991, art. 22, III), sem RAT e terceiros. No Simples fora do Anexo IV, vai no DAS; sem enquadramento, fica de fora com aviso;
+  - IRRF pela tabela do mês do pagamento, com dependentes ou o desconto simplificado e o redutor;
+  - ISS retido do autônomo não inscrito no município, com a alíquota informada (até 5%);
+  - sem FGTS, férias e 13º.
+- **Mês gravado** em `pagamentos_ci/{empresa}_{competência}`: regrava ou apaga com o mês aberto. Encerrado no Fim de mês, não muda (regras e teste).
+- **Recibos em PDF:** RPA e recibo de pró-labore, com as retenções, o líquido e a assinatura. A tela mostra o resumo do que vai na DCTFWeb.
+- **eSocial** (`services/esocial/eventosCI.ts`):
+  - S-1200 por CPF. Sem o S-2300, leva infoComplem (nome e nascimento) e infoComplCont (CBO). Com outras fontes, leva o infoMV;
+  - RPA na natureza 3501 e ISS na 9222 (MOS, item 13), sugeridos no de/para; o INSS e o IRRF usam as rubricas da folha;
+  - S-1210 no mês do pagamento. Com dependentes deduzidos, leva o infoIRComplem com o código 058806, a conferir na Tabela 29;
+  - pré-voo (XSD) e envio pelo CFI, como na folha. Só originais: a retificação ainda é pelo IOB.
+- **Catálogo SAGE:** Autônomos atualizado e Pró-labore planejado → parcial (falta o informe de rendimentos; transportador autônomo 711/712 fica para depois). Agora são 20 disponíveis, 21 parciais, 7 planejados e 3 fora.
+- **Testes:** cadastro, lançamentos, cálculo (teto e outras fontes, ISS, Simples, dependentes), S-1200 e S-1210 no XSD, tela e regras.
