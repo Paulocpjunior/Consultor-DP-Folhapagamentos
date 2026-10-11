@@ -33,6 +33,11 @@ export interface Afastamento {
     abonoDias?: string;
     /** Férias (motivo 15): pensão alimentícia descontada no recibo (centavos), deduzida no IRRF das férias. Só no Consultor. */
     pensaoFerias?: string;
+    /**
+     * Férias (motivo 15): 'S' quando o empregado pediu, em janeiro, a 1ª parcela do 13º com as férias (Lei 4.749/1965,
+     * art. 2º, § 2º). O recibo de férias paga a 1ª parcela e a 2ª a desconta. Só no Consultor; não vai ao S-2230.
+     */
+    adiantar13?: string;
     /** Férias coletivas (motivo 15 ou a licença remunerada 16 do excedente): o início da coletiva (AAAA-MM-DD). Só no Consultor. */
     coletiva?: string;
     /** Férias coletivas de quem tem menos de 12 meses (CLT, art. 140): o período aquisitivo recomeça no início do gozo. */
@@ -72,7 +77,7 @@ export const ACID_TRANSITO: Record<string, string> = { '1': 'Atropelamento', '2'
 export const idAfastamento = (fichaId: string, dtInicio: string) => `${fichaId}_${dtInicio}`;
 
 export function afastamentoVazio(): Afastamento {
-    return { id: '', empresaId: '', fichaId: '', cpf: '', matriculaEsocial: '', dtInicio: '', dtFim: '', motivo: '', infoMesmoMtv: '', tpAcidTransito: '', observacao: '', perAquisInicio: '', perAquisFim: '', abonoDias: '', coletiva: '', novoPeriodo: '', origem: '', recibos: [] };
+    return { id: '', empresaId: '', fichaId: '', cpf: '', matriculaEsocial: '', dtInicio: '', dtFim: '', motivo: '', infoMesmoMtv: '', tpAcidTransito: '', observacao: '', perAquisInicio: '', perAquisFim: '', abonoDias: '', pensaoFerias: '', adiantar13: '', coletiva: '', novoPeriodo: '', origem: '', recibos: [] };
 }
 
 export const emAberto = (a: Afastamento, hoje: string) => a.dtInicio <= hoje && (!a.dtFim || a.dtFim >= hoje);
@@ -118,6 +123,7 @@ export function validarAfastamento(a: Afastamento, ficha: FichaFuncionario | und
         if (a.motivo !== '15') erros.push('Abono pecuniário só para férias (motivo 15).');
         else if (!/^\d{1,2}$/.test(a.abonoDias) || Number(a.abonoDias) > 10) erros.push('Abono pecuniário: de 1 a 10 dias (até 1/3 das férias, CLT art. 143).');
     }
+    if (a.adiantar13 && a.motivo !== '15') erros.push('1ª parcela do 13º com as férias só para férias (motivo 15).');
     if (a.pensaoFerias) {
         if (a.motivo !== '15') erros.push('Pensão sobre férias só para férias (motivo 15).');
         else if (!/^\d{1,9}$/.test(a.pensaoFerias)) erros.push('Pensão sobre férias: valor inválido.');
@@ -251,18 +257,18 @@ export interface MesclaAfastamento { afastamento: Afastamento; novo: boolean; mu
 /** Afastamento lançado à mão (origem "Manual") não é trocado pela importação; a diferença aparece na prévia. */
 export function mesclarAfastamentos(importados: Afastamento[], existentes: Afastamento[]): MesclaAfastamento[] {
     const porId = new Map(existentes.map(a => [a.id, a]));
-    const chave = (a: Afastamento) => JSON.stringify([a.dtFim, a.motivo, a.infoMesmoMtv, a.tpAcidTransito, a.observacao, a.perAquisInicio, a.perAquisFim, a.abonoDias || '']);
+    const chave = (a: Afastamento) => JSON.stringify([a.dtFim, a.motivo, a.infoMesmoMtv, a.tpAcidTransito, a.observacao, a.perAquisInicio, a.perAquisFim, a.abonoDias || '', a.adiantar13 || '']);
     return importados.map(imp => {
         const atual = porId.get(imp.id);
         if (!atual) return { afastamento: imp, novo: true, mudou: true, preservado: false };
         if (atual.origem.startsWith('Manual')) return { afastamento: atual, novo: false, mudou: false, preservado: chave(atual) !== chave(imp) };
-        // O abono é só do Consultor e o período aquisitivo pode ter vindo do histórico do IOB:
+        // O abono e a 1ª parcela do 13º nas férias são só do Consultor e o período aquisitivo pode ter vindo do histórico do IOB:
         // a reimportação de um S-2230 que não os traz não os apaga.
         // O período aquisitivo é um par: só é trocado com início e fim novos; início igual mantém o fim gravado.
         const par: [string, string] = imp.perAquisInicio && imp.perAquisFim ? [imp.perAquisInicio, imp.perAquisFim]
             : imp.perAquisInicio && imp.perAquisInicio !== atual.perAquisInicio ? [imp.perAquisInicio, '']
                 : [atual.perAquisInicio || imp.perAquisInicio, atual.perAquisFim];
-        const final = { ...imp, abonoDias: imp.abonoDias || atual.abonoDias, perAquisInicio: par[0], perAquisFim: par[1] };
+        const final = { ...imp, abonoDias: imp.abonoDias || atual.abonoDias, pensaoFerias: imp.pensaoFerias || atual.pensaoFerias, adiantar13: imp.adiantar13 || atual.adiantar13, perAquisInicio: par[0], perAquisFim: par[1] };
         return { afastamento: final, novo: false, mudou: chave(atual) !== chave(final), preservado: false };
     });
 }

@@ -201,6 +201,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
     const [movsEmpresa, setMovsEmpresa] = useState<Record<string, Record<string, Movimento>> | null>(null);
     const [salvos, setSalvos] = useState(0);
     const [gravandoAbono, setGravandoAbono] = useState(false);
+    const [gravandoAdiant13, setGravandoAdiant13] = useState(false);
     // Pensão sobre férias (centavos) digitada na tela, por gozo: vale no cálculo até gravar no afastamento.
     const [pensoesFerias, setPensoesFerias] = useState<Record<string, number>>({});
     const [gravandoPensaoFer, setGravandoPensaoFer] = useState(false);
@@ -319,6 +320,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
     const sindicatosDaEmpresa = empresa?.sindicatos;
     const convencaoDe = useCallback((f: FichaFuncionario, dia: string) => convencaoDaFicha(convencoes, f, sindicatosDaEmpresa ?? [], dia), [convencoes, sindicatosDaEmpresa]);
     const parametrosFolha = empresa?.parametrosFolha;
+    const parcelaUnica13 = (parametrosFolha?.parcelaUnica13 ?? []).includes(ano);
     // Empresa carregada ou trocada (ou regime alterado): o mês do pagamento da folha mensal segue o regime salvo dela,
     // senão o IRRF sairia pela tabela do mês errado até alguém mexer na competência (Codex #116).
     const regimePagamento = /^\d{4}-\d{2}$/.test(competencia) ? regimeNoMes(parametrosFolha, competencia) : undefined;
@@ -363,11 +365,11 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
             const admitidosAte = folha === '13-1a' && /^\d{4}-\d{2}$/.test(pagamento) ? ultimoDiaDoMes(pagamento) : `${ano}-12-31`;
             return com13(dados.fichas, ano, admitidosAte).map(f => calcular13({
                 ano, parcela: folha === '13-1a' ? '1a' : '2a', pagamento, ficha: f, tabelas: dados.tabelas, opcoes: opcoes13,
-                afastamentos: dados.afastamentos.filter(a => a.fichaId === f.id), movimentos: movsAno[f.id] ?? {}, primeiraPaga: primeiras[f.id],
+                afastamentos: dados.afastamentos.filter(a => a.fichaId === f.id), movimentos: movsAno[f.id] ?? {}, primeiraPaga: primeiras[f.id], parcelaUnica: parcelaUnica13,
             }));
         }
         return baseFolha ? calcularFolhaMensal(baseFolha, competencia, pagamento, movs) : [];
-    }, [dados, competencia, pagamento, movs, movsEmpresa, mensal, ferias, rescisao, paramsResc, movsAno, ano, folha, opcoes13, primeiras, abonos, pensoesFerias, opcoesFerias, feriasSimuladas, baseFolha, parametrosFolha, convencaoDe]);
+    }, [dados, competencia, pagamento, movs, movsEmpresa, mensal, ferias, rescisao, paramsResc, movsAno, ano, folha, opcoes13, primeiras, parcelaUnica13, abonos, pensoesFerias, opcoesFerias, feriasSimuladas, baseFolha, parametrosFolha, convencaoDe]);
     // Competência encerrada com a folha gravada: telas, PDFs, Excel e eSocial usam o gravado; o cálculo de hoje só compara.
     const usandoGravada = mensal && encerrado && !!gravada;
     const resultados = usandoGravada ? gravada!.holerites : resultadosCalculados;
@@ -489,8 +491,9 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
     // 1ª parcela do 13º no S-1200 de novembro (paga no mês): calculada como na aba do 13º, com os movimentos gravados.
     const primeiras13Esocial = useMemo(() => (mensal && eventosFolha && dados && movsEmpresa && /^\d{4}-11$/.test(competencia)
         ? com13(dados.fichas, Number(competencia.slice(0, 4)), ultimoDiaDoMes(competencia)).map(f => calcular13({ ano: Number(competencia.slice(0, 4)), parcela: '1a', pagamento: competencia, ficha: f,
-            tabelas: dados.tabelas, opcoes: opcoes13, afastamentos: dados.afastamentos.filter(a => a.fichaId === f.id), movimentos: movsEmpresa[f.id] ?? {} }))
-        : undefined), [mensal, eventosFolha, dados, movsEmpresa, competencia, opcoes13]);
+            tabelas: dados.tabelas, opcoes: opcoes13, afastamentos: dados.afastamentos.filter(a => a.fichaId === f.id), movimentos: movsEmpresa[f.id] ?? {},
+            parcelaUnica: (parametrosFolha?.parcelaUnica13 ?? []).includes(Number(competencia.slice(0, 4))) }))
+        : undefined), [mensal, eventosFolha, dados, movsEmpresa, competencia, opcoes13, parametrosFolha]);
     const recibosFeriasEsocial = useMemo(() => (mensal && eventosFolha && dados && movsEmpresa && /^\d{4}-\d{2}$/.test(competencia)
         ? recibosFeriasDaCompetencia(dados.fichas, dados.afastamentos, dados.tabelas, movsEmpresa, competencia, opcoesFerias) : undefined), [mensal, eventosFolha, dados, movsEmpresa, competencia, opcoesFerias]);
     const rotuloFiltro = !filtro ? '' : filtro.startsWith('depto:')
@@ -825,6 +828,17 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                     <span className="font-medium">IRRF das férias (confirme com o IOB):</span>
                     <label className="flex items-center gap-1"><input type="checkbox" checked={opcoesFerias.simplificado} onChange={e => setOpcoesFerias(o => ({ ...o, simplificado: e.target.checked }))} />desconto simplificado</label>
                     <label className="flex items-center gap-1"><input type="checkbox" checked={opcoesFerias.redutor} onChange={e => setOpcoesFerias(o => ({ ...o, redutor: e.target.checked }))} />redutor de 2026</label>
+                </div>
+            )}
+            {(folha === '13-1a' || folha === '13-2a') && empresa && (
+                <div className="flex flex-wrap items-center gap-4 rounded border border-slate-200 p-2 text-xs text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                    <label className="flex items-center gap-1" title="Parâmetro da empresa para o ano: sem a 1ª parcela de novembro (nem no S-1200 de novembro); o 13º sai inteiro na 2ª parcela.">
+                        <input type="checkbox" aria-label="Parcela única do 13º" checked={parcelaUnica13}
+                            onChange={e => { const ligar = e.target.checked; gravarParametrosFolha(p => ({ ...p, parcelaUnica13: [...new Set([...(p?.parcelaUnica13 ?? []).filter(x => x !== ano), ...(ligar ? [ano] : [])])].sort((x, y) => x - y) })); }} />
+                        13º de {ano} em parcela única</label>
+                    <span className="text-slate-500">{parcelaUnica13
+                        ? 'Sem 1ª parcela: a lei manda adiantar a metade até 30/11 (Lei 4.749/1965, art. 2º); pagar tudo depois disso sujeita a empresa a multa por empregado (Lei 7.855/1989, art. 3º). Quem recebeu a 1ª parcela com as férias tem ela descontada.'
+                        : 'A 1ª parcela pedida com as férias (marcada no gozo, em Cadastros › Afastamentos ou no recibo de férias) não sai de novo em novembro e é descontada na 2ª.'}</span>
                 </div>
             )}
             {folha === '13-2a' && (
@@ -1192,6 +1206,24 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                                             onChange={e => { const v = centavosDeTexto(e.target.value); setPensoesFerias(x => ({ ...x, [f.gozoId]: v ?? 0 })); }} />
                                         <span className="text-slate-500">Desconto no recibo, deduzido no IRRF das férias e informado no S-1210 por alimentando. {gravado ? `Gravado no afastamento: ${reais(gravado)}.` : 'Nada gravado no afastamento.'}</span>
                                         {mudou && gozo && <button type="button" className="mt-1 block rounded border border-slate-300 px-2 py-1 dark:border-slate-600" disabled={gravandoPensaoFer || encerrado} title={encerrado ? MSG_ENCERRADO(competencia) : undefined} onClick={gravarPensao}>{gravandoPensaoFer ? 'Gravando…' : 'Gravar pensão no afastamento'}</button>}
+                                    </label>
+                                );
+                            })()}
+                            {(() => {
+                                const gozo = dados?.afastamentos.find(a => a.id === f.gozoId);
+                                if (!gozo) return null;
+                                async function marcar(ligar: boolean) {
+                                    if (!gozo) return;
+                                    setGravandoAdiant13(true); setErro('');
+                                    try { await salvarAfastamento(gozo, { ...gozo, adiantar13: ligar ? 'S' : '' }, usuario); setRecarga(n => n + 1); }
+                                    catch (e) { setErro(mensagemErro(e)); }
+                                    finally { setGravandoAdiant13(false); }
+                                }
+                                return (
+                                    <label className="flex items-start gap-2">
+                                        <input type="checkbox" className="mt-0.5" aria-label="1ª parcela do 13º neste recibo" checked={gozo.adiantar13 === 'S'} disabled={gravandoAdiant13 || encerrado} title={encerrado ? MSG_ENCERRADO(competencia) : undefined} onChange={e => void marcar(e.target.checked)} />
+                                        <span>1ª parcela do 13º neste recibo (pedido do empregado em janeiro; Lei 4.749/1965, art. 2º, § 2º)
+                                            <span className="block text-slate-500">{f.adiantamento13 ? `Paga aqui: ${reais(f.adiantamento13.valor)}, com FGTS de ${reais(f.adiantamento13.fgts)} na competência de ${br(f.adiantamento13.competencia)}. A de novembro não sai e a 2ª parcela a desconta.` : 'Gravado no afastamento das férias.'}</span></span>
                                     </label>
                                 );
                             })()}

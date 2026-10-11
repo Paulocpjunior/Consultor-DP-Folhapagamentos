@@ -180,6 +180,9 @@ const AfastamentoModal: React.FC<{ antes: Afastamento | null; inicial: Afastamen
                             <label className="block"><span className="text-xs font-medium text-slate-600 dark:text-slate-300">Abono pecuniário (dias vendidos)</span>
                                 <input className={inp} inputMode="numeric" value={a.abonoDias ?? ''} onChange={e => set('abonoDias', e.target.value.replace(/\D/g, ''))} aria-label="Dias de abono pecuniário" />
                                 <span className="text-xs text-slate-500">Só no Consultor (não vai ao eSocial); entra no recibo de férias e no saldo do período.</span></label>
+                            <label className="flex items-start gap-2 sm:col-span-2"><input type="checkbox" className="mt-0.5" checked={a.adiantar13 === 'S'} onChange={e => set('adiantar13', e.target.checked ? 'S' : '')} aria-label="1ª parcela do 13º com as férias" />
+                                <span><span className="text-xs font-medium text-slate-600 dark:text-slate-300">1ª parcela do 13º com estas férias</span>
+                                    <span className="block text-xs text-slate-500">A pedido do empregado, feito em janeiro (Lei 4.749/1965, art. 2º, § 2º). O recibo de férias paga a 1ª parcela; a de novembro não sai e a 2ª a desconta. Só no Consultor.</span></span></label>
                         </>
                     )}
                     <label className="block sm:col-span-2"><span className="text-xs font-medium text-slate-600 dark:text-slate-300">Observação</span>
@@ -289,6 +292,7 @@ const ImportarS2230Modal: React.FC<{ empresa: Empresa; fichas: FichaFuncionario[
                                                     <span className="block text-slate-500 dark:text-slate-400">
                                                         {i.afastamento.perAquisInicio && `Aquisitivo ${br(i.afastamento.perAquisInicio)} a ${br(i.afastamento.perAquisFim)}`}
                                                         {i.afastamento.abonoDias && ` · abono ${i.afastamento.abonoDias} dia(s)`}
+                                                        {i.afastamento.adiantar13 === 'S' && ' · com a 1ª parcela do 13º'}
                                                     </span>
                                                 )}
                                             </td>
