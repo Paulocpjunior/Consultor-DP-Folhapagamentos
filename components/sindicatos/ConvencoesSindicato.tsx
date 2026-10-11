@@ -13,6 +13,7 @@ import { avisosConvencao, convencaoVazia, lerTextoConvencao, renovacaoDoSindicat
 import SinalRenovacao from './SinalRenovacao';
 import { TAMANHO_MAXIMO_PDF, abrirPdfConvencao, listarConvencoes, salvarConvencao } from '../../services/sindicatos/convencoesService';
 import { lerTextoPdf } from '../../services/sindicatos/textoPdf';
+import { contribuicaoPadrao, TIPOS_CONTRIBUICAO, type ContribuicaoConvencao, type FormaContribuicao, type RegraAvisoConvencao, type TipoContribuicao } from '../../services/sindicatos/contribuicoes';
 
 const inp = 'w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const br = (d: string) => (d ? d.split('-').reverse().join('/') : '');
@@ -28,6 +29,8 @@ interface Edicao {
     pisos: { descricao: string; cbo: string; valor: string }[];
     percentual: string; he50: string; he100: string; noturno: string;
     obrigacoes: string;
+    contribuicoes: { tipo: TipoContribuicao; forma: FormaContribuicao; valor: string; meses: string; teto: string; descricao: string }[];
+    avisos: { idade: string; anos: string; dias: string; descricao: string }[];
     pdf: File | null;
 }
 
@@ -36,6 +39,8 @@ const paraEdicao = (c: ConvencaoColetiva): Edicao => ({
     percentual: c.reajuste.percentual === null ? '' : String(c.reajuste.percentual).replace('.', ','),
     he50: c.horaExtra.minimo50 === null ? '' : String(c.horaExtra.minimo50), he100: c.horaExtra.minimo100 === null ? '' : String(c.horaExtra.minimo100),
     noturno: c.adicionalNoturno === null ? '' : String(c.adicionalNoturno), obrigacoes: c.obrigacoes.map(o => o.descricao).join('\n'), pdf: null,
+    contribuicoes: (c.contribuicoes ?? []).map(x => ({ tipo: x.tipo, forma: x.forma, valor: x.forma === 'valor' ? txt(x.valor) : String(x.valor).replace('.', ','), meses: x.meses.join(', '), teto: x.teto === null ? '' : txt(x.teto), descricao: x.descricao })),
+    avisos: (c.avisoPrevio ?? []).map(x => ({ idade: x.idadeMinima === null ? '' : String(x.idadeMinima), anos: x.anosMinimos === null ? '' : String(x.anosMinimos), dias: String(x.diasAdicionais), descricao: x.descricao })),
 });
 
 function deEdicao(e: Edicao): { c: ConvencaoColetiva; erros: string[] } {
@@ -46,7 +51,14 @@ function deEdicao(e: Edicao): { c: ConvencaoColetiva; erros: string[] } {
         return { descricao: p.descricao.trim(), cbo: p.cbo.replace(/\D/g, ''), valor: v ?? 0 };
     });
     const obrigacoes = e.obrigacoes.split('\n').map(x => x.trim()).filter(Boolean).map((descricao, i) => ({ id: `o${i + 1}`, descricao: descricao.slice(0, 200) }));
-    const c: ConvencaoColetiva = { ...e.c, pisos, obrigacoes, reajuste: { ...e.c.reajuste, percentual: numOuNulo(e.percentual) },
+    const contribuicoes: ContribuicaoConvencao[] = e.contribuicoes.map(x => {
+        const valor = x.forma === 'valor' ? centavosDeTexto(x.valor) ?? 0 : Number(x.valor.replace(',', '.')) || 0;
+        const meses = x.meses.split(/[^\d]+/).filter(Boolean).map(Number);
+        const teto = x.teto.trim() ? centavosDeTexto(x.teto) ?? -1 : null;
+        return { tipo: x.tipo, forma: x.forma, valor, meses, teto, descricao: x.descricao.trim().slice(0, 200) };
+    });
+    const avisoPrevio: RegraAvisoConvencao[] = e.avisos.map(x => ({ idadeMinima: numOuNulo(x.idade), anosMinimos: numOuNulo(x.anos), diasAdicionais: Number(x.dias) || 0, descricao: x.descricao.trim().slice(0, 200) }));
+    const c: ConvencaoColetiva = { ...e.c, pisos, obrigacoes, contribuicoes, avisoPrevio, reajuste: { ...e.c.reajuste, percentual: numOuNulo(e.percentual) },
         horaExtra: { minimo50: numOuNulo(e.he50), minimo100: numOuNulo(e.he100) }, adicionalNoturno: numOuNulo(e.noturno), registroMte: e.c.registroMte.trim().toUpperCase(), observacao: e.c.observacao.trim() };
     return { c, erros };
 }
@@ -111,7 +123,7 @@ const ConvencoesSindicato: React.FC<{ sindicato: Sindicato; usuario: Usuario; on
                             <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5">
                                 <span className="dark:text-slate-100"><strong>{c.tipo} {br(c.vigenciaInicio)} a {br(c.vigenciaFim)}</strong>{c.registroMte ? ` · ${c.registroMte}` : ''}
                                     <span className={`ml-2 text-xs ${COR[sit]}`}>{sit}</span>
-                                    <span className="block text-xs text-slate-500">{[c.dataBase && `data-base ${MESES[Number(c.dataBase) - 1]}`, c.reajuste.percentual !== null && `reajuste ${String(c.reajuste.percentual).replace('.', ',')}%`, c.pisos.length && `pisos: ${c.pisos.map(p => `${p.descricao} ${reais(p.valor)}`).join(', ')}`, c.obrigacoes.length && `${c.obrigacoes.length} obrigação(ões)`].filter(Boolean).join(' · ')}</span></span>
+                                    <span className="block text-xs text-slate-500">{[c.dataBase && `data-base ${MESES[Number(c.dataBase) - 1]}`, c.reajuste.percentual !== null && `reajuste ${String(c.reajuste.percentual).replace('.', ',')}%`, c.pisos.length && `pisos: ${c.pisos.map(p => `${p.descricao} ${reais(p.valor)}`).join(', ')}`, c.obrigacoes.length && `${c.obrigacoes.length} obrigação(ões)`, (c.contribuicoes ?? []).length && `descontos: ${c.contribuicoes.map(x => TIPOS_CONTRIBUICAO[x.tipo]?.rotulo.toLowerCase()).join(', ')}`, (c.avisoPrevio ?? []).length && 'aviso prévio a mais'].filter(Boolean).join(' · ')}</span></span>
                                 <span className="flex gap-2 text-xs">
                                     {c.arquivo && <button className="text-blue-700 underline dark:text-blue-300" onClick={() => abrirPdfConvencao(c).catch(e => setErros([mensagemErro(e)]))}>Abrir PDF</button>}
                                     <button className="text-blue-700 underline dark:text-blue-300" onClick={() => { setErros([]); setMsg(''); setEdicao(paraEdicao(c)); }}>Editar</button>
@@ -148,6 +160,46 @@ const ConvencoesSindicato: React.FC<{ sindicato: Sindicato; usuario: Usuario; on
                             </div>
                         ))}
                         <button className="mt-1 rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:text-white" onClick={() => setEdicao({ ...edicao, pisos: [...edicao.pisos, { descricao: '', cbo: '', valor: '' }] })}>Adicionar piso</button>
+                    </div>
+                    <div>
+                        <p className="text-xs font-medium">Descontos para o sindicato (quem paga vem da ficha, aba Sindicato: autorização, oposição e filiação)</p>
+                        {edicao.contribuicoes.map((x, i) => {
+                            const muda = (m: Partial<Edicao['contribuicoes'][number]>) => setEdicao({ ...edicao, contribuicoes: edicao.contribuicoes.map((y, j) => (j === i ? { ...y, ...m } : y)) });
+                            return (
+                                <div key={i} className="mt-1 grid grid-cols-2 gap-1 sm:grid-cols-[12rem_7rem_6rem_7rem_6rem_1fr_auto]">
+                                    <select aria-label={`Tipo da contribuição ${i + 1}`} className={inp} value={x.tipo} onChange={e => muda({ tipo: e.target.value as TipoContribuicao })}>
+                                        {(Object.keys(TIPOS_CONTRIBUICAO) as TipoContribuicao[]).map(t => <option key={t} value={t}>{TIPOS_CONTRIBUICAO[t].rotulo}</option>)}</select>
+                                    <select aria-label={`Forma da contribuição ${i + 1}`} className={inp} value={x.forma} onChange={e => muda({ forma: e.target.value as FormaContribuicao })}>
+                                        <option value="percentual">% do salário</option><option value="valor">Valor fixo</option><option value="dias">Dias de salário</option></select>
+                                    <input aria-label={`Valor da contribuição ${i + 1}`} className={inp} value={x.valor} placeholder={x.forma === 'valor' ? 'R$' : x.forma === 'dias' ? 'dias' : '%'} onChange={e => muda({ valor: e.target.value })} />
+                                    <input aria-label={`Meses da contribuição ${i + 1}`} className={inp} value={x.meses} placeholder="meses (vazio = todo mês)" title="Meses do desconto, de 1 a 12, separados por vírgula. Vazio: todo mês." onChange={e => muda({ meses: e.target.value })} />
+                                    <input aria-label={`Teto da contribuição ${i + 1}`} className={inp} value={x.teto} placeholder="teto R$" onChange={e => muda({ teto: e.target.value })} />
+                                    <input aria-label={`Descrição da contribuição ${i + 1}`} className={inp} value={x.descricao} placeholder="cláusula da convenção" onChange={e => muda({ descricao: e.target.value })} />
+                                    <button className="text-xs text-red-600 underline" onClick={() => setEdicao({ ...edicao, contribuicoes: edicao.contribuicoes.filter((_, j) => j !== i) })}>Remover</button>
+                                </div>
+                            );
+                        })}
+                        <button className="mt-1 rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:text-white" onClick={() => {
+                            const livre = (Object.keys(TIPOS_CONTRIBUICAO) as TipoContribuicao[]).find(t => !edicao.contribuicoes.some(x => x.tipo === t)) ?? 'assistencial';
+                            const p = contribuicaoPadrao(livre);
+                            setEdicao({ ...edicao, contribuicoes: [...edicao.contribuicoes, { tipo: p.tipo, forma: p.forma, valor: p.valor ? String(p.valor) : '', meses: p.meses.join(', '), teto: '', descricao: p.descricao }] });
+                        }}>Adicionar contribuição</button>
+                    </div>
+                    <div>
+                        <p className="text-xs font-medium">Aviso prévio além da Lei 12.506/2011 (dispensa sem justa causa)</p>
+                        {edicao.avisos.map((x, i) => {
+                            const muda = (m: Partial<Edicao['avisos'][number]>) => setEdicao({ ...edicao, avisos: edicao.avisos.map((y, j) => (j === i ? { ...y, ...m } : y)) });
+                            return (
+                                <div key={i} className="mt-1 grid grid-cols-2 gap-1 sm:grid-cols-[7rem_7rem_7rem_1fr_auto]">
+                                    <input aria-label={`Idade mínima do aviso ${i + 1}`} className={inp} value={x.idade} placeholder="idade mín." onChange={e => muda({ idade: e.target.value.replace(/\D/g, '') })} />
+                                    <input aria-label={`Anos de casa do aviso ${i + 1}`} className={inp} value={x.anos} placeholder="anos de casa" onChange={e => muda({ anos: e.target.value.replace(/\D/g, '') })} />
+                                    <input aria-label={`Dias a mais do aviso ${i + 1}`} className={inp} value={x.dias} placeholder="dias a mais" onChange={e => muda({ dias: e.target.value.replace(/\D/g, '') })} />
+                                    <input aria-label={`Descrição do aviso ${i + 1}`} className={inp} value={x.descricao} placeholder="cláusula da convenção" onChange={e => muda({ descricao: e.target.value })} />
+                                    <button className="text-xs text-red-600 underline" onClick={() => setEdicao({ ...edicao, avisos: edicao.avisos.filter((_, j) => j !== i) })}>Remover</button>
+                                </div>
+                            );
+                        })}
+                        <button className="mt-1 rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:text-white" onClick={() => setEdicao({ ...edicao, avisos: [...edicao.avisos, { idade: '', anos: '', dias: '', descricao: '' }] })}>Adicionar regra de aviso</button>
                     </div>
                     <label className="block text-xs">Obrigações da convenção a conferir em cada empresa (uma por linha: cesta básica, seguro de vida, PLR, auxílio-creche…)
                         <textarea aria-label="Obrigações da convenção" rows={3} className={inp} value={edicao.obrigacoes} onChange={e => setEdicao({ ...edicao, obrigacoes: e.target.value })} /></label>
