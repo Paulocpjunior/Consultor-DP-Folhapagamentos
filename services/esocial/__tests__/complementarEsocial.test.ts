@@ -127,6 +127,20 @@ describe('folha complementar no eSocial', () => {
         expect(inc.trabalhadores[0].erros.join(' ')).toMatch(/Complementar \(C\) incompleta: RRA/);
     });
 
+    it('tipo F (verbas devidas depois do desligamento), sem data do instrumento: passa no XSD', async () => {
+        const deslig: FichaFuncionario = { ...FICHA, situacao: 'desligado', dados: { ...FICHA.dados, dataDesligamento: '2026-03-20' } };
+        const ins: Instrumento = { tpAcConv: 'F', dsc: 'Comissões apuradas depois do desligamento' };
+        const comp = calcularComplementar({ perApur: '2026-04', pagamento: '2026-04', instrumento: ins, fichas: [deslig], gravadas: {}, tabelas: TAB,
+            lancamentos: [{ fichaId: deslig.id, perRef: '2026-03', codigo: 'SAL', descricao: 'Comissões', tipo: 'provento', valor: 80000, inss: true, fgts: true, irrf: true }] });
+        expect(comp.resultados[0].situacao).toBe('calculado');
+        const g = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-04', dataPagamento: '2026-04-30', fichas: [deslig], rubricas: RUBRICAS,
+            parametros: params(comp.resultados, '2026-04'), resultados: [], complementares: [{ instrumento: ins, resultados: comp.resultados }] });
+        const t = g.trabalhadores[0];
+        expect(t.erros).toEqual([]);
+        expect(t.s1200!.xml).toContain('<ideADC><tpAcConv>F</tpAcConv><dsc>Comissões apuradas depois do desligamento</dsc><remunSuc>N</remunSuc>');
+        expect(await validarPeloXsd(t.s1200!.xml, lerXsd)).toEqual({ valido: true, erros: [] });
+    });
+
     it('desligado (sem a folha do mês): S-1200 só com o demonstrativo das diferenças, pago na data da folha; passa no XSD', async () => {
         const { folha, comp } = montar('2026-05');
         const sem = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-04', dataPagamento: '2026-05-06', fichas: [FICHA], rubricas: RUBRICAS,
