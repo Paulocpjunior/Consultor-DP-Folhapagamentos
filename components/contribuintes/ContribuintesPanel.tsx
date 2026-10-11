@@ -3,7 +3,8 @@
 // Folha do mês › Pró-labore e autônomos (RPA), da empresa ativa: o cadastro dos sócios, diretores e autônomos, os
 // pagamentos do mês com o cálculo (services/contribuintes/contribuinteIndividual.ts), os recibos em PDF, o resumo
 // (o que vai na DCTFWeb) e o S-1200 e o S-1210 de cada um (services/esocial/eventosCI.ts), com o pré-voo e o envio
-// pelo CFI, como na folha.
+// pelo CFI, como na folha. O S-2300 (início) e o S-2399 (término) do sócio e do diretor saem daqui também
+// (services/esocial/eventosTSV.ts); o S-2300 aceito na produção libera o S-1200 sem marcar nada no cadastro.
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
@@ -22,11 +23,13 @@ import { listarFuncionarios } from '../../services/cadastros/cadastrosService';
 import { verificarAntesDeEnviar, transmitirVerificado, mensagemDaTransmissao } from '../../services/esocial/envioSeguro';
 import type { TpAmb } from '../../services/esocial/transmissao';
 import { baixarBytes, gerarZip } from '../../services/implantacao/zip';
+import { statusPorRef, type StatusEvento } from '../../services/esocial/statusEvento';
+import { ESTADO_CIVIL, GRAU_INSTRUCAO, MOTIVOS_TERMINO_721, RACA_COR, gerarS2300, gerarS2399, refInicioTSV, refTerminoTSV } from '../../services/esocial/eventosTSV';
 import { lerFechamento } from '../../services/fimDeMes/fechamentoService';
 import { quintoDiaUtilSalario, somarMeses } from '../../services/prazos/calendario';
 import {
     CATEGORIAS_CI, calcularCI, contribuinteVazio, idContribuinte, totaisCI, validarContribuinte, validarLancamentos,
-    type CategoriaCI, type ContribuinteIndividual, type LancamentoCI, type OutraFonte, type ResultadoCI,
+    type CategoriaCI, type ContribuinteIndividual, type DadosTSV, type LancamentoCI, type OutraFonte, type ResultadoCI,
 } from '../../services/contribuintes/contribuinteIndividual';
 import { excluirPagamentosCI, gravarPagamentosCI, lerPagamentosCI, listarContribuintes, salvarContribuinte } from '../../services/contribuintes/contribuintesService';
 
@@ -34,6 +37,8 @@ const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:bor
 const btn = 'rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
 const br = (c: string) => `${c.slice(5, 7)}/${c.slice(0, 4)}`;
 const txt = (c: number) => (c ? (c / 100).toFixed(2).replace('.', ',') : '');
+const hojeLocal = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const corSituacao = (s: StatusEvento) => (s.situacao === 'aceito' || s.situacao === 'iob' ? 'text-green-700 dark:text-green-300' : s.situacao === 'recusado' ? 'text-red-700 dark:text-red-300' : s.situacao === 'aguardando' ? 'text-amber-700 dark:text-amber-300' : 'text-slate-500');
 
 interface Linha { contribuinteId: string; valor: string; descricao: string; dataPagamento: string; iss: string; outras: { tpInsc: '1' | '2'; nrInsc: string; codCateg: string; valor: string }[] }
 const paraLinha = (l: LancamentoCI): Linha => ({ contribuinteId: l.contribuinteId, valor: txt(l.valor), descricao: l.descricao, dataPagamento: l.dataPagamento, iss: l.issAliquota ? String(l.issAliquota).replace('.', ',') : '',
@@ -81,22 +86,27 @@ const ContribuintesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
         return () => { vivo = false; };
     }, [ativa, competencia, recarga]);
 
+    // S-2300 e S-2399 pelo Consultor: a situação de cada um pelos lotes; o S-2300 aceito na produção vale como enviado.
+    const stInicio = (c: ContribuinteIndividual) => statusPorRef(refInicioTSV(c.id), 'S-2300', envios, c.s2300 ? { recibo: '', detalhe: 'marcado como enviado no cadastro' } : null);
+    const stTermino = (c: ContribuinteIndividual) => statusPorRef(refTerminoTSV(c.id), 'S-2399', envios);
+    const cadastro = useMemo(() => contribuintes.map(c => (!c.s2300 && statusPorRef(refInicioTSV(c.id), 'S-2300', envios).situacao === 'aceito' ? { ...c, s2300: true } : c)), [contribuintes, envios]);
     const enquadramento = useMemo(() => {
         if (!ativa || !competencia) return undefined;
         const v = enquadramentoVigente(enquadramentos, ativa.id, competencia);
         return v && 'enquadramento' in v ? v.enquadramento : undefined;
     }, [enquadramentos, ativa, competencia]);
     const lancamentos = linhas.map(deLinha);
-    const errosLanc = competencia ? validarLancamentos(competencia, lancamentos, contribuintes) : ['Ative a empresa e a competência.'];
-    const resultados: ResultadoCI[] = useMemo(() => (errosLanc.length ? [] : lancamentos.map(l => calcularCI(contribuintes.find(c => c.id === l.contribuinteId)!, l, competencia, tabelas, enquadramento))),
-        [JSON.stringify(lancamentos), contribuintes, competencia, tabelas, enquadramento, errosLanc.length]); // eslint-disable-line react-hooks/exhaustive-deps
+    const errosLanc = competencia ? validarLancamentos(competencia, lancamentos, cadastro) : ['Ative a empresa e a competência.'];
+    const resultados: ResultadoCI[] = useMemo(() => (errosLanc.length ? [] : lancamentos.map(l => calcularCI(cadastro.find(c => c.id === l.contribuinteId)!, l, competencia, tabelas, enquadramento))),
+        [JSON.stringify(lancamentos), cadastro, competencia, tabelas, enquadramento, errosLanc.length]); // eslint-disable-line react-hooks/exhaustive-deps
     const tot = totaisCI(resultados);
-    const ativos = contribuintes.filter(c => c.ativo);
+    const ativos = cadastro.filter(c => c.ativo);
+    const comTSV = cadastro.filter(c => CATEGORIAS_CI[c.categoria]?.exigeS2300 || c.tsv.dtInicio);
     const pagamentoPadrao = () => { if (!competencia) return ''; const [a, m] = somarMeses(`${competencia}-01`, 1).split('-').map(Number); return quintoDiaUtilSalario(a, m); };
 
     async function gravarCadastro() {
         if (!edicao || !ativa) return;
-        const c = { ...edicao, cpf: edicao.cpf.replace(/\D/g, ''), cbo: edicao.cbo.replace(/\D/g, ''), empresaId: ativa.id };
+        const c = { ...edicao, cpf: edicao.cpf.replace(/\D/g, ''), cbo: edicao.cbo.replace(/\D/g, ''), empresaId: ativa.id, matricula: edicao.matricula.trim() };
         const e = validarContribuinte(c);
         if (!edicao.id && contribuintes.some(x => x.id === idContribuinte(ativa.id, c.cpf))) e.push('Já há cadastro com este CPF: edite o existente.');
         if (e.length) { setErro(e.join(' ')); return; }
@@ -123,7 +133,7 @@ const ContribuintesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
         if (!ativa) return;
         try {
             const { recibosCIPdf } = await import('../../services/contribuintes/recibosCIPdf');
-            recibosCIPdf(resultados, contribuintes, { empresa: { razaoSocial: empresa?.razaoSocial || ativa.nome, cnpj: ativa.cnpj.replace(/\D/g, ''), codigoSage: ativa.codigoSage }, titulo: 'Recibos', previa: false, emitidoPor: usuario.email })
+            recibosCIPdf(resultados, cadastro, { empresa: { razaoSocial: empresa?.razaoSocial || ativa.nome, cnpj: ativa.cnpj.replace(/\D/g, ''), codigoSage: ativa.codigoSage }, titulo: 'Recibos', previa: false, emitidoPor: usuario.email })
                 .save(`recibos-prolabore-rpa-${ativa.codigoSage || 'empresa'}-${competencia}.pdf`);
         } catch (x) { setErro(`PDF não gerado: ${(x as Error).message}`); }
     }
@@ -152,8 +162,8 @@ const ContribuintesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
         for (const mes of new Set(resultados.map(r => r.dataPagamento.slice(0, 7)))) for (const [cpf, r] of recibosVigentes(todos, 'S-1210', mes, ex)) if (!r.excluidoEm) s1210.set(cpf, r.nrRecibo);
         return { s1200, s1210 };
     }, [envios, competencia, resultados, tpAmb]);
-    const geracao = useMemo(() => (empresa && efetivos && resultados.length ? gerarEventosCI({ cnpj: empresa.cnpj, tpAmb, competencia, contribuintes, resultados, rubricas, parametros: efetivos, recibos: recibosVigentesCI, cpfsEmpregados }) : null),
-        [empresa, efetivos, resultados, tpAmb, competencia, contribuintes, rubricas, recibosVigentesCI, cpfsEmpregados]);
+    const geracao = useMemo(() => (empresa && efetivos && resultados.length ? gerarEventosCI({ cnpj: empresa.cnpj, tpAmb, competencia, contribuintes: cadastro, resultados, rubricas, parametros: efetivos, recibos: recibosVigentesCI, cpfsEmpregados }) : null),
+        [empresa, efetivos, resultados, tpAmb, competencia, cadastro, rubricas, recibosVigentesCI, cpfsEmpregados]);
     const prontos = geracao?.eventos.filter(t => t.s1200) ?? [];
     async function gravarDePara() {
         if (!empresa || !efetivos) return;
@@ -182,13 +192,41 @@ const ContribuintesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
         finally { setOcupado(''); }
     }
 
+    function eventoTSV(c: ContribuinteIndividual, tipo: 'S-2300' | 'S-2399') {
+        const st = tipo === 'S-2300' ? stInicio(c) : stTermino(c);
+        const recibo = tpAmb === 1 && st.situacao === 'aceito' && st.recibo ? st.recibo : undefined;
+        return tipo === 'S-2300' ? gerarS2300({ cnpj: empresa?.cnpj ?? ativa?.cnpj ?? '', tpAmb, contribuinte: c, nrInscEstab: params?.nrInscEstab ?? '', recibo })
+            : gerarS2399({ cnpj: empresa?.cnpj ?? ativa?.cnpj ?? '', tpAmb, contribuinte: c, hoje: hojeLocal(), recibo });
+    }
+    function baixarTSV(c: ContribuinteIndividual, tipo: 'S-2300' | 'S-2399') {
+        const g = eventoTSV(c, tipo);
+        if (!g.evento) { setErro(`${tipo} de ${c.nome}: ${g.erros.join(' ')}`); return; }
+        baixarBytes(`${tipo}-${c.cpf}.xml`, new TextEncoder().encode(g.evento.xml), 'application/xml');
+    }
+    async function transmitirTSV(c: ContribuinteIndividual, tipo: 'S-2300' | 'S-2399') {
+        if (!empresa) return;
+        const g = eventoTSV(c, tipo);
+        if (!g.evento) { setErro(`${tipo} de ${c.nome}: ${g.erros.join(' ')}`); return; }
+        if (tpAmb === 1 && !window.confirm(`Transmitir o ${tipo} de ${c.nome} em PRODUÇÃO?${g.avisos.length ? `\n\n${g.avisos.join('\n')}` : ''}`)) return;
+        setOcupado(`Transmitindo o ${tipo}…`); setErro(''); setMsg('');
+        try {
+            const pv = await verificarAntesDeEnviar({ empresa, eventos: [{ xml: g.evento.xml, ref: tipo === 'S-2300' ? refInicioTSV(c.id) : refTerminoTSV(c.id) }], tpAmb });
+            if (!pv.ok) { setErro(`O pré-voo barrou: ${pv.achados.filter(a => a.nivel === 'bloqueio').map(a => a.mensagem).join(' · ')}`); return; }
+            const r = await transmitirVerificado(pv, { empresa, certificado: 'escritorio', usuario });
+            const m = mensagemDaTransmissao(r);
+            (m.ok ? setMsg : setErro)(`${tipo} de ${c.nome}: ${m.texto}`);
+            setRecarga(n => n + 1);
+        } catch (x) { setErro(`${tipo}: ${(x as Error).message}`); }
+        finally { setOcupado(''); }
+    }
+
     if (!ativa) return <p className="rounded border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">Ative uma empresa para lançar pró-labore e RPA.</p>;
     const muda = (i: number, x: Partial<Linha>) => setLinhas(ls => ls.map((l, j) => (j === i ? { ...l, ...x } : l)));
     return (
         <div className="space-y-4 text-sm">
             <div>
                 <h2 className="text-lg font-semibold text-slate-800 dark:text-white">Pró-labore e autônomos (RPA) · {competencia ? br(competencia) : '—'}</h2>
-                <p className="text-slate-600 dark:text-slate-300">INSS de 11% até o teto (com outras fontes no mês, só até completar), 20% da empresa (no Simples fora do Anexo IV, no DAS), IRRF pela tabela do mês do pagamento e ISS retido do autônomo não inscrito no município. Sem FGTS, férias e 13º.</p>
+                <p className="text-slate-600 dark:text-slate-300">INSS de 11% até o teto (com outras fontes no mês, só até completar), 20% da empresa (no Simples fora do Anexo IV, no DAS), IRRF pela tabela do mês do pagamento e ISS retido do autônomo não inscrito no município. Sem férias e 13º; FGTS de 8% só do diretor equiparado (721). O S-2300 e o S-2399 do sócio e do diretor saem daqui.</p>
             </div>
 
             <section className="space-y-2 rounded border border-slate-200 p-3 dark:border-slate-700">
@@ -197,11 +235,11 @@ const ContribuintesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
                 {contribuintes.length === 0 && <p className="text-slate-500">Ninguém cadastrado nesta empresa.</p>}
                 {contribuintes.length > 0 && (
                     <table className="w-full text-xs"><thead className="text-left text-slate-500"><tr><th className="p-1">Nome</th><th className="p-1">CPF</th><th className="p-1">Categoria</th><th className="p-1">S-2300</th><th className="p-1" /></tr></thead>
-                        <tbody>{contribuintes.map(c => (
+                        <tbody>{cadastro.map(c => (
                             <tr key={c.id} className={`border-t border-slate-100 dark:border-slate-700 ${c.ativo ? '' : 'opacity-50'}`}>
                                 <td className="p-1">{c.nome}{c.ativo ? '' : ' (inativo)'}</td><td className="p-1 font-mono">{c.cpf}</td><td className="p-1">{CATEGORIAS_CI[c.categoria]?.rotulo ?? c.categoria}</td>
-                                <td className="p-1">{c.s2300 ? 'enviado' : CATEGORIAS_CI[c.categoria]?.exigeS2300 ? 'falta' : 'dispensado'}</td>
-                                <td className="p-1 text-right"><button className="text-blue-700 underline dark:text-blue-300" onClick={() => setEdicao({ ...c })}>Editar</button></td>
+                                <td className="p-1">{c.s2300 ? 'enviado' : CATEGORIAS_CI[c.categoria]?.exigeS2300 ? stInicio(c).situacao === 'nao-enviado' ? 'falta' : stInicio(c).rotulo : 'dispensado'}{c.tsv.dtTermino ? ` · término ${c.tsv.dtTermino.split('-').reverse().join('/')}` : ''}</td>
+                                <td className="p-1 text-right"><button className="text-blue-700 underline dark:text-blue-300" onClick={() => setEdicao({ ...(contribuintes.find(x => x.id === c.id) ?? c) })}>Editar</button></td>
                             </tr>))}</tbody></table>
                 )}
                 {edicao && (
@@ -213,10 +251,11 @@ const ContribuintesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
                             {(Object.keys(CATEGORIAS_CI) as CategoriaCI[]).map(k => <option key={k} value={k}>{CATEGORIAS_CI[k].rotulo}</option>)}</select></label>
                         <label>CBO<input aria-label="CBO do contribuinte" className={`block w-full ${inp}`} value={edicao.cbo} onChange={e => setEdicao({ ...edicao, cbo: e.target.value.replace(/\D/g, '').slice(0, 6) })} /></label>
                         <label>PIS/NIT<input aria-label="NIT do contribuinte" className={`block w-full ${inp}`} value={edicao.nit} onChange={e => setEdicao({ ...edicao, nit: e.target.value.replace(/\D/g, '').slice(0, 11) })} /></label>
-                        <label className="flex items-center gap-2"><input type="checkbox" checked={edicao.s2300} onChange={e => setEdicao({ ...edicao, s2300: e.target.checked })} />S-2300 enviado</label>
-                        <label>Matrícula (S-2300)<input aria-label="Matrícula do contribuinte" className={`block w-full ${inp}`} value={edicao.matricula} disabled={!edicao.s2300} onChange={e => setEdicao({ ...edicao, matricula: e.target.value })} /></label>
+                        <label className="flex items-center gap-2" title="Marque se o S-2300 já foi enviado por outro sistema (IOB). O enviado pelo Consultor é reconhecido sozinho."><input type="checkbox" checked={edicao.s2300} onChange={e => setEdicao({ ...edicao, s2300: e.target.checked })} />S-2300 já enviado (IOB)</label>
+                        <label>Matrícula (S-2300)<input aria-label="Matrícula do contribuinte" className={`block w-full ${inp}`} value={edicao.matricula} disabled={!edicao.s2300 && !CATEGORIAS_CI[edicao.categoria]?.exigeS2300} onChange={e => setEdicao({ ...edicao, matricula: e.target.value.slice(0, 30) })} /></label>
                         {CATEGORIAS_CI[edicao.categoria]?.tipo === 'rpa' && !CATEGORIAS_CI[edicao.categoria]?.transportador && <label className="flex items-center gap-2"><input type="checkbox" checked={edicao.inscritoIss} onChange={e => setEdicao({ ...edicao, inscritoIss: e.target.checked })} />Inscrito no município (sem retenção de ISS)</label>}
                         <label className="flex items-center gap-2"><input type="checkbox" checked={edicao.ativo} onChange={e => setEdicao({ ...edicao, ativo: e.target.checked })} />Ativo</label>
+                        {(CATEGORIAS_CI[edicao.categoria]?.exigeS2300 || edicao.tsv.dtInicio) && <DadosS2300 key={edicao.id || 'novo'} edicao={edicao} muda={x => setEdicao({ ...edicao, tsv: { ...edicao.tsv, ...x } })} />}
                         <div className="sm:col-span-4">
                             <p className="text-xs font-medium">Dependentes para o IRRF</p>
                             {edicao.dependentes.map((d, i) => {
@@ -240,6 +279,37 @@ const ContribuintesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
                     </div>
                 )}
             </section>
+
+            {comTSV.length > 0 && (
+                <section aria-label="S-2300 e S-2399" className="space-y-2 rounded border border-slate-200 p-3 dark:border-slate-700">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="font-medium">eSocial do sócio e do diretor: S-2300 (início) e S-2399 (término)</p>
+                        <select aria-label="Ambiente do S-2300 e S-2399" className={inp} value={tpAmb} onChange={e => setTpAmb(Number(e.target.value) as TpAmb)}><option value={2}>Produção restrita</option><option value={1}>Produção</option></select>
+                    </div>
+                    <p className="text-xs text-slate-500">O S-2300 vai antes do primeiro S-1200 (dados no cadastro: Editar). O S-2399 vai com a data do término, até 10 dias à frente; o pró-labore do mês da saída vai no S-1200. Com o evento aceito na produção, um novo envio é retificação.</p>
+                    <table className="w-full text-xs"><thead className="text-left text-slate-500"><tr><th className="p-1">Nome</th><th className="p-1">S-2300</th><th className="p-1">S-2399</th><th className="p-1" /></tr></thead>
+                        <tbody>{comTSV.map(c => {
+                            const i = stInicio(c); const t = stTermino(c);
+                            const g = eventoTSV(c, 'S-2300');
+                            const iniciado = c.s2300;
+                            return (
+                                <tr key={c.id} className="border-t border-slate-100 align-top dark:border-slate-700">
+                                    <td className="p-1">{c.nome}<br /><span className="text-slate-500">{CATEGORIAS_CI[c.categoria]?.rotulo}</span></td>
+                                    <td className="p-1"><span className={corSituacao(i)}>{i.rotulo}</span>{i.recibo ? ` · ${i.recibo}` : ''}{i.teste ? <span className="block text-slate-500">teste: {i.teste.rotulo}</span> : null}
+                                        {!iniciado && g.erros.map(x => <span key={x} className="block text-red-700 dark:text-red-300">✗ {x}</span>)}</td>
+                                    <td className="p-1">{c.tsv.dtTermino ? <><span className={corSituacao(t)}>{t.rotulo}</span>{t.recibo ? ` · ${t.recibo}` : ''}</> : <span className="text-slate-500">sem término</span>}</td>
+                                    <td className="space-x-2 whitespace-nowrap p-1 text-right">
+                                        <button className="text-blue-700 underline disabled:opacity-50 dark:text-blue-300" disabled={!!ocupado || (i.situacao === 'iob')} onClick={() => transmitirTSV(c, 'S-2300')}>{tpAmb === 1 && i.situacao === 'aceito' ? 'Retificar S-2300' : 'Transmitir S-2300'}</button>
+                                        <button className="text-blue-700 underline dark:text-blue-300" onClick={() => baixarTSV(c, 'S-2300')}>XML</button>
+                                        {c.tsv.dtTermino && <>
+                                            <button className="text-blue-700 underline disabled:opacity-50 dark:text-blue-300" disabled={!!ocupado || (!iniciado && tpAmb === 1)} title={!iniciado ? 'Depois do S-2300.' : ''} onClick={() => transmitirTSV(c, 'S-2399')}>{tpAmb === 1 && t.situacao === 'aceito' ? 'Retificar S-2399' : 'Transmitir S-2399'}</button>
+                                            <button className="text-blue-700 underline dark:text-blue-300" onClick={() => baixarTSV(c, 'S-2399')}>XML</button></>}
+                                    </td>
+                                </tr>
+                            );
+                        })}</tbody></table>
+                </section>
+            )}
 
             <section className="space-y-2 rounded border border-slate-200 p-3 dark:border-slate-700">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -298,7 +368,7 @@ const ContribuintesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
                             <td className="p-1 text-right">{reais(tot.irrf)}</td><td className="p-1 text-right">{reais(tot.iss)}</td><td className="p-1 text-right">{reais(tot.liquido)}</td><td className="p-1 text-right">{reais(tot.patronal)}</td></tr></tfoot>
                     </table>
                 )}
-                {resultados.length > 0 && <p className="text-xs text-slate-500">Na DCTFWeb (pelo eSocial): INSS retido {reais(tot.inssRetido)} + parte da empresa {reais(tot.patronal)}; IRRF {reais(tot.irrf)}. O ISS retido vai na guia do município.</p>}
+                {resultados.length > 0 && <p className="text-xs text-slate-500">Na DCTFWeb (pelo eSocial): INSS retido {reais(tot.inssRetido)} + parte da empresa {reais(tot.patronal)}; IRRF {reais(tot.irrf)}. O ISS retido vai na guia do município.{tot.fgts > 0 ? ` FGTS do diretor (721): ${reais(tot.fgts)} na guia do FGTS Digital.` : ''}</p>}
                 <div className="flex flex-wrap justify-end gap-2">
                     {gravadoPor && !encerrado && <button className={btn} disabled={!!ocupado} onClick={excluirMes}>Excluir a gravação</button>}
                     <button className={btn} disabled={!resultados.some(r => r.situacao !== 'erro')} onClick={recibos}>Recibos (PDF)</button>
@@ -337,6 +407,37 @@ const ContribuintesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
             {msg && <p role="status" className="rounded bg-green-50 p-2 text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
             {erro && <p role="alert" className="rounded bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
         </div>
+    );
+};
+
+/** Dados do S-2300 e do S-2399 no cadastro do sócio ou diretor. */
+const DadosS2300: React.FC<{ edicao: ContribuinteIndividual; muda: (x: Partial<DadosTSV>) => void }> = ({ edicao, muda }) => {
+    const t = edicao.tsv;
+    const en = t.endereco;
+    const end = (x: Partial<DadosTSV['endereco']>) => muda({ endereco: { ...en, ...x } });
+    const fgts = !!CATEGORIAS_CI[edicao.categoria]?.fgts;
+    return (
+        <fieldset aria-label="Dados do S-2300" className="grid gap-2 rounded border border-slate-200 p-2 sm:col-span-4 sm:grid-cols-4 dark:border-slate-700">
+            <legend className="px-1 text-xs font-medium">S-2300 e S-2399 (gerados pelo Consultor)</legend>
+            <label>Sexo<select aria-label="Sexo" className={`block w-full ${inp}`} value={t.sexo} onChange={e => muda({ sexo: e.target.value as DadosTSV['sexo'] })}><option value="">—</option><option value="F">Feminino</option><option value="M">Masculino</option></select></label>
+            <label>Raça/cor<select aria-label="Raça/cor" className={`block w-full ${inp}`} value={t.racaCor} onChange={e => muda({ racaCor: e.target.value })}><option value="">—</option>{RACA_COR.map(([k, r]) => <option key={k} value={k}>{r}</option>)}</select></label>
+            <label>Estado civil<select aria-label="Estado civil" className={`block w-full ${inp}`} value={t.estCiv} onChange={e => muda({ estCiv: e.target.value })}><option value="">—</option>{ESTADO_CIVIL.map(([k, r]) => <option key={k} value={k}>{r}</option>)}</select></label>
+            <label>Instrução<select aria-label="Grau de instrução" className={`block w-full ${inp}`} value={t.grauInstr} onChange={e => muda({ grauInstr: e.target.value })}><option value="">—</option>{GRAU_INSTRUCAO.map(([k, r]) => <option key={k} value={k}>{r}</option>)}</select></label>
+            <label className="sm:col-span-2">Logradouro<input aria-label="Logradouro" className={`block w-full ${inp}`} value={en.logradouro} onChange={e => end({ logradouro: e.target.value })} /></label>
+            <label>Número<input aria-label="Número do endereço" className={`block w-full ${inp}`} value={en.numero} onChange={e => end({ numero: e.target.value.slice(0, 10) })} /></label>
+            <label>Complemento<input aria-label="Complemento" className={`block w-full ${inp}`} value={en.complemento} onChange={e => end({ complemento: e.target.value.slice(0, 30) })} /></label>
+            <label>Bairro<input aria-label="Bairro" className={`block w-full ${inp}`} value={en.bairro} onChange={e => end({ bairro: e.target.value })} /></label>
+            <label>CEP<input aria-label="CEP" className={`block w-full ${inp}`} value={en.cep} onChange={e => end({ cep: e.target.value.replace(/\D/g, '').slice(0, 8) })} /></label>
+            <label title="Código IBGE com 7 dígitos">Município (IBGE)<input aria-label="Código do município" className={`block w-full ${inp}`} value={en.codMunic} onChange={e => end({ codMunic: e.target.value.replace(/\D/g, '').slice(0, 7) })} /></label>
+            <label>UF<input aria-label="UF" className={`block w-full ${inp}`} value={en.uf} onChange={e => end({ uf: e.target.value.toUpperCase().slice(0, 2) })} /></label>
+            <label>{edicao.categoria === '723' ? 'Entrada na sociedade' : 'Posse (início)'}<input aria-label="Data de início" type="date" className={`block w-full ${inp}`} value={t.dtInicio} onChange={e => muda({ dtInicio: e.target.value, ...(fgts && !t.dtOpcFGTS ? { dtOpcFGTS: e.target.value } : {}) })} /></label>
+            <label className="sm:col-span-2">Cargo<input aria-label="Cargo" className={`block w-full ${inp}`} value={t.cargo} placeholder="ex.: Sócio administrador" onChange={e => muda({ cargo: e.target.value.slice(0, 100) })} /></label>
+            <label title="Em branco: pró-labore variável">Pró-labore fixo (R$)<input aria-label="Pró-labore fixo" inputMode="decimal" className={`block w-full ${inp}`} defaultValue={txt(t.remuneracao)} onBlur={e => muda({ remuneracao: centavosDeTexto(e.target.value) ?? 0 })} /></label>
+            {fgts && <label>Opção pelo FGTS<input aria-label="Data de opção pelo FGTS" type="date" className={`block w-full ${inp}`} value={t.dtOpcFGTS} onChange={e => muda({ dtOpcFGTS: e.target.value })} /></label>}
+            <label className="flex items-center gap-2 sm:col-span-2" title="Início antes da obrigatoriedade dos eventos não periódicos do eSocial na empresa"><input type="checkbox" checked={t.cadastramentoInicial} onChange={e => muda({ cadastramentoInicial: e.target.checked })} />Cadastramento inicial (anterior ao eSocial na empresa)</label>
+            <label>Término (S-2399)<input aria-label="Data do término" type="date" className={`block w-full ${inp}`} value={t.dtTermino} onChange={e => muda({ dtTermino: e.target.value })} /></label>
+            {fgts && <label className="sm:col-span-2">Motivo do término<select aria-label="Motivo do término" className={`block w-full ${inp}`} value={t.mtvDesligTSV} onChange={e => muda({ mtvDesligTSV: e.target.value })}><option value="">—</option>{MOTIVOS_TERMINO_721.map(([k, r]) => <option key={k} value={k}>{k} · {r}</option>)}</select></label>}
+        </fieldset>
     );
 };
 

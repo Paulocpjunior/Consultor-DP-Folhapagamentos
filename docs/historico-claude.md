@@ -4310,3 +4310,24 @@ Paulo: "pode seguir salário família". Era o que faltava para o intermitente sa
 - **No cálculo:** a verba SF entra na folha do intermitente e na rescisão, com um aviso de que segue a regra geral, para conferir.
 - **Catálogo SAGE:** `proc-intermitente` passa a disponível. Agora são 25 disponíveis, 20 parciais, 6 planejados e 2 fora.
 - **Testes:** cota integral, sem convocação, acima do limite, mês de admissão e de desligamento.
+
+## 11/10/2026 — Pró-labore completo: S-2300 e S-2399 pelo Consultor e diretor com FGTS (721)
+
+Paulo: "pode seguir". O pró-labore dependia do S-2300 enviado pelo IOB e não cobria o diretor com FGTS.
+
+- **Diretor não empregado com FGTS (721)** (`contribuinteIndividual.ts`):
+  - a empresa que equipara o diretor aos empregados para o FGTS (Lei 8.036/1990, art. 16) deposita 8% sobre o pró-labore, sem desconto do diretor;
+  - INSS de 11% até o teto, 20% da empresa e IRRF como o sócio;
+  - verba própria (`PROLABFGTS`), base e valor do FGTS no resultado e no total do mês; a guia sai do FGTS Digital a partir do S-1200;
+  - no de/para do eSocial, rubrica própria com codIncFGTS 11 (erro se não for base do FGTS); a rubrica do sócio que for base do FGTS gera aviso.
+- **S-2300 pelo Consultor** (`services/esocial/eventosTSV.ts`):
+  - dados novos no cadastro: sexo, raça/cor, estado civil, instrução, endereço, data de início (posse ou entrada na sociedade), cargo, pró-labore fixo, opção pelo FGTS (721), cadastramento inicial;
+  - regras do XSD S-1.3: remuneração obrigatória para o diretor (variável vai com 0 e a unidade 7), FGTS só no 721, sem natAtividade para 721/722, local de trabalho obrigatório para 721/722/723 com início desde 22/01/2024 e vedado para o autônomo, raça/cor "não informado" recusada desde 22/04/2024, matrícula sem começar por "eSocial";
+  - dependentes do IRRF no próprio S-2300 (sem salário-família).
+- **S-2399 pelo Consultor:** data do término até 10 dias à frente; motivo e pensAlim 0 só no 721; sem verbasResc (o pró-labore do mês da saída vai no S-1200); identificação pela matrícula ou, sem ela, pela categoria. Lançamento de pró-labore em competência depois do término é barrado.
+- **Tela** (Folha do mês › Pró-labore e autônomos):
+  - seção do S-2300 e do S-2399 com a situação de cada um (pelos lotes, com o teste à parte), os erros do que falta no cadastro, a transmissão com o pré-voo, o XML e a retificação pelo recibo aceito;
+  - o S-2300 aceito na produção libera o S-1200 sozinho; a marca manual fica para o S-2300 enviado pelo IOB.
+- **Regras do Firestore:** sem mudança (o cadastro continua em `contribuintes_individuais`).
+- **Catálogo SAGE:** `proc-prolabore` passa a disponível. Agora são 26 disponíveis, 19 parciais, 6 planejados e 2 fora.
+- **Testes:** S-2300 do 721, do 722 variável, do sócio, do autônomo e a retificação no XSD oficial; S-2399 do 721 e do sócio no XSD; validações; cálculo do 721 com FGTS; de/para do FGTS; a tela do cadastro à transmissão.

@@ -70,7 +70,7 @@ export function gerarEventosCI(e: EntradaEventosCI): { eventos: EventosCI[]; err
         if (r.situacao !== 'calculado') { t.erros.push(`Cálculo ${r.situacao === 'erro' ? 'com erro' : 'incompleto'}: ${[...r.erros, ...r.avisos].join(' ') || 'confira'}.`); continue; }
         if (!cpfValido(cpf)) t.erros.push('CPF inválido no cadastro.');
         const def = CATEGORIAS_CI[c.categoria];
-        if (def.exigeS2300 && !c.s2300) t.erros.push('Sócio e diretor (722, 723): envie o S-2300 antes; o S-1200 vai depois dele.');
+        if (def.exigeS2300 && !c.s2300) t.erros.push('Sócio e diretor (721, 722, 723): envie o S-2300 antes; o S-1200 vai depois dele.');
         if (!c.s2300 && !/^\d{6}$/.test(c.cbo)) t.erros.push('Sem o S-2300, o S-1200 leva o CBO (infoComplCont): informe no cadastro.');
         // Itens do demonstrativo pelo de/para da empresa.
         const itens: string[] = [];
@@ -88,6 +88,8 @@ export function gerarEventosCI(e: EntradaEventosCI): { eventos: EventosCI[]; err
             if (v.codigo === 'FRETE' && BASE_CP.includes(d.codIncCP)) t.erros.push(`Rubrica ${rub.codRubr} do frete é base do INSS (${d.codIncCP}): o frete inteiro não é base — a base de 20% vai na rubrica informativa.`);
             if (v.codigo === 'BASEIRFRETE' && d.codIncIRRF !== '11') t.avisos.push(`Rubrica ${rub.codRubr} do rendimento tributável do frete com codIncIRRF ${d.codIncIRRF || '—'}: o esperado é 11 (remuneração mensal).`);
             if (v.codigo === 'FRETE' && d.codIncIRRF === '11') t.avisos.push(`Rubrica ${rub.codRubr} do frete é rendimento tributável (11): o tributável é só a parte da rubrica informativa (10% ou 60%).`);
+            if (v.codigo === 'PROLABFGTS' && !['11', '12', '21'].includes(d.codIncFGTS)) t.erros.push(`Rubrica ${rub.codRubr} do pró-labore do diretor com FGTS com codIncFGTS ${d.codIncFGTS || '—'}: tem de ser base do FGTS (11) no S-1010, senão o FGTS Digital não cobra os 8%.`);
+            if (v.codigo === 'PROLAB' && ['11', '12', '21'].includes(d.codIncFGTS)) t.avisos.push(`Rubrica ${rub.codRubr} do pró-labore é base do FGTS (${d.codIncFGTS}): sócio e diretor sem FGTS (722, 723) pedem uma rubrica com codIncFGTS 00.`);
             if (v.codigo === 'RPA' && d.natRubr !== '3501') t.avisos.push(`Rubrica ${rub.codRubr} do RPA com natureza ${d.natRubr}: o MOS (S-1200, item 13.1) indica 3501.`);
             if (v.codigo === 'ISS' && d.natRubr !== '9222') t.avisos.push(`Rubrica ${rub.codRubr} do ISS com natureza ${d.natRubr}: o MOS (S-1200, item 13.2) indica 9222.`);
             itens.push(`<itensRemun><codRubr>${esc(rub.codRubr)}</codRubr><ideTabRubr>${esc(rub.ideTabRubr)}</ideTabRubr><vrRubr>${valor(v.valor)}</vrRubr><indApurIR>0</indApurIR></itensRemun>`);
@@ -136,9 +138,10 @@ export function gerarEventosCI(e: EntradaEventosCI): { eventos: EventosCI[]; err
 }
 
 /** Itens do de/para próprios do pró-labore, do RPA e do frete (o INSS e o IRRF são os da folha). */
-export type ChaveCI = 'PROLAB' | 'RPA' | 'ISS' | 'FRETE' | 'BASEFRETE' | 'BASEIRFRETE' | 'SEST' | 'SENAT';
+export type ChaveCI = 'PROLAB' | 'PROLABFGTS' | 'RPA' | 'ISS' | 'FRETE' | 'BASEFRETE' | 'BASEIRFRETE' | 'SEST' | 'SENAT';
 export const CHAVES_CI: { chave: ChaveCI; descricao: string; tipo: 'provento' | 'desconto' | 'informativa'; naturezas: string[]; codIncCP?: string; dica: RegExp }[] = [
     { chave: 'PROLAB', descricao: 'Pró-labore', tipo: 'provento', naturezas: [], dica: /PRO ?LAB|RETIRAD/ },
+    { chave: 'PROLABFGTS', descricao: 'Pró-labore do diretor com FGTS (721, codIncFGTS 11)', tipo: 'provento', naturezas: [], dica: /PRO ?LAB.*(FGTS|DIRET)|DIRET.*FGTS/ },
     { chave: 'RPA', descricao: 'Serviços prestados (RPA)', tipo: 'provento', naturezas: ['3501'], dica: /AUTON|SERVI|RPA/ },
     { chave: 'ISS', descricao: 'ISS retido', tipo: 'desconto', naturezas: ['9222'], dica: /\bISS\b/ },
     { chave: 'FRETE', descricao: 'Frete do transportador (não é base)', tipo: 'provento', naturezas: [], dica: /FRETE|CARRET|TRANSPORT/ },
