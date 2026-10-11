@@ -148,6 +148,7 @@ export function gerarS2299(e: EntradaS2299): ResultadoS2299 {
     if (!cpfValido(cpf)) erros.push('CPF inválido na ficha.');
     if (!mat) erros.push('Sem matrícula do eSocial na ficha.');
     if (!/^\d{3}$/.test(categ)) erros.push('Categoria do eSocial (3 dígitos) em branco na ficha.');
+    if (categ === '111' && !r.diasIntermitente) erros.push('Intermitente: a rescisão não tem os dias trabalhados no mês (infoInterm). Recalcule pela tela do cálculo, com as convocações.');
     if (categ === '104') erros.push('Empregado doméstico (categoria 104): o desligamento vai pelo eSocial Doméstico (módulo web), que gera o DAE da rescisão. Lance lá a rescisão conferida aqui.');
     if (estab.length !== 14) erros.push('Informe o CNPJ do estabelecimento (parâmetros do eSocial da folha).');
     if (!p.codLotacao.trim()) erros.push('Informe o código da lotação tributária (S-1020) nos parâmetros do eSocial da folha.');
@@ -219,6 +220,8 @@ export function gerarS2299(e: EntradaS2299): ResultadoS2299 {
         + `<infoDeslig><mtvDeslig>${r.tipo}</mtvDeslig><dtDeslig>${r.data}</dtDeslig>${dtAv ? `<dtAvPrv>${dtAv}</dtAvPrv>` : ''}`
         + `<indPagtoAPI>${indenizado ? 'S' : 'N'}</indPagtoAPI>${indenizado ? `<dtProjFimAPI>${r.dataProjetada}</dtProjFimAPI>` : ''}`
         + pensXml
+        // Intermitente: os dias trabalhados no mês do desligamento (0 se não houve; obrigatório para a categoria 111).
+        + (categ === '111' ? (r.diasIntermitente?.length ? r.diasIntermitente.map(x => `<infoInterm><dia>${x.dia}</dia></infoInterm>`).join('') : '<infoInterm><dia>0</dia></infoInterm>') : '')
         + (obs ? `<observacoes><observacao>${esc(obs.slice(0, 255))}</observacao></observacoes>` : '')
         + `<verbasResc><dmDev><ideDmDev>${esc(ide)}</ideDmDev><infoPerApur><ideEstabLot><tpInsc>1</tpInsc><nrInsc>${estab}</nrInsc><codLotacao>${esc(p.codLotacao.trim())}</codLotacao>`
         + detVerbas + grauExp + simples

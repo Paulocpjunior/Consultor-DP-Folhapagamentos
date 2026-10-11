@@ -186,7 +186,10 @@ export function calcularIntermitente(e: EntradaCalculo, r: ResultadoCalculo): Re
     const pagamento = r.pagamento;
     const verba = (v: Verba) => { if (v.valor > 0) r.verbas.push(v); };
     const erro = (m: string) => { r.erros.push(m); r.situacao = 'erro'; return r; };
-    const conv = diasNaCompetencia(e.convocacoes ?? [], ficha.id, competencia);
+    // Desligado no mês (rescisão): só os dias até o desligamento.
+    const deslig = d.dataDesligamento || '';
+    const conv = diasNaCompetencia(e.convocacoes ?? [], ficha.id, competencia)
+        .map(x => ({ ...x, dias: deslig ? x.dias.filter(y => y.data <= deslig) : x.dias })).filter(x => x.dias.length);
     r.memoria.push('Trabalho intermitente (CLT, art. 452-A): paga as horas das convocações aceitas na competência, o DSR, os adicionais, as férias proporcionais com 1/3 e o 13º proporcional (§ 6º).');
     if (e.convocacoes === undefined) { r.avisos.push('Convocações do intermitente não carregadas: abra a folha pela tela do cálculo.'); r.situacao = 'incompleto'; return r; }
     if (!conv.length) {

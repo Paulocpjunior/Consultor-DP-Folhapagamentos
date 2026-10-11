@@ -4274,3 +4274,26 @@ Pedido do Paulo: "gerar folha de pagamentos por Departamentos e Obras dentro da 
   - O eSocial e a gravação seguem sendo da empresa toda.
 - **Catálogo SAGE:** `arq-obras` passa a disponível. Agora são 24 disponíveis, 21 parciais, 6 planejados e 2 fora.
 - **Testes:** departamentos (o da ficha × o do IOB, trazer das fichas, validação), a tela, o filtro no cálculo e as regras.
+
+## 11/10/2026 — Rescisão do intermitente
+
+Paulo: "pode seguir com a rescisão do intermitente". Até aqui, o motor de rescisão recusava a categoria 111.
+
+- **Regra:** Portaria MTb 349/2018, art. 5º, incorporada à Portaria MTP 671/2021. O aviso prévio e as verbas rescisórias saem pela média dos valores recebidos nos meses com remuneração dos últimos 12 (ou do contrato, se menor). O texto oficial não abriu daqui; a regra foi conferida em guias especializados.
+- **Cálculo** (`motorRescisao.ts`, ramo do intermitente):
+  - **média:** dos meses anteriores ao desligamento, recalculada pelas convocações; entram horas, DSR, adicionais, horas extras e lançamentos salariais, sem as férias e o 13º proporcionais;
+  - **mês do desligamento:** as convocações até a data do desligamento (o que vier depois fica de fora), com DSR, férias e 13º proporcionais, como na folha;
+  - **aviso prévio:** pela média (30 dias + 3 por ano), indenizado na dispensa e pela metade no acordo; no pedido de demissão sem cumprir, desconto pela média;
+  - **projeção do aviso:** 13º sobre o aviso (com INSS e IRRF do 13º) e férias + 1/3 indenizadas, 1/12 a cada 30 dias e mais 1/12 com 15 dias ou mais;
+  - **sem repetir:** 13º e férias proporcionais já foram pagos a cada convocação (art. 452-A, § 6º);
+  - **multa do FGTS:** como nos demais casos.
+- **S-2299:** leva os dias trabalhados no mês em `infoInterm` (dia 0 quando não houve trabalho, como pede o leiaute), obrigatório para a categoria 111.
+- **Telas:** a Rescisão do Cálculo e a prévia de Demissões carregam as convocações.
+- **Catálogo SAGE:** `proc-intermitente` continua parcial; falta o salário-família do intermitente.
+- **Testes:**
+  - média de dois meses com remuneração;
+  - aviso de 33 dias e a projeção;
+  - convocação depois do desligamento fora;
+  - pedido de demissão;
+  - sem convocações carregadas;
+  - S-2299 no XSD oficial, com e sem dias.

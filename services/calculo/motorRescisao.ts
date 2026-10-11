@@ -19,6 +19,11 @@
 // - FGTS do mês e rescisório; multa de 40% (dispensa sem justa causa e
 //   art. 479) ou 20% (acordo) sobre o saldo informado — paga por guia, fora
 //   do líquido. Pagamento em até 10 dias do término (art. 477, § 6º).
+// - Intermitente (categoria 111; Portaria MTb 349/2018, art. 5º, incorporada à Portaria MTP 671/2021): aviso prévio e
+//   verbas rescisórias pela média dos valores recebidos nos meses com remuneração dos últimos 12 (ou do contrato, se
+//   menor). Férias e 13º proporcionais já foram pagos a cada convocação (CLT, art. 452-A, § 6º): na rescisão vão as
+//   convocações do mês até o desligamento (com as parcelas delas) e, no aviso indenizado, a projeção (13º e férias + 1/3
+//   sobre os avos do aviso). O S-2299 leva os dias trabalhados no mês (infoInterm; 0 se não houve).
 
 import { fichaNaData, memoriaDoHistorico, type FichaFuncionario } from '../cadastros/funcionarios';
 import type { Afastamento } from '../cadastros/afastamentos';
@@ -32,6 +37,7 @@ import { diasDeDireito, feriasDaCompetencia, mesesDoPeriodo, periodosAquisitivos
 import { inssDetalhado, irrfDetalhado, type OpcoesIrrf } from './tributos';
 import { adicionalDeRisco } from './adicionais';
 import { destinoIndenizacao, ehDomestico, indenizacaoCompensatoria } from '../domestico/domestico';
+import type { Convocacao } from './intermitente';
 import type { ContribuicaoConvencao } from '../sindicatos/contribuicoes';
 
 /** Motivos do desligamento (Tabela 19 do eSocial) cobertos nesta versão. */
@@ -83,6 +89,8 @@ export interface EntradaRescisao {
     avisoConvencao?: { dias: number; regra: string } | null;
     /** Contribuições da convenção (o mês da rescisão desconta como a folha). */
     contribuicoesSindicais?: ContribuicaoConvencao[];
+    /** Intermitente: as convocações do empregado (média dos 12 meses e as do mês do desligamento). */
+    convocacoes?: Convocacao[];
 }
 
 export interface ResultadoRescisao extends ResultadoCalculo {
@@ -103,6 +111,9 @@ const ALIQUOTA_FGTS_APRENDIZ = 2;
 const br = (d: string) => d.split('-').reverse().join('/');
 const num = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
 const anosCompletos = (de: string, ate: string) => { let n = 0; while (aniversario(de, n + 1) <= somarDias(ate, 1)) n++; return n; };
+
+/** Avos da projeção do aviso indenizado: 1/12 a cada 30 dias, e mais 1/12 se sobrarem 15 dias ou mais. */
+export const avosDaProjecao = (dias: number) => Math.floor(dias / 30) + (dias % 30 >= 15 ? 1 : 0);
 
 /** Dias de aviso prévio pago pelo empregador (Lei 12.506/2011). */
 export function diasDeAviso(admissao: string, data: string): number {
@@ -138,35 +149,53 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
     if (categoria && !/^1\d\d$/.test(categoria)) return erro(`Categoria ${categoria}: esta versão só calcula empregados (categorias 1xx).`);
     // Doméstico (LC 150/2015): sem multa de 40% ou 20%; os 3,2% depositados no contrato substituem a multa (art. 22).
     const domestico = ehDomestico(categoria);
-    if (categoria === '111') return erro('Intermitente (categoria 111): o motor ainda não calcula. Calcule pelo IOB.');
+    const interm = categoria === '111';
     const aliqFgts = categoria === '103' ? ALIQUOTA_FGTS_APRENDIZ : ALIQUOTA_FGTS;
     const justa = tipo === '01';
     if (motivoFicha && motivoFicha !== tipo && d.dataDesligamento === data) r.avisos.push(`O S-2299 informou o motivo ${motivoFicha}; o cálculo usa ${tipo}.`);
     if (!e.pagamento && pagamento !== data.slice(0, 7)) r.avisos.push(`O prazo de pagamento cai em ${rotuloCompetencia(pagamento)}: o IRRF usa a tabela desse mês. Se a rescisão for paga antes, informe o mês do pagamento.`);
     r.memoria.push(`${TIPOS_RESCISAO[tipo]}; admissão ${br(d.admissao)}, desligamento ${br(data)}; pagamento até ${br(pagarAte)} (art. 477, § 6º).`);
 
-    // Remuneração para aviso, 13º e férias: salário do desligamento + média de horas extras dos 12 meses anteriores.
-    const sc = salarioContratual(d);
-    r.avisos.push(...sc.avisos);
-    if ('erro' in sc) return erro(sc.erro);
-    if (naExtincao.faixa) r.memoria.push(memoriaDoHistorico(naExtincao.faixa, `no desligamento (${br(data)})`, !!naExtincao.antesDoHistorico));
-    if (naExtincao.antesDoHistorico) r.avisos.push('Data anterior ao histórico de salário da ficha: usado o salário mais antigo conhecido; confira.');
-    // Insalubridade ou periculosidade: integra a remuneração das verbas rescisórias (TST, Súmula 139) e a hora das médias.
-    const adic = adicionalDeRisco(d, sc.mensal, e.tabelas, data.slice(0, 7));
-    if (adic.erro) return erro(adic.erro);
-    const adicional = adic.adicional?.mensal ?? 0;
-    const salarioHora = (sc.mensal + adicional) / sc.horasMes;
     const ultimos12 = Array.from({ length: 12 }, (_, i) => somarMeses(`${data.slice(0, 7)}-01`, -(i + 1)).slice(0, 7));
-    // Pelos meses de vínculo dentro dos 12 (admitido há menos de um ano: os meses trabalhados), como no 13º.
-    const mesesMedia = Math.max(1, ultimos12.filter(c => c >= d.admissao.slice(0, 7)).length);
-    const mv = mediaDasVariaveis(salarioHora, e.movimentos, ultimos12, mesesMedia, `${mesesMedia}`);
-    const somaVar = mv.horasExtras + mv.outras;
-    const media = mv.media;
-    const remuneracao = sc.mensal + adicional + media;
+    let remuneracao: number;
+    if (interm) {
+        // Média dos meses com remuneração (horas, DSR, adicionais, horas extras e lançamentos salariais; sem as férias e o
+        // 13º proporcionais, que são parcelas da própria convocação).
+        if (e.convocacoes === undefined) return erro('Intermitente: as convocações não foram carregadas. Abra a rescisão pela tela do cálculo.');
+        const PARCELAS = ['FERINT', 'FERINT13', '13INT'];
+        const porMes = ultimos12.filter(c => c >= d.admissao.slice(0, 7)).map(c => {
+            const m = calcularMensal({ competencia: c, pagamento: c, ficha, afastamentos: e.afastamentos, tabelas: e.tabelas, movimento: e.movimentos[c], convocacoes: e.convocacoes });
+            return { c, valor: m.verbas.filter(v => v.tipo === 'provento' && v.inss && !PARCELAS.includes(v.codigo)).reduce((t, v) => t + v.valor, 0) };
+        }).filter(x => x.valor > 0);
+        remuneracao = porMes.length ? Math.round(porMes.reduce((t, x) => t + x.valor, 0) / porMes.length) : 0;
+        r.memoria.push(porMes.length
+            ? `Intermitente: remuneração para as verbas rescisórias = média dos ${porMes.length} mês(es) com remuneração nos 12 anteriores (${porMes.map(x => `${rotuloCompetencia(x.c)} ${reais(x.valor)}`).join('; ')}) = ${reais(remuneracao)} (Portaria MTb 349/2018, art. 5º; Portaria MTP 671/2021).`
+            : 'Intermitente: nenhum mês com remuneração nos 12 anteriores; sem média, o aviso e a projeção ficam zerados.');
+        if (!porMes.length) r.avisos.push('Intermitente sem convocação paga nos 12 meses anteriores: aviso e projeção sem valor. Confira as convocações.');
+        r.memoria.push('Intermitente: férias e 13º proporcionais foram pagos a cada convocação (CLT, art. 452-A, § 6º) e não se repetem na rescisão.');
+    } else {
+        // Remuneração para aviso, 13º e férias: salário do desligamento + média de horas extras dos 12 meses anteriores.
+        const sc = salarioContratual(d);
+        r.avisos.push(...sc.avisos);
+        if ('erro' in sc) return erro(sc.erro);
+        if (naExtincao.faixa) r.memoria.push(memoriaDoHistorico(naExtincao.faixa, `no desligamento (${br(data)})`, !!naExtincao.antesDoHistorico));
+        if (naExtincao.antesDoHistorico) r.avisos.push('Data anterior ao histórico de salário da ficha: usado o salário mais antigo conhecido; confira.');
+        // Insalubridade ou periculosidade: integra a remuneração das verbas rescisórias (TST, Súmula 139) e a hora das médias.
+        const adic = adicionalDeRisco(d, sc.mensal, e.tabelas, data.slice(0, 7));
+        if (adic.erro) return erro(adic.erro);
+        const adicional = adic.adicional?.mensal ?? 0;
+        const salarioHora = (sc.mensal + adicional) / sc.horasMes;
+        // Pelos meses de vínculo dentro dos 12 (admitido há menos de um ano: os meses trabalhados), como no 13º.
+        const mesesMedia = Math.max(1, ultimos12.filter(c => c >= d.admissao.slice(0, 7)).length);
+        const mv = mediaDasVariaveis(salarioHora, e.movimentos, ultimos12, mesesMedia, `${mesesMedia}`);
+        const somaVar = mv.horasExtras + mv.outras;
+        const media = mv.media;
+        remuneracao = sc.mensal + adicional + media;
+        const oQue = mv.outras ? (mv.horasExtras ? 'média das variáveis (horas extras com DSR e lançamentos)' : 'média dos lançamentos variáveis') : 'média de horas extras';
+        r.memoria.push(`Remuneração para as verbas rescisórias: ${reais(sc.mensal)}${adicional ? ` + ${adic.adicional!.descricao.toLowerCase()} ${reais(adicional)}` : ''}${media ? ` + ${oQue} ${reais(media)} (${reais(somaVar)} ÷ ${mesesMedia} ${mesesMedia === 1 ? 'mês' : 'meses'} de vínculo nos 12 anteriores)` : ''} = ${reais(remuneracao)}.`);
+        if (ultimos12.some(c => e.movimentos[c])) r.avisos.push('Média pelos movimentos gravados dos 12 meses anteriores: horas extras com DSR e os lançamentos que entram na média.');
+    }
     const diaria = remuneracao / 30;
-    const oQue = mv.outras ? (mv.horasExtras ? 'média das variáveis (horas extras com DSR e lançamentos)' : 'média dos lançamentos variáveis') : 'média de horas extras';
-    r.memoria.push(`Remuneração para as verbas rescisórias: ${reais(sc.mensal)}${adicional ? ` + ${adic.adicional!.descricao.toLowerCase()} ${reais(adicional)}` : ''}${media ? ` + ${oQue} ${reais(media)} (${reais(somaVar)} ÷ ${mesesMedia} ${mesesMedia === 1 ? 'mês' : 'meses'} de vínculo nos 12 anteriores)` : ''} = ${reais(remuneracao)}.`);
-    if (ultimos12.some(c => e.movimentos[c])) r.avisos.push('Média pelos movimentos gravados dos 12 meses anteriores: horas extras com DSR e os lançamentos que entram na média.');
 
     // 1. Saldo de salário e movimento do mês, pelo motor mensal.
     const fichaDeslig: FichaFuncionario = { ...ficha, dados: { ...d, dataDesligamento: data } };
@@ -175,7 +204,8 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
     const folhaPagaAntesNoMes = pagamento === comp && e.regimePagamento
         ? folhaPagaAntes(e.movimentos, comp, m => d.admissao.slice(0, 7) <= m, e.regimePagamento) : null;
     const mes = calcularMensal({ competencia: comp, pagamento, ficha: fichaDeslig, afastamentos: e.afastamentos, tabelas: e.tabelas, movimento: e.movimentos[comp], contribuicoesSindicais: e.contribuicoesSindicais,
-        feriasDoMes: feriasDaCompetencia(fichaDeslig, e.afastamentos, e.tabelas, e.movimentos, comp), folhaPagaAntesNoMes });
+        feriasDoMes: feriasDaCompetencia(fichaDeslig, e.afastamentos, e.tabelas, e.movimentos, comp), folhaPagaAntesNoMes, convocacoes: e.convocacoes });
+    if (interm) r.diasIntermitente = mes.diasIntermitente ?? [];
     if (mes.situacao === 'erro') { r.erros.push(...mes.erros); r.situacao = 'erro'; }
     for (const v of mes.verbas) r.verbas.push(v.codigo === 'SAL' ? { ...v, descricao: 'Saldo de salário' } : v.codigo === 'INSS' ? { ...v, descricao: 'INSS sobre saldo de salário' } : v.codigo === 'IRRF' ? { ...v, descricao: 'IRRF sobre saldo de salário' } : v);
     // Arredondamento do mês anterior (o que a folha passada pagou a mais para fechar o real): volta na rescisão,
@@ -238,12 +268,13 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
     // 3. 13º proporcional e sobre o aviso indenizado.
     if (!justa) {
         const ano = Number(data.slice(0, 4));
-        const avosReal = avosDoAno(ano, fichaDeslig, e.afastamentos, e.movimentos).filter(m => m.conta).length;
+        // Intermitente: o 13º proporcional já foi pago a cada convocação; da projeção do aviso, 1/12 por 30 dias (15 ou mais, 1/12).
+        const avosReal = interm ? 0 : avosDoAno(ano, fichaDeslig, e.afastamentos, e.movimentos).filter(m => m.conta).length;
         const fichaProj = { ...ficha, dados: { ...d, dataDesligamento: r.dataProjetada } };
-        const avosProj = avosDoAno(ano, fichaProj, e.afastamentos, e.movimentos).filter(m => m.conta).length;
+        const avosProj = interm ? 0 : avosDoAno(ano, fichaProj, e.afastamentos, e.movimentos).filter(m => m.conta).length;
         // Projeção que entra no ano seguinte: os avos de lá (15 dias ou mais) também são do aviso.
-        const avosSeguinte = r.dataProjetada > `${ano}-12-31` ? avosDoAno(ano + 1, fichaProj, e.afastamentos, e.movimentos).filter(m => m.conta).length : 0;
-        const avosAviso = Math.max(0, avosProj - avosReal) + avosSeguinte;
+        const avosSeguinte = !interm && r.dataProjetada > `${ano}-12-31` ? avosDoAno(ano + 1, fichaProj, e.afastamentos, e.movimentos).filter(m => m.conta).length : 0;
+        const avosAviso = interm ? avosDaProjecao(indenizados) : Math.max(0, avosProj - avosReal) + avosSeguinte;
         const prop = Math.round(remuneracao * avosReal / 12);
         const ind = Math.round(remuneracao * avosAviso / 12);
         verba({ codigo: '13PROP', descricao: '13º salário proporcional', referencia: `${avosReal}/12`, tipo: 'provento', valor: prop, inss: true, fgts: true, irrf: true });
@@ -252,7 +283,7 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
         r.memoria.push(`13º: ${reais(remuneracao)} × ${avosReal}/12 = ${reais(prop)}${ind ? `; projeção do aviso + ${avosAviso}/12${avosSeguinte ? ` (${avosSeguinte} de ${ano + 1})` : ''} = ${reais(ind)}` : ''}.`);
         const adiantado = e.adiantamento13 ?? 0;
         if (adiantado) verba({ codigo: '13ADT', descricao: 'Adiantamento do 13º', referencia: '', tipo: 'desconto', valor: adiantado, inss: false, fgts: false, irrf: false });
-        else if (data.slice(5, 7) === '12') r.avisos.push('Desligamento em dezembro: se a 1ª parcela do 13º já foi paga, informe o adiantamento.');
+        else if (!interm && data.slice(5, 7) === '12') r.avisos.push('Desligamento em dezembro: se a 1ª parcela do 13º já foi paga, informe o adiantamento.');
         else if (prop) r.avisos.push('Se o 13º foi adiantado no ano (nas férias, por exemplo), informe o adiantamento: senão ele sai inteiro.');
         // O adiantamento já teve FGTS quando foi pago: só o restante entra na base rescisória.
         fgtsBase += Math.max(0, prop - adiantado) + ind;
@@ -278,7 +309,15 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
 
     // 4. Férias vencidas e proporcionais (indenizadas: sem INSS, FGTS e IRRF).
     const gozos = e.afastamentos.filter(a => a.motivo === '15' && a.dtInicio <= data);
-    const periodos = periodosAquisitivos(d.admissao, r.dataProjetada, ficha.id, e.afastamentos, e.movimentos, gozos);
+    // Intermitente: as férias foram pagas a cada convocação; só a projeção do aviso indenizado (avos × média + 1/3).
+    const periodos = interm ? [] : periodosAquisitivos(d.admissao, r.dataProjetada, ficha.id, e.afastamentos, e.movimentos, gozos);
+    if (interm && !justa && indenizados) {
+        const avos = avosDaProjecao(indenizados);
+        const v = Math.round(remuneracao * avos / 12); const vt = Math.round(v / 3);
+        verba({ codigo: 'FP', descricao: 'Férias indenizadas sobre o aviso prévio', referencia: `${avos}/12`, tipo: 'provento', valor: v, inss: false, fgts: false, irrf: false });
+        verba({ codigo: 'FP13', descricao: '1/3 sobre as férias do aviso prévio', referencia: '', tipo: 'provento', valor: vt, inss: false, fgts: false, irrf: false });
+        if (v) r.memoria.push(`Intermitente: férias sobre a projeção do aviso: ${reais(remuneracao)} × ${avos}/12 = ${reais(v)} + 1/3 ${reais(vt)} (indenizadas).`);
+    }
     for (const p of periodos) {
         if (p.perdido) { r.memoria.push(`Férias de ${br(p.inicio)} a ${br(p.fim)}: perdidas (${p.perdido}).`); continue; }
         if (p.fim <= r.dataProjetada) {
