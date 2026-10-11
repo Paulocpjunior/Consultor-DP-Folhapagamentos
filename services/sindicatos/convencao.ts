@@ -83,6 +83,58 @@ export function convencaoDoDia(convencoes: ConvencaoColetiva[], cnpj: string, di
     return convencoes.filter(c => c.sindicatoCnpj === cnpj && c.vigenciaInicio <= dia).sort((a, b) => b.vigenciaInicio.localeCompare(a.vigenciaInicio))[0];
 }
 
+// ---------- Renovação: data e atraso da nova publicação ----------
+
+const diasEntre = (de: string, ate: string) => Math.round((Date.parse(`${ate}T00:00:00Z`) - Date.parse(`${de}T00:00:00Z`)) / 86400000);
+
+export type SituacaoRenovacao = 'em-dia' | 'a-vencer' | 'em-atraso' | 'sem-convencao';
+export interface Renovacao {
+    situacao: SituacaoRenovacao;
+    /** Data em que a nova convenção tem de valer: o dia seguinte ao fim da vigência da última. */
+    renovacao: string;
+    /** Em dia e a vencer: dias até a renovação. Em atraso: dias desde o fim da vigência sem a nova publicada. */
+    dias: number;
+    /** Sinalizador: verde (em dia), amarelo (até 30 dias), laranja (atraso até 30 dias), vermelho (atraso maior). */
+    sinal: 'verde' | 'amarelo' | 'laranja' | 'vermelho' | 'cinza';
+    rotulo: string;
+    ultima?: ConvencaoColetiva;
+}
+
+/**
+ * Renovação da convenção do sindicato no dia: pela última convenção cadastrada (a de maior início). Vencida e sem
+ * a nova, conta os dias em atraso da nova publicação desde o fim da vigência; vigente, os dias que faltam.
+ */
+export function renovacaoDoSindicato(convencoes: ConvencaoColetiva[], cnpj: string, hoje: string): Renovacao {
+    const ultima = convencoes.filter(c => c.sindicatoCnpj === cnpj && dataValida(c.vigenciaFim)).sort((a, b) => b.vigenciaInicio.localeCompare(a.vigenciaInicio))[0];
+    if (!ultima) return { situacao: 'sem-convencao', renovacao: '', dias: 0, sinal: 'cinza', rotulo: 'sem convenção cadastrada' };
+    const renovacao = somarDias(ultima.vigenciaFim, 1);
+    if (ultima.vigenciaFim >= hoje) {
+        const dias = diasEntre(hoje, renovacao);
+        const aVencer = dias <= 30;
+        return { situacao: aVencer ? 'a-vencer' : 'em-dia', renovacao, dias, sinal: aVencer ? 'amarelo' : 'verde', ultima,
+            rotulo: `${aVencer ? 'renovação em' : 'vigente; renova em'} ${br(renovacao)} (${dias === 1 ? 'falta 1 dia' : `faltam ${dias} dias`})` };
+    }
+    const dias = diasEntre(ultima.vigenciaFim, hoje);
+    return { situacao: 'em-atraso', renovacao, dias, sinal: dias > 30 ? 'vermelho' : 'laranja', ultima,
+        rotulo: `nova convenção em atraso há ${dias} dia${dias === 1 ? '' : 's'} (deveria valer desde ${br(renovacao)})` };
+}
+
+/** Avisos (não bloqueiam) ao gravar: renovação fora da data-base, intervalo ou sobreposição com a anterior, convenção já vencida. */
+export function avisosConvencao(c: ConvencaoColetiva, existentes: ConvencaoColetiva[], hoje: string): string[] {
+    const a: string[] = [];
+    if (!dataValida(c.vigenciaInicio) || !dataValida(c.vigenciaFim)) return a;
+    const renovacao = somarDias(c.vigenciaFim, 1);
+    if (c.dataBase && Number(renovacao.slice(5, 7)) !== Number(c.dataBase)) a.push(`A renovação (${br(renovacao)}) não cai no mês da data-base (${c.dataBase}): confira o fim da vigência.`);
+    const anterior = existentes.filter(x => x.id !== c.id && x.sindicatoCnpj === c.sindicatoCnpj && x.vigenciaInicio < c.vigenciaInicio).sort((x, y) => y.vigenciaInicio.localeCompare(x.vigenciaInicio))[0];
+    if (anterior) {
+        const esperado = somarDias(anterior.vigenciaFim, 1);
+        if (c.vigenciaInicio > esperado) a.push(`Intervalo sem convenção de ${br(esperado)} a ${br(somarDias(c.vigenciaInicio, -1))} (a anterior venceu em ${br(anterior.vigenciaFim)}).`);
+        if (c.vigenciaInicio < esperado) a.push(`Vigência sobrepõe a anterior (que vai até ${br(anterior.vigenciaFim)}).`);
+    }
+    if (c.vigenciaFim < hoje) a.push(`Esta convenção já venceu em ${br(c.vigenciaFim)}: a nova está ${diasEntre(c.vigenciaFim, hoje)} dia(s) em atraso.`);
+    return a;
+}
+
 export type SituacaoConvencao = 'vigente' | 'a vencer' | 'vencida';
 export function situacaoDaConvencao(c: ConvencaoColetiva, hoje: string): SituacaoConvencao {
     if (c.vigenciaFim < hoje) return 'vencida';
@@ -146,8 +198,9 @@ export function conferirConvencao(e: EntradaConformidade): ResultadoConformidade
         const c = convencaoDoDia(e.convencoes, cnpj, fim);
         if (!c) { geral('aviso', 'sem-convencao', `${nomeSind(cnpj)}: nenhuma convenção cadastrada (Cadastros › Sindicatos › Convenções).`); continue; }
         const sit = situacaoDaConvencao(c, e.hoje);
-        if (sit === 'vencida') geral('erro', 'convencao-vencida', `${nomeSind(cnpj)}: a ${c.tipo} venceu em ${br(c.vigenciaFim)}. Cadastre a nova (com o PDF) para conferir pisos e reajuste.`);
-        else if (sit === 'a vencer') geral('aviso', 'convencao-a-vencer', `${nomeSind(cnpj)}: a ${c.tipo} vence em ${br(c.vigenciaFim)}.`);
+        const ren = renovacaoDoSindicato(e.convencoes, cnpj, e.hoje);
+        if (ren.situacao === 'em-atraso') geral('erro', 'convencao-vencida', `${nomeSind(cnpj)}: a ${ren.ultima!.tipo} venceu em ${br(ren.ultima!.vigenciaFim)}; ${ren.rotulo}. Cadastre a nova (com o PDF) assim que for registrada no Mediador.`);
+        else if (ren.situacao === 'a-vencer') geral('aviso', 'convencao-a-vencer', `${nomeSind(cnpj)}: a ${ren.ultima!.tipo} vence em ${br(ren.ultima!.vigenciaFim)}; ${ren.rotulo}.`);
         if (c.dataBase) {
             const mesBase = Number(c.dataBase); const [ano, mes] = e.competencia.split('-').map(Number);
             const ultimaBase = `${mes >= mesBase ? ano : ano - 1}-${String(mesBase).padStart(2, '0')}-01`;

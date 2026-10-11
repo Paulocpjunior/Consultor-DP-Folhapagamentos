@@ -3848,3 +3848,17 @@ Paulo: sindicatos vinculados ao cadastro das empresas; campo para upload da últ
 - **Deploy:** a publicação das regras passa a incluir as do Storage (sem permissão da conta, avisa e segue).
 - **Catálogo SAGE:** Sindicatos atualizado (continua parcial: desconto sindical e aviso prévio da convenção ainda não entram no cálculo).
 - **Testes:** convenção (validação, vigente, piso por CBO/cargo, conferência, leitura do texto), telas (PDF pré-preenchendo e gravando; conformidade com o piso, o estadual suprimido e o checklist), regras do Firestore e do Storage.
+
+## 11/10/2026 — Renovação da convenção: data válida e dias em atraso
+
+Paulo: "a convenção publicada pelos sindicatos deve conter data de renovação válida e contagem com sinalizador de dia em atraso da nova publicação".
+
+- **Renovação** (`renovacaoDoSindicato`, `services/sindicatos/convencao.ts`): a data em que a nova convenção tem de valer é o dia seguinte ao fim da vigência da última cadastrada. Vigente: os dias que faltam; vencida sem a nova: os **dias em atraso** da nova publicação, contados desde o fim da vigência; cadastrada a nova, zera.
+- **Sinalizador** (`components/sindicatos/SinalRenovacao.tsx`): verde (vigente), amarelo (até 30 dias para renovar), laranja (atraso de até 30 dias) e vermelho (atraso maior), com o ponto piscando no atraso.
+- **Data de renovação válida ao gravar:** a vigência já era obrigatória (até 2 anos); agora a tela mostra a data de renovação e avisa quando ela não cai no mês da data-base, quando há intervalo sem convenção ou sobreposição com a anterior, e quando a convenção gravada já venceu (com os dias em atraso da nova).
+- **Onde aparece:**
+  - Cadastros › Sindicatos: coluna "Convenção e renovação" com o sinalizador e a data, e o alerta no topo com os sindicatos em atraso e os dias;
+  - no sindicato › Convenções: o sinalizador no título;
+  - Cadastros › Conformidade: a mensagem da convenção vencida traz os dias em atraso; a vencer, os dias que faltam;
+  - Prazos do DP: "Nova convenção em atraso há N dias" (fica na lista até a nova ser cadastrada) e "Renovação da convenção coletiva" dentro do horizonte; com a empresa escolhida, os sindicatos dela.
+- **Testes:** renovação (em dia, a vencer, atraso de 1 e 46 dias, nova zera, sem convenção), avisos ao gravar, prazos e a tela de sindicatos com o alerta.

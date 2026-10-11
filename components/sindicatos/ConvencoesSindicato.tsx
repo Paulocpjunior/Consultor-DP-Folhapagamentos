@@ -9,7 +9,8 @@ import type { Sindicato } from '../../services/cadastros/sindicatos';
 import { MESES } from '../../services/cadastros/sindicatos';
 import { centavosDeTexto, reais } from '../../services/cadastros/documentos';
 import { mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
-import { convencaoVazia, lerTextoConvencao, situacaoDaConvencao, validarConvencao, type ConvencaoColetiva } from '../../services/sindicatos/convencao';
+import { avisosConvencao, convencaoVazia, lerTextoConvencao, renovacaoDoSindicato, situacaoDaConvencao, validarConvencao, type ConvencaoColetiva } from '../../services/sindicatos/convencao';
+import SinalRenovacao from './SinalRenovacao';
 import { TAMANHO_MAXIMO_PDF, abrirPdfConvencao, listarConvencoes, salvarConvencao } from '../../services/sindicatos/convencoesService';
 import { lerTextoPdf } from '../../services/sindicatos/textoPdf';
 
@@ -19,6 +20,8 @@ const txt = (c: number | null) => (c === null ? '' : (c / 100).toFixed(2).replac
 const COR = { vigente: 'text-green-700 dark:text-green-400', 'a vencer': 'text-amber-700 dark:text-amber-300', vencida: 'text-red-700 dark:text-red-300' };
 const hojeSp = () => new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Sao_Paulo' }).format(new Date());
 const numOuNulo = (t: string) => (t.trim() ? Number(t.replace(',', '.')) : null);
+const dataValidaIso = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(Date.parse(`${d}T00:00:00Z`));
+const somarUmDia = (d: string) => new Date(Date.parse(`${d}T00:00:00Z`) + 86400000).toISOString().slice(0, 10);
 
 interface Edicao {
     c: ConvencaoColetiva;
@@ -48,7 +51,7 @@ function deEdicao(e: Edicao): { c: ConvencaoColetiva; erros: string[] } {
     return { c, erros };
 }
 
-const ConvencoesSindicato: React.FC<{ sindicato: Sindicato; usuario: Usuario }> = ({ sindicato, usuario }) => {
+const ConvencoesSindicato: React.FC<{ sindicato: Sindicato; usuario: Usuario; onAlterado?: () => void }> = ({ sindicato, usuario, onAlterado }) => {
     const [todas, setTodas] = useState<ConvencaoColetiva[] | null>(null);
     const [edicao, setEdicao] = useState<Edicao | null>(null);
     const [erros, setErros] = useState<string[]>([]);
@@ -86,7 +89,7 @@ const ConvencoesSindicato: React.FC<{ sindicato: Sindicato; usuario: Usuario }> 
         if (!edicao.c.id && !edicao.pdf) e2.push('Anexe o PDF da convenção.');
         if (e1.length || e2.length) { setErros([...e1, ...e2]); return; }
         setOcupado('Gravando…'); setErros([]);
-        try { await salvarConvencao(c, edicao.pdf, usuario); setEdicao(null); setMsg('Convenção gravada.'); await carregar(); }
+        try { await salvarConvencao(c, edicao.pdf, usuario); setEdicao(null); setMsg('Convenção gravada.'); await carregar(); onAlterado?.(); }
         catch (e) { setErros([mensagemErro(e)]); }
         finally { setOcupado(''); }
     }
@@ -95,7 +98,7 @@ const ConvencoesSindicato: React.FC<{ sindicato: Sindicato; usuario: Usuario }> 
     return (
         <section aria-label="Convenções coletivas" className="space-y-2 rounded border border-slate-200 p-2 text-sm dark:border-slate-700">
             <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="font-medium text-slate-800 dark:text-white">Convenções e acordos coletivos</p>
+                <p className="flex flex-wrap items-center gap-2 font-medium text-slate-800 dark:text-white">Convenções e acordos coletivos {todas && <SinalRenovacao r={renovacaoDoSindicato(lista, sindicato.cnpj, hoje)} />}</p>
                 {!edicao && <button className="rounded bg-blue-700 px-3 py-1.5 text-white" onClick={() => { setErros([]); setMsg(''); setEdicao(paraEdicao({ ...convencaoVazia(sindicato.cnpj), dataBase: sindicato.dataBase })); }}>Nova convenção (PDF)</button>}
             </div>
             {!todas && <p className="text-slate-500">Carregando…</p>}
@@ -148,6 +151,8 @@ const ConvencoesSindicato: React.FC<{ sindicato: Sindicato; usuario: Usuario }> 
                     </div>
                     <label className="block text-xs">Obrigações da convenção a conferir em cada empresa (uma por linha: cesta básica, seguro de vida, PLR, auxílio-creche…)
                         <textarea aria-label="Obrigações da convenção" rows={3} className={inp} value={edicao.obrigacoes} onChange={e => setEdicao({ ...edicao, obrigacoes: e.target.value })} /></label>
+                    {(() => { const av = avisosConvencao(deEdicao(edicao).c, lista, hoje); return av.length ? <ul className="list-disc rounded bg-amber-50 p-2 pl-6 text-xs text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">{av.map(x => <li key={x}>{x}</li>)}</ul> : null; })()}
+                    {dataValidaIso(edicao.c.vigenciaFim) && <p className="text-xs text-slate-600 dark:text-slate-300">Renovação (a nova convenção tem de valer a partir de): <strong>{br(somarUmDia(edicao.c.vigenciaFim))}</strong>. Depois dela, sem a nova cadastrada, o app conta os dias em atraso.</p>}
                     <label className="block text-xs">Observação<input aria-label="Observação da convenção" className={inp} value={edicao.c.observacao} onChange={e => set('observacao', e.target.value)} /></label>
                     <div className="flex justify-end gap-2">
                         <button className="rounded border border-slate-300 px-3 py-1.5 dark:border-slate-600 dark:text-white" onClick={() => setEdicao(null)}>Cancelar</button>

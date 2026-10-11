@@ -18,6 +18,7 @@ import type { Sindicato } from '../cadastros/sindicatos';
 import { MESES } from '../cadastros/sindicatos';
 import { dataValida } from '../cadastros/documentos';
 import { br, diasEntre, somarDias, somarMeses, type Data } from './calendario';
+import { renovacaoDoSindicato, type ConvencaoColetiva } from '../sindicatos/convencao';
 
 export type TipoPrazo = 'contrato' | 'ferias' | 'retorno' | 'inss' | 'convencao' | 'database';
 export interface Prazo {
@@ -98,10 +99,22 @@ export function prazosFuncionarios(fichas: FichaFuncionario[], afastamentos: Afa
     return r;
 }
 
-export function prazosSindicatos(sindicatos: Sindicato[], hoje: Data, ate: Data): Prazo[] {
+/**
+ * Prazos dos sindicatos. Com convenção cadastrada (com o PDF), a renovação: a data em que a nova tem de valer e,
+ * depois dela sem a nova, os dias em atraso da publicação (sempre listados até a nova ser cadastrada). Sem ela,
+ * a vigência do cadastro do sindicato.
+ */
+export function prazosSindicatos(sindicatos: Sindicato[], hoje: Data, ate: Data, convencoes: ConvencaoColetiva[] = []): Prazo[] {
     const r: Prazo[] = [];
     for (const s of sindicatos) {
-        if (s.vigenciaFim && dataValida(s.vigenciaFim) && s.vigenciaFim <= ate && s.vigenciaFim >= somarDias(hoje, -60))
+        const ren = renovacaoDoSindicato(convencoes, s.cnpj, hoje);
+        if (ren.situacao === 'em-atraso')
+            r.push({ id: `convencao-${s.id}`, tipo: 'convencao', data: ren.renovacao, gravidade: 'vencido', nome: s.nome, titulo: `Nova convenção em atraso há ${ren.dias} dia${ren.dias === 1 ? '' : 's'}`,
+                detalhe: `${s.nome}: a ${ren.ultima!.tipo} venceu em ${br(ren.ultima!.vigenciaFim)} e a nova ainda não foi cadastrada. Acompanhe o registro no Mediador e anexe o PDF em Cadastros › Sindicatos.` });
+        else if (ren.situacao !== 'sem-convencao') {
+            if (ren.renovacao <= ate) r.push({ id: `convencao-${s.id}`, tipo: 'convencao', data: ren.renovacao, gravidade: gravidade(ren.renovacao, hoje, 30), nome: s.nome, titulo: 'Renovação da convenção coletiva',
+                detalhe: `${s.nome}: a ${ren.ultima!.tipo} vale até ${br(ren.ultima!.vigenciaFim)}; ${ren.dias === 1 ? 'falta 1 dia' : `faltam ${ren.dias} dias`} para a nova valer.` });
+        } else if (s.vigenciaFim && dataValida(s.vigenciaFim) && s.vigenciaFim <= ate && s.vigenciaFim >= somarDias(hoje, -60))
             r.push({ id: `convencao-${s.id}`, tipo: 'convencao', data: s.vigenciaFim, gravidade: gravidade(s.vigenciaFim, hoje, 30), nome: s.nome, titulo: 'Convenção coletiva vence', detalhe: `${s.nome}: acompanhar a nova convenção e atualizar piso e cláusulas.` });
         if (/^([1-9]|1[0-2])$/.test(s.dataBase)) {
             const mes = String(s.dataBase).padStart(2, '0');
