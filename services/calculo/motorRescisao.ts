@@ -24,6 +24,12 @@
 //   menor). Férias e 13º proporcionais já foram pagos a cada convocação (CLT, art. 452-A, § 6º): na rescisão vão as
 //   convocações do mês até o desligamento (com as parcelas delas) e, no aviso indenizado, a projeção (13º e férias + 1/3
 //   sobre os avos do aviso). O S-2299 leva os dias trabalhados no mês (infoInterm; 0 se não houve).
+// - Culpa recíproca (05; CLT, art. 484; TST, Súmula 14): metade do aviso prévio, do 13º e das férias proporcionais;
+//   férias vencidas inteiras; multa de 20% do FGTS (Lei 8.036/1990, art. 18, § 2º) e saque (art. 20, I).
+// - Falecimento do empregado (10): saldo, 13º e férias vencidas e proporcionais, sem aviso e sem multa; os valores vão
+//   aos dependentes ou sucessores (Lei 6.858/1980), sem IRRF na rescisão (o S-2299 vai com indApurIR 1 e sem S-1210;
+//   MOS, S-2299, item 11.1); saque do FGTS pelos dependentes (Lei 8.036/1990, art. 20, IV).
+// - Rescisão indireta (17; CLT, art. 483): as verbas da dispensa sem justa causa (aviso, multa de 40% e saque).
 
 import { fichaNaData, memoriaDoHistorico, type FichaFuncionario } from '../cadastros/funcionarios';
 import type { Afastamento } from '../cadastros/afastamentos';
@@ -50,6 +56,9 @@ export const TIPOS_RESCISAO = {
     '06': 'Término do contrato a termo',
     '03': 'Término antecipado do contrato a termo pelo empregador',
     '04': 'Término antecipado do contrato a termo pelo empregado',
+    '05': 'Culpa recíproca (art. 484)',
+    '10': 'Falecimento do empregado',
+    '17': 'Rescisão indireta (art. 483)',
 } as const;
 export type TipoRescisao = keyof typeof TIPOS_RESCISAO;
 /**
@@ -57,7 +66,9 @@ export type TipoRescisao = keyof typeof TIPOS_RESCISAO;
  * demais (pedido de demissão, justa causa, término antecipado pelo empregado)
  * o FGTS do mês vai na guia mensal (FAQ do FGTS Digital 04.04).
  */
-export const PERMITE_SAQUE_FGTS: readonly string[] = ['02', '03', '06', '33'];
+export const PERMITE_SAQUE_FGTS: readonly string[] = ['02', '03', '05', '06', '10', '17', '33'];
+/** Motivos em que o aviso prévio e as proporcionais vão pela metade: acordo (art. 484-A) e culpa recíproca (Súmula 14 do TST). */
+export const AVISO_PELA_METADE: readonly string[] = ['33', '05'];
 export type AvisoPrevio = 'indenizado' | 'trabalhado' | 'dispensado' | 'nao-cumprido';
 export const ROTULO_AVISO: Record<AvisoPrevio, string> = {
     indenizado: 'Indenizado', trabalhado: 'Trabalhado', dispensado: 'Dispensado do cumprimento', 'nao-cumprido': 'Não cumprido pelo empregado (desconto)',
@@ -227,10 +238,12 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
 
     // 2. Aviso prévio.
     let indenizados = 0;
-    if (tipo === '02' || tipo === '33') {
+    const metade = AVISO_PELA_METADE.includes(tipo);
+    const rotuloMetade = tipo === '05' ? 'pela metade na culpa recíproca' : 'pela metade no acordo';
+    if (tipo === '02' || tipo === '33' || tipo === '17' || tipo === '05') {
         const legal = diasDeAviso(d.admissao, data);
         // Convenção: dias a mais na dispensa sem justa causa (no acordo do art. 484-A, a convenção não se aplica sozinha).
-        const extra = tipo === '02' && e.avisoConvencao?.dias ? e.avisoConvencao.dias : 0;
+        const extra = (tipo === '02' || tipo === '17') && e.avisoConvencao?.dias ? e.avisoConvencao.dias : 0;
         if (tipo === '33' && e.avisoConvencao?.dias) r.avisos.push(`A convenção dá ${e.avisoConvencao.dias} dia(s) a mais de aviso na dispensa (${e.avisoConvencao.regra}); no acordo do art. 484-A, confira se ela se aplica.`);
         const dias = legal + extra;
         r.diasAviso = dias;
@@ -239,12 +252,12 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
         let pagos = 0;
         if (e.aviso === 'trabalhado') {
             indenizados = Math.max(0, dias - 30);
-            pagos = tipo === '33' ? indenizados / 2 : indenizados;
-            r.memoria.push(`Aviso prévio de ${dias} dias (Lei 12.506/2011): 30 trabalhados${indenizados ? ` e ${indenizados} indenizados${tipo === '33' ? `, pela metade no acordo = ${num(pagos)}` : ''}` : ''}.`);
+            pagos = metade ? indenizados / 2 : indenizados;
+            r.memoria.push(`Aviso prévio de ${dias} dias (Lei 12.506/2011): 30 trabalhados${indenizados ? ` e ${indenizados} indenizados${metade ? `, ${rotuloMetade} = ${num(pagos)}` : ''}` : ''}.`);
         } else {
-            indenizados = tipo === '33' ? Math.floor(dias / 2) : dias;
-            pagos = tipo === '33' ? dias / 2 : dias;
-            r.memoria.push(`Aviso prévio indenizado: ${dias} dias (Lei 12.506/2011)${tipo === '33' ? `, pela metade no acordo = ${num(pagos)}` : ''}.`);
+            indenizados = metade ? Math.floor(dias / 2) : dias;
+            pagos = metade ? dias / 2 : dias;
+            r.memoria.push(`Aviso prévio indenizado: ${dias} dias (Lei 12.506/2011)${metade ? `, ${rotuloMetade} = ${num(pagos)}` : ''}.`);
             if (e.aviso !== 'indenizado') r.avisos.push('Na dispensa pelo empregador, o aviso é trabalhado ou indenizado; calculado como indenizado.');
         }
         if (pagos) {
@@ -277,8 +290,11 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
         // Projeção que entra no ano seguinte: os avos de lá (15 dias ou mais) também são do aviso.
         const avosSeguinte = !interm && r.dataProjetada > `${ano}-12-31` ? avosDoAno(ano + 1, fichaProj, e.afastamentos, e.movimentos).filter(m => m.conta).length : 0;
         const avosAviso = interm ? avosDaProjecao(indenizados) : Math.max(0, avosProj - avosReal) + avosSeguinte;
-        const prop = Math.round(remuneracao * avosReal / 12);
-        const ind = Math.round(remuneracao * avosAviso / 12);
+        // Culpa recíproca: metade do 13º (TST, Súmula 14).
+        const fator = tipo === '05' ? 0.5 : 1;
+        const prop = Math.round(remuneracao * avosReal / 12 * fator);
+        const ind = Math.round(remuneracao * avosAviso / 12 * fator);
+        if (fator !== 1) r.memoria.push('Culpa recíproca: 13º, aviso prévio e férias proporcionais pela metade (TST, Súmula 14).');
         verba({ codigo: '13PROP', descricao: '13º salário proporcional', referencia: `${avosReal}/12`, tipo: 'provento', valor: prop, inss: true, fgts: true, irrf: true });
         // O reflexo do aviso indenizado no 13º é remuneração: tem INSS (Nota PGFN/CRJ 485/2016).
         verba({ codigo: '13IND', descricao: '13º sobre o aviso indenizado', referencia: `${avosAviso}/12`, tipo: 'provento', valor: ind, inss: true, fgts: true, irrf: true });
@@ -347,7 +363,7 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
             }
             const faltas = mesesDoPeriodo(p.inicio, r.dataProjetada).reduce((s, c) => s + Math.floor(e.movimentos[c]?.faltasDias ?? 0), 0);
             const direito = diasDeDireito(faltas);
-            const v = Math.round(diaria * direito * avos / 12); const vt = Math.round(v / 3);
+            const v = Math.round(diaria * direito * avos / 12 * (tipo === '05' ? 0.5 : 1)); const vt = Math.round(v / 3);
             verba({ codigo: 'FP', descricao: 'Férias proporcionais', referencia: `${avos}/12`, tipo: 'provento', valor: v, inss: false, fgts: false, irrf: false });
             verba({ codigo: 'FP13', descricao: '1/3 sobre férias proporcionais', referencia: '', tipo: 'provento', valor: vt, inss: false, fgts: false, irrf: false });
             r.memoria.push(`Férias proporcionais do período ${br(p.inicio)} a ${br(p.fim)}: ${avos}/12 de ${direito} dias${faltas ? ` (${faltas} faltas)` : ''} = ${reais(v)} + 1/3 ${reais(vt)}.`);
@@ -366,8 +382,11 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
     r.bases.irrf = mes.bases.irrf + r.verbas.filter(v => v.codigo === '13PROP' || v.codigo === '13IND').reduce((s, v) => s + v.valor, 0);
     r.fgts = Math.round(fgtsBase * aliqFgts / 100);
     r.memoria.push(`FGTS do mês e rescisório: ${reais(fgtsBase)} × ${aliqFgts}% = ${reais(r.fgts)}.`);
-    r.percentualMulta = domestico ? 0 : tipo === '02' || tipo === '03' ? 40 : tipo === '33' ? 20 : 0;
-    r.saqueFgts = PERMITE_SAQUE_FGTS.includes(tipo) && tipo !== '33' ? 'Saque do saldo do FGTS liberado.' : tipo === '33' ? 'Saque de até 80% do saldo do FGTS (art. 484-A, § 1º); sem seguro-desemprego.' : 'Sem saque do FGTS por este motivo.';
+    r.percentualMulta = domestico ? 0 : tipo === '02' || tipo === '03' || tipo === '17' ? 40 : tipo === '33' || tipo === '05' ? 20 : 0;
+    r.saqueFgts = tipo === '33' ? 'Saque de até 80% do saldo do FGTS (art. 484-A, § 1º); sem seguro-desemprego.'
+        : tipo === '10' ? 'Saque do FGTS pelos dependentes habilitados na Previdência ou, sem eles, pelos sucessores (Lei 8.036/1990, art. 20, IV; Lei 6.858/1980).'
+        : tipo === '05' ? 'Saque do saldo do FGTS liberado (Lei 8.036/1990, art. 20, I), com a multa de 20% (art. 18, § 2º); sem seguro-desemprego.'
+        : PERMITE_SAQUE_FGTS.includes(tipo) ? 'Saque do saldo do FGTS liberado.' : 'Sem saque do FGTS por este motivo.';
     if (domestico) {
         // Fim do contrato a termo: o eSocial Doméstico gera o DAE do mês só com os 8%, sem os 3,2%.
         r.fgtsIndenizacao = tipo === '06' ? 0 : indenizacaoCompensatoria(fgtsBase);
@@ -393,6 +412,14 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
     if (consig.memoria.length) r.memoria.push(...consig.memoria);
     r.avisos.push(...consig.avisos);
 
+    // Falecimento: os valores vão aos dependentes ou sucessores; sem IRRF na rescisão do falecido (MOS, S-2299, item 11.1).
+    if (tipo === '10') {
+        const ir = r.verbas.filter(v => v.codigo === 'IRRF' || v.codigo === 'IRRF13').reduce((s, v) => s + v.valor, 0);
+        r.verbas = r.verbas.filter(v => v.codigo !== 'IRRF' && v.codigo !== 'IRRF13');
+        r.memoria.push(`Falecimento: sem IRRF na rescisão${ir ? ` (os ${reais(ir)} calculados não são retidos)` : ''}; o S-2299 vai com indApurIR 1 e sem S-1210, e a retenção, se houver, é com o CPF de quem recebe, na EFD-Reinf (MOS, S-2299, item 11.1).`);
+        r.avisos.push('Falecimento: pague aos dependentes habilitados na Previdência ou, sem eles, aos sucessores indicados em alvará judicial (Lei 6.858/1980). A data do desligamento é a do óbito.');
+    }
+    if (tipo === '17') r.avisos.push('Rescisão indireta reconhecida em juízo: o S-2299 vai com o número do processo e sem as verbas, e os valores pelo S-2500 (MOS, S-2299, item 20). O S-2299 com as verbas é para a rescisão indireta reconhecida pelo empregador.');
     r.totais.proventos = r.verbas.filter(v => v.tipo === 'provento').reduce((s, v) => s + v.valor, 0);
     r.totais.descontos = r.verbas.filter(v => v.tipo === 'desconto').reduce((s, v) => s + v.valor, 0);
     r.totais.liquido = r.totais.proventos - r.totais.descontos;

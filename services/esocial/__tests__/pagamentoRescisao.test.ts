@@ -74,3 +74,12 @@ describe('S-1210 do pagamento da rescisão', () => {
         expect(gerarS1210Rescisao({ ...base, ficha: { ...ficha, dependentes: [{ ...alim, cpf: '' } as never] }, rescisao: r }).erros.join(' ')).toContain('sem CPF válido');
     });
 });
+
+describe('falecimento do empregado', () => {
+    it('não gera S-1210 do pagamento da rescisão (MOS, S-2299, item 11.1)', () => {
+        const morte = calcularRescisao({ ficha: FICHA, data: '2026-10-20', tipo: '10', aviso: 'dispensado', afastamentos: [], tabelas: TAB, movimentos: {} });
+        const g = gerarS1210Rescisao({ ...base, rescisao: morte });
+        expect(g.s1210).toBeNull();
+        expect(g.erros.join(' ')).toMatch(/Falecimento do empregado: não há S-1210/);
+    });
+});

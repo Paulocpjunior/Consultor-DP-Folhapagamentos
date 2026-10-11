@@ -4875,3 +4875,26 @@ Segundo item da lista "o que posso seguir".
 - **Fontes:** a redação do art. 36 vem de fontes secundárias (TOTVS TDN, COAD); o texto consolidado da IN no site da Receita não abriu daqui.
 - **Testes:** dois meses de diferença mais o 13º dão 3 meses, com o INSS do 13º deduzido e um só IRRF (o do RRA).
 
+## 11/10/2026 — Rescisão: culpa recíproca, falecimento e rescisão indireta
+
+Terceiro item da lista "o que posso seguir". Os códigos foram conferidos no MOS S-1.3 consolidado (`docs/referencias`): 05 culpa recíproca, 10 falecimento do empregado e 17 rescisão indireta (S-2299, itens 11 e 20).
+
+- **Culpa recíproca (05):**
+  - metade do aviso prévio indenizado (com a projeção pela metade, como no acordo), do 13º e das férias proporcionais (CLT, art. 484; TST, Súmula 14);
+  - férias vencidas inteiras;
+  - multa de 20% do FGTS (Lei 8.036/1990, art. 18, § 2º) e saque (art. 20, I);
+  - sem seguro-desemprego.
+- **Falecimento (10):**
+  - saldo, 13º e férias vencidas e proporcionais; sem aviso e sem multa;
+  - sem IRRF na rescisão: os valores vão aos dependentes habilitados na Previdência ou aos sucessores (Lei 6.858/1980);
+  - o S-2299 vai com `indApurIR` 1 nas verbas, e o S-1210 do pagamento é recusado; quem recebe é identificado na EFD-Reinf (MOS, S-2299, item 11.1);
+  - saque do FGTS pelos dependentes (art. 20, IV).
+- **Rescisão indireta (17):**
+  - as verbas da dispensa sem justa causa: aviso com o da convenção, multa de 40%, saque e seguro-desemprego;
+  - aviso: reconhecida em juízo, o S-2299 vai com o número do processo e sem as verbas, e os valores pelo S-2500 (MOS, item 20).
+- **Demissões (prévia):** os três motivos entram nos cenários (aviso, saque e seguro-desemprego).
+- **Testes:**
+  - o motor nos três motivos;
+  - o S-2299 de cada um no XSD oficial (no falecimento, com `indApurIR` 1);
+  - a recusa do S-1210 no falecimento.
+
