@@ -240,6 +240,11 @@ export async function salvarContatoEnvio(empresaId: string, contato: import('../
 }
 
 /** Procuração do FGTS Digital da empresa (perfil e validade); sem validade, apaga. */
+/** Benefícios contratados da empresa (Folha do mês › Administração de benefícios). */
+export async function salvarBeneficiosContratados(empresaId: string, lista: import('../beneficios/fornecedores').BeneficioContratado[]): Promise<void> {
+    await updateDoc(doc(db, 'empresas', empresaId), { beneficiosContratados: JSON.parse(JSON.stringify(lista)), atualizadoEm: serverTimestamp() });
+}
+
 export async function salvarProcuracaoFgts(empresaId: string, p: import('../fgts/consultaFgts').ProcuracaoFgts | null): Promise<void> {
     await updateDoc(doc(db, 'empresas', empresaId), { procuracaoFgts: p && p.validaAte ? { perfil: p.perfil, validaAte: p.validaAte, observacao: (p.observacao ?? '').trim().slice(0, 200) } : deleteField(), atualizadoEm: serverTimestamp() });
 }
