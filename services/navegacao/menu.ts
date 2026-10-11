@@ -92,7 +92,7 @@ export const MENU: GrupoMenu[] = [
         { id: 'audit', rotulo: 'Registro de auditoria', descricao: 'Quem enviou o quê', icone: 'historico', destino: { aba: 'esocial', sub: 'audit' } },
     ] },
     { id: 'prazos', rotulo: 'Prazos', icone: 'prazo', itens: [
-        { id: 'prazos', rotulo: 'Prazos do DP', descricao: 'Obrigações do mês e prazos dos funcionários', icone: 'prazo', destino: { aba: 'prazos' } },
+        { id: 'prazos', rotulo: 'Prazos do DP', descricao: 'Obrigações do mês, baixa das guias pagas (DARF, FGTS, sindicais) e prazos dos funcionários', icone: 'prazo', destino: { aba: 'prazos' } },
         { id: 'calendario', rotulo: 'Calendário do eSocial', descricao: 'Vencimentos por competência', icone: 'calendario', destino: { aba: 'esocial', sub: 'calendario' } },
     ] },
     { id: 'fimdemes', rotulo: 'Fim de mês', icone: 'fim', itens: [

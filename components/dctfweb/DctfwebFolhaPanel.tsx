@@ -3,7 +3,8 @@
 // eSocial › DCTFWeb da folha (Paulo, 11/10/2026: "a DCTFWeb tem a parte que cabe ao DP"). Da empresa e do período
 // ativos, pelo túnel do CFI (SERPRO): situação da declaração, semáforo dos insumos (eSocial, Reinf e MIT), débitos,
 // DARF (em andamento ou da declaração ativa) e a transmissão. O DP transmite só com os três insumos confirmados;
-// com pendência, quem transmite é o Fiscal, com justificativa — a regra é do CFI, a tela só orienta.
+// com pendência, quem transmite é o Fiscal, com justificativa — a regra é do CFI, a tela só orienta. O DARF emitido
+// fica registrado no Pagamento de guias (Prazos do DP), com o valor e o documento, para a baixa.
 
 import React, { useEffect, useRef, useState } from 'react';
 import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
@@ -19,6 +20,9 @@ import {
 } from '../../services/dctfweb/dctfwebFolha';
 import { baixarBytes } from '../../services/implantacao/zip';
 import { br } from '../../services/prazos/calendario';
+import { vencimentosDaCompetencia } from '../../services/prazos/obrigacoes';
+import { registrarGuiaEmitida } from '../../services/guias/pagamentoGuiasService';
+import type { Usuario } from '../../services/cadastros/cadastrosService';
 
 const reais = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const btn = 'rounded-lg px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40';
@@ -32,7 +36,7 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 interface Leitura { situacao: SituacaoDeclaracao; semaforo: SemaforoInsumos; debitos: { ok: boolean; lista: DctfWebDebito[]; erro?: string } }
 
-const DctfwebFolhaPanel: React.FC = () => {
+const DctfwebFolhaPanel: React.FC<{ usuario?: Usuario }> = ({ usuario }) => {
     const { ativa } = useEmpresaAtiva();
     const [leitura, setLeitura] = useState<Leitura | null>(null);
     const [ocupado, setOcupado] = useState('');
@@ -83,7 +87,13 @@ const DctfwebFolhaPanel: React.FC = () => {
             if (!r.ok || !r.pdfBase64) throw new Error(r.error || 'O SERPRO não devolveu o PDF do DARF.');
             setDarf(r);
             baixarBytes(nomeArquivoDarf(ativa!.codigoSage, comp, r.emAndamento), bytesDoBase64(r.pdfBase64), 'application/pdf');
-            setFeito('DARF emitido e baixado. Confira o valor e o vencimento no PDF antes de mandar ao cliente.');
+            let registro = '';
+            const o = vencimentosDaCompetencia(comp).find(v => v.id === `darf-${comp}`);
+            if (usuario && o && r.valor !== null) {
+                try { await registrarGuiaEmitida(ativa!.id, comp, o, { valorDevido: Math.round(r.valor * 100), numeroDocumento: r.numeroDocumento ?? '' }, usuario); registro = ' Registrado em Prazos do DP para a baixa do pagamento.'; }
+                catch { registro = ' (Não deu para registrar a guia para a baixa: dê baixa com o valor do PDF.)'; }
+            }
+            setFeito(`DARF emitido e baixado. Confira o valor e o vencimento no PDF antes de mandar ao cliente.${registro}`);
         } catch (e) { setErro(msg(e)); } finally { setOcupado(''); }
     }
 

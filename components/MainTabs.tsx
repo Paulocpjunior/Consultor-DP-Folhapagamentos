@@ -441,7 +441,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                             if (sub) irFolha(sub);
                             else if (cad) irCadastro(cad);
                             else if (d === 'relatorios:central' || d === 'relatorios:modelos') navegar({ aba: 'relatorios', sub: d === 'relatorios:modelos' ? 'modelos' : 'central' });
-                            else if (d === 'empresas' || d === 'esocial' || d === 'calculo' || d === 'dctfweb' || d === 'processos' || d === 'contribuintes' || d === 'intermitentes' || d === 'obras' || d === 'departamentos' || d === 'agrupado' || d === 'transferencia' || d === 'contabil' || d === 'processosjud' || d === 'sindicalpatronal' || d === 'importacao') setActiveTab(d);
+                            else if (d === 'empresas' || d === 'esocial' || d === 'calculo' || d === 'dctfweb' || d === 'processos' || d === 'contribuintes' || d === 'intermitentes' || d === 'obras' || d === 'departamentos' || d === 'agrupado' || d === 'transferencia' || d === 'contabil' || d === 'processosjud' || d === 'sindicalpatronal' || d === 'importacao' || d === 'prazos') setActiveTab(d);
                         }} />
                     </Suspense>
                 )}
@@ -484,7 +484,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                 {activeTab === 'demissoes' && <DemissoesPanel usuario={{ id: uidAtual, email: currentUser?.email ?? '' }} />}
                 {activeTab === 'beneficios' && <><AdministracaoBeneficios /><VtECoparticipacao usuario={{ id: uidAtual, email: currentUser?.email ?? '' }} /></>}
                 {activeTab === 'contribuintes' && <ContribuintesPanel usuario={{ id: uidAtual, email: currentUser?.email ?? '' }} />}
-                {activeTab === 'dctfweb' && <DctfwebFolhaPanel />}
+                {activeTab === 'dctfweb' && <DctfwebFolhaPanel usuario={currentUser ? { id: uidAtual, email: currentUser.email ?? '' } : undefined} />}
                 {activeTab === 'processos' && <ProcessosTrabalhistasPanel usuario={{ id: uidAtual, email: currentUser?.email ?? '' }} />}
                 {activeTab === 'intermitentes' && <IntermitentesPanel usuario={{ id: uidAtual, email: currentUser?.email ?? '' }} />}
                 {activeTab === 'obras' && <ObrasLotacoesPanel usuario={{ id: uidAtual, email: currentUser?.email ?? '' }} />}

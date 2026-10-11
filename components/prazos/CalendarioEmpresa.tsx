@@ -2,7 +2,8 @@
 //
 // Calendário de obrigações da folha da empresa e competência ativas (etapa 5):
 // FGTS, eSocial, DCTFWeb/DARF, EFD-Reinf, guias sindicais, 13º e anuais, com
-// a marcação de entregue / não se aplica gravada para toda a equipe.
+// a marcação de entregue / não se aplica gravada para toda a equipe. As guias (DARF, FGTS, sindicais) têm a baixa
+// do pagamento (Tributos › Pagamento de Guias do SAGE): data, valor pago e autenticação, e a guia fica entregue.
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
@@ -14,9 +15,16 @@ import {
     type GuiaSindical, type MarcacaoObrigacao, type ObrigacaoEmpresa,
 } from '../../services/prazos/obrigacoesEmpresa';
 import { desmarcarObrigacao, listarMarcacoes, marcarObrigacao } from '../../services/prazos/obrigacoesStatusService';
+import { centavosDeTexto } from '../../services/cadastros/documentos';
+import {
+    ehGuia, observacaoDaBaixa, resumoGuias, ROTULO_GUIA, situacaoDaGuia, validarBaixa, valorPagoNoFgts,
+    type BaixaGuia, type GuiaRegistrada,
+} from '../../services/guias/pagamentoGuias';
+import { darBaixa, desfazerBaixa, listarGuias } from '../../services/guias/pagamentoGuiasService';
+import { consultarFgtsRecolhimento } from '../../services/serpro/serproIntegrationService';
 
 interface Props {
-    empresa: { id: string; nome: string; competencia: string };
+    empresa: { id: string; nome: string; competencia: string; cnpj?: string };
     fichas: FichaFuncionario[];
     sindicatos: Sindicato[];
     usuario?: Usuario;
@@ -28,15 +36,22 @@ interface Props {
 const compBr = (c: string) => `${c.slice(5)}/${c.slice(0, 4)}`;
 const cnpjFmt = (c: string) => (c.length === 14 ? `${c.slice(0, 2)}.${c.slice(2, 5)}.${c.slice(5, 8)}/${c.slice(8, 12)}-${c.slice(12)}` : c);
 const ROTULO = { pendente: 'pendente', entregue: 'entregue', 'nao-se-aplica': 'não se aplica' } as const;
+const reais = (c: number) => (c / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const texto = (c: number) => (c ? (c / 100).toFixed(2).replace('.', ',') : '');
+interface FormBaixa { data: string; valorPago: string; autenticacao: string; valorDevido: string; numeroDocumento: string; fonte: BaixaGuia['fonte'] }
 
 const CalendarioEmpresa: React.FC<Props> = ({ empresa, fichas, sindicatos, usuario, hoje, onTrocar, onAbrirCadastros }) => {
     const [marcacoes, setMarcacoes] = useState<Map<string, MarcacaoObrigacao> | null>(null);
     const [erro, setErro] = useState('');
     const [gravando, setGravando] = useState('');
+    const [guias, setGuias] = useState<Map<string, GuiaRegistrada>>(new Map());
+    const [baixa, setBaixa] = useState<{ id: string; f: FormBaixa } | null>(null);
+    const [aviso, setAviso] = useState('');
 
     const carregar = useCallback(() => {
         setErro('');
         listarMarcacoes(empresa.id, empresa.competencia).then(setMarcacoes).catch(e => { setErro(mensagemErro(e)); setMarcacoes(new Map()); });
+        listarGuias(empresa.id, empresa.competencia).then(setGuias).catch(e => setErro(mensagemErro(e)));
     }, [empresa.id, empresa.competencia]);
     useEffect(() => { carregar(); }, [carregar]);
 
@@ -74,6 +89,46 @@ const CalendarioEmpresa: React.FC<Props> = ({ empresa, fichas, sindicatos, usuar
         finally { setGravando(''); }
     }
 
+    function abrirBaixa(o: ObrigacaoEmpresa) {
+        const g = guias.get(o.id);
+        setAviso(''); setErro('');
+        setBaixa({ id: o.id, f: { data: hoje, valorPago: texto(g?.valorDevido ?? 0), autenticacao: '', valorDevido: texto(g?.valorDevido ?? 0), numeroDocumento: g?.numeroDocumento ?? '', fonte: 'manual' } });
+    }
+    const mudaBaixa = (x: Partial<FormBaixa>) => setBaixa(b => (b ? { ...b, f: { ...b.f, ...x } } : b));
+    const lerBaixa = (f: FormBaixa): BaixaGuia => ({ data: f.data, valorPago: centavosDeTexto(f.valorPago) ?? 0, autenticacao: f.autenticacao, fonte: f.fonte });
+
+    async function conferirFgts() {
+        if (!empresa.cnpj) return;
+        setAviso('Consultando o FGTS Digital…'); setErro('');
+        try {
+            const r = valorPagoNoFgts(await consultarFgtsRecolhimento(empresa.cnpj.replace(/\D/g, ''), empresa.competencia));
+            if ('erro' in r) { setAviso(''); setErro(r.erro); return; }
+            mudaBaixa({ valorPago: texto(r.valorPago), valorDevido: texto(r.valorDevido), fonte: 'fgts-digital' });
+            setAviso(`FGTS Digital: ${reais(r.valorPago)} recolhidos. Informe a data do pagamento do comprovante.`);
+        } catch (e) { setAviso(''); setErro(mensagemErro(e)); }
+    }
+
+    async function gravarBaixa(o: ObrigacaoEmpresa) {
+        if (!usuario || !baixa) return;
+        const b = lerBaixa(baixa.f);
+        const dados = { valorDevido: centavosDeTexto(baixa.f.valorDevido) ?? 0, numeroDocumento: baixa.f.numeroDocumento };
+        const v = validarBaixa(b, { obrigacao: o.id, vencimento: o.data, valorDevido: dados.valorDevido }, hoje);
+        if (v.erros.length) { setErro(v.erros.join(' ')); return; }
+        if (v.avisos.length && !window.confirm(`${v.avisos.join('\n')}\n\nDar baixa assim mesmo?`)) return;
+        setGravando(o.id); setErro('');
+        try { await darBaixa(empresa.id, empresa.competencia, o, dados, b, usuario); setBaixa(null); setAviso(''); carregar(); }
+        catch (e) { setErro(mensagemErro(e)); }
+        finally { setGravando(''); }
+    }
+
+    async function desfazerPagamento(o: ObrigacaoEmpresa, g: GuiaRegistrada) {
+        if (!usuario || !window.confirm(`Desfazer a baixa de "${o.nome}"? A guia volta a ficar em aberto.`)) return;
+        setGravando(o.id); setErro('');
+        try { await desfazerBaixa(empresa.id, empresa.competencia, o, g, usuario); carregar(); }
+        catch (e) { setErro(mensagemErro(e)); }
+        finally { setGravando(''); }
+    }
+
     async function desfazer(o: ObrigacaoEmpresa, m: MarcacaoObrigacao) {
         if (!usuario || !window.confirm(`Voltar "${o.nome}" para pendente?`)) return;
         setGravando(o.id); setErro('');
@@ -83,6 +138,9 @@ const CalendarioEmpresa: React.FC<Props> = ({ empresa, fichas, sindicatos, usuar
     }
 
     const btn = 'rounded border px-2 py-0.5 text-xs disabled:opacity-50';
+    const inp = 'mt-0.5 block rounded border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900';
+    const daGuia = obrigacoes.filter(o => ehGuia(o.id));
+    const rg = resumoGuias(daGuia.map(o => ({ vencimento: o.data, guia: guias.get(o.id) })), hoje);
     return (
         <section aria-label="Calendário da empresa" className="rounded-lg border border-blue-200 bg-white p-4 dark:border-blue-800 dark:bg-slate-800">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -98,9 +156,11 @@ const CalendarioEmpresa: React.FC<Props> = ({ empresa, fichas, sindicatos, usuar
                 <span className="rounded-full bg-amber-100 px-2.5 py-1 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">Pendentes: {cont.pendente ?? 0}</span>
                 <span className="rounded-full bg-green-100 px-2.5 py-1 text-green-800 dark:bg-green-900/40 dark:text-green-200">Entregues: {cont.entregue ?? 0}</span>
                 {cont['nao-se-aplica'] > 0 && <span className="rounded-full bg-slate-100 px-2.5 py-1 text-slate-700 dark:bg-slate-700 dark:text-slate-200">Não se aplica: {cont['nao-se-aplica']}</span>}
+                {daGuia.length > 0 && <span aria-label="Resumo das guias" className="rounded-full bg-blue-50 px-2.5 py-1 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">Guias: {daGuia.length - rg.abertas} de {daGuia.length} com baixa{rg.pago > 0 ? ` · ${reais(rg.pago)} pagos` : ''}{rg.vencidas > 0 ? ` · ${rg.vencidas} vencida(s) sem baixa` : ''}</span>}
             </div>
 
             {erro && <p role="alert" className="mt-2 rounded bg-red-50 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+            {aviso && <p role="status" className="mt-2 rounded bg-blue-50 p-2 text-sm text-blue-800 dark:bg-blue-900/30 dark:text-blue-200">{aviso}</p>}
             {!usuario && <p className="mt-2 text-xs text-slate-500">Entre com seu usuário para marcar as entregas.</p>}
 
             <div className="mt-2 overflow-x-auto">
@@ -109,17 +169,29 @@ const CalendarioEmpresa: React.FC<Props> = ({ empresa, fichas, sindicatos, usuar
                     <tbody>
                         {linhas.map(({ o, m, status, atrasada }) => {
                             const d = diasEntre(hoje, o.data);
+                            const guia = ehGuia(o.id);
+                            const g = guias.get(o.id);
+                            const aberta = baixa?.id === o.id ? baixa.f : null;
                             return (
-                                <tr key={o.id} className={`border-t border-slate-100 align-top dark:border-slate-700 dark:text-slate-100 ${atrasada ? 'bg-red-50 dark:bg-red-900/20' : status !== 'pendente' ? 'opacity-70' : ''}`}>
+                                <React.Fragment key={o.id}>
+                                <tr className={`border-t border-slate-100 align-top dark:border-slate-700 dark:text-slate-100 ${atrasada ? 'bg-red-50 dark:bg-red-900/20' : status !== 'pendente' ? 'opacity-70' : ''}`}>
                                     <td className="whitespace-nowrap p-2"><strong>{br(o.data)}</strong>
                                         <span className={`block text-xs ${atrasada ? 'font-medium text-red-700 dark:text-red-300' : 'text-slate-500'}`}>{status !== 'pendente' ? '' : atrasada ? `atrasada há ${-d} dia(s)` : d === 0 ? 'vence hoje' : `em ${d} dia(s)`}</span></td>
                                     <td className="p-2">{o.nome}
                                         {o.condicao && <span className="block text-xs text-slate-500 dark:text-slate-400">{o.condicao}</span>}
-                                        {o.observacao && <span className="block text-xs text-amber-700 dark:text-amber-300">{o.observacao}</span>}</td>
+                                        {o.observacao && <span className="block text-xs text-amber-700 dark:text-amber-300">{o.observacao}</span>}
+                                        {guia && g && (g.valorDevido > 0 || g.numeroDocumento) && <span className="block text-xs text-slate-500">Guia: {g.valorDevido > 0 ? reais(g.valorDevido) : ''}{g.numeroDocumento ? ` · documento ${g.numeroDocumento}` : ''}</span>}</td>
                                     <td className="p-2 text-xs">{o.responsavel === 'Fiscal' ? 'Fiscal (o DP acompanha)' : 'DP'}</td>
                                     <td className="p-2 text-xs text-slate-500 dark:text-slate-400">{o.base}</td>
                                     <td className="p-2 text-xs">
-                                        {marcacoes === null ? '…' : m ? (
+                                        {marcacoes === null ? '…' : guia && g?.pagamento ? (
+                                            <>
+                                                <span className={`rounded px-1.5 py-0.5 font-medium ${situacaoDaGuia(o.data, g, hoje) === 'paga' ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'}`}>{ROTULO_GUIA[situacaoDaGuia(o.data, g, hoje)]}</span>
+                                                <span className="mt-0.5 block text-slate-500">{observacaoDaBaixa(g.pagamento)}</span>
+                                                <span className="block text-slate-500">{[g.atualizadoPorEmail, g.atualizadoEm && br(g.atualizadoEm.slice(0, 10))].filter(Boolean).join(' · ')}</span>
+                                                {usuario && <button className={`${btn} mt-1 border-slate-300 dark:border-slate-600`} disabled={!!gravando} onClick={() => desfazerPagamento(o, g)}>Desfazer a baixa</button>}
+                                            </>
+                                        ) : m ? (
                                             <>
                                                 <span className={`rounded px-1.5 py-0.5 font-medium ${m.status === 'entregue' ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200' : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200'}`}>{ROTULO[m.status]}</span>
                                                 <span className="mt-0.5 block text-slate-500">{[m.atualizadoPorEmail, m.atualizadoEm && br(m.atualizadoEm.slice(0, 10))].filter(Boolean).join(' · ')}</span>
@@ -128,12 +200,33 @@ const CalendarioEmpresa: React.FC<Props> = ({ empresa, fichas, sindicatos, usuar
                                             </>
                                         ) : usuario ? (
                                             <span className="flex flex-wrap gap-1">
-                                                <button aria-label={`Marcar entregue: ${o.nome}`} className={`${btn} border-green-600 text-green-700 dark:text-green-300`} disabled={!!gravando} onClick={() => marcar(o, 'entregue')}>{gravando === o.id ? 'Gravando…' : 'Entregue'}</button>
+                                                {guia ? <button aria-label={`Dar baixa: ${o.nome}`} className={`${btn} border-green-600 text-green-700 dark:text-green-300`} disabled={!!gravando} onClick={() => abrirBaixa(o)}>Dar baixa</button> : <button aria-label={`Marcar entregue: ${o.nome}`} className={`${btn} border-green-600 text-green-700 dark:text-green-300`} disabled={!!gravando} onClick={() => marcar(o, 'entregue')}>{gravando === o.id ? 'Gravando…' : 'Entregue'}</button>}
                                                 <button aria-label={`Não se aplica: ${o.nome}`} className={`${btn} border-slate-300 dark:border-slate-600`} disabled={!!gravando} onClick={() => marcar(o, 'nao-se-aplica')}>Não se aplica</button>
                                             </span>
                                         ) : ROTULO.pendente}
                                     </td>
                                 </tr>
+                                {aberta && (
+                                    <tr className="bg-green-50/50 dark:bg-green-900/10">
+                                        <td colSpan={5} className="p-2">
+                                            <div role="group" aria-label={`Baixa de ${o.nome}`} className="flex flex-wrap items-end gap-2 text-xs dark:text-slate-100">
+                                                <label>Data do pagamento<input aria-label="Data do pagamento" type="date" className={inp} value={aberta.data} max={hoje} onChange={e => mudaBaixa({ data: e.target.value })} /></label>
+                                                <label>Valor pago (R$)<input aria-label="Valor pago" inputMode="decimal" className={`${inp} w-28 text-right`} value={aberta.valorPago} onChange={e => mudaBaixa({ valorPago: e.target.value, fonte: 'manual' })} /></label>
+                                                <label>Autenticação<input aria-label="Autenticação" className={`${inp} w-44`} value={aberta.autenticacao} placeholder="do comprovante" onChange={e => mudaBaixa({ autenticacao: e.target.value })} /></label>
+                                                <label>Valor da guia (R$)<input aria-label="Valor da guia" inputMode="decimal" className={`${inp} w-28 text-right`} value={aberta.valorDevido} onChange={e => mudaBaixa({ valorDevido: e.target.value })} /></label>
+                                                <label>Nº do documento<input aria-label="Número do documento" className={`${inp} w-48`} value={aberta.numeroDocumento} onChange={e => mudaBaixa({ numeroDocumento: e.target.value })} /></label>
+                                                {o.id.startsWith('fgts-') && empresa.cnpj && <button className={`${btn} border-blue-600 text-blue-700 dark:text-blue-300`} disabled={!!gravando} onClick={conferirFgts}>Conferir no FGTS Digital</button>}
+                                                <button className={`${btn} border-green-700 bg-green-700 text-white`} disabled={!!gravando} onClick={() => gravarBaixa(o)}>{gravando === o.id ? 'Gravando…' : 'Gravar a baixa'}</button>
+                                                <button className={`${btn} border-slate-300 dark:border-slate-600`} onClick={() => { setBaixa(null); setAviso(''); }}>Cancelar</button>
+                                            </div>
+                                            {(() => {
+                                                const v = validarBaixa(lerBaixa(aberta), { obrigacao: o.id, vencimento: o.data, valorDevido: centavosDeTexto(aberta.valorDevido) ?? 0 }, hoje);
+                                                return v.avisos.length > 0 && <ul className="mt-1 list-disc pl-5 text-xs text-amber-700 dark:text-amber-300">{v.avisos.map(a => <li key={a}>{a}</li>)}</ul>;
+                                            })()}
+                                        </td>
+                                    </tr>
+                                )}
+                                </React.Fragment>
                             );
                         })}
                     </tbody>
@@ -148,7 +241,7 @@ const CalendarioEmpresa: React.FC<Props> = ({ empresa, fichas, sindicatos, usuar
                 </p>
             )}
             <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                Datas com o ajuste de dia útil (feriados nacionais, Carnaval e Sexta-feira Santa); feriado estadual ou municipal pode mudar a data. A EFD-Reinf é transmitida pelo fiscal: o DP marca quando confirmar com ele.
+                Datas com o ajuste de dia útil (feriados nacionais, Carnaval e Sexta-feira Santa); feriado estadual ou municipal pode mudar a data. A EFD-Reinf é transmitida pelo fiscal: o DP marca quando confirmar com ele. A baixa da guia (data, valor pago e autenticação do comprovante) marca a guia como entregue; o DARF emitido na DCTFWeb da folha já traz o valor e o documento.
             </p>
         </section>
     );

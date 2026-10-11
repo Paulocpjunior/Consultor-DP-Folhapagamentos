@@ -4733,3 +4733,29 @@ tipos de contrato e origens do leiaute S-1.3.
 - **Catálogo SAGE:** `es-processo-trab` passa a disponível. Agora são 47 disponíveis e 4 parciais.
 - **Testes:** os XML dos três casos validados no XSD oficial, os erros de cada regra e a tela.
 
+## 11/10/2026 — Pagamento de guias (baixa das guias pagas)
+
+Décimo terceiro dos parciais da auditoria (Tributos › Pagamento de Guias do SAGE).
+
+- **Prazos › Prazos do DP, no calendário da empresa** (`services/guias/pagamentoGuias.ts`, coleção `pagamentos_guias`):
+  - as guias da competência são as obrigações que se pagam: DARF da DCTFWeb e do 13º, FGTS Digital, contribuição sindical dos empregados, patronal (GRCSU) e as guias da convenção. A transmissão da DCTFWeb, o S-1299 e os prazos continuam com "Entregue";
+  - "Dar baixa" pede a data do pagamento, o valor pago, a autenticação do comprovante, o valor da guia e o número do documento;
+  - data futura e valor zerado são recusados;
+  - pagamento depois do vencimento avisa os acréscimos de cada guia:
+    - DARF: multa de 0,33% ao dia até 20% e Selic, Lei 9.430/1996, art. 61;
+    - FGTS: Lei 8.036/1990, art. 22;
+    - sindical: CLT, art. 600;
+  - valor a menor também avisa;
+  - a baixa marca a guia como entregue no calendário (mesmo lote, com auditoria). "Desfazer a baixa" volta as duas;
+  - o resumo mostra quantas guias têm baixa, o total pago e as vencidas sem baixa.
+- **DARF:** o emitido na DCTFWeb da folha fica registrado com o valor e o número do documento, que já aparecem na baixa.
+- **FGTS:** "Conferir no FGTS Digital" traz o valor recolhido pela consulta do SERPRO, só com o devido quitado. A data vem do comprovante.
+- **Competência encerrada:** a baixa não trava, porque a guia vence depois do fechamento. A guia não se apaga; desfazer grava a baixa nula.
+- **Fica para depois:** a consulta automática do DARF pago (e-CAC, PAGTOWEB do Integra Contador) depende de uma rota nova no CFI. Até lá, a baixa é pelo comprovante.
+- **Catálogo SAGE:** `trib-pagamento` passa a disponível (destino Prazos). Agora são 48 disponíveis e 3 parciais.
+- **Testes:**
+  - o módulo: guias, baixa, situação, resumo e FGTS;
+  - o calendário: baixa pelo FGTS com aviso de atraso, guia paga, desfazer e data futura;
+  - o DARF registrado ao emitir;
+  - as regras do Firestore.
+

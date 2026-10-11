@@ -6,10 +6,14 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 const st = vi.hoisted(() => ({ listar: vi.fn(), marcar: vi.fn(), desmarcar: vi.fn() }));
 vi.mock('../obrigacoesStatusService', () => ({ listarMarcacoes: st.listar, marcarObrigacao: st.marcar, desmarcarObrigacao: st.desmarcar }));
 vi.mock('../../cadastros/cadastrosService', () => ({ mensagemErro: (e: Error) => e.message }));
+const gu = vi.hoisted(() => ({ listar: vi.fn(), baixa: vi.fn(), desfazer: vi.fn(), fgts: vi.fn() }));
+vi.mock('../../guias/pagamentoGuiasService', () => ({ listarGuias: gu.listar, darBaixa: gu.baixa, desfazerBaixa: gu.desfazer }));
+vi.mock('../../serpro/serproIntegrationService', () => ({ consultarFgtsRecolhimento: gu.fgts }));
 import CalendarioEmpresa from '../../../components/prazos/CalendarioEmpresa';
 import { sindicatoVazio } from '../../cadastros/sindicatos';
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); });
+afterEach(() => { cleanup(); vi.clearAllMocks(); vi.restoreAllMocks(); gu.listar.mockReset(); gu.listar.mockResolvedValue(new Map()); });
+gu.listar.mockResolvedValue(new Map());
 
 const ficha = (cpf: string, sindicato: string) => ({ empresaId: 'E1', cpf, situacao: 'ativo', dados: { sindicato } }) as never;
 const sind = (cnpj: string, nome: string, extra = {}) => ({ ...sindicatoVazio(), id: cnpj, cnpj, nome, ...extra });
@@ -47,9 +51,10 @@ describe('calendário da empresa ativa', () => {
         st.marcar.mockResolvedValue(undefined);
         st.desmarcar.mockResolvedValue(undefined);
         render(<CalendarioEmpresa {...props} />);
-        await screen.findByRole('button', { name: 'Marcar entregue: FGTS Digital: guia mensal' });
-        fireEvent.click(screen.getByRole('button', { name: 'Marcar entregue: FGTS Digital: guia mensal' }));
-        await waitFor(() => expect(st.marcar).toHaveBeenCalledWith('E1', '2026-09', expect.objectContaining({ id: 'fgts-2026-09' }), 'entregue', '', undefined, usuario));
+        await screen.findByRole('button', { name: 'Marcar entregue: DCTFWeb: transmissão' });
+        expect(screen.queryByRole('button', { name: 'Marcar entregue: FGTS Digital: guia mensal' })).toBeNull(); // guia: é "Dar baixa"
+        fireEvent.click(screen.getByRole('button', { name: 'Marcar entregue: DCTFWeb: transmissão' }));
+        await waitFor(() => expect(st.marcar).toHaveBeenCalledWith('E1', '2026-09', expect.objectContaining({ id: 'dctfweb-2026-09' }), 'entregue', '', undefined, usuario));
 
         vi.spyOn(window, 'prompt').mockReturnValueOnce('').mockReturnValueOnce('sem retenção no mês');
         fireEvent.click(screen.getByRole('button', { name: 'Não se aplica: EFD-Reinf: fechamento do mês' }));
@@ -67,5 +72,49 @@ describe('calendário da empresa ativa', () => {
         render(<CalendarioEmpresa {...props} usuario={undefined} />);
         await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Sem permissão'));
         expect(screen.queryByRole('button', { name: /Marcar entregue/ })).toBeNull();
+    });
+
+    it('baixa da guia: valor pelo FGTS Digital, aviso de atraso, grava e desfaz', async () => {
+        gu.listar.mockResolvedValue(new Map());
+        st.listar.mockResolvedValue(new Map());
+        gu.fgts.mockResolvedValue({ ok: true, regular: true, depositoDevido: 1234.56, depositoRealizado: 1234.56 });
+        gu.baixa.mockResolvedValue(undefined);
+        render(<CalendarioEmpresa {...props} empresa={{ ...props.empresa, cnpj: '44.388.152/0001-89' }} />);
+        fireEvent.click(await screen.findByRole('button', { name: 'Dar baixa: FGTS Digital: guia mensal' }));
+        const grupo = screen.getByRole('group', { name: 'Baixa de FGTS Digital: guia mensal' });
+        fireEvent.click(within(grupo).getByText('Conferir no FGTS Digital'));
+        await waitFor(() => expect((screen.getByLabelText('Valor pago') as HTMLInputElement).value).toBe('1234,56'));
+        expect(gu.fgts).toHaveBeenCalledWith('44388152000189', '2026-09');
+        fireEvent.change(screen.getByLabelText('Data do pagamento'), { target: { value: '2026-10-21' } });
+        fireEvent.change(screen.getByLabelText('Autenticação'), { target: { value: 'ABC123' } });
+        expect(screen.getByText(/Pago 1 dia\(s\) depois do vencimento \(20\/10\/2026\)/)).toBeTruthy();
+        const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(true);
+        fireEvent.click(within(grupo).getByText('Gravar a baixa'));
+        await waitFor(() => expect(gu.baixa).toHaveBeenCalledWith('E1', '2026-09', expect.objectContaining({ id: 'fgts-2026-09' }), { valorDevido: 123456, numeroDocumento: '' },
+            { data: '2026-10-21', valorPago: 123456, autenticacao: 'ABC123', fonte: 'fgts-digital' }, usuario));
+        expect(confirmar.mock.calls[0][0]).toMatch(/Lei 8.036\/1990/);
+    });
+
+    it('guia paga mostra a baixa e o resumo; data futura é recusada', async () => {
+        const paga = { obrigacao: 'darf-2026-09', competencia: '2026-09', nome: 'DARF', vencimento: '2026-10-20', valorDevido: 50000, numeroDocumento: '07.01', pagamento: { data: '2026-10-19', valorPago: 50000, autenticacao: 'X9', fonte: 'manual' }, atualizadoPorEmail: 'bia@x.com' };
+        gu.listar.mockResolvedValue(new Map([['darf-2026-09', paga]]));
+        st.listar.mockResolvedValue(new Map([['darf-2026-09', { status: 'entregue' }]]));
+        gu.desfazer.mockResolvedValue(undefined);
+        render(<CalendarioEmpresa {...props} />);
+        const darf = (await screen.findByText('DARF da DCTFWeb (INSS e IRRF)')).closest('tr')!;
+        await waitFor(() => expect(within(darf).getByText('paga')).toBeTruthy());
+        expect(within(darf).getByText(/paga em 19\/10\/2026 · R\$\s500,00 · aut. X9/)).toBeTruthy();
+        expect(within(darf).getByText(/Guia: R\$\s500,00 · documento 07.01/)).toBeTruthy();
+        expect(screen.getByLabelText('Resumo das guias').textContent).toMatch(/Guias: 1 de 3 com baixa · R\$\s500,00 pagos · 2 vencida\(s\) sem baixa/);
+        vi.spyOn(window, 'confirm').mockReturnValue(true);
+        fireEvent.click(within(darf).getByText('Desfazer a baixa'));
+        await waitFor(() => expect(gu.desfazer).toHaveBeenCalledWith('E1', '2026-09', expect.objectContaining({ id: 'darf-2026-09' }), paga, usuario));
+
+        fireEvent.click(screen.getByRole('button', { name: 'Dar baixa: FGTS Digital: guia mensal' }));
+        fireEvent.change(screen.getByLabelText('Data do pagamento'), { target: { value: '2026-11-01' } });
+        fireEvent.change(screen.getByLabelText('Valor pago'), { target: { value: '10,00' } });
+        fireEvent.click(screen.getByText('Gravar a baixa'));
+        await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/não pode ser futura/));
+        expect(gu.baixa).not.toHaveBeenCalled();
     });
 });
