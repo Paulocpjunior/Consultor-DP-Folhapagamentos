@@ -26,6 +26,8 @@ import { exclusoesDosEnvios, lerRecibosArquivos, recibosDosEnvios, recibosVigent
 import { baixarBytes, gerarZip } from '../../services/implantacao/zip';
 import { reais } from '../../services/cadastros/documentos';
 import { diaUtilAnterior } from '../../services/prazos/calendario';
+import { listarComplementares, type FolhaComplementarGravada } from '../../services/calculo/folhaComplementarService';
+import { rotuloTpAcConv } from '../../services/calculo/complementar';
 
 const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const comp = (c: string) => (/^\d{4}$/.test(c) ? `13º de ${c}` : `${c.slice(5)}/${c.slice(0, 4)}`);
@@ -72,6 +74,15 @@ const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resu
     const [meusEnvios, setMeusEnvios] = useState<string[]>([]);
     const [recibosArquivo, setRecibosArquivo] = useState<ReciboEvento[]>([]);
     const [lendoRecibos, setLendoRecibos] = useState(false);
+    // Folhas complementares gravadas na competência: vão no S-1200 dela (infoPerAnt), pagas com a folha.
+    const [complementaresGravadas, setComplementaresGravadas] = useState<FolhaComplementarGravada[]>([]);
+    useEffect(() => {
+        if (!/^\d{4}-\d{2}$/.test(competencia)) return;
+        let vivo = true;
+        listarComplementares(empresa.id, competencia).then(c => { if (vivo) setComplementaresGravadas(c); }).catch(e => { if (vivo) setErro(`Folhas complementares não carregadas: ${mensagemErro(e)}`); });
+        return () => { vivo = false; };
+    }, [empresa.id, competencia]);
+    const complementares = useMemo(() => complementaresGravadas.map(c => ({ instrumento: c.instrumento, resultados: c.resultados })), [complementaresGravadas]);
 
     useEffect(() => {
         let vivo = true;
@@ -79,7 +90,7 @@ const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resu
         return () => { vivo = false; };
     }, [empresa.id]);
 
-    const dePara = useMemo(() => (rubricas ? sugerirDePara([...resultados.filter(r => r.situacao === 'calculado'), ...verbasDoAdiantamentoParaDePara(resultados), ...verbasDosRecibosParaDePara(recibosFerias ?? [], competencia), ...(primeiras13 ?? []).map(x => x.r)], rubricas, competencia) : []), [rubricas, resultados, recibosFerias, competencia, primeiras13]);
+    const dePara = useMemo(() => (rubricas ? sugerirDePara([...resultados.filter(r => r.situacao === 'calculado'), ...verbasDoAdiantamentoParaDePara(resultados), ...verbasDosRecibosParaDePara(recibosFerias ?? [], competencia), ...(primeiras13 ?? []).map(x => x.r), ...complementares.flatMap(c => c.resultados.filter(r => r.situacao === 'calculado'))], rubricas, competencia) : []), [rubricas, resultados, recibosFerias, competencia, primeiras13, complementares]);
     // Vazio no de/para gravado = a sugestão entra até a equipe gravar.
     const efetivos = useMemo<ParametrosEsocialFolha>(() => {
         const r = { ...params.rubricas };
@@ -111,7 +122,7 @@ const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resu
         } catch (e) { setErro(`Não foi possível ler os arquivos: ${(e as Error).message}`); }
         finally { setLendoRecibos(false); }
     }
-    const geracao = useMemo(() => (rubricas ? gerarEventosFolha({ cnpj: empresa.cnpj, tpAmb, competencia, dataPagamento: data, dataAdiantamento: dataAdiant, fichas, resultados, rubricas, parametros: efetivos, retificacao, recibosFerias, primeiraParcela13: primeiras13 }) : null), [rubricas, empresa.cnpj, tpAmb, competencia, data, dataAdiant, fichas, resultados, efetivos, retificacao, recibosFerias, primeiras13]);
+    const geracao = useMemo(() => (rubricas ? gerarEventosFolha({ cnpj: empresa.cnpj, tpAmb, competencia, dataPagamento: data, dataAdiantamento: dataAdiant, fichas, resultados, rubricas, parametros: efetivos, retificacao, recibosFerias, primeiraParcela13: primeiras13, complementares }) : null), [rubricas, empresa.cnpj, tpAmb, competencia, data, dataAdiant, fichas, resultados, efetivos, retificacao, recibosFerias, primeiras13, complementares]);
     const prontos = geracao?.trabalhadores.filter(t => t.s1200) ?? [];
     // Cada S-1210 do trabalhador (o do mês da folha e o dos recibos de férias, se for outro mês).
     const s1210s = prontos.flatMap(t => pagamentos1210(t).map(pm => ({ t, pm })));
@@ -232,7 +243,7 @@ const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resu
                     {com13.length > 0 && <label className="flex items-center gap-1"><input type="checkbox" aria-label="Incluir a 1ª parcela do 13º" checked={incluir13} onChange={e => setIncluir13(e.target.checked)} />1ª parcela do 13º ({com13.length})</label>}
                     {com13.length > 0 && incluir13 && <label>Data da 1ª parcela<input aria-label="Data da 1ª parcela do 13º" type="date" className={`block w-full ${inp}`} value={data13} onChange={e => setData13(e.target.value)} /></label>}
                     {comAdiantamento && <label>Data do adiantamento<input aria-label="Data do adiantamento" type="date" className={`block w-full ${inp}`} value={dataAdiant} onChange={e => setDataAdiant(e.target.value)} /></label>}
-                    <p className="self-end text-slate-500">O S-1210 vai no mês do pagamento ({data ? comp(data.slice(0, 7)) : '—'}).{comFerias.length ? ` Recibos de férias pagos em ${comp(competencia)}: demonstrativo próprio, pago na data do recibo (S-1210 de ${comp(competencia)}).` : ''}{comAdiantamento ? ` Adiantamento salarial: demonstrativo próprio, pago na data do adiantamento (S-1210 de ${dataAdiant ? comp(dataAdiant.slice(0, 7)) : '—'}); a folha desconta o que ele pagou.` : ''}</p>
+                    <p className="self-end text-slate-500">O S-1210 vai no mês do pagamento ({data ? comp(data.slice(0, 7)) : '—'}).{comFerias.length ? ` Recibos de férias pagos em ${comp(competencia)}: demonstrativo próprio, pago na data do recibo (S-1210 de ${comp(competencia)}).` : ''}{comAdiantamento ? ` Adiantamento salarial: demonstrativo próprio, pago na data do adiantamento (S-1210 de ${dataAdiant ? comp(dataAdiant.slice(0, 7)) : '—'}); a folha desconta o que ele pagou.` : ''}{complementaresGravadas.length ? ` Folha complementar gravada (${complementaresGravadas.map(c => `${c.instrumento.tpAcConv} – ${rotuloTpAcConv(c.instrumento.tpAcConv)}, ${c.resultados.length} funcionário(s)`).join('; ')}): demonstrativo próprio com as diferenças por mês de referência (infoPerAnt), pago com a folha.` : ''}</p>
                 </section>
 
                 <section className="space-y-1">

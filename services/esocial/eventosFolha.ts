@@ -41,6 +41,7 @@ import { diaUtilAnterior } from '../prazos/calendario';
 import { cpfValido, reais } from '../cadastros/documentos';
 import { idEvento, VER_PROC, type TpAmb } from './transmissao';
 import type { ReciboEvento } from './recibosEsocial';
+import type { Instrumento, ResultadoComplementar } from '../calculo/complementar';
 
 const NS = 'http://www.esocial.gov.br/schema/evt';
 const VERSAO = 'v_S_01_03_00';
@@ -194,6 +195,9 @@ export const pagoNoAdiantamento = (r: Pick<ResultadoCalculo, 'verbas' | 'irrfAdi
 export const verbasDoAdiantamentoParaDePara = (resultados: ResultadoCalculo[]): ResultadoCalculo[] =>
     resultados.filter(r => r.situacao === 'calculado' && adiantamentoDoMes(r) > 0).map(r => ({ ...r, verbas: verbasDoAdiantamento(r) }));
 
+/** Demonstrativo da folha complementar (infoPerAnt) escriturada na competência, pelo tipo do instrumento. */
+export const ideDmDevComplementar = (perApur: string, tpAcConv: string, matricula: string) => `COMP${perApur.replace('-', '')}${tpAcConv}-${matricula}`.slice(0, 30);
+
 /** Demonstrativo do recibo de férias: pela data do pagamento. */
 export const ideDmDevFerias = (dataPagamento: string, matricula: string) => `FER${dataPagamento.replace(/-/g, '')}-${matricula}`.slice(0, 30);
 
@@ -303,6 +307,11 @@ export interface EntradaEventosFolha {
     dataAdiantamento?: string;
     /** 1ª parcela do 13º paga na competência (calcular13, parcela 1ª), com a data do pagamento: demonstrativo próprio. */
     primeiraParcela13?: { r: ResultadoCalculo; dataPagamento: string }[];
+    /**
+     * Folhas complementares escrituradas nesta competência (diferenças de meses anteriores, no grupo infoPerAnt),
+     * pagas com a folha: demonstrativo próprio, um {perRef} por mês de referência (MOS, S-1200, item 18).
+     */
+    complementares?: { instrumento: Instrumento; resultados: ResultadoComplementar[] }[];
     agora?: Date;
 }
 
@@ -344,6 +353,8 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
     for (const [fichaId, lista] of recibosDa) if (!e.resultados.some(r => r.fichaId === fichaId) && lista.some(x => x.dataPagamento.slice(0, 7) === e.competencia))
         avisos.push(`Recibo de férias de ${lista[0].r.nome} pago em ${mes(e.competencia)} sem a folha do mês calculada: o demonstrativo dele não vai.`);
     const perPgto = e.dataPagamento.slice(0, 7);
+    for (const c of e.complementares ?? []) for (const rc of c.resultados) if (!e.resultados.some(r => r.fichaId === rc.fichaId))
+        avisos.push(`Complementar de ${rc.nome} sem a folha de ${mes(e.competencia)} calculada: o demonstrativo das diferenças não vai. Calcule o funcionário na folha do mês ou transmita pelo IOB.`);
     const agora = e.agora ?? new Date();
     // O Id leva o segundo da geração e um sequencial. Começar pelo milésimo evita o mesmo Id em duas gerações no
     // mesmo segundo (ex.: o S-3000 e, gerado de novo depois, o S-1210 do mesmo trabalhador) — o pré-voo barraria.
@@ -439,6 +450,17 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             // Grau de exposição (Tabela 02): obrigatório para empregados (1XX, 2XX, 3XX) e 731/734/738; padrão 1.
             + (/^[123]\d\d$|^73[148]$/.test(categ) ? `<infoAgNocivo><grauExp>${/^[1-4]$/.test(f.dados.grauExp ?? '') ? f.dados.grauExp : '1'}</grauExp></infoAgNocivo>` : '')
             + '</remunPerApur></ideEstabLot></infoPerApur></dmDev>';
+        /** Demonstrativo de períodos anteriores (infoPerAnt/ideADC): as diferenças de cada mês no seu {perRef}. */
+        const dmDevPerAnt = (ide: string, categ: string, f: FichaFuncionario, ins: Instrumento, periodos: { perRef: string; itens: ReturnType<typeof itensDe> }[]) =>
+            `<dmDev><ideDmDev>${esc(ide)}</ideDmDev><codCateg>${categ}</codCateg><infoPerAnt><ideADC>`
+            + `${ins.dtAcConv ? `<dtAcConv>${ins.dtAcConv}</dtAcConv>` : ''}<tpAcConv>${ins.tpAcConv}</tpAcConv><dsc>${esc(ins.dsc.trim())}</dsc><remunSuc>N</remunSuc>`
+            + periodos.map(pr => `<idePeriodo><perRef>${pr.perRef}</perRef><ideEstabLot><tpInsc>1</tpInsc><nrInsc>${estab}</nrInsc><codLotacao>${esc(p.codLotacao.trim())}</codLotacao>`
+                + `<remunPerAnt><matricula>${esc(f.matriculaEsocial.trim())}</matricula>${p.indSimples ? `<indSimples>${p.indSimples}</indSimples>` : ''}`
+                + pr.itens.map(i => `<itensRemun><codRubr>${esc(i.rub.codRubr)}</codRubr><ideTabRubr>${esc(i.rub.ideTabRubr)}</ideTabRubr><vrRubr>${valor(i.valor)}</vrRubr><indApurIR>0</indApurIR></itensRemun>`).join('')
+                // O grau de exposição é o do mês do perApur (MOS, item 18.17): o da ficha.
+                + (/^[123]\d\d$|^73[148]$/.test(categ) ? `<infoAgNocivo><grauExp>${/^[1-4]$/.test(f.dados.grauExp ?? '') ? f.dados.grauExp : '1'}</grauExp></infoAgNocivo>` : '')
+                + '</remunPerAnt></ideEstabLot></idePeriodo>').join('')
+            + '</ideADC></infoPerAnt></dmDev>';
         const infoPgto = (data: string, ide: string, liquido: number) => `<infoPgto><dtPgto>${data}</dtPgto><tpPgto>1</tpPgto><perRef>${e.competencia}</perRef><ideDmDev>${esc(ide)}</ideDmDev><vrLiq>${valor(Math.max(0, liquido))}</vrLiq></infoPgto>`;
         for (const { ficha: f, r } of contratos) {
             const quem = contratos.length > 1 ? ` (matrícula ${f.matriculaEsocial || '?'})` : '';
@@ -487,6 +509,24 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             dmDevs.push(dmDev(ide, categ, f, itens));
             pagamentos.push({ mes: perPgto, xml: infoPgto(e.dataPagamento, ide, r.totais.liquido) });
             t.liquido += r.totais.liquido;
+
+            // Folha complementar: diferenças de meses anteriores, paga com a folha (o IRRF dela somou o da folha).
+            for (const c of e.complementares ?? []) {
+                const rc = c.resultados.find(x => x.fichaId === f.id);
+                if (!rc) continue;
+                const qual = `Complementar (${c.instrumento.tpAcConv})${quem}`;
+                if (anual) { t.erros.push(`${qual}: vai no S-1200 mensal, não no do 13º.`); continue; }
+                if (rc.situacao !== 'calculado') { t.erros.push(`${qual} ${rc.situacao === 'erro' ? 'com erro' : 'incompleta'}: ${[...rc.erros, ...rc.avisos].join(' ') || 'confira o cálculo'}.`); continue; }
+                if (rc.competencia !== e.competencia) { t.erros.push(`${qual} é da competência ${mes(rc.competencia)}, não de ${mes(e.competencia)}.`); continue; }
+                if (rc.pagamento !== perPgto) { t.erros.push(`${qual} calculada com pagamento em ${mes(rc.pagamento)}, e a folha é paga em ${br(e.dataPagamento)}: recalcule a complementar com o mês do pagamento da folha.`); continue; }
+                const periodos = rc.meses.filter(m => m.verbas.length).map(m => ({ perRef: m.perRef, itens: itensDe(m.verbas.map(v => ({ ...v, referencia: '' }))) }));
+                if (!periodos.length) continue;
+                if (periodos.length > 180) { t.erros.push(`${qual}: mais de 180 meses de referência.`); continue; }
+                const ideC = unico(ideDmDevComplementar(e.competencia, c.instrumento.tpAcConv, mat));
+                dmDevs.push(dmDevPerAnt(ideC, categ, f, c.instrumento, periodos));
+                pagamentos.push({ mes: perPgto, xml: infoPgto(e.dataPagamento, ideC, rc.totais.liquido) });
+                t.liquido += rc.totais.liquido;
+            }
 
             // Adiantamento salarial: demonstrativo próprio, pago na data do adiantamento (MOS S-1200, item 3.4).
             const adiant = adiantamentoDoMes(r);
