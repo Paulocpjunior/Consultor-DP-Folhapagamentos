@@ -4460,3 +4460,20 @@ Quinto dos itens planejados do catálogo do SAGE.
 - **Calendário de obrigações:** o vencimento de janeiro na competência de dezembro, com a condição "só se a empresa aderiu".
 - **Catálogo SAGE:** `trib-sindical` passa a disponível. Agora são 29 disponíveis, 21 parciais, 1 planejado (importação de valores, à espera do layout) e 2 fora.
 - **Testes:** as classes da tabela, a guia com o vencimento, as filiais, o atraso, as dispensas e faltas, o calendário e a tela.
+
+## 11/10/2026 — Auditoria dos parciais e importação de valores do IOB
+
+Paulo: "faça essa auditoria completa, e qual arquivo precisa de mim da IOB". O relatório está em `docs/auditoria-parciais-2026-10.md`.
+
+- **Auditoria:** os 21 itens parciais do catálogo do SAGE foram conferidos com o código.
+  - Cinco já estavam completos e passam a disponíveis: Afastamentos/Retorno, Tabelas legais, Movimento eSocial (periódicos), Rescisão e Vale-transporte e benefícios.
+  - Os 16 que faltam estão listados com o que falta em cada um, de quem dependem e a ordem de entrega. O 13º (parcela única e 1ª parcela com as férias) vem primeiro e o RRA fica por último.
+- **Arquivo do IOB:** a importação de valores não precisa de nenhum. O layout é o de importação de ponto Windows 3 e 4, do documento da IOB de 25/09/2026, que já está no Consultor. Do IOB faltam só os prints das abas Complementos, Lanç. Automático e Holerite da ficha do funcionário no Office.
+- **Importação de valores** (`services/calculo/importacaoValores.ts`; tela Folha do mês › Importação de valores):
+  - lê o TXT de 40 ou 50 posições e aponta o erro de cada linha;
+  - cada linha vira um "Lançar evento" pelo cadastro do evento do IOB;
+  - o funcionário é achado pelo "Código no IOB" da ficha;
+  - no Windows 4, linhas de outra empresa ou competência ficam de fora;
+  - grava no movimento do mês sem duplicar; uma competência encerrada não recebe lançamentos.
+- **Catálogo SAGE:** `ut-imp-valores` passa a disponível. Agora são 35 disponíveis, 16 parciais, nenhum planejado e 2 fora.
+- **Testes:** a leitura dos dois layouts e seus erros, o lançamento no movimento (hora extra, comissão, faltas, reimportação), as linhas que ficam de fora e a tela.
