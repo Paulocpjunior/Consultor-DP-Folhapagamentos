@@ -52,7 +52,7 @@ export const MENU: GrupoMenu[] = [
         { id: 'mensal', rotulo: 'Cálculo mensal', descricao: 'Movimento, holerites e resumo da folha', icone: 'calculadora', destino: { aba: 'calculo', folha: 'mensal' } },
         { id: 'ferias', rotulo: 'Férias', descricao: 'Programar e calcular o recibo de férias', icone: 'sol', destino: { aba: 'calculo', folha: 'ferias' } },
         { id: 'rescisao', rotulo: 'Rescisão', descricao: 'Simular e calcular o TRCT', icone: 'saida', destino: { aba: 'calculo', folha: 'rescisao' } },
-        { id: 'beneficios', rotulo: 'Administração de benefícios', descricao: 'Fornecedores com o site oficial (transporte em SP, VR/VA, saúde, odonto, academia) e os contratados da empresa com o dia do pedido', icone: 'presente', destino: { aba: 'beneficios' } },
+        { id: 'beneficios', rotulo: 'Administração de benefícios', descricao: 'Fornecedores e contratados, pedido de vale-transporte (quantidade do mês por operadora) e coparticipação do plano de saúde na folha', icone: 'presente', destino: { aba: 'beneficios' } },
         { id: 'contribuintes', rotulo: 'Pró-labore e autônomos (RPA)', descricao: 'Sócios e autônomos: INSS de 11% até o teto, 20% da empresa, IRRF, ISS, recibos e o S-1200 e o S-1210', icone: 'dinheiro', destino: { aba: 'contribuintes' } },
         { id: 'demissoes', rotulo: 'Demissões (prévia)', descricao: 'Cenários de demissão lado a lado, custo para a empresa, PDF e envio ao cliente, sem ir ao eSocial', icone: 'saida', destino: { aba: 'demissoes' } },
         { id: '13-1a', rotulo: '13º salário — 1ª parcela', descricao: 'Adiantamento do 13º até 30/11', icone: 'presente', destino: { aba: 'calculo', folha: '13-1a' } },
