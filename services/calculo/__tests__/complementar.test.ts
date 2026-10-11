@@ -152,15 +152,25 @@ describe('RRA e lançamentos', () => {
         expect(r.memoria.join(' ')).toMatch(/IRRF do RRA \(Lei 7\.713\/1988, art\. 12-A; tabela de .* × 3 meses\).*sem dependentes/);
         expect(totaisComplementar([r]).irrf).toBe(esperado);
     });
-    it('diferença do 13º de ano anterior: RRA com 13º fica pelo IOB (incompleto)', () => {
+    it('diferença do 13º de ano anterior entra no RRA e conta como mais um mês (IN RFB 1.500/2014, art. 36, § 1º)', () => {
         const ana = ficha('ana', { admissao: '2025-01-02' });
+        const lan = (perRef: string) => ({ fichaId: 'ana', perRef, codigo: 'LAN', descricao: 'Diferença salarial', tipo: 'provento' as const, valor: 600000, inss: true, fgts: true, irrf: true });
         const e = entrada([ana], {
             perApur: '2026-01', pagamento: '2026-01', instrumento: { ...CCT, dtAcConv: '2026-01-15' }, reajuste: undefined, tabelas: TAB25, gravadas: {}, folhaDoMes: [mes(ana, '2026-01')],
-            diferencas: [{ fichaId: 'ana', perRef: '2025-12', verbas: [{ codigo: '13DIF', descricao: 'Diferença do 13º', referencia: '', tipo: 'provento', valor: 50000, inss: true, fgts: true, irrf: true }] }],
+            lancamentos: ['2025-11', '2025-12'].map(lan),
+            diferencas: [{ fichaId: 'ana', perRef: '2025-12', verbas: [{ codigo: '13DIF', descricao: 'Diferença do 13º', referencia: '', tipo: 'provento', valor: 500000, inss: true, fgts: true, irrf: true }] }],
         });
         const r = calcularComplementar(e).resultados[0];
-        expect(r.situacao).toBe('incompleto');
-        expect(r.avisos.join(' ')).toMatch(/RRA com 13º ainda não é calculado/);
+        expect(r.situacao).toBe('calculado');
+        const inss = r.meses.reduce((x, m) => x + m.inss + m.inss13, 0);
+        expect(r.meses.find(m => m.perRef === '2025-12')!.inss13).toBeGreaterThan(0);
+        const t26 = TAB25.find(t => t.tipo === 'irrf' && t.vigencia <= '2026-01' && TAB25.every(o => o.tipo !== 'irrf' || o.vigencia > '2026-01' || o.vigencia <= t.vigencia))!;
+        const esperado = apurarIrrfRra(t26, 1_700_000, inss, 3).valor;
+        expect(r.rra).toMatchObject({ qtdMeses: 3, rendimentos: 1_700_000, deducoes: inss, irrf: esperado });
+        expect(r.memoria.join(' ')).toMatch(/× 3 meses, com o 13º como mais um mês/);
+        // O IRRF do 13º "normal" (exclusivo do ano) não é calculado para o 13º do RRA.
+        expect(r.verbas.some(v => v.codigo === 'IRRF13')).toBe(false);
+        expect(r.verbas.filter(v => v.codigo === 'IRRF')).toEqual([expect.objectContaining({ descricao: 'IRRF sobre o RRA', valor: esperado })]);
     });
     it('lançamento avulso e de verba do motor, sem folha gravada no mês', () => {
         const ana = ficha('ana');
