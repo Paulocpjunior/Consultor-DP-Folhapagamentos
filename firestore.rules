@@ -442,7 +442,11 @@ service cloud.firestore {
                     && request.resource.data.competencia.matches('^[0-9]{4}-(0[1-9]|1[0-2])$')
                     && request.resource.data.gravadoPor == request.auth.uid
                     && !periodoEncerrado(request.resource.data.empresaId, request.resource.data.competencia);
-      allow delete: if false;
+      // Estorno do cálculo (Utilitários › Estorno do SAGE): quem pode na empresa apaga a folha gravada da competência
+      // aberta; encerrada no Fim de mês, só depois da reabertura pelo gestor.
+      allow delete: if podeEmpresa(resource.data.empresaId)
+                    && folhaId == resource.data.empresaId + '_' + resource.data.competencia
+                    && !periodoEncerrado(resource.data.empresaId, resource.data.competencia);
       match /holerites/{fichaId} {
         allow read: if podeEmpresa(folhaId.split('_')[0]);
         allow create, update: if podeEmpresa(folhaId.split('_')[0])

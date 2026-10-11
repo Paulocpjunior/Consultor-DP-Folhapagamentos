@@ -4497,3 +4497,25 @@ Primeiro dos 16 parciais da auditoria (`docs/auditoria-parciais-2026-10.md`).
 - **Correção:** a pensão sobre férias gravada no afastamento não era salva. O campo não estava no modelo do afastamento e a gravação o descartava. Agora é gravada e, como o abono e a 1ª parcela do 13º, sobrevive à reimportação do S-2230.
 - **Catálogo SAGE:** `proc-13` passa a disponível. Agora são 36 disponíveis e 15 parciais.
 - **Testes:** o recibo com a 1ª parcela, a de novembro recusada, o desconto na 2ª e na rescisão, as férias de dezembro, a parcela única com e sem férias, e a gravação e a reimportação do afastamento.
+
+## 11/10/2026 — Estorno do cálculo
+
+Segundo dos parciais da auditoria (Utilitários › Estorno do Cálculo do SAGE).
+
+- **Tela** (Folha do mês › Cálculo › "Estornar o cálculo…", na folha mensal):
+  - apaga a folha gravada da competência (holerites e totais) para recalcular e gravar de novo;
+  - opcionalmente, zera o movimento do mês: tira horas, faltas, pensões e lançamentos, e mantém o encadeamento do arredondamento e o IRRF gravado de outro sistema;
+  - pede o motivo e a palavra ESTORNAR. O motivo e os totais que saíram vão para a auditoria, e cada movimento zerado também;
+  - fica bloqueado com a competência encerrada no Fim de mês (o gestor reabre antes) e com movimento não salvo.
+- **eSocial** (`services/calculo/estornoFolha.ts`): o estorno não desfaz o que já foi aceito, e a tela avisa antes:
+  - S-1200 da competência e S-1210 do mês do pagamento aceitos, sem contar os excluídos por S-3000 nem os da produção restrita. O caminho é retificar depois de recalcular, ou excluir primeiro o S-1210 e depois o S-1200;
+  - fechamento S-1299 aceito sem reabertura S-1298 posterior;
+  - lotes de S-1200 sem retorno;
+  - a DCTFWeb e a guia do FGTS Digital, que vêm do eSocial.
+- **Regras:** `folhas_gravadas` passa a aceitar a exclusão por quem pode na empresa, só com a competência aberta. Os holerites já aceitavam.
+- **Catálogo SAGE:** `ut-estorno` passa a disponível. Agora são 37 disponíveis e 14 parciais.
+- **Testes:**
+  - o plano: bloqueios, avisos do eSocial, S-1298 depois do S-1299, S-3000 e produção restrita;
+  - o movimento zerado;
+  - a tela: motivo, confirmação, folha apagada e movimento zerado, e a competência encerrada;
+  - a regra do Firestore (quem pode na empresa apaga a folha aberta; outra carteira não).

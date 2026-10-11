@@ -31,6 +31,7 @@ import { carregarEventosIob } from '../../services/calculo/catalogoEventos';
 import { lerFechamento } from '../../services/fimDeMes/fechamentoService';
 import { MSG_ENCERRADO, type Fechamento } from '../../services/fimDeMes/fechamento';
 import { gravarFolha, lerFolhaGravada } from '../../services/calculo/folhaGravadaService';
+import EstornoFolhaModal from './EstornoFolhaModal';
 import { diferencasDaGravada, errosParaGravar, type FolhaGravada } from '../../services/calculo/folhaGravada';
 import type { EventoIobSage } from '../../services/folha/folhaTypes';
 import { afastamentoVazio, idAfastamento, validarAfastamento, type Afastamento } from '../../services/cadastros/afastamentos';
@@ -175,6 +176,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
     // Folha do mês gravada (holerites guardados); encerrada a competência, é ela que vale.
     const [gravada, setGravada] = useState<FolhaGravada | null>(null);
     const [versaoGravada, setVersaoGravada] = useState(0);
+    const [estorno, setEstorno] = useState(false);
     const [gravandoFolha, setGravandoFolha] = useState(false);
     useEffect(() => {
         setGravada(null);
@@ -724,6 +726,10 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                     disabled={!empresa || encerrado || gravandoFolha || pendentes.length > 0 || !gravados || !resultadosCalculados.some(r => r.situacao !== 'erro')}
                     title={encerrado ? MSG_ENCERRADO(competencia) : pendentes.length ? 'Salve o movimento antes de gravar a folha.' : 'Guarda os holerites do mês como estão (o Fim de mês exige a folha gravada).'}
                     onClick={gravarFolhaDoMes}>{gravandoFolha ? 'Gravando…' : gravada ? 'Regravar a folha do mês' : 'Gravar a folha do mês'}</button>}
+                {mensal && (gravada || Object.keys(gravados ?? {}).length > 0) && <button className="rounded border border-red-700 px-3 py-2 text-sm font-medium text-red-800 disabled:opacity-50 dark:border-red-400 dark:text-red-200"
+                    disabled={!empresa || !dados || encerrado || pendentes.length > 0 || gravandoFolha}
+                    title={encerrado ? MSG_ENCERRADO(competencia) : pendentes.length ? 'Salve ou descarte o movimento antes de estornar.' : 'Desfaz o processamento do mês (a folha gravada e, se quiser, o movimento), como o Estorno do Cálculo do SAGE.'}
+                    onClick={() => setEstorno(true)}>Estornar o cálculo…</button>}
                 <div className={`flex flex-wrap items-center gap-2 ${mensal ? '' : 'ml-auto'}`}>
                 {mensal && <GrupoAcoes rotulo="Conferir">
                     {mensal && <button className={btn} disabled={!resultados.length} aria-pressed={conferir} onClick={() => setConferir(c => !c)}>Conferir com holerites do IOB</button>}
@@ -808,6 +814,9 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                     </div>
                 );
             })()}
+            {estorno && empresa && dados && <EstornoFolhaModal empresaId={empresa.id} empresaNome={empresa.nomeFantasia || empresa.razaoSocial || ''} competencia={competencia} encerrado={encerrado}
+                gravada={gravada} fichas={dados.fichas} usuario={usuario} onFechar={() => setEstorno(false)}
+                onEstornado={zerou => { setEstorno(false); setGravada(null); setVersaoGravada(n => n + 1); if (zerou) { carregarMovimentos(); setSalvos(n => n + 1); } setAviso(`Cálculo de ${br(competencia)} estornado${zerou ? ', com o movimento zerado' : ''}. Recalcule e grave a folha de novo.`); }} />}
             {complementar && mensal && dados && empresa && (
                 <FolhaComplementarModal empresa={{ id: empresa.id, cnpj: empresa.cnpj, razaoSocial: empresa.razaoSocial || empresa.nomeFantasia || '', sindicatos: empresa.sindicatos }}
                     competencia={competencia} pagamento={/^\d{4}-\d{2}$/.test(pagamento) ? pagamento : competenciaSeguinte(competencia)} fichas={dados.fichas} afastamentos={dados.afastamentos} tabelas={dados.tabelas}
