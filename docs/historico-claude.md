@@ -4580,3 +4580,18 @@ Quinto dos parciais da auditoria. Os dois relatórios estão em Relatórios › 
   - a listagem de sindicatos: contagens, ordem, cadastro ausente e quem está sem sindicato;
   - as etiquetas: conteúdo, endereço, desligados, posições na folha, quebra de página e as posições puladas;
   - a tela.
+
+## 11/10/2026 — Holerite por e-mail a cada funcionário
+
+Sexto dos parciais da auditoria (Utilitários › Envio de Relatórios por E-mail do SAGE).
+
+- **Relatórios › Central › Holerites › "Enviar a cada funcionário"** (`services/relatorios/holeritePorEmail.ts`):
+  - um e-mail do escritório (CFI) por funcionário, para o e-mail da própria ficha, só com o holerite dele em PDF, no mesmo layout do relatório;
+  - o arquivo leva a competência e a matrícula, sem o nome. A mensagem é pessoal e pede para não encaminhar;
+  - os envios saem um por vez, com o resultado de cada um (enviado ou o erro);
+  - quem não tem e-mail válido na ficha e os holerites com erro ficam de fora, com o aviso. O holerite nunca vai para outro endereço.
+- **Catálogo SAGE:** `ut-email` passa a disponível. Agora são 41 disponíveis e 10 parciais.
+- **Testes:**
+  - os destinatários (e-mail inválido, holerite com erro, ordem por nome);
+  - o nome do arquivo, o assunto e a mensagem;
+  - a tela, com um envio que falha.

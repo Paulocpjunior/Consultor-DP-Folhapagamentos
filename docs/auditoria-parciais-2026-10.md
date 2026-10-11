@@ -45,7 +45,7 @@ visíveis. Sem eles não dá para saber quais campos essas abas têm.
 | 3 | ~~Processamento agrupado (`proc-agrupado`)~~ **entregue em 11/10** | 13º (1ª e 2ª parcelas) e as rotinas anuais em lote. | nada |
 | 4 | ~~Ficha financeira (`rel-ficha`)~~ **entregue em 11/10** | Férias, 13º e rescisão pagos fora da folha mensal nos meses do Consultor (precisa gravar esses cálculos). | nada |
 | 5 | ~~Listagens (`rel-listagens`)~~ **entregue em 11/10** | Etiquetas e a listagem de sindicatos. | nada |
-| 6 | Envio por e-mail (`ut-email`) | Holerite individual por e-mail ao funcionário (o e-mail da ficha), pelo serviço de e-mail do escritório. | nada |
+| 6 | ~~Envio por e-mail (`ut-email`)~~ **entregue em 11/10** | Holerite individual por e-mail ao funcionário (o e-mail da ficha), pelo serviço de e-mail do escritório. | nada |
 | 7 | Crédito do Trabalhador (`proc-consignado`) | Cadastro dos contratos, desconto mensal com o limite de 35%, o grupo do desconto em folha no S-1200 e o desconto na rescisão. | nada |
 | 8 | Horários (`arq-horarios`) | Escalas e revezamento (12x36, turnos). | nada |
 | 9 | Diagnóstico eSocial (`es-diagnostico`) | Diagnóstico do cadastro inteiro (fichas, rubricas, tabelas) antes de gerar, apto ou não apto. | nada |
