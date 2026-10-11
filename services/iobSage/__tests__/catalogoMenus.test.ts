@@ -40,6 +40,8 @@ describe('catálogo IOB SAGE × Consultor DP', () => {
         expect(itens.find(i => i.id === 'trib-reinf')?.noConsultor).toMatch(/semáforo.*S-2500\/S-2501.*R-4010 do DP: nenhum caso.*próprio app do DP/);
         expect(itens.find(i => i.id === 'es-processo-trab')).toMatchObject({ situacao: 'disponivel', destino: 'processos' });
         expect(itens.find(i => i.id === 'trib-pagamento')).toMatchObject({ situacao: 'disponivel', destino: 'prazos' });
+        expect(itens.find(i => i.id === 'proc-complementar')).toMatchObject({ situacao: 'disponivel', destino: 'calculo' });
+        expect(itens.find(i => i.id === 'proc-complementar')?.noConsultor).toMatch(/RRA \(Lei 7\.713\/1988, art\. 12-A\).*indRRA/);
         expect(itens.find(i => i.id === 'trib-dctfweb')).toMatchObject({ situacao: 'disponivel', destino: 'dctfweb' });
         expect(itens.find(i => i.id === 'trib-dctfweb')?.noConsultor).toMatch(/DARF.*transmissão pelo Integra Contador/);
     });

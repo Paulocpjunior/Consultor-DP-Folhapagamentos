@@ -257,7 +257,7 @@ export const verbasDoAdiantamentoParaDePara = (resultados: ResultadoCalculo[]): 
     resultados.filter(r => r.situacao === 'calculado' && adiantamentoDoMes(r) > 0).map(r => ({ ...r, verbas: verbasDoAdiantamento(r) }));
 
 /** Demonstrativo da folha complementar (infoPerAnt) escriturada na competência, pelo tipo do instrumento. */
-export const ideDmDevComplementar = (perApur: string, tpAcConv: string, matricula: string) => `COMP${perApur.replace('-', '')}${tpAcConv}-${matricula}`.slice(0, 30);
+export const ideDmDevComplementar = (perApur: string, tpAcConv: string, matricula: string, rra = false) => `COMP${perApur.replace('-', '')}${tpAcConv}${rra ? 'R' : ''}-${matricula}`.slice(0, 30);
 
 /** Demonstrativo do recibo de férias: pela data do pagamento. */
 export const ideDmDevFerias = (dataPagamento: string, matricula: string) => `FER${dataPagamento.replace(/-/g, '')}-${matricula}`.slice(0, 30);
@@ -561,8 +561,11 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             + (/^[123]\d\d$|^73[148]$/.test(categ) ? `<infoAgNocivo><grauExp>${/^[1-4]$/.test(f.dados.grauExp ?? '') ? f.dados.grauExp : '1'}</grauExp></infoAgNocivo>` : '')
             + '</remunPerApur></ideEstabLot>';
         /** Demonstrativo de períodos anteriores (infoPerAnt/ideADC): as diferenças de cada mês no seu {perRef}. */
-        const dmDevPerAnt = (ide: string, categ: string, f: FichaFuncionario, ins: Instrumento, periodos: { perRef: string; itens: ReturnType<typeof itensDe> }[]) =>
-            `<dmDev><ideDmDev>${esc(ide)}</ideDmDev><codCateg>${categ}</codCateg><infoPerAnt><ideADC>`
+        const dmDevPerAnt = (ide: string, categ: string, f: FichaFuncionario, ins: Instrumento, periodos: { perRef: string; itens: ReturnType<typeof itensDe> }[], rra?: { qtdMeses: number; descricao: string }) =>
+            `<dmDev><ideDmDev>${esc(ide)}</ideDmDev><codCateg>${categ}</codCateg>`
+            // RRA (MOS, S-1200, item 2.4): demonstrativo próprio; tpProcRRA 1 sem número (diferenças por convenção/acordo).
+            + (rra ? `<indRRA>S</indRRA><infoRRA><tpProcRRA>1</tpProcRRA><descRRA>${esc(rra.descricao.trim().slice(0, 50))}</descRRA><qtdMesesRRA>${rra.qtdMeses.toFixed(1)}</qtdMesesRRA></infoRRA>` : '')
+            + '<infoPerAnt><ideADC>'
             + `${ins.dtAcConv ? `<dtAcConv>${ins.dtAcConv}</dtAcConv>` : ''}<tpAcConv>${ins.tpAcConv}</tpAcConv><dsc>${esc(ins.dsc.trim())}</dsc><remunSuc>N</remunSuc>`
             + periodos.map(pr => `<idePeriodo><perRef>${pr.perRef}</perRef><ideEstabLot><tpInsc>1</tpInsc><nrInsc>${estabelecimentoDoVinculo(f, p, pr.perRef)}</nrInsc><codLotacao>${esc(lotacaoDoEstabelecimento(p, estabelecimentoDoVinculo(f, p, pr.perRef)))}</codLotacao>`
                 + `<remunPerAnt><matricula>${esc(f.matriculaEsocial.trim())}</matricula>${p.indSimples ? `<indSimples>${p.indSimples}</indSimples>` : ''}`
@@ -582,13 +585,20 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                 if (rc.situacao !== 'calculado') { t.erros.push(`${qual} ${rc.situacao === 'erro' ? 'com erro' : 'incompleta'}: ${[...rc.erros, ...rc.avisos].join(' ') || 'confira o cálculo'}.`); continue; }
                 if (rc.competencia !== e.competencia) { t.erros.push(`${qual} é da competência ${mes(rc.competencia)}, não de ${mes(e.competencia)}.`); continue; }
                 if (rc.pagamento !== perPgto) { t.erros.push(`${qual} calculada com pagamento em ${mes(rc.pagamento)}, e a folha é paga em ${br(e.dataPagamento)}: recalcule a complementar com o mês do pagamento da folha.`); continue; }
-                const periodos = rc.meses.filter(m => m.verbas.length).map(m => ({ perRef: m.perRef, itens: itensDe(m.verbas.map(v => ({ ...v, referencia: '' }))) }));
-                if (!periodos.length) continue;
-                if (periodos.length > 180) { t.erros.push(`${qual}: mais de 180 meses de referência.`); continue; }
-                const ideC = unico(ideDmDevComplementar(e.competencia, c.instrumento.tpAcConv, mat));
-                dmDevs.push(dmDevPerAnt(ideC, categ, f, c.instrumento, periodos));
-                pagamentos.push({ mes: perPgto, xml: infoPgto(e.dataPagamento, ideC, rc.totais.liquido) });
-                t.liquido += rc.totais.liquido;
+                // O RRA (diferenças de anos anteriores) vai em demonstrativo próprio, com o IRRF dele.
+                const comVerbas = rc.meses.filter(m => m.verbas.length);
+                if (comVerbas.some(m => m.rra) && !rc.rra) { t.erros.push(`${qual}: diferenças de anos anteriores (RRA) sem o cálculo do RRA. Recalcule a complementar.`); continue; }
+                for (const rra of [false, true]) {
+                    const meses = comVerbas.filter(m => m.rra === rra);
+                    if (!meses.length) continue;
+                    if (meses.length > 180) { t.erros.push(`${qual}: mais de 180 meses de referência.`); continue; }
+                    const periodos = meses.map(m => ({ perRef: m.perRef, itens: itensDe(m.verbas.map(v => ({ ...v, referencia: '' }))) }));
+                    const ideC = unico(ideDmDevComplementar(e.competencia, c.instrumento.tpAcConv, mat, rra));
+                    dmDevs.push(dmDevPerAnt(ideC, categ, f, c.instrumento, periodos, rra ? rc.rra : undefined));
+                    const liquido = meses.flatMap(m => m.verbas).reduce((x, v) => x + (v.tipo === 'provento' ? v.valor : -v.valor), 0);
+                    pagamentos.push({ mes: perPgto, xml: infoPgto(e.dataPagamento, ideC, liquido) });
+                    t.liquido += liquido;
+                }
             }
         };
         for (const { ficha: f, r } of contratos) {
