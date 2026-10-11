@@ -4093,3 +4093,22 @@ Paulo: "pode seguir com RPA" e escolheu "completar o RPA".
   - conferência das incidências;
   - S-1210 de quem também é empregado;
   - recibos pelos envios.
+
+## 11/10/2026 — Benefícios: pedido de vale-transporte e coparticipação do plano de saúde
+
+Paulo: "segue para próximo". O RRA ficou para depois porque falta confirmar como o redutor da Lei 15.270/2025 se aplica a ele. O próximo item da lista era o de benefícios.
+
+- **Onde:** Folha do mês › Administração de benefícios, abaixo dos fornecedores (`components/beneficios/VtECoparticipacao.tsx`).
+- **Pedido de vale-transporte** (`services/beneficios/vtECoparticipacao.ts`):
+  - o itinerário fica em `vt_itinerarios/{fichaId}`: linhas com operadora, trecho, tarifa e viagens por dia, e os dias da semana do deslocamento;
+  - a quantidade do mês de uso (padrão: o mês seguinte à competência) conta esses dias, menos os feriados nacionais, as férias e os afastamentos lançados e os dias fora do vínculo;
+  - mostra o total por funcionário e por operadora e gera o Excel do pedido;
+  - a coluna "custo na ficha" fica em destaque quando difere do pedido, porque é ela que limita o desconto de 6% no Cálculo mensal (Lei 7.418/1985, art. 4º, parágrafo único).
+- **Coparticipação do plano de saúde:**
+  - a planilha da operadora (Excel ou CSV) é lida pelo cabeçalho (CPF, nome e valor) e somada por CPF;
+  - cada valor é ligado à ficha com vínculo na competência;
+  - vira um lançamento avulso de desconto no movimento do mês, sem INSS, FGTS e IRRF (Lei 8.212/1991, art. 28, § 9º, q);
+  - lançar de novo substitui o lançado antes; quem não tem ficha aparece à parte.
+- **Regras:** grava e lê quem pode na empresa, com o id da ficha da empresa (teste de regras).
+- **Catálogo SAGE:** o item de benefícios continua parcial, mas sem as duas faltas. Fica pendente a coparticipação na dedução do IRRF (S-1210, plano de saúde).
+- **Testes:** dias de uso (feriados de 11/2026, férias e admissão no meio do mês), pedido por operadora, leitura da planilha, soma e substituição no movimento, e a tela.

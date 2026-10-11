@@ -40,6 +40,7 @@ import AtivarEmpresaScreen from './empresaAtiva/AtivarEmpresaScreen';
 import ServicosExternosPanel from './plataforma/ServicosExternosPanel';
 import DemissoesPanel from './demissoes/DemissoesPanel';
 import AdministracaoBeneficios from './beneficios/AdministracaoBeneficios';
+import VtECoparticipacao from './beneficios/VtECoparticipacao';
 import ContribuintesPanel from './contribuintes/ContribuintesPanel';
 import DctfwebFolhaPanel from './dctfweb/DctfwebFolhaPanel';
 import ProcessosTrabalhistasPanel from './processoTrabalhista/ProcessosTrabalhistasPanel';
@@ -472,7 +473,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                 {activeTab === 'admin' && isAdmin && <AdminUsersPanel currentUser={currentUser as any} embutido />}
                 {activeTab === 'servicos' && <ServicosExternosPanel />}
                 {activeTab === 'demissoes' && <DemissoesPanel usuario={{ id: uidAtual, email: currentUser?.email ?? '' }} />}
-                {activeTab === 'beneficios' && <AdministracaoBeneficios />}
+                {activeTab === 'beneficios' && <><AdministracaoBeneficios /><VtECoparticipacao usuario={{ id: uidAtual, email: currentUser?.email ?? '' }} /></>}
                 {activeTab === 'contribuintes' && <ContribuintesPanel usuario={{ id: uidAtual, email: currentUser?.email ?? '' }} />}
                 {activeTab === 'dctfweb' && <DctfwebFolhaPanel />}
                 {activeTab === 'processos' && <ProcessosTrabalhistasPanel usuario={{ id: uidAtual, email: currentUser?.email ?? '' }} />}
