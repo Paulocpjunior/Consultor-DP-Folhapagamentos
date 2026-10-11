@@ -30,9 +30,15 @@ vi.mock('../contribuintesService', () => ({
     excluirPagamentosCI: async () => undefined,
 }));
 vi.mock('../../fimDeMes/fechamentoService', () => ({ lerFechamento: async () => null }));
+const envio = vi.hoisted(() => ({ eventos: [] as { xml: string; ref: string }[] }));
+vi.mock('../../esocial/envioSeguro', () => ({
+    verificarAntesDeEnviar: async (x: { eventos: { xml: string; ref: string }[] }) => { envio.eventos.push(...x.eventos); return { ok: true, achados: [] }; },
+    transmitirVerificado: async () => ({ situacao: 'enviado', retorno: { protocolo: 'P1' } }),
+    mensagemDaTransmissao: () => ({ ok: true, texto: 'Lote recebido pelo eSocial. Protocolo P1.' }),
+}));
 import ContribuintesPanel from '../../../components/contribuintes/ContribuintesPanel';
 import { EmpresaAtivaProvider } from '../../empresaAtiva/empresaAtivaContext';
-import { contribuinteVazio } from '../contribuinteIndividual';
+import { contribuinteVazio, tsvVazio } from '../contribuinteIndividual';
 
 afterEach(() => { cleanup(); srv.contribuintes = []; srv.cadastros.length = 0; srv.meses.length = 0; srv.gravado = null; });
 const ATIVA = { id: 'E1', nome: 'X', cnpj: '44388152000189', codigoSage: '1', competencia: '2026-10', ativadaPor: 'x', ativadaEm: 1 };
@@ -70,5 +76,37 @@ describe('pró-labore e RPA (tela)', () => {
         expect((screen.getByLabelText('Rubrica de Serviços prestados (RPA)') as HTMLSelectElement).value).toBe('T1|RPA');
         expect((screen.getByLabelText('Rubrica de ISS retido') as HTMLSelectElement).value).toBe('T1|ISS');
         expect(screen.getByText('Transmitir S-1200 (1)')).toBeTruthy();
+    });
+
+    it('diretor com FGTS (721): dados do S-2300 no cadastro e o S-2300 transmitido pela tela', async () => {
+        envio.eventos.length = 0;
+        srv.contribuintes = [{ ...contribuinteVazio('E1'), id: 'E1_52998224725', cpf: '52998224725', nome: 'ANA DIRETORA', nascimento: '1980-04-10', categoria: '721', cbo: '121010' }];
+        tela();
+        expect((await screen.findByLabelText('S-2300 e S-2399')).textContent).toMatch(/Informe o sexo/);
+        fireEvent.click(screen.getByText('Editar'));
+        fireEvent.change(screen.getByLabelText('Sexo'), { target: { value: 'F' } });
+        fireEvent.change(screen.getByLabelText('Raça/cor'), { target: { value: '1' } });
+        fireEvent.change(screen.getByLabelText('Grau de instrução'), { target: { value: '09' } });
+        fireEvent.change(screen.getByLabelText('Logradouro'), { target: { value: 'RUA DAS FLORES' } });
+        fireEvent.change(screen.getByLabelText('Número do endereço'), { target: { value: '100' } });
+        fireEvent.change(screen.getByLabelText('CEP'), { target: { value: '01001-000' } });
+        fireEvent.change(screen.getByLabelText('Código do município'), { target: { value: '3550308' } });
+        fireEvent.change(screen.getByLabelText('UF'), { target: { value: 'sp' } });
+        fireEvent.change(screen.getByLabelText('Data de início'), { target: { value: '2026-10-01' } });
+        fireEvent.change(screen.getByLabelText('Cargo'), { target: { value: 'Diretora' } });
+        fireEvent.change(screen.getByLabelText('Matrícula do contribuinte'), { target: { value: 'DIR-01' } });
+        expect((screen.getByLabelText('Data de opção pelo FGTS') as HTMLInputElement).value).toBe('2026-10-01');
+        fireEvent.click(screen.getByText('Gravar cadastro'));
+        await waitFor(() => expect(srv.cadastros).toHaveLength(1));
+        expect(srv.cadastros[0]).toMatchObject({ matricula: 'DIR-01', tsv: { sexo: 'F', dtInicio: '2026-10-01', dtOpcFGTS: '2026-10-01', endereco: { uf: 'SP', cep: '01001000' } } });
+        // Recarrega com o cadastro gravado e transmite.
+        srv.contribuintes = [{ ...(srv.cadastros[0] as object), id: 'E1_52998224725', tsv: { ...tsvVazio(), ...(srv.cadastros[0] as { tsv: object }).tsv } }];
+        cleanup(); tela();
+        fireEvent.click(await screen.findByText('Transmitir S-2300'));
+        await waitFor(() => expect(envio.eventos).toHaveLength(1));
+        expect(envio.eventos[0].ref).toBe('tsv:E1_52998224725:inicio');
+        expect(envio.eventos[0].xml).toContain('<codCateg>721</codCateg>');
+        expect(envio.eventos[0].xml).toContain('<FGTS><dtOpcFGTS>2026-10-01</dtOpcFGTS></FGTS>');
+        expect((await screen.findByRole('status')).textContent).toMatch(/S-2300 de ANA DIRETORA: Lote recebido/);
     });
 });

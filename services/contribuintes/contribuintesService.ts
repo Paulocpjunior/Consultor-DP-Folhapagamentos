@@ -6,7 +6,7 @@
 import { collection, deleteDoc, doc, getDoc, getDocs, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import type { Usuario } from '../cadastros/cadastrosService';
-import { contribuinteVazio, idContribuinte, totaisCI, type ContribuinteIndividual, type LancamentoCI, type ResultadoCI } from './contribuinteIndividual';
+import { comTsv, contribuinteVazio, idContribuinte, totaisCI, type ContribuinteIndividual, type LancamentoCI, type ResultadoCI } from './contribuinteIndividual';
 
 const CAD = 'contribuintes_individuais';
 const PAG = 'pagamentos_ci';
@@ -14,7 +14,7 @@ const limpo = <T,>(x: T): T => JSON.parse(JSON.stringify(x));
 
 export async function listarContribuintes(empresaId: string): Promise<ContribuinteIndividual[]> {
     const s = await getDocs(query(collection(db, CAD), where('empresaId', '==', empresaId)));
-    return s.docs.map(d => ({ ...contribuinteVazio(empresaId), ...(d.data() as Partial<ContribuinteIndividual>), id: d.id }))
+    return s.docs.map(d => comTsv({ ...contribuinteVazio(empresaId), ...(d.data() as Partial<ContribuinteIndividual>), id: d.id }))
         .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
 }
 

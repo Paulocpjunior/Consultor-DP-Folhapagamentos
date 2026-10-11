@@ -10,9 +10,11 @@
 // - IRRF pela tabela progressiva do mês do pagamento, com as deduções (INSS e dependentes) ou o desconto simplificado
 //   e o redutor; retenção até R$ 10,00 dispensada;
 // - ISS do autônomo não inscrito no município, quando o tomador retém (alíquota da lei municipal, informada);
-// - sem FGTS, férias e 13º.
-// Categorias: 701 (autônomo), 722 (diretor não empregado sem FGTS) e 723 (sócio). A 723 e a 722 exigem o S-2300 antes do
-// S-1200; o autônomo (701) pode ir sem ele, com os dados no próprio S-1200 (MOS, S-1200, item 23).
+// - sem férias e 13º; sem FGTS, exceto o diretor não empregado que a empresa equiparou aos empregados para o FGTS
+//   (categoria 721; Lei 8.036/1990, art. 16): 8% sobre o pró-labore, recolhidos pelo FGTS Digital a partir do S-1200.
+// Categorias: 701 (autônomo), 721 e 722 (diretor não empregado com e sem FGTS) e 723 (sócio). A 721, a 722 e a 723 exigem
+// o S-2300 antes do S-1200 (o Consultor gera o S-2300 e o S-2399: services/esocial/eventosTSV.ts); o autônomo (701) pode
+// ir sem ele, com os dados no próprio S-1200 (MOS, S-1200, item 23).
 // Transportador autônomo (711 passageiros, 712 carga), sobre o valor bruto do frete:
 // - INSS de 11% e parte da empresa de 20% sobre a base de 20% do frete (Decreto 3.048/1999, art. 201, § 4º);
 // - SEST 1,5% e SENAT 1,0% sobre a mesma base, descontados do transportador (o S-5001 calcula com os códigos 121802 e
@@ -26,9 +28,10 @@ import type { Enquadramento } from '../cadastros/enquadramento';
 import { apurarIrrf, type ResultadoCalculo, type Verba } from '../calculo/motorMensal';
 import { IRRF_MINIMO } from '../calculo/tributos';
 
-export type CategoriaCI = '701' | '711' | '712' | '722' | '723';
-export const CATEGORIAS_CI: Record<CategoriaCI, { rotulo: string; tipo: 'prolabore' | 'rpa'; exigeS2300: boolean; transportador?: 'passageiros' | 'carga' }> = {
+export type CategoriaCI = '701' | '711' | '712' | '721' | '722' | '723';
+export const CATEGORIAS_CI: Record<CategoriaCI, { rotulo: string; tipo: 'prolabore' | 'rpa'; exigeS2300: boolean; transportador?: 'passageiros' | 'carga'; fgts?: boolean }> = {
     '723': { rotulo: '723 · Sócio ou empresário (pró-labore)', tipo: 'prolabore', exigeS2300: true },
+    '721': { rotulo: '721 · Diretor não empregado com FGTS (pró-labore)', tipo: 'prolabore', exigeS2300: true, fgts: true },
     '722': { rotulo: '722 · Diretor não empregado sem FGTS (pró-labore)', tipo: 'prolabore', exigeS2300: true },
     '701': { rotulo: '701 · Autônomo em geral (RPA)', tipo: 'rpa', exigeS2300: false },
     '712': { rotulo: '712 · Transportador autônomo de carga (frete)', tipo: 'rpa', exigeS2300: false, transportador: 'carga' },
@@ -39,8 +42,51 @@ export const BASE_INSS_FRETE = 20;
 export const BASE_IRRF_FRETE: Record<'passageiros' | 'carga', number> = { carga: 10, passageiros: 60 };
 export const ALIQ_SEST = 1.5;
 export const ALIQ_SENAT = 1.0;
+/** FGTS do diretor não empregado equiparado (721): 8% (Lei 8.036/1990, art. 15 e art. 16). */
+export const ALIQ_FGTS_DIRETOR = 8;
 
 export interface DependenteCI { cpf: string; nome: string; nascimento: string; /** Tabela 07 do eSocial. */ tipo: string }
+
+/**
+ * Dados do S-2300 (início do trabalhador sem vínculo) e do S-2399 (término), para o Consultor gerar os dois eventos.
+ * Valores em centavos; códigos das tabelas do eSocial.
+ */
+export interface DadosTSV {
+    sexo: '' | 'M' | 'F';
+    /** 1 branca, 2 preta, 3 parda, 4 amarela, 5 indígena, 6 não informado. */
+    racaCor: string;
+    /** 1 solteiro, 2 casado, 3 divorciado, 4 separado, 5 viúvo (opcional). */
+    estCiv: string;
+    /** 01 a 12 (grau de instrução do eSocial). */
+    grauInstr: string;
+    /** Tabela 06 do eSocial (105 = Brasil). */
+    paisNascto: string;
+    paisNac: string;
+    endereco: { logradouro: string; numero: string; complemento: string; bairro: string; cep: string; codMunic: string; uf: string };
+    /** Posse do diretor ou entrada do sócio no contrato social. */
+    dtInicio: string;
+    /** Início anterior à obrigatoriedade dos eventos não periódicos na empresa (cadIni S). */
+    cadastramentoInicial: boolean;
+    cargo: string;
+    /** Pró-labore fixo mensal (0 = variável). */
+    remuneracao: number;
+    /** Opção pelo FGTS (721). */
+    dtOpcFGTS: string;
+    dtTermino: string;
+    /** Motivo do término do diretor com FGTS (721): 01 a 07 e 99 do S-2399. */
+    mtvDesligTSV: string;
+}
+export const tsvVazio = (): DadosTSV => ({
+    sexo: '', racaCor: '', estCiv: '', grauInstr: '', paisNascto: '105', paisNac: '105',
+    endereco: { logradouro: '', numero: '', complemento: '', bairro: '', cep: '', codMunic: '', uf: '' },
+    dtInicio: '', cadastramentoInicial: false, cargo: '', remuneracao: 0, dtOpcFGTS: '', dtTermino: '', mtvDesligTSV: '',
+});
+/** Completa o cadastro gravado antes dos dados do S-2300 (ou com parte deles). */
+export const comTsv = (c: ContribuinteIndividual): ContribuinteIndividual => {
+    const v = tsvVazio();
+    const t: Partial<DadosTSV> = c.tsv ?? {};
+    return { ...c, tsv: { ...v, ...t, endereco: { ...v.endereco, ...(t.endereco ?? {}) } } };
+};
 
 export interface ContribuinteIndividual {
     id: string;
@@ -60,10 +106,12 @@ export interface ContribuinteIndividual {
     dependentes: DependenteCI[];
     ativo: boolean;
     observacao: string;
+    /** Dados do S-2300 e do S-2399 gerados pelo Consultor. */
+    tsv: DadosTSV;
 }
 
 export const contribuinteVazio = (empresaId: string): ContribuinteIndividual => ({
-    id: '', empresaId, cpf: '', nome: '', nascimento: '', categoria: '701', cbo: '', nit: '', s2300: false, matricula: '', inscritoIss: false, dependentes: [], ativo: true, observacao: '',
+    id: '', empresaId, cpf: '', nome: '', nascimento: '', categoria: '701', cbo: '', nit: '', s2300: false, matricula: '', inscritoIss: false, dependentes: [], ativo: true, observacao: '', tsv: tsvVazio(),
 });
 export const idContribuinte = (empresaId: string, cpf: string) => `${empresaId}_${cpf.replace(/\D/g, '')}`;
 
@@ -74,8 +122,11 @@ export function validarContribuinte(c: ContribuinteIndividual): string[] {
     if (!dataValida(c.nascimento)) e.push('Informe a data de nascimento.');
     if (!CATEGORIAS_CI[c.categoria]) e.push('Escolha a categoria.');
     if (!/^\d{6}$/.test(c.cbo)) e.push('CBO com 6 dígitos (o S-1200 exige para quem vai sem o S-2300).');
-    if (CATEGORIAS_CI[c.categoria]?.exigeS2300 && !c.s2300) e.push('Sócio e diretor (722, 723) precisam do S-2300 enviado antes do S-1200: marque quando ele estiver no eSocial.');
     if (c.matricula && c.matricula.length > 30) e.push('Matrícula com até 30 caracteres.');
+    const t = c.tsv;
+    if (t?.dtInicio && !dataValida(t.dtInicio)) e.push('Data de início (S-2300) inválida.');
+    if (t?.dtTermino && !dataValida(t.dtTermino)) e.push('Data do término (S-2399) inválida.');
+    else if (t?.dtTermino && t.dtInicio && t.dtTermino < t.dtInicio) e.push('Término antes do início.');
     c.dependentes.forEach((d, i) => {
         if (!cpfValido(d.cpf.replace(/\D/g, ''))) e.push(`Dependente ${i + 1}: CPF inválido.`);
         if (!d.nome.trim()) e.push(`Dependente ${i + 1}: informe o nome.`);
@@ -125,6 +176,8 @@ export function validarLancamentos(competencia: string, ls: LancamentoCI[], cont
         if (!c) e.push(`Lançamento ${i + 1}: escolha o sócio ou autônomo.`);
         else if (vistos.has(c.id)) e.push(`${q} aparece duas vezes: some os serviços do mês num lançamento só (o INSS e o IRRF são do mês).`);
         if (c) vistos.add(c.id);
+        const fim = c?.tsv?.dtTermino;
+        if (c && fim && /^\d{4}-\d{2}$/.test(competencia) && competencia > fim.slice(0, 7)) e.push(`${q}: término em ${br(fim)} (S-2399); sem pró-labore nas competências seguintes.`);
         if (!(l.valor > 0)) e.push(`${q}: informe o valor.`);
         if (!dataValida(l.dataPagamento)) e.push(`${q}: informe a data do pagamento.`);
         else if (/^\d{4}-\d{2}$/.test(competencia) && l.dataPagamento.slice(0, 7) < competencia) e.push(`${q}: pagamento antes da competência.`);
@@ -165,7 +218,12 @@ export function calcularCI(c: ContribuinteIndividual, l: LancamentoCI, competenc
         r.informativas.push({ codigo: 'BASEFRETE', descricao: `Base do INSS e do SEST/SENAT (${BASE_INSS_FRETE}% do frete)`, valor: remuneracao });
         r.informativas.push({ codigo: 'BASEIRFRETE', descricao: `Rendimento tributável do IRRF (${BASE_IRRF_FRETE[transp]}% do frete)`, valor: rendimentoIr });
         r.memoria.push(`Frete de ${reais(l.valor)}: base do INSS ${BASE_INSS_FRETE}% = ${reais(remuneracao)} (Decreto 3.048/1999, art. 201, § 4º); rendimento tributável ${BASE_IRRF_FRETE[transp]}% = ${reais(rendimentoIr)} (Lei 7.713/1988, art. 9º).`);
-    } else verba({ codigo: prolabore ? 'PROLAB' : 'RPA', descricao: prolabore ? 'Pró-labore' : `Serviços prestados${l.descricao.trim() ? ` (${l.descricao.trim()})` : ''}`, referencia: '', tipo: 'provento', valor: l.valor, inss: true, fgts: false, irrf: true });
+    } else verba({ codigo: def.fgts ? 'PROLABFGTS' : prolabore ? 'PROLAB' : 'RPA', descricao: prolabore ? 'Pró-labore' : `Serviços prestados${l.descricao.trim() ? ` (${l.descricao.trim()})` : ''}`, referencia: '', tipo: 'provento', valor: l.valor, inss: true, fgts: !!def.fgts, irrf: true });
+    if (def.fgts) {
+        r.bases.fgts = l.valor;
+        r.fgts = Math.round(l.valor * ALIQ_FGTS_DIRETOR / 100);
+        r.memoria.push(`FGTS do diretor não empregado equiparado (721): ${ALIQ_FGTS_DIRETOR}% de ${reais(l.valor)} = ${reais(r.fgts)} (Lei 8.036/1990, art. 15 e art. 16), sem desconto do diretor; a guia sai do FGTS Digital a partir do S-1200.`);
+    }
 
     // INSS do segurado: 11% até o teto, descontado o que já houve em outras fontes no mês.
     const tInss = tabelaVigente(tabelas, 'inss', competencia);
@@ -231,7 +289,7 @@ export function totaisCI(rs: ResultadoCI[]) {
     const ok = rs.filter(r => r.situacao !== 'erro');
     const v = (c: string) => ok.reduce((s, r) => s + r.verbas.filter(x => x.codigo === c).reduce((t, x) => t + x.valor, 0), 0);
     return {
-        quantidade: ok.length, bruto: ok.reduce((s, r) => s + r.totais.proventos, 0), inssRetido: v('INSS'), irrf: v('IRRF'), iss: v('ISS'), sestSenat: v('SEST') + v('SENAT'),
+        quantidade: ok.length, bruto: ok.reduce((s, r) => s + r.totais.proventos, 0), inssRetido: v('INSS'), irrf: v('IRRF'), iss: v('ISS'), sestSenat: v('SEST') + v('SENAT'), fgts: ok.reduce((s, r) => s + r.fgts, 0),
         patronal: ok.reduce((s, r) => s + (r.patronal?.valor ?? 0), 0), liquido: ok.reduce((s, r) => s + r.totais.liquido, 0),
     };
 }
