@@ -82,7 +82,7 @@ const PrazosPanel: React.FC<Props> = ({ onAbrirCadastros, onAbrirConferencia, us
             </header>
 
             {ativa && dados && (
-                <CalendarioEmpresa empresa={{ id: ativa.id, nome: ativa.nome, competencia: ativa.competencia }} fichas={dados.fichas} sindicatos={dados.sindicatos}
+                <CalendarioEmpresa empresa={{ id: ativa.id, nome: ativa.nome, competencia: ativa.competencia, cnpj: ativa.cnpj }} fichas={dados.fichas} sindicatos={dados.sindicatos}
                     usuario={usuario} hoje={hoje} onTrocar={trocar} onAbrirCadastros={onAbrirCadastros} />
             )}
 

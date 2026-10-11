@@ -21,11 +21,13 @@ vi.mock('../../serpro/serproIntegrationService', () => ({
     gerarDarfDctfweb: async (...a: unknown[]) => { srv.darfs.push(a); return { ok: true, emAndamento: a[3], valor: 2860, numeroDocumento: '07.01', codigoBarras: '8582', vencimento: '2026-10-20', pdfBase64: 'JVBERg==', mensagens: [], fonte: 'serpro' }; },
     transmitirDctfweb: async (...a: unknown[]) => { srv.transmissoes.push(a); srv.entregue = true; return { numeroRecibo: '1.2.3' }; },
 }));
+const guias = vi.hoisted(() => ({ registradas: [] as unknown[] }));
+vi.mock('../../guias/pagamentoGuiasService', () => ({ registrarGuiaEmitida: async (...a: unknown[]) => { guias.registradas.push(a); } }));
 vi.mock('../../implantacao/zip', () => ({ baixarBytes: (nome: string) => { srv.baixados.push(nome); } }));
 import DctfwebFolhaPanel from '../../../components/dctfweb/DctfwebFolhaPanel';
 import { EmpresaAtivaProvider } from '../../empresaAtiva/empresaAtivaContext';
 
-afterEach(() => { cleanup(); srv.entregue = false; srv.insumos = 'pronto'; srv.darfs.length = 0; srv.transmissoes.length = 0; srv.baixados.length = 0; vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); srv.entregue = false; srv.insumos = 'pronto'; srv.darfs.length = 0; srv.transmissoes.length = 0; srv.baixados.length = 0; guias.registradas.length = 0; vi.restoreAllMocks(); });
 const ATIVA = { id: 'E1', nome: 'EMPRESA X', cnpj: '44.388.152/0001-89', codigoSage: '1200', competencia: '2026-09', ativadaPor: 'x', ativadaEm: 1 };
 const tela = () => render(<EmpresaAtivaProvider ativa={ATIVA} trocar={() => {}}><DctfwebFolhaPanel /></EmpresaAtivaProvider>);
 
@@ -65,5 +67,13 @@ describe('DCTFWeb da folha (tela)', () => {
         fireEvent.click(botao);
         await waitFor(() => expect(srv.transmissoes).toHaveLength(1));
         expect(srv.transmissoes[0]).toEqual(['E1', '44388152000189', '2026-09', { retificadora: false, motivo: undefined, confirmarInsumosPendentes: true, justificativa: 'Reinf entra amanhã, o prazo vence hoje' }]);
+    });
+
+    it('o DARF emitido fica registrado para a baixa no Pagamento de guias', async () => {
+        render(<EmpresaAtivaProvider ativa={ATIVA} trocar={() => {}}><DctfwebFolhaPanel usuario={{ id: 'u1', email: 'dp@x' }} /></EmpresaAtivaProvider>);
+        fireEvent.click(screen.getByText('Consultar a DCTFWeb'));
+        fireEvent.click(await screen.findByText('Emitir DARF (declaração em andamento)'));
+        await screen.findByText(/Registrado em Prazos do DP para a baixa do pagamento/);
+        expect(guias.registradas).toEqual([['E1', '2026-09', expect.objectContaining({ id: 'darf-2026-09', data: '2026-10-20' }), { valorDevido: 286000, numeroDocumento: '07.01' }, { id: 'u1', email: 'dp@x' }]]);
     });
 });

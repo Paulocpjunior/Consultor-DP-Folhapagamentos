@@ -412,6 +412,29 @@ service cloud.firestore {
       allow delete: if podeEmpresa(resource.data.empresaId);
     }
 
+    // Pagamento de guias (services/guias): a baixa das guias da folha. Não trava na competência encerrada (a guia
+    // vence depois do fechamento); não se apaga (desfazer a baixa grava pagamento nulo).
+    match /pagamentos_guias/{guiaId} {
+      allow read, list: if podeEmpresa(resource.data.empresaId);
+      allow create, update: if gravaNaEmpresa()
+                    && request.resource.data.atualizadoPor == request.auth.uid
+                    && request.resource.data.empresaId is string
+                    && request.resource.data.obrigacao is string
+                    && request.resource.data.obrigacao.matches('^(darf|fgts|sindical-anual|sindical-patronal|guia)-[a-z0-9-]{4,70}$')
+                    && request.resource.data.competencia is string
+                    && request.resource.data.competencia.matches('^[0-9]{4}-(0[1-9]|1[0-2])$')
+                    && guiaId == request.resource.data.empresaId + '_' + request.resource.data.obrigacao
+                    && request.resource.data.valorDevido is int && request.resource.data.valorDevido >= 0
+                    && request.resource.data.numeroDocumento is string && request.resource.data.numeroDocumento.size() <= 60
+                    && (request.resource.data.get('pagamento', null) == null
+                        || (request.resource.data.pagamento.data is string
+                            && request.resource.data.pagamento.data.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+                            && request.resource.data.pagamento.valorPago is int && request.resource.data.pagamento.valorPago > 0
+                            && request.resource.data.pagamento.autenticacao is string && request.resource.data.pagamento.autenticacao.size() <= 80
+                            && request.resource.data.pagamento.fonte in ['manual', 'fgts-digital']));
+      allow delete: if false;
+    }
+
     // ===== Cálculo (Fase 3) =====
     // Movimento do mês por funcionário: id = idDaFicha_AAAA-MM; a ficha começa pelo id da empresa.
     match /calculo_movimentos/{movId} {
