@@ -10,7 +10,7 @@ import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext
 import { listarAfastamentos, listarFuncionarios, mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
 import type { Afastamento } from '../../services/cadastros/afastamentos';
-import { centavosDeTexto, reais } from '../../services/cadastros/documentos';
+import { centavosDeTexto, cnpjValido, reais } from '../../services/cadastros/documentos';
 import { somarMeses } from '../../services/prazos/calendario';
 import {
     comCoparticipacao, coparticipacaoPorFicha, itinerarioVazio, lerPlanilhaCoparticipacao, OPERADORAS_VT, pedidoVt, validarItinerario,
@@ -33,6 +33,8 @@ const VtECoparticipacao: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
     const [mesUso, setMesUso] = useState('');
     const [edicao, setEdicao] = useState<ItinerarioVt | null>(null);
     const [copart, setCopart] = useState<{ arquivo: string; linhas: LinhaCopart[]; avisos: string[] } | null>(null);
+    // Operadora do plano (vai no S-1210 como plano de saúde, para a dedução do IR do empregado).
+    const [operadora, setOperadora] = useState({ cnpjOper: '', regANS: '' });
     const [ocupado, setOcupado] = useState(''); const [erro, setErro] = useState(''); const [msg, setMsg] = useState('');
 
     useEffect(() => {
@@ -86,7 +88,8 @@ const VtECoparticipacao: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
             const atuais = new Map((await listarMovimentos(ativa!.id, ativa!.competencia)).map(g => [g.fichaId, g.movimento]));
             await salvarMovimentos(ativa!.id, ativa!.competencia, [...copartFichas.porFicha].map(([fichaId, valor]) => {
                 const antes = atuais.get(fichaId) ?? null;
-                return { fichaId, antes, depois: comCoparticipacao(antes, valor) };
+                const cnpjOper = operadora.cnpjOper.replace(/\D/g, '');
+                return { fichaId, antes, depois: comCoparticipacao(antes, valor, cnpjValido(cnpjOper) ? { cnpjOper, regANS: operadora.regANS } : undefined) };
             }), usuario);
             setMsg(`Coparticipação lançada no movimento de ${br(ativa!.competencia)}: recalcule a folha em Cálculo mensal.`);
         } catch (x) { setErro(mensagemErro(x)); } finally { setOcupado(''); }
@@ -158,6 +161,11 @@ const VtECoparticipacao: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
             <section aria-label="Coparticipação do plano de saúde" className="space-y-2 rounded border border-slate-200 p-3 dark:border-slate-700">
                 <h3 className="font-semibold">Coparticipação do plano de saúde · folha de {br(ativa.competencia)}</h3>
                 <p className="text-xs text-slate-600 dark:text-slate-300">A planilha da operadora (Excel ou CSV) com o CPF do titular e o valor da coparticipação. Vira um desconto do mês na folha, sem INSS, FGTS e IRRF. Lançar de novo substitui o lançado antes por aqui.</p>
+                <div className="flex flex-wrap items-end gap-3 text-xs">
+                    <label>CNPJ da operadora (para o S-1210)<input aria-label="CNPJ da operadora" className={`block w-44 ${inp}`} value={operadora.cnpjOper} onChange={e => setOperadora(o => ({ ...o, cnpjOper: e.target.value }))} /></label>
+                    <label>Registro na ANS<input aria-label="Registro na ANS" className={`block w-24 ${inp}`} value={operadora.regANS} onChange={e => setOperadora(o => ({ ...o, regANS: e.target.value.replace(/\D/g, '').slice(0, 6) }))} /></label>
+                    {operadora.cnpjOper && !cnpjValido(operadora.cnpjOper.replace(/\D/g, '')) && <span className="text-red-700 dark:text-red-300">CNPJ inválido: a coparticipação vai sem a dedução no S-1210.</span>}
+                </div>
                 <input aria-label="Planilha da coparticipação" type="file" accept=".xlsx,.xls,.csv" onChange={e => { const f = e.target.files?.[0]; if (f) void lerCopart(f); }} />
                 {copart && copartFichas && (
                     <>
