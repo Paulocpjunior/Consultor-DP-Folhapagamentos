@@ -21,7 +21,8 @@ import { enquadramentoVigente } from '../../services/cadastros/enquadramento';
 import { lerFolhaGravada, lerFolhasDoAno } from '../../services/calculo/folhaGravadaService';
 import { lerTotalizadores, type S5002 } from '../../services/conferencia/totalizadores';
 import { montarInformes } from '../../services/relatorios/informeRendimentos';
-import { avisosDeFerias, fichasFinanceiras, MESES_CURTOS, mesesSemFolha, type FolhaDoMes } from '../../services/relatorios/relatoriosAnuais';
+import { avisosDeFerias, fichasFinanceiras, MESES_CURTOS, mesesSemFolha, type FolhaDoMes, type ProcessoDoMes } from '../../services/relatorios/relatoriosAnuais';
+import { lerProcessosDoAno } from '../../services/calculo/processosGravadosService';
 import { lerHistoricoSageDoAno } from '../../services/relatorios/historicoSageService';
 import type { HistoricoSageAno } from '../../services/relatorios/historicoSage';
 import type { FolhaGravada } from '../../services/calculo/folhaGravada';
@@ -52,6 +53,7 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const [fichaAnual, setFichaAnual] = useState('');
     const [folhasAno, setFolhasAno] = useState<FolhaDoMes[] | null>(null);
     const [historicoAno, setHistoricoAno] = useState<HistoricoSageAno[]>([]);
+    const [processosAno, setProcessosAno] = useState<ProcessoDoMes[]>([]);
     const [s5002, setS5002] = useState<{ eventos: S5002[]; arquivos: number; avisos: string[] } | null>(null);
     const [lendoS5002, setLendoS5002] = useState(false);
     const [calc, setCalc] = useState<{ empresaId: string; tabelas: TabelaLegal[]; movimentos: Record<string, Record<string, Movimento>> } | null>(null);
@@ -72,9 +74,9 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     useEffect(() => {
         if (!ativa || sel.tipo !== 'ficha-financeira') return;
         let vivo = true;
-        setFolhasAno(null); setHistoricoAno([]);
-        Promise.all([lerFolhasDoAno(ativa.id, ano), lerHistoricoSageDoAno(ativa.id, ano).catch(() => [])])
-            .then(([l, h]) => { if (vivo) { setHistoricoAno(h); setFolhasAno(l.map(f => ({ competencia: f.competencia, holerites: f.holerites }))); } })
+        setFolhasAno(null); setHistoricoAno([]); setProcessosAno([]);
+        Promise.all([lerFolhasDoAno(ativa.id, ano), lerHistoricoSageDoAno(ativa.id, ano).catch(() => []), lerProcessosDoAno(ativa.id, ano).catch(() => [])])
+            .then(([l, h, p]) => { if (vivo) { setHistoricoAno(h); setProcessosAno(p.map(x => ({ tipo: x.tipo, competencia: x.competencia, holerites: x.holerites }))); setFolhasAno(l.map(f => ({ competencia: f.competencia, holerites: f.holerites }))); } })
             .catch(e => { if (vivo) { setErro(mensagemErro(e)); setFolhasAno([]); } });
         return () => { vivo = false; };
     }, [ativa, sel.tipo, ano]);
@@ -108,8 +110,8 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             if (!eventos.length) setErro('Nenhum S-5002 nos arquivos. Baixe os eventos do trabalhador em eSocial › Download (S-5002) e abra o .zip aqui.');
         } catch (e) { setErro((e as Error).message); } finally { setLendoS5002(false); }
     }
-    const fichas = folhasAno ? fichasFinanceiras(ano, folhasAno, fichaAnual || undefined, historicoAno) : [];
-    const todasAsFichas = folhasAno ? fichasFinanceiras(ano, folhasAno, undefined, historicoAno) : [];
+    const fichas = folhasAno ? fichasFinanceiras(ano, folhasAno, fichaAnual || undefined, historicoAno, processosAno) : [];
+    const todasAsFichas = folhasAno ? fichasFinanceiras(ano, folhasAno, undefined, historicoAno, processosAno) : [];
     const semFolha = folhasAno ? mesesSemFolha(ano, folhasAno, ativa.competencia, historicoAno) : [];
     const mesesSage = [...new Set(todasAsFichas.flatMap(f => f.mesesSage))].sort((a, b) => a - b).map(m => MESES_CURTOS[m]);
     const avisos = dados && sel.tipo === 'aviso-ferias' ? avisosDeFerias(ativa.competencia, new Date().toLocaleDateString('sv-SE'), dados.fichas, dados.afastamentos) : [];
@@ -219,7 +221,7 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                             </select>
                         </label>
                         {!folhasAno && <span className="text-sm text-slate-500">Lendo as folhas gravadas de {ano}…</span>}
-                        {folhasAno && <span className="text-xs text-slate-500">{12 - mesesSemFolha(ano, folhasAno, `${ano}-12`).length} mês(es) com folha gravada{mesesSage.length ? ` (pelo SAGE: ${mesesSage.join(', ')})` : ''}{semFolha.length ? ` · sem folha: ${semFolha.join(', ')}` : ''}</span>}
+                        {folhasAno && <span className="text-xs text-slate-500">{12 - mesesSemFolha(ano, folhasAno, `${ano}-12`).length} mês(es) com folha gravada{mesesSage.length ? ` (pelo SAGE: ${mesesSage.join(', ')})` : ''}{semFolha.length ? ` · sem folha: ${semFolha.join(', ')}` : ''}{processosAno.length ? ` · ${processosAno.length} processo(s) fora da folha mensal (férias, 13º, rescisão)` : ' · férias, 13º e rescisões entram quando gravados na tela de Cálculo'}</span>}
                     </div>
                 )}
                 {sel.tipo === 'informe' && (

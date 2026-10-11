@@ -31,6 +31,8 @@ import { carregarEventosIob } from '../../services/calculo/catalogoEventos';
 import { lerFechamento } from '../../services/fimDeMes/fechamentoService';
 import { MSG_ENCERRADO, type Fechamento } from '../../services/fimDeMes/fechamento';
 import { gravarFolha, lerFolhaGravada } from '../../services/calculo/folhaGravadaService';
+import { gravarProcesso, lerProcesso } from '../../services/calculo/processosGravadosService';
+import { chaveDoHolerite, competenciaDoProcesso, paraGravar, TITULO_PROCESSO, type ProcessoGravado, type TipoProcesso } from '../../services/calculo/processosGravados';
 import EstornoFolhaModal from './EstornoFolhaModal';
 import { diferencasDaGravada, errosParaGravar, type FolhaGravada } from '../../services/calculo/folhaGravada';
 import type { EventoIobSage } from '../../services/folha/folhaTypes';
@@ -376,6 +378,38 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
     const usandoGravada = mensal && encerrado && !!gravada;
     const resultados = usandoGravada ? gravada!.holerites : resultadosCalculados;
     const diferencas = useMemo(() => (mensal && gravada && dados ? diferencasDaGravada(gravada.holerites, resultadosCalculados) : []), [mensal, gravada, dados, resultadosCalculados]);
+    // Férias, 13º e rescisões gravados (processos_gravados), para a ficha financeira: só os reais (gozo lançado em
+    // Afastamentos, desligamento na ficha), nunca as simulações da tela.
+    const tipoProcesso: TipoProcesso | null = folha === 'ferias' ? 'ferias' : folha === 'rescisao' ? 'rescisao' : folha === '13-1a' || folha === '13-2a' ? folha : null;
+    const competenciaProcesso = tipoProcesso ? competenciaDoProcesso(tipoProcesso, competencia, ano, pagamento) : '';
+    const [processoGravado, setProcessoGravado] = useState<ProcessoGravado | null>(null);
+    const [versaoProcesso, setVersaoProcesso] = useState(0);
+    useEffect(() => {
+        setProcessoGravado(null);
+        if (!empresaId || !tipoProcesso || !/^\d{4}-\d{2}$/.test(competenciaProcesso)) return;
+        let vivo = true;
+        lerProcesso(empresaId, tipoProcesso, competenciaProcesso).then(p => { if (vivo) setProcessoGravado(p); }).catch(() => { /* sem leitura: só não mostra o gravado */ });
+        return () => { vivo = false; };
+    }, [empresaId, tipoProcesso, competenciaProcesso, versaoProcesso]);
+    const resultadosDoProcesso = useMemo(() => {
+        if (!tipoProcesso || !dados) return [];
+        if (tipoProcesso === 'ferias') { const gravados = new Set(dados.afastamentos.map(a => a.id)); return resultadosCalculados.filter(r => gravados.has(chaveDoHolerite(r))); }
+        if (tipoProcesso === 'rescisao') { const desligados = new Set(dados.fichas.filter(f => f.dados.dataDesligamento?.startsWith(competencia)).map(f => f.id)); return resultadosCalculados.filter(r => desligados.has(r.fichaId)); }
+        return resultadosCalculados;
+    }, [tipoProcesso, dados, resultadosCalculados, competencia]);
+    async function gravarProcessoDaTela() {
+        if (!empresaId || !tipoProcesso || encerrado) return;
+        const { validos, foraPorErro } = paraGravar(resultadosDoProcesso);
+        if (!validos.length) return;
+        const titulo = TITULO_PROCESSO[tipoProcesso];
+        if (!window.confirm(`${processoGravado ? 'Regravar' : 'Gravar'} ${titulo.toLowerCase()} de ${br(competenciaProcesso)}: ${validos.length} holerite(s)${foraPorErro.length ? `; ${foraPorErro.length} com erro ficam fora:\n${foraPorErro.slice(0, 5).join('\n')}` : ''}.\n\nÉ o que a ficha financeira mostra${tipoProcesso === 'rescisao' ? ' (as simulações não entram)' : tipoProcesso === 'ferias' ? ' (só gozos lançados em Afastamentos)' : ''}.`)) return;
+        setGravandoFolha(true); setErro('');
+        try {
+            await gravarProcesso(empresaId, tipoProcesso, competenciaProcesso, resultadosDoProcesso, usuario, processoGravado?.holerites.map(chaveDoHolerite));
+            setAviso(`${titulo} de ${br(competenciaProcesso)} gravado(a): entra na ficha financeira.`); setVersaoProcesso(n => n + 1);
+        } catch (e) { setErro(`Não gravado: ${mensagemErro(e)}`); }
+        finally { setGravandoFolha(false); }
+    }
     async function gravarFolhaDoMes() {
         if (!empresaId || encerrado) return;
         const erros = errosParaGravar(resultadosCalculados);
@@ -726,6 +760,10 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                     disabled={!empresa || encerrado || gravandoFolha || pendentes.length > 0 || !gravados || !resultadosCalculados.some(r => r.situacao !== 'erro')}
                     title={encerrado ? MSG_ENCERRADO(competencia) : pendentes.length ? 'Salve o movimento antes de gravar a folha.' : 'Guarda os holerites do mês como estão (o Fim de mês exige a folha gravada).'}
                     onClick={gravarFolhaDoMes}>{gravandoFolha ? 'Gravando…' : gravada ? 'Regravar a folha do mês' : 'Gravar a folha do mês'}</button>}
+                {tipoProcesso && <button className="rounded border border-blue-700 px-3 py-2 text-sm font-medium text-blue-800 disabled:opacity-50 dark:border-blue-400 dark:text-blue-200"
+                    disabled={!empresa || encerrado || gravandoFolha || !resultadosDoProcesso.some(r => r.situacao !== 'erro')}
+                    title={encerrado ? MSG_ENCERRADO(competencia) : `Guarda ${TITULO_PROCESSO[tipoProcesso].toLowerCase()} de ${br(competenciaProcesso || competencia)} como está, para a ficha financeira.${processoGravado ? ` Gravado por ${processoGravado.gravadoPorEmail}${processoGravado.gravadoEm ? ` em ${quando(processoGravado.gravadoEm)}` : ''}: ${processoGravado.holerites.length} holerite(s).` : ''}`}
+                    onClick={gravarProcessoDaTela}>{gravandoFolha ? 'Gravando…' : `${processoGravado ? 'Regravar' : 'Gravar'} ${tipoProcesso === 'ferias' ? 'os recibos de férias' : tipoProcesso === 'rescisao' ? 'as rescisões' : 'a folha do 13º'}${processoGravado ? ' 📁' : ''}`}</button>}
                 {mensal && (gravada || Object.keys(gravados ?? {}).length > 0) && <button className="rounded border border-red-700 px-3 py-2 text-sm font-medium text-red-800 disabled:opacity-50 dark:border-red-400 dark:text-red-200"
                     disabled={!empresa || !dados || encerrado || pendentes.length > 0 || gravandoFolha}
                     title={encerrado ? MSG_ENCERRADO(competencia) : pendentes.length ? 'Salve ou descarte o movimento antes de estornar.' : 'Desfaz o processamento do mês (a folha gravada e, se quiser, o movimento), como o Estorno do Cálculo do SAGE.'}

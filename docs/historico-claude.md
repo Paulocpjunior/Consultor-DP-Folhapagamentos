@@ -4536,3 +4536,26 @@ Terceiro dos parciais da auditoria.
   - 1ª e 2ª parcelas de uma empresa (valores, pagamento, sem gravação);
   - 1ª parcela com um funcionário que a recebeu nas férias;
   - empresa em parcela única: 1ª vazia com o aviso e 2ª com todos.
+
+## 11/10/2026 — Ficha financeira com férias, 13º e rescisões
+
+Quarto dos parciais da auditoria.
+
+- **Processos gravados** (`services/calculo/processosGravados.ts`, coleção `processos_gravados/{empresa}_{tipo}_{AAAA-MM}`):
+  - os recibos de férias, as parcelas do 13º e as rescisões passam a ser gravados como a folha do mês;
+  - na tela de Cálculo há os botões "Gravar os recibos de férias", "Gravar a folha do 13º" e "Gravar as rescisões";
+  - entram só os gozos lançados em Afastamentos e os desligamentos da ficha, nunca as simulações. Os cálculos com erro ficam de fora;
+  - a competência é a do início do gozo nas férias, o mês do pagamento no 13º (padrão novembro e dezembro) e a do desligamento na rescisão;
+  - regravar substitui o anterior. A competência encerrada no Fim de mês não muda.
+- **Ficha financeira** (Relatórios › Central): depois das linhas da folha mensal vêm as de cada processo, no mês gravado.
+  - A descrição leva o processo ("Férias · …", "13º 1ª parcela · …", "Rescisão · …"), para a mesma verba não somar com a da folha.
+  - Cada processo tem a linha do seu líquido.
+  - Quem só tem processo, sem folha mensal, também aparece.
+  - Sai no PDF e no Excel como as demais linhas.
+- **Regras:** `processos_gravados` (leitura e lista de quem pode na empresa; gravação com autor, tipo, ano e competência aberta) e os holerites dele.
+- **Catálogo SAGE:** `rel-ficha` passa a disponível. Agora são 39 disponíveis e 12 parciais.
+- **Testes:**
+  - a ficha com férias, 13º e uma rescisão de outro ano;
+  - a competência de cada processo e a chave do holerite;
+  - a exclusão dos cálculos com erro;
+  - as regras (gravação, tipos, ano, autor, carteira, competência encerrada e a lista por empresa e ano).
