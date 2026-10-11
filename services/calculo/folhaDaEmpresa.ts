@@ -13,7 +13,7 @@ import { anteriorEncadeado, arredondaNoMes, arredondar, folhaPagaAntes, mesDoPag
 import { calcularMensal, competenciaAnterior, noMes, travarAdiantamentoEntreContratos, type EntradaCalculo, type Movimento, type ResultadoCalculo } from './motorMensal';
 import { feriasDaCompetencia, type OpcoesFerias } from './motorFerias';
 import type { Convocacao } from './intermitente';
-import type { FichaFuncionario } from '../cadastros/funcionarios';
+import { inicioNaEmpresa, type FichaFuncionario } from '../cadastros/funcionarios';
 import type { Afastamento } from '../cadastros/afastamentos';
 import type { TabelaLegal } from '../cadastros/tabelasLegais';
 import type { ConvencaoColetiva } from '../sindicatos/convencao';
@@ -42,7 +42,7 @@ export function criarFolhaPagaNoAdiantamento(d: DadosFolhaEmpresa) {
     return (f: FichaFuncionario, c: string, pagamentoDeC: string): EntradaCalculo['folhaPagaNoAdiantamento'] => {
         if (pagamentoDeC === c) return null;
         // Sem os movimentos gravados, só quem foi admitido no mês sabe que não houve folha paga antes.
-        if (!d.movimentosEmpresa) return (f.dados.admissao ?? '') < `${c}-01` ? undefined : null;
+        if (!d.movimentosEmpresa) return inicioNaEmpresa(f.dados) < `${c}-01` ? undefined : null;
         return folhaPagaAntes(d.movimentosEmpresa[f.id] ?? {}, c, m => noMes([f], m).length > 0, m => mesDoPagamento(d.parametrosFolha, m));
     };
 }

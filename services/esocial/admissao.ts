@@ -65,7 +65,6 @@ export interface ResultadoS2200 { evento: { id: string; xml: string } | null; er
 export function validarS2200(e: EntradaS2200): string[] {
     const f = e.ficha;
     const d = f.dados;
-    const c = e.contrato;
     const er: string[] = [];
     if (!cpfValido(digitos(f.cpf))) er.push('CPF inválido.');
     if (!(d.nome ?? '').trim()) er.push('Nome.');
@@ -78,25 +77,7 @@ export function validarS2200(e: EntradaS2200): string[] {
     if (digitos(d.cep).length !== 8) er.push('Endereço: CEP.');
     if (digitos(d.municipio).length !== 7) er.push('Endereço: município (código IBGE de 7 dígitos).');
     if (!UFS.includes((d.uf ?? '').toUpperCase())) er.push('Endereço: UF.');
-    const m = f.matriculaEsocial.trim();
-    if (!m || m.length > 30 || /^esocial/i.test(m)) er.push('Matrícula do eSocial (até 30 caracteres, sem começar por "eSocial").');
-    if (!dataValida(d.admissao ?? '')) er.push('Data de admissão.');
-    if (!/^\d{3}$/.test(d.categoria ?? '') || !/^1\d\d$/.test(d.categoria ?? '')) er.push('Categoria de empregado (1XX).');
-    else if (['104', '105', '106', '107', '108', '111'].includes(d.categoria!)) er.push(`Categoria ${d.categoria}: o S-2200 dela (doméstico, aprendiz, temporário, contrato verde e amarelo ou intermitente) fica com o IOB.`);
-    if ((d.regimeTrabalhista ?? '1') !== '1') er.push('Só empregado celetista (regime trabalhista 1).');
-    if (!(d.cargo ?? '').trim()) er.push('Cargo.');
-    if (!/^\d{6}$/.test(digitos(d.cbo))) er.push('CBO (6 dígitos).');
-    if (!(Number(d.salario) >= 0) || d.salario === undefined || d.salario === '') er.push('Salário fixo.');
-    if (!/^[1-7]$/.test(d.unidadeSalario ?? '5')) er.push('Unidade salarial.');
-    const tpContr = d.tipoContrato || '1';
-    if (tpContr === '3') er.push('Contrato por prazo vinculado a fato: o S-2200 fica com o IOB (pede o objeto determinante).');
-    if (tpContr === '2' && !dataValida(d.fimContrato ?? '')) er.push('Contrato por prazo determinado: data do término.');
-    if (!cnpjValido(digitos(d.sindicato))) er.push('CNPJ do sindicato da categoria.');
-    if (digitos(d.estabelecimento).length !== 14 || !cnpjValido(digitos(d.estabelecimento))) er.push('Local de trabalho: CNPJ do estabelecimento (14 dígitos).');
-    if (!(Number(d.horasSemanais) > 0)) er.push('Horas semanais.');
-    if (!TIPOS_JORNADA.some(([k]) => k === c.tpJornada)) er.push('Tipo de jornada.');
-    if (!c.dscJorn.trim()) er.push('Descrição da jornada (dias, entrada, saída e intervalos).');
-    if (c.dtBase && !/^(0[1-9]|1[0-2])$/.test(c.dtBase)) er.push('Data-base: mês de 01 a 12.');
+    er.push(...validarContrato(f, e.contrato));
     if ((d.raca === '6') && (d.admissao ?? '') >= '2024-04-22') er.push('Raça/cor "não informado" não é aceita para admissão desde 22/04/2024.');
     f.dependentes.forEach((x, i) => {
         if (!(x.nome ?? '').trim()) er.push(`Dependente ${i + 1}: nome.`);
@@ -112,6 +93,48 @@ export function validarS2200(e: EntradaS2200): string[] {
         else if (dataValida(d.admissao ?? '') && s.dtTransf <= d.admissao!) er.push('A transferência tem de ser depois da admissão.');
     }
     return er;
+}
+
+/** O contrato (vínculo celetista, cargo, salário, duração, local e horário): comum ao S-2200 e ao S-2206. */
+export function validarContrato(f: FichaFuncionario, c: ContratoS2200, estabelecimento = f.dados.estabelecimento): string[] {
+    const d = f.dados;
+    const er: string[] = [];
+    const m = f.matriculaEsocial.trim();
+    if (!m || m.length > 30 || /^esocial/i.test(m)) er.push('Matrícula do eSocial (até 30 caracteres, sem começar por "eSocial").');
+    if (!dataValida(d.admissao ?? '')) er.push('Data de admissão.');
+    if (!/^\d{3}$/.test(d.categoria ?? '') || !/^1\d\d$/.test(d.categoria ?? '')) er.push('Categoria de empregado (1XX).');
+    else if (['104', '105', '106', '107', '108', '111'].includes(d.categoria!)) er.push(`Categoria ${d.categoria}: o S-2200 dela (doméstico, aprendiz, temporário, contrato verde e amarelo ou intermitente) fica com o IOB.`);
+    if ((d.regimeTrabalhista ?? '1') !== '1') er.push('Só empregado celetista (regime trabalhista 1).');
+    if (!(d.cargo ?? '').trim()) er.push('Cargo.');
+    if (!/^\d{6}$/.test(digitos(d.cbo))) er.push('CBO (6 dígitos).');
+    if (!(Number(d.salario) >= 0) || d.salario === undefined || d.salario === '') er.push('Salário fixo.');
+    if (!/^[1-7]$/.test(d.unidadeSalario ?? '5')) er.push('Unidade salarial.');
+    const tpContr = d.tipoContrato || '1';
+    if (tpContr === '3') er.push('Contrato por prazo vinculado a fato: o S-2200 fica com o IOB (pede o objeto determinante).');
+    if (tpContr === '2' && !dataValida(d.fimContrato ?? '')) er.push('Contrato por prazo determinado: data do término.');
+    if (!cnpjValido(digitos(d.sindicato))) er.push('CNPJ do sindicato da categoria.');
+    if (digitos(estabelecimento).length !== 14 || !cnpjValido(digitos(estabelecimento))) er.push('Local de trabalho: CNPJ do estabelecimento (14 dígitos).');
+    if (!(Number(d.horasSemanais) > 0)) er.push('Horas semanais.');
+    if (!TIPOS_JORNADA.some(([k]) => k === c.tpJornada)) er.push('Tipo de jornada.');
+    if (!c.dscJorn.trim()) er.push('Descrição da jornada (dias, entrada, saída e intervalos).');
+    if (c.dtBase && !/^(0[1-9]|1[0-2])$/.test(c.dtBase)) er.push('Data-base: mês de 01 a 12.');
+    return er;
+}
+
+/** infoCeletista sem os dados da admissão (regime de jornada, natureza, data-base e sindicato): o do S-2206. */
+export const celetistaXml = (f: FichaFuncionario, c: ContratoS2200) =>
+    `<tpRegJor>${c.tpRegJor}</tpRegJor><natAtividade>${c.natAtividade}</natAtividade>${c.dtBase ? `<dtBase>${Number(c.dtBase)}</dtBase>` : ''}<cnpjSindCategProf>${digitos(f.dados.sindicato)}</cnpjSindCategProf>`;
+
+/** infoContrato (cargo, CBO, categoria, salário, duração, local de trabalho e horário), igual no S-2200 e no S-2206. */
+export function contratoXml(f: FichaFuncionario, c: ContratoS2200, estabelecimento = f.dados.estabelecimento): string {
+    const d = f.dados;
+    const tpContr = d.tipoContrato || '1';
+    return `<infoContrato><nmCargo>${esc(d.cargo!.trim().slice(0, 100))}</nmCargo><CBOCargo>${digitos(d.cbo)}</CBOCargo><codCateg>${d.categoria}</codCateg>`
+        + `<remuneracao><vrSalFx>${valorDecimal(d.salario!)}</vrSalFx><undSalFixo>${d.unidadeSalario || '5'}</undSalFixo></remuneracao>`
+        + `<duracao><tpContr>${tpContr}</tpContr>${tpContr === '2' ? `<dtTerm>${d.fimContrato}</dtTerm>` : ''}</duracao>`
+        + `<localTrabalho><localTrabGeral><tpInsc>1</tpInsc><nrInsc>${digitos(estabelecimento)}</nrInsc></localTrabGeral></localTrabalho>`
+        + `<horContratual><qtdHrsSem>${Number(d.horasSemanais)}</qtdHrsSem><tpJornada>${c.tpJornada}</tpJornada><tmpParc>${c.tmpParc}</tmpParc><horNoturno>${c.horNoturno}</horNoturno><dscJorn>${esc(c.dscJorn.trim().slice(0, 999))}</dscJorn></horContratual>`
+        + '</infoContrato>';
 }
 
 const valorDecimal = (s: string) => Number(s).toFixed(2);
@@ -130,7 +153,6 @@ export function gerarS2200(e: EntradaS2200): ResultadoS2200 {
         + `<depIRRF>${x.irrf === 'S' ? 'S' : 'N'}</depIRRF><depSF>${x.salarioFamilia === 'S' ? 'S' : 'N'}</depSF><incTrab>N</incTrab></dependente>`).join('');
     const fone = digitos(d.telefone);
     const contato = fone.length >= 8 || (d.email ?? '').includes('@') ? `<contato>${fone.length >= 8 ? `<fonePrinc>${fone.slice(0, 13)}</fonePrinc>` : ''}${(d.email ?? '').includes('@') ? `<emailPrinc>${esc(d.email!.trim().slice(0, 60))}</emailPrinc>` : ''}</contato>` : '';
-    const tpContr = d.tipoContrato || '1';
     const s = e.sucessao;
     const sucessao = s ? `<sucessaoVinc><tpInsc>1</tpInsc><nrInsc>${digitos(s.cnpjAnterior)}</nrInsc><matricAnt>${esc(s.matriculaAnterior.trim())}</matricAnt><dtTransf>${s.dtTransf}</dtTransf></sucessaoVinc>` : '';
     const id = idEvento(e.cnpj, e.agora ?? new Date(), 3);
@@ -143,14 +165,8 @@ export function gerarS2200(e: EntradaS2200): ResultadoS2200 {
         + `<endereco><brasil><dscLograd>${esc(d.logradouro!.trim().slice(0, 100))}</dscLograd><nrLograd>${esc(d.numero!.trim())}</nrLograd>${opc('complemento', d.complemento?.slice(0, 30))}${opc('bairro', d.bairro?.slice(0, 90))}`
         + `<cep>${digitos(d.cep)}</cep><codMunic>${digitos(d.municipio)}</codMunic><uf>${d.uf!.toUpperCase()}</uf></brasil></endereco>${dependentes}${contato}</trabalhador>`
         + `<vinculo><matricula>${esc(f.matriculaEsocial.trim())}</matricula><tpRegTrab>1</tpRegTrab><tpRegPrev>${/^[1-3]$/.test(d.regimePrevidenciario ?? '') ? d.regimePrevidenciario : '1'}</tpRegPrev><cadIni>${e.cadIni ? 'S' : 'N'}</cadIni>`
-        + `<infoRegimeTrab><infoCeletista><dtAdm>${d.admissao}</dtAdm><tpAdmissao>${s ? '2' : '1'}</tpAdmissao><indAdmissao>1</indAdmissao><tpRegJor>${c.tpRegJor}</tpRegJor><natAtividade>${c.natAtividade}</natAtividade>`
-        + `${c.dtBase ? `<dtBase>${Number(c.dtBase)}</dtBase>` : ''}<cnpjSindCategProf>${digitos(d.sindicato)}</cnpjSindCategProf></infoCeletista></infoRegimeTrab>`
-        + `<infoContrato><nmCargo>${esc(d.cargo!.trim().slice(0, 100))}</nmCargo><CBOCargo>${digitos(d.cbo)}</CBOCargo><codCateg>${d.categoria}</codCateg>`
-        + `<remuneracao><vrSalFx>${valorDecimal(d.salario!)}</vrSalFx><undSalFixo>${d.unidadeSalario || '5'}</undSalFixo></remuneracao>`
-        + `<duracao><tpContr>${tpContr}</tpContr>${tpContr === '2' ? `<dtTerm>${d.fimContrato}</dtTerm>` : ''}</duracao>`
-        + `<localTrabalho><localTrabGeral><tpInsc>1</tpInsc><nrInsc>${digitos(d.estabelecimento)}</nrInsc></localTrabGeral></localTrabalho>`
-        + `<horContratual><qtdHrsSem>${Number(d.horasSemanais)}</qtdHrsSem><tpJornada>${c.tpJornada}</tpJornada><tmpParc>${c.tmpParc}</tmpParc><horNoturno>${c.horNoturno}</horNoturno><dscJorn>${esc(c.dscJorn.trim().slice(0, 999))}</dscJorn></horContratual>`
-        + `</infoContrato>${sucessao}</vinculo>`
+        + `<infoRegimeTrab><infoCeletista><dtAdm>${d.admissao}</dtAdm><tpAdmissao>${s ? '2' : '1'}</tpAdmissao><indAdmissao>1</indAdmissao>${celetistaXml(f, c)}</infoCeletista></infoRegimeTrab>`
+        + `${contratoXml(f, c)}${sucessao}</vinculo>`
         + '</evtAdmissao></eSocial>' };
     return r;
 }

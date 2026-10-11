@@ -88,4 +88,32 @@ describe('tela da transferência', () => {
         expect(srv.envios[0].ref).toBe(`transf-saida:${FICHA.id}:2026-11-01`);
         expect(srv.envios[0].xml).toContain('<mtvDeslig>11</mtvDeslig><dtDeslig>2026-10-31</dtDeslig>');
     });
+
+    it('troca de estabelecimento: grava o local por vigência e transmite o S-2206', async () => {
+        const FILIAL = '44388152000260';
+        srv.fichas = [{ ...FICHA, dados: { ...FICHA.dados, regimePrevidenciario: '1' } }];
+        const ATIVA = { id: 'E1', nome: 'ALFA', cnpj: '44388152000189', codigoSage: '0001', competencia: '2026-10', ativadaPor: 'x', ativadaEm: 1 };
+        render(<EmpresaAtivaProvider ativa={ATIVA} trocar={() => {}}><TransferenciaPanel usuario={USUARIO} /></EmpresaAtivaProvider>);
+        await screen.findByRole('option', { name: /ANA TESTE/ });
+        fireEvent.click(screen.getByLabelText('Troca de estabelecimento (mesma empresa)'));
+        fireEvent.change(screen.getByLabelText('Funcionário da troca'), { target: { value: FICHA.id } });
+        fireEvent.change(screen.getByLabelText('Novo estabelecimento'), { target: { value: '29463877000109' } });
+        expect((await screen.findByRole('alert')).textContent).toMatch(/Outra raiz de CNPJ/);
+        fireEvent.change(screen.getByLabelText('Novo estabelecimento'), { target: { value: FILIAL } });
+        fireEvent.change(screen.getByLabelText('Data da troca'), { target: { value: '2026-10-15' } });
+        vi.spyOn(window, 'confirm').mockReturnValue(true);
+        await waitFor(() => expect((screen.getByText('Gravar a troca') as HTMLButtonElement).disabled).toBe(false));
+        fireEvent.click(screen.getByText('Gravar a troca'));
+        await waitFor(() => expect(srv.salvos).toHaveLength(1));
+        const salva = (srv.salvos[0] as [unknown, FichaFuncionario])[1];
+        expect(salva.dados.estabelecimento).toBe(FILIAL);
+        expect(salva.locais!.map(x => [x.desde, x.estabelecimento])).toEqual([['2020-03-02', '44388152000189'], ['2026-10-15', FILIAL]]);
+        const lista = await screen.findByLabelText('Trocas de estabelecimento');
+        expect(lista.textContent).toMatch(/15\/10\/2026/);
+        fireEvent.click(screen.getByText('Transmitir'));
+        await waitFor(() => expect(srv.envios).toHaveLength(1));
+        expect(srv.envios[0].ref).toBe(`troca-estab:${FICHA.id}:2026-10-15`);
+        expect(srv.envios[0].xml).toContain(`<dtAlteracao>2026-10-15</dtAlteracao>`);
+        expect(srv.envios[0].xml).toContain(`<localTrabGeral><tpInsc>1</tpInsc><nrInsc>${FILIAL}</nrInsc></localTrabGeral>`);
+    });
 });

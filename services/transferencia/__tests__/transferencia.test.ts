@@ -61,7 +61,7 @@ describe('transferência entre empresas do grupo', () => {
     it('fichas: destino com nova matrícula, histórico e sem os dados da empresa; origem desligada com o motivo 11', () => {
         const n = fichaNoDestino(T);
         expect(n).toMatchObject({ id: idFuncionario('E2', '52998224725', 'B-77'), empresaId: 'E2', cnpj: DESTINO.cnpj, matriculaEsocial: 'B-77', situacao: 'ativo' });
-        expect(n.dados).toMatchObject({ admissao: '2020-03-02', salario: '2500.00', estabelecimento: DESTINO.cnpj });
+        expect(n.dados).toMatchObject({ admissao: '2020-03-02', inicioNaEmpresa: '2026-11-01', salario: '2500.00', estabelecimento: DESTINO.cnpj });
         expect(n.dados.horario).toBeUndefined(); expect(n.dados.lotacao).toBeUndefined(); expect(n.dados.codigoIob).toBeUndefined();
         expect(n.historicoSalario).toHaveLength(2);
         expect(n.dependentes).toHaveLength(1);
@@ -76,7 +76,7 @@ describe('transferência entre empresas do grupo', () => {
             [{ ...fichaVazia(DESTINO), cpf: '52998224725', matriculaEsocial: 'X', situacao: 'ativo' }]).join(' ');
         for (const m of [/Mesma raiz/, /depois da admissão/, /Matrícula no destino/, /estabelecimento de destino tem de ser/, /já tem ficha ativa/]) expect(e).toMatch(m);
         expect(validarTransferencia({ ...T, ficha: { ...FICHA, situacao: 'desligado' } }).join(' ')).toMatch(/Só se transfere quem está ativo/);
-        expect(validarTransferencia({ ...T, data: '2026-11-15' }).join(' ')).toMatch(/dia 1º do mês/);
+        expect(validarTransferencia({ ...T, data: '2026-11-15' })).toEqual([]);
     });
 
     it('afastamentos: férias e os terminados vão, sem recibos; o em curso e o posterior não', () => {
@@ -86,5 +86,23 @@ describe('transferência entre empresas do grupo', () => {
         expect(r.copiar[0]).toMatchObject({ fichaId: idFuncionario('E2', '52998224725', 'B-77'), empresaId: 'E2', matriculaEsocial: 'B-77', recibos: [], id: `${idFuncionario('E2', '52998224725', 'B-77')}_2025-01-06` });
         expect(r.avisos).toHaveLength(2);
         expect(r.avisos.join(' ')).toMatch(/em curso/);
+    });
+
+    it('no meio do mês: cada empresa paga os seus dias; o destino não tem o funcionário antes da transferência', async () => {
+        const { calcularMensal, noMes } = await import('../../calculo/motorMensal');
+        const { TABELAS_OFICIAIS_2026 } = await import('../../cadastros/tabelasOficiais');
+        const TAB = TABELAS_OFICIAIS_2026.map((t, i) => ({ ...t, id: `t${i}` }));
+        const meio = { ...T, data: '2026-11-16' };
+        const origem = fichaNaOrigem(meio); const destino = fichaNoDestino(meio);
+        const ro = calcularMensal({ competencia: '2026-11', pagamento: '2026-12', ficha: origem, tabelas: TAB, afastamentos: [], folhaPagaNoAdiantamento: null });
+        const rd = calcularMensal({ competencia: '2026-11', pagamento: '2026-12', ficha: destino, tabelas: TAB, afastamentos: [], folhaPagaNoAdiantamento: null });
+        expect([ro.situacao, rd.situacao]).toEqual(['calculado', 'calculado']);
+        const sal = (r: typeof ro) => r.verbas.find(v => v.codigo === 'SAL')?.valor ?? 0;
+        expect(sal(ro)).toBe(Math.round(250000 / 30 * 15));
+        expect(sal(rd)).toBe(Math.round(250000 / 30 * 15));
+        expect(ro.memoria.join(' ')).toMatch(/sem rescisão/);
+        expect(rd.memoria.join(' ')).toMatch(/Transferido de outra empresa do grupo em 16\/11\/2026/);
+        expect(noMes([destino], '2026-10')).toEqual([]);
+        expect(noMes([destino], '2026-11')).toHaveLength(1);
     });
 });

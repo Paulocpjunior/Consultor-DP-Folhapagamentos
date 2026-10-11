@@ -42,6 +42,7 @@ import { cpfValido, reais } from '../cadastros/documentos';
 import { idEvento, VER_PROC, type TpAmb } from './transmissao';
 import type { ReciboEvento } from './recibosEsocial';
 import type { Instrumento, ResultadoComplementar } from '../calculo/complementar';
+import { diaDoPeriodo, estabelecimentoNoDia } from '../cadastros/locaisTrabalho';
 import { estabelecimentoDa, ehObraPropria, type Lotacao } from '../obras/lotacoes';
 import { principal, repartir } from '../obras/folhaPorObra';
 
@@ -62,7 +63,25 @@ export interface ParametrosEsocialFolha {
      * (1 substituída, 2 não substituída, 3 as duas). Nas demais classificações não vai.
      */
     indSimples?: '' | '1' | '2' | '3';
+    /**
+     * Filiais com lotação própria: o código da lotação (S-1020) de cada estabelecimento. Quem trabalha num estabelecimento
+     * fora desta lista usa a lotação acima.
+     */
+    estabelecimentos?: { nrInsc: string; codLotacao: string }[];
 }
+
+/** Lotação tributária de quem trabalha no estabelecimento: a da filial, se houver, senão a dos parâmetros. */
+export const lotacaoDoEstabelecimento = (p: ParametrosEsocialFolha, estab: string) =>
+    (p.estabelecimentos?.find(x => digitos(x.nrInsc) === digitos(estab))?.codLotacao ?? '').trim() || p.codLotacao.trim();
+
+/**
+ * Estabelecimento do vínculo no período (o local de trabalho da ficha na data: services/cadastros/locaisTrabalho.ts);
+ * sem ele na ficha, o dos parâmetros.
+ */
+export const estabelecimentoDoVinculo = (f: Pick<FichaFuncionario, 'dados' | 'locais'>, p: ParametrosEsocialFolha, competencia: string) => {
+    const e = digitos(estabelecimentoNoDia(f, diaDoPeriodo(f, competencia)));
+    return e.length === 14 ? e : digitos(p.nrInscEstab);
+};
 export const parametrosVazios = (cnpj = ''): ParametrosEsocialFolha => ({ nrInscEstab: cnpj.replace(/\D/g, ''), codLotacao: '', rubricas: {} });
 
 const digitos = (t: string | undefined) => (t ?? '').replace(/\D/g, '');
@@ -486,12 +505,18 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
          * Os itens por obra: sem obras, a lotação dos parâmetros; com obras, os proventos pelos dias e os descontos na
          * principal. `soPrincipal`: tudo na obra principal (adiantamento, 1ª parcela do 13º, recibo de férias).
          */
-        const gruposDe = (itens: ReturnType<typeof itensDe>, lot: { codigo: string; peso: number }[] | undefined, soPrincipal = false) => {
-            if (!lot?.length) return [{ tpInsc: '1', nrInsc: estab, cod: p.codLotacao.trim(), itens }];
-            const usar = soPrincipal ? [lot[principal(lot)]] : lot;
+        const gruposDe = (itens: ReturnType<typeof itensDe>, f: FichaFuncionario, r: Pick<ResultadoCalculo, 'lotacoes' | 'estabelecimentos'> | undefined, soPrincipal = false) => {
+            const lot = r?.lotacoes;
+            // Estabelecimento do vínculo no mês (o da ficha); no mês da troca, os dois, pelos dias (sem obras).
+            const doVinculo = estabelecimentoDoVinculo(f, p, e.competencia);
+            const estabs = !lot?.length && (r?.estabelecimentos?.length ?? 0) > 1 ? r!.estabelecimentos!.map(x => ({ codigo: x.estab, peso: x.peso })) : null;
+            if (!lot?.length && !estabs) return [{ tpInsc: '1', nrInsc: doVinculo, cod: lotacaoDoEstabelecimento(p, doVinculo), itens }];
+            const base = (lot?.length ? lot : estabs)!;
+            const usar = soPrincipal ? [base[principal(base)]] : base;
             const grupos = usar.map(l => {
+                if (estabs) return { tpInsc: '1', nrInsc: l.codigo, cod: lotacaoDoEstabelecimento(p, l.codigo), itens: [] as typeof itens };
                 const cad = e.lotacoes?.find(x => x.codigo === l.codigo);
-                const est = cad ? estabelecimentoDa(cad, estab) : { tpInsc: '1' as const, nrInsc: estab };
+                const est = cad ? estabelecimentoDa(cad, doVinculo) : { tpInsc: '1' as const, nrInsc: doVinculo };
                 return { tpInsc: est.tpInsc as string, nrInsc: est.nrInsc, cod: l.codigo, itens: [] as typeof itens };
             });
             const pr = principal(usar);
@@ -504,9 +529,9 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             }
             return grupos.filter(g => g.itens.length);
         };
-        const dmDev = (ide: string, categ: string, f: FichaFuncionario, itens: ReturnType<typeof itensDe>, lot?: { codigo: string; peso: number }[], soPrincipal = false) =>
+        const dmDev = (ide: string, categ: string, f: FichaFuncionario, itens: ReturnType<typeof itensDe>, r?: Pick<ResultadoCalculo, 'lotacoes' | 'estabelecimentos'>, soPrincipal = false) =>
             `<dmDev><ideDmDev>${esc(ide)}</ideDmDev><codCateg>${categ}</codCateg><infoPerApur>`
-            + gruposDe(itens, lot, soPrincipal).map(g => estabLot(g, categ, f)).join('')
+            + gruposDe(itens, f, r, soPrincipal).map(g => estabLot(g, categ, f)).join('')
             + '</infoPerApur></dmDev>';
         const estabLot = (g: { tpInsc: string; nrInsc: string; cod: string; itens: ReturnType<typeof itensDe> }, categ: string, f: FichaFuncionario) =>
             `<ideEstabLot><tpInsc>${g.tpInsc}</tpInsc><nrInsc>${g.nrInsc}</nrInsc><codLotacao>${esc(g.cod)}</codLotacao>`
@@ -520,7 +545,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
         const dmDevPerAnt = (ide: string, categ: string, f: FichaFuncionario, ins: Instrumento, periodos: { perRef: string; itens: ReturnType<typeof itensDe> }[]) =>
             `<dmDev><ideDmDev>${esc(ide)}</ideDmDev><codCateg>${categ}</codCateg><infoPerAnt><ideADC>`
             + `${ins.dtAcConv ? `<dtAcConv>${ins.dtAcConv}</dtAcConv>` : ''}<tpAcConv>${ins.tpAcConv}</tpAcConv><dsc>${esc(ins.dsc.trim())}</dsc><remunSuc>N</remunSuc>`
-            + periodos.map(pr => `<idePeriodo><perRef>${pr.perRef}</perRef><ideEstabLot><tpInsc>1</tpInsc><nrInsc>${estab}</nrInsc><codLotacao>${esc(p.codLotacao.trim())}</codLotacao>`
+            + periodos.map(pr => `<idePeriodo><perRef>${pr.perRef}</perRef><ideEstabLot><tpInsc>1</tpInsc><nrInsc>${estabelecimentoDoVinculo(f, p, pr.perRef)}</nrInsc><codLotacao>${esc(lotacaoDoEstabelecimento(p, estabelecimentoDoVinculo(f, p, pr.perRef)))}</codLotacao>`
                 + `<remunPerAnt><matricula>${esc(f.matriculaEsocial.trim())}</matricula>${p.indSimples ? `<indSimples>${p.indSimples}</indSimples>` : ''}`
                 + pr.itens.map(i => `<itensRemun><codRubr>${esc(i.rub.codRubr)}</codRubr><ideTabRubr>${esc(i.rub.ideTabRubr)}</ideTabRubr><vrRubr>${valor(i.valor)}</vrRubr><indApurIR>0</indApurIR></itensRemun>`).join('')
                 // O grau de exposição é o do mês do perApur (MOS, item 18.17): o da ficha.
@@ -574,9 +599,12 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             if (!/^\d{3}$/.test(categ)) t.erros.push(`Categoria do eSocial (3 dígitos) em branco na ficha${quem}.`);
             // O empregador doméstico escritura pelo eSocial Doméstico (módulo web), que fecha a folha e gera o DAE.
             if (categ === '104') { t.erros.push(`Empregado doméstico${quem}: a folha vai pelo eSocial Doméstico (módulo web, com o DAE gerado lá). Lance lá os valores conferidos aqui.`); continue; }
-            // O Consultor informa um estabelecimento só (o dos parâmetros): quem trabalha em outro (localTrabGeral do S-2200)
-            // iria no CNPJ errado.
-            const localTrab = digitos(f.dados.estabelecimento);
+            // Estabelecimento do vínculo (o da ficha no mês): outro que não o dos parâmetros precisa estar no S-1005 da empresa.
+            for (const x of r.estabelecimentos?.length ? r.estabelecimentos.map(y => y.estab) : [estabelecimentoDoVinculo(f, p, e.competencia)]) {
+                if (x === estab) continue;
+                if (x.slice(0, 8) !== estab.slice(0, 8)) t.erros.push(`O local de trabalho da ficha${quem} é o CNPJ ${x}, de outra empresa: confira a ficha (transferência entre empresas é S-2299 + S-2200).`);
+                else avisosLotacao.add(`Estabelecimento ${x} (lotação ${lotacaoDoEstabelecimento(p, x)}): confira se está no S-1005 da empresa antes do S-1200.`);
+            }
             // Obras do mês (ficha ou rateio): cada uma precisa estar no cadastro, vigente na competência.
             for (const l of r.lotacoes ?? []) {
                 const cad = e.lotacoes?.find(x => x.codigo === l.codigo);
@@ -585,7 +613,6 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                 if (!cad.recibo1020) avisosLotacao.add(`Lotação ${l.codigo} sem o recibo do S-1020 no Consultor: confira se foi enviada antes do S-1200 (o eSocial recusa lotação inexistente).`);
                 if (ehObraPropria(cad) && !cad.recibo1005) avisosLotacao.add(`Obra ${l.codigo} (CNO ${cad.cno}) sem o recibo do S-1005 no Consultor: o CNO precisa estar na tabela de estabelecimentos antes do S-1200.`);
             }
-            if (!r.lotacoes?.length && localTrab.length === 14 && localTrab !== estab) t.erros.push(`O local de trabalho da ficha${quem} é o CNPJ ${localTrab}, e o estabelecimento dos parâmetros é ${estab}: o Consultor gera um estabelecimento só. Confira a ficha e os parâmetros, ou transmita pelo IOB.`);
             if (/^[123]\d\d$|^73[148]$/.test(categ) && !/^[1-4]$/.test(f.dados.grauExp ?? '')) semGrauExp.push(`${r.nome}${quem}`);
             if (r.totais.liquido < 0) t.erros.push(`Líquido negativo${quem}.`);
             // O IRRF do cálculo segue a tabela do mês do pagamento usado nele: com outra data de pagamento na tela, o S-1210
@@ -618,7 +645,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             const ide = unico(doOriginal.length === 1 && !pagosNoMes.length ? doOriginal[0] : ideDmDev(e.competencia, mat));
             if (t.retifica1200 && !doOriginal.length && t.retifica1200.demonstrativos && Object.keys(t.retifica1200.demonstrativos).length)
                 t.avisos.push(`A matrícula ${mat} não está no S-1200 original: vai num demonstrativo novo.`);
-            dmDevs.push(dmDev(ide, categ, f, itens, r.lotacoes));
+            dmDevs.push(dmDev(ide, categ, f, itens, r));
             pagamentos.push({ mes: perPgto, xml: infoPgto(e.dataPagamento, ide, r.totais.liquido) });
             t.liquido += r.totais.liquido;
 
@@ -645,7 +672,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             else if (adiant > 0 && r.irrfAdiantamento !== undefined && dataAdiant.slice(0, 7) !== e.competencia) t.erros.push(`Adiantamento em ${br(dataAdiant)}${quem}: com o saldo da folha em ${mes(perPgto)}, o IRRF do adiantamento foi calculado para pagamento em ${mes(e.competencia)}. Use uma data de ${mes(e.competencia)}.`);
             else if (adiant > 0) {
                 const ideA = unico(ideDmDevAdiantamento(e.competencia, mat));
-                dmDevs.push(dmDev(ideA, categ, f, itensDe(verbasDoAdiantamento(r)), r.lotacoes, true));
+                dmDevs.push(dmDev(ideA, categ, f, itensDe(verbasDoAdiantamento(r)), r, true));
                 const pago = pagoNoAdiantamento(r);
                 pagamentos.push({ mes: dataAdiant.slice(0, 7), xml: infoPgto(dataAdiant, ideA, pago) });
                 t.liquido += pago;
@@ -656,7 +683,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                 if (!/^\d{4}-\d{2}-\d{2}$/.test(d13)) { t.erros.push(`1ª parcela do 13º${quem} sem data de pagamento.`); continue; }
                 if (d13.slice(0, 7) !== e.competencia) { t.erros.push(`1ª parcela do 13º${quem} paga em ${br(d13)}: vai no S-1200 do mês do pagamento, não em ${mes(e.competencia)}.`); continue; }
                 const ide13 = unico(ideDmDev13Adiantamento(e.competencia.slice(0, 4), mat));
-                dmDevs.push(dmDev(ide13, categ, f, itensDe(r13.verbas), r.lotacoes, true));
+                dmDevs.push(dmDev(ide13, categ, f, itensDe(r13.verbas), r, true));
                 pagamentos.push({ mes: d13.slice(0, 7), xml: infoPgto(d13, ide13, r13.totais.liquido) });
                 t.liquido += r13.totais.liquido;
             }
@@ -664,7 +691,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             // Recibos de férias pagos na competência: demonstrativo próprio, pago na data do recibo.
             for (const { r: rf, dataPagamento } of pagosNoMes) {
                 const ideF = unico(ideDmDevFerias(dataPagamento, mat));
-                dmDevs.push(dmDev(ideF, categ, f, itensDe(verbasDoReciboFerias(rf)), r.lotacoes, true));
+                dmDevs.push(dmDev(ideF, categ, f, itensDe(verbasDoReciboFerias(rf)), r, true));
                 pagamentos.push({ mes: dataPagamento.slice(0, 7), xml: infoPgto(dataPagamento, ideF, rf.totais.liquido) });
                 t.liquido += rf.totais.liquido; t.recibosFerias++;
                 const pensaoRec = rf.verbas.find(v => v.codigo === 'PENSAOFER')?.valor ?? 0;

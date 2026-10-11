@@ -4368,3 +4368,31 @@ Paulo: "pode seguir". Segundo dos itens planejados do catálogo do SAGE.
 - **Tela:** Cadastros › Transferência de funcionários, com a validação do que falta para o S-2200 já na escolha, a gravação e a lista de transferências da empresa (saídas e entradas) com a situação, a transmissão e o XML do S-2299 e do S-2200.
 - **Catálogo SAGE:** `ut-transferencia` passa a parcial. Agora são 26 disponíveis, 21 parciais, 4 planejados e 2 fora.
 - **Testes:** S-2299 e S-2200 no XSD oficial (transferência, admissão comum e contrato por prazo); fichas, validações, afastamentos; a gravação com os avisos; a tela da escolha à transmissão; regras do Firestore.
+
+## 11/10/2026 — Troca de estabelecimento, S-1200 por filial, S-2206 e transferência no meio do mês
+
+Paulo: "nada pode ficar para trás e começar novo ponto! Termine e seguimos". Fecha o que faltava da transferência.
+
+- **Local de trabalho por vigência** (`services/cadastros/locaisTrabalho.ts`):
+  - a ficha guarda as faixas de estabelecimento (`locais`) desde a primeira troca;
+  - na importação do eSocial, as faixas também vêm dos S-2200/S-2206, quando houve troca; as trocas do Consultor posteriores ficam;
+  - a alteração entra na auditoria da ficha.
+- **S-1200 e S-2299 no estabelecimento da ficha:** antes, saía só o estabelecimento dos parâmetros e quem trabalhava em filial dava erro, com a orientação de mandar pelo IOB. Agora:
+  - cada vínculo sai no estabelecimento da ficha naquele mês;
+  - no mês da troca, nos dois: os proventos se dividem pelos dias e os descontos ficam no de mais dias (como nas obras);
+  - a lotação é a da filial, se informada nos parâmetros do eSocial (nova lista "Filiais com lotação própria"), senão a dos parâmetros;
+  - aviso para conferir o S-1005 da filial; estabelecimento de outra raiz de CNPJ é erro.
+- **S-2206 pelo Consultor** (`services/esocial/alteracaoContratual.ts`): o contrato inteiro com o novo local de trabalho e a data da alteração. A parte do contrato agora é comum com o S-2200 (`contratoXml`, `celetistaXml`, `validarContrato`).
+- **Tela de Transferência:** novo modo "troca de estabelecimento". Escolhe o funcionário, o CNPJ da filial (sugestões da empresa) e a data (qualquer dia). Grava o local por vigência e lista as trocas com a situação do S-2206, a transmissão, a retificação e o XML.
+- **Transferência entre empresas no meio do mês:** caiu a exigência do dia 1º.
+  - novo campo na ficha, "início nesta empresa"; no destino é a data da transferência e a admissão continua a do primeiro empregador;
+  - cada empresa paga os seus dias: a origem até a véspera, sem rescisão e sem o aviso de "rescisão não está no motor"; o destino desde a data;
+  - o destino não tem mais o funcionário nas folhas anteriores à chegada (antes aparecia, porque a admissão é antiga);
+  - o 13º do ano fica todo com o destino.
+- **Catálogo SAGE:** `ut-transferencia` passa a disponível. Agora são 27 disponíveis, 20 parciais, 4 planejados e 2 fora.
+- **Testes:**
+  - faixas e dias no mês; validações da troca; cálculo do mês da troca;
+  - S-1200 dividido com a lotação da filial; S-2299 na filial; S-2206 no XSD oficial;
+  - faixas pelos eventos e na importação;
+  - a tela da troca até o S-2206;
+  - transferência no meio do mês com 15 dias em cada empresa.
