@@ -21,6 +21,7 @@ import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros
 import { somarMeses } from '../prazos/calendario';
 import { apurarIrrf, type Incidencias, type IrrfApurado, type ResultadoCalculo, type TipoVerba, type Verba } from './motorMensal';
 import { inssDetalhado, IRRF_MINIMO } from './tributos';
+import { ehDomestico, indenizacaoCompensatoria } from '../domestico/domestico';
 
 /** Fato gerador da remuneração de períodos anteriores (S-1200, {tpAcConv}). */
 export type TpAcConv = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J';
@@ -61,6 +62,12 @@ export interface LancamentoComplementar extends Incidencias {
 
 export interface ReajusteRetroativo { pct: number; de: string; ate: string }
 
+/** Diferenças calculadas pelos motores (13º complementar, diferença do 13º, rescisão complementar), por funcionário e mês. */
+export interface DiferencaCalculada { fichaId: string; perRef: string; verbas: Verba[]; avisos?: string[] }
+
+/** O 13º já pago (a 2ª parcela ou o da rescisão), no mês de referência dele: a base do INSS e o INSS e o IRRF apurados. */
+export interface DecimoPago { fichaId: string; perRef: string; baseInss: number; inss: number; rendimentosIrrf: number; deducoesIrrf: number; irrf: number }
+
 export interface EntradaComplementar {
     /** Competência do S-1200 em que a complementar é escriturada (a da celebração do instrumento). */
     perApur: string;
@@ -75,6 +82,8 @@ export interface EntradaComplementar {
     /** Holerites da folha de {perApur}: o IRRF da complementar soma o da folha paga no mesmo mês. */
     folhaDoMes?: ResultadoCalculo[];
     tabelas: TabelaLegal[];
+    diferencas?: DiferencaCalculada[];
+    decimos?: DecimoPago[];
 }
 
 export interface MesComplementar {
@@ -86,6 +95,9 @@ export interface MesComplementar {
     fgts: number;
     /** Ano anterior ao do pagamento: rendimento recebido acumuladamente (IRRF em separado). */
     rra: boolean;
+    /** Diferenças do 13º no mês (bases do INSS e do IRRF próprias do 13º) e o INSS delas. */
+    bases13: { inss: number; irrf: number };
+    inss13: number;
 }
 
 export interface ResultadoComplementar extends ResultadoCalculo {
@@ -95,6 +107,10 @@ export interface ResultadoComplementar extends ResultadoCalculo {
 /** Verbas que acompanham o salário no reajuste: salário, periculosidade, maternidade, horas extras e DSR, férias do mês, faltas. */
 const REAJUSTAVEIS = new Set(['SAL', 'PERICUL', 'MAT', 'MATPRORR', 'HE50', 'HE100', 'DSRHE', 'FERMES', 'FERMES13', 'FALTA', 'DSRF', 'ATRASO']);
 export const reajustavel = (codigo: string) => REAJUSTAVEIS.has(codigo) || /^HE\d+(_\d+)?$/.test(codigo);
+
+/** Verbas de 13º: INSS e IRRF próprios (base do 13º e tributação exclusiva), não somam à remuneração do mês. */
+const DECIMO = new Set(['13PROP', '13IND', '13COMP', '13DIF']);
+export const ehDecimo = (codigo: string) => DECIMO.has(codigo);
 
 /** Verbas do motor que podem ser lançadas à mão na complementar (o mesmo de/para da folha). */
 export const VERBAS_LANCAVEIS: { codigo: string; descricao: string; tipo: TipoVerba }[] = [
@@ -107,6 +123,7 @@ export const VERBAS_LANCAVEIS: { codigo: string; descricao: string; tipo: TipoVe
     { codigo: 'FERMES', descricao: 'Férias do mês (pagas no recibo)', tipo: 'provento' },
     { codigo: 'FERMES13', descricao: '1/3 de férias do mês (pago no recibo)', tipo: 'provento' },
     { codigo: 'FALTA', descricao: 'Faltas', tipo: 'desconto' },
+    { codigo: '13DIF', descricao: 'Diferença de 13º salário', tipo: 'provento' },
     { codigo: 'LAN', descricao: '', tipo: 'provento' },
 ];
 
@@ -125,7 +142,7 @@ export function mesesEntre(de: string, ate: string): string[] {
 }
 
 /** O que impede calcular a complementar. */
-export function validarComplementar(e: Pick<EntradaComplementar, 'perApur' | 'pagamento' | 'instrumento' | 'reajuste' | 'lancamentos'>): string[] {
+export function validarComplementar(e: Pick<EntradaComplementar, 'perApur' | 'pagamento' | 'instrumento' | 'reajuste' | 'lancamentos' | 'diferencas'>): string[] {
     const erros: string[] = [];
     if (!competenciaValida(e.perApur)) erros.push('Competência da complementar inválida.');
     if (!competenciaValida(e.pagamento)) erros.push('Mês do pagamento inválido.');
@@ -142,7 +159,7 @@ export function validarComplementar(e: Pick<EntradaComplementar, 'perApur' | 'pa
     if (!d) erros.push('Descreva o instrumento (por exemplo, "Convenção coletiva dos comerciários de São Paulo 2026/2027").');
     else if (d.length > 255) erros.push('A descrição do instrumento tem mais de 255 caracteres.');
     const r = e.reajuste;
-    if (!r && !(e.lancamentos ?? []).length) erros.push('Informe o reajuste retroativo ou lance as diferenças.');
+    if (!r && !(e.lancamentos ?? []).length && !(e.diferencas ?? []).length) erros.push('Informe o reajuste retroativo ou lance as diferenças.');
     if (r) {
         if (!(r.pct > 0 && r.pct <= 100)) erros.push('Percentual do reajuste inválido (entre 0 e 100).');
         if (!competenciaValida(r.de) || !competenciaValida(r.ate)) erros.push('Informe os meses do reajuste retroativo.');
@@ -212,7 +229,12 @@ export function calcularComplementar(e: EntradaComplementar): { resultados: Resu
             }
         }
         if (semFolha.length) avisos.push(`Sem folha gravada em ${semFolha.join(', ')}: as diferenças desses meses não foram calculadas. Grave a folha (Cálculo mensal › Gravar) ou lance as diferenças.`);
-        if (de.slice(0, 4) !== ate.slice(0, 4) || ate.slice(5) === '12') avisos.push('O reajuste abrange dezembro: a diferença do 13º salário não é calculada aqui. Lance-a no mês de referência de dezembro.');
+        const dif13 = (e.diferencas ?? []).some(d => d.verbas.some(v => v.codigo === '13DIF'));
+        if ((de.slice(0, 4) !== ate.slice(0, 4) || ate.slice(5) === '12') && !dif13) avisos.push('O reajuste abrange dezembro: inclua a diferença do 13º (na tela) ou lance-a no mês de referência de dezembro.');
+    }
+    for (const d of e.diferencas ?? []) {
+        const x = pegar(d.fichaId, d.perRef);
+        x.verbas.push(...d.verbas); x.avisos.push(...(d.avisos ?? []));
     }
     (e.lancamentos ?? []).forEach((l, i) => {
         const x = pegar(l.fichaId, l.perRef);
@@ -242,9 +264,16 @@ export function calcularComplementar(e: EntradaComplementar): { resultados: Resu
             const x = meses.get(perRef)!;
             r.avisos.push(...new Set(x.avisos));
             const verbas = x.verbas;
-            const mes: MesComplementar = { perRef, verbas, bases: { inss: somaBase(verbas, 'inss'), fgts: somaBase(verbas, 'fgts'), irrf: somaBase(verbas, 'irrf') }, inss: 0, fgts: 0, rra: perRef.slice(0, 4) < anoPagamento };
+            const doMes = verbas.filter(v => !ehDecimo(v.codigo)); const dec = verbas.filter(v => ehDecimo(v.codigo));
+            // Complemento do 13º pelas variáveis de dezembro, pago até 10 de janeiro (Decreto 10.854/2021, art. 77): é do 13º
+            // de dezembro, não RRA (MOS, S-1200, item 19.2).
+            const complemento13 = verbas.length > 0 && verbas.every(v => v.codigo === '13COMP') && perRef.endsWith('-12') && e.pagamento === `${Number(perRef.slice(0, 4)) + 1}-01`;
+            const mes: MesComplementar = {
+                perRef, verbas, bases: { inss: somaBase(doMes, 'inss'), fgts: somaBase(verbas, 'fgts'), irrf: somaBase(doMes, 'irrf') }, inss: 0, fgts: 0,
+                rra: perRef.slice(0, 4) < anoPagamento && !complemento13, bases13: { inss: somaBase(dec, 'inss'), irrf: somaBase(dec, 'irrf') }, inss13: 0,
+            };
             r.meses.push(mes);
-            if (mes.bases.inss < 0 || mes.bases.fgts < 0 || mes.bases.irrf < 0) {
+            if (mes.bases.inss < 0 || mes.bases.fgts < 0 || mes.bases.irrf < 0 || mes.bases13.inss < 0 || mes.bases13.irrf < 0) {
                 r.erros.push(`Diferença negativa em ${rotuloCompetencia(perRef)}: o Consultor não calcula devolução. Confira os lançamentos.`);
                 continue;
             }
@@ -263,9 +292,27 @@ export function calcularComplementar(e: EntradaComplementar): { resultados: Resu
                     if (mes.inss > 0) verbas.push({ codigo: 'INSS', descricao: `INSS sobre as diferenças de ${rotuloCompetencia(perRef)}`, referencia: '', tipo: 'desconto', valor: mes.inss, inss: false, fgts: false, irrf: false });
                 }
             }
+            // INSS do 13º: base própria, pela tabela do mês de referência, sobre o 13º já pago + a diferença.
+            if (mes.bases13.inss > 0) {
+                const pago = e.decimos?.find(y => y.fichaId === fichaId && y.perRef === perRef);
+                if (!pago) r.avisos.push(`Sem o 13º pago de ${rotuloCompetencia(perRef)}: o INSS da diferença do 13º foi calculado sobre ela sozinha. Confira.`);
+                const tInss = tabelaVigente(e.tabelas, 'inss', perRef);
+                if ('erro' in tInss) r.erros.push(`INSS do 13º de ${rotuloCompetencia(perRef)}: ${tInss.erro}`);
+                else {
+                    const b0 = pago?.baseInss ?? 0;
+                    const antes = inssDetalhado(b0, tInss.tabela); const depois = inssDetalhado(b0 + mes.bases13.inss, tInss.tabela);
+                    mes.inss13 = Math.max(0, depois.valor - antes.valor);
+                    r.memoria.push(`INSS do 13º (${rotuloCompetencia(perRef)}): ${depois.memoria}; menos ${reais(antes.valor)} sobre o 13º pago (${reais(b0)}) = ${reais(mes.inss13)}.`);
+                    if (mes.inss13 > 0) verbas.push({ codigo: 'INSS13', descricao: 'INSS sobre a diferença do 13º', referencia: '', tipo: 'desconto', valor: mes.inss13, inss: false, fgts: false, irrf: false });
+                }
+            }
             mes.fgts = Math.round(mes.bases.fgts * aliqFgts / 100);
             if (mes.bases.fgts) r.memoria.push(`FGTS de ${rotuloCompetencia(perRef)}: ${reais(mes.bases.fgts)} × ${aliqFgts}%${aprendiz ? ' (aprendiz)' : ''} = ${reais(mes.fgts)} (recolhido na competência ${rotuloCompetencia(e.perApur)}).`);
-            r.bases.inss += mes.bases.inss; r.bases.fgts += mes.bases.fgts; r.bases.irrf += mes.bases.irrf; r.fgts += mes.fgts;
+            r.bases.inss += mes.bases.inss + mes.bases13.inss; r.bases.fgts += mes.bases.fgts; r.bases.irrf += mes.bases.irrf + mes.bases13.irrf; r.fgts += mes.fgts;
+        }
+        if (ehDomestico(f.dados.categoria) && r.bases.fgts > 0) {
+            r.fgtsIndenizacao = indenizacaoCompensatoria(r.bases.fgts);
+            r.memoria.push(`Indenização compensatória do doméstico: ${reais(r.bases.fgts)} × 3,2% = ${reais(r.fgtsIndenizacao)} (LC 150/2015, art. 22).`);
         }
 
         // IRRF no mês do pagamento, somado à folha paga junto. RRA (anos anteriores) fica de fora.
@@ -309,14 +356,37 @@ export function calcularComplementar(e: EntradaComplementar): { resultados: Resu
                 if (ir > 0) doAno[doAno.length - 1].verbas.push({ codigo: 'IRRF', descricao: 'IRRF sobre as diferenças', referencia: `${num(aliquota)}%`, tipo: 'desconto', valor: ir, inss: false, fgts: false, irrf: false });
             }
         }
+        // IRRF do 13º: tributação exclusiva; recalculado sobre o 13º pago + a diferença, menos o já retido.
+        const meses13 = doAno.filter(m => m.bases13.irrf > 0);
+        const rend13 = meses13.reduce((s, m) => s + m.bases13.irrf, 0);
+        if (rend13 > 0 && !r.erros.length) {
+            if ('erro' in tIr) r.erros.push(`IRRF do 13º: ${tIr.erro}`);
+            else {
+                const t = tIr.tabela;
+                const inss13 = meses13.reduce((s, m) => s + m.inss13, 0);
+                const pagos = (e.decimos ?? []).filter(y => y.fichaId === fichaId && meses13.some(m => m.perRef === y.perRef));
+                const R0 = pagos.reduce((s, y) => s + y.rendimentosIrrf, 0); const L0 = pagos.reduce((s, y) => s + y.deducoesIrrf, 0); const I0 = pagos.reduce((s, y) => s + y.irrf, 0);
+                const nDep = f.dependentes.filter(y => y.irrf === 'S' && y.pensao !== 'S').length;
+                const L = pagos.length ? L0 + inss13 : inss13 + nDep * (t.valores.deducaoDependente ?? 0);
+                const a = apurarIrrf(t, R0 + rend13, L);
+                let ir = Math.max(0, a.valor - I0);
+                r.memoria.push(`IRRF do 13º (exclusivo na fonte, tabela de ${rotuloCompetencia(t.vigencia)}): ${pagos.length ? `13º pago ${reais(R0)} + ` : ''}diferença ${reais(rend13)} = ${reais(R0 + rend13)}; `
+                    + `${a.simplificado ? `desconto simplificado ${reais(a.deducao)}` : `deduções legais ${reais(L)}`}; base ${reais(a.base)} × ${num(a.aliquota)}% − ${reais(a.deducaoFaixa)} = ${reais(a.bruto)}`
+                    + `${a.memoriaRedutor.length ? ` (${a.memoriaRedutor.join(' ')})` : ''}${pagos.length ? `; menos ${reais(I0)} já retidos` : ''} = ${reais(ir)}.`);
+                if (!pagos.length) r.avisos.push('Sem o 13º pago: o IRRF da diferença do 13º foi calculado sobre ela sozinha. Confira.');
+                if (ir > 0 && ir <= IRRF_MINIMO) { r.memoria.push(`IRRF do 13º de ${reais(ir)} não retido: até R$ 10,00 a retenção é dispensada (Lei 9.430/1996, art. 67).`); ir = 0; }
+                if (ir > 0) meses13[meses13.length - 1].verbas.push({ codigo: 'IRRF13', descricao: 'IRRF sobre a diferença do 13º', referencia: `${num(a.aliquota)}%`, tipo: 'desconto', valor: ir, inss: false, fgts: false, irrf: false });
+            }
+        }
         if (r.erros.length) r.situacao = 'erro';
         r.avisos = [...new Set(r.avisos)];
         r.verbas = r.meses.flatMap(m => m.verbas.map(v => ({ ...v, referencia: v.referencia ? `${m.perRef.slice(5)}/${m.perRef.slice(0, 4)} · ${v.referencia}` : `${m.perRef.slice(5)}/${m.perRef.slice(0, 4)}` })));
         r.totais.proventos = r.verbas.filter(v => v.tipo === 'provento').reduce((s, v) => s + v.valor, 0);
         r.totais.descontos = r.verbas.filter(v => v.tipo === 'desconto').reduce((s, v) => s + v.valor, 0);
         r.totais.liquido = r.totais.proventos - r.totais.descontos;
-        if (f.dados.dataDesligamento && dataValida(f.dados.dataDesligamento) && f.dados.dataDesligamento < `${e.perApur}-01`)
-            r.avisos.push(`Desligado em ${brData(f.dados.dataDesligamento)}: as diferenças das verbas rescisórias (aviso, férias e 13º indenizados) não entram aqui; o S-1200 de ${rotuloCompetencia(e.perApur)} leva as diferenças de salário.`);
+        const rescisorias = r.verbas.some(v => /^(AVISO|ART479|13PROP|13IND|FV|FVD|FP)/.test(v.codigo));
+        if (!rescisorias && f.dados.dataDesligamento && dataValida(f.dados.dataDesligamento) && f.dados.dataDesligamento < `${e.perApur}-01`)
+            r.avisos.push(`Desligado em ${brData(f.dados.dataDesligamento)}: inclua as rescisões (na tela) para as diferenças das verbas rescisórias (aviso, férias e 13º indenizados).`);
     }
     resultados.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
     return { resultados, erros: [], avisos };
@@ -330,8 +400,8 @@ export function totaisComplementar(rs: ResultadoComplementar[]) {
         proventos: ok.reduce((s, r) => s + r.totais.proventos, 0),
         descontos: ok.reduce((s, r) => s + r.totais.descontos, 0),
         liquido: ok.reduce((s, r) => s + r.totais.liquido, 0),
-        inss: ok.reduce((s, r) => s + r.meses.reduce((t, m) => t + m.inss, 0), 0),
-        irrf: ok.reduce((s, r) => s + (r.irrfApurado?.valor ?? 0), 0),
+        inss: ok.reduce((s, r) => s + r.meses.reduce((t, m) => t + m.inss + (m.inss13 ?? 0), 0), 0),
+        irrf: ok.reduce((s, r) => s + r.verbas.filter(v => v.codigo === 'IRRF' || v.codigo === 'IRRF13').reduce((t, v) => t + v.valor, 0), 0),
         fgts: ok.reduce((s, r) => s + r.fgts, 0),
     };
 }
