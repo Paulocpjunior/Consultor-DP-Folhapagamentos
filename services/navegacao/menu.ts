@@ -4,7 +4,7 @@
 // depois os cadastros, a folha do mês, as conferências, o eSocial, os prazos e o fim de mês;
 // as configurações ficam à direita. Cada item leva a uma tela (aba) e, quando há, à sub-aba dela.
 
-export type Aba = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin' | 'fimdemes' | 'relatorios' | 'servicos' | 'demissoes' | 'beneficios' | 'contribuintes' | 'dctfweb' | 'processos' | 'intermitentes' | 'obras' | 'departamentos' | 'agrupado' | 'transferencia' | 'contabil' | 'processosjud';
+export type Aba = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin' | 'fimdemes' | 'relatorios' | 'servicos' | 'demissoes' | 'beneficios' | 'contribuintes' | 'dctfweb' | 'processos' | 'intermitentes' | 'obras' | 'departamentos' | 'agrupado' | 'transferencia' | 'contabil' | 'processosjud' | 'sindicalpatronal';
 
 export type SubFolha = 'eventos' | 'apontamento' | 'validador-ponto' | 'implantacao' | 'conferencia';
 export type SubCadastroMenu = 'funcionarios' | 'horarios' | 'afastamentos' | 'incidencias' | 'enquadramento' | 'sindicatos' | 'tabelas' | 'conformidade';
@@ -18,7 +18,7 @@ export type Destino =
     | { aba: 'calculo'; folha: FolhaCalculo }
     | { aba: 'fimdemes'; sub: 'fechamento' | 'pedidos' }
     | { aba: 'relatorios'; sub: 'central' | 'modelos' }
-    | { aba: 'empresas' | 'certificados' | 'prazos' | 'iobsage' | 'admin' | 'servicos' | 'demissoes' | 'beneficios' | 'contribuintes' | 'dctfweb' | 'processos' | 'intermitentes' | 'obras' | 'departamentos' | 'agrupado' | 'transferencia' | 'contabil' | 'processosjud' }
+    | { aba: 'empresas' | 'certificados' | 'prazos' | 'iobsage' | 'admin' | 'servicos' | 'demissoes' | 'beneficios' | 'contribuintes' | 'dctfweb' | 'processos' | 'intermitentes' | 'obras' | 'departamentos' | 'agrupado' | 'transferencia' | 'contabil' | 'processosjud' | 'sindicalpatronal' }
     | { aba: 'trocar' };
 
 import type { NomeIcone } from '../../components/layout/icones';
@@ -60,6 +60,7 @@ export const MENU: GrupoMenu[] = [
         { id: 'rescisao', rotulo: 'Rescisão', descricao: 'Simular e calcular o TRCT', icone: 'saida', destino: { aba: 'calculo', folha: 'rescisao' } },
         { id: 'beneficios', rotulo: 'Administração de benefícios', descricao: 'Fornecedores e contratados, pedido de vale-transporte (quantidade do mês por operadora) e coparticipação do plano de saúde na folha', icone: 'presente', destino: { aba: 'beneficios' } },
         { id: 'contribuintes', rotulo: 'Pró-labore e autônomos (RPA)', descricao: 'Sócios e autônomos: INSS de 11% até o teto, 20% da empresa, IRRF, ISS, recibos e o S-1200 e o S-1210', icone: 'dinheiro', destino: { aba: 'contribuintes' } },
+        { id: 'sindicalpatronal', rotulo: 'Contribuição sindical patronal', descricao: 'Adesão, capital social e tabela da confederação: o valor da GRCSU de janeiro, as filiais e o atraso', icone: 'sindicato', destino: { aba: 'sindicalpatronal' } },
         { id: 'demissoes', rotulo: 'Demissões (prévia)', descricao: 'Cenários de demissão lado a lado, custo para a empresa, PDF e envio ao cliente, sem ir ao eSocial', icone: 'saida', destino: { aba: 'demissoes' } },
         { id: '13-1a', rotulo: '13º salário — 1ª parcela', descricao: 'Adiantamento do 13º até 30/11', icone: 'presente', destino: { aba: 'calculo', folha: '13-1a' } },
         { id: '13-2a', rotulo: '13º salário — 2ª parcela', descricao: 'Parcela final até 20/12', icone: 'presente', destino: { aba: 'calculo', folha: '13-2a' } },
