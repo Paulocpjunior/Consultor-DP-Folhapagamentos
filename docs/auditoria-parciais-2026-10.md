@@ -51,7 +51,7 @@ visíveis. Sem eles não dá para saber quais campos essas abas têm.
 | 9 | ~~Diagnóstico eSocial (`es-diagnostico`)~~ **entregue em 11/10** | Diagnóstico do cadastro inteiro (fichas, rubricas, tabelas) antes de gerar, apto ou não apto. | nada |
 | 10 | ~~Parâmetros da empresa (`arq-empresas`)~~ **entregue em 11/10** | Início da DCTFWeb e do FGTS Digital da empresa. | nada |
 | 11 | ~~Eventos (`arq-eventos`)~~ **entregue em 11/10** | Fórmula própria por evento. | nada |
-| 12 | Processo trabalhista (`es-processo-trab`) | Unicidade contratual, responsabilidade indireta e Justiça Comum no S-2500. | nada |
+| 12 | ~~Processo trabalhista (`es-processo-trab`)~~ **entregue em 11/10** | Unicidade contratual, responsabilidade indireta e Justiça Comum no S-2500. | nada |
 | 13 | Pagamento de guias (`trib-pagamento`) | Baixa do DARF pago (consulta do pagamento no SERPRO pelo CFI, ou baixa manual). | rota do CFI, se for pela consulta |
 | 14 | Folha complementar (`proc-complementar`) | RRA (diferenças de anos anteriores, IRRF pela tabela acumulada). | nada (fica por último, como combinado) |
 | 15 | Integração contábil (`div-contabil`) | Importação direta no Consultor Contábil. | acesso ao `plano-contas-iob` ou o layout do CCI |

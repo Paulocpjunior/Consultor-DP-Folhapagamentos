@@ -1,14 +1,15 @@
 // components/processoTrabalhista/ContratoDoProcesso.tsx
 //
-// O contrato do trabalhador no S-2500: tipo (1 a 7), indicativos da decisão, mudança de categoria ou natureza da
+// O contrato do trabalhador no S-2500: tipo (1 a 9), indicativos da decisão, mudança de categoria ou natureza da
 // atividade e, quando o contrato não está no eSocial (reconhecimento de vínculo, vínculo anterior ao eSocial ou TSVE
-// sem S-2300), os dados do vínculo que vão no próprio evento.
+// sem S-2300, responsabilidade indireta), os dados do vínculo que vão no próprio evento; na unicidade contratual, os
+// contratos incorporados.
 
 import React from 'react';
 import { centavosDeTexto } from '../../services/cadastros/documentos';
 import {
     contratoVazio, DURACAO, indContrDe, MOTIVOS_TSV, PENSAO_ALIM, TEMPO_PARCIAL, TIPOS_CONTRATO, tpContrDe, UNIDADES_SALARIO,
-    type ContratoNovo, type MudancaCategoria, type TpContrProc, type TrabalhadorProcesso,
+    type ContratoNovo, type ContratoUnificado, type MudancaCategoria, type TpContrProc, type TrabalhadorProcesso,
 } from '../../services/processoTrabalhista/processoTrabalhista';
 
 const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
@@ -30,6 +31,8 @@ const ContratoDoProcesso: React.FC<{ t: TrabalhadorProcesso; muda: (x: Partial<T
     const mud = t.mudancas ?? [];
     const mudaM = (i: number, x: Partial<MudancaCategoria>) => muda({ mudancas: mud.map((m, j) => (j === i ? { ...m, ...x } : m)) });
     const nomeT = t.nome || t.cpf;
+    const unif = t.unificados ?? [];
+    const mudaU = (i: number, x: Partial<ContratoUnificado>) => muda({ unificados: unif.map((u, j) => (j === i ? { ...u, ...x } : u)) });
     const data = (rotulo: string, valor: string, set: (v: string) => void) => (
         <label>{rotulo}<input aria-label={`${rotulo} de ${nomeT}`} type="date" className={`block ${inp}`} value={valor} onChange={e => set(e.target.value)} /></label>
     );
@@ -37,7 +40,7 @@ const ContratoDoProcesso: React.FC<{ t: TrabalhadorProcesso; muda: (x: Partial<T
     return (
         <div className="space-y-2 border-t border-slate-200 pt-2 dark:border-slate-700">
             <div className="flex flex-wrap items-end gap-3">
-                <label>Tipo de contrato<select aria-label={`Tipo de contrato de ${nomeT}`} className={`block ${inp}`} value={tp} onChange={e => muda({ tpContr: e.target.value as TpContrProc, contrato: ['5', '6', '7'].includes(e.target.value) ? t.contrato ?? contratoVazio() : t.contrato })}>
+                <label>Tipo de contrato<select aria-label={`Tipo de contrato de ${nomeT}`} className={`block ${inp}`} value={tp} onChange={e => muda({ tpContr: e.target.value as TpContrProc, contrato: ['5', '6', '7', '8'].includes(e.target.value) ? t.contrato ?? contratoVazio() : t.contrato })}>
                     <Opcoes mapa={TIPOS_CONTRATO} />
                 </select></label>
                 {tp === '6' && (
@@ -72,6 +75,21 @@ const ContratoDoProcesso: React.FC<{ t: TrabalhadorProcesso; muda: (x: Partial<T
                         </div>
                     ))}
                     <button className={btn} onClick={() => muda({ mudancas: [...mud, { codCateg: t.codCateg ?? '', natAtividade: '', data: '' }] })}>+ Mudança</button>
+                </div>
+            )}
+
+            {tp === '9' && (
+                <div className="space-y-1">
+                    <p className="text-xs text-slate-600 dark:text-slate-300">Unicidade contratual: a matrícula acima incorpora os contratos abaixo (a matrícula de cada um ou, no TSVE sem matrícula, a categoria e o início do S-2300).</p>
+                    {unif.map((u, i) => (
+                        <div key={i} className="flex flex-wrap items-end gap-2">
+                            <label>Matrícula incorporada<input aria-label={`Matrícula incorporada ${i + 1} de ${nomeT}`} className={`block w-32 ${inp}`} value={u.matUnic} onChange={e => mudaU(i, { matUnic: e.target.value })} /></label>
+                            {!u.matUnic.trim() && <label>Categoria<input aria-label={`Categoria incorporada ${i + 1} de ${nomeT}`} className={`block w-16 ${inp}`} value={u.codCateg} onChange={e => mudaU(i, { codCateg: e.target.value.replace(/\D/g, '').slice(0, 3) })} /></label>}
+                            {!u.matUnic.trim() && <label>Início<input aria-label={`Início incorporado ${i + 1} de ${nomeT}`} type="date" className={`block ${inp}`} value={u.dtInicio} onChange={e => mudaU(i, { dtInicio: e.target.value })} /></label>}
+                            <button className={btn} onClick={() => muda({ unificados: unif.filter((_, j) => j !== i) })}>Tirar</button>
+                        </div>
+                    ))}
+                    <button className={btn} onClick={() => muda({ unificados: [...unif, { matUnic: '', codCateg: '', dtInicio: '' }] })}>+ Contrato incorporado</button>
                 </div>
             )}
 

@@ -4709,3 +4709,27 @@ Décimo primeiro dos parciais da auditoria (Arquivos › Eventos › Cadastro do
   - o Lançar evento com e sem referência, sem salário e com valor negativo;
   - a importação com fórmula;
   - a tela.
+
+## 11/10/2026 — Processo trabalhista: responsabilidade indireta, unicidade e Justiça Comum
+
+Décimo segundo dos parciais da auditoria (eSocial › Processo Trabalhista do SAGE). Com isto o S-2500 cobre todos os
+tipos de contrato e origens do leiaute S-1.3.
+
+- **Responsabilidade indireta (tpContr 8):**
+  - o responsável direto vai no grupo ideResp do ideEmpregador: CNPJ ou CPF, e a matrícula lá ou, sem ela, a data de admissão;
+  - obrigatório com o tipo 8 e opcional com o 6 (TSVE); com outro tipo é recusado;
+  - o CPF do responsável não pode ser o do trabalhador;
+  - o contrato não está no eSocial do declarante (indContr N), então os dados do vínculo vão no infoCompl, como no reconhecimento de vínculo.
+- **Unicidade contratual (tpContr 9):**
+  - a matrícula do trabalhador é a que incorpora as demais;
+  - os contratos incorporados vão no grupo unicContr: a matrícula de cada um ou, no TSVE sem matrícula, a categoria e o início do S-2300;
+  - matrícula igual à que incorpora e contrato repetido são recusados; até 99.
+- **Processo da Justiça Comum (origem 3):**
+  - número do CNJ com o 14º dígito 4 (Federal) ou 8 (Estadual);
+  - a cota patronal da requisição autônoma vai no infoPatPrec, dentro do infoProcJud (0 se não houver);
+  - só contrato do tipo 1;
+  - não há S-2501: a tela bloqueia o pagamento e a validação do S-2501 recusa.
+- **Tela** eSocial › Processos trabalhistas: origem 3 no seletor com a cota patronal, o responsável direto quando há contrato 6 ou 8, e os contratos incorporados no tipo 9. O IRRF novo sai com 056152 só na CCP/NINTER.
+- **Catálogo SAGE:** `es-processo-trab` passa a disponível. Agora são 47 disponíveis e 4 parciais.
+- **Testes:** os XML dos três casos validados no XSD oficial, os erros de cada regra e a tela.
+
