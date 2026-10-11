@@ -4331,3 +4331,21 @@ Paulo: "pode seguir". O pró-labore dependia do S-2300 enviado pelo IOB e não c
 - **Regras do Firestore:** sem mudança (o cadastro continua em `contribuintes_individuais`).
 - **Catálogo SAGE:** `proc-prolabore` passa a disponível. Agora são 26 disponíveis, 19 parciais, 6 planejados e 2 fora.
 - **Testes:** S-2300 do 721, do 722 variável, do sócio, do autônomo e a retificação no XSD oficial; S-2399 do 721 e do sócio no XSD; validações; cálculo do 721 com FGTS; de/para do FGTS; a tela do cadastro à transmissão.
+
+## 11/10/2026 — Processamento agrupado (várias empresas de uma vez)
+
+Paulo: "pode seguir". Primeiro dos itens planejados do catálogo do SAGE.
+
+- **Cálculo único** (`services/calculo/folhaDaEmpresa.ts`):
+  - a folha mensal da empresa saiu da tela de Cálculo para um serviço puro: quem está na competência, as férias do mês, as convocações, os benefícios e a convenção;
+  - inclui o IRRF do adiantamento somando contratos e a folha anterior paga no mês, e o arredondamento encadeado;
+  - a tela de Cálculo passou a usar o serviço, sem mudar a conta; o processamento agrupado usa o mesmo.
+- **Processamento agrupado** (`processamentoAgrupado.ts` e `processamentoAgrupadoService.ts`; tela em Folha do mês › Processamento agrupado):
+  - escolhe as empresas da carteira (busca, marcar e desmarcar) e a competência;
+  - calcula uma empresa por vez, com os movimentos gravados (o rascunho não salvo não entra), e o mês do pagamento pelo regime ou pelo gravado no movimento;
+  - por empresa: situação e pendências por funcionário, totais, adiantamento a pagar, INSS, IRRF, FGTS e a parte patronal (por obra quando há);
+  - opcional: o saldo das provisões de férias e 13º, e a gravação da folha de cada empresa;
+  - competência encerrada no Fim de mês não é regravada e mostra a folha gravada; a falha de uma empresa não para as outras;
+  - planilha da carteira em Excel.
+- **Catálogo SAGE:** `proc-agrupado` passa a parcial (faltam o 13º e as rotinas anuais em lote). Agora são 26 disponíveis, 20 parciais, 5 planejados e 2 fora.
+- **Testes:** a folha da empresa igual ao motor; linha, falha, totais e planilha; gravação, competência encerrada, empresa sem funcionários e falha de leitura; a tela processando só as marcadas.
