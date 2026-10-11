@@ -30,6 +30,7 @@ import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros
 import { adicionalDeRisco } from './adicionais';
 import { somarDias } from '../prazos/calendario';
 import { mediaDasVariaveis, salarioContratual, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
+import { ehDomestico, indenizacaoCompensatoria } from '../domestico/domestico';
 
 export type Parcela13 = '1a' | '2a';
 export interface Opcoes13 { simplificado: boolean; redutor: boolean }
@@ -245,6 +246,10 @@ export function calcular13(e: Entrada13): ResultadoCalculo {
     if (pensaoParcela) verba({ codigo: 'PENSAO13', descricao: 'Pensão alimentícia sobre 13º', referencia: '', tipo: 'desconto', valor: pensaoParcela, inss: false, fgts: false, irrf: false });
     r.fgts = Math.round(r.bases.fgts * aliqFgts / 100);
     r.memoria.push(`FGTS: ${reais(r.bases.fgts)} × ${aliqFgts}% = ${reais(r.fgts)}${parcela === '2a' ? ' (13º menos a 1ª parcela, que já teve FGTS)' : ''}.`);
+    if (ehDomestico(categoria)) {
+        r.fgtsIndenizacao = indenizacaoCompensatoria(r.bases.fgts);
+        r.memoria.push(`Indenização compensatória do doméstico: ${reais(r.bases.fgts)} × 3,2% = ${reais(r.fgtsIndenizacao)} (LC 150/2015, art. 22).`);
+    }
     r.totais.proventos = r.verbas.filter(v => v.tipo === 'provento').reduce((s, v) => s + v.valor, 0);
     r.totais.descontos = r.verbas.filter(v => v.tipo === 'desconto').reduce((s, v) => s + v.valor, 0);
     r.totais.liquido = r.totais.proventos - r.totais.descontos;

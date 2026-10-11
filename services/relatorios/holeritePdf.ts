@@ -84,7 +84,7 @@ export function holeritesPdf(resultados: ResultadoCalculo[], fichas: FichaFuncio
         const extra = irrf.length * 4;
         // Bases + IRRF + declaração + assinatura: se não couber, vão para a página seguinte.
         if (y + 40 + extra > doc.internal.pageSize.height - 10) { doc.addPage(); y = 20; }
-        doc.text(textoPdf(`Salário-base ${brl(centavosDeTexto(d.salario ?? '') ?? 0)} · Base INSS ${brl(r.bases.inss)} · Base FGTS ${brl(r.bases.fgts)} · FGTS do mês ${brl(r.fgts)} · Base IRRF ${brl(r.bases.irrf)}`), 14, y);
+        doc.text(textoPdf(`Salário-base ${brl(centavosDeTexto(d.salario ?? '') ?? 0)} · Base INSS ${brl(r.bases.inss)} · Base FGTS ${brl(r.bases.fgts)} · FGTS do mês ${brl(r.fgts)}${r.fgtsIndenizacao ? ` + 3,2% ${brl(r.fgtsIndenizacao)}` : ''} · Base IRRF ${brl(r.bases.irrf)}`), 14, y);
         irrf.forEach((t, j) => doc.text(t, 14, y + 4.5 + j * 4));
         y += extra;
         assinatura(doc, y, r.nome);

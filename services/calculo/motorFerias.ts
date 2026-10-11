@@ -26,6 +26,7 @@ import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros
 import { adicionalDeRisco } from './adicionais';
 import { aniversario, diaUtilAnterior, diasEntre, somarDias, somarMeses } from '../prazos/calendario';
 import { mediaDasVariaveis, salarioContratual, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
+import { ehDomestico } from '../domestico/domestico';
 
 export interface OpcoesFerias { simplificado: boolean; redutor: boolean }
 export const OPCOES_FERIAS_PADRAO: OpcoesFerias = { simplificado: true, redutor: true };
@@ -230,7 +231,8 @@ export function calcularFerias(e: EntradaFerias): ResultadoFerias {
     const aprendiz = categoria === '103';
     const diasGozo = diasEntre(gozo.dtInicio, gozo.dtFim) + 1;
     r.diasGozo = diasGozo;
-    if (diasGozo < 5) r.avisos.push('Período de férias com menos de 5 dias (CLT, art. 134, § 1º).');
+    const domestico = ehDomestico(categoria);
+    if (diasGozo < 5 && !domestico) r.avisos.push('Período de férias com menos de 5 dias (CLT, art. 134, § 1º).');
 
     // Período aquisitivo: o informado no afastamento, ou o mais antigo com saldo antes do gozo.
     const outros = e.afastamentos.filter(a => a.motivo === '15' && a.id !== gozo.id && a.dtInicio < gozo.dtInicio);
@@ -243,6 +245,15 @@ export function calcularFerias(e: EntradaFerias): ResultadoFerias {
     if (!p) {
         const ultimo = periodos[periodos.length - 1];
         return erro(`Nenhum período aquisitivo completo com saldo antes do início.${perdidos.length ? ` Período perdido: ${perdidos.map(x => `${br(x.inicio)} a ${br(x.fim)} (${x.perdido})`).join('; ')}.` : ''}${ultimo && !ultimo.perdido ? ` O período atual (${br(ultimo.inicio)} a ${br(ultimo.fim)}) ainda não completou.` : ''} Para férias coletivas, use Cálculo › Férias › Férias coletivas.`);
+    }
+    // Doméstico: até 2 períodos, um deles com 14 dias corridos ou mais (LC 150/2015, art. 17, § 2º).
+    if (domestico) {
+        const abonoDias = e.abonoDias ?? 0;
+        const resta = p.direito - p.consumido - diasGozo - abonoDias;
+        if (p.consumido > 0 && resta > 0) r.avisos.push(`Empregado doméstico: as férias se dividem em até 2 períodos (LC 150/2015, art. 17, § 2º); com este, ainda sobrariam ${resta} dia(s) do período aquisitivo.`);
+        else if (p.consumido > 0 && p.consumido < 14 && diasGozo < 14) r.avisos.push('Empregado doméstico: um dos 2 períodos de férias tem de ter 14 dias corridos ou mais (LC 150/2015, art. 17, § 2º).');
+        else if (!p.consumido && diasGozo < 14 && resta > 0 && resta < 14) r.avisos.push(`Empregado doméstico: um dos 2 períodos tem de ter 14 dias ou mais, e sobrariam ${resta} dia(s) (LC 150/2015, art. 17, § 2º).`);
+        if (abonoDias) r.memoria.push('Abono pecuniário do doméstico: pedido até 30 dias antes do fim do período aquisitivo (LC 150/2015, art. 17, § 3º).');
     }
     if (!gozo.perAquisInicio) r.avisos.push(`Período aquisitivo não informado no afastamento: usado o mais antigo com saldo (${br(p.inicio)} a ${br(p.fim)}). Se as férias anteriores não estão lançadas em Afastamentos, informe o período aquisitivo no afastamento.`);
     for (const x of perdidos) r.memoria.push(`Período ${br(x.inicio)} a ${br(x.fim)} perdido: ${x.perdido}; o seguinte começa na volta.`);

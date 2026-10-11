@@ -14,6 +14,7 @@ import type { Sindicato } from '../../services/cadastros/sindicatos';
 import { conferirHorasSemanais, descricaoJornada, type Horario } from '../../services/cadastros/horarios';
 import { duracao, rotuloMotivo, type Afastamento } from '../../services/cadastros/afastamentos';
 import type { AdesaoBeneficio, Beneficio } from '../../services/calculo/beneficios';
+import { ehDomestico, FUNCOES_DOMESTICAS } from '../../services/domestico/domestico';
 
 interface Props {
     ficha: FichaFuncionario;
@@ -91,7 +92,7 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                 </select>
             );
         } else if (def.tipo === 'longo') entrada = <textarea className={inp} rows={2} value={valor} onChange={e => setCampo(c, e.target.value)} aria-label={ROTULO[c]} />;
-        else entrada = <input className={inp} type={def.tipo === 'data' ? 'date' : 'text'} value={valor} onChange={e => setCampo(c, e.target.value)} aria-label={ROTULO[c]} list={c === 'sindicato' ? 'lista-sindicatos' : undefined} />;
+        else entrada = <input className={inp} type={def.tipo === 'data' ? 'date' : 'text'} value={valor} onChange={e => setCampo(c, e.target.value)} aria-label={ROTULO[c]} list={c === 'sindicato' ? 'lista-sindicatos' : c === 'cbo' && ehDomestico(f.dados.categoria) ? 'lista-cbo-domesticos' : undefined} />;
         const hor = c === 'horario' && valor ? horarios.find(h => h.codigo === valor) : undefined;
         const difHoras = c === 'horario' && hor ? conferirHorasSemanais(f.dados.horasSemanais, hor) : null;
         const sind = c === 'sindicato' && valor ? sindicatos.find(s => s.cnpj === valor.replace(/[.\-/\s]/g, '').toUpperCase()) : undefined;
@@ -273,6 +274,8 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                 </div>
 
                 <datalist id="lista-sindicatos">{sindicatos.map(s => <option key={s.cnpj} value={s.cnpj}>{s.nome}</option>)}</datalist>
+                {/* Doméstico (categoria 104): funções comuns e o CBO (as não conferidas na CBO vêm marcadas). */}
+                <datalist id="lista-cbo-domesticos">{FUNCOES_DOMESTICAS.map(x => <option key={x.cbo} value={x.cbo}>{x.titulo}{x.conferido ? '' : ' (conferir na CBO)'}</option>)}</datalist>
 
                 <div className="space-y-2 border-t border-slate-200 p-4 dark:border-slate-700">
                     {erros.length > 0 && <ul role="alert" className="list-disc rounded bg-red-50 p-2 pl-6 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erros.map(e => <li key={e}>{e}</li>)}</ul>}

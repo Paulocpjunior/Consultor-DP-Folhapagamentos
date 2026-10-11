@@ -3895,3 +3895,20 @@ Paulo: "pode seguir com a folha complementar".
 - **eSocial:** a tela "S-1200 e S-1210" carrega as complementares gravadas da competência e põe cada uma num demonstrativo próprio (`COMP{AAAAMM}{tipo}-{matrícula}`) com `infoPerAnt/ideADC` (dtAcConv, tpAcConv, dsc, remunSuc N) e um `idePeriodo` por mês de referência com as diferenças e o INSS do mês; o IRRF vai no último mês. O pagamento entra no S-1210 junto com a folha. Conferido no XSD oficial do S-1.3. Quem não está na folha do mês (desligado) ainda não sai: aviso.
 - **Catálogo SAGE:** Folha Complementar passa de planejado a parcial (19 disponíveis, 21 parciais, 8 planejados, 3 fora).
 - **Testes:** validação, reajuste (INSS por mês, FGTS, IRRF somado, teto, aprendiz), RRA, lançamentos, sugestão pela convenção, S-1200 no XSD, tela e regras.
+
+## 11/10/2026 — Folha de empregados domésticos
+
+Paulo: "pode seguir com folha de domésticas" (caseiro, cozinheira, babá, entre outros).
+
+- **Regras** (`services/domestico/domestico.ts`; LC 150/2015), conferidas em busca pública (11/10/2026):
+  - FGTS de 8% e mais **3,2% de indenização compensatória** (art. 22) sobre a mesma base, no mensal, no 13º e na rescisão;
+  - **doença:** o INSS paga desde o 1º dia; o empregador doméstico não paga os 15 primeiros dias (Lei 8.213/1991, art. 60);
+  - **salário-maternidade** pago direto pelo INSS (Lei 8.213/1991, art. 73, I): sem salário no período, com o FGTS (8% + 3,2%) sobre a remuneração dos dias (Decreto 99.684/1990, art. 28, IV); prorrogação da Empresa Cidadã não se aplica (aviso);
+  - **férias** em até 2 períodos, um com 14 dias ou mais (art. 17, § 2º): avisos no recibo; sem o aviso dos 5 dias da CLT;
+  - **rescisão:** sem multa de 40% ou 20%; os 3,2% vão para o empregado na dispensa sem justa causa e voltam ao empregador na justa causa, no pedido de demissão e no fim do contrato a termo (art. 22, § 1º), metade na culpa recíproca; no fim do contrato a termo, sem os 3,2% no mês (como o eSocial Doméstico); aviso do seguro-desemprego do doméstico (3 parcelas de um salário mínimo; art. 26);
+  - **DAE:** INSS do empregado, INSS do empregador 8%, GILRAT 0,8%, FGTS 8%, indenização 3,2%, IRRF, menos o salário-família; vencimento no dia 7 do mês seguinte, antecipado para o dia útil anterior (art. 35).
+- **Cálculo › Folha mensal:** com domésticos na folha, o quadro "DAE do eSocial Doméstico" mostra os valores esperados e o vencimento. O holerite em PDF mostra os 3,2%.
+- **eSocial:** o empregador doméstico escritura pelo eSocial Doméstico (módulo web, que gera o DAE): o S-1200 e o S-2299 da categoria 104 não saem pelo Consultor (erro com a orientação).
+- **Ficha:** com a categoria 104, o campo CBO sugere as funções domésticas (serviços gerais/caseiro 5121-05 e babá 5162-05 conferidos na CBO; cozinheiro, cuidador, jardineiro e motorista marcados para conferir).
+- **Catálogo SAGE:** Cálculo da Folha cita os domésticos.
+- **Testes:** mensal (FGTS + 3,2%, doença, maternidade), 13º, férias (2 períodos), rescisão (sem justa causa, pedido, contrato a termo), DAE (composição e vencimento), eSocial e o quadro do DAE.
