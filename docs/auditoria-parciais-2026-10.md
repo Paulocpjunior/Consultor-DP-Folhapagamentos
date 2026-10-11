@@ -6,12 +6,16 @@ a ordem de entrega.
 
 ## Resultado
 
-| Situação | Antes | Depois desta auditoria |
-| --- | --- | --- |
-| Disponível | 29 | 35 |
-| Parcial | 21 | 16 |
-| Planejado | 1 | 0 |
-| Fora do escopo | 2 | 2 |
+| Situação | Antes | Depois desta auditoria | Fim do dia 11/10 (PRs #195 a #209) |
+| --- | --- | --- | --- |
+| Disponível | 29 | 35 | 50 |
+| Parcial | 21 | 16 | 1 |
+| Planejado | 1 | 0 | 0 |
+| Fora do escopo | 2 | 2 | 2 |
+
+O único parcial é a integração contábil direta (`div-contabil`), que depende do layout de importação do Consultor
+Contábil (CCI) ou do acesso ao `plano-contas-iob`. Fora do escopo: SST (empresa de medicina do trabalho) e SEFIP
+(substituída pelo FGTS Digital).
 
 ### Já completos, reclassificados como disponíveis
 
@@ -32,9 +36,9 @@ O layout de importação de valores do IOB SAGE FOLHAMATIC **já está no Consul
 arquivo e lança no movimento do mês. A "Digitação diária" é o próprio movimento do Cálculo mensal; a importação da
 SEFIP não se aplica (eSocial e FGTS Digital).
 
-**O que ainda preciso do IOB (só para um item):** prints das abas **Complementos**, **Lanç. Automático** e
-**Holerite** da ficha do funcionário no IOB Office (Arquivos › Funcionários › Cadastro Básico), com os campos
-visíveis. Sem eles não dá para saber quais campos essas abas têm.
+**Do IOB não falta mais nada.** Os prints das abas Complementos, Lanç. Automático e Holerite deixaram de ser
+necessários: o inventário do backup (06/10/2026) traz as colunas da `func`, a `lancauto` e a `mensa` (Paulo:
+"você tem os backups com os dados necessários"); entregue no PR #209.
 
 ### Parciais que faltam (16), em ordem de entrega
 

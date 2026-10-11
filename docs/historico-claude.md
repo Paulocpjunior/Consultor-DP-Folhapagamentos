@@ -4817,3 +4817,32 @@ Paulo: *"VOCÊ TEM OS BACKUPS COM OS DADOS NECESSÁRIOS"*. Os prints do Office n
   - a carga da `func` e da `lancauto`;
   - a tela da mensagem geral.
 
+## 11/10/2026 — Status ao fim do dia (Paulo: "atualize nosso status")
+
+- **Catálogo SAGE:** 50 disponíveis, 1 parcial e 2 fora do escopo (SST e SEFIP). Nenhum planejado.
+- **Rodada da auditoria dos parciais:** os 16 itens da lista, menos a integração contábil, foram entregues em PRs mergeados e publicados (deploy e regras), do #195 ao #209:
+  - 13º (parcela única e 1ª com as férias);
+  - estorno do cálculo;
+  - 13º no processamento agrupado;
+  - ficha financeira com férias, 13º e rescisão;
+  - listagens (sindicatos e etiquetas);
+  - holerite por e-mail;
+  - Crédito do Trabalhador;
+  - escalas;
+  - diagnóstico do cadastro;
+  - início da DCTFWeb e do FGTS Digital;
+  - fórmula por evento;
+  - processo trabalhista (tipos 8 e 9, Justiça Comum);
+  - pagamento de guias;
+  - RRA na complementar;
+  - abas Complementos, Lanç. automático e Holerite.
+- **Testes:** 1310, com tsc, build e regras do Firestore verdes. Nenhum PR aberto.
+- **Depende do Paulo:**
+  - integração contábil direta: layout do CCI ou acesso ao `plano-contas-iob`;
+  - divergências da rodada 09/2026 da 1200 (#61);
+  - plataforma P2 no ar (#81).
+- **A conferir no uso real:**
+  - o primeiro RRA transmitido: o S-5002, para a rubrica de IRRF dentro do demonstrativo com indRRA;
+  - a leitura da `lancauto` num backup com dados (marcas dos meses);
+  - a consulta automática do DARF pago no e-CAC, que depende de uma rota nova no CFI.
+
