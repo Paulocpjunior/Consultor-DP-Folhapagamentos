@@ -4143,3 +4143,21 @@ Paulo: "pode seguir". Continuação do S-2500/S-2501 da semana: a primeira vers�
 - **Fora, de propósito:** unicidade contratual (9), responsabilidade indireta (8) e Justiça Comum, que continuam pelo IOB ou pelo portal.
 - **Catálogo SAGE:** `es-processo-trab` continua parcial, com o texto atualizado.
 - **Testes:** cada tipo de contrato validado no XSD oficial S-1.3 (5, 7, 2/4, 6 com e sem S-2300), mudança de categoria, depósito judicial 4 e 5, erros por campo e a tela com o reconhecimento de vínculo de quem não tem ficha.
+
+## 11/10/2026 — EFD-Reinf do DP: decisão de não construir o R-4010
+
+Paulo: "pode seguir com a reinf do dp". Antes de construir, levantei o que já existe:
+
+- O CFI tem o gateway que assina e transmite a Reinf (`reinf-gateway-routes.js`), aberto só ao próprio CFI e ao Contábil, mas não tem tela de envio.
+- O app Contábil (CCI, `plano-contas-iob`) gera e transmite os R-4010 de aluguéis (13002) e lucros (12001) e fecha o período com o R-4099.
+- Na folha, todos os pagamentos a pessoa física já vão pelo eSocial: salário, pró-labore e RPA pelo S-1200/S-1210, e o judicial trabalhista pelo S-2500/S-2501. Para o R-4010 do DP sobravam casos raros (Justiça Comum, pessoa física no exterior).
+
+Decisões do Paulo:
+
+- **Casos de R-4010 do DP nos clientes:** nenhum hoje. O R-4010 não é construído agora.
+- **Se aparecer um caso:** o R-4010 "deve sair pelo app do DP, não cria dependência de outros departamentos". Não vai pela fila do Contábil nem por uma tela do Fiscal no CFI.
+
+O que muda:
+
+- **Catálogo SAGE:** `trib-reinf` passa a disponível, com destino na DCTFWeb da folha. A parte do DP é conferir a Reinf no semáforo de insumos antes de transmitir a declaração, o que já existe desde o DP #174. Aluguéis, lucros, serviços tomados e o R-4099 ficam com o Contábil.
+- Agora são 23 disponíveis, 20 parciais, 7 planejados e 2 fora.
