@@ -148,3 +148,36 @@ describe('rescisão', () => {
         expect(pagoAntes.avisos.join(' ')).not.toContain('O prazo de pagamento cai');
     });
 });
+
+describe('motivos 05, 10 e 17 da Tabela 19', () => {
+    it('culpa recíproca (05): metade do aviso, do 13º e das férias proporcionais; vencidas inteiras; multa de 20%', () => {
+        const dispensa = calc({ saldoFgts: 1000000 });
+        const culpa = calc({ tipo: '05', saldoFgts: 1000000 });
+        expect(culpa.situacao).not.toBe('erro');
+        expect(v(culpa, 'AVISO')).toBe(Math.round(v(dispensa, 'AVISO') / 2));
+        // Projeção pela metade do aviso: os avos podem mudar; o 13º e as proporcionais saem pela metade dos avos de cada um.
+        expect(v(culpa, '13PROP')).toBe(Math.round(v(dispensa, '13PROP') / 2));
+        expect(v(culpa, 'FV')).toBe(v(dispensa, 'FV'));
+        expect(culpa.percentualMulta).toBe(20);
+        expect(culpa.multaFgts).toBe(Math.round((1000000 + culpa.fgts) * 0.2));
+        expect(culpa.saqueFgts).toMatch(/art\. 18, § 2º/);
+        expect(culpa.memoria.join(' ')).toMatch(/Súmula 14/);
+    });
+    it('falecimento (10): sem aviso, sem multa, sem IRRF; 13º e férias proporcionais devidos', () => {
+        const r = calc({ tipo: '10', aviso: 'dispensado', saldoFgts: 1000000 });
+        expect(r.situacao).not.toBe('erro');
+        expect(v(r, 'AVISO')).toBe(0);
+        expect(v(r, '13PROP')).toBeGreaterThan(0);
+        expect(r.verbas.some(x => x.codigo === 'FP')).toBe(true);
+        expect(r.verbas.some(x => x.codigo === 'IRRF' || x.codigo === 'IRRF13')).toBe(false);
+        expect(r.percentualMulta).toBe(0); expect(r.multaFgts).toBe(0);
+        expect(r.saqueFgts).toMatch(/dependentes .* art\. 20, IV/);
+        expect(r.avisos.join(' ')).toMatch(/Lei 6\.858\/1980/);
+    });
+    it('rescisão indireta (17): como a dispensa sem justa causa, com o aviso do processo', () => {
+        const dispensa = calc({ saldoFgts: 1000000 });
+        const ind = calc({ tipo: '17', saldoFgts: 1000000 });
+        expect([v(ind, 'AVISO'), v(ind, '13PROP'), ind.multaFgts, ind.percentualMulta]).toEqual([v(dispensa, 'AVISO'), v(dispensa, '13PROP'), dispensa.multaFgts, 40]);
+        expect(ind.avisos.join(' ')).toMatch(/S-2500/);
+    });
+});

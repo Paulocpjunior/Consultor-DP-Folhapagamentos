@@ -157,10 +157,10 @@ export function calcularPrevia(e: EntradaPrevia): ResultadoCenario[] {
     });
 }
 
-export const rotuloCenario = (c: Pick<CenarioDemissao, 'tipo' | 'aviso'>) => `${TIPOS_RESCISAO[c.tipo]}${['02', '33', '07'].includes(c.tipo) ? ` · aviso ${({ indenizado: 'indenizado', trabalhado: 'trabalhado', dispensado: 'dispensado', 'nao-cumprido': 'não cumprido' } as Record<AvisoPrevio, string>)[c.aviso]}` : ''}`;
+export const rotuloCenario = (c: Pick<CenarioDemissao, 'tipo' | 'aviso'>) => `${TIPOS_RESCISAO[c.tipo]}${['02', '33', '07', '05', '17'].includes(c.tipo) ? ` · aviso ${({ indenizado: 'indenizado', trabalhado: 'trabalhado', dispensado: 'dispensado', 'nao-cumprido': 'não cumprido' } as Record<AvisoPrevio, string>)[c.aviso]}` : ''}`;
 export const sacaFgts = (tipo: TipoRescisao) => (tipo === '33' ? 'Saca 80% do FGTS' : PERMITE_SAQUE_FGTS.includes(tipo) ? 'Saca o FGTS' : 'Não saca o FGTS');
-/** Seguro-desemprego só na dispensa sem justa causa (e rescisão indireta): aqui, motivos 02 e 03. O direito depende dos meses trabalhados. */
-export const podeSeguroDesemprego = (tipo: TipoRescisao) => tipo === '02' || tipo === '03';
+/** Seguro-desemprego só na dispensa sem justa causa e na rescisão indireta (motivos 02, 03 e 17). O direito depende dos meses trabalhados. */
+export const podeSeguroDesemprego = (tipo: TipoRescisao) => tipo === '02' || tipo === '03' || tipo === '17';
 
 /** Resumo gravado no histórico (sem as verbas: elas se recalculam pelos parâmetros). */
 export interface ResumoCenario { tipo: TipoRescisao; aviso: AvisoPrevio; data: string; liquido: number; custoTotal: number; multaFgts: number; multaEstimada: boolean }

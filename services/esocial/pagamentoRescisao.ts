@@ -62,6 +62,7 @@ export function gerarS1210Rescisao(e: EntradaS1210Rescisao): ResultadoS1210Resci
     else if (e.dataPagamento < r.data) erros.push(`Pagamento em ${br(e.dataPagamento)}, antes do desligamento (${br(r.data)}).`);
     else if (r.pagarAte && e.dataPagamento > r.pagarAte) avisos.push(`Pagamento em ${br(e.dataPagamento)}, depois do prazo de 10 dias (${br(r.pagarAte)}): multa do art. 477, § 8º, da CLT (um salário), se não houver motivo.`);
     if (r.situacao !== 'calculado') erros.push(`Rescisão ${r.situacao === 'erro' ? 'com erro' : 'incompleta'}: confira o cálculo.`);
+    if (r.tipo === '10') erros.push('Falecimento do empregado: não há S-1210 do pagamento da rescisão; quem recebe (dependentes ou sucessores) é identificado na EFD-Reinf (MOS, S-2299, item 11.1).');
     if (r.totais.liquido < 0) erros.push('Líquido da rescisão negativo.');
     // O IRRF do cálculo segue a tabela do mês do pagamento usado nele: outro mês mudaria o imposto.
     if (/^\d{4}-\d{2}$/.test(r.pagamento) && r.pagamento !== perApur) erros.push(`A rescisão foi calculada com pagamento em ${mes(r.pagamento)}, e a data é de ${mes(perApur)}: ajuste o "Mês do pagamento" da rescisão (tabela do IRRF) e gere de novo.`);

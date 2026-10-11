@@ -128,3 +128,31 @@ describe('S-2299 pelo Consultor', () => {
         expect(statusPorRef(ref, 'S-2299', [], { recibo: '', detalhe: 'importado' }).situacao).toBe('iob');
     });
 });
+
+describe('S-2299 dos motivos 05, 10 e 17', () => {
+    const r = (tipo: '05' | '10' | '17', aviso: 'indenizado' | 'dispensado' = 'indenizado') => calcularRescisao({ ficha: FICHA, data: '2026-10-05', tipo, aviso, afastamentos: [], tabelas: TAB, movimentos: {} });
+    it('falecimento (10): indApurIR 1, sem aviso indenizado, sem S-1210; passa no XSD', async () => {
+        const x = r('10', 'dispensado');
+        expect(x.situacao).toBe('calculado');
+        const g = gerarS2299({ cnpj: CNPJ, tpAmb: 2, ficha: FICHA, rescisao: x, rubricas: RUBRICAS, parametros: comSugestoes(FOLHA, x), hoje: '2026-10-06', agora: new Date('2026-10-06T12:00:00Z') });
+        expect(g.erros).toEqual([]);
+        const xml = g.evento!.xml;
+        expect(xml).toContain('<mtvDeslig>10</mtvDeslig>');
+        expect(xml).toContain('<indPagtoAPI>N</indPagtoAPI>');
+        expect(xml).not.toContain('<indApurIR>0</indApurIR>');
+        expect(xml).toContain('<indApurIR>1</indApurIR>');
+        expect(g.avisos.join(' ')).toMatch(/sem S-1210/);
+        expect(await validarPeloXsd(xml, lerXsd)).toEqual({ valido: true, erros: [] });
+    });
+    it('culpa recíproca (05) e rescisão indireta (17): aviso indenizado; passam no XSD', async () => {
+        for (const tipo of ['05', '17'] as const) {
+            const x = r(tipo);
+            const g = gerarS2299({ cnpj: CNPJ, tpAmb: 2, ficha: FICHA, rescisao: x, rubricas: RUBRICAS, parametros: comSugestoes(FOLHA, x), hoje: '2026-10-06', agora: new Date('2026-10-06T12:00:00Z') });
+            expect(g.erros, tipo).toEqual([]);
+            expect(g.evento!.xml).toContain(`<mtvDeslig>${tipo}</mtvDeslig>`);
+            expect(g.evento!.xml).toContain('<indPagtoAPI>S</indPagtoAPI>');
+            expect(g.avisos.join(' ')).not.toMatch(/parte trabalhada/);
+            expect(await validarPeloXsd(g.evento!.xml, lerXsd)).toEqual({ valido: true, erros: [] });
+        }
+    });
+});

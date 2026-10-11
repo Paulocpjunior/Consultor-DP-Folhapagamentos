@@ -17,7 +17,7 @@
 import type { FichaFuncionario } from '../cadastros/funcionarios';
 import type { Verba } from '../calculo/motorMensal';
 import type { ResultadoRescisao } from '../calculo/motorRescisao';
-import { PERMITE_SAQUE_FGTS } from '../calculo/motorRescisao';
+import { AVISO_PELA_METADE, PERMITE_SAQUE_FGTS } from '../calculo/motorRescisao';
 import { cpfValido } from '../cadastros/documentos';
 import { vigenciaEm, type Rubrica } from '../cadastros/rubricas';
 import { diaUtilAnterior, somarDias } from '../prazos/calendario';
@@ -166,7 +166,7 @@ export function gerarS2299(e: EntradaS2299): ResultadoS2299 {
     if (dtAv && (!DATA.test(dtAv) || dtAv > r.data || (d.admissao && dtAv < d.admissao))) erros.push('Data do aviso prévio: entre a admissão e o desligamento.');
     // Aviso com parte trabalhada (inteiro ou misto, MOS item 3.1): a data em que foi dado vai no dtAvPrv.
     const diasIndenizados = DATA.test(r.dataProjetada) && r.dataProjetada > r.data ? Math.round((Date.parse(r.dataProjetada) - Date.parse(r.data)) / 86_400_000) : 0;
-    const integralIndenizado = r.tipo === '33' ? Math.floor(r.diasAviso / 2) : r.diasAviso;
+    const integralIndenizado = AVISO_PELA_METADE.includes(r.tipo) ? Math.floor(r.diasAviso / 2) : r.diasAviso;
     if (!dtAv && r.diasAviso > 0 && diasIndenizados < integralIndenizado) avisos.push('Aviso prévio com parte trabalhada: informe a data em que o aviso foi dado.');
     if (indenizado && (!DATA.test(r.dataProjetada) || r.dataProjetada < r.data)) erros.push('Aviso indenizado sem a data projetada do fim do contrato.');
 
@@ -209,11 +209,13 @@ export function gerarS2299(e: EntradaS2299): ResultadoS2299 {
     if (r.totais.liquido < 0) erros.push('Líquido da rescisão negativo: confira os descontos.');
     if (erros.length) return sair();
 
+    // Falecimento: as verbas vão aos dependentes, e o eSocial não apura o IRRF delas (indApurIR 1; MOS, S-2299, item 11.1).
+    const falecimento = r.tipo === '10';
     const grauExp = /^[123]\d\d$|^73[148]$/.test(categ) ? `<infoAgNocivo><grauExp>${/^[1-4]$/.test(d.grauExp ?? '') ? d.grauExp : '1'}</grauExp></infoAgNocivo>` : '';
     if (grauExp && !/^[1-4]$/.test(d.grauExp ?? '')) avisos.push('Grau de exposição a agentes nocivos em branco na ficha: vai 1 (sem exposição). Confira com o S-2240.');
     const simples = p.indSimples ? `<infoSimples><indSimples>${p.indSimples}</indSimples></infoSimples>` : '';
     const detVerbas = [...itens.values()].map(i => `<detVerbas><codRubr>${esc(i.rub.codRubr)}</codRubr><ideTabRubr>${esc(i.rub.ideTabRubr)}</ideTabRubr>`
-        + `${i.qtd > 0 ? `<qtdRubr>${i.qtd.toFixed(2)}</qtdRubr>` : ''}<vrRubr>${valor(i.valor)}</vrRubr><indApurIR>0</indApurIR>${descFolhaXml(i.descFolha)}</detVerbas>`).join('');
+        + `${i.qtd > 0 ? `<qtdRubr>${i.qtd.toFixed(2)}</qtdRubr>` : ''}<vrRubr>${valor(i.valor)}</vrRubr><indApurIR>${falecimento ? 1 : 0}</indApurIR>${descFolhaXml(i.descFolha)}</detVerbas>`).join('');
     const obs = (e.observacao ?? '').trim();
     // Sequencial pelo milésimo, como no S-1200: duas gerações no mesmo segundo não repetem o Id.
     const agora = e.agora ?? new Date();
@@ -234,7 +236,8 @@ export function gerarS2299(e: EntradaS2299): ResultadoS2299 {
         + '</infoDeslig></evtDeslig></eSocial>';
 
     if (PERMITE_SAQUE_FGTS.includes(r.tipo)) avisos.push(`Motivo ${r.tipo}: o FGTS Digital gera a guia rescisória (com a multa, quando houver) a partir deste S-2299.`);
-    avisos.push(`O pagamento das verbas (S-1210, demonstrativo ${ide}) vai no mês em que a rescisão for paga, antes do fechamento (S-1299).`);
+    if (falecimento) avisos.push('Falecimento: verbas com indApurIR 1 e sem S-1210 do pagamento; quem recebe é identificado na EFD-Reinf (MOS, S-2299, item 11.1). Envie em até 10 dias da ciência do óbito.');
+    else avisos.push(`O pagamento das verbas (S-1210, demonstrativo ${ide}) vai no mês em que a rescisão for paga, antes do fechamento (S-1299).`);
     return { evento: { id, xml }, ideDmDev: ide, prazo, erros, avisos };
 }
 
