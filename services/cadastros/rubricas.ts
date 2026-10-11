@@ -58,6 +58,13 @@ export const rotuloIrrf = (c: string) => rotuloCodigo(COD_INC_IRRF, c, 'Tabela 2
 
 export interface DadosRubrica {
     dscRubr: string; natRubr: string; tpRubr: string; codIncCP: string; codIncIRRF: string; codIncFGTS: string; codIncCPRP: string; observacao: string;
+    /**
+     * Incidência suspensa (códigos 9x): os processos do S-1070 que a suspendem. CP: tipo, número, extensão (1 patronal;
+     * 2 patronal e segurados) e o código da suspensão; IRRF: número e código; FGTS: número.
+     */
+    processosCP?: { tpProc: '1' | '2'; nrProc: string; extDecisao: '1' | '2'; codSusp: string }[];
+    processosIRRF?: { nrProc: string; codSusp: string }[];
+    processosFGTS?: { nrProc: string }[];
 }
 export interface VigenciaRubrica { iniValid: string; fimValid: string; dados: DadosRubrica; recibo: string }
 
@@ -151,7 +158,12 @@ const val = (e: Element | null | undefined, caminho: string) => no(e, caminho)?.
 
 function lerDados(e: Element | undefined): DadosRubrica | undefined {
     if (!e) return undefined;
-    return { dscRubr: val(e, 'dscRubr'), natRubr: val(e, 'natRubr'), tpRubr: val(e, 'tpRubr'), codIncCP: val(e, 'codIncCP'), codIncIRRF: val(e, 'codIncIRRF'), codIncFGTS: val(e, 'codIncFGTS'), codIncCPRP: val(e, 'codIncCPRP'), observacao: val(e, 'observacao') };
+    const d: DadosRubrica = { dscRubr: val(e, 'dscRubr'), natRubr: val(e, 'natRubr'), tpRubr: val(e, 'tpRubr'), codIncCP: val(e, 'codIncCP'), codIncIRRF: val(e, 'codIncIRRF'), codIncFGTS: val(e, 'codIncFGTS'), codIncCPRP: val(e, 'codIncCPRP'), observacao: val(e, 'observacao') };
+    // Processos do S-1070 das incidências suspensas: vêm junto, para a alteração pelo Consultor não os perder.
+    const cp = filhos(e, 'ideProcessoCP').map(x => ({ tpProc: val(x, 'tpProc') as '1' | '2', nrProc: val(x, 'nrProc'), extDecisao: val(x, 'extDecisao') as '1' | '2', codSusp: val(x, 'codSusp') }));
+    const ir = filhos(e, 'ideProcessoIRRF').map(x => ({ nrProc: val(x, 'nrProc'), codSusp: val(x, 'codSusp') }));
+    const fg = filhos(e, 'ideProcessoFGTS').map(x => ({ nrProc: val(x, 'nrProc') }));
+    return { ...d, ...(cp.length ? { processosCP: cp } : {}), ...(ir.length ? { processosIRRF: ir } : {}), ...(fg.length ? { processosFGTS: fg } : {}) };
 }
 
 export function lerXmlRubricas(nome: string, xml: string, raizCnpj: string): { eventos: EventoRubrica[]; avisos: string[] } {

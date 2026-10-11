@@ -21,6 +21,7 @@ import { mensagemDaTransmissao, transmitirVerificado, verificarAntesDeEnviar } f
 import { avisos as avisosDoPreVoo, bloqueios, textoAchados, type Achado } from '../../services/esocial/preVoo';
 import { statusPorRef, type SituacaoEvento, type StatusEvento } from '../../services/esocial/statusEvento';
 import AchadosPreVoo from './AchadosPreVoo';
+import SeletorProcesso, { useProcessos } from '../processosJud/SeletorProcesso';
 
 const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const btn = 'rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
@@ -251,6 +252,8 @@ const EditorPedido: React.FC<{ pedido: PedidoS1010; rubricas: Rubrica[]; compete
     const conf = validarPedido(p, rubricas, competencia);
     const existente = rubricas.find(r => r.ideTabRubr === p.ideTabRubr && r.codRubr === p.codRubr);
     const setD = (k: keyof DadosRubrica, v: string) => setP(x => ({ ...x, dados: { ...(x.dados ?? pedidoVazio(x.empresaId).dados!), [k]: v } }));
+    const setDados = (d: Partial<DadosRubrica>) => setP(x => ({ ...x, dados: { ...(x.dados ?? pedidoVazio(x.empresaId).dados!), ...d } }));
+    const processos = useProcessos(pedido.empresaId);
     const modelo = p.chaveVerba ? modeloDaVerba(p.chaveVerba) : undefined;
 
     function escolherRubrica(chave: string) {
@@ -309,6 +312,17 @@ const EditorPedido: React.FC<{ pedido: PedidoS1010; rubricas: Rubrica[]; compete
                     <label>IRRF (codIncIRRF, Tabela 21)<input aria-label="Incidência do IRRF" maxLength={4} className={`block w-full font-mono ${inp}`} value={p.dados.codIncIRRF} onChange={e => setD('codIncIRRF', e.target.value.replace(/\D/g, ''))} />
                         <span className="text-xs text-slate-500">{rotuloIrrf(p.dados.codIncIRRF)}</span></label>
                     <label className="sm:col-span-2">Observação (opcional)<input aria-label="Observação da rubrica" maxLength={255} className={`block w-full ${inp}`} value={p.dados.observacao} onChange={e => setD('observacao', e.target.value)} /></label>
+                    {(/^9\d$/.test(p.dados.codIncCP) || /^9\d$|^9\d{3}$/.test(p.dados.codIncIRRF) || /^9\d$/.test(p.dados.codIncFGTS)) && (
+                        <div aria-label="Processos da incidência suspensa" className="flex flex-wrap items-end gap-3 sm:col-span-3">
+                            {/^9\d$/.test(p.dados.codIncCP) && <>
+                                <SeletorProcesso rotulo="Processo da contribuição previdenciária" processos={processos} valor={p.dados.processosCP?.[0]} onChange={e => setDados({ processosCP: e ? [{ ...e, extDecisao: p.dados!.processosCP?.[0]?.extDecisao ?? '1' }] : undefined })} />
+                                <label className="text-xs">Extensão da decisão<select aria-label="Extensão da decisão" className={`block ${inp}`} value={p.dados.processosCP?.[0]?.extDecisao ?? '1'} disabled={!p.dados.processosCP?.length} onChange={e => setDados({ processosCP: p.dados!.processosCP!.map(x => ({ ...x, extDecisao: e.target.value as '1' | '2' })) })}>
+                                    <option value="1">Patronal</option><option value="2">Patronal e segurados</option></select></label>
+                            </>}
+                            {/^9\d$|^9\d{3}$/.test(p.dados.codIncIRRF) && <SeletorProcesso rotulo="Processo do IRRF" soJudicial processos={processos} valor={p.dados.processosIRRF?.[0] ? { tpProc: '2', ...p.dados.processosIRRF[0] } : null} onChange={e => setDados({ processosIRRF: e ? [{ nrProc: e.nrProc, codSusp: e.codSusp }] : undefined })} />}
+                            {/^9\d$/.test(p.dados.codIncFGTS) && <SeletorProcesso rotulo="Processo do FGTS" soJudicial semSuspensao processos={processos} valor={p.dados.processosFGTS?.[0] ? { tpProc: '2', nrProc: p.dados.processosFGTS[0].nrProc, codSusp: '' } : null} onChange={e => setDados({ processosFGTS: e ? [{ nrProc: e.nrProc }] : undefined })} />}
+                        </div>
+                    )}
                 </div>
             )}
             {modelo?.nota && <p role="note" className="rounded bg-amber-50 p-2 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">{modelo.nota}</p>}
