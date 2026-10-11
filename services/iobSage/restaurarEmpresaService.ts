@@ -1,13 +1,14 @@
 // services/iobSage/restaurarEmpresaService.ts
 //
 // Grava o plano de restauração da empresa, na ordem em que um depende do
-// outro: fichas → enquadramento → afastamentos e férias → movimentos. Cada
+// outro: fichas → enquadramento → afastamentos e férias → movimentos → ficha financeira do SAGE. Cada
 // gravação usa o serviço de sempre (com auditoria e as mesmas regras).
 // Os parâmetros da restauração ficam no navegador e valem para as próximas.
 
 import type { Empresa } from '../empresas/empresasTypes';
 import { gravarAfastamentosImportados, gravarEnquadramentosEmLote, gravarImportacao, listarAfastamentos, listarFuncionarios, listarTodosEnquadramentos, type Usuario } from '../cadastros/cadastrosService';
 import { listarMovimentosDaEmpresa, salvarMovimentos } from '../calculo/movimentosService';
+import { gravarHistoricoSage } from '../relatorios/historicoSageService';
 import { parametrosPadrao, type Existentes, type ParametrosRestauracao, type PlanoRestauracao } from './restaurarEmpresa';
 
 const CHAVE = 'dp_restauracao_parametros';
@@ -45,5 +46,10 @@ export async function gravarRestauracao(plano: PlanoRestauracao, empresa: Empres
         aoProgresso(`Gravando o histórico da folha: ${n} de ${plano.movimentos.length} mês(es)…`);
         await salvarMovimentos(empresa.id, c, itens.map(i => ({ fichaId: i.fichaId, antes: i.antes, depois: i.depois })), u);
         n += itens.length;
+    }
+    if (plano.fichaFinanceira.length) {
+        const total = plano.fichaFinanceira.length;
+        aoProgresso(`Gravando a ficha financeira do SAGE: 0 de ${total}…`);
+        await gravarHistoricoSage(plano.fichaFinanceira, u, origem, k => aoProgresso(`Gravando a ficha financeira do SAGE: ${k} de ${total}…`));
     }
 }

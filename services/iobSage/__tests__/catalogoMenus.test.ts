@@ -34,6 +34,13 @@ describe('catálogo IOB SAGE × Consultor DP', () => {
         expect(itens.find(i => i.id === 'es-rubricas')?.destino).toBe('cadastros:incidencias');
     });
 
+    it('DIRF extinta: o informe sai pelos S-5002; REINF e DCTFWeb têm a parte do DP (Paulo, 11/10/2026)', () => {
+        expect(itens.find(i => i.id === 'trib-dirf')).toMatchObject({ situacao: 'disponivel', destino: 'relatorios:central' });
+        expect(itens.find(i => i.id === 'trib-reinf')?.situacao).toBe('planejado');
+        expect(itens.find(i => i.id === 'trib-reinf')?.noConsultor).toMatch(/R-4010.*R-4099/);
+        expect(itens.find(i => i.id === 'trib-dctfweb')?.noConsultor).toMatch(/DARF pelo Integra Contador/);
+    });
+
     it('o resumo soma todos os itens', () => {
         const r = resumoSituacao();
         expect(r.disponivel + r.parcial + r.planejado + r.fora).toBe(itens.length);

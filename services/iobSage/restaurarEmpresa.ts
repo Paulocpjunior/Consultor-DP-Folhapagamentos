@@ -9,7 +9,8 @@
 //      salário, cargo, CBO, categoria, sindicato, horas, contrato…);
 //   3. enquadramento (depto, depto_ma, S-1000 do schema);
 //   4. afastamentos (S-2230 transmitidos) e férias gozadas (hist_ferias);
-//   5. histórico da folha (holerith → horas extras, faltas, DSR).
+//   5. histórico da folha (holerith → horas extras, faltas, DSR) e, do mesmo
+//      holerith, a ficha financeira dos anos anteriores (valores por evento).
 // Cada etapa usa as fichas que a anterior deixou (em memória). Nada é gravado
 // aqui: o plano volta com o resumo de cada etapa e a tela grava ao confirmar.
 // Os parâmetros (FPAS padrão, período do histórico, formato das horas,
@@ -32,12 +33,15 @@ import { consolidarAfastamentos, lerXmlAfastamentos, mesclarAfastamentos, type A
 import { TABELA_HIST_FERIAS, gozosDoHistorico, juntarComHistorico } from '../cadastros/feriasDoBackup';
 import { mesclarMovimentos, movimentosDoHolerith, naturezasDosEventos, type ClasseManual, type EventoResumo, type MesclaMovimento } from '../calculo/movimentosDoBackup';
 import type { Movimento } from '../calculo/motorMensal';
+import { historicoDoHolerith, type HistoricoSageAno } from '../relatorios/historicoSage';
 
 export interface ParametrosRestauracao {
     /** FPAS padrão para enquadramento normal sem FPAS no backup (vazio = não aplica). */
     fpas: string; codigoTerceiros: string; terceiros: number;
     /** Histórico da folha e períodos do FAP a partir de (AAAA-MM). */
     historicoDesde: string; fapDesde: string;
+    /** Ficha financeira do SAGE (valores do holerith) a partir de (AAAA-MM). */
+    fichaFinanceiraDesde: string;
     /** Horas do holerith no formato hh,mm. */
     sexagesimal: boolean;
     /** Cria ficha para quem está na func com CPF e matrícula e não tem ficha. */
@@ -53,6 +57,7 @@ export interface ParametrosRestauracao {
 const mesAtras = (meses: number) => { const d = new Date(); d.setMonth(d.getMonth() - meses); return d.toISOString().slice(0, 7); };
 export const parametrosPadrao = (): ParametrosRestauracao => ({
     fpas: '', codigoTerceiros: '', terceiros: 0, historicoDesde: mesAtras(36), fapDesde: `${new Date().getFullYear() - 1}-01`,
+    fichaFinanceiraDesde: `${new Date().getFullYear() - 5}-01`,
     sexagesimal: false, criarFichas: true, mapeamento: {}, eventos: {}, regimes: {},
 });
 
@@ -81,6 +86,8 @@ export interface PlanoRestauracao {
     enquadramentos: PropostaEnquadramento[];
     afastamentos: MesclaAfastamento[];
     movimentos: MesclaMovimento[];
+    /** Ficha financeira do SAGE por funcionário e ano (grava por cima da restauração anterior). */
+    fichaFinanceira: HistoricoSageAno[];
     /** Todos os eventos do holerith no período (para acertar a classificação). */
     eventosHistorico: EventoResumo[];
     /** Arquivos/tabelas de origem, para a auditoria. */
@@ -190,10 +197,11 @@ export async function planejarRestauracao(rest: Leitor, empresa: Empresa, existe
     if (histT) origem.push(`f${codigo}.hist_ferias`);
 
     // 5. Histórico da folha.
-    aoProgresso('5/5 · Histórico da folha…');
+    aoProgresso('5/5 · Histórico da folha e ficha financeira…');
     const holerith = await ler(rest, doSchema('holerith'));
     let movimentos: MesclaMovimento[] = [];
     let eventosHistorico: EventoResumo[] = [];
+    let fichaFinanceira: HistoricoSageAno[] = [];
     if (!holerith) etapas.push({ titulo: 'Histórico da folha', resumo: 'tabela holerith não encontrada', avisos: [] });
     else {
         const nat = naturezasDosEventos(await ler(rest, doSchema('eventos_esocial')), await ler(rest, doSchema('esocialdadosficha_s1010')));
@@ -207,8 +215,17 @@ export async function planejarRestauracao(rest: Leitor, empresa: Empresa, existe
             avisos: [...h.avisos, ...(nat.size ? [] : ['Sem as rubricas do eSocial no backup: eventos reconhecidos só pela descrição.']),
                 ...todos.filter(i => i.erros.length).map(i => `${i.competencia}: ${i.erros.join(' ')} (não grava)`)],
         });
+        const desde = p.fichaFinanceiraDesde || parametrosPadrao().fichaFinanceiraDesde;
+        const ff = historicoDoHolerith(holerith, nat, fichas(), empresa.id, { desde });
+        fichaFinanceira = ff.anos;
+        const anos = [...new Set(ff.anos.map(a => a.ano))].sort();
+        etapas.push({
+            titulo: 'Ficha financeira do SAGE',
+            resumo: `${ff.linhas} lançamento(s) com valor desde ${desde} · ${new Set(ff.anos.map(a => a.fichaId)).size} funcionário(s)${anos.length ? ` em ${anos.join(', ')}` : ''} · ${ff.anos.length} ficha(s) por ano para gravar`,
+            avisos: [...ff.avisos, `Finalidades do holerith (coluna final): ${Object.entries(ff.finalidades).map(([f, n]) => `${f}: ${n}`).join('; ') || 'nenhuma'}. Confira um funcionário com a Ficha Financeira do SAGE.`],
+        });
         origem.push(`f${codigo}.holerith`);
     }
 
-    return { etapas, fichas: fichasPlano, enquadramentos: enqGravaveis, afastamentos, movimentos, eventosHistorico, origem };
+    return { etapas, fichas: fichasPlano, enquadramentos: enqGravaveis, afastamentos, movimentos, fichaFinanceira, eventosHistorico, origem };
 }
