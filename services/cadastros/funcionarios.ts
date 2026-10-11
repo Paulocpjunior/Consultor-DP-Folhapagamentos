@@ -24,7 +24,7 @@ export type CampoExtra = 'codigoIob' | 'horario' | 'banco' | 'agencia' | 'conta'
     | 'adiantamentoPct' | 'valeTransporte' | 'valeTransporteCusto' | 'horasMes'
     | 'insalubridade' | 'baseInsalubridade' | 'baseInsalubridadeValor' | 'periculosidade'
     | 'contribuicaoSindical' | 'oposicaoAssistencial' | 'associadoSindicato'
-    | 'lotacao';
+    | 'lotacao' | 'departamento';
 export type CampoFicha = Exclude<Campo, 'dependentes' | 'matriculaIob'> | CampoExtra;
 export type Situacao = 'ativo' | 'desligado';
 export type ChaveOrigem = CampoFicha | 'dependentes' | 'situacao';
@@ -78,6 +78,7 @@ export const ROTULO: Record<CampoFicha, string> = {
     oposicaoAssistencial: 'Opôs-se à contribuição assistencial (STF, Tema 935)',
     associadoSindicato: 'Filiado ao sindicato (confederativa e mensalidade)',
     lotacao: 'Obra ou lotação tributária (código do S-1020)',
+    departamento: 'Departamento (cadastro; vazio = o do IOB)',
 };
 
 /** Motivos de desligamento (Tabela 19 do eSocial) mais usados; outro código fica como está. */
@@ -133,7 +134,7 @@ export function defCampo(campo: CampoFicha): DefCampo {
 /** Abas na ordem do IOB Office. Complementos, Lanç. Automático e Holerite dependem dos prints do Office. */
 export const ABAS: { id: string; titulo: string; campos: CampoFicha[] }[] = [
     { id: 'dados', titulo: 'Dados', campos: ['nome', 'nascimento', 'sexo', 'estadoCivil', 'raca', 'escolaridade', 'nacionalidade', 'paisNascimento', 'naturalidade', 'mae', 'pai', 'cep', 'logradouro', 'numero', 'complemento', 'bairro', 'municipio', 'uf', 'telefone', 'email'] },
-    { id: 'identAdm', titulo: 'Ident. Adm.', campos: ['codigoIob', 'admissao', 'categoria', 'tipoContrato', 'fimContrato', 'cargo', 'cbo', 'funcao', 'cargoIob', 'departamentoIob', 'salario', 'unidadeSalario', 'horasSemanais', 'horasMes', 'horario', 'jornada', 'horarioTrabalho', 'horarioIntervalo', 'sindicato', 'sindicatoIob', 'estabelecimento', 'lotacao', 'regimeTrabalhista', 'regimePrevidenciario', 'opcaoFgts', 'grauExp', 'dataDesligamento', 'motivoDesligamento', 'dataProjetadaAviso'] },
+    { id: 'identAdm', titulo: 'Ident. Adm.', campos: ['codigoIob', 'admissao', 'categoria', 'tipoContrato', 'fimContrato', 'cargo', 'cbo', 'funcao', 'cargoIob', 'departamentoIob', 'departamento', 'salario', 'unidadeSalario', 'horasSemanais', 'horasMes', 'horario', 'jornada', 'horarioTrabalho', 'horarioIntervalo', 'sindicato', 'sindicatoIob', 'estabelecimento', 'lotacao', 'regimeTrabalhista', 'regimePrevidenciario', 'opcaoFgts', 'grauExp', 'dataDesligamento', 'motivoDesligamento', 'dataProjetadaAviso'] },
     { id: 'adiantVt', titulo: 'Adiant. e VT', campos: ['adiantamentoPct', 'valeTransporte', 'valeTransporteCusto'] },
     { id: 'adicionais', titulo: 'Adicionais', campos: ['insalubridade', 'baseInsalubridade', 'baseInsalubridadeValor', 'periculosidade'] },
     { id: 'sindicato', titulo: 'Sindicato', campos: ['contribuicaoSindical', 'oposicaoAssistencial', 'associadoSindicato'] },

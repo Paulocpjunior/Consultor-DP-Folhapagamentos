@@ -536,6 +536,16 @@ service cloud.firestore {
       allow delete: if podeEmpresa(resource.data.empresaId);
     }
 
+    // Departamentos (e centros de custo) da empresa: departamentos/{empresa}_{código}.
+    match /departamentos/{depId} {
+      allow read: if podeEmpresa(resource.data.empresaId);
+      allow create, update: if gravaNaEmpresa()
+                    && depId == request.resource.data.empresaId + '_' + request.resource.data.codigo
+                    && request.resource.data.nome is string && request.resource.data.nome.size() > 0
+                    && request.resource.data.atualizadoPor == request.auth.uid;
+      allow delete: if podeEmpresa(resource.data.empresaId);
+    }
+
     // Obras e lotações tributárias (S-1005 e S-1020): lotacoes/{empresa}_{codLotacao}.
     match /lotacoes/{lotId} {
       allow read: if podeEmpresa(resource.data.empresaId);

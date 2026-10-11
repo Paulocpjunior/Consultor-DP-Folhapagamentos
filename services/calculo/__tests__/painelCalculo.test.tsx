@@ -42,6 +42,10 @@ const fg = vi.hoisted(() => ({ gravada: null as unknown, gravar: vi.fn(async (..
 vi.mock('../folhaGravadaService', () => ({ lerFolhaGravada: async () => fg.gravada, gravarFolha: (...a: unknown[]) => fg.gravar(...a) }));
 vi.mock('../catalogoEventos', () => ({ carregarEventosIob: async () => (await import('../../../data/eventos-iob-sage.json')).default.eventos }));
 const USER = { uid: 'u1', email: 'dp@escritorio.com.br', role: 'colaborador' } as never;
+const deps = vi.hoisted(() => ({ lista: [] as unknown[] }));
+vi.mock('../../departamentos/departamentosService', () => ({ listarDepartamentos: async () => deps.lista }));
+vi.mock('../../obras/lotacoesService', () => ({ listarLotacoes: async () => [] }));
+vi.mock('../convocacoesService', () => ({ listarConvocacoes: async () => [] }));
 
 beforeEach(() => {
     movs.listarMovimentos.mockReset().mockResolvedValue([]);
@@ -50,6 +54,7 @@ beforeEach(() => {
     movs.listarMovimentosDaEmpresa.mockReset().mockResolvedValue({});
     cad.afastamentos = [];
     cad.enquadramentos = [];
+    deps.lista = [];
     fim.fechamento = null;
     fg.gravada = null; fg.gravar.mockClear();
     cad.erroEnq = '';
@@ -556,5 +561,19 @@ describe('aba Cálculo', () => {
         await clicarGerando(screen.getByText('Exportar Excel'), xlsx.writeFile);
         const wb = xlsx.writeFile.mock.calls.at(-1)![0];
         expect(JSON.stringify(wb.Sheets['Resumo da folha'])).toContain('Parte patronal NÃO CARREGADA');
+    });
+
+    it('folha por departamento: o filtro mostra só os do departamento e o resumo só deles', async () => {
+        deps.lista = [{ empresaId: 'emp1', codigo: 'ADM', nome: 'Administrativo', centroCusto: '', ativo: true }];
+        const ativa = { id: 'emp1', nome: 'Um', cnpj: '11222333000181', codigoSage: '0229', competencia: '2026-03', ativadaPor: 'dp@escritorio.com.br', ativadaEm: 1 };
+        render(<EmpresaAtivaProvider ativa={ativa} trocar={() => {}}><CalculoPanel currentUser={USER} /></EmpresaAtivaProvider>);
+        await waitFor(() => expect(screen.getByText('ANA')).toBeTruthy());
+        const filtro = await screen.findByLabelText('Filtrar a folha');
+        fireEvent.change(filtro, { target: { value: 'depto:ADM' } });
+        // Nenhuma ficha do teste está no ADM: a lista fica vazia, com a contagem do filtro.
+        expect(screen.queryByText('ANA')).toBeNull();
+        expect(screen.getByText(/0 de \d+ · holerites, resumo e Excel deste filtro/)).toBeTruthy();
+        fireEvent.change(filtro, { target: { value: '' } });
+        expect(screen.getByText('ANA')).toBeTruthy();
     });
 });
