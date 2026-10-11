@@ -11,10 +11,11 @@ import type { Empresa } from '../../services/empresas/empresasTypes';
 import { fonteDeBlob } from '../../services/iobSage/backupPostgres';
 import { abrirRestauracao, type Restauracao, type TabelaRestauracao } from '../../services/iobSage/restauracao';
 import type { Codificacao } from '../../services/iobSage/dbf';
-import { CAMPOS_CARGA, TABELAS_COMPLEMENTARES, aplicarComplementos, automaticosDoBackup, complementosFolhaWin, compararComFichas, derivarContrato, historicoSalarialSage, linhaParaCampos, proporMapeamento, rotuloCarga, type CampoCarga, type Comparacao, type LinhaIob, type Mapeamento, type TabelaLida } from '../../services/cadastros/cargaBackupIob';
+import { CAMPOS_CARGA, TABELAS_COMPLEMENTARES, aplicarComplementos, automaticosDoBackup, complementosFolhaWin, mensagemDoBackup, compararComFichas, derivarContrato, historicoSalarialSage, linhaParaCampos, proporMapeamento, rotuloCarga, type CampoCarga, type Comparacao, type LinhaIob, type Mapeamento, type TabelaLida } from '../../services/cadastros/cargaBackupIob';
 import { ROTULO, rotuloAlteracao, type CampoFicha, type FaixaSalarial, type FichaFuncionario } from '../../services/cadastros/funcionarios';
 import { gravarImportacao, mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
 import { CODIFICACOES } from '../iobSage/RestaurarBackupModal';
+import { atualizarParametrosFolha } from '../../services/empresas/empresasService';
 
 interface Props { empresa: Empresa; usuario: Usuario; existentes: FichaFuncionario[]; onFechar: () => void; onGravado: () => void }
 
@@ -37,6 +38,9 @@ const CompletarPeloIobModal: React.FC<Props> = ({ empresa, usuario, existentes, 
     const [marcados, setMarcados] = useState<Set<string>>(new Set());
     const [ocupado, setOcupado] = useState('');
     const [erro, setErro] = useState('');
+    // Mensagem geral do holerite (tabela `mensa`): só para a empresa que ainda não tem uma.
+    const [mensagem, setMensagem] = useState('');
+    const [gravarMensagem, setGravarMensagem] = useState(true);
 
     // Tabelas com mais campos reconhecidos primeiro: a de funcionários tende a subir.
     const tabelas = useMemo(() => (rest?.tabelas ?? [])
@@ -95,6 +99,7 @@ const CompletarPeloIobModal: React.FC<Props> = ({ empresa, usuario, existentes, 
                 }
                 historicos = historicoSalarialSage(lidas.salarios ?? null, lidas.rsalfunc ?? null);
                 automaticos = automaticosDoBackup(lidas.lancauto ?? null);
+                setMensagem(empresa.parametrosFolha?.mensagemHolerite ? '' : mensagemDoBackup(lidas.mensa ?? null));
                 finais = aplicarComplementos(linhas, complementosFolhaWin(lidas.salarios ?? null, lidas.funcdoc ?? null, lidas.esocialdadosficha_s1200_remunperapur ?? null, lidas.rsalfunc ?? null, lidas.cargos ?? null, {
                     dmdev: lidas.esocialdadosficha_s1200_dmdev, contribSind: lidas.esocialdadosficha_s1300_contribsind, histHorarios: lidas.hist_horarios, cadHorarios: lidas.cad_horarios,
                 }));
@@ -112,7 +117,9 @@ const CompletarPeloIobModal: React.FC<Props> = ({ empresa, usuario, existentes, 
         const lista = [...comp.completar, ...comp.novas].filter(r => marcados.has(r.ficha.id));
         setOcupado(`Gravando 0 de ${lista.length}…`); setErro('');
         try {
-            await gravarImportacao(lista, usuario, [...arquivos.map(f => f.name), nomeTabela(tabela)], n => setOcupado(`Gravando ${n} de ${lista.length}…`), 'Backup IOB');
+            if (lista.length) await gravarImportacao(lista, usuario, [...arquivos.map(f => f.name), nomeTabela(tabela)], n => setOcupado(`Gravando ${n} de ${lista.length}…`), 'Backup IOB');
+            // A mensagem do holerite só entra se a empresa ainda não tiver uma (conferido de novo na gravação).
+            if (mensagem && gravarMensagem) await atualizarParametrosFolha(empresa.id, p => (p?.mensagemHolerite ? p : { ...p, mensagemHolerite: mensagem }));
             onGravado();
         } catch (e) { setErro(mensagemErro(e)); setOcupado(''); }
     }
@@ -243,9 +250,15 @@ const CompletarPeloIobModal: React.FC<Props> = ({ empresa, usuario, existentes, 
                                 </ul>
                             </details>
                         )}
+                        {mensagem && (
+                            <label className="flex items-start gap-2 rounded border border-slate-200 p-2 text-sm dark:border-slate-700 dark:text-slate-100">
+                                <input type="checkbox" className="mt-1" aria-label="Gravar a mensagem do holerite" checked={gravarMensagem} onChange={e => setGravarMensagem(e.target.checked)} />
+                                <span>Gravar a mensagem geral do holerite da empresa (tabela <code>mensa</code>): “{mensagem}”. Ela sai em todos os holerites em PDF; dá para mudar em Cadastros › Enquadramento.</span>
+                            </label>
+                        )}
                         <div className="flex justify-end gap-2">
                             <button className={btn} onClick={onFechar}>Cancelar</button>
-                            <button className="rounded bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={!marcados.size || !!ocupado} onClick={gravar}>Gravar {marcados.size} ficha(s)</button>
+                            <button className="rounded bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={(!marcados.size && !(mensagem && gravarMensagem)) || !!ocupado} onClick={gravar}>{marcados.size ? `Gravar ${marcados.size} ficha(s)` : 'Gravar a mensagem do holerite'}</button>
                         </div>
                     </>
                 )}
