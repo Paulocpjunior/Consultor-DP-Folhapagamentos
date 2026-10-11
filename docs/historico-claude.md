@@ -4015,3 +4015,24 @@ Paulo: "pode seguir com ficha financeira com historico da SAGE, porém alguns de
   - holerith → ficha por ano (vínculo, totalizador, vl_des, finalidades);
   - junção com a folha gravada, meses sem folha e PDF;
   - a etapa na restauração, o catálogo e as regras.
+
+## 11/10/2026 — DCTFWeb da folha: semáforo, DARF e transmissão (parte do DP)
+
+Paulo: "pode seguir com dctfweb do DP".
+
+- **Onde:** eSocial › DCTFWeb da folha (`components/dctfweb/DctfwebFolhaPanel.tsx`), da empresa e do período ativos.
+- **O que mostra**, tudo pelo túnel do CFI (Integra Contador, procuração do escritório):
+  - a situação da declaração (em andamento ou transmitida);
+  - o semáforo dos insumos, que é o mesmo do CFI: eSocial (S-1299, do DP), EFD-Reinf (Contábil) e MIT (Fiscal);
+  - os débitos com saldo a pagar;
+  - o vencimento do DARF da folha: dia 20 do mês seguinte, antecipado para o dia útil anterior.
+- **DARF:** sai a qualquer momento. Com a declaração em andamento usa o GERARGUIAANDAMENTO313; com a ativa, o GERARGUIA31. O PDF é baixado na hora; mock do CFI é recusado.
+- **Transmissão:** a regra T1 do CFI (12/08) diz que a transmissão é do Fiscal. A exceção nova, T1-DP, é aplicada pelo CFI:
+  - o DP transmite quando os três insumos estão confirmados, isto é, eSocial recebido e Reinf e MIT recebidos ou sem movimento;
+  - com pendência ou sem confirmação, quem transmite é o Fiscal (ou o admin), com a justificativa gravada (T3);
+  - transmitida, a tela passa para a retificadora, que exige motivo (T5);
+  - a auditoria fica no CFI (`dctfweb_transmissoes` com origem dp e `dp_dctfweb_log`).
+- **CFI:** rotas `/dctfweb/insumos`, `/dctfweb/darf` e `/dctfweb/transmitir` no túnel. Só o DP chama, só nas empresas da carteira, e o perfil (departamentos) vem do cadastro central pelo e-mail.
+- **S-1299:** com "Transmitir a DCTFWeb logo após o fechamento" marcado, a tela avisa para conferir o semáforo antes. Se o Reinf ou o MIT estiverem pendentes, o certo é desmarcar.
+- **Catálogo SAGE:** DCTFWeb passa a disponível (21 disponíveis, 20 parciais, 8 planejados, 2 fora).
+- **Testes:** semáforo (só fica "pronto" com os três lidos), ações da tela, vencimento com feriado e fim de semana, pedido de transmissão e a tela (DARF em andamento, transmissão pelo DP e o Fiscal com justificativa).

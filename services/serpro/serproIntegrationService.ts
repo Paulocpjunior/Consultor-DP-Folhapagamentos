@@ -124,3 +124,27 @@ export interface DctfWebDebitosResult {
 export async function consultarDctfWebDebitos(cnpj: string, competencia: string): Promise<DctfWebDebitosResult> {
     return callFiscal<DctfWebDebitosResult>('/dctfweb/debitos', { cnpj, competencia });
 }
+
+// ─── DCTFWeb da folha (parte do DP) ─────────────────────────────────────
+// Rotas do túnel só do Consultor DP e da carteira (CFI: dp-integration-routes.js): semáforo dos insumos, DARF e
+// transmissão com as travas do CFI (o DP transmite só com os três insumos confirmados).
+
+export interface DctfWebDarfResult {
+    ok: boolean; emAndamento: boolean; valor: number | null; numeroDocumento: string; codigoBarras: string; vencimento: string;
+    pdfBase64: string; mensagens: unknown[]; fonte: string; error?: string;
+}
+export interface DctfWebTransmissaoResult { numeroRecibo?: string; transmitidoEm?: string; situacao?: string; retificadora?: boolean; comparacao?: unknown; fonte?: string }
+
+export async function consultarInsumosDctfweb(empresaId: string, cnpj: string, competencia: string): Promise<unknown> {
+    return callFiscal<unknown>('/dctfweb/insumos', { empresaId, cnpj, competencia });
+}
+
+export async function gerarDarfDctfweb(empresaId: string, cnpj: string, competencia: string, emAndamento: boolean): Promise<DctfWebDarfResult> {
+    return callFiscal<DctfWebDarfResult>('/dctfweb/darf', { empresaId, cnpj, competencia, emAndamento });
+}
+
+export async function transmitirDctfweb(empresaId: string, cnpj: string, competencia: string, opcoes: {
+    retificadora?: boolean; motivo?: string; confirmarInsumosPendentes?: boolean; justificativa?: string;
+} = {}): Promise<DctfWebTransmissaoResult> {
+    return callFiscal<DctfWebTransmissaoResult>('/dctfweb/transmitir', { empresaId, cnpj, competencia, ...opcoes });
+}

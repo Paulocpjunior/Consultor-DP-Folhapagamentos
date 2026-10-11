@@ -169,6 +169,12 @@ const ESocialTransmissao: React.FC<Props> = ({ usuario }) => {
                     ))}
                 </fieldset>
                 <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Os indicadores dizem ao eSocial quais eventos periódicos existem no período: ele confere com o que recebeu. Leiaute S-1.3.</p>
+                {info.transDCTFWeb && (
+                    <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                        Com "Transmitir a DCTFWeb logo após o fechamento", a declaração pode ser entregue antes da EFD-Reinf e do MIT. Confira os insumos em eSocial › DCTFWeb da folha:
+                        se o Reinf ou o MIT estiverem pendentes, desmarque e deixe a transmissão para depois.
+                    </p>
+                )}
                 <div className="mt-3 flex flex-wrap gap-2">
                     <button className={btnP} disabled={!podeEnviar} onClick={() => transmitir([{ ...gerarS1299({ cnpj: ativa.cnpj, perApur, tpAmb, info }), tipo: 'S-1299' }], `o fechamento (S-1299) de ${compBr(perApur)}`)}>Transmitir fechamento (S-1299)</button>
                     <button className={btn} disabled={!podeEnviar} onClick={() => transmitir([{ ...gerarS1298({ cnpj: ativa.cnpj, perApur, tpAmb }), tipo: 'S-1298' }], `a reabertura (S-1298) de ${compBr(perApur)}`)}>Reabrir o período (S-1298)</button>
