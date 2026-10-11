@@ -15,6 +15,8 @@ import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
 import type { ResultadoCalculo } from '../../services/calculo/motorMensal';
 import { vigenciaEm, type Rubrica } from '../../services/cadastros/rubricas';
 import { listarRubricas, mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
+import { listarLotacoes } from '../../services/obras/lotacoesService';
+import type { Lotacao } from '../../services/obras/lotacoes';
 import { salvarParametrosEsocialFolha } from '../../services/empresas/empresasService';
 import { dataSugeridaAdiantamento, emLotes, gerarEventosFolha, pagamentos1210, parametrosVazios, sugerirDePara, verbasDoAdiantamentoParaDePara, verbasDosRecibosParaDePara, type ParametrosEsocialFolha, type ReciboFeriasEsocial, type RubricaEsocial } from '../../services/esocial/eventosFolha';
 import { ROTULO_AMBIENTE, consultarLote, type Certificado, type TpAmb } from '../../services/esocial/transmissao';
@@ -54,6 +56,8 @@ const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resu
     const lido = useRef(empresa.esocialFolha);
     const [params, setParams] = useState<ParametrosEsocialFolha>(gravados);
     const [rubricas, setRubricas] = useState<Rubrica[] | null>(null);
+    // Obras e lotações da empresa: quem tem obra na ficha ou rateio no movimento sai com um ideEstabLot por obra.
+    const [lotacoes, setLotacoes] = useState<Lotacao[] | undefined>(undefined);
     const [data, setData] = useState(dataSugerida);
     // Adiantamento salarial (desconto ADIANT na folha): demonstrativo próprio, pago nesta data.
     const comAdiantamento = useMemo(() => resultados.some(r => r.situacao === 'calculado' && r.verbas.some(v => v.codigo === 'ADIANT' && v.valor > 0)), [resultados]);
@@ -86,6 +90,7 @@ const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resu
 
     useEffect(() => {
         let vivo = true;
+        listarLotacoes(empresa.id).then(l => { if (vivo) setLotacoes(l); }).catch(() => { if (vivo) setLotacoes(undefined); });
         listarRubricas(empresa.id).then(r => { if (vivo) setRubricas(r); }).catch(e => { if (vivo) { setRubricas([]); setErro(`Rubricas (S-1010) não carregadas: ${mensagemErro(e)}`); } });
         return () => { vivo = false; };
     }, [empresa.id]);
@@ -122,7 +127,7 @@ const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resu
         } catch (e) { setErro(`Não foi possível ler os arquivos: ${(e as Error).message}`); }
         finally { setLendoRecibos(false); }
     }
-    const geracao = useMemo(() => (rubricas ? gerarEventosFolha({ cnpj: empresa.cnpj, tpAmb, competencia, dataPagamento: data, dataAdiantamento: dataAdiant, fichas, resultados, rubricas, parametros: efetivos, retificacao, recibosFerias, primeiraParcela13: primeiras13, complementares }) : null), [rubricas, empresa.cnpj, tpAmb, competencia, data, dataAdiant, fichas, resultados, efetivos, retificacao, recibosFerias, primeiras13, complementares]);
+    const geracao = useMemo(() => (rubricas ? gerarEventosFolha({ cnpj: empresa.cnpj, tpAmb, competencia, dataPagamento: data, dataAdiantamento: dataAdiant, fichas, resultados, rubricas, parametros: efetivos, retificacao, recibosFerias, primeiraParcela13: primeiras13, complementares, lotacoes }) : null), [rubricas, empresa.cnpj, tpAmb, competencia, data, dataAdiant, fichas, resultados, efetivos, retificacao, recibosFerias, primeiras13, complementares, lotacoes]);
     const prontos = geracao?.trabalhadores.filter(t => t.s1200) ?? [];
     // Cada S-1210 do trabalhador (o do mês da folha e o dos recibos de férias, se for outro mês).
     const s1210s = prontos.flatMap(t => pagamentos1210(t).map(pm => ({ t, pm })));

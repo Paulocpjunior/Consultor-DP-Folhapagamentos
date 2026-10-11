@@ -4230,3 +4230,31 @@ Parte 2, a seguir:
 - a reoneração da CPRB (Lei 14.973/2024; IN RFB 2.242/2024): em 2026, 2,7% sobre a receita (com o Fiscal, no R-2060) e 10% da cota patronal sobre a folha, sem a cota patronal no 13º.
 
 Parte 3: o cadastro de departamentos e a folha filtrada por departamento ou obra.
+
+## 11/10/2026 — Folha por obra (parte 2): rateio, S-1200 por lotação, encargos por obra e a CPRB
+
+Continuação do lote anterior (obras e lotações), com as respostas do Paulo: rateio por dias entre obras e clientes na CPRB.
+
+- **Movimento do mês:** "Rateio por obra", com os dias em cada lotação cadastrada. Sem ele, vale a obra da ficha. O motor guarda as obras do mês no resultado (`lotacoes`).
+- **S-1200:**
+  - um `ideEstabLot` por obra: na obra própria com CNO, o estabelecimento é o CNO (tpInsc 4); nas demais, o CNPJ;
+  - os proventos se dividem pelos dias (o centavo que sobra fica na obra principal) e os descontos ficam na principal;
+  - adiantamento, 1ª parcela do 13º e recibo de férias vão na obra principal;
+  - erro quando a obra não está no cadastro ou está fora da validade, e aviso quando falta o recibo do S-1020 ou do S-1005;
+  - teste no XSD oficial.
+- **Encargos por obra** (`services/obras/folhaPorObra.ts`), no resumo da folha:
+  - base, INSS dos segurados, patronal, RAT × FAP (o da obra própria, quando diferente), terceiros e FGTS;
+  - com mais de uma obra, a patronal da empresa é a soma das obras.
+- **CPRB** (enquadramento, "Optante pela CPRB"), Lei 12.546/2011 com a reoneração gradual da Lei 14.973/2024 (IN RFB 2.242/2024):
+  - cota patronal sobre a folha de 25%, 50% e 75% dos 20%, isto é, 5%, 10% e 15% em 2025, 2026 e 2027; inteira em 2028;
+  - sem cota patronal sobre o 13º na transição;
+  - RAT e terceiros inteiros;
+  - obra própria com a patronal não substituída (S-1005) paga os 20%;
+  - a memória lembra que a CPRB sobre a receita é do Fiscal (R-2060) e a regra dos 75% da média de empregados.
+- **Fontes da pesquisa (buscador; os sites do governo não abrem daqui):** Lei 14.973/2024, IN RFB 2.242/2024, NT 02/2024 do eSocial e artigos especializados. Há uma fonte que diverge sobre o 13º. Vale conferir com a contabilidade antes da primeira DCTFWeb de cliente na CPRB.
+- **Correção encontrada no caminho:** a limpeza do movimento tirava o plano de saúde do lançamento de coparticipação (entrega do #178). Gravado e lido de novo, ele sumia do planSaude do S-1210. Agora fica gravado.
+- **Testes:**
+  - fator por ano; patronal com e sem 13º, obra não substituída, RAT/FAP da obra;
+  - rateio e movimento;
+  - encargos por obra;
+  - S-1200 com duas obras no XSD, lotação fora do cadastro e falta de recibo.

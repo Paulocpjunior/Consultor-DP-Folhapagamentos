@@ -76,7 +76,7 @@ const EnquadramentoCadastro: React.FC<Props> = ({ empresa, usuario, isAdmin }) =
                             <button className="text-left" onClick={() => abrir(e)}>
                                 <strong>A partir de {e.vigencia.split('-').reverse().join('/')}</strong> · {REGIMES[e.regime]}
                                 <span className="block text-xs text-slate-500 dark:text-slate-400">
-                                    {e.regime === 'simples' ? 'Sem contribuição patronal na folha.' : `Patronal ${num(e.patronal)}% · RAT ${e.rat}% × FAP ${e.fap.toFixed(4).replace('.', ',')}${e.regime === 'normal' ? ` · terceiros ${num(e.terceiros)}% (FPAS ${e.fpas})` : ''} · total ${num(total(e))}% sobre a folha`}
+                                    {e.regime === 'simples' ? 'Sem contribuição patronal na folha.' : `${e.cprb ? 'CPRB (reoneração gradual) · ' : ''}Patronal ${num(e.patronal)}% · RAT ${e.rat}% × FAP ${e.fap.toFixed(4).replace('.', ',')}${e.regime === 'normal' ? ` · terceiros ${num(e.terceiros)}% (FPAS ${e.fpas})` : ''} · total ${num(total(e))}% sobre a folha`}
                                 </span>
                             </button>
                             {isAdmin && <button className="text-xs text-red-700 dark:text-red-300" onClick={() => excluir(e)}>excluir</button>}
@@ -109,6 +109,10 @@ const EnquadramentoCadastro: React.FC<Props> = ({ empresa, usuario, isAdmin }) =
                                     <label className="block"><span className={rot}>FPAS</span><input aria-label="FPAS" className={inp} value={ed.e.fpas} onChange={x => set({ fpas: x.target.value.replace(/\D/g, '').slice(0, 3) })} /></label>
                                     <label className="block"><span className={rot}>Código de terceiros</span><input aria-label="Código de terceiros" className={inp} value={ed.e.codigoTerceiros} onChange={x => set({ codigoTerceiros: x.target.value.replace(/\D/g, '').slice(0, 4) })} /></label>
                                     <label className="block"><span className={rot}>Terceiros (%)</span><input aria-label="Terceiros" className={inp} value={ed.terceiros} onChange={x => setEd({ ...ed, terceiros: x.target.value })} /></label>
+                                    <label className="flex items-start gap-2 sm:col-span-2 text-sm" title="Lei 12.546/2011 com a reoneração gradual da Lei 14.973/2024: cota patronal sobre a folha de 5% em 2025, 10% em 2026 e 15% em 2027 (20% a partir de 2028), sem cota patronal sobre o 13º na transição. RAT e terceiros inteiros. A CPRB sobre a receita é do Fiscal (EFD-Reinf, R-2060).">
+                                        <input type="checkbox" aria-label="Empresa na CPRB" checked={!!ed.e.cprb} onChange={x => set({ cprb: x.target.checked })} />
+                                        <span>Optante pela CPRB (desoneração da folha, como a construção civil): cota patronal da reoneração gradual — 5% em 2025, 10% em 2026, 15% em 2027 — sem cota patronal sobre o 13º.</span>
+                                    </label>
                                 </>
                             )}
                             <label className="block sm:col-span-2"><span className={rot}>Observação (ex.: fonte do FAP, CNAE)</span><textarea aria-label="Observação do enquadramento" rows={2} className={inp} value={ed.e.observacao} onChange={x => set({ observacao: x.target.value })} /></label>

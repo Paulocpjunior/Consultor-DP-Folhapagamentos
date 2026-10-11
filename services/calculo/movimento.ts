@@ -49,10 +49,17 @@ export function limparMovimento(m: Movimento): Movimento {
     const pct = Object.entries(m.horasExtrasPct ?? {}).filter(([p, h]) => /^\d{1,3}(\.\d{1,2})?$/.test(p) && typeof h === 'number' && Number.isFinite(h) && h !== 0)
         .sort((a, b) => Number(a[0]) - Number(b[0])).map(([p, h]) => [p, Math.round(h * 10000) / 10000] as const);
     if (pct.length) out.horasExtrasPct = Object.fromEntries(pct);
+    // O plano de saúde do lançamento (coparticipação) vai para o S-1210: fica gravado (antes, a limpeza o tirava).
+    const plano = (l: Lancamento) => (l.planoSaude && /^\d{14}$/.test(l.planoSaude.cnpjOper) && /^(\d{6})?$/.test(l.planoSaude.regANS ?? '')
+        ? { planoSaude: { cnpjOper: l.planoSaude.cnpjOper, regANS: l.planoSaude.regANS ?? '' } } : {});
     const lancs: Lancamento[] = (m.lancamentos ?? [])
-        .map(l => ({ descricao: l.descricao.trim().replace(/\s+/g, ' '), tipo: l.tipo, valor: Math.round(l.valor), inss: !!l.inss, fgts: !!l.fgts, irrf: !!l.irrf, ...(typeof l.media === 'boolean' ? { media: l.media } : {}) }))
+        .map(l => ({ descricao: l.descricao.trim().replace(/\s+/g, ' '), tipo: l.tipo, valor: Math.round(l.valor), inss: !!l.inss, fgts: !!l.fgts, irrf: !!l.irrf, ...(typeof l.media === 'boolean' ? { media: l.media } : {}), ...plano(l) }))
         .filter(l => l.descricao || l.valor);
     if (lancs.length) out.lancamentos = lancs;
+    // Rateio entre obras (lotações): dias em cada uma, códigos em ordem, sem os zerados.
+    const rateio = Object.entries(m.rateioLotacao ?? {}).filter(([c, d]) => /^[A-Za-z0-9._-]{1,30}$/.test(c) && typeof d === 'number' && Number.isFinite(d) && d > 0)
+        .sort((a, b) => a[0].localeCompare(b[0])).map(([c, d]) => [c, Math.round(d * 100) / 100] as const);
+    if (rateio.length) out.rateioLotacao = Object.fromEntries(rateio);
     return out;
 }
 
@@ -77,6 +84,8 @@ export function validarMovimento(m: Movimento, diasNoMes = 31): string[] {
         if (h < 0) erros.push(`Horas extras ${p}%: não pode ser negativo.`);
         else if (h > 300) erros.push(`Horas extras ${p}%: no máximo 300.`);
     }
+    const dias = Object.values(m.rateioLotacao ?? {});
+    if (dias.some(d => d > diasNoMes)) erros.push(`Rateio por obra: no máximo ${diasNoMes} dias em cada obra.`);
     (m.lancamentos ?? []).forEach((l, i) => {
         if (!l.descricao) erros.push(`Lançamento ${i + 1}: informe a descrição.`);
         if (!(l.valor > 0)) erros.push(`Lançamento ${i + 1}${l.descricao ? ` (${l.descricao})` : ''}: informe um valor maior que zero.`);

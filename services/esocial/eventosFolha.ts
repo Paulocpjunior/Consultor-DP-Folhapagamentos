@@ -42,6 +42,8 @@ import { cpfValido, reais } from '../cadastros/documentos';
 import { idEvento, VER_PROC, type TpAmb } from './transmissao';
 import type { ReciboEvento } from './recibosEsocial';
 import type { Instrumento, ResultadoComplementar } from '../calculo/complementar';
+import { estabelecimentoDa, ehObraPropria, type Lotacao } from '../obras/lotacoes';
+import { principal, repartir } from '../obras/folhaPorObra';
 
 const NS = 'http://www.esocial.gov.br/schema/evt';
 const VERSAO = 'v_S_01_03_00';
@@ -337,6 +339,11 @@ export interface EntradaEventosFolha {
      * pagas com a folha: demonstrativo próprio, um {perRef} por mês de referência (MOS, S-1200, item 18).
      */
     complementares?: { instrumento: Instrumento; resultados: ResultadoComplementar[] }[];
+    /**
+     * Obras e lotações da empresa (Cadastros › Obras e lotações). Quem tem obra na ficha ou rateio no movimento sai com um
+     * ideEstabLot por obra (proventos pelos dias, descontos na principal); obra própria com CNO, com o CNO como estabelecimento.
+     */
+    lotacoes?: Lotacao[];
     agora?: Date;
 }
 
@@ -411,6 +418,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
     // Incidências do cálculo × S-1010: aviso uma vez por rubrica e tributo. O adiantamento de férias (natureza 1015) não é
     // base do INSS nem do FGTS no recibo (a base é a folha do gozo); o IRRF do adiantamento salarial varia com o mês do saldo.
     const avisosIncidencia = new Set<string>();
+    const avisosLotacao = new Set<string>();
     const semGrauExp: string[] = [];
     const INC_RECIBO: Record<string, { inss?: boolean; fgts?: boolean }> = { FERADI: { inss: false, fgts: false }, FERADI13: { inss: false, fgts: false } };
     const conferirIncidencia = (v: Verba, rub: RubricaEsocial, d: { codIncCP: string; codIncFGTS: string; codIncIRRF: string }) => {
@@ -474,14 +482,40 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             }
             return [...itens.values()];
         };
-        const dmDev = (ide: string, categ: string, f: FichaFuncionario, itens: ReturnType<typeof itensDe>) =>
-            `<dmDev><ideDmDev>${esc(ide)}</ideDmDev><codCateg>${categ}</codCateg><infoPerApur><ideEstabLot><tpInsc>1</tpInsc><nrInsc>${estab}</nrInsc><codLotacao>${esc(p.codLotacao.trim())}</codLotacao>`
+        /**
+         * Os itens por obra: sem obras, a lotação dos parâmetros; com obras, os proventos pelos dias e os descontos na
+         * principal. `soPrincipal`: tudo na obra principal (adiantamento, 1ª parcela do 13º, recibo de férias).
+         */
+        const gruposDe = (itens: ReturnType<typeof itensDe>, lot: { codigo: string; peso: number }[] | undefined, soPrincipal = false) => {
+            if (!lot?.length) return [{ tpInsc: '1', nrInsc: estab, cod: p.codLotacao.trim(), itens }];
+            const usar = soPrincipal ? [lot[principal(lot)]] : lot;
+            const grupos = usar.map(l => {
+                const cad = e.lotacoes?.find(x => x.codigo === l.codigo);
+                const est = cad ? estabelecimentoDa(cad, estab) : { tpInsc: '1' as const, nrInsc: estab };
+                return { tpInsc: est.tpInsc as string, nrInsc: est.nrInsc, cod: l.codigo, itens: [] as typeof itens };
+            });
+            const pr = principal(usar);
+            for (const i of itens) {
+                const provento = tipoDa.get(`${i.rub.ideTabRubr}|${i.rub.codRubr}`)?.tpRubr === '1';
+                if (!provento || grupos.length === 1) { grupos[provento ? 0 : pr].itens.push(i); continue; }
+                const valores = repartir(i.valor, usar.map(l => l.peso));
+                const qtds = i.qtd > 0 ? repartir(Math.round(i.qtd * 100), usar.map(l => l.peso)).map(q => q / 100) : usar.map(() => 0);
+                valores.forEach((v, k) => { if (v > 0) grupos[k].itens.push({ ...i, valor: v, qtd: qtds[k] }); });
+            }
+            return grupos.filter(g => g.itens.length);
+        };
+        const dmDev = (ide: string, categ: string, f: FichaFuncionario, itens: ReturnType<typeof itensDe>, lot?: { codigo: string; peso: number }[], soPrincipal = false) =>
+            `<dmDev><ideDmDev>${esc(ide)}</ideDmDev><codCateg>${categ}</codCateg><infoPerApur>`
+            + gruposDe(itens, lot, soPrincipal).map(g => estabLot(g, categ, f)).join('')
+            + '</infoPerApur></dmDev>';
+        const estabLot = (g: { tpInsc: string; nrInsc: string; cod: string; itens: ReturnType<typeof itensDe> }, categ: string, f: FichaFuncionario) =>
+            `<ideEstabLot><tpInsc>${g.tpInsc}</tpInsc><nrInsc>${g.nrInsc}</nrInsc><codLotacao>${esc(g.cod)}</codLotacao>`
             + `<remunPerApur><matricula>${esc(f.matriculaEsocial.trim())}</matricula>${p.indSimples ? `<indSimples>${p.indSimples}</indSimples>` : ''}`
             // indApurIR 0 (apuração normal): obrigatório desde 07/2021 na folha mensal.
-            + itens.map(i => `<itensRemun><codRubr>${esc(i.rub.codRubr)}</codRubr><ideTabRubr>${esc(i.rub.ideTabRubr)}</ideTabRubr>${i.qtd > 0 ? `<qtdRubr>${i.qtd.toFixed(2)}</qtdRubr>` : ''}<vrRubr>${valor(i.valor)}</vrRubr><indApurIR>0</indApurIR></itensRemun>`).join('')
+            + g.itens.map(i => `<itensRemun><codRubr>${esc(i.rub.codRubr)}</codRubr><ideTabRubr>${esc(i.rub.ideTabRubr)}</ideTabRubr>${i.qtd > 0 ? `<qtdRubr>${i.qtd.toFixed(2)}</qtdRubr>` : ''}<vrRubr>${valor(i.valor)}</vrRubr><indApurIR>0</indApurIR></itensRemun>`).join('')
             // Grau de exposição (Tabela 02): obrigatório para empregados (1XX, 2XX, 3XX) e 731/734/738; padrão 1.
             + (/^[123]\d\d$|^73[148]$/.test(categ) ? `<infoAgNocivo><grauExp>${/^[1-4]$/.test(f.dados.grauExp ?? '') ? f.dados.grauExp : '1'}</grauExp></infoAgNocivo>` : '')
-            + '</remunPerApur></ideEstabLot></infoPerApur></dmDev>';
+            + '</remunPerApur></ideEstabLot>';
         /** Demonstrativo de períodos anteriores (infoPerAnt/ideADC): as diferenças de cada mês no seu {perRef}. */
         const dmDevPerAnt = (ide: string, categ: string, f: FichaFuncionario, ins: Instrumento, periodos: { perRef: string; itens: ReturnType<typeof itensDe> }[]) =>
             `<dmDev><ideDmDev>${esc(ide)}</ideDmDev><codCateg>${categ}</codCateg><infoPerAnt><ideADC>`
@@ -543,7 +577,15 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             // O Consultor informa um estabelecimento só (o dos parâmetros): quem trabalha em outro (localTrabGeral do S-2200)
             // iria no CNPJ errado.
             const localTrab = digitos(f.dados.estabelecimento);
-            if (localTrab.length === 14 && localTrab !== estab) t.erros.push(`O local de trabalho da ficha${quem} é o CNPJ ${localTrab}, e o estabelecimento dos parâmetros é ${estab}: o Consultor gera um estabelecimento só. Confira a ficha e os parâmetros, ou transmita pelo IOB.`);
+            // Obras do mês (ficha ou rateio): cada uma precisa estar no cadastro, vigente na competência.
+            for (const l of r.lotacoes ?? []) {
+                const cad = e.lotacoes?.find(x => x.codigo === l.codigo);
+                if (!cad) { if (l.codigo !== p.codLotacao.trim()) t.erros.push(`Obra/lotação ${l.codigo}${quem} não está em Cadastros › Obras e lotações.`); continue; }
+                if (!anual && (cad.iniValid > e.competencia || (cad.fimValid && cad.fimValid < e.competencia))) t.erros.push(`Obra/lotação ${l.codigo}${quem} fora da validade em ${mes(e.competencia)} (${cad.iniValid} a ${cad.fimValid || 'em aberto'}).`);
+                if (!cad.recibo1020) avisosLotacao.add(`Lotação ${l.codigo} sem o recibo do S-1020 no Consultor: confira se foi enviada antes do S-1200 (o eSocial recusa lotação inexistente).`);
+                if (ehObraPropria(cad) && !cad.recibo1005) avisosLotacao.add(`Obra ${l.codigo} (CNO ${cad.cno}) sem o recibo do S-1005 no Consultor: o CNO precisa estar na tabela de estabelecimentos antes do S-1200.`);
+            }
+            if (!r.lotacoes?.length && localTrab.length === 14 && localTrab !== estab) t.erros.push(`O local de trabalho da ficha${quem} é o CNPJ ${localTrab}, e o estabelecimento dos parâmetros é ${estab}: o Consultor gera um estabelecimento só. Confira a ficha e os parâmetros, ou transmita pelo IOB.`);
             if (/^[123]\d\d$|^73[148]$/.test(categ) && !/^[1-4]$/.test(f.dados.grauExp ?? '')) semGrauExp.push(`${r.nome}${quem}`);
             if (r.totais.liquido < 0) t.erros.push(`Líquido negativo${quem}.`);
             // O IRRF do cálculo segue a tabela do mês do pagamento usado nele: com outra data de pagamento na tela, o S-1210
@@ -576,7 +618,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             const ide = unico(doOriginal.length === 1 && !pagosNoMes.length ? doOriginal[0] : ideDmDev(e.competencia, mat));
             if (t.retifica1200 && !doOriginal.length && t.retifica1200.demonstrativos && Object.keys(t.retifica1200.demonstrativos).length)
                 t.avisos.push(`A matrícula ${mat} não está no S-1200 original: vai num demonstrativo novo.`);
-            dmDevs.push(dmDev(ide, categ, f, itens));
+            dmDevs.push(dmDev(ide, categ, f, itens, r.lotacoes));
             pagamentos.push({ mes: perPgto, xml: infoPgto(e.dataPagamento, ide, r.totais.liquido) });
             t.liquido += r.totais.liquido;
 
@@ -603,7 +645,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             else if (adiant > 0 && r.irrfAdiantamento !== undefined && dataAdiant.slice(0, 7) !== e.competencia) t.erros.push(`Adiantamento em ${br(dataAdiant)}${quem}: com o saldo da folha em ${mes(perPgto)}, o IRRF do adiantamento foi calculado para pagamento em ${mes(e.competencia)}. Use uma data de ${mes(e.competencia)}.`);
             else if (adiant > 0) {
                 const ideA = unico(ideDmDevAdiantamento(e.competencia, mat));
-                dmDevs.push(dmDev(ideA, categ, f, itensDe(verbasDoAdiantamento(r))));
+                dmDevs.push(dmDev(ideA, categ, f, itensDe(verbasDoAdiantamento(r)), r.lotacoes, true));
                 const pago = pagoNoAdiantamento(r);
                 pagamentos.push({ mes: dataAdiant.slice(0, 7), xml: infoPgto(dataAdiant, ideA, pago) });
                 t.liquido += pago;
@@ -614,7 +656,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                 if (!/^\d{4}-\d{2}-\d{2}$/.test(d13)) { t.erros.push(`1ª parcela do 13º${quem} sem data de pagamento.`); continue; }
                 if (d13.slice(0, 7) !== e.competencia) { t.erros.push(`1ª parcela do 13º${quem} paga em ${br(d13)}: vai no S-1200 do mês do pagamento, não em ${mes(e.competencia)}.`); continue; }
                 const ide13 = unico(ideDmDev13Adiantamento(e.competencia.slice(0, 4), mat));
-                dmDevs.push(dmDev(ide13, categ, f, itensDe(r13.verbas)));
+                dmDevs.push(dmDev(ide13, categ, f, itensDe(r13.verbas), r.lotacoes, true));
                 pagamentos.push({ mes: d13.slice(0, 7), xml: infoPgto(d13, ide13, r13.totais.liquido) });
                 t.liquido += r13.totais.liquido;
             }
@@ -622,7 +664,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             // Recibos de férias pagos na competência: demonstrativo próprio, pago na data do recibo.
             for (const { r: rf, dataPagamento } of pagosNoMes) {
                 const ideF = unico(ideDmDevFerias(dataPagamento, mat));
-                dmDevs.push(dmDev(ideF, categ, f, itensDe(verbasDoReciboFerias(rf))));
+                dmDevs.push(dmDev(ideF, categ, f, itensDe(verbasDoReciboFerias(rf)), r.lotacoes, true));
                 pagamentos.push({ mes: dataPagamento.slice(0, 7), xml: infoPgto(dataPagamento, ideF, rf.totais.liquido) });
                 t.liquido += rf.totais.liquido; t.recibosFerias++;
                 const pensaoRec = rf.verbas.find(v => v.codigo === 'PENSAOFER')?.valor ?? 0;
@@ -849,6 +891,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
     }
     if (semGrauExp.length) avisos.push(`Grau de exposição a agentes nocivos em branco na ficha de ${semGrauExp.join(', ')}: vai 1 (sem exposição). Confira com o S-2240.`);
     trabalhadores.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+    avisos.push(...avisosLotacao);
     return { trabalhadores, erros, avisos };
 }
 
