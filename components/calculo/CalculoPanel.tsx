@@ -382,7 +382,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                     avisoConvencao: avisoDaConvencao(conv?.avisoPrevio, f, p.data), contribuicoesSindicais: conv?.contribuicoes,
                     afastamentos: dados.afastamentos.filter(a => a.fichaId === id), tabelas: dados.tabelas, movimentos: movsAno[id] ?? {},
                     // Paga no próprio mês: com a folha anterior paga nele (regime "mês seguinte"), o IRRF soma as duas.
-                    regimePagamento: m => mesDoPagamento(parametrosFolha, m) })] : [];
+                    regimePagamento: m => mesDoPagamento(parametrosFolha, m), convocacoes: dados.convocacoes })] : [];
             });
         }
         if (ferias) {
