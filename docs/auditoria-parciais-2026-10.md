@@ -55,7 +55,7 @@ visíveis. Sem eles não dá para saber quais campos essas abas têm.
 | 13 | ~~Pagamento de guias (`trib-pagamento`)~~ **entregue em 11/10** (baixa pelo comprovante; a consulta automática no e-CAC fica para quando houver a rota do CFI) | Baixa do DARF pago (consulta do pagamento no SERPRO pelo CFI, ou baixa manual). | rota do CFI, se for pela consulta |
 | 14 | ~~Folha complementar (`proc-complementar`)~~ **entregue em 11/10** (a diferença do 13º de ano anterior segue pelo IOB) | RRA (diferenças de anos anteriores, IRRF pela tabela acumulada). | nada (fica por último, como combinado) |
 | 15 | Integração contábil (`div-contabil`) | Importação direta no Consultor Contábil. | acesso ao `plano-contas-iob` ou o layout do CCI |
-| 16 | Cadastro do funcionário (`arq-funcionarios`) | Abas Complementos, Lanç. Automático e Holerite. | prints do IOB Office |
+| 16 | ~~Cadastro do funcionário (`arq-funcionarios`)~~ **entregue em 11/10** | Abas Complementos, Lanç. Automático e Holerite. | ~~prints do IOB Office~~ pelo inventário do backup (Paulo: "você tem os backups com os dados necessários") |
 
 ## Entregue nesta rodada
 

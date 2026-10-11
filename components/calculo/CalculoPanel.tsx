@@ -29,6 +29,7 @@ import type { User } from '../../types';
 import { fichaNaCompetencia, type FichaFuncionario } from '../../services/cadastros/funcionarios';
 import { eventoPorCodigo, lancarEvento, lerReferencia, tipoDaReferencia, type SalarioDoMes } from '../../services/calculo/lancarEvento';
 import { carregarEventosIob } from '../../services/calculo/catalogoEventos';
+import { aplicarAutomaticos, automaticosDoMes } from '../../services/calculo/lancamentosAutomaticos';
 import { lerFechamento } from '../../services/fimDeMes/fechamentoService';
 import { MSG_ENCERRADO, type Fechamento } from '../../services/fimDeMes/fechamento';
 import { gravarFolha, lerFolhaGravada } from '../../services/calculo/folhaGravadaService';
@@ -504,6 +505,20 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
         return 'erro' in sc ? null : { mensal: sc.mensal, horasMes: sc.horasMes };
     }, [sel, dados, competencia]);
     const [lancado, setLancado] = useState<{ fichaId: string; mensagem: string } | null>(null);
+    // Lançamentos automáticos das fichas (aba "Lanç. automático"): entram no movimento do mês, uma vez cada.
+    const comAutomaticos = useMemo(() => (dados ? noMes(dados.fichas, competencia).filter(f => automaticosDoMes(f.lancamentosAutomaticos, competencia).length) : []), [dados, competencia]);
+    async function lancarAutomaticos() {
+        setErro('');
+        const eventos = await carregarEventosIob().catch(() => null);
+        if (!eventos) { setErro('Não foi possível carregar o catálogo de eventos do IOB.'); return; }
+        const r = aplicarAutomaticos({
+            fichas: comAutomaticos, movimentos: movs, competencia, eventos, formulas: parametrosFolha?.formulasEventos,
+            salarioDe: f => { const sc = salarioContratual(fichaNaCompetencia(f, competencia).ficha.dados); return 'erro' in sc ? null : { mensal: sc.mensal, horasMes: sc.horasMes }; },
+        });
+        setMovs(r.movimentos); setVersao(n => n + 1);
+        setAviso(`Lançamentos automáticos: ${r.aplicados} lançado(s) em ${r.funcionarios} funcionário(s)${r.jaAplicados ? `; ${r.jaAplicados} já estava(m) no movimento` : ''}.${r.aplicados ? ' Confira e clique em "Salvar movimento".' : ''}`);
+        if (r.erros.length) setErro(r.erros.join(' '));
+    }
     useEffect(() => setLancado(null), [aberto, competencia]);
     const nomeDe = (id: string) => dados?.fichas.find(f => f.id === id)?.dados.nome || id;
     const [verResumo, setVerResumo] = useState(false);
@@ -564,7 +579,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
             return ativar ? { ...resto, motorHomologado: { desde, por: currentUser.email ?? usuario.id, em: new Date().toISOString() } } : resto;
         });
     }
-    const opcoesPdf = () => ({ empresa: { razaoSocial: empresa?.razaoSocial ?? '', cnpj: empresa?.cnpj ?? '', codigoSage: empresa?.codigoSage }, titulo: tituloFolha, previa: !homologado });
+    const opcoesPdf = () => ({ empresa: { razaoSocial: empresa?.razaoSocial ?? '', cnpj: empresa?.cnpj ?? '', codigoSage: empresa?.codigoSage }, titulo: tituloFolha, previa: !homologado, mensagemHolerite: parametrosFolha?.mensagemHolerite });
     async function pdfHolerites(lista: ResultadoCalculo[], nome: string) {
         if (!dados) return;
         try { (await relatoriosPdf()).holeritesPdf(lista, dados.fichas, opcoesPdf()).save(nome); }
@@ -755,7 +770,10 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                         </select></label>
                     <button className={btn} aria-pressed={verBeneficios} onClick={() => setVerBeneficios(x => !x)}>Benefícios ({parametrosFolha?.beneficios?.length ?? 0})</button>
                 </span>}
-                {mensal && <button className="ml-auto rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={!pendentes.length || salvando || !gravados || encerrado} title={encerrado ? MSG_ENCERRADO(competencia) : undefined} onClick={salvar}>
+                {mensal && comAutomaticos.length > 0 && <button className="ml-auto rounded border border-blue-700 px-3 py-2 text-sm font-medium text-blue-800 disabled:opacity-50 dark:border-blue-400 dark:text-blue-200"
+                    disabled={encerrado || !movsLidos} title={encerrado ? MSG_ENCERRADO(competencia) : 'Põe no movimento os lançamentos automáticos das fichas (aba "Lanç. automático") que valem neste mês; o que já entrou não entra de novo.'}
+                    onClick={() => void lancarAutomaticos()}>Lançamentos automáticos ({comAutomaticos.length})</button>}
+                {mensal && <button className={`${comAutomaticos.length ? '' : 'ml-auto '}rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-50`} disabled={!pendentes.length || salvando || !gravados || encerrado} title={encerrado ? MSG_ENCERRADO(competencia) : undefined} onClick={salvar}>
                     {salvando ? 'Salvando…' : `Salvar movimento${pendentes.length ? ` (${pendentes.length})` : ''}`}
                 </button>}
                 {mensal && <button className="rounded border border-blue-700 px-3 py-2 text-sm font-medium text-blue-800 disabled:opacity-50 dark:border-blue-400 dark:text-blue-200"

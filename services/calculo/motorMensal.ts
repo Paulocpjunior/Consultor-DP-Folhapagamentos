@@ -54,6 +54,8 @@ export const entraNaMedia = (l: Lancamento) => l.media ?? (l.tipo === 'provento'
 
 /** Movimento do mês digitado pela equipe. Horas em decimal (1,5 = 1h30); valores em centavos. */
 export interface Movimento {
+    /** Lançamentos automáticos da ficha já postos neste mês (chave evento|referência; services/calculo/lancamentosAutomaticos.ts). */
+    automaticos?: string[];
     horasExtras50?: number;
     horasExtras100?: number;
     /** Horas extras com outros adicionais da convenção (60%, 70%, 75%…): percentual → horas. */

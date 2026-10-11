@@ -41,6 +41,8 @@ export interface ParametrosFolha {
     beneficios?: import('./beneficios').Beneficio[];
     /** Contribuição sindical patronal: adesão, capital social, tabela, entidade e filiais (services/sindicatos/sindicalPatronal.ts). */
     sindicalPatronal?: import('../sindicatos/sindicalPatronal').ConfigSindicalPatronal;
+    /** Mensagem geral impressa nos holerites da empresa (a tabela `mensa` do IOB). */
+    mensagemHolerite?: string;
     /** Fórmulas próprias da empresa por código de evento do IOB (services/calculo/formulaEvento.ts). */
     formulasEventos?: Record<string, import('./formulaEvento').FormulaEvento>;
     /** Anos em que a empresa paga o 13º em parcela única (sem a 1ª parcela de novembro). */

@@ -4787,3 +4787,33 @@ Décimo quarto dos parciais da auditoria, e o último que não depende do Paulo 
   - o S-1200 com os dois demonstrativos no XSD oficial e o S-1210;
   - a complementar antiga barrada.
 
+## 11/10/2026 — Ficha: abas Complementos, Lanç. Automático e Holerite (pelo backup)
+
+Paulo: *"VOCÊ TEM OS BACKUPS COM OS DADOS NECESSÁRIOS"*. Os prints do Office não eram necessários: o inventário do backup da empresa 1200 (06/10/2026, schema `f1200`, 367 tabelas, só estrutura) traz as colunas das três abas.
+
+- **Complementos (colunas da `func`):** telefone 2 (`telefone2`), tipo sanguíneo (`tpsang`), uniforme (`calca`, `camisa`, `jaqueta`, `calcado`), crachá (`cracha`) e características físicas (`cabelos`, `olhos`, `altura`, `peso`, `sinais`, `outrasc`). As observações `obs1` a `obs4` vão juntas para Observações (aba Outros).
+- **Holerite:**
+  - **Ficha:** as três linhas de mensagem de cada funcionário (`mensa1` a `mensa3`).
+  - **Empresa:** a mensagem geral (tabela `mensa`) fica em Cadastros › Enquadramento › Mensagem no holerite.
+  - **PDF:** as duas saem no holerite em PDF, antes da assinatura (Cálculo e Relatórios).
+  - A coluna `tiphole` (tipo de holerite) não tem significado conhecido e fica de fora.
+- **Lanç. automático (tabela `lancauto`):**
+  - **Na ficha:** evento do IOB, referência (como no "Lançar evento"), meses do ano (vazio = todo mês), período e observação.
+  - **No Cálculo mensal:** "Lançamentos automáticos (N)" põe no movimento os que valem no mês, pelo mesmo cálculo do "Lançar evento" (rotina do evento ou fórmula da empresa). A chave de cada um fica em `movimento.automaticos` e é gravada: aplicar de novo não duplica.
+- **Carga do backup** (Completar pelo backup do IOB):
+  - **Colunas novas:** os sinônimos das colunas acima (tipo sanguíneo e altura/peso normalizados; altura em cm vira m).
+  - **`lancauto`:**
+    - entra pelo `codfun`;
+    - o mês entra quando qualquer marca dele (`jan1s`…`dez2q`, semanas e quinzenas) está ligada; sem marca, ou com as doze, todo mês;
+    - a referência é o `valor` em R$, quando há, ou a `ref`;
+    - `anomes` vira o "a partir de";
+    - só entra na ficha que ainda não tem lançamentos automáticos.
+- **A conferir no primeiro backup com dados:** no inventário, a `lancauto` da empresa 1200 estava vazia. A leitura das marcas e o "sem marca = todo mês" são o entendimento pelo nome das colunas.
+- **Catálogo SAGE:** `arq-funcionarios` passa a disponível. Agora são 50 disponíveis e 1 parcial (a integração contábil, que depende do layout do CCI).
+- **Testes:**
+  - os lançamentos automáticos: validação, meses e período, aplicar uma vez, fórmula e erros;
+  - a validação e o histórico da ficha;
+  - as mensagens do holerite;
+  - a carga da `func` e da `lancauto`;
+  - a tela da mensagem geral.
+

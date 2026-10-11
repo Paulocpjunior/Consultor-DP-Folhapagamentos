@@ -138,6 +138,7 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         empresa: { razaoSocial: dados?.empresa?.razaoSocial || ativa.nome, cnpj: ativa.cnpj.replace(/\D/g, ''), codigoSage: ativa.codigoSage },
         titulo: d.titulo, previa: d.precisaFolha && !motorHomologadoNoMes(dados?.empresa?.parametrosFolha, ativa.competencia), emitidoPor: currentUser.email,
         orientacao: orientacao === 'auto' ? d.orientacao ?? 'retrato' : orientacao,
+        mensagemHolerite: dados?.empresa?.parametrosFolha?.mensagemHolerite,
     });
     const nomeArquivo = (d: DefRelatorio) => `${d.id}-${ativa.codigoSage || 'empresa'}-${d.tipo === 'ficha-financeira' || d.tipo === 'informe' ? ano : ativa.competencia}.pdf`;
 
