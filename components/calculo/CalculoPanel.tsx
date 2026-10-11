@@ -48,6 +48,9 @@ import { ehAdmin, ehMaster } from '../../services/auth/papeis';
 import CalculoAdiantamentosModal from './CalculoAdiantamentosModal';
 import FolhaComplementarModal from './FolhaComplementarModal';
 import DaeDomesticoQuadro from '../domestico/DaeDomesticoQuadro';
+import { listarConvencoes } from '../../services/sindicatos/convencoesService';
+import { convencaoDaFicha, type ConvencaoColetiva } from '../../services/sindicatos/convencao';
+import { avisoDaConvencao } from '../../services/sindicatos/contribuicoes';
 import { calcularDae, ehDomestico } from '../../services/domestico/domestico';
 import { recibosFeriasDaCompetencia } from '../../services/esocial/eventosFolha';
 import { contextoDoHolerite, definirContextoMia } from '../../services/mia/mia';
@@ -274,6 +277,15 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
 
 
     const empresa = empresas?.find(e => e.id === empresaId);
+    // Convenções dos sindicatos: descontos para o sindicato na folha e aviso prévio a mais na rescisão.
+    const [convencoes, setConvencoes] = useState<ConvencaoColetiva[]>([]);
+    useEffect(() => {
+        let vivo = true;
+        listarConvencoes().then(c => { if (vivo) setConvencoes(c); }).catch(() => { /* sem convenções: sem os descontos e o aviso da convenção */ });
+        return () => { vivo = false; };
+    }, []);
+    const sindicatosDaEmpresa = empresa?.sindicatos;
+    const convencaoDe = useCallback((f: FichaFuncionario, dia: string) => convencaoDaFicha(convencoes, f, sindicatosDaEmpresa ?? [], dia), [convencoes, sindicatosDaEmpresa]);
     const parametrosFolha = empresa?.parametrosFolha;
     // Empresa carregada ou trocada (ou regime alterado): o mês do pagamento da folha mensal segue o regime salvo dela,
     // senão o IRRF sairia pela tabela do mês errado até alguém mexer na competência (Codex #116).
@@ -316,13 +328,14 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                 if (!noMes([f], m).length) return null;
                 const pag = salvos[m]?.mesPagamento ?? salvos[m]?.arredondamentoPagamento ?? mesDoPagamento(parametrosFolha, m);
                 return calcularMensal({ competencia: m, pagamento: pag, ficha: f, tabelas: dados.tabelas, movimento: salvos[m], afastamentos: afs,
-                    feriasDoMes: feriasDaCompetencia(f, afs, dados.tabelas, salvos, m, opcoesFerias), folhaPagaNoAdiantamento: folhaPagaNoAdiantamento(f, m, pag), beneficios: parametrosFolha?.beneficios });
+                    feriasDoMes: feriasDaCompetencia(f, afs, dados.tabelas, salvos, m, opcoesFerias), folhaPagaNoAdiantamento: folhaPagaNoAdiantamento(f, m, pag), beneficios: parametrosFolha?.beneficios,
+                    contribuicoesSindicais: convencaoDe(f, `${m}-01`)?.contribuicoes });
             },
             // O atual gravado só vale se foi encadeado do mesmo mês de início. O mês do pagamento gravado com ele é o que foi
             // usado de fato: mudar o regime depois não reescreve mês fechado (para isso, reabra o mês e salve de novo; Codex #116).
             m => salvos[m]?.arredondamentoAnterior, m => (salvos[m]?.arredondamentoDesde === desde ? salvos[m]?.arredondamentoFechado : undefined));
         return typeof anterior === 'number' ? arredondar(r, anterior) : travar(anterior.erro);
-    }, [parametrosFolha, dados, movsEmpresa, opcoesFerias, folhaPagaNoAdiantamento]);
+    }, [parametrosFolha, dados, movsEmpresa, opcoesFerias, folhaPagaNoAdiantamento, convencaoDe]);
     const resultadosCalculados = useMemo(() => {
         if (!dados) return [];
         if (rescisao) {
@@ -333,7 +346,9 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
             for (const [id, p] of Object.entries(paramsResc)) if (p.data.startsWith(competencia) || itens.has(id)) itens.set(id, { ...itens.get(id), ...p });
             return [...itens.entries()].flatMap(([id, p]) => {
                 const f = dados.fichas.find(x => x.id === id);
+                const conv = f ? convencaoDe(f, p.data) : undefined;
                 return f ? [calcularRescisao({ ficha: f, data: p.data, tipo: p.tipo, aviso: p.aviso, pagamento: p.pagamento, saldoFgts: p.saldoFgts, adiantamento13: p.adiantamento13, opcoes: opcoesFerias,
+                    avisoConvencao: avisoDaConvencao(conv?.avisoPrevio, f, p.data), contribuicoesSindicais: conv?.contribuicoes,
                     afastamentos: dados.afastamentos.filter(a => a.fichaId === id), tabelas: dados.tabelas, movimentos: movsAno[id] ?? {},
                     // Paga no próprio mês: com a folha anterior paga nele (regime "mês seguinte"), o IRRF soma as duas.
                     regimePagamento: m => mesDoPagamento(parametrosFolha, m) })] : [];
@@ -367,6 +382,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                 competencia, pagamento, ficha: f, tabelas: dados.tabelas, movimento: movs[f.id], afastamentos: afs,
                 feriasDoMes: movsEmpresa ? feriasDaCompetencia(f, afs, dados.tabelas, movsEmpresa[f.id] ?? {}, competencia, opcoesFerias) : undefined,
                 folhaPagaNoAdiantamento: folhaPagaNoAdiantamento(f, competencia, pagamento), beneficios: parametrosFolha?.beneficios,
+                contribuicoesSindicais: convencaoDe(f, `${competencia}-01`)?.contribuicoes,
             });
         }), dados.fichas, pagamento !== competencia
             // Só os contratos da competência anterior com folha paga neste mês (pelo mês gravado ou pelo regime) e com valor:
@@ -377,7 +393,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
             })
             : [], { tabelas: dados.tabelas, folhaPaga: id => { const f = porId.get(id); return f ? folhaPagaNoAdiantamento(f, competencia, pagamento) : null; } })
             .map((r, i) => arredondarDaEmpresa(r, doMes[i], competencia, movs[doMes[i].id]?.arredondamentoAnterior));
-    }, [dados, competencia, pagamento, movs, movsEmpresa, mensal, ferias, rescisao, paramsResc, movsAno, ano, folha, opcoes13, primeiras, abonos, pensoesFerias, opcoesFerias, feriasSimuladas, arredondarDaEmpresa, folhaPagaNoAdiantamento, parametrosFolha]);
+    }, [dados, competencia, pagamento, movs, movsEmpresa, mensal, ferias, rescisao, paramsResc, movsAno, ano, folha, opcoes13, primeiras, abonos, pensoesFerias, opcoesFerias, feriasSimuladas, arredondarDaEmpresa, folhaPagaNoAdiantamento, parametrosFolha, convencaoDe]);
     // Competência encerrada com a folha gravada: telas, PDFs, Excel e eSocial usam o gravado; o cálculo de hoje só compara.
     const usandoGravada = mensal && encerrado && !!gravada;
     const resultados = usandoGravada ? gravada!.holerites : resultadosCalculados;
@@ -456,10 +472,11 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
             // Mês salvo com o arredondamento: o mês do pagamento usado de fato (Codex #116); senão, o do regime.
             const pag = movsEmpresa[f.id]?.[c]?.mesPagamento ?? movsEmpresa[f.id]?.[c]?.arredondamentoPagamento ?? mesDoPagamento(parametrosFolha, c);
             const r = calcularMensal({ competencia: c, pagamento: pag, ficha: f, tabelas: dados.tabelas, movimento: movsEmpresa[f.id]?.[c], afastamentos: afs,
-                feriasDoMes: feriasDaCompetencia(f, afs, dados.tabelas, movsEmpresa[f.id] ?? {}, c, opcoesFerias), folhaPagaNoAdiantamento: folhaPagaNoAdiantamento(f, c, pag), beneficios: parametrosFolha?.beneficios });
+                feriasDoMes: feriasDaCompetencia(f, afs, dados.tabelas, movsEmpresa[f.id] ?? {}, c, opcoesFerias), folhaPagaNoAdiantamento: folhaPagaNoAdiantamento(f, c, pag), beneficios: parametrosFolha?.beneficios,
+                contribuicoesSindicais: convencaoDe(f, `${c}-01`)?.contribuicoes });
             return arredondarDaEmpresa(r, f, c, movsEmpresa[f.id]?.[c]?.arredondamentoAnterior);
         });
-    }, [dados, movsEmpresa, opcoesFerias, arredondarDaEmpresa, parametrosFolha, folhaPagaNoAdiantamento]);
+    }, [dados, movsEmpresa, opcoesFerias, arredondarDaEmpresa, parametrosFolha, folhaPagaNoAdiantamento, convencaoDe]);
     const comFeriasNaCompetencia = useCallback((c: string): Set<string> => {
         if (!dados || !movsEmpresa) return new Set();
         return new Set(noMes(dados.fichas, c).filter(f => feriasDaCompetencia(f, dados.afastamentos.filter(a => a.fichaId === f.id), dados.tabelas, movsEmpresa[f.id] ?? {}, c, opcoesFerias)).map(f => f.id));

@@ -22,7 +22,8 @@ import { UFS, cnpjValido, cpfValido, dataValida, centavosDeTexto, pisValido } fr
 export type { Dependente };
 export type CampoExtra = 'codigoIob' | 'horario' | 'banco' | 'agencia' | 'conta' | 'tipoConta' | 'pix' | 'observacoes' | 'dataDesligamento' | 'motivoDesligamento' | 'dataProjetadaAviso' | 'grauExp'
     | 'adiantamentoPct' | 'valeTransporte' | 'valeTransporteCusto' | 'horasMes'
-    | 'insalubridade' | 'baseInsalubridade' | 'baseInsalubridadeValor' | 'periculosidade';
+    | 'insalubridade' | 'baseInsalubridade' | 'baseInsalubridadeValor' | 'periculosidade'
+    | 'contribuicaoSindical' | 'oposicaoAssistencial' | 'associadoSindicato';
 export type CampoFicha = Exclude<Campo, 'dependentes' | 'matriculaIob'> | CampoExtra;
 export type Situacao = 'ativo' | 'desligado';
 export type ChaveOrigem = CampoFicha | 'dependentes' | 'situacao';
@@ -72,6 +73,9 @@ export const ROTULO: Record<CampoFicha, string> = {
     baseInsalubridade: 'Base da insalubridade',
     baseInsalubridadeValor: 'Valor da base da insalubridade (piso da convenção)',
     periculosidade: 'Adicional de periculosidade',
+    contribuicaoSindical: 'Autorizou a contribuição sindical (CLT, art. 579)',
+    oposicaoAssistencial: 'Opôs-se à contribuição assistencial (STF, Tema 935)',
+    associadoSindicato: 'Filiado ao sindicato (confederativa e mensalidade)',
 };
 
 /** Motivos de desligamento (Tabela 19 do eSocial) mais usados; outro código fica como está. */
@@ -107,6 +111,10 @@ const OPCOES: Partial<Record<CampoFicha, [string, string][]>> = {
     insalubridade: [['10', 'Grau mínimo (10%)'], ['20', 'Grau médio (20%)'], ['40', 'Grau máximo (40%)']],
     baseInsalubridade: [['minimo', 'Salário mínimo (CLT, art. 192)'], ['salario', 'Salário contratual (convenção ou acordo)'], ['valor', 'Valor informado (piso da convenção)']],
     periculosidade: [['S', 'Sim: 30% do salário-base (CLT, art. 193, § 1º)'], ['N', 'Não']],
+    // Descontos para o sindicato (services/sindicatos/contribuicoes.ts): autorização escrita, oposição e filiação.
+    contribuicaoSindical: [['S', 'Sim: autorização prévia, expressa e por escrito'], ['N', 'Não']],
+    oposicaoAssistencial: [['S', 'Sim: não desconta a assistencial'], ['N', 'Não']],
+    associadoSindicato: [['S', 'Sim'], ['N', 'Não']],
     tipoConta: [['corrente', 'Corrente'], ['poupanca', 'Poupança'], ['salario', 'Salário'], ['pagamento', 'Pagamento']],
     uf: UFS.map(u => [u, u]), ufCtps: UFS.map(u => [u, u]),
 };
@@ -126,6 +134,7 @@ export const ABAS: { id: string; titulo: string; campos: CampoFicha[] }[] = [
     { id: 'identAdm', titulo: 'Ident. Adm.', campos: ['codigoIob', 'admissao', 'categoria', 'tipoContrato', 'fimContrato', 'cargo', 'cbo', 'funcao', 'cargoIob', 'departamentoIob', 'salario', 'unidadeSalario', 'horasSemanais', 'horasMes', 'horario', 'jornada', 'horarioTrabalho', 'horarioIntervalo', 'sindicato', 'sindicatoIob', 'estabelecimento', 'regimeTrabalhista', 'regimePrevidenciario', 'opcaoFgts', 'grauExp', 'dataDesligamento', 'motivoDesligamento', 'dataProjetadaAviso'] },
     { id: 'adiantVt', titulo: 'Adiant. e VT', campos: ['adiantamentoPct', 'valeTransporte', 'valeTransporteCusto'] },
     { id: 'adicionais', titulo: 'Adicionais', campos: ['insalubridade', 'baseInsalubridade', 'baseInsalubridadeValor', 'periculosidade'] },
+    { id: 'sindicato', titulo: 'Sindicato', campos: ['contribuicaoSindical', 'oposicaoAssistencial', 'associadoSindicato'] },
     { id: 'documentos', titulo: 'Documentos', campos: ['pis', 'cadastroPis', 'ctps', 'serieCtps', 'ufCtps', 'rg', 'orgaoRg', 'emissaoRg', 'tituloEleitor', 'zonaEleitoral', 'secaoEleitoral', 'documentoMilitar'] },
     { id: 'outros', titulo: 'Outros', campos: ['banco', 'agencia', 'conta', 'tipoConta', 'pix', 'deficiencia', 'enderecoExterior', 'observacoes'] },
 ];

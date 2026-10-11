@@ -24,6 +24,8 @@ import { ROTULO_AVISO, TIPOS_RESCISAO, type AvisoPrevio, type TipoRescisao } fro
 import { calcularPrevia, cenariosPadrao, podeSeguroDesemprego, resumoDoCenario, rotuloCenario, sacaFgts, type CenarioDemissao, type ResultadoCenario } from '../../services/demissoes/previa';
 import { gravarPrevia, listarPrevias, mudarSituacaoPrevia, ROTULO_SITUACAO_PREVIA, type PreviaGravada } from '../../services/demissoes/previasService';
 import EntregaRelatorio from '../relatorios/EntregaRelatorio';
+import { listarConvencoes } from '../../services/sindicatos/convencoesService';
+import type { ConvencaoColetiva } from '../../services/sindicatos/convencao';
 
 const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const btn = 'rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700';
@@ -31,7 +33,7 @@ const br = (d: string) => (d ? d.split('-').reverse().join('/') : '—');
 const hojeSp = () => new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Sao_Paulo' }).format(new Date());
 const MAX_CENARIOS = 4;
 
-interface Dados { empresa?: Empresa; fichas: FichaFuncionario[]; afastamentos: Afastamento[]; tabelas: TabelaLegal[]; enquadramentos: Enquadramento[]; sindicatos: Sindicato[]; movimentos: Record<string, Record<string, Movimento>> }
+interface Dados { empresa?: Empresa; fichas: FichaFuncionario[]; afastamentos: Afastamento[]; tabelas: TabelaLegal[]; enquadramentos: Enquadramento[]; sindicatos: Sindicato[]; movimentos: Record<string, Record<string, Movimento>>; convencoes: ConvencaoColetiva[] }
 interface Props { usuario: Usuario }
 
 const DemissoesPanel: React.FC<Props> = ({ usuario }) => {
@@ -52,8 +54,8 @@ const DemissoesPanel: React.FC<Props> = ({ usuario }) => {
         let vivo = true;
         setDados(null); setErro(''); setSelecionados([]);
         Promise.all([listarEmpresasVisiveis(), listarFuncionarios(ativa.id), listarAfastamentos(ativa.id), listarTabelas(), listarEnquadramentos(ativa.id).catch(() => []),
-            listarSindicatos().catch(() => []), listarMovimentosDaEmpresa(ativa.id)])
-            .then(([emps, fichas, afastamentos, tabelas, enquadramentos, sindicatos, movimentos]) => { if (vivo) setDados({ empresa: emps.find(e => e.id === ativa.id), fichas, afastamentos, tabelas, enquadramentos, sindicatos, movimentos }); })
+            listarSindicatos().catch(() => []), listarMovimentosDaEmpresa(ativa.id), listarConvencoes().catch(() => [])])
+            .then(([emps, fichas, afastamentos, tabelas, enquadramentos, sindicatos, movimentos, convencoes]) => { if (vivo) setDados({ empresa: emps.find(e => e.id === ativa.id), fichas, afastamentos, tabelas, enquadramentos, sindicatos, movimentos, convencoes }); })
             .catch(e => { if (vivo) setErro(`Dados da empresa não carregados: ${mensagemErro(e)}`); });
         return () => { vivo = false; };
     }, [ativa]);
@@ -80,7 +82,7 @@ const DemissoesPanel: React.FC<Props> = ({ usuario }) => {
             const saldo = centavosDeTexto(saldos[id] ?? '') ?? undefined;
             const cs = calcularPrevia({ ficha, afastamentos: dados.afastamentos, tabelas: dados.tabelas, movimentos: dados.movimentos[id] ?? {}, cenarios: cenarios.filter(c => /^\d{4}-\d{2}-\d{2}$/.test(c.data)),
                 saldoFgts: saldo, adiantamento13: centavosDeTexto(adiant13[id] ?? '') ?? undefined, enquadramento: vig && 'enquadramento' in vig ? vig.enquadramento : undefined, sindicato,
-                opcoes: OPCOES_FERIAS_PADRAO, regimePagamento: m => mesDoPagamento(dados.empresa?.parametrosFolha, m) });
+                opcoes: OPCOES_FERIAS_PADRAO, regimePagamento: m => mesDoPagamento(dados.empresa?.parametrosFolha, m), convencoes: dados.convencoes, sindicatosDaEmpresa: dados.empresa?.sindicatos ?? [] });
             return [{ ficha, cenarios: cs, saldoFgtsInformado: !!saldo, semEnquadramento: !(vig && 'enquadramento' in vig) }];
         });
     }, [dados, selecionados, cenarios, saldos, adiant13]);
@@ -112,7 +114,7 @@ const DemissoesPanel: React.FC<Props> = ({ usuario }) => {
         const ficha = dados?.fichas.find(f => f.id === p.fichaId);
         const c = p.escolhido !== null ? p.cenarios[p.escolhido] : undefined;
         if (!dados || !ficha || !c) return;
-        const [x] = calcularPrevia({ ficha, afastamentos: dados.afastamentos, tabelas: dados.tabelas, movimentos: dados.movimentos[ficha.id] ?? {}, cenarios: [{ ...c, id: 'e' }], opcoes: OPCOES_FERIAS_PADRAO });
+        const [x] = calcularPrevia({ ficha, afastamentos: dados.afastamentos, tabelas: dados.tabelas, movimentos: dados.movimentos[ficha.id] ?? {}, cenarios: [{ ...c, id: 'e' }], opcoes: OPCOES_FERIAS_PADRAO, convencoes: dados.convencoes, sindicatosDaEmpresa: dados.empresa?.sindicatos ?? [] });
         if (!window.confirm(`Registrar na ficha de ${p.nome} o desligamento em ${br(c.data)}, motivo ${c.tipo} (${rotuloCenario(c)})?\n\nIsso ainda não vai ao eSocial: o S-2299 sai em Folha do mês › Rescisão (competência ${c.data.slice(5, 7)}/${c.data.slice(0, 4)}), junto com o S-1210 e o roteiro da efetivação.`)) return;
         setOcupado('Registrando o desligamento…'); setErro(''); setMsg('');
         try {

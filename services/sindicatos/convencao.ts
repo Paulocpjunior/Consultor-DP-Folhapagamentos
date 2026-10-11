@@ -18,6 +18,7 @@ import { dataValida, reais } from '../cadastros/documentos';
 import { salarioContratual, type Movimento } from '../calculo/motorMensal';
 import type { AlertaConformidade } from '../conformidade/salarioMinimo';
 import { minimoProporcional } from '../conformidade/salarioMinimo';
+import { validarContribuicoes, validarRegrasAviso, type ContribuicaoConvencao, type RegraAvisoConvencao } from './contribuicoes';
 
 export interface PisoConvencao { descricao: string; /** CBO (6 dígitos) quando a convenção amarra ao cargo. */ cbo: string; valor: number }
 export interface ObrigacaoConvencao { id: string; descricao: string }
@@ -38,13 +39,17 @@ export interface ConvencaoColetiva {
     horaExtra: { minimo50: number | null; minimo100: number | null };
     adicionalNoturno: number | null;
     obrigacoes: ObrigacaoConvencao[];
+    /** Descontos para o sindicato (sindical, assistencial, confederativa, mensalidade). */
+    contribuicoes: ContribuicaoConvencao[];
+    /** Aviso prévio além da Lei 12.506/2011, por idade e tempo de casa. */
+    avisoPrevio: RegraAvisoConvencao[];
     arquivo: ArquivoConvencao | null;
     observacao: string;
 }
 
 export function convencaoVazia(sindicatoCnpj = ''): ConvencaoColetiva {
     return { id: '', sindicatoCnpj, tipo: 'CCT', vigenciaInicio: '', vigenciaFim: '', dataBase: '', registroMte: '', reajuste: { percentual: null, aPartirDe: '' },
-        pisos: [], horaExtra: { minimo50: null, minimo100: null }, adicionalNoturno: null, obrigacoes: [], arquivo: null, observacao: '' };
+        pisos: [], horaExtra: { minimo50: null, minimo100: null }, adicionalNoturno: null, obrigacoes: [], contribuicoes: [], avisoPrevio: [], arquivo: null, observacao: '' };
 }
 
 export const idConvencao = (cnpj: string, vigenciaInicio: string) => `${cnpj}_${vigenciaInicio}`;
@@ -74,6 +79,7 @@ export function validarConvencao(c: ConvencaoColetiva, existentes: ConvencaoCole
     }
     if (c.adicionalNoturno !== null && (c.adicionalNoturno < 20 || c.adicionalNoturno > 100)) e.push('Adicional noturno: entre 20% (CLT, art. 73) e 100%.');
     c.obrigacoes.forEach((o, i) => { if (o.descricao.trim().length < 3) e.push(`Obrigação ${i + 1}: descreva a obrigação.`); });
+    e.push(...validarContribuicoes(c.contribuicoes ?? []), ...validarRegrasAviso(c.avisoPrevio ?? []));
     if (c.vigenciaInicio && existentes.some(x => x.id !== c.id && x.sindicatoCnpj === c.sindicatoCnpj && x.vigenciaInicio === c.vigenciaInicio)) e.push('Já existe uma convenção deste sindicato com o mesmo início de vigência.');
     return e;
 }
@@ -294,4 +300,16 @@ export function lerTextoConvencao(texto: string): SugestaoConvencao {
         }
     }
     return s;
+}
+
+/**
+ * A convenção que vale para a ficha no dia: a do sindicato da ficha (ou o único da empresa), vigente no dia. Vencida
+ * não vale (não há ultratividade: CLT, art. 614, § 3º).
+ */
+export function convencaoDaFicha(convencoes: ConvencaoColetiva[], ficha: FichaFuncionario, sindicatosDaEmpresa: string[], dia: string): ConvencaoColetiva | undefined {
+    const daFicha = (ficha.dados.sindicato ?? '').replace(/\D/g, '');
+    const cnpj = daFicha.length === 14 ? daFicha : sindicatosDaEmpresa.length === 1 ? sindicatosDaEmpresa[0] : '';
+    if (!cnpj) return undefined;
+    const c = convencaoDoDia(convencoes, cnpj, dia);
+    return c && c.vigenciaFim >= dia ? c : undefined;
 }

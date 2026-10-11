@@ -21,6 +21,8 @@ import type { Sindicato } from '../cadastros/sindicatos';
 import { calcularPatronal, type Enquadramento, type Patronal } from '../cadastros/enquadramento';
 import { reais } from '../cadastros/documentos';
 import { diasEntre, somarDias, somarMeses } from '../prazos/calendario';
+import { convencaoDaFicha, type ConvencaoColetiva } from '../sindicatos/convencao';
+import { avisoDaConvencao } from '../sindicatos/contribuicoes';
 
 export interface CenarioDemissao { id: string; tipo: TipoRescisao; aviso: AvisoPrevio; data: string }
 
@@ -63,6 +65,9 @@ export interface EntradaPrevia {
     sindicato?: Sindicato;
     opcoes?: OpcoesIrrf;
     regimePagamento?: (competencia: string) => string;
+    /** Convenções dos sindicatos: aviso prévio a mais e descontos para o sindicato, pela vigente na data. */
+    convencoes?: ConvencaoColetiva[];
+    sindicatosDaEmpresa?: string[];
 }
 
 const br = (d: string) => d.split('-').reverse().join('/');
@@ -132,8 +137,10 @@ export function calcularPrevia(e: EntradaPrevia): ResultadoCenario[] {
         const pct = PERCENTUAL_MULTA[c.tipo] ?? 0;
         const estimar = pct > 0 && !(e.saldoFgts && e.saldoFgts > 0);
         const saldo = estimar ? saldoFgtsEstimado(e.ficha, c.data) : e.saldoFgts;
+        const conv = e.convencoes ? convencaoDaFicha(e.convencoes, e.ficha, e.sindicatosDaEmpresa ?? [], c.data) : undefined;
         const r = calcularRescisao({ ficha: e.ficha, data: c.data, tipo: c.tipo, aviso: c.aviso, afastamentos: afs, tabelas: e.tabelas, movimentos: e.movimentos,
-            saldoFgts: saldo || undefined, adiantamento13: e.adiantamento13, opcoes: e.opcoes, regimePagamento: e.regimePagamento });
+            saldoFgts: saldo || undefined, adiantamento13: e.adiantamento13, opcoes: e.opcoes, regimePagamento: e.regimePagamento,
+            avisoConvencao: avisoDaConvencao(conv?.avisoPrevio, e.ficha, c.data), contribuicoesSindicais: conv?.contribuicoes });
         if (estimar) r.avisos = r.avisos.filter(x => !/saldo do FGTS/i.test(x));
         const patronal = e.enquadramento ? calcularPatronal(r.bases.inss, 0, e.enquadramento) : null;
         const db = indenizacaoDataBase(r, e.sindicato, salarioDoMes(e.ficha, c.data));

@@ -58,6 +58,32 @@ describe('convenções do sindicato (tela)', () => {
         expect(c).toMatchObject({ sindicatoCnpj: SIND, vigenciaInicio: '2026-05-01', dataBase: '5', reajuste: { percentual: 5.5, aPartirDe: '2026-05' }, pisos: [{ descricao: 'Geral', valor: 200000 }] });
         expect(c.obrigacoes.map(o => o.descricao)).toEqual(['Cesta básica mensal', 'Seguro de vida']);
     });
+
+    it('descontos para o sindicato e aviso prévio a mais: editados e gravados na convenção', async () => {
+        render(<ConvencoesSindicato sindicato={{ ...sindicatoVazio(), id: SIND, cnpj: SIND, nome: 'SINDICATO X' }} usuario={{ id: 'u', email: 'dp@x' }} />);
+        fireEvent.click(await screen.findByText('Nova convenção (PDF)'));
+        const pdf = new File(['%PDF'], 'cct-2026.pdf', { type: 'application/pdf' });
+        Object.defineProperty(pdf, 'arrayBuffer', { value: async () => new ArrayBuffer(4) });
+        fireEvent.change(screen.getByLabelText('PDF da convenção'), { target: { files: [pdf] } });
+        await waitFor(() => expect((screen.getByLabelText('Início da vigência') as HTMLInputElement).value).toBe('2026-05-01'));
+        // A primeira contribuição sugerida é a sindical (um dia, em março); a segunda, a assistencial.
+        fireEvent.click(screen.getByText('Adicionar contribuição'));
+        expect((screen.getByLabelText('Meses da contribuição 1') as HTMLInputElement).value).toBe('3');
+        fireEvent.click(screen.getByText('Adicionar contribuição'));
+        expect((screen.getByLabelText('Tipo da contribuição 2') as HTMLSelectElement).value).toBe('assistencial');
+        fireEvent.change(screen.getByLabelText('Valor da contribuição 2'), { target: { value: '1,5' } });
+        fireEvent.change(screen.getByLabelText('Teto da contribuição 2'), { target: { value: '40,00' } });
+        fireEvent.click(screen.getByText('Adicionar regra de aviso'));
+        fireEvent.change(screen.getByLabelText('Idade mínima do aviso 1'), { target: { value: '45' } });
+        fireEvent.change(screen.getByLabelText('Dias a mais do aviso 1'), { target: { value: '15' } });
+        fireEvent.click(screen.getByText('Gravar convenção'));
+        await waitFor(() => expect(srv.salvas.length).toBeGreaterThan(0));
+        const [c] = srv.salvas[srv.salvas.length - 1] as [ConvencaoColetiva, string];
+        expect(c.contribuicoes).toEqual([
+            { tipo: 'sindical', forma: 'dias', valor: 1, meses: [3], teto: null, descricao: 'Um dia de trabalho, na folha de março (CLT, arts. 580 e 582)' },
+            { tipo: 'assistencial', forma: 'percentual', valor: 1.5, meses: [], teto: 4000, descricao: '' }]);
+        expect(c.avisoPrevio).toEqual([{ idadeMinima: 45, anosMinimos: null, diasAdicionais: 15, descricao: '' }]);
+    });
 });
 
 describe('conformidade (tela)', () => {

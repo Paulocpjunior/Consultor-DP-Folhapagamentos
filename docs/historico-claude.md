@@ -3939,3 +3939,23 @@ Tudo pela Folha complementar (Cálculo › Pagamento › Folha complementar…),
   - as opções ficam gravadas com a complementar.
 - **Catálogo SAGE:** 13º, Rescisão e Folha Complementar atualizados.
 - **Testes:** os três cálculos, a complementar com o 13º (INSS e IRRF próprios, sem RRA em janeiro), o S-1200 do desligado no XSD (só complementar e rescisão complementar com o de/para sugerido) e a tela.
+
+## 11/10/2026 — Desconto sindical e aviso prévio da convenção no cálculo
+
+Paulo: "pode seguir com desconto sindical e aviso prévio da convenção".
+
+- **Convenção** (Cadastros › Sindicatos › Convenções), dois blocos novos:
+  - **descontos para o sindicato:** tipo, forma (% do salário, valor fixo ou dias de salário), meses (vazio = todo mês), teto e a cláusula. A sindical já vem com um dia, em março;
+  - **aviso prévio a mais:** idade mínima, tempo de casa mínimo e dias além da Lei 12.506/2011.
+- **Ficha**, aba **Sindicato:** autorizou a contribuição sindical, opôs-se à assistencial e é filiado.
+- **Regras** (`services/sindicatos/contribuicoes.ts`), conferidas em busca pública (11/10/2026):
+  - contribuição sindical: só com autorização prévia, expressa e individual (CLT, art. 579; ADI 5.794); um dia de trabalho na folha de março (arts. 580 e 582);
+  - assistencial/negocial: de todos, salvo quem exerceu o direito de oposição (STF, Tema 935);
+  - confederativa e mensalidade: só dos filiados (Súmula Vinculante 40).
+- **Folha mensal:** os descontos saem da convenção vigente do sindicato da ficha (ou do único sindicato da empresa). Convenção vencida não vale, porque não há ultratividade (art. 614, § 3º).
+  - São descontos sem INSS, FGTS e IRRF, e quem não paga aparece na memória com o motivo.
+  - Afastado o mês todo: não desconta e avisa para descontar no retorno (art. 602).
+- **Rescisão sem justa causa:** a regra cumprida que dá mais dias soma ao aviso legal. Os dias a mais são indenizados e projetados (13º e férias), mesmo com aviso trabalhado. No acordo do art. 484-A, só aviso para conferir. Vale também nas prévias de Demissões.
+- **eSocial:** o de/para sugere as rubricas pela descrição (SINDIC, ASSIST/NEGOC, CONFED, MENSAL/ASSOCIA). A natureza da Tabela 03 não foi confirmada em fonte confiável, então não é fixada.
+- **Catálogo SAGE:** Sindicatos passa a disponível (20 disponíveis, 20 parciais, 8 planejados, 3 fora).
+- **Testes:** regras de cada contribuição, validação, folha (bases iguais e líquido menor; afastado), aviso (melhor regra, indenizado, trabalhado, pedido, acordo), convenção da ficha e a tela da convenção.

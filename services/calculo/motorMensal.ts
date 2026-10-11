@@ -24,6 +24,7 @@ import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros
 import { adicionalDeRisco, adicionalProporcional } from './adicionais';
 import { diaSemana, diaUtilAnterior, feriados, somarDias, somarMeses } from '../prazos/calendario';
 import { ehDomestico, indenizacaoCompensatoria } from '../domestico/domestico';
+import { descontosSindicais, type ContribuicaoConvencao } from '../sindicatos/contribuicoes';
 
 export type TipoVerba = 'provento' | 'desconto';
 export interface Incidencias { inss: boolean; fgts: boolean; irrf: boolean }
@@ -114,6 +115,8 @@ export interface EntradaCalculo {
     folhaPagaAntesNoMes?: IrrfApurado & { competencia: string } | { pendente: string } | null;
     /** Benefícios da empresa (parâmetros da folha): os da ficha vigentes no mês entram como verbas. */
     beneficios?: Beneficio[];
+    /** Contribuições da convenção vigente do sindicato da ficha (descontos para o sindicato). */
+    contribuicoesSindicais?: ContribuicaoConvencao[];
 }
 
 /** O IRRF de um pagamento da folha: rendimentos tributáveis, deduções legais (INSS, dependentes, pensão) e o retido. */
@@ -429,6 +432,13 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     // líquido negativo; fica de fora, com aviso, para ser cobrado à parte.
     if (ben.verbas.length && !diasPagos && !diasMatTotal) r.avisos.push(`Sem salário no mês: ${ben.verbas.map(b => b.descricao).join(', ')} não ${ben.verbas.length > 1 ? 'foram lançados' : 'foi lançado'}. Cobre à parte, se for o caso.`);
     else { ben.verbas.forEach(verba); r.memoria.push(...ben.memoria); }
+    // Descontos para o sindicato, pela convenção vigente: quem paga cada um vem da ficha (aba Sindicato).
+    if (e.contribuicoesSindicais?.length) {
+        const sind = descontosSindicais(e.contribuicoesSindicais, ficha, competencia, mensal, diariaComAdicional);
+        if (sind.descontos.length && !diasPagos && !diasMatTotal) r.avisos.push(`Sem salário no mês: ${sind.descontos.map(x => x.descricao).join(', ')} não ${sind.descontos.length > 1 ? 'foram descontadas' : 'foi descontada'}. Desconte no retorno (CLT, art. 602).`);
+        else for (const x of sind.descontos) verba({ ...x, tipo: 'desconto', inss: false, fgts: false, irrf: false });
+        r.memoria.push(...sind.memoria); r.avisos.push(...sind.avisos);
+    }
 
     // Vale-transporte: desconto de 6% do salário básico do mês (Lei 7.418/1985, art. 4º, parágrafo único;
     // Decreto 10.854/2021, art. 114), sem adicionais; nunca acima do custo do benefício, quando informado.

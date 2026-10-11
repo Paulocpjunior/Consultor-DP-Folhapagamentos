@@ -32,6 +32,7 @@ import { diasDeDireito, feriasDaCompetencia, mesesDoPeriodo, periodosAquisitivos
 import { inssDetalhado, irrfDetalhado, type OpcoesIrrf } from './tributos';
 import { adicionalDeRisco } from './adicionais';
 import { destinoIndenizacao, ehDomestico, indenizacaoCompensatoria } from '../domestico/domestico';
+import type { ContribuicaoConvencao } from '../sindicatos/contribuicoes';
 
 /** Motivos do desligamento (Tabela 19 do eSocial) cobertos nesta versão. */
 export const TIPOS_RESCISAO = {
@@ -78,6 +79,10 @@ export interface EntradaRescisao {
      * mês e a folha anterior paga nele, o IRRF soma as duas (regime de caixa). Sem ele, o IRRF é só da rescisão.
      */
     regimePagamento?: (competencia: string) => string;
+    /** Aviso prévio a mais pela convenção (avisoDaConvencao), na dispensa sem justa causa. */
+    avisoConvencao?: { dias: number; regra: string } | null;
+    /** Contribuições da convenção (o mês da rescisão desconta como a folha). */
+    contribuicoesSindicais?: ContribuicaoConvencao[];
 }
 
 export interface ResultadoRescisao extends ResultadoCalculo {
@@ -169,7 +174,7 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
     // Rescisão paga no próprio mês, com a folha anterior paga nele: o IRRF do saldo soma a folha (regime de caixa).
     const folhaPagaAntesNoMes = pagamento === comp && e.regimePagamento
         ? folhaPagaAntes(e.movimentos, comp, m => d.admissao.slice(0, 7) <= m, e.regimePagamento) : null;
-    const mes = calcularMensal({ competencia: comp, pagamento, ficha: fichaDeslig, afastamentos: e.afastamentos, tabelas: e.tabelas, movimento: e.movimentos[comp],
+    const mes = calcularMensal({ competencia: comp, pagamento, ficha: fichaDeslig, afastamentos: e.afastamentos, tabelas: e.tabelas, movimento: e.movimentos[comp], contribuicoesSindicais: e.contribuicoesSindicais,
         feriasDoMes: feriasDaCompetencia(fichaDeslig, e.afastamentos, e.tabelas, e.movimentos, comp), folhaPagaAntesNoMes });
     if (mes.situacao === 'erro') { r.erros.push(...mes.erros); r.situacao = 'erro'; }
     for (const v of mes.verbas) r.verbas.push(v.codigo === 'SAL' ? { ...v, descricao: 'Saldo de salário' } : v.codigo === 'INSS' ? { ...v, descricao: 'INSS sobre saldo de salário' } : v.codigo === 'IRRF' ? { ...v, descricao: 'IRRF sobre saldo de salário' } : v);
@@ -191,8 +196,13 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
     // 2. Aviso prévio.
     let indenizados = 0;
     if (tipo === '02' || tipo === '33') {
-        const dias = diasDeAviso(d.admissao, data);
+        const legal = diasDeAviso(d.admissao, data);
+        // Convenção: dias a mais na dispensa sem justa causa (no acordo do art. 484-A, a convenção não se aplica sozinha).
+        const extra = tipo === '02' && e.avisoConvencao?.dias ? e.avisoConvencao.dias : 0;
+        if (tipo === '33' && e.avisoConvencao?.dias) r.avisos.push(`A convenção dá ${e.avisoConvencao.dias} dia(s) a mais de aviso na dispensa (${e.avisoConvencao.regra}); no acordo do art. 484-A, confira se ela se aplica.`);
+        const dias = legal + extra;
         r.diasAviso = dias;
+        if (extra) r.memoria.push(`Aviso prévio da convenção: ${extra} dia(s) além dos ${legal} da Lei 12.506/2011 (${e.avisoConvencao!.regra}), indenizados e projetados no contrato.`);
         // Dias pagos do aviso: no acordo (art. 484-A, I, "a"), a metade do indenizado, inclusive meio dia.
         let pagos = 0;
         if (e.aviso === 'trabalhado') {

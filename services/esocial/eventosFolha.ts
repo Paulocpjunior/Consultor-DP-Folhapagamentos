@@ -130,6 +130,11 @@ const SUGESTAO: Record<string, { naturezas: string[]; dica?: RegExp; evita?: Reg
     IRRFFER: { naturezas: ['9203'], dica: /FERIAS/ },
     // Folha complementar: 13º complementar (5005, MOS S-1200, item 19.2), diferença do 13º e as verbas rescisórias de quem
     // saiu antes do instrumento (MOS, item 18.10), nas mesmas naturezas da rescisão.
+    // Descontos para o sindicato: a natureza varia no S-1010 de cada empresa; vai pela descrição da rubrica.
+    CONTSIND: { naturezas: [], dica: /SINDIC/, evita: /ASSIST|NEGOC|CONFED|MENSAL|ASSOCIA|PATRON/ },
+    CONTASSIST: { naturezas: [], dica: /ASSIST|NEGOC/ },
+    CONTCONF: { naturezas: [], dica: /CONFED/ },
+    MENSSIND: { naturezas: [], dica: /MENSAL.*SIND|SIND.*MENSAL|ASSOCIA/ },
     '13COMP': { naturezas: ['5005'] },
     '13DIF': { naturezas: ['5001', '5005'] },
     AVISO: { naturezas: ['6003'], dica: /AVISO/, evita: /DESC|13|FERIAS/ },

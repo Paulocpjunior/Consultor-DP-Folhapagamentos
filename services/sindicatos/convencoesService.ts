@@ -16,7 +16,7 @@ export const TAMANHO_MAXIMO_PDF = 20 * 1024 * 1024;
 const deDoc = (id: string, x: Record<string, unknown>): ConvencaoColetiva => {
     const v = convencaoVazia();
     return { ...v, ...(x as Partial<ConvencaoColetiva>), id, reajuste: { ...v.reajuste, ...(x.reajuste as object ?? {}) }, horaExtra: { ...v.horaExtra, ...(x.horaExtra as object ?? {}) },
-        pisos: (x.pisos as ConvencaoColetiva['pisos']) ?? [], obrigacoes: (x.obrigacoes as ConvencaoColetiva['obrigacoes']) ?? [], arquivo: (x.arquivo as ConvencaoColetiva['arquivo']) ?? null };
+        pisos: (x.pisos as ConvencaoColetiva['pisos']) ?? [], obrigacoes: (x.obrigacoes as ConvencaoColetiva['obrigacoes']) ?? [], contribuicoes: (x.contribuicoes as ConvencaoColetiva['contribuicoes']) ?? [], avisoPrevio: (x.avisoPrevio as ConvencaoColetiva['avisoPrevio']) ?? [], arquivo: (x.arquivo as ConvencaoColetiva['arquivo']) ?? null };
 };
 
 export async function listarConvencoes(): Promise<ConvencaoColetiva[]> {
