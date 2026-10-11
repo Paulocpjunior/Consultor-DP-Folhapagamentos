@@ -4644,3 +4644,26 @@ Oitavo dos parciais da auditoria.
   - os avisos (12 x 36 fora do padrão, sem descanso semanal, interjornada);
   - o revezamento, a 24x48 e o tpJornada;
   - o S-2200 de uma 12 x 36 noturna no XSD oficial.
+
+## 11/10/2026 — Diagnóstico do cadastro eSocial
+
+Nono dos parciais da auditoria (o IOB Diagnóstico eSocial).
+
+- **eSocial › Diagnóstico do cadastro** (`services/esocial/diagnosticoCadastro.ts`): o cadastro inteiro da empresa ativa na competência, apto ou não apto, antes de gerar os eventos. Confere:
+  - **empresa:** CNPJ, parâmetros do S-1200 (estabelecimento e lotação), enquadramento vigente, S-1010 vigente, e o de/para apontando rubricas que existem e estão vigentes;
+  - **trabalhadores da competência:** a mesma validação da ficha, a matrícula do eSocial, e o horário ligado (se existe e se as horas batem). Desligados antes do mês ficam de fora;
+  - **rubricas vigentes:** os dados do S-1010;
+  - **horários:** a validação, escalas incluídas;
+  - **afastamentos que tocam o mês:** a validação do afastamento.
+- **Tela:**
+  - "Apto" ou "Não apto" com a contagem de erros e avisos;
+  - um quadro por área (verificados, erros, avisos) que filtra a lista, e a opção "só os erros";
+  - onde corrigir cada área e a planilha.
+  - Nenhuma regra é nova: o diagnóstico junta as validações de cada cadastro, e o pré-voo continua conferindo cada evento no XSD oficial ao transmitir.
+- **Catálogo SAGE:** `es-diagnostico` passa a disponível. Agora são 44 disponíveis e 7 parciais.
+- **Testes:**
+  - cadastro apto;
+  - empresa não apta e de/para quebrado;
+  - trabalhadores (matrícula, horário inexistente, horas diferentes, desligado fora);
+  - rubricas, horários e afastamentos;
+  - a ordem dos itens, a planilha e a tela.

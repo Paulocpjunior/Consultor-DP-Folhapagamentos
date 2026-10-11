@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import DiagnosticoCadastroPanel from './DiagnosticoCadastroPanel';
 import ESocialDashboard from './ESocialDashboard';
 import ESocialEventos from './ESocialEventos';
 import ESocialFgts from './ESocialFgts';
@@ -14,7 +15,7 @@ import PontoEditorPanel from '../ponto/PontoEditorPanel';
 import PontoPanel from '../ponto/PontoPanel';
 import type { User } from '../../types';
 
-export type SubTab = 'dashboard' | 'saude' | 'eventos' | 'transmissao' | 'download' | 'fgts' | 'calendario' | 'certificados' | 'teses' | 'ponto' | 'ponto_eletronico' | 'relatorio' | 'audit';
+export type SubTab = 'dashboard' | 'saude' | 'diagnostico' | 'eventos' | 'transmissao' | 'download' | 'fgts' | 'calendario' | 'certificados' | 'teses' | 'ponto' | 'ponto_eletronico' | 'relatorio' | 'audit';
 
 interface Props {
     currentUser: User;
@@ -30,6 +31,7 @@ const ESocialMonitorPanel: React.FC<Props> = ({ currentUser, subInicial, embutid
         { id: 'dashboard',    label: 'Dashboard',    icon: '📊' },
         { id: 'eventos',      label: 'Eventos',      icon: '📄' },
         { id: 'saude',        label: 'Saúde do eSocial', icon: '🩺' },
+        { id: 'diagnostico',  label: 'Diagnóstico do cadastro', icon: '🔎' },
         { id: 'transmissao',  label: 'Transmissão',  icon: '📤' },
         { id: 'download',     label: 'Download',     icon: '⬇️' },
         { id: 'fgts',         label: 'FGTS Digital', icon: '💰' },
@@ -73,6 +75,7 @@ const ESocialMonitorPanel: React.FC<Props> = ({ currentUser, subInicial, embutid
             {subTab === 'dashboard' && <ESocialDashboard />}
             {subTab === 'eventos' && <ESocialEventos currentUser={currentUser} onIrParaTransmissao={() => setSubTab('transmissao')} />}
             {subTab === 'saude' && <SaudeEsocialPanel usuario={currentUser ? { id: (currentUser as { uid?: string }).uid ?? currentUser.id, email: currentUser.email } : undefined} />}
+            {subTab === 'diagnostico' && <DiagnosticoCadastroPanel />}
             {subTab === 'transmissao' && <ESocialTransmissao usuario={currentUser ? { id: (currentUser as { uid?: string }).uid ?? currentUser.id, email: currentUser.email } : undefined} />}
             {subTab === 'download' && <ESocialDownload />}
             {subTab === 'fgts' && <ESocialFgts />}
