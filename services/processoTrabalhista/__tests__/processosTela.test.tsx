@@ -56,4 +56,37 @@ describe('processos trabalhistas (tela)', () => {
         expect(screen.getByRole('alert').textContent).toMatch(/padrão do CNJ.*Inclua o trabalhador/);
         expect(srv.gravados).toHaveLength(0);
     });
+
+    it('reconhecimento de vínculo de quem não tem ficha: dados do contrato no S-2500', async () => {
+        render(<EmpresaAtivaProvider ativa={ATIVA} trocar={() => {}}><ProcessosTrabalhistasPanel usuario={{ id: 'u', email: 'dp@x' }} /></EmpresaAtivaProvider>);
+        fireEvent.click(await screen.findByText('+ Novo processo'));
+        fireEvent.change(screen.getByLabelText('Número do processo'), { target: { value: NR } });
+        fireEvent.change(screen.getByLabelText('Data da decisão'), { target: { value: '2026-08-20' } });
+        fireEvent.change(screen.getByLabelText('UF da Vara'), { target: { value: 'SP' } });
+        fireEvent.change(screen.getByLabelText('Município da Vara'), { target: { value: '3550308' } });
+        fireEvent.change(screen.getByLabelText('Vara'), { target: { value: '12' } });
+        fireEvent.click(screen.getByText('+ Trabalhador sem ficha'));
+        fireEvent.change(screen.getByLabelText('CPF do trabalhador 1'), { target: { value: '111.444.777-35' } });
+        expect((screen.getByLabelText('Tipo de contrato de 11144477735') as HTMLSelectElement).value).toBe('5');
+        fireEvent.change(screen.getByLabelText('Nome de 11144477735'), { target: { value: 'bruno' } });
+        fireEvent.change(screen.getByLabelText('Nascimento de BRUNO'), { target: { value: '1990-04-02' } });
+        fireEvent.change(screen.getByLabelText('Matrícula nova de BRUNO'), { target: { value: 'PROC-0001' } });
+        fireEvent.change(screen.getByLabelText('CBO de BRUNO'), { target: { value: '411010' } });
+        const sal = screen.getByLabelText('Salário de BRUNO');
+        fireEvent.change(sal, { target: { value: '2.500,00' } });
+        fireEvent.blur(sal);
+        fireEvent.change(screen.getByLabelText('Admissão de BRUNO'), { target: { value: '2024-11-04' } });
+        fireEvent.change(screen.getByLabelText('Desligamento de BRUNO'), { target: { value: '2024-12-31' } });
+        fireEvent.change(screen.getByLabelText('Motivo do desligamento de BRUNO'), { target: { value: '02' } });
+        fireEvent.change(screen.getByLabelText('Competência inicial de BRUNO'), { target: { value: '2024-11' } });
+        fireEvent.change(screen.getByLabelText('Competência final de BRUNO'), { target: { value: '2024-12' } });
+        fireEvent.click(screen.getByText('Montar os meses'));
+        fireEvent.click(screen.getByText('Gravar o processo'));
+        await screen.findByText('Processo gravado.');
+        expect(srv.gravados[0]).toMatchObject({ trabalhadores: [{ fichaId: '', cpf: '11144477735', nome: 'BRUNO', tpContr: '5', contrato: { salario: 250000, dtAdm: '2024-11-04', mtvDeslig: '02' } }] });
+        fireEvent.click(screen.getByText('Transmitir S-2500'));
+        await screen.findByText(/S-2500: Lote recebido/);
+        expect(srv.lotes[0][0].xml).toContain('<nmTrab>BRUNO</nmTrab><dtNascto>1990-04-02</dtNascto><infoContr><tpContr>5</tpContr><indContr>N</indContr>');
+        expect(srv.lotes[0][0].xml).toContain('<vrSalFx>2500.00</vrSalFx>');
+    });
 });

@@ -1,8 +1,8 @@
 // components/processoTrabalhista/ProcessosTrabalhistasPanel.tsx
 //
 // eSocial › Processos trabalhistas (S-2500 e S-2501) da empresa ativa. O DP cadastra o processo (judicial ou acordo em
-// CCP/NINTER), o trabalhador com o período e as bases mês a mês do cálculo homologado, e cada pagamento com as
-// contribuições por código de receita e o IRRF. Transmite pelo pré-voo e pela fila de sempre (CFI, A1 do cofre).
+// CCP/NINTER), o trabalhador com o contrato (tipos 1 a 7, inclusive reconhecimento de vínculo e TSVE), o período e as
+// bases mês a mês do cálculo homologado, e cada pagamento com as contribuições por código de receita e o IRRF. Transmite pelo pré-voo e pela fila de sempre (CFI, A1 do cofre).
 
 import React, { useEffect, useState } from 'react';
 import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
@@ -10,9 +10,10 @@ import { listarFuncionarios, mensagemErro, type Usuario } from '../../services/c
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
 import { centavosDeTexto, reais, UFS } from '../../services/cadastros/documentos';
 import {
-    CR_IRRF, gerarS2500, gerarS2501, mesesEntre, processoVazio, REPERCUSSOES, ROTULO_ORIGEM, TIPOS_CCP, totaisDoPagamento, validarPagamento, validarProcesso,
+    comBases, contratoVazio, CR_IRRF, indContrDe, gerarS2500, gerarS2501, mesesEntre, processoVazio, REPERCUSSOES, ROTULO_ORIGEM, TIPOS_CCP, totaisDoPagamento, validarPagamento, validarProcesso,
     type IrrfProcesso, type PagamentoProcesso, type PagamentoTrabalhador, type ProcessoTrabalhista, type TrabalhadorProcesso,
 } from '../../services/processoTrabalhista/processoTrabalhista';
+import ContratoDoProcesso from './ContratoDoProcesso';
 import { listarProcessos, salvarProcesso } from '../../services/processoTrabalhista/processosService';
 import { verificarAntesDeEnviar, transmitirVerificado, mensagemDaTransmissao } from '../../services/esocial/envioSeguro';
 import type { TpAmb } from '../../services/esocial/transmissao';
@@ -105,7 +106,16 @@ const ProcessosTrabalhistasPanel: React.FC<{ usuario: Usuario }> = ({ usuario })
     function incluirFicha(fichaId: string) {
         const f = fichas.find(x => x.id === fichaId);
         if (!f || !p || p.trabalhadores.some(t => t.cpf === f.cpf)) return;
-        muda({ trabalhadores: [...p.trabalhadores, { fichaId: f.id, cpf: f.cpf, nome: f.dados.nome ?? f.cpf, matricula: f.matriculaEsocial, compIni: '', compFim: '', indReperc: '1', periodos: [] }] });
+        muda({ trabalhadores: [...p.trabalhadores, {
+            fichaId: f.id, cpf: f.cpf, nome: f.dados.nome ?? f.cpf, matricula: f.matriculaEsocial, compIni: '', compFim: '', indReperc: '1', periodos: [],
+            tpContr: '1', codCateg: f.dados.categoria ?? '', grauExp: f.dados.grauExp || '1',
+        }] });
+    }
+
+    /** Quem não tem ficha: reconhecimento de vínculo, vínculo anterior ao eSocial ou TSVE. */
+    function incluirSemFicha() {
+        if (!p) return;
+        muda({ trabalhadores: [...p.trabalhadores, { fichaId: '', cpf: '', nome: '', matricula: '', compIni: '', compFim: '', indReperc: '1', periodos: [], tpContr: '5', codCateg: '101', grauExp: '1', contrato: contratoVazio() }] });
     }
 
     return (
@@ -114,7 +124,8 @@ const ProcessosTrabalhistasPanel: React.FC<{ usuario: Usuario }> = ({ usuario })
                 <h2 className="text-lg font-semibold">Processos trabalhistas (S-2500 e S-2501)</h2>
                 <p className="text-slate-600 dark:text-slate-300">
                     Decisões e acordos da Justiça do Trabalho e das CCP/NINTER vão pelo eSocial: o S-2500 leva o processo e as bases mês a mês; o S-2501, os tributos de cada pagamento
-                    (até o dia 15 do mês seguinte). Os valores vêm do cálculo homologado. Nesta versão: trabalhador com vínculo no eSocial, sem mudança de datas, categoria ou motivo do desligamento.
+                    (até o dia 15 do mês seguinte). Os valores vêm do cálculo homologado. Vale para vínculo no eSocial (com ou sem mudança de datas), reconhecimento de vínculo, vínculo anterior ao eSocial,
+                    trabalhador sem vínculo (TSVE), mudança de categoria ou natureza da atividade e pagamento por depósito judicial. Responsabilidade indireta e unicidade contratual continuam pelo IOB ou pelo portal.
                 </p>
             </div>
             {ocupado && <p className="text-blue-700 dark:text-blue-300">{ocupado}</p>}
@@ -163,19 +174,26 @@ const ProcessosTrabalhistasPanel: React.FC<{ usuario: Usuario }> = ({ usuario })
                                 <option value="">+ Incluir funcionário…</option>
                                 {fichas.filter(f => !p.trabalhadores.some(t => t.cpf === f.cpf)).map(f => <option key={f.id} value={f.id}>{f.dados.nome ?? f.cpf}{f.situacao === 'desligado' ? ' (desligado)' : ''}</option>)}
                             </select>
+                            <button className={btn} onClick={incluirSemFicha}>+ Trabalhador sem ficha</button>
                         </div>
                         {p.trabalhadores.map((t, i) => (
-                            <div key={t.cpf} className="space-y-2 rounded bg-slate-50 p-2 dark:bg-slate-800">
+                            <div key={i} className="space-y-2 rounded bg-slate-50 p-2 dark:bg-slate-800">
                                 <div className="flex flex-wrap items-end gap-3">
-                                    <span className="font-medium">{t.nome} · CPF {t.cpf} · matrícula {t.matricula || '—'}</span>
+                                    {t.fichaId
+                                        ? <span className="font-medium">{t.nome} · CPF {t.cpf} · matrícula {t.matricula || '—'}</span>
+                                        : <label>CPF<input aria-label={`CPF do trabalhador ${i + 1}`} className={`block w-36 ${inp}`} value={t.cpf} onChange={e => mudaTrab(i, { cpf: e.target.value.replace(/\D/g, '').slice(0, 11) })} /></label>}
                                     <label>De<input aria-label={`Competência inicial de ${t.nome}`} type="month" className={`block ${inp}`} value={t.compIni} onChange={e => mudaTrab(i, { compIni: e.target.value })} /></label>
                                     <label>Até<input aria-label={`Competência final de ${t.nome}`} type="month" className={`block ${inp}`} value={t.compFim} onChange={e => mudaTrab(i, { compFim: e.target.value })} /></label>
                                     <label>Repercussão<select aria-label={`Repercussão de ${t.nome}`} className={`block ${inp}`} value={t.indReperc} onChange={e => mudaTrab(i, { indReperc: e.target.value as TrabalhadorProcesso['indReperc'] })}>{Object.entries(REPERCUSSOES).map(([k, r]) => <option key={k} value={k}>{r}</option>)}</select></label>
-                                    {t.indReperc === '1' && <button className={btn} onClick={() => mudaTrab(i, { periodos: mesesEntre(t.compIni, t.compFim).map(m => t.periodos.find(x => x.perRef === m) ?? { perRef: m, bcCpMensal: 0, bcCp13: 0, bcFgts: 0 }) })}>Montar os meses</button>}
+                                    {comBases(t.indReperc) && <button className={btn} onClick={() => mudaTrab(i, { periodos: mesesEntre(t.compIni, t.compFim).map(m => t.periodos.find(x => x.perRef === m) ?? { perRef: m, bcCpMensal: 0, bcCp13: 0, bcFgts: 0 }) })}>Montar os meses</button>}
                                     <label>Recibo do S-2500 (para retificar)<input aria-label={`Recibo do S-2500 de ${t.nome}`} className={`block w-48 ${inp}`} value={t.reciboS2500 ?? ''} onChange={e => mudaTrab(i, { reciboS2500: e.target.value.trim() })} /></label>
                                     <button className={btnP} disabled={!!ocupado} onClick={() => enviarS2500(t)}>Transmitir S-2500</button>
                                 </div>
-                                {t.indReperc === '1' && t.periodos.length > 0 && (
+                                {!t.fichaId && indContrDe(t) === 'S' && (
+                                    <label className="block text-xs">Matrícula do eSocial<input aria-label={`Matrícula de ${t.nome}`} className={`ml-1 w-32 ${inp}`} value={t.matricula} onChange={e => mudaTrab(i, { matricula: e.target.value })} /></label>
+                                )}
+                                <ContratoDoProcesso t={t} muda={x => mudaTrab(i, x)} />
+                                {comBases(t.indReperc) && t.periodos.length > 0 && (
                                     <table className="text-xs"><thead className="text-left text-slate-500"><tr><th className="p-1">Mês</th><th className="p-1">Base INSS</th><th className="p-1">Base INSS 13º</th><th className="p-1">Base FGTS</th></tr></thead>
                                         <tbody>{t.periodos.map((x, k) => (
                                             <tr key={x.perRef}><td className="p-1 font-mono">{x.perRef}</td>

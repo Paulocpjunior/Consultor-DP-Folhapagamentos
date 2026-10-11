@@ -4126,3 +4126,20 @@ Paulo: "pode seguir". O RRA ficou para o fim da lista, e este era o próximo ite
   - com S-1210 já aceito, o plano entra se o aceito não tinha; se tinha, fica o dele, com aviso.
 - **Informe de rendimentos:** já lia o planSaude dos S-5002, então o valor passa a aparecer nele.
 - **Testes:** validação do benefício; mensalidade e coparticipação somadas no planSaude, com o S-1210 no XSD oficial S-1.3; sem a operadora, nada de planSaude.
+
+## 11/10/2026 — Processo trabalhista completo (S-2500: tipos de contrato 2 a 7, categoria e depósito judicial)
+
+Paulo: "pode seguir". Continuação do S-2500/S-2501 da semana: a primeira versão só aceitava o tipo 1 (vínculo no eSocial sem mudança).
+
+- **Tipos de contrato** (`services/processoTrabalhista/processoTrabalhista.ts`, campo `tpContr`):
+  - 2, 3 e 4: vínculo no eSocial com nova admissão e/ou novo desligamento. O S-2500 leva a admissão original; a tela avisa que o S-2200 retificado (admissão) e o S-2299 (desligamento) levam as datas novas, como pede o leiaute;
+  - 5 (reconhecimento de vínculo) e 7 (vínculo anterior ao eSocial): o contrato não está no eSocial, então vão no S-2500 o nome, o nascimento, a matrícula nova, a categoria e o vínculo inteiro (CBO, natureza, remuneração, regime, admissão, tempo parcial, duração, desligamento, motivo, aviso projetado e pensão alimentícia);
+  - 6 (TSVE): com S-2300, só a matrícula; sem S-2300, início, categoria, CBO, remuneração e término (com o motivo do diretor não empregado, 721).
+- **Indicativos:** reintegração (avisa do S-2298), nova categoria e/ou natureza da atividade (`mudCategAtiv`, em ordem de data) e novo motivo de desligamento (avisa da retificação do S-2299).
+- **Depósito judicial:** repercussões 4 e 5 (a 5 leva as bases mês a mês); no S-2501, aviso de que o IRRF costuma ser retido pelo banco no levantamento.
+- **Indenizações** substitutivas do seguro-desemprego e do abono salarial (com os anos-base).
+- **Grau de exposição:** as bases das categorias de empregado, avulso e agente público passam a levar `infoAgNocivo` (o eSocial exige; o grau vem da ficha, padrão 1). Registros antigos sem a categoria vão como 101, com aviso.
+- **Tela** (`components/processoTrabalhista/ContratoDoProcesso.tsx`, dentro de eSocial › Processos trabalhistas): tipo de contrato, categoria e grau por trabalhador, e "+ Trabalhador sem ficha" para quem não tem cadastro.
+- **Fora, de propósito:** unicidade contratual (9), responsabilidade indireta (8) e Justiça Comum, que continuam pelo IOB ou pelo portal.
+- **Catálogo SAGE:** `es-processo-trab` continua parcial, com o texto atualizado.
+- **Testes:** cada tipo de contrato validado no XSD oficial S-1.3 (5, 7, 2/4, 6 com e sem S-2300), mudança de categoria, depósito judicial 4 e 5, erros por campo e a tela com o reconhecimento de vínculo de quem não tem ficha.
