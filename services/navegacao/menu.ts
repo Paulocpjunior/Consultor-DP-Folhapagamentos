@@ -4,7 +4,7 @@
 // depois os cadastros, a folha do mês, as conferências, o eSocial, os prazos e o fim de mês;
 // as configurações ficam à direita. Cada item leva a uma tela (aba) e, quando há, à sub-aba dela.
 
-export type Aba = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin' | 'fimdemes' | 'relatorios' | 'servicos' | 'demissoes' | 'beneficios' | 'contribuintes' | 'dctfweb';
+export type Aba = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin' | 'fimdemes' | 'relatorios' | 'servicos' | 'demissoes' | 'beneficios' | 'contribuintes' | 'dctfweb' | 'processos';
 
 export type SubFolha = 'eventos' | 'apontamento' | 'validador-ponto' | 'implantacao' | 'conferencia';
 export type SubCadastroMenu = 'funcionarios' | 'horarios' | 'afastamentos' | 'incidencias' | 'enquadramento' | 'sindicatos' | 'tabelas' | 'conformidade';
@@ -18,7 +18,7 @@ export type Destino =
     | { aba: 'calculo'; folha: FolhaCalculo }
     | { aba: 'fimdemes'; sub: 'fechamento' | 'pedidos' }
     | { aba: 'relatorios'; sub: 'central' | 'modelos' }
-    | { aba: 'empresas' | 'certificados' | 'prazos' | 'iobsage' | 'admin' | 'servicos' | 'demissoes' | 'beneficios' | 'contribuintes' | 'dctfweb' }
+    | { aba: 'empresas' | 'certificados' | 'prazos' | 'iobsage' | 'admin' | 'servicos' | 'demissoes' | 'beneficios' | 'contribuintes' | 'dctfweb' | 'processos' }
     | { aba: 'trocar' };
 
 import type { NomeIcone } from '../../components/layout/icones';
@@ -75,6 +75,7 @@ export const MENU: GrupoMenu[] = [
         { id: 'download', rotulo: 'Download', descricao: 'Baixar eventos do governo', icone: 'baixar', destino: { aba: 'esocial', sub: 'download' } },
         { id: 'fgts', rotulo: 'FGTS Digital', descricao: 'Recolhimento mês a mês, extrato por funcionário, CRF e procuração do FGTS Digital', icone: 'moeda', destino: { aba: 'esocial', sub: 'fgts' } },
         { id: 'dctfweb', rotulo: 'DCTFWeb da folha', descricao: 'Insumos (eSocial, Reinf e MIT), débitos, DARF e transmissão pelo SERPRO', icone: 'moeda', destino: { aba: 'dctfweb' } },
+        { id: 'processos', rotulo: 'Processos trabalhistas', descricao: 'Decisões e acordos trabalhistas: S-2500 (processo e bases) e S-2501 (contribuições e IRRF)', icone: 'balanca', destino: { aba: 'processos' } },
         { id: 'ponto-editor', rotulo: 'Ponto (editor)', descricao: 'Layouts e marcações do ponto', icone: 'lapis', destino: { aba: 'esocial', sub: 'ponto' } },
         { id: 'ponto-eletronico', rotulo: 'Ponto eletrônico', descricao: 'Espelho e apuração', icone: 'relogio', destino: { aba: 'esocial', sub: 'ponto_eletronico' } },
         { id: 'teses', rotulo: 'Recuperação', descricao: 'Teses e créditos', icone: 'balanca', destino: { aba: 'esocial', sub: 'teses' } },

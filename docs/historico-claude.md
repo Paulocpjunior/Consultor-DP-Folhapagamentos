@@ -4036,3 +4036,31 @@ Paulo: "pode seguir com dctfweb do DP".
 - **S-1299:** com "Transmitir a DCTFWeb logo após o fechamento" marcado, a tela avisa para conferir o semáforo antes. Se o Reinf ou o MIT estiverem pendentes, o certo é desmarcar.
 - **Catálogo SAGE:** DCTFWeb passa a disponível (21 disponíveis, 20 parciais, 8 planejados, 2 fora).
 - **Testes:** semáforo (só fica "pronto" com os três lidos), ações da tela, vencimento com feriado e fim de semana, pedido de transmissão e a tela (DARF em andamento, transmissão pelo DP e o Fiscal com justificativa).
+
+## 11/10/2026 — Processo trabalhista no eSocial (S-2500 e S-2501)
+
+Paulo: "pode seguir com a reinf do dp". Ele escolheu: quem envia a EFD-Reinf é o CFI (Fiscal), e a parte do DP são os pagamentos judiciais a ex-empregados.
+
+- **Correção do escopo, antes de construir:** desde 10/2023, as decisões e os acordos da Justiça do Trabalho e das CCP/NINTER vão pelo **eSocial**: S-2500 (processo) e S-2501 (tributos). Não vão pelo R-4010. Paulo escolheu fazer o S-2500/S-2501. O R-4010 do DP fica só para os casos residuais, como IRRF devido por terceiro, e continua planejado.
+- **Onde:** eSocial › Processos trabalhistas (`components/processoTrabalhista/ProcessosTrabalhistasPanel.tsx`), da empresa ativa.
+- **S-2500** (`services/processoTrabalhista/processoTrabalhista.ts`):
+  - o processo é judicial (número do CNJ com os dígitos verificadores pelo módulo 97, data da decisão, UF, município e Vara) ou um acordo em CCP/NINTER (data, âmbito e CNPJ do sindicato);
+  - o trabalhador vem da ficha (CPF e matrícula do S-2200), com o período, a repercussão e as bases mês a mês: INSS, INSS do 13º e FGTS;
+  - nesta versão vale só o tpContr 1, ou seja, vínculo no eSocial sem mudar datas, categoria, natureza nem motivo.
+- **S-2501:** cada pagamento (mês e sequencial) tem as contribuições por mês e por código de receita da Tabela 29, digitadas como na guia, e o IRRF:
+  - 593656 para Justiça do Trabalho e 056152 para CCP/NINTER, com 13º separado;
+  - 188951 para RRA, com a descrição, o número de meses, as custas e os advogados;
+  - campos de rendimento tributável, juros de mora, INSS deduzido e isento com descrição.
+- **Valores:** vêm do cálculo homologado; o Consultor não recalcula INSS nem IRRF de processo.
+- **Envio:** pré-voo (XSD) e cofre, como os outros eventos. Com o recibo informado, o evento vai como retificação. A gravação fica em `processos_trabalhistas/{empresa}_{número}`; só o admin apaga (regras e teste).
+- **Fora desta versão:**
+  - reconhecimento de vínculo e mudança de datas, categoria ou motivo;
+  - unicidade contratual e responsabilidade indireta;
+  - depósito judicial (indReperc 4 e 5) e Justiça Comum.
+- **Catálogo SAGE:** entra "Processo Trabalhista (S-2500/S-2501)" como parcial. EFD-Reinf continua planejado, com o texto corrigido. Agora são 21 disponíveis, 21 parciais, 8 planejados e 2 fora.
+- **Fonte:** os XSDs oficiais S-1.3 que já estão no repositório. Os códigos de IRRF vêm do próprio XSD. Os das contribuições não foram fixados porque a Tabela 29 vigente não pôde ser consultada daqui.
+- **Testes:**
+  - CNJ e meses do período;
+  - validações do processo e do pagamento;
+  - quatro XMLs no XSD oficial: S-2500 judicial, S-2500 de CCP com retificação, S-2501 com RRA e S-2501 com 13º;
+  - a tela (cadastro, bases, gravação e S-2500) e as regras.
