@@ -4912,3 +4912,15 @@ Terceiro item da lista "o que posso seguir". Os códigos foram conferidos no MOS
   - o tipo F: dentro do contrato, depois do desligamento e com ativo;
   - o S-1200 do tipo F no XSD oficial.
 
+## 11/10/2026 — Folha gravada e processos gravados em vários lotes
+
+Sexto item da lista "o que posso seguir".
+
+- **Limite:** gravar a folha do mês, gravar os processos (férias, 13º, rescisão) e estornar a folha recusavam empresas com mais de 450 funcionários, por causa do limite de 500 escritas por lote do Firestore.
+- **Agora** (`services/calculo/lotesFirestore.ts`): as escritas vão em lotes de até 400, em ordem.
+  - **Gravar:** primeiro os holerites e as exclusões de quem saiu da folha, depois o resumo (`folhas_gravadas` ou `processos_gravados`). Se falhar no meio, o resumo antigo continua valendo e a tela mostra o erro para gravar de novo.
+  - **Estornar:** primeiro o resumo e a auditoria, para que a folha deixe de existir, depois os holerites.
+  - **Ler:** só os holerites listados no resumo, então um holerite que sobrou de uma gravação interrompida não entra.
+- **Regras:** sem mudança. Os holerites não dependem do documento-resumo.
+- **Testes** (Firestore simulado): 1.000 holerites em 3 lotes com o resumo por último; estorno de 1.000 com o resumo e a auditoria no primeiro lote; leitura filtrada pelo resumo; processos em lotes.
+
