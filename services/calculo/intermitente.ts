@@ -24,8 +24,9 @@
 //   - IRRF (tabela do mês do pagamento): a remuneração na tabela mensal; as férias com 1/3 em separado (IN SRF 15/2001,
 //     art. 13); o 13º em separado, tributação exclusiva (Lei 7.713/1988, art. 26);
 //   - FGTS de 8% sobre tudo (Lei 8.036/1990, art. 15).
-// Incidências sobre as férias do intermitente: o Consultor trata como férias gozadas (INSS e FGTS), não indenizadas.
-// Está como aviso no cálculo para conferir com a contabilidade e o S-1010 da empresa.
+// Incidências sobre as férias do intermitente: a Receita entende que as férias com 1/3 pagas a cada convocação integram a
+// base da contribuição, salvo quando indenizadas (Solução de Consulta Cosit 17/2019; IN RFB 2.110/2022), e o Consultor as
+// trata assim (INSS e FGTS). O aviso no cálculo pede para conferir as rubricas do S-1010 com a contabilidade.
 
 import { centavosDeTexto, reais } from '../cadastros/documentos';
 import { rotuloCompetencia, tabelaVigente } from '../cadastros/tabelasLegais';
@@ -268,7 +269,7 @@ export function calcularIntermitente(e: EntradaCalculo, r: ResultadoCalculo): Re
     verba({ codigo: 'FERINT13', descricao: '1/3 das férias proporcionais (intermitente)', referencia: '', tipo: 'provento', valor: terco, inss: true, fgts: true, irrf: true });
     verba({ codigo: '13INT', descricao: '13º salário proporcional (intermitente)', referencia: '1/12', tipo: 'provento', valor: decimo, inss: true, fgts: true, irrf: true });
     r.memoria.push(`Férias proporcionais: ${reais(baseProporcionais)} (remuneração do mês) ÷ 12 = ${reais(ferias)}, mais 1/3 = ${reais(terco)}; 13º proporcional: ${reais(baseProporcionais)} ÷ 12 = ${reais(decimo)}.`);
-    r.avisos.push('Intermitente: as férias proporcionais com 1/3 entram nas bases do INSS e do FGTS (tratadas como férias gozadas, não indenizadas). Confira as incidências das rubricas no S-1010 com a contabilidade.');
+    r.avisos.push('Intermitente: as férias proporcionais com 1/3 entram nas bases do INSS e do FGTS (Solução de Consulta Cosit 17/2019: integram a base, salvo quando indenizadas). Confira as incidências das rubricas no S-1010.');
 
     // 5. INSS: mensal (com as férias) e o do 13º em separado.
     const tInss = tabelaVigente(e.tabelas, 'inss', competencia);

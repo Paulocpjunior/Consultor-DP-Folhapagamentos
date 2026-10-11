@@ -4183,7 +4183,7 @@ Paulo: "pode seguir com trabalho intermitente". No mesmo pedido, ele pediu a fol
   - FGTS de 8% sobre tudo;
   - aviso quando a remuneração fica abaixo do mínimo, para o empregado complementar a contribuição (EC 103/2019, art. 29);
   - sem convocação no mês, nada a pagar.
-- **Decisão de incidência a confirmar:** as férias do intermitente foram tratadas como gozadas (INSS e FGTS), e o cálculo avisa para conferir com a contabilidade.
+- **Incidência das férias do intermitente:** INSS e FGTS. Segundo fonte secundária, a Solução de Consulta Cosit 17/2019 diz que as férias com 1/3 pagas a cada convocação integram a base, salvo quando indenizadas; não achei o texto oficial. O cálculo avisa para conferir as rubricas do S-1010.
 - **eSocial:**
   - S-1200 com `ideTrabalhador/infoInterm` (os dias trabalhados), obrigatório para a categoria 111;
   - sem convocação no mês, sem demonstrativo; no S-1200 do 13º, erro, porque o 13º do intermitente vai no mensal;
