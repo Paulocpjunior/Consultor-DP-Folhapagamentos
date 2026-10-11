@@ -95,8 +95,8 @@ describe('rescisão complementar', () => {
     });
     it('fora do período do reajuste ou motivo não coberto: de fora, com aviso', () => {
         expect(diferencasDaRescisao(d, { pct: 10, de: '2026-04', ate: '2026-05' }, {}).diferencas).toEqual([]);
-        const outro = diferencasDaRescisao({ ...d, fichas: [ficha('dani', { dataDesligamento: '2026-03-20', motivoDesligamento: '10' })] }, { pct: 10, de: '2026-01', ate: '2026-03' }, {});
-        expect(outro.avisos[0]).toMatch(/motivo 10 não coberto/);
+        const outro = diferencasDaRescisao({ ...d, fichas: [ficha('dani', { dataDesligamento: '2026-03-20', motivoDesligamento: '08' })] }, { pct: 10, de: '2026-01', ate: '2026-03' }, {});
+        expect(outro.avisos[0]).toMatch(/motivo 08 não coberto/);
     });
     it('ficha reajustada: salário e histórico', () => {
         const f = fichaReajustada({ ...ficha('ana'), historicoSalario: [{ desde: '2025-01-02', salario: '2800.00', origem: 'teste' }] }, 10);
