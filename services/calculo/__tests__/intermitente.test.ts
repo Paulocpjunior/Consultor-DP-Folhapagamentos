@@ -11,7 +11,8 @@ const IR: TabelaLegal = { id: 'r', tipo: 'irrf', vigencia: '2026-01', norma: 'Le
     faixas: [{ ate: 242880, aliquota: 0, deducao: 0 }, { ate: 282665, aliquota: 7.5, deducao: 18216 }, { ate: 375105, aliquota: 15, deducao: 39416 }, { ate: 466468, aliquota: 22.5, deducao: 67549 }, { ate: null, aliquota: 27.5, deducao: 90873 }],
     valores: { deducaoDependente: 18959, descontoSimplificado: 60720, redutorAte: 500000, redutorMaximo: 31289, redutorLimite: 735000, redutorConstante: 97862, redutorCoeficiente: 133145 } };
 const SM: TabelaLegal = { id: 'm', tipo: 'salario_minimo', vigencia: '2026-01', norma: 'Decreto', observacao: '', faixas: [], valores: { salarioMinimo: 162100 } };
-const TABELAS = [INSS, IR, SM];
+const SF: TabelaLegal = { id: 's', tipo: 'salario_familia', vigencia: '2026-01', norma: 'Portaria de teste', observacao: '', faixas: [], valores: { cotaSalarioFamilia: 6500, limiteSalarioFamilia: 190604 } };
+const TABELAS = [INSS, IR, SM, SF];
 
 const ficha = (dados: FichaFuncionario['dados'] = {}): FichaFuncionario => ({
     ...fichaVazia({ id: 'e1', cnpj: '11222333000181' }), id: 'f1', cpf: '52998224725', matriculaEsocial: 'M1', situacao: 'ativo', dependentes: [],
@@ -78,4 +79,26 @@ describe('folha do intermitente', () => {
         expect(r.memoria.join('\n')).toMatch(/IRRF do 13º proporcional \(exclusivo na fonte\)/);
         expect(r.deducoesIntermitente?.ferias).toBeTruthy();
     });
+
+describe('salário-família do intermitente', () => {
+    const filho = { cpf: '11144477735', nome: 'FILHO', nascimento: '2018-05-10', tipo: '03', irrf: 'N', salarioFamilia: 'S', pensao: 'N' } as never;
+    const comFilho = (dados: FichaFuncionario['dados'] = {}) => ({ ...ficha(dados), dependentes: [filho] });
+    const dias = diasDoPeriodo('2026-03-02', '2026-03-07', [1, 2, 3, 4, 5, 6], 8);
+    const sf = (r: ReturnType<typeof calcularMensal>) => r.verbas.find(v => v.codigo === 'SF')?.valor ?? 0;
+    it('cota integral no mês com remuneração no limite; nada sem convocação; nada acima do limite', () => {
+        const r = calcularMensal({ competencia: '2026-03', afastamentos: [], tabelas: TABELAS, ficha: comFilho(), convocacoes: [conv({ dias })] });
+        expect(sf(r)).toBe(6500);
+        expect(r.avisos.join()).toMatch(/Salário-família do intermitente: pela regra geral/);
+        expect(sf(calcularMensal({ competencia: '2026-04', afastamentos: [], tabelas: TABELAS, ficha: comFilho(), convocacoes: [conv({ dias })] }))).toBe(0);
+        const alto = calcularMensal({ competencia: '2026-03', afastamentos: [], tabelas: TABELAS, ficha: comFilho({ salario: '60.00' }), convocacoes: [conv({ dias })] });
+        expect(sf(alto)).toBe(0);
+        expect(alto.memoria.join()).toMatch(/acima do limite/);
+    });
+    it('proporcional aos dias de vínculo no mês da admissão', () => {
+        const r = calcularMensal({ competencia: '2026-03', afastamentos: [], tabelas: TABELAS, ficha: comFilho({ admissao: '2026-03-02' }), convocacoes: [conv({ dias })] });
+        expect(sf(r)).toBe(Math.round(6500 * 30 / 30)); // 02 a 31/03 = 30 dias
+        const r2 = calcularMensal({ competencia: '2026-03', afastamentos: [], tabelas: TABELAS, ficha: comFilho({ admissao: '2026-03-02', dataDesligamento: '2026-03-16' }), convocacoes: [conv({ dias })] });
+        expect(sf(r2)).toBe(Math.round(6500 * 15 / 30));
+    });
+});
 });
