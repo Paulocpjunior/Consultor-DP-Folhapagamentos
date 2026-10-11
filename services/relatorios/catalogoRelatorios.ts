@@ -16,9 +16,10 @@ import type { TabelaLegal } from '../cadastros/tabelasLegais';
 import type { Enquadramento } from '../cadastros/enquadramento';
 import type { Movimento } from '../calculo/motorMensal';
 import { calcularProvisao, totalSaldo, type Movimentacao, type Provisao } from '../calculo/provisoes';
+import type { Sindicato } from '../cadastros/sindicatos';
 
 export type GrupoRelatorio = 'Mensais' | 'Funcionários' | 'Férias' | 'Anuais';
-export type TipoRelatorio = 'tabela' | 'holerites' | 'resumo' | 'adiantamento' | 'ficha-financeira' | 'aviso-ferias' | 'informe';
+export type TipoRelatorio = 'tabela' | 'holerites' | 'resumo' | 'adiantamento' | 'ficha-financeira' | 'aviso-ferias' | 'informe' | 'etiquetas';
 
 export interface ContextoRelatorio {
     competencia: string;
@@ -29,6 +30,9 @@ export interface ContextoRelatorio {
     folha: ResultadoCalculo[] | null;
     /** Para as provisões: tabelas legais, movimentos gravados (por ficha e competência) e enquadramentos. */
     calculo?: { empresaId: string; tabelas: TabelaLegal[]; movimentos: Record<string, Record<string, Movimento>>; enquadramentos: Enquadramento[] };
+    /** Cadastro de sindicatos (Cadastros › Sindicatos) e os CNPJs dos sindicatos da empresa, para a listagem de sindicatos. */
+    sindicatos?: Sindicato[];
+    sindicatosDaEmpresa?: string[];
 }
 
 export interface DefRelatorio {
@@ -150,6 +154,54 @@ function aniversariantes(c: ContextoRelatorio): TabelaRelatorio {
     return { colunas: [{ titulo: 'Dia', largura: 14 }, { titulo: 'Funcionário' }, { titulo: 'Cargo' }], linhas: lista.map(f => [(f.dados.nascimento ?? '').slice(8, 10), f.dados.nome ?? '', f.dados.cargo ?? '']) };
 }
 
+// ---------- Listagens (Listagens do SAGE): sindicatos e etiquetas ----------
+
+const MESES_NOME = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+const cnpjFmt = (c: string) => (c.length === 14 ? `${c.slice(0, 2)}.${c.slice(2, 5)}.${c.slice(5, 8)}/${c.slice(8, 12)}-${c.slice(12)}` : c);
+/** Quem está na folha no fim da competência (sem os desligados até lá). */
+const ativosNoFim = (c: ContextoRelatorio) => { const ult = ultimoDia(c.competencia); return noMes(c.fichas, c.competencia).filter(f => !(f.dados.dataDesligamento && f.dados.dataDesligamento <= ult)); };
+
+/** Listagem de sindicatos: cada sindicato da categoria com os funcionários da competência, filiados, autorizações e oposições. */
+function listagemSindicatos(c: ContextoRelatorio): TabelaRelatorio {
+    const fichas = ativosNoFim(c);
+    const porCnpj = new Map<string, FichaFuncionario[]>();
+    for (const cnpj of c.sindicatosDaEmpresa ?? []) porCnpj.set(cnpj, []);
+    for (const f of fichas) { const k = (f.dados.sindicato ?? '').replace(/\D/g, ''); porCnpj.set(k, [...(porCnpj.get(k) ?? []), f]); }
+    const cad = new Map((c.sindicatos ?? []).map(x => [x.cnpj.replace(/\D/g, ''), x]));
+    const conta = (l: FichaFuncionario[], campo: 'associadoSindicato' | 'contribuicaoSindical' | 'oposicaoAssistencial') => String(l.filter(f => f.dados[campo] === 'S').length);
+    const linhas = [...porCnpj.entries()].map(([cnpj, l]) => {
+        const s = cad.get(cnpj);
+        const nome = !cnpj ? 'Sem sindicato na ficha' : s?.nome ?? '(não cadastrado em Cadastros › Sindicatos)';
+        const dataBase = s?.dataBase && /^\d{1,2}$/.test(s.dataBase) ? MESES_NOME[Number(s.dataBase) - 1] ?? '' : '';
+        return { sem: !cnpj, ordem: nome, l: [nome, cnpj ? cnpjFmt(cnpj) : '', s?.codigoIob ?? '', dataBase, s?.pisoSalarial ? brl(s.pisoSalarial) : '', String(l.length), conta(l, 'associadoSindicato'), conta(l, 'contribuicaoSindical'), conta(l, 'oposicaoAssistencial')] };
+    }).sort((a, b) => Number(a.sem) - Number(b.sem) || a.ordem.localeCompare(b.ordem, 'pt-BR')).map(x => x.l);
+    const semNaFicha = porCnpj.get('')?.length ?? 0;
+    return {
+        colunas: [{ titulo: 'Sindicato' }, { titulo: 'CNPJ', largura: 32 }, { titulo: 'Cód. IOB', largura: 16 }, { titulo: 'Data-base', largura: 20 }, { titulo: 'Piso', alinhar: 'direita', largura: 20 },
+            { titulo: 'Funcionários', alinhar: 'direita', largura: 22 }, { titulo: 'Filiados', alinhar: 'direita', largura: 16 }, { titulo: 'Autorizaram contribuição', alinhar: 'direita', largura: 28 }, { titulo: 'Oposição à assistencial', alinhar: 'direita', largura: 28 }],
+        linhas,
+        totais: [`${linhas.length} sindicato(s)`, '', '', '', '', String(fichas.length), conta(fichas, 'associadoSindicato'), conta(fichas, 'contribuicaoSindical'), conta(fichas, 'oposicaoAssistencial')],
+        observacao: ['Funcionários na folha no fim da competência, pelo sindicato da ficha (Ident. Adm.); os sindicatos da empresa (Empresas › Sindicatos) aparecem mesmo sem funcionário.',
+            'Contribuição sindical só com autorização prévia, expressa e por escrito (CLT, arts. 545, 578 e 579); a assistencial respeita o direito de oposição (STF, Tema 935).',
+            semNaFicha ? `${semNaFicha} funcionário(s) sem sindicato na ficha: preencha em Cadastros › Funcionários.` : ''].filter(Boolean).join(' '),
+    };
+}
+
+export type ConteudoEtiqueta = 'funcionario' | 'endereco';
+
+/** Etiquetas (uma por funcionário da competência, por nome): os dados do funcionário ou o endereço para correspondência. */
+export function etiquetas(c: ContextoRelatorio, conteudo: ConteudoEtiqueta, empresa = ''): string[][] {
+    return porNome(ativosNoFim(c).map(f => ({ f, nome: f.dados.nome || f.cpf }))).map(({ f, nome }) => {
+        const d = f.dados;
+        if (conteudo === 'endereco') {
+            const rua = [d.logradouro, d.numero].filter(Boolean).join(', ') + (d.complemento ? ` ${d.complemento}` : '');
+            const cep = d.cep && /^\d{8}$/.test(d.cep) ? `${d.cep.slice(0, 5)}-${d.cep.slice(5)}` : d.cep ?? '';
+            return [nome, rua, d.bairro ?? '', [cep, [d.municipio, d.uf].filter(Boolean).join('/')].filter(Boolean).join(' · ')].filter(Boolean);
+        }
+        return [nome, `Matr. ${f.matriculaEsocial || '—'} · CPF ${cpfFmt(f.cpf)}`, d.cargo ?? '', d.admissao ? `Admissão ${br(d.admissao)}` : '', empresa].filter(Boolean);
+    });
+}
+
 // ---------- Provisões de férias e 13º (services/calculo/provisoes.ts) ----------
 
 const provisaoDo = (c: ContextoRelatorio): Provisao | null => (c.calculo ? calcularProvisao({ competencia: c.competencia, fichas: c.fichas, afastamentos: c.afastamentos, ...c.calculo }) : null);
@@ -192,6 +244,8 @@ export const RELATORIOS: DefRelatorio[] = [
     { id: 'funcionarios', grupo: 'Funcionários', titulo: 'Relação de funcionários', descricao: 'Quem está na folha da competência, com cargo, salário e situação.', tipo: 'tabela', precisaFolha: false, orientacao: 'paisagem', montar: funcionarios },
     { id: 'experiencia', grupo: 'Funcionários', titulo: 'Contratos de experiência', descricao: 'Fim dos contratos de experiência e por prazo determinado.', tipo: 'tabela', precisaFolha: false, montar: contratosExperiencia },
     { id: 'aniversariantes', grupo: 'Funcionários', titulo: 'Aniversariantes do mês', descricao: 'Para o cliente lembrar a equipe.', tipo: 'tabela', precisaFolha: false, montar: aniversariantes },
+    { id: 'sindicatos', grupo: 'Funcionários', titulo: 'Listagem de sindicatos', descricao: 'Sindicatos da categoria com os funcionários, filiados, autorizações de contribuição e oposições.', tipo: 'tabela', precisaFolha: false, orientacao: 'paisagem', montar: listagemSindicatos },
+    { id: 'etiquetas', grupo: 'Funcionários', titulo: 'Etiquetas', descricao: 'Etiquetas dos funcionários da competência (dados do funcionário ou endereço), 21 por folha A4 de 63,5 × 38,1 mm (como a Avery L7160).', tipo: 'etiquetas', precisaFolha: false },
     { id: 'aviso-ferias', grupo: 'Férias', titulo: 'Aviso de férias', descricao: 'Comunicado ao empregado (CLT, art. 135), dos gozos que começam na competência ou no mês seguinte, com o ciente.', tipo: 'aviso-ferias', precisaFolha: false },
     { id: 'ferias-vencer', grupo: 'Férias', titulo: 'Férias a vencer e vencidas', descricao: 'Períodos aquisitivos em aberto e o último dia para iniciar o gozo.', tipo: 'tabela', precisaFolha: false, orientacao: 'paisagem', montar: feriasAVencer },
     { id: 'ficha-financeira', grupo: 'Anuais', titulo: 'Ficha financeira', descricao: 'O ano de cada funcionário mês a mês e verba a verba, com totais, bases e FGTS, pelas folhas gravadas.', tipo: 'ficha-financeira', precisaFolha: false, orientacao: 'paisagem' },

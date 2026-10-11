@@ -63,7 +63,7 @@ describe('central de relatórios: modelos', () => {
 // Tela: dados mockados.
 const srv = vi.hoisted(() => ({ folha: null as unknown, emailEnviado: vi.fn(async (..._a: unknown[]) => ({ remetente: 'dp@escritorio.com.br', fonteRemetente: 'colaborador', copiaPara: [] })) }));
 vi.mock('../../empresas/empresasService', () => ({ listarEmpresasVisiveis: async () => [{ id: 'emp1', cnpj: EMP.cnpj, razaoSocial: 'EMPRESA UM LTDA', codigoSage: '1200', contatoEnvio: { nome: 'Rita', email: 'rita@cliente.com.br' } }], salvarContatoEnvio: vi.fn() }));
-vi.mock('../../cadastros/cadastrosService', () => ({ listarFuncionarios: async () => FICHAS, listarAfastamentos: async () => [], listarEnquadramentos: async () => [], listarTabelas: async () => [INSS, IR], mensagemErro: (e: unknown) => String(e) }));
+vi.mock('../../cadastros/cadastrosService', () => ({ listarSindicatos: async () => [], listarFuncionarios: async () => FICHAS, listarAfastamentos: async () => [], listarEnquadramentos: async () => [], listarTabelas: async () => [INSS, IR], mensagemErro: (e: unknown) => String(e) }));
 vi.mock('../../calculo/movimentosService', () => ({ listarMovimentosDaEmpresa: async () => ({}) }));
 vi.mock('../../calculo/folhaGravadaService', () => ({ lerFolhaGravada: async () => srv.folha, lerFolhasDoAno: async (_e: string, ano: string) => (ano === '2026' ? [{ competencia: '2026-09', holerites: folha }] : []) }));
 vi.mock('../../pacoteCliente/spConnect', async orig => ({ ...(await orig<typeof import('../../pacoteCliente/spConnect')>()), templatesDoDp: async () => [], enviarEmailPeloEscritorio: (...a: unknown[]) => srv.emailEnviado(...a) }));
@@ -98,6 +98,18 @@ describe('central de relatórios: tela', () => {
         expect(env.anexos[0]).toMatchObject({ nome: 'folha-analitica-1200-2026-09.pdf', mime: 'application/pdf' });
         expect(env.assunto).toContain('Folha mensal (analítica) · 09/2026');
         await waitFor(() => expect(screen.getByRole('status').textContent).toContain('E-mail enviado'));
+    });
+    it('listagens: etiquetas (conteúdo, quantas e posições a pular) e sindicatos', async () => {
+        tela();
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Etiquetas' })).toBeTruthy());
+        fireEvent.click(screen.getByRole('button', { name: 'Etiquetas' }));
+        await waitFor(() => expect(screen.getByText(/2 etiqueta\(s\)/)).toBeTruthy());
+        fireEvent.change(screen.getByLabelText('Conteúdo das etiquetas'), { target: { value: 'endereco' } });
+        fireEvent.change(screen.getByLabelText('Etiquetas a pular'), { target: { value: '99' } });
+        expect((screen.getByLabelText('Etiquetas a pular') as HTMLInputElement).value).toBe('20');
+        expect((screen.getByRole('button', { name: 'Baixar PDF' }) as HTMLButtonElement).disabled).toBe(false);
+        fireEvent.click(screen.getByRole('button', { name: 'Listagem de sindicatos' }));
+        expect((screen.getByRole('button', { name: 'Baixar PDF' }) as HTMLButtonElement).disabled).toBe(false);
     });
     it('ficha financeira: lê as folhas do ano, filtra o funcionário e envia', async () => {
         tela();
