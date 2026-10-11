@@ -536,6 +536,17 @@ service cloud.firestore {
       allow delete: if podeEmpresa(resource.data.empresaId);
     }
 
+    // Obras e lotações tributárias (S-1005 e S-1020): lotacoes/{empresa}_{codLotacao}.
+    match /lotacoes/{lotId} {
+      allow read: if podeEmpresa(resource.data.empresaId);
+      allow create, update: if gravaNaEmpresa()
+                    && lotId == request.resource.data.empresaId + '_' + request.resource.data.codigo
+                    && request.resource.data.tipo in ['01', '02', '04']
+                    && request.resource.data.codigo is string && request.resource.data.codigo.size() <= 30
+                    && request.resource.data.atualizadoPor == request.auth.uid;
+      allow delete: if podeEmpresa(resource.data.empresaId);
+    }
+
     // Convocações do trabalho intermitente (CLT, art. 452-A): o id começa pelo da ficha ({empresa}_{cpf}_{matrícula}_{seq}).
     match /convocacoes_intermitente/{convId} {
       allow read: if podeEmpresa(resource.data.empresaId);

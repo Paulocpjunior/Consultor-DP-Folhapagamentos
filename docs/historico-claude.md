@@ -4196,3 +4196,37 @@ Paulo: "pode seguir com trabalho intermitente". No mesmo pedido, ele pediu a fol
   - folha: valores, DSR, INSS e IRRF em separado, dias;
   - S-1200 e S-1210 no XSD oficial;
   - a tela e as regras.
+
+## 11/10/2026 — Obras e lotações tributárias (S-1005 e S-1020), 1ª parte da folha de obras
+
+Paulo: folhas de obras são ponto crucial, "devemos ter máxima atenção neste ponto e atualizar quanto a legislação vigente". Ele também pediu a folha por departamento e por obra dentro da mesma empresa. Respostas dele:
+- os clientes têm os três casos: obra própria ou empreitada total, empreitada parcial ou subempreitada, e cessão de mão de obra;
+- um funcionário pode trabalhar em mais de uma obra no mês, com rateio por dias;
+- há clientes na CPRB;
+- os departamentos terão cadastro próprio.
+
+Antes disto, o Consultor tinha um estabelecimento e uma lotação por empresa e nenhum S-1005, S-1020 ou CNO. Por isso o trabalho vem em partes.
+
+Parte 1 (este lote):
+- **Modelo** (`services/obras/lotacoes.ts`), lotação por obra ou tomador:
+  - **01, obra própria ou empreitada total:** o CNO é da empresa. A obra é um estabelecimento (S-1005 com tpInsc 4, CNAE da obra, cnpjResp, RAT/FAP só quando diferentes e, para construtora, `infoObra/indSubstPatrObra`). No S-1200, o estabelecimento é o CNO. Sem CNO, a lotação 01 é o próprio estabelecimento;
+  - **02, empreitada parcial ou subempreitada:** o S-1020 leva o CNO da obra e `infoEmprParcial` (contratante; proprietário quando não está no CNO);
+  - **04, cessão de mão de obra:** o S-1020 leva o CNPJ do tomador, com aviso da retenção de 11% (3,5% na CPRB) na nota, declarada pelo Fiscal no R-2020;
+  - FPAS e terceiros por lotação (construção: 507/0079); validade e recibos (o envio seguinte sai como alteração).
+- **Cadastro:** coleção `lotacoes/{empresa}_{código}`, com regra e teste de regras.
+- **Tela:** Cadastros › Obras e lotações. Grava e transmite o S-1005 e o S-1020 pelo pré-voo e pelo cofre.
+- **Ficha:** novo campo "Obra ou lotação tributária" (Ident. Adm.).
+- **Catálogo SAGE:** novo item `arq-obras`, parcial.
+- **Fontes:**
+  - Manual de Orientação do eSocial e o XSD S-1.3 (Tabela 10 e regras do S-1005/S-1020);
+  - IN RFB 2.021/2021 (CNO);
+  - Lei 8.212/1991, art. 31 (cessão de mão de obra).
+- **Testes:** os três casos no XSD oficial, erros por campo, a tela e as regras.
+
+Parte 2, a seguir:
+- rateio por dias entre obras no movimento do mês;
+- S-1200 com um `ideEstabLot` por lotação;
+- encargos e resumo por obra;
+- a reoneração da CPRB (Lei 14.973/2024; IN RFB 2.242/2024): em 2026, 2,7% sobre a receita (com o Fiscal, no R-2060) e 10% da cota patronal sobre a folha, sem a cota patronal no 13º.
+
+Parte 3: o cadastro de departamentos e a folha filtrada por departamento ou obra.
