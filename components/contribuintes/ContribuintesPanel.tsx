@@ -15,7 +15,10 @@ import type { TabelaLegal } from '../../services/cadastros/tabelasLegais';
 import { vigenciaEm, type Rubrica } from '../../services/cadastros/rubricas';
 import { centavosDeTexto, reais } from '../../services/cadastros/documentos';
 import { normalizar, parametrosVazios, type ParametrosEsocialFolha } from '../../services/esocial/eventosFolha';
-import { CHAVES_CI, gerarEventosCI } from '../../services/esocial/eventosCI';
+import { CHAVES_CI, gerarEventosCI, tpRubrDoTipo } from '../../services/esocial/eventosCI';
+import { listarEnvios, type Envio } from '../../services/esocial/transmissaoService';
+import { exclusoesDosEnvios, recibosCIDosEnvios, recibosVigentes } from '../../services/esocial/recibosEsocial';
+import { listarFuncionarios } from '../../services/cadastros/cadastrosService';
 import { verificarAntesDeEnviar, transmitirVerificado, mensagemDaTransmissao } from '../../services/esocial/envioSeguro';
 import type { TpAmb } from '../../services/esocial/transmissao';
 import { baixarBytes, gerarZip } from '../../services/implantacao/zip';
@@ -54,6 +57,8 @@ const ContribuintesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
     const [recarga, setRecarga] = useState(0);
     const [params, setParams] = useState<ParametrosEsocialFolha | null>(null);
     const [tpAmb, setTpAmb] = useState<TpAmb>(2);
+    const [envios, setEnvios] = useState<Envio[]>([]);
+    const [cpfsEmpregados, setCpfsEmpregados] = useState<Set<string>>(new Set());
     const [ocupado, setOcupado] = useState(''); const [erro, setErro] = useState(''); const [msg, setMsg] = useState('');
 
     useEffect(() => {
@@ -61,9 +66,11 @@ const ContribuintesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
         let vivo = true;
         setErro('');
         Promise.all([listarEmpresasVisiveis(), listarContribuintes(ativa.id), listarTabelas(), listarEnquadramentos(ativa.id).catch(() => []), listarRubricas(ativa.id).catch(() => []),
-            competencia ? lerPagamentosCI(ativa.id, competencia).catch(() => null) : Promise.resolve(null), competencia ? lerFechamento(ativa.id, competencia).catch(() => null) : Promise.resolve(null)])
-            .then(([emps, cs, tabs, enqs, rubs, gravado, fech]) => {
+            competencia ? lerPagamentosCI(ativa.id, competencia).catch(() => null) : Promise.resolve(null), competencia ? lerFechamento(ativa.id, competencia).catch(() => null) : Promise.resolve(null),
+            listarEnvios(ativa.id).catch(() => [] as Envio[]), listarFuncionarios(ativa.id).catch(() => [])])
+            .then(([emps, cs, tabs, enqs, rubs, gravado, fech, envs, fichas]) => {
                 if (!vivo) return;
+                setEnvios(envs); setCpfsEmpregados(new Set(fichas.map(f => f.cpf.replace(/\D/g, ''))));
                 const emp = emps.find(e => e.id === ativa.id) ?? null;
                 setEmpresa(emp); setContribuintes(cs); setTabelas(tabs); setEnquadramentos(enqs); setRubricas(rubs);
                 setParams(emp?.esocialFolha ?? parametrosVazios(emp?.cnpj ?? ativa.cnpj));
@@ -124,8 +131,8 @@ const ContribuintesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
     // eSocial: o de/para do pró-labore, do RPA e do ISS (o INSS e o IRRF são os da folha).
     const vigentes = useMemo(() => rubricas.map(r => ({ r, v: vigenciaEm(r, competencia) })).filter(x => x.v), [rubricas, competencia]);
     const sugestao = (k: typeof CHAVES_CI[number]) => {
-        const tp = k.tipo === 'provento' ? '1' : '2';
-        const doTipo = vigentes.filter(x => x.v!.dados.tpRubr === tp);
+        const tp = tpRubrDoTipo(k.tipo);
+        const doTipo = vigentes.filter(x => x.v!.dados.tpRubr === tp && (!k.codIncCP || x.v!.dados.codIncCP === k.codIncCP));
         const porNat = k.naturezas.length ? doTipo.filter(x => k.naturezas.includes(x.v!.dados.natRubr)) : [];
         const cand = porNat.length ? porNat : doTipo.filter(x => k.dica.test(normalizar(x.v!.dados.dscRubr)));
         return cand.length === 1 ? { codRubr: cand[0].r.codRubr, ideTabRubr: cand[0].r.ideTabRubr } : null;
@@ -136,8 +143,17 @@ const ContribuintesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
         for (const k of CHAVES_CI) if (!r[k.chave]) { const s = sugestao(k); if (s) r[k.chave] = s; }
         return { ...params, rubricas: r };
     }, [params, vigentes]); // eslint-disable-line react-hooks/exhaustive-deps
-    const geracao = useMemo(() => (empresa && efetivos && resultados.length ? gerarEventosCI({ cnpj: empresa.cnpj, tpAmb, competencia, contribuintes, resultados, rubricas, parametros: efetivos }) : null),
-        [empresa, efetivos, resultados, tpAmb, competencia, contribuintes, rubricas]);
+    // Retificação: o recibo vigente de cada CPF (envios aceitos em produção), do S-1200 da competência e do S-1210 do mês do pagamento.
+    const recibosVigentesCI = useMemo(() => {
+        if (tpAmb !== 1) return undefined;
+        const todos = recibosCIDosEnvios(envios); const ex = exclusoesDosEnvios(envios);
+        const s1200 = new Map([...recibosVigentes(todos, 'S-1200', competencia, ex)].map(([cpf, r]) => [cpf, r.nrRecibo]));
+        const s1210 = new Map<string, string>();
+        for (const mes of new Set(resultados.map(r => r.dataPagamento.slice(0, 7)))) for (const [cpf, r] of recibosVigentes(todos, 'S-1210', mes, ex)) if (!r.excluidoEm) s1210.set(cpf, r.nrRecibo);
+        return { s1200, s1210 };
+    }, [envios, competencia, resultados, tpAmb]);
+    const geracao = useMemo(() => (empresa && efetivos && resultados.length ? gerarEventosCI({ cnpj: empresa.cnpj, tpAmb, competencia, contribuintes, resultados, rubricas, parametros: efetivos, recibos: recibosVigentesCI, cpfsEmpregados }) : null),
+        [empresa, efetivos, resultados, tpAmb, competencia, contribuintes, rubricas, recibosVigentesCI, cpfsEmpregados]);
     const prontos = geracao?.eventos.filter(t => t.s1200) ?? [];
     async function gravarDePara() {
         if (!empresa || !efetivos) return;
@@ -155,7 +171,8 @@ const ContribuintesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
         if (tpAmb === 1 && !window.confirm(`Transmitir o ${tipo} de ${prontos.length} pessoa(s) em PRODUÇÃO?`)) return;
         setOcupado(`Transmitindo o ${tipo}…`); setErro(''); setMsg('');
         try {
-            const eventos = prontos.map(t => ({ xml: tipo === 'S-1200' ? t.s1200!.xml : t.s1210!.xml, ref: `ci:${t.cpf}:${competencia}` }));
+            const eventos = prontos.filter(t => (tipo === 'S-1200' ? t.s1200 : t.s1210)).map(t => ({ xml: tipo === 'S-1200' ? t.s1200!.xml : t.s1210!.xml, ref: `ci:${t.cpf}:${competencia}` }));
+            if (!eventos.length) { setErro(`Nenhum ${tipo} para transmitir.`); return; }
             const pv = await verificarAntesDeEnviar({ empresa, eventos, tpAmb });
             if (!pv.ok) { setErro(`O pré-voo barrou: ${pv.achados.filter(a => a.nivel === 'bloqueio').map(a => a.mensagem).join(' · ')}`); return; }
             const r = await transmitirVerificado(pv, { empresa, certificado: 'escritorio', usuario });
@@ -198,7 +215,7 @@ const ContribuintesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
                         <label>PIS/NIT<input aria-label="NIT do contribuinte" className={`block w-full ${inp}`} value={edicao.nit} onChange={e => setEdicao({ ...edicao, nit: e.target.value.replace(/\D/g, '').slice(0, 11) })} /></label>
                         <label className="flex items-center gap-2"><input type="checkbox" checked={edicao.s2300} onChange={e => setEdicao({ ...edicao, s2300: e.target.checked })} />S-2300 enviado</label>
                         <label>Matrícula (S-2300)<input aria-label="Matrícula do contribuinte" className={`block w-full ${inp}`} value={edicao.matricula} disabled={!edicao.s2300} onChange={e => setEdicao({ ...edicao, matricula: e.target.value })} /></label>
-                        {CATEGORIAS_CI[edicao.categoria]?.tipo === 'rpa' && <label className="flex items-center gap-2"><input type="checkbox" checked={edicao.inscritoIss} onChange={e => setEdicao({ ...edicao, inscritoIss: e.target.checked })} />Inscrito no município (sem retenção de ISS)</label>}
+                        {CATEGORIAS_CI[edicao.categoria]?.tipo === 'rpa' && !CATEGORIAS_CI[edicao.categoria]?.transportador && <label className="flex items-center gap-2"><input type="checkbox" checked={edicao.inscritoIss} onChange={e => setEdicao({ ...edicao, inscritoIss: e.target.checked })} />Inscrito no município (sem retenção de ISS)</label>}
                         <label className="flex items-center gap-2"><input type="checkbox" checked={edicao.ativo} onChange={e => setEdicao({ ...edicao, ativo: e.target.checked })} />Ativo</label>
                         <div className="sm:col-span-4">
                             <p className="text-xs font-medium">Dependentes para o IRRF</p>
@@ -235,11 +252,11 @@ const ContribuintesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
                         <div key={i} className="space-y-1 border-t border-slate-100 pt-2 dark:border-slate-700">
                             <div className="grid items-end gap-2 sm:grid-cols-12">
                                 <label className="sm:col-span-3">Sócio ou autônomo<select aria-label={`Contribuinte do lançamento ${i + 1}`} className={`block w-full ${inp}`} value={l.contribuinteId} onChange={e => muda(i, { contribuinteId: e.target.value })}>
-                                    <option value="">— escolha —</option>{ativos.map(x => <option key={x.id} value={x.id}>{x.nome} · {CATEGORIAS_CI[x.categoria]?.tipo === 'rpa' ? 'RPA' : 'pró-labore'}</option>)}</select></label>
+                                    <option value="">— escolha —</option>{ativos.map(x => <option key={x.id} value={x.id}>{x.nome} · {CATEGORIAS_CI[x.categoria]?.transportador ? 'frete' : CATEGORIAS_CI[x.categoria]?.tipo === 'rpa' ? 'RPA' : 'pró-labore'}</option>)}</select></label>
                                 <label className="sm:col-span-2">Valor bruto<input aria-label={`Valor do lançamento ${i + 1}`} inputMode="decimal" className={`block w-full ${inp}`} value={l.valor} onChange={e => muda(i, { valor: e.target.value })} /></label>
                                 <label className="sm:col-span-2">Pagamento<input aria-label={`Data do pagamento ${i + 1}`} type="date" className={`block w-full ${inp}`} value={l.dataPagamento} onChange={e => muda(i, { dataPagamento: e.target.value })} /></label>
                                 <label className="sm:col-span-3">Serviço<input aria-label={`Serviço do lançamento ${i + 1}`} className={`block w-full ${inp}`} value={l.descricao} disabled={CATEGORIAS_CI[c?.categoria ?? '701']?.tipo !== 'rpa'} onChange={e => muda(i, { descricao: e.target.value })} /></label>
-                                <label>ISS %<input aria-label={`ISS do lançamento ${i + 1}`} inputMode="decimal" className={`block w-full ${inp}`} value={l.iss} disabled={!c || CATEGORIAS_CI[c.categoria].tipo !== 'rpa' || c.inscritoIss} onChange={e => muda(i, { iss: e.target.value })} /></label>
+                                <label>ISS %<input aria-label={`ISS do lançamento ${i + 1}`} inputMode="decimal" className={`block w-full ${inp}`} value={l.iss} disabled={!c || CATEGORIAS_CI[c.categoria].tipo !== 'rpa' || !!CATEGORIAS_CI[c.categoria].transportador || c.inscritoIss} onChange={e => muda(i, { iss: e.target.value })} /></label>
                                 <button aria-label={`Remover o lançamento ${i + 1}`} className="text-red-600" onClick={() => setLinhas(ls => ls.filter((_, j) => j !== i))}>×</button>
                             </div>
                             {l.outras.map((o, j) => {
@@ -297,11 +314,11 @@ const ContribuintesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
                             <label key={k.chave} className="text-xs">{k.descricao}<select aria-label={`Rubrica de ${k.descricao}`} className={`block w-full ${inp}`} value={efetivos.rubricas[k.chave] ? `${efetivos.rubricas[k.chave].ideTabRubr}|${efetivos.rubricas[k.chave].codRubr}` : ''}
                                 onChange={e => { const [t, c] = e.target.value.split('|'); setParams(p => p && ({ ...p, rubricas: { ...efetivos.rubricas, ...(c ? { [k.chave]: { codRubr: c, ideTabRubr: t } } : {}) } })); }}>
                                 <option value="">— rubrica do S-1010 —</option>
-                                {vigentes.filter(x => x.v!.dados.tpRubr === (k.tipo === 'provento' ? '1' : '2')).map(x => <option key={`${x.r.ideTabRubr}|${x.r.codRubr}`} value={`${x.r.ideTabRubr}|${x.r.codRubr}`}>{x.r.codRubr} · {x.v!.dados.dscRubr} ({x.v!.dados.natRubr})</option>)}
+                                {vigentes.filter(x => x.v!.dados.tpRubr === tpRubrDoTipo(k.tipo)).map(x => <option key={`${x.r.ideTabRubr}|${x.r.codRubr}`} value={`${x.r.ideTabRubr}|${x.r.codRubr}`}>{x.r.codRubr} · {x.v!.dados.dscRubr} ({x.v!.dados.natRubr})</option>)}
                             </select></label>
                         ))}
                     </div>
-                    <p className="text-xs text-slate-500">O INSS e o IRRF usam as rubricas do de/para da folha. RPA na natureza 3501 e ISS na 9222 (MOS, S-1200, item 13).</p>
+                    <p className="text-xs text-slate-500">O INSS e o IRRF usam as rubricas do de/para da folha. RPA na natureza 3501 e ISS na 9222 (MOS, S-1200, item 13). Transportador: o frete numa rubrica que não é base, as bases de 20% (codIncCP 11) e de 10%/60% (IRRF) em rubricas informativas, e o SEST e o SENAT nas de incidência 34 e 35. Em produção, quem já tem o S-1200 ou o S-1210 aceito vai como retificação.</p>
                     {geracao?.erros.map(x => <p key={x} role="alert" className="text-red-700 dark:text-red-300">{x}</p>)}
                     {geracao?.eventos.map(t => (t.erros.length || t.avisos.length ? (
                         <div key={t.cpf} className="text-xs"><strong>{t.nome}</strong>{t.erros.map(x => <p key={x} className="text-red-700 dark:text-red-300">✗ {x}</p>)}{t.avisos.map(x => <p key={x} className="text-amber-800 dark:text-amber-200">⚠ {x}</p>)}</div>

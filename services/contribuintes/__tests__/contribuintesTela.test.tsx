@@ -19,7 +19,9 @@ vi.mock('../../cadastros/cadastrosService', () => ({
     listarRubricas: async () => [['RPA', 'SERVICOS AUTONOMOS', '3501', '1'], ['INSS', 'INSS', '9201', '2'], ['IRRF', 'IRRF', '9203', '2'], ['ISS', 'ISS RETIDO', '9222', '2']].map(([c, d, n, t]) => ({ id: c, empresaId: 'E1', codRubr: c, ideTabRubr: 'T1', eventoIob: '', origem: '',
         vigencias: [{ iniValid: '2020-01', fimValid: '', recibo: '', dados: { dscRubr: d, natRubr: n, tpRubr: t, codIncCP: '00', codIncIRRF: '09', codIncFGTS: '00', codIncCPRP: '', observacao: '' } }] })),
     mensagemErro: (e: unknown) => String(e),
+    listarFuncionarios: async () => [],
 }));
+vi.mock('../../esocial/transmissaoService', () => ({ listarEnvios: async () => [] }));
 vi.mock('../contribuintesService', () => ({
     listarContribuintes: async () => srv.contribuintes,
     salvarContribuinte: async (c: unknown) => { srv.cadastros.push(c); return 'id'; },

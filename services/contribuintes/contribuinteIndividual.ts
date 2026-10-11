@@ -13,6 +13,12 @@
 // - sem FGTS, férias e 13º.
 // Categorias: 701 (autônomo), 722 (diretor não empregado sem FGTS) e 723 (sócio). A 723 e a 722 exigem o S-2300 antes do
 // S-1200; o autônomo (701) pode ir sem ele, com os dados no próprio S-1200 (MOS, S-1200, item 23).
+// Transportador autônomo (711 passageiros, 712 carga), sobre o valor bruto do frete:
+// - INSS de 11% e parte da empresa de 20% sobre a base de 20% do frete (Decreto 3.048/1999, art. 201, § 4º);
+// - SEST 1,5% e SENAT 1,0% sobre a mesma base, descontados do transportador (o S-5001 calcula com os códigos 121802 e
+//   122102 para as categorias 711, 712 e 734 — XSD do S-5001, leiaute S-1.3);
+// - IRRF sobre 10% do frete (carga) ou 60% (passageiros) (Lei 7.713/1988, art. 9º, com a Lei 12.794/2013);
+// - sem ISS retido (frete intermunicipal é ICMS; o municipal fica fora desta tela).
 
 import { cpfValido, dataValida, reais } from '../cadastros/documentos';
 import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros/tabelasLegais';
@@ -20,12 +26,19 @@ import type { Enquadramento } from '../cadastros/enquadramento';
 import { apurarIrrf, type ResultadoCalculo, type Verba } from '../calculo/motorMensal';
 import { IRRF_MINIMO } from '../calculo/tributos';
 
-export type CategoriaCI = '701' | '722' | '723';
-export const CATEGORIAS_CI: Record<CategoriaCI, { rotulo: string; tipo: 'prolabore' | 'rpa'; exigeS2300: boolean }> = {
+export type CategoriaCI = '701' | '711' | '712' | '722' | '723';
+export const CATEGORIAS_CI: Record<CategoriaCI, { rotulo: string; tipo: 'prolabore' | 'rpa'; exigeS2300: boolean; transportador?: 'passageiros' | 'carga' }> = {
     '723': { rotulo: '723 · Sócio ou empresário (pró-labore)', tipo: 'prolabore', exigeS2300: true },
     '722': { rotulo: '722 · Diretor não empregado sem FGTS (pró-labore)', tipo: 'prolabore', exigeS2300: true },
     '701': { rotulo: '701 · Autônomo em geral (RPA)', tipo: 'rpa', exigeS2300: false },
+    '712': { rotulo: '712 · Transportador autônomo de carga (frete)', tipo: 'rpa', exigeS2300: false, transportador: 'carga' },
+    '711': { rotulo: '711 · Transportador autônomo de passageiros (frete)', tipo: 'rpa', exigeS2300: false, transportador: 'passageiros' },
 };
+/** Base do INSS e do SEST/SENAT do transportador: 20% do frete; base do IRRF: 10% (carga) ou 60% (passageiros). */
+export const BASE_INSS_FRETE = 20;
+export const BASE_IRRF_FRETE: Record<'passageiros' | 'carga', number> = { carga: 10, passageiros: 60 };
+export const ALIQ_SEST = 1.5;
+export const ALIQ_SENAT = 1.0;
 
 export interface DependenteCI { cpf: string; nome: string; nascimento: string; /** Tabela 07 do eSocial. */ tipo: string }
 
@@ -86,8 +99,12 @@ export interface LancamentoCI {
     outrasFontes: OutraFonte[];
 }
 
+/** Rubrica informativa do S-1200 (tpRubr 3): as bases do transportador. */
+export interface InformativaCI { codigo: 'BASEFRETE' | 'BASEIRFRETE'; descricao: string; valor: number }
+
 export interface ResultadoCI extends ResultadoCalculo {
     categoria: CategoriaCI;
+    informativas: InformativaCI[];
     dataPagamento: string;
     /** 1, 2 ou 3 (S-1200, infoMV), quando há outras fontes. */
     indMV?: '1' | '2' | '3';
@@ -112,6 +129,7 @@ export function validarLancamentos(competencia: string, ls: LancamentoCI[], cont
         if (!dataValida(l.dataPagamento)) e.push(`${q}: informe a data do pagamento.`);
         else if (/^\d{4}-\d{2}$/.test(competencia) && l.dataPagamento.slice(0, 7) < competencia) e.push(`${q}: pagamento antes da competência.`);
         if (l.issAliquota < 0 || l.issAliquota > 5) e.push(`${q}: ISS entre 0% e 5% (LC 116/2003, art. 8º).`);
+        if (c && CATEGORIAS_CI[c.categoria]?.transportador && l.issAliquota > 0) e.push(`${q}: transportador autônomo sem ISS retido nesta tela.`);
         l.outrasFontes.forEach((o, j) => {
             const n = o.nrInsc.replace(/\D/g, '');
             if (!(o.tpInsc === '1' ? n.length === 14 : n.length === 11)) e.push(`${q}, outra fonte ${j + 1}: CNPJ ou CPF inválido.`);
@@ -131,28 +149,45 @@ export function calcularCI(c: ContribuinteIndividual, l: LancamentoCI, competenc
     const r: ResultadoCI = {
         fichaId: c.id, nome: c.nome, competencia, pagamento: l.dataPagamento.slice(0, 7), situacao: 'calculado',
         verbas: [], bases: { inss: 0, fgts: 0, irrf: 0 }, totais: { proventos: 0, descontos: 0, liquido: 0 }, fgts: 0,
-        memoria: [], avisos: [], erros: [], categoria: c.categoria, dataPagamento: l.dataPagamento, outrasFontes: l.outrasFontes, patronal: null,
+        memoria: [], avisos: [], erros: [], categoria: c.categoria, dataPagamento: l.dataPagamento, outrasFontes: l.outrasFontes, patronal: null, informativas: [],
     };
     const verba = (v: Verba) => { if (v.valor > 0) r.verbas.push(v); };
     const erro = (m: string) => { r.erros.push(m); r.situacao = 'erro'; return r; };
     if (!def) return erro('Categoria não coberta.');
     if (!(l.valor > 0)) return erro('Sem valor no mês.');
     const prolabore = def.tipo === 'prolabore';
-    verba({ codigo: prolabore ? 'PROLAB' : 'RPA', descricao: prolabore ? 'Pró-labore' : `Serviços prestados${l.descricao.trim() ? ` (${l.descricao.trim()})` : ''}`, referencia: '', tipo: 'provento', valor: l.valor, inss: true, fgts: false, irrf: true });
+    const transp = def.transportador;
+    // Transportador: as bases saem do frete (20% para o INSS e o SEST/SENAT; 10% ou 60% para o IRRF).
+    const remuneracao = transp ? Math.round(l.valor * BASE_INSS_FRETE / 100) : l.valor;
+    const rendimentoIr = transp ? Math.round(l.valor * BASE_IRRF_FRETE[transp] / 100) : l.valor;
+    if (transp) {
+        verba({ codigo: 'FRETE', descricao: `Frete (transporte de ${transp})${l.descricao.trim() ? ` — ${l.descricao.trim()}` : ''}`, referencia: '', tipo: 'provento', valor: l.valor, inss: false, fgts: false, irrf: false });
+        r.informativas.push({ codigo: 'BASEFRETE', descricao: `Base do INSS e do SEST/SENAT (${BASE_INSS_FRETE}% do frete)`, valor: remuneracao });
+        r.informativas.push({ codigo: 'BASEIRFRETE', descricao: `Rendimento tributável do IRRF (${BASE_IRRF_FRETE[transp]}% do frete)`, valor: rendimentoIr });
+        r.memoria.push(`Frete de ${reais(l.valor)}: base do INSS ${BASE_INSS_FRETE}% = ${reais(remuneracao)} (Decreto 3.048/1999, art. 201, § 4º); rendimento tributável ${BASE_IRRF_FRETE[transp]}% = ${reais(rendimentoIr)} (Lei 7.713/1988, art. 9º).`);
+    } else verba({ codigo: prolabore ? 'PROLAB' : 'RPA', descricao: prolabore ? 'Pró-labore' : `Serviços prestados${l.descricao.trim() ? ` (${l.descricao.trim()})` : ''}`, referencia: '', tipo: 'provento', valor: l.valor, inss: true, fgts: false, irrf: true });
 
     // INSS do segurado: 11% até o teto, descontado o que já houve em outras fontes no mês.
     const tInss = tabelaVigente(tabelas, 'inss', competencia);
     let inss = 0;
     if ('erro' in tInss) return erro(`INSS: ${tInss.erro}`);
-    const teto = tInss.tabela.faixas[tInss.tabela.faixas.length - 1]?.ate ?? l.valor;
+    const teto = tInss.tabela.faixas[tInss.tabela.faixas.length - 1]?.ate ?? remuneracao;
     const outras = l.outrasFontes.reduce((s, o) => s + o.valor, 0);
-    const base = Math.max(0, Math.min(l.valor, teto - outras));
+    const base = Math.max(0, Math.min(remuneracao, teto - outras));
     inss = Math.round(base * 11 / 100);
-    if (outras) r.indMV = outras >= teto ? '3' : outras + l.valor > teto ? '2' : '1';
+    if (outras) r.indMV = outras >= teto ? '3' : outras + remuneracao > teto ? '2' : '1';
     r.bases.inss = base;
-    r.memoria.push(`INSS do contribuinte individual: 11% sobre ${reais(base)}${base < l.valor ? ` (teto ${reais(teto)}${outras ? ` − ${reais(outras)} já recebidos em outras fontes` : ''})` : ''} = ${reais(inss)} (Lei 8.212/1991, art. 21; Lei 10.666/2003, art. 4º).`);
+    r.memoria.push(`INSS do contribuinte individual: 11% sobre ${reais(base)}${base < remuneracao ? ` (teto ${reais(teto)}${outras ? ` − ${reais(outras)} já recebidos em outras fontes` : ''})` : ''} = ${reais(inss)} (Lei 8.212/1991, art. 21; Lei 10.666/2003, art. 4º).`);
     if (r.indMV === '3') r.memoria.push('Outras fontes já chegaram ao teto: nada a descontar (S-1200, indMV 3).');
     verba({ codigo: 'INSS', descricao: 'INSS', referencia: '11%', tipo: 'desconto', valor: inss, inss: false, fgts: false, irrf: false });
+    if (transp) {
+        // SEST e SENAT sobre toda a base de 20% (o S-5001 soma as bases da categoria, sem o teto).
+        const sest = Math.round(remuneracao * ALIQ_SEST / 100);
+        const senat = Math.round(remuneracao * ALIQ_SENAT / 100);
+        verba({ codigo: 'SEST', descricao: 'SEST', referencia: pct(ALIQ_SEST), tipo: 'desconto', valor: sest, inss: false, fgts: false, irrf: false });
+        verba({ codigo: 'SENAT', descricao: 'SENAT', referencia: pct(ALIQ_SENAT), tipo: 'desconto', valor: senat, inss: false, fgts: false, irrf: false });
+        r.memoria.push(`SEST ${pct(ALIQ_SEST)} e SENAT ${pct(ALIQ_SENAT)} sobre ${reais(remuneracao)} = ${reais(sest)} e ${reais(senat)}, descontados do transportador (códigos 121802 e 122102 no S-5001).`);
+    }
 
     // IRRF do mês do pagamento.
     const tIr = tabelaVigente(tabelas, 'irrf', r.pagamento);
@@ -160,17 +195,17 @@ export function calcularCI(c: ContribuinteIndividual, l: LancamentoCI, competenc
     const t = tIr.tabela;
     const dep = c.dependentes.length * (t.valores.deducaoDependente ?? 0);
     const legais = inss + dep;
-    const a = apurarIrrf(t, l.valor, legais);
+    const a = apurarIrrf(t, rendimentoIr, legais);
     let ir = a.valor;
-    r.bases.irrf = l.valor;
-    r.memoria.push(`IRRF (pagamento em ${br(l.dataPagamento)}, tabela de ${rotuloCompetencia(t.vigencia)}): ${reais(l.valor)} − ${a.simplificado ? `desconto simplificado ${reais(a.deducao)}` : `deduções legais ${reais(legais)}${c.dependentes.length ? ` (INSS + ${c.dependentes.length} dependente(s))` : ''}`} = base ${reais(a.base)} × ${pct(a.aliquota)} − ${reais(a.deducaoFaixa)} = ${reais(a.bruto)}.`, ...a.memoriaRedutor);
+    r.bases.irrf = rendimentoIr;
+    r.memoria.push(`IRRF (pagamento em ${br(l.dataPagamento)}, tabela de ${rotuloCompetencia(t.vigencia)}): ${reais(rendimentoIr)} − ${a.simplificado ? `desconto simplificado ${reais(a.deducao)}` : `deduções legais ${reais(legais)}${c.dependentes.length ? ` (INSS + ${c.dependentes.length} dependente(s))` : ''}`} = base ${reais(a.base)} × ${pct(a.aliquota)} − ${reais(a.deducaoFaixa)} = ${reais(a.bruto)}.`, ...a.memoriaRedutor);
     if (ir > 0 && ir <= IRRF_MINIMO) { r.memoria.push(`IRRF de ${reais(ir)} não retido: até R$ 10,00 a retenção é dispensada (Lei 9.430/1996, art. 67).`); ir = 0; }
-    r.irrfApurado = { rendimentos: l.valor, deducoesLegais: legais, valor: ir };
+    r.irrfApurado = { rendimentos: rendimentoIr, deducoesLegais: legais, valor: ir };
     r.deducoesIrrf = { simplificado: a.simplificado, dependentes: c.dependentes.map(d => ({ cpf: d.cpf, nome: d.nome })), porDependente: t.valores.deducaoDependente ?? 0, pensao: 0 };
     verba({ codigo: 'IRRF', descricao: 'IRRF', referencia: a.aliquota ? pct(a.aliquota) : '', tipo: 'desconto', valor: ir, inss: false, fgts: false, irrf: false });
 
     // ISS retido do autônomo não inscrito no município.
-    if (!prolabore) {
+    if (!prolabore && !transp) {
         if (c.inscritoIss) r.memoria.push('ISS: autônomo inscrito no município, recolhe por conta própria; sem retenção.');
         else if (l.issAliquota > 0) {
             const iss = Math.round(l.valor * l.issAliquota / 100);
@@ -181,8 +216,8 @@ export function calcularCI(c: ContribuinteIndividual, l: LancamentoCI, competenc
 
     // Parte da empresa: 20% sobre a remuneração, sem teto (Lei 8.212/1991, art. 22, III).
     if (!enquadramento) r.avisos.push('Empresa sem enquadramento previdenciário vigente (Cadastros › Enquadramento): a parte patronal de 20% não foi calculada.');
-    else if (enquadramento.regime === 'simples') { r.patronal = { base: l.valor, aliquota: 0, valor: 0 }; r.memoria.push('Parte da empresa: Simples Nacional fora do Anexo IV, a contribuição patronal está no DAS.'); }
-    else { const v = Math.round(l.valor * 20 / 100); r.patronal = { base: l.valor, aliquota: 20, valor: v }; r.memoria.push(`Parte da empresa: 20% de ${reais(l.valor)} = ${reais(v)} (Lei 8.212/1991, art. 22, III), sem RAT e sem terceiros.`); }
+    else if (enquadramento.regime === 'simples') { r.patronal = { base: remuneracao, aliquota: 0, valor: 0 }; r.memoria.push('Parte da empresa: Simples Nacional fora do Anexo IV, a contribuição patronal está no DAS.'); }
+    else { const v = Math.round(remuneracao * 20 / 100); r.patronal = { base: remuneracao, aliquota: 20, valor: v }; r.memoria.push(`Parte da empresa: 20% de ${reais(remuneracao)} = ${reais(v)} (Lei 8.212/1991, art. 22, III), sem RAT e sem terceiros.`); }
 
     if (def.exigeS2300 && !c.s2300) r.avisos.push('Sem o S-2300 no eSocial: o S-1200 do sócio ou diretor só vai depois dele.');
     r.totais.proventos = r.verbas.filter(v => v.tipo === 'provento').reduce((s, v) => s + v.valor, 0);
@@ -196,7 +231,7 @@ export function totaisCI(rs: ResultadoCI[]) {
     const ok = rs.filter(r => r.situacao !== 'erro');
     const v = (c: string) => ok.reduce((s, r) => s + r.verbas.filter(x => x.codigo === c).reduce((t, x) => t + x.valor, 0), 0);
     return {
-        quantidade: ok.length, bruto: ok.reduce((s, r) => s + r.totais.proventos, 0), inssRetido: v('INSS'), irrf: v('IRRF'), iss: v('ISS'),
+        quantidade: ok.length, bruto: ok.reduce((s, r) => s + r.totais.proventos, 0), inssRetido: v('INSS'), irrf: v('IRRF'), iss: v('ISS'), sestSenat: v('SEST') + v('SENAT'),
         patronal: ok.reduce((s, r) => s + (r.patronal?.valor ?? 0), 0), liquido: ok.reduce((s, r) => s + r.totais.liquido, 0),
     };
 }

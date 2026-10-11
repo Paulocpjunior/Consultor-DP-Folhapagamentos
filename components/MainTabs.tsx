@@ -431,7 +431,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                             if (sub) irFolha(sub);
                             else if (cad) irCadastro(cad);
                             else if (d === 'relatorios:central' || d === 'relatorios:modelos') navegar({ aba: 'relatorios', sub: d === 'relatorios:modelos' ? 'modelos' : 'central' });
-                            else if (d === 'empresas' || d === 'esocial' || d === 'calculo' || d === 'dctfweb' || d === 'processos') setActiveTab(d);
+                            else if (d === 'empresas' || d === 'esocial' || d === 'calculo' || d === 'dctfweb' || d === 'processos' || d === 'contribuintes') setActiveTab(d);
                         }} />
                     </Suspense>
                 )}
