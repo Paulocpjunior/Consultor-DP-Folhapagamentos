@@ -22,7 +22,7 @@ vi.mock('../restaurarEmpresa', async orig => ({
 import RestaurarEmpresaNoConsultor from '../../../components/iobSage/RestaurarEmpresaNoConsultor';
 
 const rest = (n: string) => ({ grupos: ['f1200'], tabelas: [], backups: [{}], nome: n } as unknown as Restauracao);
-const plano = { etapas: [{ titulo: 'Vínculos pelo eSocial', resumo: '1 XML', avisos: [] }], fichas: [{}], enquadramentos: [], afastamentos: [], movimentos: [], origem: [], eventosHistorico: [] as unknown[] };
+const plano = { etapas: [{ titulo: 'Vínculos pelo eSocial', resumo: '1 XML', avisos: [] }], fichas: [{}], enquadramentos: [], afastamentos: [], movimentos: [], fichaFinanceira: [], origem: [], eventosHistorico: [] as unknown[] };
 const evento = (codeven: string, descricao: string, automatica: string | null) => ({ codeven, descricao, natRubr: '', classe: automatica, automatica, manual: false, linhas: 3, total: 12 });
 afterEach(cleanup);
 

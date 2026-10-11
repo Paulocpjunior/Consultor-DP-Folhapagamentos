@@ -22,6 +22,8 @@ import { lerFolhaGravada, lerFolhasDoAno } from '../../services/calculo/folhaGra
 import { lerTotalizadores, type S5002 } from '../../services/conferencia/totalizadores';
 import { montarInformes } from '../../services/relatorios/informeRendimentos';
 import { avisosDeFerias, fichasFinanceiras, MESES_CURTOS, mesesSemFolha, type FolhaDoMes } from '../../services/relatorios/relatoriosAnuais';
+import { lerHistoricoSageDoAno } from '../../services/relatorios/historicoSageService';
+import type { HistoricoSageAno } from '../../services/relatorios/historicoSage';
 import type { FolhaGravada } from '../../services/calculo/folhaGravada';
 import { motorHomologadoNoMes } from '../../services/calculo/arredondamento';
 import { resumirFolha } from '../../services/relatorios/resumoFolha';
@@ -49,6 +51,7 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const [ano, setAno] = useState(() => ativa?.competencia.slice(0, 4) ?? String(new Date().getFullYear()));
     const [fichaAnual, setFichaAnual] = useState('');
     const [folhasAno, setFolhasAno] = useState<FolhaDoMes[] | null>(null);
+    const [historicoAno, setHistoricoAno] = useState<HistoricoSageAno[]>([]);
     const [s5002, setS5002] = useState<{ eventos: S5002[]; arquivos: number; avisos: string[] } | null>(null);
     const [lendoS5002, setLendoS5002] = useState(false);
     const [calc, setCalc] = useState<{ empresaId: string; tabelas: TabelaLegal[]; movimentos: Record<string, Record<string, Movimento>> } | null>(null);
@@ -64,12 +67,15 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     }, [ativa]);
 
     const sel = RELATORIOS.find(r => r.id === selId)!;
-    // Ficha financeira: as folhas gravadas do ano escolhido, lidas quando o relatório é aberto.
+    // Ficha financeira: as folhas gravadas do ano escolhido e o histórico do SAGE (meses sem folha), lidos quando o
+    // relatório é aberto. Sem acesso ao histórico, segue só com as folhas gravadas.
     useEffect(() => {
         if (!ativa || sel.tipo !== 'ficha-financeira') return;
         let vivo = true;
-        setFolhasAno(null);
-        lerFolhasDoAno(ativa.id, ano).then(l => { if (vivo) setFolhasAno(l.map(f => ({ competencia: f.competencia, holerites: f.holerites }))); }).catch(e => { if (vivo) { setErro(mensagemErro(e)); setFolhasAno([]); } });
+        setFolhasAno(null); setHistoricoAno([]);
+        Promise.all([lerFolhasDoAno(ativa.id, ano), lerHistoricoSageDoAno(ativa.id, ano).catch(() => [])])
+            .then(([l, h]) => { if (vivo) { setHistoricoAno(h); setFolhasAno(l.map(f => ({ competencia: f.competencia, holerites: f.holerites }))); } })
+            .catch(e => { if (vivo) { setErro(mensagemErro(e)); setFolhasAno([]); } });
         return () => { vivo = false; };
     }, [ativa, sel.tipo, ano]);
     // Provisões: tabelas legais e movimentos gravados (médias e faltas), lidos quando o relatório é aberto.
@@ -102,8 +108,10 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             if (!eventos.length) setErro('Nenhum S-5002 nos arquivos. Baixe os eventos do trabalhador em eSocial › Download (S-5002) e abra o .zip aqui.');
         } catch (e) { setErro((e as Error).message); } finally { setLendoS5002(false); }
     }
-    const fichas = folhasAno ? fichasFinanceiras(ano, folhasAno, fichaAnual || undefined) : [];
-    const semFolha = folhasAno ? mesesSemFolha(ano, folhasAno, ativa.competencia) : [];
+    const fichas = folhasAno ? fichasFinanceiras(ano, folhasAno, fichaAnual || undefined, historicoAno) : [];
+    const todasAsFichas = folhasAno ? fichasFinanceiras(ano, folhasAno, undefined, historicoAno) : [];
+    const semFolha = folhasAno ? mesesSemFolha(ano, folhasAno, ativa.competencia, historicoAno) : [];
+    const mesesSage = [...new Set(todasAsFichas.flatMap(f => f.mesesSage))].sort((a, b) => a - b).map(m => MESES_CURTOS[m]);
     const avisos = dados && sel.tipo === 'aviso-ferias' ? avisosDeFerias(ativa.competencia, new Date().toLocaleDateString('sv-SE'), dados.fichas, dados.afastamentos) : [];
     const dadosDaFicha = (fichaId: string) => {
         const f = dados?.fichas.find(x => x.id === fichaId);
@@ -121,7 +129,10 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         const o = opcoes(d);
         if (d.tipo === 'tabela') return tabelaPdf(d.montar!(ctx), o, `Competência ${comp}`);
         if (d.tipo === 'ficha-financeira') {
-            const obs = `Pelas folhas mensais gravadas (Folha do mês › Cálculo mensal › Gravar a folha do mês).${semFolha.length ? ` Meses sem folha gravada: ${semFolha.join(', ')}.` : ''} Férias, 13º e rescisão pagos fora da folha mensal ainda não entram.`;
+            const obs = `Pelas folhas mensais gravadas (Folha do mês › Cálculo mensal › Gravar a folha do mês).`
+                + (mesesSage.length ? ` Meses marcados com * (${mesesSage.join(', ')}): pelo histórico de holerites do SAGE (backup restaurado), com tudo o que o SAGE processou no mês.` : '')
+                + (semFolha.length ? ` Meses sem folha: ${semFolha.join(', ')}.` : '')
+                + ' Nos meses do Consultor, férias, 13º e rescisão pagos fora da folha mensal ainda não entram.';
             return (await anuaisPdf()).fichaFinanceiraPdf(fichas, ano, o, obs, dadosDaFicha);
         }
         if (d.tipo === 'informe') return (await informePdfMod()).informePdf(informes?.informes ?? [], { ...o, previa: false });
@@ -139,8 +150,10 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const excel = () => agir(async () => {
         if (!ctx) return;
         if (sel.tipo === 'ficha-financeira') {
-            const linhas = fichas.flatMap(f => f.linhas.map(l => [f.nome, l.codigo, l.descricao, ...l.meses.map(v => (v === null ? '' : v / 100)), l.total / 100]));
-            const ws = XLSX.utils.aoa_to_sheet([[sel.titulo, '', `Ano ${ano}`], [dados?.empresa?.razaoSocial || ativa.nome], [], ['Funcionário', 'Código', 'Descrição', ...MESES_CURTOS, 'Total'], ...linhas]);
+            const linhas = fichas.flatMap(f => f.linhas.map(l => [f.nome, l.codigo, l.descricao, l.sage ? 'SAGE' : 'Consultor', ...l.meses.map(v => (v === null ? '' : v / 100)), l.total / 100]));
+            const ws = XLSX.utils.aoa_to_sheet([[sel.titulo, '', `Ano ${ano}`], [dados?.empresa?.razaoSocial || ativa.nome], [],
+                ['Funcionário', 'Código', 'Descrição', 'Origem', ...MESES_CURTOS.map(m => (mesesSage.includes(m) ? `${m}*` : m)), 'Total'], ...linhas,
+                ...(mesesSage.length ? [[], [`* Meses pelo histórico de holerites do SAGE (backup restaurado): ${mesesSage.join(', ')}.`]] : [])]);
             const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Ficha financeira');
             XLSX.writeFile(wb, nomeArquivo(sel).replace(/\.pdf$/, '.xlsx'));
             return;
@@ -196,17 +209,17 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                     <div className="flex flex-wrap items-end gap-3">
                         <label className="text-xs text-slate-600 dark:text-slate-300">Ano
                             <select aria-label="Ano" className="mt-0.5 block rounded-lg border border-slate-300 px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-950" value={ano} onChange={e => setAno(e.target.value)}>
-                                {Array.from({ length: 4 }, (_, i) => String(Number(ativa.competencia.slice(0, 4)) - i)).map(a => <option key={a} value={a}>{a}</option>)}
+                                {Array.from({ length: 6 }, (_, i) => String(Number(ativa.competencia.slice(0, 4)) - i)).map(a => <option key={a} value={a}>{a}</option>)}
                             </select>
                         </label>
                         <label className="text-xs text-slate-600 dark:text-slate-300">Funcionário
                             <select aria-label="Funcionário" className="mt-0.5 block rounded-lg border border-slate-300 px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-950" value={fichaAnual} onChange={e => setFichaAnual(e.target.value)}>
-                                <option value="">Todos ({folhasAno ? fichasFinanceiras(ano, folhasAno).length : '…'})</option>
-                                {folhasAno && fichasFinanceiras(ano, folhasAno).map(f => <option key={f.fichaId} value={f.fichaId}>{f.nome}</option>)}
+                                <option value="">Todos ({folhasAno ? todasAsFichas.length : '…'})</option>
+                                {todasAsFichas.map(f => <option key={f.fichaId} value={f.fichaId}>{f.nome}</option>)}
                             </select>
                         </label>
                         {!folhasAno && <span className="text-sm text-slate-500">Lendo as folhas gravadas de {ano}…</span>}
-                        {folhasAno && <span className="text-xs text-slate-500">{12 - mesesSemFolha(ano, folhasAno, `${ano}-12`).length} mês(es) com folha gravada{semFolha.length ? ` · sem folha: ${semFolha.join(', ')}` : ''}</span>}
+                        {folhasAno && <span className="text-xs text-slate-500">{12 - mesesSemFolha(ano, folhasAno, `${ano}-12`).length} mês(es) com folha gravada{mesesSage.length ? ` (pelo SAGE: ${mesesSage.join(', ')})` : ''}{semFolha.length ? ` · sem folha: ${semFolha.join(', ')}` : ''}</span>}
                     </div>
                 )}
                 {sel.tipo === 'informe' && (
@@ -214,7 +227,7 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                         <div className="flex flex-wrap items-end gap-3">
                             <label className="text-xs">Ano-calendário
                                 <select aria-label="Ano-calendário" className="mt-0.5 block rounded-lg border border-slate-300 px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-950" value={ano} onChange={e => setAno(e.target.value)}>
-                                    {Array.from({ length: 4 }, (_, i) => String(Number(ativa.competencia.slice(0, 4)) - i)).map(a => <option key={a} value={a}>{a}</option>)}
+                                    {Array.from({ length: 6 }, (_, i) => String(Number(ativa.competencia.slice(0, 4)) - i)).map(a => <option key={a} value={a}>{a}</option>)}
                                 </select>
                             </label>
                             <label className="text-xs">S-5002 do ano (XML ou .zip do Download do eSocial)

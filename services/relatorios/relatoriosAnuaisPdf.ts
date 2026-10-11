@@ -25,7 +25,8 @@ export function fichaFinanceiraPdf(fichas: FichaFinanceira[], ano: string, o: Op
         doc.setTextColor(0, 0, 0);
         autoTable(doc, {
             startY: topo + 4,
-            head: [['Cód.', 'Descrição', ...MESES_CURTOS, 'Total'].map(textoPdf)],
+            // Mês pelo histórico do SAGE: marcado com * (a observação explica).
+            head: [['Cód.', 'Descrição', ...MESES_CURTOS.map((m, k) => (f.mesesSage?.includes(k) ? `${m}*` : m)), 'Total'].map(textoPdf)],
             body: f.linhas.map(l => [l.codigo, textoPdf(l.descricao), ...l.meses.map(v => (v === null ? '' : brl(v))), brl(l.total)]),
             styles: { fontSize: 6.3, cellPadding: 0.9 },
             headStyles: { fillColor: AZUL_CLARO, halign: 'center' },
@@ -36,6 +37,7 @@ export function fichaFinanceiraPdf(fichas: FichaFinanceira[], ano: string, o: Op
                 const l = f.linhas[d.row.index];
                 if (l.tipo === 'total') { d.cell.styles.fontStyle = 'bold'; d.cell.styles.fillColor = [241, 245, 249]; }
                 if (l.tipo === 'base') d.cell.styles.textColor = [71, 85, 105];
+                if (l.sage && d.column.index <= 1) d.cell.styles.fontStyle = 'italic';
                 if (l.tipo === 'desconto' && d.column.index > 1) d.cell.styles.textColor = [153, 27, 27];
             },
             didDrawPage: () => cabecalhoPadrao(doc, o, sub),

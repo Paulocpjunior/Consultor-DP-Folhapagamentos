@@ -19,7 +19,7 @@ function backup(): Uint8Array {
         ...copy('f1200.eventotransmissaoesocial', 'id_protoco, id_evento, rec_esocia', [['1', ID, '1.1.1']]),
         ...copy('f1200.func', 'codfun, nome, cpf, dtadm, pis, cep', [['000052', 'ALEXANDRE TESTE', CPF, '2022-05-02', '12345678900', '1310100']]),
         ...copy('f1200.hist_ferias', 'codfun, daquisiini, daquisifim, dgozoini, dgozofim, ntotabono', [['52', '2022-05-02', '2023-05-01', '2023-07-03', '2023-07-22', '10']]),
-        ...copy('f1200.holerith', 'codfun, anomes, codeven, ref, descricao', [['52', '202501', '50', '10,5', 'HORAS EXTRAS 50%'], ['52', '202502', '120', '2', 'FALTAS']]),
+        ...copy('f1200.holerith', 'codfun, anomes, codeven, ref, valor, descricao', [['52', '202501', '50', '10,5', '214.77', 'HORAS EXTRAS 50%'], ['52', '202502', '120', '2', '200.00', 'FALTAS']]),
         ...copy('f1200.eventos_esocial', 'codeven, rubesocial', [['50', '50'], ['120', '120']]),
         ...copy('f1200.esocialdadosficha_s1010', 'codrubr, natrubr, inivalid, fimvalid', [['50', '1003', '2018-01', ''], ['120', '9207', '2018-01', '']]),
         ...copy('f1200.esocialdadosficha_s1000', 'pk_padrao, nrinsc, classtrib', [['1', '11222333', '99']]),
@@ -50,7 +50,11 @@ describe('restaurar a empresa pelo backup', () => {
         expect(p.afastamentos.map(a => [a.afastamento.motivo, a.afastamento.dtInicio, a.afastamento.perAquisInicio, a.afastamento.abonoDias])).toEqual([['15', '2023-07-03', '2022-05-02', '10']]);
         // Histórico da folha pela natureza da rubrica.
         expect(p.movimentos.map(m => [m.competencia, m.depois])).toEqual([['2025-01', { horasExtras50: 10.5 }], ['2025-02', { faltasDias: 2 }]]);
-        expect(p.etapas.map(e => e.titulo)).toEqual(['Vínculos pelo eSocial', 'Funcionários (func)', 'Enquadramento', 'Afastamentos e férias', 'Histórico da folha']);
+        // Ficha financeira do SAGE pelo mesmo holerith: valor por evento, provento ou desconto pela natureza.
+        expect(p.fichaFinanceira.map(a => [a.fichaId, a.ano, a.linhas.map(l => [l.codigo, l.tipo, l.meses[0], l.meses[1]])])).toEqual([
+            [p.fichas[0].ficha.id, '2025', [['50', 'provento', 21477, null], ['120', 'desconto', null, 20000]]],
+        ]);
+        expect(p.etapas.map(e => e.titulo)).toEqual(['Vínculos pelo eSocial', 'Funcionários (func)', 'Enquadramento', 'Afastamentos e férias', 'Histórico da folha', 'Ficha financeira do SAGE']);
         expect(p.origem).toEqual(['f1200.arquivoeventotransmissaoesocial', 'f1200.func', 'f1200.hist_ferias', 'f1200.holerith']);
     });
 

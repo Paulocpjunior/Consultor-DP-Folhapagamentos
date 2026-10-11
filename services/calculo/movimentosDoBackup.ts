@@ -50,7 +50,7 @@ export function classificarEvento(natRubr: string, descricao: string): Classe | 
 }
 
 /** Natureza de uma vigência da rubrica (AAAA-MM; fim vazio = em aberto). */
-export interface VigenciaNatureza { iniValid: string; fimValid: string; natRubr: string }
+export interface VigenciaNatureza { iniValid: string; fimValid: string; natRubr: string; /** Tipo da rubrica (1 vencimento, 2 desconto, 3 e 4 informativa), quando o S-1010 do backup traz. */ tpRubr?: string }
 /** Por evento do IOB, as vigências da rubrica que ele mandou ao eSocial (S-1010). */
 export type NaturezasEventos = Map<string, VigenciaNatureza[]>;
 
@@ -61,13 +61,14 @@ export function naturezasDosEventos(eventos: TabelaLida | null, s1010: TabelaLid
     const r: NaturezasEventos = new Map();
     if (!eventos || !s1010) return r;
     const i = (t: TabelaLida, n: string) => t.colunas.findIndex(c => chaveColuna(c) === n);
-    const [iRub, iNat, iIni, iFim] = [i(s1010, 'codrubr'), i(s1010, 'natrubr'), i(s1010, 'inivalid'), i(s1010, 'fimvalid')];
+    const [iRub, iNat, iIni, iFim, iTp] = [i(s1010, 'codrubr'), i(s1010, 'natrubr'), i(s1010, 'inivalid'), i(s1010, 'fimvalid'), i(s1010, 'tprubr')];
     if (iRub < 0 || iNat < 0) return r;
     const nat = new Map<string, VigenciaNatureza[]>();
     for (const l of s1010.linhas) {
         const k = chaveCodfun(l[iRub]); const n = (l[iNat] ?? '').trim();
         if (!k || !/^\d{4}$/.test(n)) continue;
-        nat.set(k, [...(nat.get(k) ?? []), { iniValid: iIni >= 0 ? mesDe(l[iIni]) : '', fimValid: iFim >= 0 ? mesDe(l[iFim]) : '', natRubr: n }]);
+        const tp = iTp >= 0 ? (l[iTp] ?? '').trim() : '';
+        nat.set(k, [...(nat.get(k) ?? []), { iniValid: iIni >= 0 ? mesDe(l[iIni]) : '', fimValid: iFim >= 0 ? mesDe(l[iFim]) : '', natRubr: n, ...(/^[1-4]$/.test(tp) ? { tpRubr: tp } : {}) }]);
     }
     const [iEv, iRubEs, iCodEs] = [i(eventos, 'codeven'), i(eventos, 'rubesocial'), i(eventos, 'codesocial')];
     if (iEv < 0) return r;
@@ -79,12 +80,14 @@ export function naturezasDosEventos(eventos: TabelaLida | null, s1010: TabelaLid
     return r;
 }
 
-/** Natureza do evento na competência: a vigência de maior início até ela e sem fim antes dela. */
-export function naturezaEm(n: NaturezasEventos, codeven: string, competencia: string): string {
-    const v = (n.get(codeven) ?? []).filter(x => (!x.iniValid || x.iniValid <= competencia) && (!x.fimValid || x.fimValid >= competencia))
-        .sort((a, b) => b.iniValid.localeCompare(a.iniValid))[0];
-    return v?.natRubr ?? '';
+/** Vigência da rubrica do evento na competência: a de maior início até ela e sem fim antes dela. */
+export function vigenciaEm(n: NaturezasEventos, codeven: string, competencia: string): VigenciaNatureza | null {
+    return (n.get(codeven) ?? []).filter(x => (!x.iniValid || x.iniValid <= competencia) && (!x.fimValid || x.fimValid >= competencia))
+        .sort((a, b) => b.iniValid.localeCompare(a.iniValid))[0] ?? null;
 }
+
+/** Natureza do evento na competência. */
+export const naturezaEm = (n: NaturezasEventos, codeven: string, competencia: string): string => vigenciaEm(n, codeven, competencia)?.natRubr ?? '';
 
 /** "10,5", "10.50", "10:30" → horas/dias decimais. Com `sexagesimal`, 10,30 = 10h30. */
 export function quantidade(v: string | null, sexagesimal = false): number {
@@ -96,8 +99,20 @@ export function quantidade(v: string | null, sexagesimal = false): number {
     return Number.isFinite(n) ? n : 0;
 }
 
-const competenciaDe = (v: string | null) => { const d = (v ?? '').replace(/\D/g, ''); return /^\d{6}$/.test(d) ? `${d.slice(0, 4)}-${d.slice(4)}` : ''; };
+/** "202501" → "2025-01"; vazio quando não é um ano e mês. */
+export const competenciaDe = (v: string | null) => { const d = (v ?? '').replace(/\D/g, ''); return /^\d{6}$/.test(d) ? `${d.slice(0, 4)}-${d.slice(4)}` : ''; };
 const fimDoMes = (c: string) => { const [y, m] = c.split('-').map(Number); return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10); };
+
+/** Fichas por código IOB (sem os zeros à esquerda). */
+export function fichasPorCodigoIob(fichas: FichaFuncionario[]): Map<string, FichaFuncionario[]> {
+    const r = new Map<string, FichaFuncionario[]>();
+    for (const f of fichas) { const k = f.dados.codigoIob ? chaveCodfun(f.dados.codigoIob) : ''; if (k) r.set(k, [...(r.get(k) ?? []), f]); }
+    return r;
+}
+/** Vínculos do código IOB em vigor na competência (admitido até o fim do mês e não desligado antes dele). */
+export const vinculosEm = (porCodigo: Map<string, FichaFuncionario[]>, codfun: string | null, competencia: string) =>
+    (porCodigo.get(chaveCodfun(codfun)) ?? []).filter(f =>
+        (!f.dados.admissao || f.dados.admissao <= fimDoMes(competencia)) && (!f.dados.dataDesligamento || `${competencia}-01` <= f.dados.dataDesligamento));
 
 export interface EventoResumo {
     codeven: string; descricao: string; natRubr: string;
@@ -130,8 +145,7 @@ export function movimentosDoHolerith(holerith: TabelaLida, naturezas: NaturezasE
     const i = (n: string) => holerith.colunas.findIndex(c => chaveColuna(c) === n);
     const [iCod, iAno, iEv, iRef, iDesc] = ['codfun', 'anomes', 'codeven', 'ref', 'descricao'].map(i);
     if ([iCod, iAno, iEv, iRef].some(x => x < 0)) { r.avisos.push('holerith sem as colunas codfun, anomes, codeven e ref.'); return r; }
-    const porCodigo = new Map<string, FichaFuncionario[]>();
-    for (const f of fichas) { const k = f.dados.codigoIob ? chaveCodfun(f.dados.codigoIob) : ''; if (k) porCodigo.set(k, [...(porCodigo.get(k) ?? []), f]); }
+    const porCodigo = fichasPorCodigoIob(fichas);
     const resumo = new Map<string, EventoResumo>();
     const soma = new Map<string, MovimentoImportado>();
     let semFicha = 0; let faltaEmHoras = 0;
@@ -152,8 +166,7 @@ export function movimentosDoHolerith(holerith: TabelaLida, naturezas: NaturezasE
         if (!classe || !q) continue;
         // Falta em horas fica de fora; pela descrição só quando a classe não foi acertada pela equipe.
         if ((classe === 'faltasDias' || classe === 'dsrDescontadoDias') && (q > 31 || (!manual && /hora/.test(semAcento(descricao))))) { faltaEmHoras++; continue; }
-        const vinculos = (porCodigo.get(chaveCodfun(l[iCod])) ?? []).filter(f =>
-            (!f.dados.admissao || f.dados.admissao <= fimDoMes(competencia)) && (!f.dados.dataDesligamento || `${competencia}-01` <= f.dados.dataDesligamento));
+        const vinculos = vinculosEm(porCodigo, l[iCod], competencia);
         if (vinculos.length !== 1) { semFicha++; continue; }
         const chave = `${vinculos[0].id}_${competencia}`;
         const m = soma.get(chave) ?? { fichaId: vinculos[0].id, competencia, movimento: {} };

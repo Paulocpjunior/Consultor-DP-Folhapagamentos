@@ -3984,3 +3984,34 @@ Paulo: "pode seguir com pró-labore e RPA".
   - pré-voo (XSD) e envio pelo CFI, como na folha. Só originais: a retificação ainda é pelo IOB.
 - **Catálogo SAGE:** Autônomos atualizado e Pró-labore planejado → parcial (falta o informe de rendimentos; transportador autônomo 711/712 fica para depois). Agora são 20 disponíveis, 21 parciais, 7 planejados e 3 fora.
 - **Testes:** cadastro, lançamentos, cálculo (teto e outras fontes, ISS, Simples, dependentes), S-1200 e S-1210 no XSD, tela e regras.
+
+## 11/10/2026 — Ficha financeira com o histórico do SAGE; DIRF, REINF e DCTFWeb no catálogo
+
+Paulo: "pode seguir com ficha financeira com historico da SAGE, porém alguns detalhes: a DIRF não existe mais, já foi desobrigada; a REINF e a DCTFWeb têm a parte que cabe ao DP sim".
+
+- **De onde vem:** o mesmo `holerith` do schema da empresa no Backup SQL, que já dava as horas extras e faltas. Agora também dá os **valores** de cada evento (`services/relatorios/historicoSage.ts`):
+  - liga pelo código IOB, no vínculo em vigor na competência, como o histórico da folha;
+  - valor em centavos pela coluna `valor` (sem ela, `vl_ven` ou `vl_des`);
+  - provento, desconto ou informativo, nesta ordem: o tpRubr do S-1010 do backup, a coluna preenchida (vl_ven/vl_des), a natureza (99xx informativa, 9xxx desconto) e a descrição;
+  - totais e líquido do próprio SAGE ficam de fora, porque a ficha soma de novo;
+  - o resumo da etapa mostra quantos lançamentos vieram de cada finalidade (coluna `final`), para conferir com a Ficha Financeira do SAGE.
+- **Restauração** (IOB SAGE › Restaurar): a etapa 5 ganha "Ficha financeira do SAGE", com o parâmetro "a partir de" (padrão: cinco anos). Grava `historico_sage/{fichaId}_{AAAA}`, um por funcionário e ano. Restaurar de novo regrava por cima. Regras: grava quem pode na empresa, com o id da ficha e do ano, e só o admin apaga (teste de regras).
+- **Relatório** (Relatórios › Central › Ficha financeira):
+  - no mesmo mês, a folha gravada no Consultor vale; o SAGE preenche os meses sem ela, com total de proventos, de descontos e líquido;
+  - as bases do SAGE (informativas) aparecem no fim;
+  - no PDF, os meses do SAGE ficam com * e os eventos dele em itálico; no Excel, há a coluna "Origem";
+  - o seletor de ano vai a seis anos.
+- **Catálogo SAGE**, com as correções do Paulo:
+  - **DIRF:** extinta. O informe de rendimentos já sai pelos S-5002 (disponível) e sai da lista de pendências.
+  - **EFD-Reinf:** deixa de ser "fora" e passa a planejado, com a parte do DP:
+    - R-4010 dos rendimentos de pessoa física pagos pela folha que não vão pelo eSocial (os casos que o MOS manda para a Reinf);
+    - R-4099 de fechamento.
+    - As retenções de serviços tomados seguem no CCI e no CFI.
+  - **DCTFWeb:** parcial. Falta transmitir a declaração da folha e emitir o DARF pelo Integra Contador do SERPRO, com procuração.
+  - **Ficha Financeira:** o texto inclui o histórico do SAGE.
+  - Agora são 20 disponíveis, 21 parciais, 8 planejados e 2 fora.
+- **Testes:**
+  - tipo do lançamento;
+  - holerith → ficha por ano (vínculo, totalizador, vl_des, finalidades);
+  - junção com a folha gravada, meses sem folha e PDF;
+  - a etapa na restauração, o catálogo e as regras.
