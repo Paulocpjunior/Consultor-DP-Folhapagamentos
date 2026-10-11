@@ -336,7 +336,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
             if (!movsAno || !/^\d{4}-\d{2}$/.test(competencia)) return [];
             // Desligados do mês (data da ficha) e simulações do mês.
             const itens = new Map<string, ParamRescisao>();
-            for (const f of dados.fichas) if (f.dados.dataDesligamento?.startsWith(competencia)) itens.set(f.id, { data: f.dados.dataDesligamento, tipo: f.dados.motivoDesligamento && f.dados.motivoDesligamento in TIPOS_RESCISAO ? f.dados.motivoDesligamento as TipoRescisao : '', aviso: 'indenizado', simulada: false }); // motivo do S-2299, quando importado
+            for (const f of dados.fichas) if (f.dados.dataDesligamento?.startsWith(competencia) && f.dados.motivoDesligamento !== '11') itens.set(f.id, { data: f.dados.dataDesligamento, tipo: f.dados.motivoDesligamento && f.dados.motivoDesligamento in TIPOS_RESCISAO ? f.dados.motivoDesligamento as TipoRescisao : '', aviso: 'indenizado', simulada: false }); // motivo do S-2299, quando importado
             for (const [id, p] of Object.entries(paramsResc)) if (p.data.startsWith(competencia) || itens.has(id)) itens.set(id, { ...itens.get(id), ...p });
             return [...itens.entries()].flatMap(([id, p]) => {
                 const f = dados.fichas.find(x => x.id === id);

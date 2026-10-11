@@ -4,7 +4,7 @@
 // depois os cadastros, a folha do mês, as conferências, o eSocial, os prazos e o fim de mês;
 // as configurações ficam à direita. Cada item leva a uma tela (aba) e, quando há, à sub-aba dela.
 
-export type Aba = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin' | 'fimdemes' | 'relatorios' | 'servicos' | 'demissoes' | 'beneficios' | 'contribuintes' | 'dctfweb' | 'processos' | 'intermitentes' | 'obras' | 'departamentos' | 'agrupado';
+export type Aba = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin' | 'fimdemes' | 'relatorios' | 'servicos' | 'demissoes' | 'beneficios' | 'contribuintes' | 'dctfweb' | 'processos' | 'intermitentes' | 'obras' | 'departamentos' | 'agrupado' | 'transferencia';
 
 export type SubFolha = 'eventos' | 'apontamento' | 'validador-ponto' | 'implantacao' | 'conferencia';
 export type SubCadastroMenu = 'funcionarios' | 'horarios' | 'afastamentos' | 'incidencias' | 'enquadramento' | 'sindicatos' | 'tabelas' | 'conformidade';
@@ -18,7 +18,7 @@ export type Destino =
     | { aba: 'calculo'; folha: FolhaCalculo }
     | { aba: 'fimdemes'; sub: 'fechamento' | 'pedidos' }
     | { aba: 'relatorios'; sub: 'central' | 'modelos' }
-    | { aba: 'empresas' | 'certificados' | 'prazos' | 'iobsage' | 'admin' | 'servicos' | 'demissoes' | 'beneficios' | 'contribuintes' | 'dctfweb' | 'processos' | 'intermitentes' | 'obras' | 'departamentos' | 'agrupado' }
+    | { aba: 'empresas' | 'certificados' | 'prazos' | 'iobsage' | 'admin' | 'servicos' | 'demissoes' | 'beneficios' | 'contribuintes' | 'dctfweb' | 'processos' | 'intermitentes' | 'obras' | 'departamentos' | 'agrupado' | 'transferencia' }
     | { aba: 'trocar' };
 
 import type { NomeIcone } from '../../components/layout/icones';
@@ -43,6 +43,7 @@ export const MENU: GrupoMenu[] = [
         { id: 'incidencias', rotulo: 'Incidências', descricao: 'Eventos IOB × rubricas do S-1010 e o S-1010 pelo Consultor', icone: 'elo', destino: { aba: 'cadastros', sub: 'incidencias' } },
         { id: 'obras', rotulo: 'Obras e lotações', descricao: 'Obras (CNO), empreitadas e tomadores: S-1005 e S-1020, FPAS e terceiros por lotação, para a folha por obra', icone: 'camadas', destino: { aba: 'obras' } },
         { id: 'departamentos', rotulo: 'Departamentos', descricao: 'Departamentos e centros de custo da empresa, para a folha, os holerites e o resumo por departamento', icone: 'camadas', destino: { aba: 'departamentos' } },
+        { id: 'transferencia', rotulo: 'Transferência de funcionários', descricao: 'Para outra empresa do grupo, sem rescisão: ficha, férias e históricos no destino, S-2299 (motivo 11) e S-2200 com a sucessão', icone: 'trocar', destino: { aba: 'transferencia' } },
         { id: 'enquadramento', rotulo: 'Enquadramento', descricao: 'FPAS, RAT/FAP e terceiros da empresa', icone: 'camadas', destino: { aba: 'cadastros', sub: 'enquadramento' } },
         { id: 'tabelas', rotulo: 'Tabelas legais', descricao: 'INSS, IRRF, salário-família e mínimo federal e estadual', icone: 'tabela', destino: { aba: 'cadastros', sub: 'tabelas' } },
         { id: 'conformidade', rotulo: 'Conformidade', descricao: 'Salário mínimo e convenção coletiva: pisos, reajuste e obrigações', icone: 'sindicato', destino: { aba: 'cadastros', sub: 'conformidade' } },
