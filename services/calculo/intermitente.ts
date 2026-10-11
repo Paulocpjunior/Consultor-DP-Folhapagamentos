@@ -31,12 +31,13 @@
 import { centavosDeTexto, reais } from '../cadastros/documentos';
 import { rotuloCompetencia, tabelaVigente } from '../cadastros/tabelasLegais';
 import { fichaNaCompetencia, type FichaFuncionario } from '../cadastros/funcionarios';
-import { diaSemana, diasEntre, feriado, somarDias } from '../prazos/calendario';
+import { diaSemana, diasEntre, feriado, somarDias, somarMeses } from '../prazos/calendario';
 import { adicionalDeRisco } from './adicionais';
 import { inssDetalhado, irrfDetalhado } from './tributos';
 import type { EntradaCalculo, ResultadoCalculo, Verba } from './motorMensal';
 
 export const CATEGORIA_INTERMITENTE = '111';
+const competenciaSeguinteDe = (c: string) => somarMeses(`${c}-01`, 1).slice(0, 7);
 export const ehIntermitente = (f: Pick<FichaFuncionario, 'dados'>) => f.dados.categoria === CATEGORIA_INTERMITENTE;
 
 /** Um dia convocado e as horas (decimal: 7,5 = 7h30). */
@@ -290,8 +291,35 @@ export function calcularIntermitente(e: EntradaCalculo, r: ResultadoCalculo): Re
     if (sm && baseInss < sm) r.avisos.push(`Remuneração do mês (${reais(baseInss)}) abaixo do salário mínimo (${reais(sm)}): o próprio empregado pode complementar a contribuição para o mês contar para a Previdência (EC 103/2019, art. 29). Oriente o empregado.`);
 
     // 6. Salário-família (cota integral se a remuneração do mês está no limite).
+    // Salário-família (Lei 8.213/1991, arts. 65 e 66): no mês com remuneração, se ela está no limite da tabela; cota
+    // integral, proporcional aos dias de vínculo nos meses de admissão e de desligamento (Portaria Interministerial
+    // MTP/ME 12/2022). Não há regra própria para o intermitente: vale a dos demais empregados.
     const filhos = ficha.dependentes.filter(x => x.salarioFamilia === 'S');
-    if (filhos.length) r.avisos.push('Salário-família do intermitente: não calculado nesta versão; confira e lance se houver direito.');
+    if (filhos.length) {
+        const tSf = tabelaVigente(e.tabelas, 'salario_familia', competencia);
+        if ('erro' in tSf) r.avisos.push(`Salário-família não calculado: ${tSf.erro}`);
+        else {
+            const { cotaSalarioFamilia: cota = 0, limiteSalarioFamilia: limite = 0 } = tSf.tabela.valores;
+            const comDireito = filhos.filter(x => {
+                if (!/^\d{4}-\d{2}-\d{2}$/.test(x.nascimento)) { r.avisos.push(`Salário-família: dependente ${x.nome || ''} sem nascimento válido; não contado.`); return false; }
+                return `${Number(x.nascimento.slice(0, 4)) + 14}${x.nascimento.slice(4, 7)}` >= competencia; // até o mês em que completa 14 anos
+            });
+            const remuneracaoMes = baseInss; // salário de contribuição do mês, sem o 13º
+            if (remuneracaoMes > limite) r.memoria.push(`Salário-família: remuneração do mês ${reais(remuneracaoMes)} acima do limite ${reais(limite)}; sem direito.`);
+            else if (comDireito.length) {
+                const ini = `${competencia}-01`;
+                const fimMes = somarDias(`${competenciaSeguinteDe(competencia)}-01`, -1);
+                const de = d.admissao > ini ? d.admissao : ini;
+                const ate = deslig && deslig < fimMes ? deslig : fimMes;
+                const parcial = de !== ini || ate !== fimMes;
+                const dias = parcial ? Math.min(30, diasEntre(de, ate) + 1) : 30;
+                const valor = parcial ? Math.round(cota * comDireito.length * dias / 30) : cota * comDireito.length;
+                verba({ codigo: 'SF', descricao: 'Salário-família', referencia: `${comDireito.length} cota(s)`, tipo: 'provento', valor, inss: false, fgts: false, irrf: false });
+                r.memoria.push(`Salário-família: ${comDireito.length} × ${reais(cota)}${parcial ? ` × ${dias}/30 (mês de admissão ou desligamento)` : ''} = ${reais(valor)} (remuneração do mês ${reais(remuneracaoMes)}, no limite de ${reais(limite)}).`);
+                r.avisos.push('Salário-família do intermitente: pela regra geral (cota integral no mês com remuneração; proporcional na admissão e no desligamento). Não há regra própria na norma; confira.');
+            }
+        }
+    }
 
     // 7. Pensão alimentícia do movimento (sobre o mês e sobre o 13º).
     const pensao = Math.round(mov.pensaoAlimenticia ?? 0);

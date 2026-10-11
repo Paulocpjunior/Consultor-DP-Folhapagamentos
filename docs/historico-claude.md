@@ -4297,3 +4297,16 @@ Paulo: "pode seguir com a rescisão do intermitente". Até aqui, o motor de resc
   - pedido de demissão;
   - sem convocações carregadas;
   - S-2299 no XSD oficial, com e sem dias.
+
+## 11/10/2026 — Salário-família do intermitente
+
+Paulo: "pode seguir salário família". Era o que faltava para o intermitente sair de parcial no catálogo.
+
+- **Regra aplicada:** não achei regra própria para o intermitente (busquei na IN PRES/INSS 128/2022 e em orientações). Vale a geral, da Lei 8.213/1991, arts. 65 e 66, e da Portaria Interministerial MTP/ME 12/2022:
+  - a cota é devida no mês com remuneração, se o salário de contribuição do mês (sem o 13º) está no limite da tabela;
+  - por filho até o mês em que ele completa 14 anos;
+  - integral, mas proporcional aos dias de vínculo nos meses de admissão e de desligamento;
+  - no mês sem convocação não há folha nem cota.
+- **No cálculo:** a verba SF entra na folha do intermitente e na rescisão, com um aviso de que segue a regra geral, para conferir.
+- **Catálogo SAGE:** `proc-intermitente` passa a disponível. Agora são 25 disponíveis, 20 parciais, 6 planejados e 2 fora.
+- **Testes:** cota integral, sem convocação, acima do limite, mês de admissão e de desligamento.
