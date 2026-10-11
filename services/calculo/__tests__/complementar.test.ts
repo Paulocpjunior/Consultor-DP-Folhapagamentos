@@ -3,7 +3,7 @@ import { TABELAS_OFICIAIS_2026 } from '../../cadastros/tabelasOficiais';
 import { fichaVazia, type FichaFuncionario } from '../../cadastros/funcionarios';
 import { apurarIrrf, calcularMensal, type Movimento, type ResultadoCalculo } from '../motorMensal';
 import { inssDetalhado } from '../tributos';
-import { calcularComplementar, diferencasDoReajuste, mesesEntre, sugestaoDaConvencao, totaisComplementar, validarComplementar, type EntradaComplementar } from '../complementar';
+import { apurarIrrfRra, calcularComplementar, diferencasDoReajuste, mesesEntre, sugestaoDaConvencao, totaisComplementar, validarComplementar, type EntradaComplementar } from '../complementar';
 
 const TAB = TABELAS_OFICIAIS_2026.map((t, i) => ({ ...t, id: `t${i}` }));
 const INSS = TAB.find(t => t.tipo === 'inss')!;
@@ -109,7 +109,7 @@ describe('reajuste retroativo sobre as folhas gravadas', () => {
 
 describe('RRA e lançamentos', () => {
     const TAB25 = [...TAB, { ...INSS, id: 'inss25', vigencia: '2025-01' }, { ...IRRF, id: 'irrf25', vigencia: '2025-01' }];
-    it('diferenças de ano anterior ao do pagamento são RRA: sem IRRF e incompleto', () => {
+    it('diferenças de ano anterior ao do pagamento são RRA: calculadas em separado, sem IRRF abaixo da tabela acumulada', () => {
         const ana = ficha('ana', { admissao: '2025-01-02' });
         const e = entrada([ana], {
             perApur: '2026-01', pagamento: '2026-01', instrumento: { ...CCT, dtAcConv: '2026-01-15' }, reajuste: { pct: 5, de: '2025-11', ate: '2025-12' }, tabelas: TAB25,
@@ -117,11 +117,50 @@ describe('RRA e lançamentos', () => {
         });
         const { resultados, avisos } = calcularComplementar(e);
         const r = resultados[0];
-        expect(r.situacao).toBe('incompleto');
+        expect(r.situacao).toBe('calculado');
         expect(r.meses.every(m => m.rra)).toBe(true);
+        expect(r.rra).toMatchObject({ qtdMeses: 2, irrf: 0 });
         expect(r.verbas.some(v => v.codigo === 'IRRF')).toBe(false);
-        expect(r.avisos.join(' ')).toMatch(/Diferenças de 2025 pagas em 2026: são RRA/);
+        expect(r.avisos.join(' ')).toMatch(/Diferenças de 2025 pagas em 2026: RRA .* tabela acumulada \(2 meses\)/);
         expect(avisos.join(' ')).toMatch(/13º/);
+    });
+    it('tabela acumulada: faixas e parcela a deduzir vezes os meses (exemplo de R$ 144.000,00 em 48 meses)', () => {
+        const t = { ...IRRF, faixas: [{ ate: 225920, aliquota: 0, deducao: 0 }, { ate: 282665, aliquota: 7.5, deducao: 16944 }, { ate: 375105, aliquota: 15, deducao: 38144 }, { ate: 466468, aliquota: 22.5, deducao: 66277 }, { ate: null, aliquota: 27.5, deducao: 89600 }] };
+        const t2 = { ...t, faixas: t.faixas.map(f => (f.aliquota === 15 ? { ...f, deducao: 39416 } : f)) };
+        expect(apurarIrrfRra(t2, 14_400_000, 0, 48)).toEqual({ base: 14_400_000, aliquota: 15, deducaoFaixa: 39416 * 48, valor: 268_032 });
+        expect(apurarIrrfRra(t, 225920 * 3, 0, 3).valor).toBe(0);
+    });
+    it('RRA com IRRF: exclusivo na fonte, INSS deduzido, sem dependentes, separado da folha do mês', () => {
+        const ana = ficha('ana', { admissao: '2025-01-02' });
+        ana.dependentes = [{ nome: 'FILHO', irrf: 'S', pensao: 'N' } as never];
+        const lan = (perRef: string) => ({ fichaId: 'ana', perRef, codigo: 'LAN', descricao: 'Diferença salarial', tipo: 'provento' as const, valor: 600000, inss: true, fgts: true, irrf: true });
+        const e = entrada([ana], {
+            perApur: '2026-01', pagamento: '2026-01', instrumento: { ...CCT, dtAcConv: '2026-01-15' }, reajuste: undefined, tabelas: TAB25,
+            gravadas: {}, folhaDoMes: [mes(ana, '2026-01')], lancamentos: ['2025-10', '2025-11', '2025-12'].map(lan),
+        });
+        const r = calcularComplementar(e).resultados[0];
+        expect(r.situacao).toBe('calculado');
+        const inss = r.meses.reduce((x, m) => x + m.inss, 0);
+        const t26 = TAB25.find(t => t.tipo === 'irrf' && t.vigencia <= '2026-01' && TAB25.every(o => o.tipo !== 'irrf' || o.vigencia > '2026-01' || o.vigencia <= t.vigencia))!;
+        const esperado = apurarIrrfRra(t26, 1_800_000, inss, 3).valor;
+        expect(esperado).toBeGreaterThan(0);
+        expect(r.rra).toEqual({ qtdMeses: 3, rendimentos: 1_800_000, deducoes: inss, irrf: esperado, descricao: expect.stringMatching(/^Diferenças de 2025 - Convenção/) });
+        expect(r.rra!.descricao.length).toBeLessThanOrEqual(50);
+        const ir = r.meses[2].verbas.find(v => v.codigo === 'IRRF')!;
+        expect(ir).toMatchObject({ descricao: 'IRRF sobre o RRA', valor: esperado });
+        expect(r.verbas.filter(v => v.codigo === 'IRRF')).toHaveLength(1);
+        expect(r.memoria.join(' ')).toMatch(/IRRF do RRA \(Lei 7\.713\/1988, art\. 12-A; tabela de .* × 3 meses\).*sem dependentes/);
+        expect(totaisComplementar([r]).irrf).toBe(esperado);
+    });
+    it('diferença do 13º de ano anterior: RRA com 13º fica pelo IOB (incompleto)', () => {
+        const ana = ficha('ana', { admissao: '2025-01-02' });
+        const e = entrada([ana], {
+            perApur: '2026-01', pagamento: '2026-01', instrumento: { ...CCT, dtAcConv: '2026-01-15' }, reajuste: undefined, tabelas: TAB25, gravadas: {}, folhaDoMes: [mes(ana, '2026-01')],
+            diferencas: [{ fichaId: 'ana', perRef: '2025-12', verbas: [{ codigo: '13DIF', descricao: 'Diferença do 13º', referencia: '', tipo: 'provento', valor: 50000, inss: true, fgts: true, irrf: true }] }],
+        });
+        const r = calcularComplementar(e).resultados[0];
+        expect(r.situacao).toBe('incompleto');
+        expect(r.avisos.join(' ')).toMatch(/RRA com 13º ainda não é calculado/);
     });
     it('lançamento avulso e de verba do motor, sem folha gravada no mês', () => {
         const ana = ficha('ana');

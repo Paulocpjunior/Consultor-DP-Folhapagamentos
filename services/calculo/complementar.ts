@@ -12,8 +12,11 @@
 // - FGTS: 8% (aprendiz 2%) sobre a diferença; nos tipos A, B, C, D, F, G e J o recolhimento é na competência do
 //   S-1200 (item 18.9).
 // - IRRF: regime de caixa, no mês do pagamento, somado à folha paga no mesmo mês (RIR/1999, art. 621). Diferenças de
-//   anos anteriores ao do pagamento são RRA, tributadas em separado, com demonstrativo próprio (MOS, item 2.4): o
-//   Consultor ainda não calcula; o resultado fica incompleto e o RRA vai pelo IOB.
+//   anos anteriores ao do pagamento são RRA (Lei 7.713/1988, art. 12-A): IRRF exclusivo na fonte, em separado dos
+//   demais rendimentos do mês, pela tabela progressiva do mês do pagamento com as faixas e a parcela a deduzir
+//   multiplicadas pelo número de meses; deduz o INSS das diferenças (sem dependentes nem desconto simplificado; a
+//   redução da Lei 15.270/2025 não tem previsão para o RRA e não é aplicada). No eSocial, demonstrativo próprio com
+//   indRRA e infoRRA (MOS, S-1200, item 2.4). Diferença do 13º de ano anterior continua pelo IOB (incompleto).
 
 import type { FichaFuncionario } from '../cadastros/funcionarios';
 import { dataValida, reais } from '../cadastros/documentos';
@@ -100,8 +103,23 @@ export interface MesComplementar {
     inss13: number;
 }
 
+/** RRA da complementar: meses, rendimentos, INSS deduzido e o IRRF pela tabela acumulada. */
+export interface RraComplementar { qtdMeses: number; rendimentos: number; deducoes: number; irrf: number; descricao: string }
+
 export interface ResultadoComplementar extends ResultadoCalculo {
     meses: MesComplementar[];
+    rra?: RraComplementar;
+}
+
+/**
+ * IRRF do RRA (Lei 7.713/1988, art. 12-A, § 1º): a tabela do mês do pagamento com os limites das faixas e a parcela a
+ * deduzir multiplicados pelo número de meses. Sem desconto simplificado e sem redutor.
+ */
+export function apurarIrrfRra(t: TabelaLegal, rendimentos: number, deducoes: number, meses: number) {
+    const base = Math.max(0, rendimentos - deducoes);
+    const faixa = t.faixas.find(f => f.ate === null || base <= f.ate * meses) ?? t.faixas[t.faixas.length - 1];
+    const deducaoFaixa = faixa.deducao * meses;
+    return { base, aliquota: faixa.aliquota, deducaoFaixa, valor: Math.max(0, Math.round(base * faixa.aliquota / 100) - deducaoFaixa) };
 }
 
 /** Verbas que acompanham o salário no reajuste: salário, periculosidade, maternidade, horas extras e DSR, férias do mês, faltas. */
@@ -315,11 +333,31 @@ export function calcularComplementar(e: EntradaComplementar): { resultados: Resu
             r.memoria.push(`Indenização compensatória do doméstico: ${reais(r.bases.fgts)} × 3,2% = ${reais(r.fgtsIndenizacao)} (LC 150/2015, art. 22).`);
         }
 
-        // IRRF no mês do pagamento, somado à folha paga junto. RRA (anos anteriores) fica de fora.
+        // RRA (anos anteriores ao do pagamento): IRRF exclusivo na fonte pela tabela acumulada, em separado.
         const rra = r.meses.filter(m => m.rra);
-        if (rra.length) {
-            r.avisos.push(`Diferenças de ${[...new Set(rra.map(m => m.perRef.slice(0, 4)))].join(', ')} pagas em ${anoPagamento}: são RRA (rendimentos recebidos acumuladamente), com IRRF exclusivo na fonte pela tabela acumulada e demonstrativo próprio no eSocial (MOS, S-1200, item 2.4). O Consultor ainda não calcula: faça o RRA pelo IOB.`);
-            if (r.situacao === 'calculado') r.situacao = 'incompleto';
+        if (rra.length && !r.erros.length) {
+            const anos = [...new Set(rra.map(m => m.perRef.slice(0, 4)))].join(', ');
+            if (rra.some(m => m.bases13.irrf > 0 || m.bases13.inss > 0)) {
+                r.avisos.push(`Diferença do 13º de ${anos} paga em ${anoPagamento}: o RRA com 13º ainda não é calculado pelo Consultor; faça pelo IOB.`);
+                if (r.situacao === 'calculado') r.situacao = 'incompleto';
+            } else {
+                const rendRra = rra.reduce((s, m) => s + m.bases.irrf, 0);
+                const inssRra = rra.reduce((s, m) => s + m.inss, 0);
+                const qtd = rra.filter(m => m.bases.irrf > 0).length;
+                const descricao = `Diferenças de ${anos}${e.instrumento.dsc.trim() ? ` - ${e.instrumento.dsc.trim()}` : ''}`.slice(0, 50);
+                if (rendRra > 0 && 'erro' in tIr) r.erros.push(`IRRF do RRA: ${tIr.erro}`);
+                else if (rendRra > 0 && !('erro' in tIr)) {
+                    const t = tIr.tabela;
+                    const a = apurarIrrfRra(t, rendRra, inssRra, qtd);
+                    let ir = a.valor;
+                    r.memoria.push(`IRRF do RRA (Lei 7.713/1988, art. 12-A; tabela de ${rotuloCompetencia(t.vigencia)} × ${qtd} ${qtd === 1 ? 'mês' : 'meses'}): diferenças de ${anos} ${reais(rendRra)}; `
+                        + `INSS ${reais(inssRra)}; base ${reais(a.base)} × ${num(a.aliquota)}% − ${reais(a.deducaoFaixa)} = ${reais(a.valor)}. Exclusivo na fonte, em separado da folha do mês; sem dependentes, desconto simplificado ou redutor.`);
+                    if (ir > 0 && ir <= IRRF_MINIMO) { r.memoria.push(`IRRF do RRA de ${reais(ir)} não retido: até R$ 10,00 a retenção é dispensada (Lei 9.430/1996, art. 67).`); ir = 0; }
+                    r.rra = { qtdMeses: qtd, rendimentos: rendRra, deducoes: inssRra, irrf: ir, descricao };
+                    r.avisos.push(`Diferenças de ${anos} pagas em ${anoPagamento}: RRA (rendimentos recebidos acumuladamente), com IRRF pela tabela acumulada (${qtd} ${qtd === 1 ? 'mês' : 'meses'}) e demonstrativo próprio no S-1200 (indRRA).`);
+                    if (ir > 0) rra[rra.length - 1].verbas.push({ codigo: 'IRRF', descricao: 'IRRF sobre o RRA', referencia: `${num(a.aliquota)}% (RRA, ${qtd} ${qtd === 1 ? 'mês' : 'meses'})`, tipo: 'desconto', valor: ir, inss: false, fgts: false, irrf: false });
+                }
+            }
         }
         const doAno = r.meses.filter(m => !m.rra);
         const rend = doAno.reduce((s, m) => s + m.bases.irrf, 0);

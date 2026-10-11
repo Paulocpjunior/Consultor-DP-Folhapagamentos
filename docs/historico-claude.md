@@ -4759,3 +4759,31 @@ Décimo terceiro dos parciais da auditoria (Tributos › Pagamento de Guias do S
   - o DARF registrado ao emitir;
   - as regras do Firestore.
 
+## 11/10/2026 — Folha complementar: RRA (diferenças de anos anteriores)
+
+Décimo quarto dos parciais da auditoria, e o último que não depende do Paulo (Processos › Folha Complementar do SAGE).
+
+- **Cálculo** (`services/calculo/complementar.ts`):
+  - diferenças de meses de ano anterior ao do pagamento são RRA (Lei 7.713/1988, art. 12-A);
+  - o IRRF é exclusivo na fonte, em separado da folha do mês, pela tabela do mês do pagamento com os limites das faixas e a parcela a deduzir multiplicados pelo número de meses (`apurarIrrfRra`);
+  - deduz o INSS das diferenças, sem dependentes, sem desconto simplificado e sem o redutor da Lei 15.270/2025 (a lei não prevê a redução para o RRA);
+  - retenção de até R$ 10,00 é dispensada;
+  - a verba "IRRF sobre o RRA" vai no último mês do RRA, e a memória mostra a conta.
+- **eSocial:**
+  - o RRA vai em demonstrativo próprio no S-1200 (`COMP{AAAAMM}{tipo}R-{matrícula}`), com `indRRA` S e `infoRRA`: tpProcRRA 1 (sem número de processo, por convenção ou acordo), descrição e quantidade de meses;
+  - as diferenças do ano do pagamento ficam no demonstrativo de sempre;
+  - o S-1210 paga os dois com a folha;
+  - complementar gravada antes, sem o cálculo do RRA, é barrada (recalcular).
+- **Fica pelo IOB:** a diferença do 13º de ano anterior (RRA com 13º) deixa a complementar incompleta, com o aviso.
+- **A confirmar no primeiro envio:** a retenção do RRA usa a rubrica de IRRF da folha (codIncIRRF 31) dentro do demonstrativo com indRRA. Conferir no S-5002 do primeiro RRA transmitido.
+- **Fontes:**
+  - Lei 7.713/1988, art. 12-A (tabela multiplicada pelos meses);
+  - MOS S-1.3, S-1200 (indRRA/infoRRA);
+  - exemplo de R$ 144.000,00 em 48 meses: R$ 2.680,32, que o teste reproduz.
+- **Catálogo SAGE:** `proc-complementar` passa a disponível. Agora são 49 disponíveis e 2 parciais (a integração contábil e o cadastro do funcionário, os dois dependendo do Paulo).
+- **Testes:**
+  - a tabela acumulada (com o exemplo);
+  - RRA sem IRRF, RRA com IRRF (INSS deduzido, dependente ignorado, uma verba só) e RRA com 13º incompleto;
+  - o S-1200 com os dois demonstrativos no XSD oficial e o S-1210;
+  - a complementar antiga barrada.
+

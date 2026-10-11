@@ -66,6 +66,42 @@ describe('folha complementar no eSocial', () => {
         expect(t.liquido).toBe(folha.totais.liquido + comp.resultados[0].totais.liquido);
     });
 
+    it('RRA (diferenças de ano anterior): demonstrativo próprio com indRRA e infoRRA, IRRF dele, pago com a folha; passa no XSD', async () => {
+        const TAB25 = [...TAB, ...TAB.filter(t => t.tipo === 'inss' || t.tipo === 'irrf').map(t => ({ ...t, id: `${t.id}-25`, vigencia: '2025-01' }))];
+        const m = (c: string, tabelas = TAB) => calcularMensal({ competencia: c, pagamento: c, ficha: FICHA, afastamentos: [], tabelas, folhaPagaAntesNoMes: null });
+        const folha = m('2026-02');
+        const ins: Instrumento = { tpAcConv: 'C', dtAcConv: '2026-02-10', dsc: 'Convenção coletiva 2025/2026' };
+        const comp = calcularComplementar({ perApur: '2026-02', pagamento: '2026-02', instrumento: ins, reajuste: { pct: 40, de: '2025-11', ate: '2026-01' }, fichas: [FICHA],
+            gravadas: { '2025-11': [m('2025-11', TAB25)], '2025-12': [m('2025-12', TAB25)], '2026-01': [m('2026-01')] }, folhaDoMes: [folha], tabelas: TAB25 });
+        const rc = comp.resultados[0];
+        expect(rc.situacao).toBe('calculado');
+        expect(rc.rra).toMatchObject({ qtdMeses: 2 });
+        expect(rc.rra!.irrf).toBeGreaterThan(0);
+        const g = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-02', dataPagamento: '2026-02-27', fichas: [FICHA], resultados: [folha], rubricas: RUBRICAS,
+            parametros: params([folha, ...comp.resultados], '2026-02'), complementares: [{ instrumento: ins, resultados: comp.resultados }] });
+        const t = g.trabalhadores[0];
+        expect(t.erros).toEqual([]);
+        const xml = t.s1200!.xml;
+        expect(await validarPeloXsd(xml, lerXsd)).toEqual({ valido: true, erros: [] });
+        expect(txt(xml, 'ideDmDev')).toEqual(['FOLHA202602-M1', 'COMP202602C-M1', 'COMP202602CR-M1']);
+        const dms = doc(xml).getElementsByTagName('dmDev');
+        expect(dms[1].getElementsByTagName('indRRA').length).toBe(0);
+        expect(Array.from(dms[1].getElementsByTagName('perRef')).map(e => e.textContent)).toEqual(['2026-01']);
+        expect(new XMLSerializer().serializeToString(dms[2])).toContain(`<codCateg>101</codCateg><indRRA>S</indRRA><infoRRA><tpProcRRA>1</tpProcRRA><descRRA>${rc.rra!.descricao}</descRRA><qtdMesesRRA>2.0</qtdMesesRRA></infoRRA><infoPerAnt>`);
+        expect(Array.from(dms[2].getElementsByTagName('perRef')).map(e => e.textContent)).toEqual(['2025-11', '2025-12']);
+        const ultimo = dms[2].getElementsByTagName('idePeriodo')[1];
+        expect(Array.from(ultimo.getElementsByTagName('codRubr')).map(e => e.textContent)).toEqual(['SAL', 'IRRF']);
+        const s1210 = t.s1210!.xml;
+        expect(txt(s1210, 'ideDmDev')).toEqual(['FOLHA202602-M1', 'COMP202602C-M1', 'COMP202602CR-M1']);
+        const liq = txt(s1210, 'vrLiq').map(Number);
+        expect(Math.round((liq[1] + liq[2]) * 100)).toBe(rc.totais.liquido);
+        expect(t.liquido).toBe(folha.totais.liquido + rc.totais.liquido);
+        // Sem o cálculo do RRA (complementar antiga), não vai.
+        const velho = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-02', dataPagamento: '2026-02-27', fichas: [FICHA], resultados: [folha], rubricas: RUBRICAS,
+            parametros: params([folha, ...comp.resultados], '2026-02'), complementares: [{ instrumento: ins, resultados: [{ ...rc, rra: undefined }] }] });
+        expect(velho.trabalhadores[0].erros.join(' ')).toMatch(/RRA\) sem o cálculo do RRA/);
+    });
+
     it('INSS da diferença no mês de referência, abaixo do teto', async () => {
         const f2: FichaFuncionario = { ...FICHA, dados: { ...FICHA.dados, salario: '3000.00' } };
         const m = (c: string) => calcularMensal({ competencia: c, pagamento: c, ficha: f2, afastamentos: [], tabelas: TAB, folhaPagaAntesNoMes: null });
