@@ -19,11 +19,17 @@ import { mesDoPagamento } from './arredondamento';
 import { OPCOES_FERIAS_PADRAO } from './motorFerias';
 import { calcularFolhaMensal } from './folhaDaEmpresa';
 import { calcularProvisao } from './provisoes';
+import { calcular13, com13, feriasComAdiantamento13, ultimoDiaDoMes } from './motor13';
 import { resumirFolha } from '../relatorios/resumoFolha';
 import { linhaComFalha, linhaDaEmpresa, type GravacaoAgrupada, type LinhaAgrupada } from './processamentoAgrupado';
 
+/** O que processar: a folha mensal ou uma das parcelas do 13º (rotina anual) do ano da competência. */
+export type FolhaAgrupada = 'mensal' | '13-1a' | '13-2a';
+
 export interface OpcoesAgrupado {
     competencia: string;
+    /** Padrão: a folha mensal. No 13º, vale o ano da competência; não grava nem calcula provisões. */
+    folha?: FolhaAgrupada;
     /** Grava a folha do mês de cada empresa com a competência aberta. */
     gravar: boolean;
     /** Calcula também o saldo das provisões de férias e 13º. */
@@ -37,6 +43,7 @@ export interface OpcoesAgrupado {
 const nomeDa = (e: Empresa) => ({ id: e.id, nome: e.nomeFantasia || e.razaoSocial, codigoSage: e.codigoSage });
 
 export async function processarEmpresa(e: Empresa, o: OpcoesAgrupado): Promise<LinhaAgrupada> {
+    if (o.folha === '13-1a' || o.folha === '13-2a') return processar13(e, { ...o, folha: o.folha });
     const c = o.competencia;
     try {
         const [fichas, afastamentos, convocacoes, doMes, daEmpresa, enquadramentos, lotacoes, fechamento, gravada] = await Promise.all([
@@ -79,6 +86,47 @@ export async function processarEmpresa(e: Empresa, o: OpcoesAgrupado): Promise<L
         }
         const provisao = o.provisoes ? calcularProvisao({ competencia: c, fichas, afastamentos, tabelas: o.tabelas, movimentos: daEmpresa, enquadramentos: enquadramentos ?? [], empresaId: e.id }) : null;
         return linhaDaEmpresa({ empresa: nomeDa(e), competencia: c, pagamento: encerrada && gravada ? gravada.pagamento : pagamento, resultados: base, resumo, encerrada, gravacao, provisao, avisos });
+    } catch (x) {
+        return linhaComFalha(nomeDa(e), c, `Dados não lidos: ${mensagemErro(x)}`);
+    }
+}
+
+/**
+ * 13º de várias empresas (Processos › 13º Salário, em lote): o mesmo cálculo da tela, com os movimentos gravados do ano
+ * (médias e faltas), a parcela única de cada empresa e a 1ª parcela já paga com as férias. Pagamento em novembro (1ª)
+ * ou dezembro (2ª); a parte patronal pelo enquadramento de dezembro. Só a prévia: a folha do 13º não é gravada.
+ */
+async function processar13(e: Empresa, o: OpcoesAgrupado & { folha: '13-1a' | '13-2a' }): Promise<LinhaAgrupada> {
+    const ano = Number(o.competencia.slice(0, 4));
+    const primeira = o.folha === '13-1a';
+    const c = `${ano}-13`;
+    try {
+        const [fichas, afastamentos, daEmpresa, enquadramentos, lotacoes] = await Promise.all([
+            listarFuncionarios(e.id), listarAfastamentos(e.id), listarMovimentosDaEmpresa(e.id, comp => comp.startsWith(`${ano}-`)),
+            listarEnquadramentos(e.id).catch(() => null), listarLotacoes(e.id).catch(() => []),
+        ]);
+        const avisos: string[] = [];
+        const pagamento = `${ano}-${primeira ? '11' : '12'}`;
+        const parcelaUnica = (e.parametrosFolha?.parcelaUnica13 ?? []).includes(ano);
+        let elegiveis = com13(fichas, ano, primeira ? ultimoDiaDoMes(pagamento) : `${ano}-12-31`);
+        if (primeira && parcelaUnica) { avisos.push(`Parcela única em ${ano} (parâmetro da empresa): sem 1ª parcela; o 13º sai inteiro na 2ª.`); elegiveis = []; }
+        if (primeira) {
+            const nasFerias = elegiveis.filter(f => feriasComAdiantamento13(ano, afastamentos, f.id));
+            if (nasFerias.length) avisos.push(`${nasFerias.length} funcionário(s) já receberam a 1ª parcela com as férias: fora desta parcela.`);
+            elegiveis = elegiveis.filter(f => !nasFerias.includes(f));
+        }
+        const resultados = elegiveis.map(f => calcular13({
+            ano, parcela: primeira ? '1a' : '2a', pagamento, ficha: f, afastamentos: afastamentos.filter(a => a.fichaId === f.id), tabelas: o.tabelas,
+            movimentos: daEmpresa[f.id] ?? {}, parcelaUnica,
+        }));
+        let enq;
+        if (enquadramentos === null) avisos.push('Enquadramento não lido: sem a parte patronal.');
+        else {
+            const v = enquadramentoVigente(enquadramentos, e.id, `${ano}-12`);
+            if ('enquadramento' in v) enq = v.enquadramento; else avisos.push(v.erro);
+        }
+        const resumo = resumirFolha(resultados, enq, { lotacoes, lotacaoPadrao: e.esocialFolha?.codLotacao });
+        return linhaDaEmpresa({ empresa: nomeDa(e), competencia: c, pagamento, resultados, resumo, encerrada: false, gravacao: 'nao-pedida', avisos });
     } catch (x) {
         return linhaComFalha(nomeDa(e), c, `Dados não lidos: ${mensagemErro(x)}`);
     }

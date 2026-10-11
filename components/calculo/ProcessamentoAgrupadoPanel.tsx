@@ -15,7 +15,7 @@ import type { TabelaLegal } from '../../services/cadastros/tabelasLegais';
 import { listarConvencoes } from '../../services/sindicatos/convencoesService';
 import type { ConvencaoColetiva } from '../../services/sindicatos/convencao';
 import { reais } from '../../services/cadastros/documentos';
-import { processarEmpresas } from '../../services/calculo/processamentoAgrupadoService';
+import { processarEmpresas, type FolhaAgrupada } from '../../services/calculo/processamentoAgrupadoService';
 import { planilhaAgrupada, ROTULO_GRAVACAO, ROTULO_SITUACAO_AGRUPADA, totaisAgrupados, type LinhaAgrupada } from '../../services/calculo/processamentoAgrupado';
 
 const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
@@ -34,6 +34,8 @@ const ProcessamentoAgrupadoPanel: React.FC<{ usuario: Usuario }> = ({ usuario })
     const [convencoes, setConvencoes] = useState<ConvencaoColetiva[]>([]);
     const [marcadas, setMarcadas] = useState<Set<string>>(new Set());
     const [busca, setBusca] = useState('');
+    const [folha, setFolha] = useState<FolhaAgrupada>('mensal');
+    const decimo = folha !== 'mensal';
     const [gravar, setGravar] = useState(false);
     const [provisoes, setProvisoes] = useState(false);
     const [linhas, setLinhas] = useState<LinhaAgrupada[]>([]);
@@ -63,11 +65,11 @@ const ProcessamentoAgrupadoPanel: React.FC<{ usuario: Usuario }> = ({ usuario })
 
     async function processar() {
         if (!escolhidas.length || !compOk) return;
-        if (gravar && !window.confirm(`Gravar a folha de ${br(competencia)} de ${escolhidas.length} empresa(s)? A folha gravada de cada uma é substituída (as competências encerradas no Fim de mês ficam como estão).`)) return;
+        if (gravar && !decimo && !window.confirm(`Gravar a folha de ${br(competencia)} de ${escolhidas.length} empresa(s)? A folha gravada de cada uma é substituída (as competências encerradas no Fim de mês ficam como estão).`)) return;
         setErro(''); setLinhas([]); setAberta('');
         setAndamento(`Processando 1 de ${escolhidas.length}: ${nomeDe(escolhidas[0])}…`);
         try {
-            await processarEmpresas(escolhidas, { competencia, gravar, provisoes, usuario, tabelas, convencoes }, (feitas, l) => {
+            await processarEmpresas(escolhidas, { competencia, folha, gravar: gravar && !decimo, provisoes: provisoes && !decimo, usuario, tabelas, convencoes }, (feitas, l) => {
                 setLinhas(ls => [...ls, l]);
                 const prox = escolhidas[feitas];
                 setAndamento(prox ? `Processando ${feitas + 1} de ${escolhidas.length}: ${nomeDe(prox)}…` : '');
@@ -78,20 +80,22 @@ const ProcessamentoAgrupadoPanel: React.FC<{ usuario: Usuario }> = ({ usuario })
     function planilha() {
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(planilhaAgrupada(linhas)), 'Carteira');
-        XLSX.writeFile(wb, `processamento-agrupado-${competencia}.xlsx`);
+        XLSX.writeFile(wb, `processamento-agrupado-${decimo ? `${competencia.slice(0, 4)}-13-${folha === '13-1a' ? '1a' : '2a'}-parcela` : competencia}.xlsx`);
     }
     const marcar = (ids: string[], v: boolean) => setMarcadas(m => { const n = new Set(m); ids.forEach(id => (v ? n.add(id) : n.delete(id))); return n; });
 
     return (
         <div className="space-y-4 text-sm">
             <div>
-                <h2 className="text-lg font-semibold text-slate-800 dark:text-white">Processamento agrupado · {compOk ? br(competencia) : '—'}</h2>
-                <p className="text-slate-600 dark:text-slate-300">A folha mensal das empresas escolhidas de uma vez, com o mesmo cálculo da tela de Cálculo e os movimentos gravados de cada uma (o que foi digitado e não salvo não entra). Para cada empresa: situação, totais, adiantamento a pagar, encargos e, se marcado, as provisões de férias e 13º.</p>
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-white">Processamento agrupado · {!compOk ? '—' : decimo ? `13º de ${competencia.slice(0, 4)}, ${folha === '13-1a' ? '1ª' : '2ª'} parcela` : br(competencia)}</h2>
+                <p className="text-slate-600 dark:text-slate-300">A folha mensal das empresas escolhidas de uma vez, com o mesmo cálculo da tela de Cálculo e os movimentos gravados de cada uma (o que foi digitado e não salvo não entra). Para cada empresa: situação, totais, adiantamento a pagar, encargos e, se marcado, as provisões de férias e 13º. As rotinas anuais também vão em lote: a 1ª parcela do 13º (paga em novembro; fora quem a recebeu com as férias e as empresas em parcela única) e a 2ª (dezembro, com INSS e IRRF), do ano da competência.</p>
             </div>
 
             <section className="space-y-2 rounded border border-slate-200 p-3 dark:border-slate-700">
                 <div className="flex flex-wrap items-end gap-3">
-                    <label>Competência<input aria-label="Competência do processamento" type="month" className={`block ${inp}`} value={competencia} onChange={e => setCompetencia(e.target.value)} /></label>
+                    <label>Processar<select aria-label="O que processar" className={`block ${inp}`} value={folha} onChange={e => { setFolha(e.target.value as FolhaAgrupada); setLinhas([]); }}>
+                        <option value="mensal">Folha mensal</option><option value="13-1a">13º — 1ª parcela</option><option value="13-2a">13º — 2ª parcela</option></select></label>
+                    <label>{decimo ? 'Competência (o ano do 13º)' : 'Competência'}<input aria-label="Competência do processamento" type="month" className={`block ${inp}`} value={competencia} onChange={e => setCompetencia(e.target.value)} /></label>
                     <label className="flex-1">Buscar<input aria-label="Buscar empresa" className={`block w-full ${inp}`} value={busca} placeholder="código, nome ou CNPJ" onChange={e => setBusca(e.target.value)} /></label>
                     <button className={btn} onClick={() => marcar(filtradas.map(e => e.id), true)}>Marcar {busca ? 'as filtradas' : 'todas'}</button>
                     <button className={btn} onClick={() => marcar(filtradas.map(e => e.id), false)}>Desmarcar {busca ? 'as filtradas' : 'todas'}</button>
@@ -106,8 +110,9 @@ const ProcessamentoAgrupadoPanel: React.FC<{ usuario: Usuario }> = ({ usuario })
                     ))}
                 </div>
                 <div className="flex flex-wrap items-center gap-4">
-                    <label className="flex items-center gap-2"><input type="checkbox" checked={provisoes} onChange={e => setProvisoes(e.target.checked)} />Calcular as provisões de férias e 13º</label>
-                    <label className="flex items-center gap-2" title="Grava a folha do mês de cada empresa com a competência aberta, como o botão Gravar a folha da tela de Cálculo."><input type="checkbox" checked={gravar} onChange={e => setGravar(e.target.checked)} />Gravar a folha de cada empresa</label>
+                    {!decimo && <label className="flex items-center gap-2"><input type="checkbox" checked={provisoes} onChange={e => setProvisoes(e.target.checked)} />Calcular as provisões de férias e 13º</label>}
+                    {!decimo && <label className="flex items-center gap-2" title="Grava a folha do mês de cada empresa com a competência aberta, como o botão Gravar a folha da tela de Cálculo."><input type="checkbox" checked={gravar} onChange={e => setGravar(e.target.checked)} />Gravar a folha de cada empresa</label>}
+                    {decimo && <span className="text-xs text-slate-500">Prévia do 13º (a folha do 13º não é gravada); holerites, S-1200 e arquivo bancário de cada empresa saem na tela de Cálculo › 13º.</span>}
                     <button className="ml-auto rounded bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={!!andamento || !escolhidas.length || !compOk || !tabelas.length} onClick={processar}>Processar {escolhidas.length} empresa(s)</button>
                 </div>
             </section>
@@ -126,8 +131,8 @@ const ProcessamentoAgrupadoPanel: React.FC<{ usuario: Usuario }> = ({ usuario })
                             <thead className="text-left text-slate-500"><tr>
                                 <th className="p-1">Empresa</th><th className="p-1">Situação</th><th className="p-1 text-right">Func.</th><th className="p-1 text-right">Proventos</th><th className="p-1 text-right">Líquido</th>
                                 <th className="p-1 text-right">Adiantamento</th><th className="p-1 text-right">INSS</th><th className="p-1 text-right">IRRF</th><th className="p-1 text-right">FGTS</th><th className="p-1 text-right">Patronal</th>
-                                {provisoes && <><th className="p-1 text-right">Prov. férias</th><th className="p-1 text-right">Prov. 13º</th></>}
-                                {gravar && <th className="p-1">Gravação</th>}
+                                {provisoes && !decimo && <><th className="p-1 text-right">Prov. férias</th><th className="p-1 text-right">Prov. 13º</th></>}
+                                {gravar && !decimo && <th className="p-1">Gravação</th>}
                             </tr></thead>
                             <tbody>{linhas.map(l => (
                                 <React.Fragment key={l.empresaId}>
@@ -137,8 +142,8 @@ const ProcessamentoAgrupadoPanel: React.FC<{ usuario: Usuario }> = ({ usuario })
                                         <td className="p-1 text-right">{l.funcionarios}</td><td className="p-1 text-right">{reais(l.proventos)}</td><td className="p-1 text-right font-medium">{reais(l.liquido)}</td>
                                         <td className="p-1 text-right">{reais(l.adiantamento)}</td><td className="p-1 text-right">{reais(l.inssSegurados)}</td><td className="p-1 text-right">{reais(l.irrf)}</td><td className="p-1 text-right">{reais(l.fgts)}</td>
                                         <td className="p-1 text-right">{l.patronal === undefined ? '—' : reais(l.patronal)}</td>
-                                        {provisoes && <><td className="p-1 text-right">{l.provisao ? reais(l.provisao.ferias) : '—'}</td><td className="p-1 text-right">{l.provisao ? reais(l.provisao.decimo) : '—'}</td></>}
-                                        {gravar && <td className="p-1">{ROTULO_GRAVACAO[l.gravacao]}</td>}
+                                        {provisoes && !decimo && <><td className="p-1 text-right">{l.provisao ? reais(l.provisao.ferias) : '—'}</td><td className="p-1 text-right">{l.provisao ? reais(l.provisao.decimo) : '—'}</td></>}
+                                        {gravar && !decimo && <td className="p-1">{ROTULO_GRAVACAO[l.gravacao]}</td>}
                                     </tr>
                                     {aberta === l.empresaId && <tr><td colSpan={13} className="bg-slate-50 p-2 dark:bg-slate-900/50">
                                         <p>Pagamento em {br(l.pagamento)} · {l.calculados} calculado(s), {l.incompletos} incompleto(s), {l.erros} com erro. O detalhe por funcionário está na tela de Cálculo (ative a empresa).</p>
@@ -149,8 +154,8 @@ const ProcessamentoAgrupadoPanel: React.FC<{ usuario: Usuario }> = ({ usuario })
                             <tfoot className="border-t border-slate-200 font-medium dark:border-slate-700"><tr>
                                 <td className="p-1">Total</td><td className="p-1" /><td className="p-1 text-right">{t.funcionarios}</td><td className="p-1 text-right">{reais(t.proventos)}</td><td className="p-1 text-right">{reais(t.liquido)}</td>
                                 <td className="p-1 text-right">{reais(t.adiantamento)}</td><td className="p-1 text-right">{reais(t.inssSegurados)}</td><td className="p-1 text-right">{reais(t.irrf)}</td><td className="p-1 text-right">{reais(t.fgts)}</td><td className="p-1 text-right">{reais(t.patronal)}</td>
-                                {provisoes && <><td className="p-1 text-right">{reais(t.provisaoFerias)}</td><td className="p-1 text-right">{reais(t.provisaoDecimo)}</td></>}
-                                {gravar && <td className="p-1" />}
+                                {provisoes && !decimo && <><td className="p-1 text-right">{reais(t.provisaoFerias)}</td><td className="p-1 text-right">{reais(t.provisaoDecimo)}</td></>}
+                                {gravar && !decimo && <td className="p-1" />}
                             </tr></tfoot>
                         </table>
                     </div>
