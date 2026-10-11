@@ -12,7 +12,7 @@
 
 export type Situacao = 'disponivel' | 'parcial' | 'planejado' | 'fora';
 export type Produto = 'Office' | 'SGC' | 'Office e SGC';
-export type Destino = 'folha:apontamento' | 'folha:implantacao' | 'folha:conferencia' | 'folha:eventos' | 'folha:ponto' | 'cadastros:funcionarios' | 'cadastros:horarios' | 'cadastros:afastamentos' | 'cadastros:incidencias' | 'cadastros:sindicatos' | 'cadastros:tabelas' | 'cadastros:enquadramento' | 'calculo' | 'empresas' | 'esocial' | 'iobsage:restaurar' | 'relatorios:central' | 'relatorios:modelos' | 'dctfweb' | 'processos' | 'contribuintes' | 'intermitentes' | 'obras' | 'departamentos' | 'agrupado' | 'transferencia';
+export type Destino = 'folha:apontamento' | 'folha:implantacao' | 'folha:conferencia' | 'folha:eventos' | 'folha:ponto' | 'cadastros:funcionarios' | 'cadastros:horarios' | 'cadastros:afastamentos' | 'cadastros:incidencias' | 'cadastros:sindicatos' | 'cadastros:tabelas' | 'cadastros:enquadramento' | 'calculo' | 'empresas' | 'esocial' | 'iobsage:restaurar' | 'relatorios:central' | 'relatorios:modelos' | 'dctfweb' | 'processos' | 'contribuintes' | 'intermitentes' | 'obras' | 'departamentos' | 'agrupado' | 'transferencia' | 'contabil';
 
 export interface ItemMenu {
     id: string;
@@ -120,7 +120,7 @@ export const MENUS_IOB: MenuIob[] = [
     {
         id: 'diversos', titulo: 'Diversos', descricao: 'Integração contábil e painéis.',
         itens: [
-            { id: 'div-contabil', caminho: ['Diversos', 'Integração Contábil', 'Exportação'], produto: 'Office e SGC', descricao: 'Lote contábil da folha, contas por evento e centro de custo.', fonte: `${APRENDO(4685, 5402)}; ${SGC('crhmodint.htm')}`, situacao: 'planejado', noConsultor: 'Não existe. O destino é o Consultor Contábil (CCI).', fase: 'Fase 5 (ondas)' },
+            { id: 'div-contabil', caminho: ['Diversos', 'Integração Contábil', 'Exportação'], produto: 'Office e SGC', descricao: 'Lote contábil da folha, contas por evento e centro de custo.', fonte: `${APRENDO(4685, 5402)}; ${SGC('crhmodint.htm')}`, situacao: 'parcial', noConsultor: 'Relatórios › Integração contábil: o lote de lançamentos da folha gravada da competência em partidas dobradas, com o plano de contas da empresa por verba (proventos na despesa, descontos nas contas próprias) e por encargo (INSS, IRRF e FGTS a recolher, despesas de INSS e FGTS, parte patronal rateada pela base), salário-família e salário-maternidade compensados no INSS, provisões de férias e 13º (constituição e baixa), centro de custo pelo departamento, conferência de salários a pagar com o líquido e o arquivo (.csv com ponto e vírgula e Excel). Falta: a importação direta no Consultor Contábil (CCI), pelo layout dele.', destino: 'contabil' },
             { id: 'div-paineis', caminho: ['IOB Online', 'Dashboards da Folha'], produto: 'Office', descricao: 'Folha mensal, férias a vencer, eSocial, mapa de admissões e desligamentos.', fonte: APRENDO(17533), situacao: 'disponivel', noConsultor: 'Painel do eSocial e Prazos do DP (obrigações do mês, férias a vencer, experiência, convenções), mais o selo do Fim de mês no cabeçalho.', destino: 'esocial' },
         ],
     },

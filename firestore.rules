@@ -549,6 +549,15 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Plano de contas da folha (integração contábil) por empresa: contabil_folha/{empresa}.
+    match /contabil_folha/{empId} {
+      allow read: if podeEmpresa(empId);
+      allow create, update: if gravaNaEmpresa() && request.resource.data.empresaId == empId
+                    && request.resource.data.contas is map
+                    && request.resource.data.atualizadoPor == request.auth.uid;
+      allow delete: if false;
+    }
+
     // Departamentos (e centros de custo) da empresa: departamentos/{empresa}_{código}.
     match /departamentos/{depId} {
       allow read: if podeEmpresa(resource.data.empresaId);

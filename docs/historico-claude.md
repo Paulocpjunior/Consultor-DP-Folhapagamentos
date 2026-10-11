@@ -4396,3 +4396,23 @@ Paulo: "nada pode ficar para trás e começar novo ponto! Termine e seguimos". F
   - faixas pelos eventos e na importação;
   - a tela da troca até o S-2206;
   - transferência no meio do mês com 15 dias em cada empresa.
+
+## 11/10/2026 — Integração contábil da folha
+
+Paulo: "pode seguir". Terceiro dos itens planejados do catálogo do SAGE.
+
+- **Lote contábil** (`services/contabil/integracaoContabil.ts`): os lançamentos da folha gravada da competência, em partidas dobradas e por regime de competência, na data do último dia do mês.
+  - **Proventos:** D despesa (a conta da verba ou a de salários) / C salários a pagar.
+  - **Descontos:** D salários a pagar / C a conta da verba. INSS e IRRF vão às contas dos tributos; as demais, à conta própria ou à de outros descontos, com aviso.
+  - **Compensações:** salário-família e salário-maternidade a débito do INSS a recolher.
+  - **FGTS:** por funcionário, D despesa de FGTS / C FGTS a recolher.
+  - **Parte patronal:** patronal, RAT e terceiros, do resumo da folha, rateados pela base do INSS de cada um.
+  - **Provisões de férias e 13º (opcional):** a constituição (principal, INSS e FGTS em contas próprias) e a baixa do que foi pago.
+  - **Centro de custo:** o do departamento do funcionário (Cadastros › Departamentos), com aviso para departamento sem centro de custo.
+  - **Agregação:** um lançamento por débito, crédito, centro de custo e histórico.
+  - **Conferência:** o saldo de salários a pagar tem de ser o líquido da folha.
+- **Plano de contas da folha por empresa** em `contabil_folha/{empresa}`: contas fixas da folha, encargos e provisões, e uma conta própria por verba. Grava e lê quem pode na empresa; não se apaga (regra nova com teste).
+- **Tela** (Relatórios › Integração contábil): o plano, as pendências (conta em branco bloqueia o arquivo), os avisos, a conferência, o lote e o arquivo (.csv com ponto e vírgula, data dd/mm/aaaa e valor com vírgula, e Excel).
+- **CCI:** o acesso de leitura ao repositório do Consultor Contábil (`plano-contas-iob`) foi negado nesta sessão, então o arquivo saiu num layout neutro. A importação direta no CCI fica pendente do layout dele.
+- **Catálogo SAGE:** `div-contabil` passa a parcial. Agora são 27 disponíveis, 21 parciais, 3 planejados e 2 fora.
+- **Testes:** partidas e conferência do líquido, contas padrão e pendências, centro de custo, patronal rateado, provisões, arquivo, tela e regras do Firestore.

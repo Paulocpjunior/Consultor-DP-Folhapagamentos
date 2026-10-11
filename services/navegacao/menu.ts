@@ -4,7 +4,7 @@
 // depois os cadastros, a folha do mês, as conferências, o eSocial, os prazos e o fim de mês;
 // as configurações ficam à direita. Cada item leva a uma tela (aba) e, quando há, à sub-aba dela.
 
-export type Aba = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin' | 'fimdemes' | 'relatorios' | 'servicos' | 'demissoes' | 'beneficios' | 'contribuintes' | 'dctfweb' | 'processos' | 'intermitentes' | 'obras' | 'departamentos' | 'agrupado' | 'transferencia';
+export type Aba = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin' | 'fimdemes' | 'relatorios' | 'servicos' | 'demissoes' | 'beneficios' | 'contribuintes' | 'dctfweb' | 'processos' | 'intermitentes' | 'obras' | 'departamentos' | 'agrupado' | 'transferencia' | 'contabil';
 
 export type SubFolha = 'eventos' | 'apontamento' | 'validador-ponto' | 'implantacao' | 'conferencia';
 export type SubCadastroMenu = 'funcionarios' | 'horarios' | 'afastamentos' | 'incidencias' | 'enquadramento' | 'sindicatos' | 'tabelas' | 'conformidade';
@@ -18,7 +18,7 @@ export type Destino =
     | { aba: 'calculo'; folha: FolhaCalculo }
     | { aba: 'fimdemes'; sub: 'fechamento' | 'pedidos' }
     | { aba: 'relatorios'; sub: 'central' | 'modelos' }
-    | { aba: 'empresas' | 'certificados' | 'prazos' | 'iobsage' | 'admin' | 'servicos' | 'demissoes' | 'beneficios' | 'contribuintes' | 'dctfweb' | 'processos' | 'intermitentes' | 'obras' | 'departamentos' | 'agrupado' | 'transferencia' }
+    | { aba: 'empresas' | 'certificados' | 'prazos' | 'iobsage' | 'admin' | 'servicos' | 'demissoes' | 'beneficios' | 'contribuintes' | 'dctfweb' | 'processos' | 'intermitentes' | 'obras' | 'departamentos' | 'agrupado' | 'transferencia' | 'contabil' }
     | { aba: 'trocar' };
 
 import type { NomeIcone } from '../../components/layout/icones';
@@ -70,6 +70,7 @@ export const MENU: GrupoMenu[] = [
     ] },
     { id: 'relatorios', rotulo: 'Relatórios', icone: 'grafico', itens: [
         { id: 'central', rotulo: 'Central de relatórios', descricao: 'Folha, holerites, resumo, relação bancária, funcionários, férias: imprimir, PDF, Excel, e-mail e WhatsApp', icone: 'grafico', destino: { aba: 'relatorios', sub: 'central' } },
+        { id: 'contabil', rotulo: 'Integração contábil', descricao: 'Lote de lançamentos da folha gravada para a contabilidade: plano de contas por verba e encargo, centro de custo pelo departamento, provisões, conferência e arquivo', icone: 'tabela', destino: { aba: 'contabil' } },
         { id: 'modelos', rotulo: 'Contratos e modelos', descricao: 'Contrato de experiência, prorrogação, advertência, suspensão, aviso, declarações: personalizar, importar do SAGE e enviar', icone: 'contrato', destino: { aba: 'relatorios', sub: 'modelos' } },
     ] },
     { id: 'esocial', rotulo: 'eSocial', icone: 'esocial', itens: [
