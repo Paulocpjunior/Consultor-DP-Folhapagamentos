@@ -23,6 +23,7 @@ import { centavosDeTexto, dataValida, reais } from '../cadastros/documentos';
 import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros/tabelasLegais';
 import { adicionalDeRisco, adicionalProporcional } from './adicionais';
 import { diaSemana, diaUtilAnterior, feriados, somarDias, somarMeses } from '../prazos/calendario';
+import { ehDomestico, indenizacaoCompensatoria } from '../domestico/domestico';
 
 export type TipoVerba = 'provento' | 'desconto';
 export interface Incidencias { inss: boolean; fgts: boolean; irrf: boolean }
@@ -150,6 +151,8 @@ export interface ResultadoCalculo {
     soFaltaFolhaDoAdiantamento?: boolean;
     /** Sem folha anterior no mês: dependentes deduzidos no IRRF do adiantamento (vão no S-1210 do mês dele; Codex #118). */
     deducoesAdiantamento?: { dependentes: { cpf: string; nome: string }[]; porDependente: number };
+    /** Empregado doméstico: indenização compensatória de 3,2% sobre a base do FGTS (LC 150/2015, art. 22), no DAE. */
+    fgtsIndenizacao?: number;
 }
 
 /** FGTS: 8% (Lei 8.036/1990, art. 15); aprendiz 2% (§ 7º). */
@@ -260,8 +263,9 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     if (deslig && deslig < ini) return erro(`Desligado em ${brData(deslig)}, antes da competência.`);
     const categoria = d.categoria || '';
     if (categoria && !/^1\d\d$/.test(categoria)) return erro(`Categoria ${categoria}: esta versão só calcula empregados (categorias 1xx).`);
-    // Doméstico (FGTS de 3,2% da LC 150, sem multa de 40%) e intermitente (pago por convocação) têm regras próprias.
-    if (categoria === '104') return erro('Empregado doméstico (categoria 104): o motor ainda não calcula (FGTS com os 3,2% da LC 150/2015). Calcule pelo IOB.');
+    // Intermitente (pago por convocação) tem regras próprias. Doméstico (LC 150/2015): FGTS + 3,2%, doença e maternidade pelo INSS.
+    const domestico = ehDomestico(categoria);
+    if (domestico) r.memoria.push('Empregado doméstico (LC 150/2015): FGTS de 8% + 3,2% de indenização compensatória; encargos e tributos no DAE do eSocial Doméstico.');
     if (categoria === '111') return erro('Intermitente (categoria 111): o motor ainda não calcula a remuneração por convocação. Calcule pelo IOB.');
     if (!categoria) r.avisos.push('Ficha sem categoria do eSocial: calculado como empregado (101).');
     const aprendiz = categoria === '103';
@@ -296,6 +300,8 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     if (deslig && deslig <= ult) incompleto(`Desligado em ${brData(deslig)}: só o saldo de salário foi calculado; a rescisão não está no motor.`);
 
     let diasAcidenteInss = 0;
+    // Doméstica em licença-maternidade: o INSS paga direto; o empregador recolhe o FGTS sobre a remuneração desses dias.
+    let diasMaternidadeDomestica = 0;
     // Benefício do INSS (doença) que começou antes do mês: o salário-família é pago pelo INSS (Decreto 3.048/1999, art. 82).
     let beneficioDeMesAnterior = false;
     // Dias pagos sem deslocamento (afastamento remunerado, 15 primeiros dias de doença): sem vale-transporte (Codex #115).
@@ -311,9 +317,12 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
             for (let x = aIni; x <= aFim; x = somarDias(x, 1)) semTransporte.add(x);
             r.memoria.push(`Afastamento ${rotulo} de ${brData(aIni)} a ${brData(aFim)}: remunerado pela empresa.`); continue;
         }
-        const beneficio = DOENCA.includes(a.motivo) ? (a.infoMesmoMtv === 'S' ? a.dtInicio : inicioBeneficio(a)) : null;
+        // Doméstico: o benefício por incapacidade é do INSS desde o 1º dia (Lei 8.213/1991, art. 60; o empregador doméstico
+        // não paga os 15 primeiros dias).
+        const beneficio = DOENCA.includes(a.motivo) ? (domestico || a.infoMesmoMtv === 'S' ? a.dtInicio : inicioBeneficio(a)) : null;
         for (let x = aIni; x <= aFim; x = somarDias(x, 1)) {
-            if (DOENCA.includes(a.motivo)) {
+            if (domestico && MATERNIDADE.includes(a.motivo)) { dias.set(x, 'naoPago'); n++; diasMaternidadeDomestica++; }
+            else if (DOENCA.includes(a.motivo)) {
                 if (beneficio && x >= beneficio) { dias.set(x, 'naoPago'); n++; if (FGTS_NO_AFASTAMENTO.includes(a.motivo)) diasAcidenteInss++; if (beneficio < ini) beneficioDeMesAnterior = true; }
                 else semTransporte.add(x);
             } else if (a.motivo === PRORROGACAO) { dias.set(x, 'prorrogacao'); n++; }
@@ -321,7 +330,12 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
             else if (FERIAS.includes(a.motivo)) { dias.set(x, 'ferias'); n++; }
             else { dias.set(x, 'naoPago'); n++; if (FGTS_NO_AFASTAMENTO.includes(a.motivo)) diasAcidenteInss++; }
         }
-        if (DOENCA.includes(a.motivo)) {
+        if (domestico && MATERNIDADE.includes(a.motivo)) {
+            r.memoria.push(`Afastamento ${rotulo}: ${n} dia(s) no mês. O salário-maternidade da doméstica é pago direto pelo INSS (Lei 8.213/1991, art. 73, I); o empregador recolhe o FGTS (8% + 3,2%) sobre a remuneração desses dias.`);
+            if (a.motivo === PRORROGACAO) r.avisos.push('Prorrogação da licença-maternidade (Empresa Cidadã) não se aplica ao empregador doméstico: confira o afastamento.');
+        } else if (DOENCA.includes(a.motivo) && domestico) {
+            r.memoria.push(`Afastamento ${rotulo} desde ${brData(a.dtInicio)}: empregado doméstico recebe o benefício do INSS desde o 1º dia (o empregador não paga os 15 primeiros dias); ${n} dia(s) sem salário no mês.`);
+        } else if (DOENCA.includes(a.motivo)) {
             r.memoria.push(a.infoMesmoMtv === 'S'
                 ? `Afastamento ${rotulo} desde ${brData(a.dtInicio)}, mesmo motivo de afastamento anterior (60 dias): benefício do INSS desde o início; ${n} dia(s) sem salário no mês.`
                 : `Afastamento ${rotulo} desde ${brData(a.dtInicio)}: empresa paga os 15 primeiros dias; INSS a partir de ${brData(beneficio!)}; ${n} dia(s) sem salário no mês.`);
@@ -502,6 +516,12 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     const diasFgtsAcidente = Math.min(diasAcidenteInss, Math.max(0, 30 - diasPagos - diasMatTotal));
     const fgtsAcidente = Math.round(diaria * diasFgtsAcidente);
     r.bases.fgts = Math.max(0, soma(v => v.fgts)) + fgtsAcidente;
+    if (diasMaternidadeDomestica) {
+        const mensalComAdicional = mensal + (adicional?.mensal ?? 0);
+        const v = mesInteiro && diasMaternidadeDomestica === dias.size ? mensalComAdicional : Math.min(mensalComAdicional, Math.round(diariaComAdicional * diasMaternidadeDomestica));
+        r.bases.fgts += v;
+        r.memoria.push(`FGTS sobre ${diasMaternidadeDomestica} dia(s) de licença-maternidade: ${reais(v)} somados à base (Decreto 99.684/1990, art. 28, IV).`);
+    }
     if (fgtsAcidente) r.memoria.push(`FGTS sobre ${diasFgtsAcidente} dia(s) de afastamento por acidente do trabalho ou serviço militar: ${reais(fgtsAcidente)} somados à base (Lei 8.036/1990, art. 15, § 5º).`);
 
     // 6. INSS do segurado (competência).
@@ -636,6 +656,10 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     const aliqFgts = aprendiz ? ALIQUOTA_FGTS_APRENDIZ : ALIQUOTA_FGTS;
     r.fgts = Math.round(r.bases.fgts * aliqFgts / 100);
     r.memoria.push(`FGTS: ${reais(r.bases.fgts)} × ${aliqFgts}% = ${reais(r.fgts)}${aprendiz ? ' (aprendiz)' : ''}.`);
+    if (domestico) {
+        r.fgtsIndenizacao = indenizacaoCompensatoria(r.bases.fgts);
+        r.memoria.push(`Indenização compensatória do doméstico: ${reais(r.bases.fgts)} × 3,2% = ${reais(r.fgtsIndenizacao)} (LC 150/2015, art. 22), no DAE.`);
+    }
     r.totais.proventos = r.verbas.filter(v => v.tipo === 'provento').reduce((s, v) => s + v.valor, 0);
     r.totais.descontos = r.verbas.filter(v => v.tipo === 'desconto').reduce((s, v) => s + v.valor, 0);
     r.totais.liquido = r.totais.proventos - r.totais.descontos;

@@ -470,6 +470,8 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             if (!f.matriculaEsocial.trim()) t.erros.push(`Sem matrícula do eSocial na ficha${quem}.`);
             const categ = digitos(f.dados.categoria);
             if (!/^\d{3}$/.test(categ)) t.erros.push(`Categoria do eSocial (3 dígitos) em branco na ficha${quem}.`);
+            // O empregador doméstico escritura pelo eSocial Doméstico (módulo web), que fecha a folha e gera o DAE.
+            if (categ === '104') { t.erros.push(`Empregado doméstico${quem}: a folha vai pelo eSocial Doméstico (módulo web, com o DAE gerado lá). Lance lá os valores conferidos aqui.`); continue; }
             // O Consultor informa um estabelecimento só (o dos parâmetros): quem trabalha em outro (localTrabGeral do S-2200)
             // iria no CNPJ errado.
             const localTrab = digitos(f.dados.estabelecimento);

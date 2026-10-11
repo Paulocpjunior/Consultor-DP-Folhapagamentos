@@ -47,6 +47,8 @@ import EventosFolhaModal from '../esocial/EventosFolhaModal';
 import { ehAdmin, ehMaster } from '../../services/auth/papeis';
 import CalculoAdiantamentosModal from './CalculoAdiantamentosModal';
 import FolhaComplementarModal from './FolhaComplementarModal';
+import DaeDomesticoQuadro from '../domestico/DaeDomesticoQuadro';
+import { calcularDae, ehDomestico } from '../../services/domestico/domestico';
 import { recibosFeriasDaCompetencia } from '../../services/esocial/eventosFolha';
 import { contextoDoHolerite, definirContextoMia } from '../../services/mia/mia';
 import { resumirFolha } from '../../services/relatorios/resumoFolha';
@@ -663,6 +665,10 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                     )}
                 </div>
             )}
+            {mensal && dados && (() => {
+                const domesticos = resultados.filter(r => ehDomestico(dados.fichas.find(f => f.id === r.fichaId)?.dados.categoria));
+                return domesticos.length ? <DaeDomesticoQuadro dae={calcularDae(domesticos, competencia)} /> : null;
+            })()}
             {encerrado && (mensal || ferias) && (
                 <div role="note" className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-100">
                     <span>🔒 <strong>Competência encerrada</strong>{fechamento?.encerradoPorEmail ? ` por ${fechamento.encerradoPorEmail}` : ''}: somente leitura. Para alterar, peça a reabertura ao gestor do DP em Fim de mês › Fechamento do mês.</span>

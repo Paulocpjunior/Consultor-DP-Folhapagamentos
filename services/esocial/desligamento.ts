@@ -148,6 +148,7 @@ export function gerarS2299(e: EntradaS2299): ResultadoS2299 {
     if (!cpfValido(cpf)) erros.push('CPF inválido na ficha.');
     if (!mat) erros.push('Sem matrícula do eSocial na ficha.');
     if (!/^\d{3}$/.test(categ)) erros.push('Categoria do eSocial (3 dígitos) em branco na ficha.');
+    if (categ === '104') erros.push('Empregado doméstico (categoria 104): o desligamento vai pelo eSocial Doméstico (módulo web), que gera o DAE da rescisão. Lance lá a rescisão conferida aqui.');
     if (estab.length !== 14) erros.push('Informe o CNPJ do estabelecimento (parâmetros do eSocial da folha).');
     if (!p.codLotacao.trim()) erros.push('Informe o código da lotação tributária (S-1020) nos parâmetros do eSocial da folha.');
     const localTrab = digitos(d.estabelecimento);

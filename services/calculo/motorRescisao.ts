@@ -31,6 +31,7 @@ import { folhaPagaAntes } from './arredondamento';
 import { diasDeDireito, feriasDaCompetencia, mesesDoPeriodo, periodosAquisitivos } from './motorFerias';
 import { inssDetalhado, irrfDetalhado, type OpcoesIrrf } from './tributos';
 import { adicionalDeRisco } from './adicionais';
+import { destinoIndenizacao, ehDomestico, indenizacaoCompensatoria } from '../domestico/domestico';
 
 /** Motivos do desligamento (Tabela 19 do eSocial) cobertos nesta versão. */
 export const TIPOS_RESCISAO = {
@@ -130,7 +131,8 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
     if (data < d.admissao) return erro('Desligamento antes da admissão.');
     const categoria = d.categoria || '';
     if (categoria && !/^1\d\d$/.test(categoria)) return erro(`Categoria ${categoria}: esta versão só calcula empregados (categorias 1xx).`);
-    if (categoria === '104') return erro('Empregado doméstico (categoria 104): a rescisão tem regras próprias (sem multa de 40%; saque dos 3,2% da LC 150/2015). Calcule pelo IOB.');
+    // Doméstico (LC 150/2015): sem multa de 40% ou 20%; os 3,2% depositados no contrato substituem a multa (art. 22).
+    const domestico = ehDomestico(categoria);
     if (categoria === '111') return erro('Intermitente (categoria 111): o motor ainda não calcula. Calcule pelo IOB.');
     const aliqFgts = categoria === '103' ? ALIQUOTA_FGTS_APRENDIZ : ALIQUOTA_FGTS;
     const justa = tipo === '01';
@@ -309,8 +311,17 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
     r.bases.irrf = mes.bases.irrf + r.verbas.filter(v => v.codigo === '13PROP' || v.codigo === '13IND').reduce((s, v) => s + v.valor, 0);
     r.fgts = Math.round(fgtsBase * aliqFgts / 100);
     r.memoria.push(`FGTS do mês e rescisório: ${reais(fgtsBase)} × ${aliqFgts}% = ${reais(r.fgts)}.`);
-    r.percentualMulta = tipo === '02' || tipo === '03' ? 40 : tipo === '33' ? 20 : 0;
+    r.percentualMulta = domestico ? 0 : tipo === '02' || tipo === '03' ? 40 : tipo === '33' ? 20 : 0;
     r.saqueFgts = PERMITE_SAQUE_FGTS.includes(tipo) && tipo !== '33' ? 'Saque do saldo do FGTS liberado.' : tipo === '33' ? 'Saque de até 80% do saldo do FGTS (art. 484-A, § 1º); sem seguro-desemprego.' : 'Sem saque do FGTS por este motivo.';
+    if (domestico) {
+        // Fim do contrato a termo: o eSocial Doméstico gera o DAE do mês só com os 8%, sem os 3,2%.
+        r.fgtsIndenizacao = tipo === '06' ? 0 : indenizacaoCompensatoria(fgtsBase);
+        const destino = destinoIndenizacao(tipo);
+        r.memoria.push(tipo === '06' ? 'Indenização compensatória (3,2%): não incide no mês do fim do contrato a termo.' : `Indenização compensatória do doméstico: ${reais(fgtsBase)} × 3,2% = ${reais(r.fgtsIndenizacao)} (LC 150/2015, art. 22).`,
+            'Sem multa de 40%: no doméstico, os 3,2% depositados mês a mês fazem esse papel.', destino.texto);
+        if (destino.quem === 'conferir') r.avisos.push(destino.texto);
+        if (['02', '03'].includes(tipo)) r.avisos.push('Seguro-desemprego do doméstico: 3 parcelas de um salário mínimo, para quem trabalhou 15 meses nos últimos 24 (LC 150/2015, art. 26). Guia pelo Empregador Web.');
+    }
     if (r.percentualMulta) {
         if (e.saldoFgts === undefined) r.avisos.push(`Informe o saldo do FGTS para fins rescisórios (extrato do FGTS Digital) para calcular a multa de ${r.percentualMulta}%.`);
         else {
