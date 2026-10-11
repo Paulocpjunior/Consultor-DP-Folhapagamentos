@@ -33,6 +33,7 @@ import { motorHomologadoNoMes } from '../../services/calculo/arredondamento';
 import { resumirFolha } from '../../services/relatorios/resumoFolha';
 import { GRUPOS_RELATORIO, RELATORIOS, type ContextoRelatorio, type DefRelatorio } from '../../services/relatorios/catalogoRelatorios';
 import { tabelaPdf, type OpcoesPdf } from '../../services/relatorios/layoutPdf';
+import HoleritePorEmail from './HoleritePorEmail';
 import EntregaRelatorio, { type ArquivoRelatorio } from './EntregaRelatorio';
 
 const relatoriosPdf = () => import('../../services/relatorios/holeritePdf');
@@ -302,6 +303,11 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                 {enviar && dados && !faltaFolha && (
                     <EntregaRelatorio key={sel.id} empresa={{ id: ativa.id, cnpj: ativa.cnpj.replace(/\D/g, ''), nome: dados.empresa?.nomeFantasia || dados.empresa?.razaoSocial || ativa.nome, codigoSage: ativa.codigoSage, contatoEnvio: dados.empresa?.contatoEnvio }}
                         titulo={sel.titulo} competencia={sel.tipo === 'ficha-financeira' || sel.tipo === 'informe' ? `${ano}-12` : ativa.competencia} gerar={arquivo} />
+                )}
+                {sel.tipo === 'holerites' && dados?.folha && (
+                    <HoleritePorEmail empresa={{ id: ativa.id, cnpj: ativa.cnpj.replace(/\D/g, ''), nome: dados.empresa?.nomeFantasia || dados.empresa?.razaoSocial || ativa.nome }}
+                        competencia={ativa.competencia} folha={dados.folha.holerites} fichas={dados.fichas}
+                        gerarPdf={async r => new Uint8Array((await relatoriosPdf()).holeritesPdf([r], dados.fichas, opcoes(sel)).output('arraybuffer'))} />
                 )}
             </section>
         </div>
