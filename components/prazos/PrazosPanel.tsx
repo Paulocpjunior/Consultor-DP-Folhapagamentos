@@ -13,6 +13,8 @@ import { listarSindicatos, listarTodosAfastamentos, listarTodosFuncionariosAtivo
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
 import type { Afastamento } from '../../services/cadastros/afastamentos';
 import type { Sindicato } from '../../services/cadastros/sindicatos';
+import type { ConvencaoColetiva } from '../../services/sindicatos/convencao';
+import { listarConvencoes } from '../../services/sindicatos/convencoesService';
 import { br, diasEntre, somarDias } from '../../services/prazos/calendario';
 import { vencimentosNoPeriodo } from '../../services/prazos/obrigacoes';
 import CalendarioEmpresa from './CalendarioEmpresa';
@@ -37,13 +39,13 @@ const PrazosPanel: React.FC<Props> = ({ onAbrirCadastros, onAbrirConferencia, us
     const { ativa, trocar } = useEmpresaAtiva();
     const [empresaId, setEmpresaId] = useState(ativa?.id ?? '');
     const [tipo, setTipo] = useState<TipoPrazo | ''>('');
-    const [dados, setDados] = useState<{ empresas: Empresa[]; fichas: FichaFuncionario[]; afastamentos: Afastamento[]; sindicatos: Sindicato[] } | null>(null);
+    const [dados, setDados] = useState<{ empresas: Empresa[]; fichas: FichaFuncionario[]; afastamentos: Afastamento[]; sindicatos: Sindicato[]; convencoes: ConvencaoColetiva[] } | null>(null);
     const [erro, setErro] = useState('');
 
     useEffect(() => {
-        Promise.all([listarEmpresasVisiveis(), listarTodosFuncionariosAtivos(), listarTodosAfastamentos(), listarSindicatos()])
-            .then(([empresas, fichas, afastamentos, sindicatos]) => setDados({ empresas, fichas, afastamentos, sindicatos }))
-            .catch(e => { setErro(mensagemErro(e)); setDados({ empresas: [], fichas: [], afastamentos: [], sindicatos: [] }); });
+        Promise.all([listarEmpresasVisiveis(), listarTodosFuncionariosAtivos(), listarTodosAfastamentos(), listarSindicatos(), listarConvencoes().catch(() => [] as ConvencaoColetiva[])])
+            .then(([empresas, fichas, afastamentos, sindicatos, convencoes]) => setDados({ empresas, fichas, afastamentos, sindicatos, convencoes }))
+            .catch(e => { setErro(mensagemErro(e)); setDados({ empresas: [], fichas: [], afastamentos: [], sindicatos: [], convencoes: [] }); });
     }, []);
 
     const ate = somarDias(hoje, horizonte);
@@ -52,7 +54,10 @@ const PrazosPanel: React.FC<Props> = ({ onAbrirCadastros, onAbrirConferencia, us
     const prazos = useMemo(() => {
         if (!dados) return [];
         const fichas = dados.fichas.filter(f => !empresaId || f.empresaId === empresaId);
-        return [...prazosFuncionarios(fichas, dados.afastamentos, hoje, ate), ...(empresaId ? [] : prazosSindicatos(dados.sindicatos, hoje, ate))]
+        // Com a empresa escolhida, os sindicatos ligados a ela (Empresas › editar); sem, todos.
+        const daEmpresa = empresaId ? new Set(dados.empresas.find(e => e.id === empresaId)?.sindicatos ?? []) : null;
+        const sindicatos = daEmpresa ? dados.sindicatos.filter(s => daEmpresa.has(s.cnpj)) : dados.sindicatos;
+        return [...prazosFuncionarios(fichas, dados.afastamentos, hoje, ate), ...prazosSindicatos(sindicatos, hoje, ate, dados.convencoes)]
             .filter(p => !tipo || p.tipo === tipo)
             .sort((a, b) => a.data.localeCompare(b.data) || (a.nome ?? '').localeCompare(b.nome ?? ''));
     }, [dados, empresaId, tipo, hoje, ate]);

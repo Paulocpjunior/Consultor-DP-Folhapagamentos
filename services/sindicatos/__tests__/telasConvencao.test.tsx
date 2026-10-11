@@ -33,6 +33,7 @@ vi.mock('../../cadastros/cadastrosService', () => ({
 vi.mock('../../calculo/movimentosService', () => ({ listarMovimentos: async () => [] }));
 import ConvencoesSindicato from '../../../components/sindicatos/ConvencoesSindicato';
 import ConformidadePanel from '../../../components/conformidade/ConformidadePanel';
+import SindicatosCadastro from '../../../components/cadastros/SindicatosCadastro';
 
 afterEach(() => { cleanup(); srv.salvas.length = 0; srv.marcadas.length = 0; srv.convencoes = []; });
 
@@ -72,5 +73,16 @@ describe('conformidade (tela)', () => {
         fireEvent.click(screen.getByLabelText('Cumprida: Cesta básica mensal'));
         await waitFor(() => expect(srv.marcadas).toEqual([['o1', true]]));
         await waitFor(() => expect(screen.queryByText(/obrigação\(ões\) da CCT sem confirmação/)).toBeNull());
+    });
+});
+
+describe('sindicatos (tela): renovação da convenção', () => {
+    it('sinaliza a nova publicação em atraso com a contagem de dias', async () => {
+        const hoje = new Date().toISOString().slice(0, 10);
+        const fim = new Date(Date.parse(`${hoje}T00:00:00Z`) - 10 * 86400000).toISOString().slice(0, 10);
+        srv.convencoes = [{ ...CCT, vigenciaInicio: '2025-01-01', vigenciaFim: fim }];
+        render(<SindicatosCadastro sindicatos={[{ ...sindicatoVazio(), id: SIND, cnpj: SIND, nome: 'SINDICATO X' }]} erroLista="" usuario={{ id: 'u', email: 'dp@x' }} isAdmin={false} onRecarregar={() => undefined} />);
+        expect((await screen.findByRole('alert')).textContent).toMatch(/nova publicação em atraso: SINDICATO X \(10 dias\)/);
+        expect(screen.getByText('10 dias em atraso')).toBeTruthy();
     });
 });

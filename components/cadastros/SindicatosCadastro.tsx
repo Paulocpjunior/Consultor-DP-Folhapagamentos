@@ -2,11 +2,14 @@
 //
 // Arquivos › Sindicatos: identificação, data-base e convenção coletiva.
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { MESES, normalizarSindicato, sindicatoVazio, situacaoConvencao, validarSindicato, type Sindicato } from '../../services/cadastros/sindicatos';
 import { excluirSindicato, mensagemErro, salvarSindicato, type Usuario } from '../../services/cadastros/cadastrosService';
 import { UFS, centavosDeTexto, reais } from '../../services/cadastros/documentos';
 import ConvencoesSindicato from '../sindicatos/ConvencoesSindicato';
+import SinalRenovacao from '../sindicatos/SinalRenovacao';
+import { renovacaoDoSindicato, type ConvencaoColetiva } from '../../services/sindicatos/convencao';
+import { listarConvencoes } from '../../services/sindicatos/convencoesService';
 
 interface Props { sindicatos: Sindicato[] | null; erroLista: string; usuario: Usuario; isAdmin: boolean; onRecarregar: () => void }
 
@@ -19,6 +22,11 @@ const SindicatosCadastro: React.FC<Props> = ({ sindicatos, erroLista, usuario, i
     const [erros, setErros] = useState<string[]>([]);
     const [salvando, setSalvando] = useState(false);
     const hoje = new Date().toISOString().slice(0, 10);
+    // Convenções com PDF (Cadastros › Sindicatos › Convenções): a renovação e os dias em atraso da nova publicação.
+    const [convencoes, setConvencoes] = useState<ConvencaoColetiva[] | null>(null);
+    const carregarConvencoes = useCallback(() => { listarConvencoes().then(setConvencoes).catch(() => setConvencoes([])); }, []);
+    useEffect(carregarConvencoes, [carregarConvencoes]);
+    const atrasadas = (sindicatos ?? []).map(s => ({ s, r: renovacaoDoSindicato(convencoes ?? [], s.cnpj, hoje) })).filter(x => x.r.situacao === 'em-atraso');
 
     const abrir = useCallback((antes: Sindicato | null) => {
         setErros([]);
@@ -59,13 +67,18 @@ const SindicatosCadastro: React.FC<Props> = ({ sindicatos, erroLista, usuario, i
                 <button className="rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white" onClick={() => abrir(null)}>Novo sindicato</button>
                 <p className="text-sm text-slate-600 dark:text-slate-300">Cadastro único do escritório: o mesmo sindicato serve a várias empresas (Empresas › editar › sindicatos). A ficha do funcionário liga pelo CNPJ que vem do S-2200. Abra o sindicato para anexar a convenção em PDF.</p>
             </div>
+            {atrasadas.length > 0 && (
+                <p role="alert" className="rounded border border-red-300 bg-red-50 p-2 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-200">
+                    Convenção com a nova publicação em atraso: {atrasadas.map(x => `${x.s.nome} (${x.r.dias} dia${x.r.dias === 1 ? '' : 's'})`).join('; ')}. Anexe a nova convenção assim que for registrada no Mediador.
+                </p>
+            )}
             {erroLista && <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erroLista}</p>}
             {!sindicatos && !erroLista && <p className="text-sm text-slate-500">Carregando…</p>}
             {sindicatos?.length === 0 && <p className="rounded border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-600">Nenhum sindicato cadastrado.</p>}
             {!!sindicatos?.length && (
                 <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
                     <table className="w-full text-sm">
-                        <thead className="bg-slate-50 text-left text-xs text-slate-500 dark:bg-slate-900 dark:text-slate-400"><tr><th className="p-2">Cód. IOB</th><th className="p-2">Nome</th><th className="p-2">CNPJ</th><th className="p-2">Data-base</th><th className="p-2">Piso</th><th className="p-2">Convenção</th></tr></thead>
+                        <thead className="bg-slate-50 text-left text-xs text-slate-500 dark:bg-slate-900 dark:text-slate-400"><tr><th className="p-2">Cód. IOB</th><th className="p-2">Nome</th><th className="p-2">CNPJ</th><th className="p-2">Data-base</th><th className="p-2">Piso</th><th className="p-2">Convenção e renovação</th></tr></thead>
                         <tbody>
                             {sindicatos.map(s => {
                                 const conv = situacaoConvencao(s, hoje);
@@ -76,7 +89,11 @@ const SindicatosCadastro: React.FC<Props> = ({ sindicatos, erroLista, usuario, i
                                         <td className="p-2 font-mono">{fmtCnpj(s.cnpj)}</td>
                                         <td className="p-2">{s.dataBase ? MESES[Number(s.dataBase) - 1] : '—'}</td>
                                         <td className="p-2">{s.pisoSalarial !== null ? reais(s.pisoSalarial) : '—'}</td>
-                                        <td className={`p-2 ${COR_CONV[conv]}`}>{conv === 'sem' ? 'sem vigência' : `${conv} (até ${s.vigenciaFim.split('-').reverse().join('/')})`}</td>
+                                        <td className="p-2">{(() => {
+                                            const r = renovacaoDoSindicato(convencoes ?? [], s.cnpj, hoje);
+                                            if (r.situacao !== 'sem-convencao') return <span className="flex flex-col gap-0.5"><SinalRenovacao r={r} compacto /><span className="text-xs text-slate-500">{r.ultima!.tipo} até {r.ultima!.vigenciaFim.split('-').reverse().join('/')} · renovação {r.renovacao.split('-').reverse().join('/')}</span></span>;
+                                            return <span className={COR_CONV[conv]}>{conv === 'sem' ? 'sem convenção (anexe o PDF)' : `${conv} (até ${s.vigenciaFim.split('-').reverse().join('/')})`}</span>;
+                                        })()}</td>
                                     </tr>
                                 );
                             })}
@@ -121,7 +138,7 @@ const SindicatosCadastro: React.FC<Props> = ({ sindicatos, erroLista, usuario, i
                         </fieldset>
                         <label className="block"><span className="text-xs font-medium text-slate-600 dark:text-slate-300">Observações (adicionais, aviso prévio, cláusulas que o DP precisa lembrar)</span>
                             <textarea className={inp} rows={3} value={edicao.s.observacoes} onChange={e => set('observacoes', e.target.value)} aria-label="Observações" /></label>
-                        {edicao.antes ? <ConvencoesSindicato sindicato={edicao.antes} usuario={usuario} /> : <p className="text-xs text-slate-500">Grave o sindicato para anexar as convenções.</p>}
+                        {edicao.antes ? <ConvencoesSindicato sindicato={edicao.antes} usuario={usuario} onAlterado={carregarConvencoes} /> : <p className="text-xs text-slate-500">Grave o sindicato para anexar as convenções.</p>}
                         {erros.length > 0 && <ul role="alert" className="list-disc rounded bg-red-50 p-2 pl-6 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erros.map(e => <li key={e}>{e}</li>)}</ul>}
                         <div className="flex justify-between gap-2">
                             <div>{edicao.antes && isAdmin && <button className="rounded border border-red-300 px-3 py-2 text-sm text-red-700 dark:text-red-300" disabled={salvando} onClick={excluir}>Excluir</button>}</div>
