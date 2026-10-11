@@ -34,6 +34,16 @@ describe('folhas_gravadas', () => {
     await assertFails(setDoc(doc(fs('col'), 'folhas_gravadas/A_2026-09/holerites/B_111_M1'), { ...hol('2026-09'), fichaId: 'B_111_M1' }));
     await assertFails(setDoc(doc(fs('col'), 'folhas_gravadas/A_2026-09/holerites/A_111_M1'), hol('2026-10')));
   });
+  it('estorno: quem pode na empresa apaga a folha gravada da competência aberta e os holerites', async () => {
+    await env.withSecurityRulesDisabled(async c => {
+      await setDoc(doc(c.firestore(), 'folhas_gravadas/A_2026-09'), resumo('2026-09', 'col'));
+      await setDoc(doc(c.firestore(), 'folhas_gravadas/A_2026-09/holerites/A_111_M1'), hol('2026-09'));
+    });
+    await assertFails(deleteDoc(doc(fs('col2'), 'folhas_gravadas/A_2026-09')));
+    await assertFails(deleteDoc(doc(fs('col2'), 'folhas_gravadas/A_2026-09/holerites/A_111_M1')));
+    await assertSucceeds(deleteDoc(doc(fs('col'), 'folhas_gravadas/A_2026-09/holerites/A_111_M1')));
+    await assertSucceeds(deleteDoc(doc(fs('col'), 'folhas_gravadas/A_2026-09')));
+  });
   it('competência encerrada: a folha gravada não muda nem sai, nem pelo gestor; lê quem pode na empresa', async () => {
     await assertFails(setDoc(doc(fs('ges'), 'folhas_gravadas/A_2026-08'), resumo('2026-08', 'ges')));
     await assertFails(setDoc(doc(fs('col'), 'folhas_gravadas/A_2026-08/holerites/A_111_M1'), hol('2026-08')));

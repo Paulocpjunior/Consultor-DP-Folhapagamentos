@@ -5,7 +5,7 @@
 
 import { collection, doc, getDoc, getDocs, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
-import type { Usuario } from '../cadastros/cadastrosService';
+import { auditar, diffObjeto, type Usuario } from '../cadastros/cadastrosService';
 import type { ResultadoCalculo } from './motorMensal';
 import { idFolhaGravada, prepararHolerite, totaisDaFolha, type FolhaGravada } from './folhaGravada';
 
@@ -42,4 +42,22 @@ export async function lerFolhasDoAno(empresaId: string, ano: string): Promise<Fo
     const meses = Array.from({ length: 12 }, (_, i) => `${ano}-${String(i + 1).padStart(2, '0')}`);
     const lidas = await Promise.all(meses.map(c => lerFolhaGravada(empresaId, c).catch(() => null)));
     return lidas.filter((f): f is FolhaGravada => !!f);
+}
+
+/**
+ * Estorno do cálculo: apaga a folha gravada da competência (resumo e holerites), com o registro na auditoria (quem,
+ * quando, o motivo e os totais que saíram). As regras só deixam com a competência aberta no Fim de mês.
+ */
+export async function estornarFolha(empresaId: string, competencia: string, motivo: string, u: Usuario): Promise<void> {
+    const id = idFolhaGravada(empresaId, competencia);
+    const p = await getDoc(doc(db, COL, id));
+    if (!p.exists()) throw new Error('Não há folha gravada nesta competência (outra pessoa pode tê-la estornado).');
+    const hs = await getDocs(collection(db, COL, id, 'holerites'));
+    if (hs.size > 450) throw new Error('Folha com mais de 450 holerites: o estorno em um só lote ainda não é suportado.');
+    const b = writeBatch(db);
+    for (const h of hs.docs) b.delete(h.ref);
+    b.delete(doc(db, COL, id));
+    const x = p.data();
+    auditar(b, u, COL, id, 'estornar folha', diffObjeto({ totais: x.totais, pagamento: x.pagamento, gravadoPorEmail: x.gravadoPorEmail }, {}), { empresaId, competencia, motivo: motivo.trim().slice(0, 500) });
+    await b.commit();
 }
