@@ -16,6 +16,7 @@
 
 import type { Valor } from '../iobSage/backupPostgres';
 import { centavosDeTexto, cpfValido, dataValida } from './documentos';
+import type { LancamentoAutomatico } from '../calculo/lancamentosAutomaticos';
 import { ROTULO, ehManual, idFuncionario, fichaVazia, diffFicha, temReajusteEsocial, type CampoFicha, type FaixaSalarial, type FichaFuncionario, type ResultadoMescla } from './funcionarios';
 
 export type CampoCarga = 'cpf' | 'matriculaEsocial' | CampoFicha;
@@ -25,6 +26,10 @@ export const CAMPOS_CARGA: CampoCarga[] = [
     'mae', 'pai', 'pis', 'ctps', 'serieCtps', 'ufCtps', 'rg', 'orgaoRg', 'emissaoRg', 'tituloEleitor',
     'cargo', 'cbo', 'funcao', 'cargoIob', 'departamentoIob', 'salario', 'unidadeSalario', 'horasSemanais', 'horasMes', 'fimContrato', 'opcaoFgts', 'categoria', 'sindicato', 'sindicatoIob',
     'banco', 'agencia', 'conta', 'pix', 'cep', 'logradouro', 'numero', 'complemento', 'bairro', 'uf', 'telefone', 'email',
+    // Abas Complementos e Holerite da ficha do IOB Office (colunas da `func`).
+    'telefone2', 'tipoSanguineo', 'uniformeCalca', 'uniformeCamisa', 'uniformeJaqueta', 'uniformeCalcado', 'cracha',
+    'cabelos', 'olhos', 'altura', 'peso', 'sinaisParticulares', 'outrasCaracteristicas', 'observacoes',
+    'mensagemHolerite1', 'mensagemHolerite2', 'mensagemHolerite3',
 ];
 
 export const rotuloCarga = (c: CampoCarga) => (c === 'cpf' ? 'CPF' : c === 'matriculaEsocial' ? 'Matrícula do eSocial' : ROTULO[c]);
@@ -86,6 +91,14 @@ const SINONIMOS: [CampoCarga, RegExp][] = [
     ['uf', /^(uf|estado)$/],
     ['telefone', /^(telefone|fone|tel|celular)$/],
     ['email', /^(email|correio)$/],
+    // Complementos e Holerite (func do FolhaWin): telefone2, tpsang, uniforme, crachá, características, obs1 a obs4 e mensa1 a mensa3.
+    ['telefone2', /^(telefone2|fone2|tel2|celular2)$/],
+    ['tipoSanguineo', /^(tpsang|tiposangue|tiposanguineo|tpsanguineo)$/],
+    ['uniformeCalca', /^calca$/], ['uniformeCamisa', /^camisa$/], ['uniformeJaqueta', /^jaqueta$/], ['uniformeCalcado', /^calcado$/], ['cracha', /^cracha$/],
+    ['cabelos', /^cabelos?$/], ['olhos', /^olhos$/], ['altura', /^altura$/], ['peso', /^peso$/],
+    ['sinaisParticulares', /^(sinais|sinaisparticulares)$/], ['outrasCaracteristicas', /^(outrasc|outrascaracteristicas)$/],
+    ['observacoes', /^(obs1|obs|observacao|observacoes)$/],
+    ['mensagemHolerite1', /^(mensa1|mensagem1|msgholerite1)$/], ['mensagemHolerite2', /^(mensa2|mensagem2|msgholerite2)$/], ['mensagemHolerite3', /^(mensa3|mensagem3|msgholerite3)$/],
 ];
 
 export type Mapeamento = Partial<Record<CampoCarga, string>>;
@@ -146,6 +159,12 @@ export function normalizarValor(campo: CampoCarga, v: Valor): string {
     if (campo === 'categoria') { const d = t.replace(/\D/g, ''); return CATEGORIAS_ESOCIAL.has(d) ? d : ''; }
     if (campo === 'sexo') return /^m/i.test(t) ? 'M' : /^f/i.test(t) ? 'F' : '';
     if (campo === 'sindicato') return t.toUpperCase().replace(/[.\-/\s]/g, '');
+    if (campo === 'tipoSanguineo') { const s = t.toUpperCase().replace(/\s/g, '').replace('0', 'O'); return ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].includes(s) ? s : ''; }
+    if (campo === 'altura' || campo === 'peso') {
+        let n = Number(t.replace(',', '.'));
+        if (campo === 'altura' && n > 3) n = n / 100; // em centímetros
+        return Number.isFinite(n) && n > 0 && n <= (campo === 'altura' ? 3 : 400) ? String(Math.round(n * 100) / 100) : '';
+    }
     return t.replace(/\s+/g, ' ');
 }
 
@@ -165,6 +184,11 @@ export function linhaParaCampos(colunas: string[], valores: Valor[], m: Mapeamen
             const v = c !== m.cbo && /^(cbo2?|cbo2002|codcbo)$/.test(chaveColuna(c)) ? normalizarValor('cbo', valores[j] ?? null) : '';
             if (v) { out.cbo = v; break; }
         }
+    }
+    // Observações em várias colunas (FolhaWin: obs1 a obs4): juntas, uma por linha.
+    if (m.observacoes && /^obs1$/.test(chaveColuna(m.observacoes))) {
+        const resto = colunas.map((c, j) => (/^obs[2-9]$/.test(chaveColuna(c)) ? normalizarValor('observacoes', valores[j] ?? null) : '')).filter(Boolean);
+        if (resto.length) out.observacoes = [out.observacoes, ...resto].filter(Boolean).join('\n');
     }
     // Dígito da conta e da agência em colunas próprias (FolhaWin: dvcc): vão junto, "12345-6", para o arquivo bancário.
     for (const [campo, re] of [['conta', /^(dvcc|dvconta|digconta|dgconta)$/], ['agencia', /^(dvag|dvagencia|digagencia|dgagencia|dvagdsal)$/]] as [CampoCarga, RegExp][]) {
@@ -245,8 +269,9 @@ function faixas(l: FaixaSalarial[]): FaixaSalarial[] {
 }
 
 /** Compara as linhas do IOB com as fichas da empresa e monta a carga. */
-export function compararComFichas(linhas: LinhaIob[], fichas: FichaFuncionario[], empresa: { id: string; cnpj: string }, origem: string, criarNovas: boolean, historicos?: Map<string, FaixaSalarial[]>): Comparacao {
+export function compararComFichas(linhas: LinhaIob[], fichas: FichaFuncionario[], empresa: { id: string; cnpj: string }, origem: string, criarNovas: boolean, historicos?: Map<string, FaixaSalarial[]>, automaticos?: Map<string, LancamentoAutomatico[]>): Comparacao {
     const historicoDe = (v: LinhaIob['valores']) => (v.codigoIob ? historicos?.get(chaveCodfun(v.codigoIob)) : undefined);
+    const automaticosDe = (v: LinhaIob['valores']) => (v.codigoIob ? automaticos?.get(chaveCodfun(v.codigoIob)) : undefined);
     const porCpf = new Map<string, FichaFuncionario[]>();
     for (const f of fichas) porCpf.set(f.cpf, [...(porCpf.get(f.cpf) ?? []), f]);
     const porMatricula = new Map(fichas.map(f => [f.matriculaEsocial, f]));
@@ -270,6 +295,9 @@ export function compararComFichas(linhas: LinhaIob[], fichas: FichaFuncionario[]
             const depois: FichaFuncionario = { ...ficha, dados: { ...ficha.dados }, origens: { ...ficha.origens } };
             const hs = historicoDe(v);
             if (hs && usaHistoricoDoSage(ficha)) depois.historicoSalario = hs;
+            // Lançamentos automáticos do IOB só na ficha que ainda não tem nenhum (não troca os do Consultor).
+            const au = automaticosDe(v);
+            if (au?.length && !ficha.lancamentosAutomaticos?.length) depois.lancamentosAutomaticos = au;
             const divergencias: Divergencia[] = [];
             for (const [campo, valor] of Object.entries(v) as [CampoCarga, string][]) {
                 if (campo === 'cpf' || campo === 'matriculaEsocial') continue;
@@ -295,7 +323,7 @@ export function compararComFichas(linhas: LinhaIob[], fichas: FichaFuncionario[]
             : !criarNovas ? 'Sem ficha no Consultor (criação de fichas novas desligada).' : '';
         if (motivo) { r.semFicha.push({ linha: l.linha, nome: v.nome ?? '', cpf: v.cpf ?? '', motivo }); continue; }
         const nova: FichaFuncionario = { ...fichaVazia(empresa), id: idFuncionario(empresa.id, v.cpf!, v.matriculaEsocial!), cpf: v.cpf!, matriculaEsocial: v.matriculaEsocial!, situacao: v.dataDesligamento ? 'desligado' : 'ativo',
-            ...(historicoDe(v) ? { historicoSalario: historicoDe(v) } : {}) };
+            ...(historicoDe(v) ? { historicoSalario: historicoDe(v) } : {}), ...(automaticosDe(v)?.length ? { lancamentosAutomaticos: automaticosDe(v) } : {}) };
         for (const [campo, valor] of Object.entries(v) as [CampoCarga, string][]) {
             if (campo === 'cpf' || campo === 'matriculaEsocial') continue;
             nova.dados[campo] = valor; nova.origens[campo] = origem;
@@ -335,6 +363,7 @@ export const TABELAS_COMPLEMENTARES: [string, string][] = [
     ['rsalfunc', 'o cargo, o CBO e o histórico de salário com data (rsalfunc)'], ['cargos', 'o nome do cargo (cargos)'],
     ['esocialdadosficha_s1200_dmdev', 'a categoria e o CBO do S-1200'], ['esocialdadosficha_s1300_contribsind', 'o CNPJ do sindicato (S-1300)'],
     ['hist_horarios', 'o horário (hist_horarios)'], ['cad_horarios', 'as horas semanais (cad_horarios)'],
+    ['lancauto', 'os lançamentos automáticos (lancauto)'],
 ];
 
 /** Valor do registro mais recente de cada codfun (pela coluna de data ou anomes), só os que passam no filtro. */
@@ -523,3 +552,35 @@ export function aplicarComplementos(linhas: LinhaIob[], comp: Map<string, Comple
         return { ...l, valores: { ...l.valores, ...extra } };
     });
 }
+
+/**
+ * Lançamentos automáticos do FolhaWin (`lancauto`: codfun, codeven, ref, valor, anomes e os meses marcados em jan1s…dez2q,
+ * semanas e quinzenas de cada mês). O mês entra quando qualquer marca dele está ligada; sem nenhuma marca (ou com as
+ * doze), todo mês. A referência vai no formato do "Lançar evento": o valor em R$ quando há valor, senão a referência.
+ */
+export function automaticosDoBackup(t: TabelaLida | null): Map<string, LancamentoAutomatico[]> {
+    const r = new Map<string, LancamentoAutomatico[]>();
+    if (!t) return r;
+    const [iCod, iEv, iRef, iVal, iAno] = ['codfun', 'codeven', 'ref', 'valor', 'anomes'].map(n => col(t, n));
+    if (iCod < 0 || iEv < 0) return r;
+    const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+    const marcas = MESES.map(m => t.colunas.map((c, j) => (new RegExp(`^${m}[1-6][sq]$`).test(chaveColuna(c)) ? j : -1)).filter(j => j >= 0));
+    const numero = (v: Valor) => { const n = Number((v ?? '').trim().replace(',', '.')); return Number.isFinite(n) && n > 0 ? n : 0; };
+    const br = (n: number, casas: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas === 2 ? 2 : 4, useGrouping: false });
+    for (const l of t.linhas) {
+        const k = chaveCodfun(l[iCod]); const ev = (l[iEv] ?? '').trim().replace(/\D/g, '');
+        if (!k || !ev) continue;
+        const valor = iVal >= 0 ? numero(l[iVal]) : 0; const ref = iRef >= 0 ? numero(l[iRef]) : 0;
+        const meses = marcas.map((js, m) => (js.some(j => sim(l[j])) ? m + 1 : 0)).filter(Boolean);
+        const anomes = iAno >= 0 ? (l[iAno] ?? '').replace(/\D/g, '') : '';
+        const a: LancamentoAutomatico = {
+            codigoEvento: ev, referencia: valor ? br(valor, 2) : ref ? br(ref, 0) : '', meses: meses.length === 12 ? [] : meses,
+            desde: /^\d{4}(0[1-9]|1[0-2])$/.test(anomes) ? `${anomes.slice(0, 4)}-${anomes.slice(4)}` : '', ate: '', observacao: 'IOB: lancauto',
+        };
+        const lista = r.get(k) ?? [];
+        if (!lista.some(x => x.codigoEvento === a.codigoEvento && x.referencia === a.referencia)) lista.push(a);
+        r.set(k, lista);
+    }
+    return r;
+}
+

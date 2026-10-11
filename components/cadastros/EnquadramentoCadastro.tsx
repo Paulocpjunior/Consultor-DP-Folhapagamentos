@@ -9,6 +9,7 @@ import type { Empresa } from '../../services/empresas/empresasTypes';
 import { REGIMES, enquadramentoVazio, numeroDeTexto, validarEnquadramento, type Enquadramento, type RegimePatronal } from '../../services/cadastros/enquadramento';
 import CargaEnquadramentoIobModal from './CargaEnquadramentoIobModal';
 import InicioObrigacoesEmpresa from './InicioObrigacoesEmpresa';
+import MensagemHoleriteEmpresa from './MensagemHoleriteEmpresa';
 import { excluirEnquadramento, listarEnquadramentos, mensagemErro, salvarEnquadramento, type Usuario } from '../../services/cadastros/cadastrosService';
 
 interface Props { empresa: Empresa; usuario: Usuario; isAdmin: boolean }
@@ -63,6 +64,7 @@ const EnquadramentoCadastro: React.FC<Props> = ({ empresa, usuario, isAdmin }) =
                 Enquadramento previdenciário de <strong>{empresa.nomeFantasia || empresa.razaoSocial}</strong>, por vigência. Fecha a parte patronal no resumo da folha (DCTFWeb). Informe a partir do FPAS, do RAT do CNAE preponderante e do FAP publicado para o ano, ou carregue do backup do IOB.
             </p>
             <InicioObrigacoesEmpresa key={empresa.id} empresa={empresa} />
+            <MensagemHoleriteEmpresa key={`msg-${empresa.id}`} empresa={empresa} />
             <div className="flex flex-wrap gap-2">
                 <button className="rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white" onClick={() => abrir(null)}>Novo enquadramento</button>
                 <button className="rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:text-white" onClick={() => setCarga(true)}>Carregar do backup do IOB (todas as empresas)</button>

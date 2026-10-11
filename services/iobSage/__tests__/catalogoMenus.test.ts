@@ -26,7 +26,7 @@ describe('catálogo IOB SAGE × Consultor DP', () => {
     });
 
     it('funcionários, horários, afastamentos, sindicatos e tabelas legais apontam para o módulo Cadastros', () => {
-        expect(itens.find(i => i.id === 'arq-funcionarios')?.destino).toBe('cadastros:funcionarios');
+        expect(itens.find(i => i.id === 'arq-funcionarios')).toMatchObject({ situacao: 'disponivel', destino: 'cadastros:funcionarios' });
         expect(itens.find(i => i.id === 'arq-sindicatos')?.destino).toBe('cadastros:sindicatos');
         expect(itens.find(i => i.id === 'arq-tabelas')?.destino).toBe('cadastros:tabelas');
         expect(itens.find(i => i.id === 'arq-horarios')?.destino).toBe('cadastros:horarios');

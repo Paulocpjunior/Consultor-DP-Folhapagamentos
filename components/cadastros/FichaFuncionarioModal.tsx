@@ -5,6 +5,7 @@
 // mostra de onde veio: XML do eSocial ou edição manual.
 
 import React, { useEffect, useState } from 'react';
+import { automaticoVazio, MESES_CURTOS, textoMeses, type LancamentoAutomatico } from '../../services/calculo/lancamentosAutomaticos';
 import {
     ABAS, ROTULO, aplicarEdicao, defCampo, depNoEsocial, ehManual, idFuncionario, normalizarFicha, rotuloAlteracao, validarFicha,
     type CampoFicha, type Dependente, type FichaFuncionario,
@@ -121,9 +122,14 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
         const atual = x.consignados ?? [];
         return { ...x, consignados: m === null ? atual.filter((_, k) => k !== i) : atual.map((c, k) => (k === i ? { ...c, ...m } : c)) };
     });
+    const automaticos = f.lancamentosAutomaticos ?? [];
+    const setAutomatico = (i: number, m: Partial<LancamentoAutomatico> | null) => setF(x => {
+        const atual = x.lancamentosAutomaticos ?? [];
+        return { ...x, lancamentosAutomaticos: m === null ? atual.filter((_, k) => k !== i) : atual.map((a, k) => (k === i ? { ...a, ...m } : a)) };
+    });
     const centavos = (t: string) => { const n = Math.round(Number(t.replace(/\./g, '').replace(',', '.')) * 100); return Number.isFinite(n) ? n : 0; };
     const emReais = (c?: number) => (c === undefined ? '' : (c / 100).toFixed(2).replace('.', ','));
-    const abas = [...ABAS.map(a => ({ id: a.id, titulo: a.titulo })), { id: 'dependentes', titulo: `Dependentes (${f.dependentes.length})` }, { id: 'beneficios', titulo: `Benefícios (${adesoes.length})` }, { id: 'consignado', titulo: `Consignado (${contratos.length})` }, ...(nova ? [] : [{ id: 'afastamentos', titulo: `Afastamentos (${afastamentos.length})` }, { id: 'historico', titulo: 'Histórico' }])];
+    const abas = [...ABAS.map(a => ({ id: a.id, titulo: a.titulo })), { id: 'dependentes', titulo: `Dependentes (${f.dependentes.length})` }, { id: 'beneficios', titulo: `Benefícios (${adesoes.length})` }, { id: 'consignado', titulo: `Consignado (${contratos.length})` }, { id: 'automaticos', titulo: `Lanç. automático (${automaticos.length})` }, ...(nova ? [] : [{ id: 'afastamentos', titulo: `Afastamentos (${afastamentos.length})` }, { id: 'historico', titulo: 'Histórico' }])];
     const atual = ABAS.find(a => a.id === aba);
 
     return (
@@ -234,6 +240,31 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                             )}
                             <button className="rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600" onClick={() => setF(x => ({ ...x, consignados: [...(x.consignados ?? []), { instFinanc: '', nrDoc: '', parcela: 0, inicio: '' }] }))}>Adicionar contrato</button>
                             <p className="text-[11px] text-slate-500 dark:text-slate-400">Quitado ou suspenso pela instituição: preencha o último mês. O que não couber na margem fica com aviso no cálculo; a instituição cobra a diferença do empregado.</p>
+                        </div>
+                    )}
+
+                    {aba === 'automaticos' && (
+                        <div className="space-y-2 text-sm dark:text-slate-100">
+                            <p className="text-xs text-slate-600 dark:text-slate-300">Eventos do IOB que entram no movimento do mês sozinhos, como o Lançamento Automático do IOB (ex.: uma gratificação fixa, um desconto de convênio). No Cálculo, "Lançamentos automáticos" põe os do mês no movimento pelo mesmo cálculo do "Lançar evento" (rotina do evento ou fórmula da empresa); cada um entra uma vez por mês. Sem meses marcados, entra todo mês.</p>
+                            {automaticos.map((a, i) => (
+                                <div key={i} role="group" aria-label={`Lançamento automático ${i + 1}`} className="space-y-1 rounded border border-slate-200 p-2 text-xs dark:border-slate-700">
+                                    <div className="flex flex-wrap items-end gap-2">
+                                        <label>Evento<input aria-label={`Evento do lançamento automático ${i + 1}`} className="mt-0.5 block w-20 rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" inputMode="numeric" maxLength={5} value={a.codigoEvento} onChange={e => setAutomatico(i, { codigoEvento: e.target.value.replace(/\D/g, '') })} /></label>
+                                        <label>Referência<input aria-label={`Referência do lançamento automático ${i + 1}`} className="mt-0.5 block w-24 rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" placeholder="8:30 ou 150,00" maxLength={20} value={a.referencia} onChange={e => setAutomatico(i, { referencia: e.target.value })} /></label>
+                                        <label>A partir de<input aria-label={`Início do lançamento automático ${i + 1}`} type="month" className="mt-0.5 block rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={a.desde} onChange={e => setAutomatico(i, { desde: e.target.value })} /></label>
+                                        <label>Até<input aria-label={`Fim do lançamento automático ${i + 1}`} type="month" className="mt-0.5 block rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={a.ate} onChange={e => setAutomatico(i, { ate: e.target.value })} /></label>
+                                        <label className="flex-1">Observação<input aria-label={`Observação do lançamento automático ${i + 1}`} className="mt-0.5 block w-full rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" maxLength={100} value={a.observacao ?? ''} onChange={e => setAutomatico(i, { observacao: e.target.value })} /></label>
+                                        <button className="text-red-700 underline dark:text-red-300" onClick={() => setAutomatico(i, null)}>remover</button>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-2"><span className="text-slate-500">Meses ({textoMeses(a.meses)}):</span>
+                                        {MESES_CURTOS.map((m, k) => (
+                                            <label key={m} className="flex items-center gap-0.5"><input type="checkbox" aria-label={`${m} no lançamento automático ${i + 1}`} checked={a.meses.includes(k + 1)}
+                                                onChange={e => setAutomatico(i, { meses: e.target.checked ? [...a.meses, k + 1].sort((x, y) => x - y) : a.meses.filter(x => x !== k + 1) })} />{m}</label>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                            <button className="rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600" onClick={() => setF(x => ({ ...x, lancamentosAutomaticos: [...(x.lancamentosAutomaticos ?? []), automaticoVazio()] }))}>Adicionar lançamento automático</button>
                         </div>
                     )}
 

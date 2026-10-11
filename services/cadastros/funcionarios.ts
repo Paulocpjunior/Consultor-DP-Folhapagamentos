@@ -19,6 +19,7 @@ import type { AdesaoBeneficio } from '../calculo/beneficios';
 import { validarAdesoes } from '../calculo/beneficios';
 import { validarContratos, type ContratoConsignado } from '../calculo/consignado';
 import type { FaixaLocal } from './locaisTrabalho';
+import { textoMeses, validarAutomaticos, type LancamentoAutomatico } from '../calculo/lancamentosAutomaticos';
 import { UFS, cnpjValido, cpfValido, dataValida, centavosDeTexto, pisValido } from './documentos';
 
 export type { Dependente };
@@ -26,7 +27,12 @@ export type CampoExtra = 'codigoIob' | 'horario' | 'banco' | 'agencia' | 'conta'
     | 'adiantamentoPct' | 'valeTransporte' | 'valeTransporteCusto' | 'horasMes'
     | 'insalubridade' | 'baseInsalubridade' | 'baseInsalubridadeValor' | 'periculosidade'
     | 'contribuicaoSindical' | 'oposicaoAssistencial' | 'associadoSindicato'
-    | 'lotacao' | 'departamento' | 'inicioNaEmpresa';
+    | 'lotacao' | 'departamento' | 'inicioNaEmpresa'
+    // Complementos (func do IOB: telefone2, tpsang, calca, camisa, jaqueta, calcado, cracha, cabelos, olhos, altura, peso, sinais, outrasc).
+    | 'telefone2' | 'tipoSanguineo' | 'uniformeCalca' | 'uniformeCamisa' | 'uniformeJaqueta' | 'uniformeCalcado' | 'cracha'
+    | 'cabelos' | 'olhos' | 'altura' | 'peso' | 'sinaisParticulares' | 'outrasCaracteristicas'
+    // Holerite (func do IOB: mensa1, mensa2 e mensa3): mensagens impressas no holerite do funcionário.
+    | 'mensagemHolerite1' | 'mensagemHolerite2' | 'mensagemHolerite3';
 export type CampoFicha = Exclude<Campo, 'dependentes' | 'matriculaIob'> | CampoExtra;
 export type Situacao = 'ativo' | 'desligado';
 export type ChaveOrigem = CampoFicha | 'dependentes' | 'situacao';
@@ -50,6 +56,8 @@ export interface FichaFuncionario {
     locais?: FaixaLocal[];
     /** Contratos do Crédito do Trabalhador (consignado CLT) descontados em folha (services/calculo/consignado.ts). */
     consignados?: ContratoConsignado[];
+    /** Lançamentos automáticos (aba "Lanç. Automático" do IOB): eventos que entram no movimento nos meses marcados. */
+    lancamentosAutomaticos?: LancamentoAutomatico[];
 }
 
 export interface FaixaSalarial {
@@ -86,6 +94,10 @@ export const ROTULO: Record<CampoFicha, string> = {
     lotacao: 'Obra ou lotação tributária (código do S-1020)',
     departamento: 'Departamento (cadastro; vazio = o do IOB)',
     inicioNaEmpresa: 'Início nesta empresa (transferência do grupo; a admissão é a do primeiro empregador)',
+    telefone2: 'Telefone 2', tipoSanguineo: 'Tipo sanguíneo',
+    uniformeCalca: 'Uniforme: calça', uniformeCamisa: 'Uniforme: camisa', uniformeJaqueta: 'Uniforme: jaqueta', uniformeCalcado: 'Uniforme: calçado', cracha: 'Crachá',
+    cabelos: 'Cabelos', olhos: 'Olhos', altura: 'Altura (m)', peso: 'Peso (kg)', sinaisParticulares: 'Sinais particulares', outrasCaracteristicas: 'Outras características',
+    mensagemHolerite1: 'Mensagem no holerite (linha 1)', mensagemHolerite2: 'Mensagem no holerite (linha 2)', mensagemHolerite3: 'Mensagem no holerite (linha 3)',
 };
 
 /**
@@ -131,11 +143,12 @@ const OPCOES: Partial<Record<CampoFicha, [string, string][]>> = {
     contribuicaoSindical: [['S', 'Sim: autorização prévia, expressa e por escrito'], ['N', 'Não']],
     oposicaoAssistencial: [['S', 'Sim: não desconta a assistencial'], ['N', 'Não']],
     associadoSindicato: [['S', 'Sim'], ['N', 'Não']],
+    tipoSanguineo: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(t => [t, t]),
     tipoConta: [['corrente', 'Corrente'], ['poupanca', 'Poupança'], ['salario', 'Salário'], ['pagamento', 'Pagamento']],
     uf: UFS.map(u => [u, u]), ufCtps: UFS.map(u => [u, u]),
 };
 const DATAS: CampoFicha[] = ['nascimento', 'admissao', 'inicioNaEmpresa', 'fimContrato', 'emissaoRg', 'dataDesligamento', 'dataProjetadaAviso'];
-const LONGOS: CampoFicha[] = ['observacoes', 'jornada', 'deficiencia', 'enderecoExterior'];
+const LONGOS: CampoFicha[] = ['observacoes', 'jornada', 'deficiencia', 'enderecoExterior', 'sinaisParticulares', 'outrasCaracteristicas'];
 
 export function defCampo(campo: CampoFicha): DefCampo {
     if (OPCOES[campo]) return { tipo: 'lista', opcoes: OPCOES[campo] };
@@ -144,7 +157,10 @@ export function defCampo(campo: CampoFicha): DefCampo {
     return { tipo: 'texto' };
 }
 
-/** Abas na ordem do IOB Office. Complementos, Lanç. Automático e Holerite dependem dos prints do Office. */
+/**
+ * Abas na ordem do IOB Office. Complementos e Holerite pelos campos da `func` do backup (06/10/2026); o
+ * Lanç. Automático (tabela `lancauto`) é uma aba própria na ficha, como Dependentes e Consignado.
+ */
 export const ABAS: { id: string; titulo: string; campos: CampoFicha[] }[] = [
     { id: 'dados', titulo: 'Dados', campos: ['nome', 'nascimento', 'sexo', 'estadoCivil', 'raca', 'escolaridade', 'nacionalidade', 'paisNascimento', 'naturalidade', 'mae', 'pai', 'cep', 'logradouro', 'numero', 'complemento', 'bairro', 'municipio', 'uf', 'telefone', 'email'] },
     { id: 'identAdm', titulo: 'Ident. Adm.', campos: ['codigoIob', 'admissao', 'categoria', 'tipoContrato', 'fimContrato', 'cargo', 'cbo', 'funcao', 'cargoIob', 'departamentoIob', 'departamento', 'salario', 'unidadeSalario', 'horasSemanais', 'horasMes', 'horario', 'jornada', 'horarioTrabalho', 'horarioIntervalo', 'sindicato', 'sindicatoIob', 'estabelecimento', 'lotacao', 'inicioNaEmpresa', 'regimeTrabalhista', 'regimePrevidenciario', 'opcaoFgts', 'grauExp', 'dataDesligamento', 'motivoDesligamento', 'dataProjetadaAviso'] },
@@ -152,6 +168,8 @@ export const ABAS: { id: string; titulo: string; campos: CampoFicha[] }[] = [
     { id: 'adicionais', titulo: 'Adicionais', campos: ['insalubridade', 'baseInsalubridade', 'baseInsalubridadeValor', 'periculosidade'] },
     { id: 'sindicato', titulo: 'Sindicato', campos: ['contribuicaoSindical', 'oposicaoAssistencial', 'associadoSindicato'] },
     { id: 'documentos', titulo: 'Documentos', campos: ['pis', 'cadastroPis', 'ctps', 'serieCtps', 'ufCtps', 'rg', 'orgaoRg', 'emissaoRg', 'tituloEleitor', 'zonaEleitoral', 'secaoEleitoral', 'documentoMilitar'] },
+    { id: 'complementos', titulo: 'Complementos', campos: ['telefone2', 'tipoSanguineo', 'uniformeCalca', 'uniformeCamisa', 'uniformeJaqueta', 'uniformeCalcado', 'cracha', 'cabelos', 'olhos', 'altura', 'peso', 'sinaisParticulares', 'outrasCaracteristicas'] },
+    { id: 'holerite', titulo: 'Holerite', campos: ['mensagemHolerite1', 'mensagemHolerite2', 'mensagemHolerite3'] },
     { id: 'outros', titulo: 'Outros', campos: ['banco', 'agencia', 'conta', 'tipoConta', 'pix', 'deficiencia', 'enderecoExterior', 'observacoes'] },
 ];
 
@@ -346,6 +364,10 @@ export function validarFicha(f: FichaFuncionario): Validacao {
     if (hm && !(/^\d{1,3}([.,]\d{1,2})?$/.test(hm) && Number(hm.replace(',', '.')) >= 1 && Number(hm.replace(',', '.')) <= 300)) erros.push('Horas mês: número de horas entre 1 e 300 (ex.: 220).');
     erros.push(...validarAdesoes(f.beneficios ?? []));
     erros.push(...validarContratos(f.consignados ?? []));
+    erros.push(...validarAutomaticos(f.lancamentosAutomaticos ?? []));
+    const medida = (k: 'altura' | 'peso', max: number) => { const t = (d[k] ?? '').trim(); if (t && !(/^\d{1,3}([.,]\d{1,2})?$/.test(t) && Number(t.replace(',', '.')) > 0 && Number(t.replace(',', '.')) <= max)) erros.push(`${ROTULO[k]}: número até ${max} (ex.: ${k === 'altura' ? '1,75' : '72,5'}).`); };
+    medida('altura', 3); medida('peso', 400);
+    for (const k of ['mensagemHolerite1', 'mensagemHolerite2', 'mensagemHolerite3'] as CampoFicha[]) if ((d[k] ?? '').length > 100) erros.push(`${ROTULO[k]}: até 100 caracteres.`);
     if (d.valeTransporteCusto && !/^\d+(\.\d{1,2})?$/.test(d.valeTransporteCusto)) erros.push('Custo do vale-transporte inválido (valor com ponto decimal, ex.: 220.00).');
     if (d.insalubridade && d.baseInsalubridade === 'valor' && !(Number(d.baseInsalubridadeValor) > 0)) erros.push('Insalubridade sobre valor informado: preencha o valor da base (piso da convenção).');
     if (d.insalubridade && d.periculosidade === 'S') avisos.push('Insalubridade e periculosidade não se acumulam (CLT, art. 193, § 2º): o empregado escolhe uma; o cálculo usa a de maior valor.');
@@ -385,10 +407,10 @@ export function validarFicha(f: FichaFuncionario): Validacao {
     return { erros, avisos };
 }
 
-export interface Alteracao { campo: ChaveOrigem | 'codigoIob' | 'matriculaEsocial' | 'cpf' | 'cnpj' | 'pendencias' | 'historicoSalario' | 'beneficios' | 'locais' | 'consignados'; de: string; para: string }
+export interface Alteracao { campo: ChaveOrigem | 'codigoIob' | 'matriculaEsocial' | 'cpf' | 'cnpj' | 'pendencias' | 'historicoSalario' | 'beneficios' | 'locais' | 'consignados' | 'lancamentosAutomaticos'; de: string; para: string }
 
 /** Rótulo de uma alteração na prévia e no histórico. */
-export const rotuloAlteracao = (campo: string) => (campo === 'pendencias' ? 'Pendências da importação' : campo === 'beneficios' ? 'Benefícios' : campo === 'consignados' ? 'Crédito do Trabalhador (consignado)' : campo === 'historicoSalario' ? 'Histórico de salário' : campo === 'locais' ? 'Locais de trabalho (estabelecimentos)' : campo === 'cnpj' ? 'CNPJ do empregador' : ROTULO[campo as CampoFicha] ?? campo);
+export const rotuloAlteracao = (campo: string) => (campo === 'pendencias' ? 'Pendências da importação' : campo === 'beneficios' ? 'Benefícios' : campo === 'consignados' ? 'Crédito do Trabalhador (consignado)' : campo === 'lancamentosAutomaticos' ? 'Lançamentos automáticos' : campo === 'historicoSalario' ? 'Histórico de salário' : campo === 'locais' ? 'Locais de trabalho (estabelecimentos)' : campo === 'cnpj' ? 'CNPJ do empregador' : ROTULO[campo as CampoFicha] ?? campo);
 
 // A marca "fora do eSocial" entra (a do XML é "S" e não muda o texto): trocada à mão, vira alteração e a origem passa a "Manual".
 const depsTexto = (l: Dependente[]) => l.map(d => `${d.nome} (${d.nascimento || 's/ nasc.'}${d.cpf ? `, CPF ${d.cpf}` : ''}${d.pensao === 'S' ? `, pensão${d.cotaPensao ? ` ${d.cotaPensao}%` : ''}` : ''}${d.noEsocial === 'N' ? ', fora do eSocial' : ''})`).join('; ');
@@ -416,6 +438,8 @@ export function diffFicha(antes: FichaFuncionario | null, depois: FichaFuncionar
     if (ben(antes) !== ben(depois)) r.push({ campo: 'beneficios', de: ben(antes), para: ben(depois) });
     const con = (f: Pick<FichaFuncionario, 'consignados'> | null) => (f?.consignados ?? []).map(c => `${c.instFinanc}/${c.nrDoc}: ${c.parcela} de ${c.inicio}${c.fim ? ` a ${c.fim}` : ''}${c.saldoRescisao !== undefined ? ` (saldo ${c.saldoRescisao})` : ''}`).join('; ');
     if (con(antes) !== con(depois)) r.push({ campo: 'consignados', de: con(antes), para: con(depois) });
+    const aut = (f: Pick<FichaFuncionario, 'lancamentosAutomaticos'> | null) => (f?.lancamentosAutomaticos ?? []).map(x => `${x.codigoEvento} ${x.referencia} (${textoMeses(x.meses)}${x.desde ? ` de ${x.desde}` : ''}${x.ate ? ` até ${x.ate}` : ''})`).join('; ');
+    if (aut(antes) !== aut(depois)) r.push({ campo: 'lancamentosAutomaticos', de: aut(antes), para: aut(depois) });
     const loc = (f: Pick<FichaFuncionario, 'locais'> | null) => (f?.locais ?? []).map(x => `${x.desde}: ${x.estabelecimento}`).join('; ');
     if (loc(antes) !== loc(depois)) r.push({ campo: 'locais', de: loc(antes), para: loc(depois) });
     return r;
@@ -425,7 +449,7 @@ export function diffFicha(antes: FichaFuncionario | null, depois: FichaFuncionar
 export function aplicarEdicao(antes: FichaFuncionario | null, depois: FichaFuncionario, autor: string, quando: string): FichaFuncionario {
     const origens = { ...depois.origens };
     for (const alt of diffFicha(antes, depois)) {
-        if (alt.campo === 'cpf' || alt.campo === 'matriculaEsocial' || alt.campo === 'cnpj' || alt.campo === 'historicoSalario' || alt.campo === 'beneficios' || alt.campo === 'consignados') continue;
+        if (alt.campo === 'cpf' || alt.campo === 'matriculaEsocial' || alt.campo === 'cnpj' || alt.campo === 'historicoSalario' || alt.campo === 'beneficios' || alt.campo === 'consignados' || alt.campo === 'lancamentosAutomaticos') continue;
         origens[alt.campo] = `Manual · ${autor} · ${quando}`;
     }
     return { ...depois, origens };

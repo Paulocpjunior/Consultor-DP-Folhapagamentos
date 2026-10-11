@@ -18,7 +18,7 @@ describe('de/para proposto pelos nomes das colunas', () => {
         expect(proporMapeamento(colunas)).toEqual({
             codigoIob: 'CODIGO', nome: 'NOME', cpf: 'CPF', pis: 'PIS', admissao: 'DT_ADMISSAO', nascimento: 'DTNASC',
             matriculaEsocial: 'MATRICULA', salario: 'SALARIO', banco: 'BANCO', agencia: 'AGENCIA', conta: 'CONTA',
-            dataDesligamento: 'DT_DEMISSAO', cbo: 'CBO',
+            dataDesligamento: 'DT_DEMISSAO', cbo: 'CBO', observacoes: 'OBS',
         });
         expect(proporMapeamento(['nr_cpf', 'nome_funcionario', 'data_admissão'])).toEqual({ cpf: 'nr_cpf', nome: 'nome_funcionario', admissao: 'data_admissão' });
         expect(chaveColuna('Data_Admissão')).toBe('dataadmissao');

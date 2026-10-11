@@ -45,6 +45,9 @@ export function limparMovimento(m: Movimento): Movimento {
     if (typeof m.arredondamentoPagamento === 'string' && /^\d{4}-\d{2}$/.test(m.arredondamentoPagamento)) out.arredondamentoPagamento = m.arredondamentoPagamento;
     if (typeof m.mesPagamento === 'string' && /^\d{4}-\d{2}$/.test(m.mesPagamento)) out.mesPagamento = m.mesPagamento;
     if (typeof m.irrfPagamento === 'string' && /^\d{4}-\d{2}$/.test(m.irrfPagamento)) out.irrfPagamento = m.irrfPagamento;
+    // Lançamentos automáticos já postos no mês: chaves únicas, em ordem.
+    const auto = [...new Set((m.automaticos ?? []).filter(k => typeof k === 'string' && /^[0-9A-Za-z|.,:\s-]{1,60}$/.test(k)))].sort();
+    if (auto.length) out.automaticos = auto;
     // Outros adicionais de hora extra: chaves numéricas em ordem, horas com 4 casas, sem os zerados.
     const pct = Object.entries(m.horasExtrasPct ?? {}).filter(([p, h]) => /^\d{1,3}(\.\d{1,2})?$/.test(p) && typeof h === 'number' && Number.isFinite(h) && h !== 0)
         .sort((a, b) => Number(a[0]) - Number(b[0])).map(([p, h]) => [p, Math.round(h * 10000) / 10000] as const);
