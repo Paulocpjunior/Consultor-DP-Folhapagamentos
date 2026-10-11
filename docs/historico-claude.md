@@ -3862,3 +3862,17 @@ Paulo: "a convenção publicada pelos sindicatos deve conter data de renovação
   - Cadastros › Conformidade: a mensagem da convenção vencida traz os dias em atraso; a vencer, os dias que faltam;
   - Prazos do DP: "Nova convenção em atraso há N dias" (fica na lista até a nova ser cadastrada) e "Renovação da convenção coletiva" dentro do horizonte; com a empresa escolhida, os sindicatos dela.
 - **Testes:** renovação (em dia, a vencer, atraso de 1 e 46 dias, nova zera, sem convenção), avisos ao gravar, prazos e a tela de sindicatos com o alerta.
+
+## 11/10/2026 — Administração de benefícios
+
+Paulo: administração de benefícios, com modal de links válidos para as principais empresas de transporte do estado de São Paulo (trens, ônibus, metrô) e de benefícios (Pluxee, Caju, Sodexo, Sólides, Porto Seguro odonto, Gympass/Wellhub, TotalPass, entre outros). No mesmo pedido: folha de domésticos (caseiro, cozinheira, babá) — lote próprio.
+
+- **Onde:** Folha do mês › Administração de benefícios (`components/beneficios/AdministracaoBeneficios.tsx`), da empresa ativa.
+- **Catálogo** (`services/beneficios/fornecedores.ts`), por categoria, com busca (também pelo nome antigo):
+  - transporte em SP: SPTrans (Bilhete Único, ônibus da capital), TOP (vale-transporte metropolitano: Metrô, CPTM e EMTU; substituiu o cartão BOM), Metrô, CPTM, EMTU, ViaQuatro e ViaMobilidade;
+  - alimentação e multibenefícios: Pluxee (antiga Sodexo), Alelo, Ticket, VR, Caju, Flash, iFood Benefícios, Swile e Sólides;
+  - saúde e odonto: Porto Seguro Odonto e Odontoprev; bem-estar: Wellhub (antigo Gympass) e TotalPass.
+- **Links:** só https; abrem em outra aba. A rede do ambiente de desenvolvimento não abre esses sites: os domínios de SPTrans, TOP, EMTU, Pluxee, Ticket, Flash, Sólides, Porto, Wellhub e TotalPass foram confirmados em busca pública (11/10/2026); os demais (Metrô, CPTM, ViaQuatro, ViaMobilidade, Alelo, VR, Caju, iFood, Swile, Odontoprev) são os domínios conhecidos e a tela marca "endereço a conferir ao abrir".
+- **Contratados da empresa:** fornecedor (do catálogo ou outro), produto, contrato/nº do cliente, dia do pedido ou da recarga (com a data do próximo e quantos dias faltam), contato, link próprio do portal (vale no lugar do catálogo) e observação. Grava em `empresas.beneficiosContratados`; quem tem a empresa na carteira grava (regra e teste).
+- **Catálogo SAGE:** benefícios cita a administração (continua parcial: falta a quantidade de VT a comprar e a coparticipação do plano de saúde).
+- **Testes:** catálogo (links, ids, marcas antigas), link seguro, contratado, próximo pedido (mês curto, virada de ano), tela (busca, contratar, dia do pedido, gravar) e regra.

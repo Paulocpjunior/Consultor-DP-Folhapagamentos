@@ -26,6 +26,12 @@ describe('consulta de FGTS', () => {
     await assertFails(updateDoc(doc(fs('col'), 'empresas/A'), { razaoSocial: 'OUTRA' }));
     await assertFails(updateDoc(doc(fs('col2'), 'empresas/A'), { procuracaoFgts: { perfil: 'consulta', validaAte: '2027-10-01' } }));
   });
+  it('quem tem a empresa na carteira grava os benefícios contratados (Administração de benefícios); outro não', async () => {
+    const lista = [{ id: 'b1', fornecedorId: 'pluxee', nome: '', url: '', produto: 'VR', contrato: '123', diaPedido: '25', contato: '', observacao: '' }];
+    await assertSucceeds(updateDoc(doc(fs('col'), 'empresas/A'), { beneficiosContratados: lista }));
+    await assertFails(updateDoc(doc(fs('col2'), 'empresas/A'), { beneficiosContratados: lista }));
+    await assertFails(updateDoc(doc(fs('col'), 'empresas/A'), { beneficiosContratados: lista, razaoSocial: 'OUTRA' }));
+  });
   it('o aviso do SERPRO por empresa e mês: cria e atualiza no mesmo id', async () => {
     await assertSucceeds(setDoc(doc(fs('col'), 'esocial_fgts/serpro_A_2026-09'), reg));
     await assertSucceeds(setDoc(doc(fs('col'), 'esocial_fgts/serpro_A_2026-09'), { ...reg, status: 'em_dia', valorRecolhido: 2400 }));

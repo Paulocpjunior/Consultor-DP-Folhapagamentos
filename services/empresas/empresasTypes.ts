@@ -36,6 +36,8 @@ export interface Empresa {
     procuracaoFgts?: import('../fgts/consultaFgts').ProcuracaoFgts;
     /** Estabelecimento, lotação e de/para das verbas com as rubricas, para o S-1200 e o S-1210. */
     esocialFolha?: import('../esocial/eventosFolha').ParametrosEsocialFolha;
+    /** Benefícios contratados (fornecedor, contrato, dia do pedido, contato): Folha do mês › Administração de benefícios. */
+    beneficiosContratados?: import('../beneficios/fornecedores').BeneficioContratado[];
     /** Parâmetros do cálculo da folha (arredondamento do líquido). */
     parametrosFolha?: import('../calculo/arredondamento').ParametrosFolha;
 }
