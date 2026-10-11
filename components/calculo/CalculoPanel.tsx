@@ -46,6 +46,7 @@ import ConferenciaEsocialIob from './ConferenciaEsocialIob';
 import EventosFolhaModal from '../esocial/EventosFolhaModal';
 import { ehAdmin, ehMaster } from '../../services/auth/papeis';
 import CalculoAdiantamentosModal from './CalculoAdiantamentosModal';
+import FolhaComplementarModal from './FolhaComplementarModal';
 import { recibosFeriasDaCompetencia } from '../../services/esocial/eventosFolha';
 import { contextoDoHolerite, definirContextoMia } from '../../services/mia/mia';
 import { resumirFolha } from '../../services/relatorios/resumoFolha';
@@ -179,6 +180,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
     const [opcoesFerias, setOpcoesFerias] = useState<OpcoesFerias>(OPCOES_FERIAS_PADRAO);
     const [recarga, setRecarga] = useState(0);
     const [coletivas, setColetivas] = useState(false);
+    const [complementar, setComplementar] = useState(false);
     // Folha mensal: movimentos de todos os meses, para os recibos de férias que tocam o mês (médias e faltas).
     const [movsEmpresa, setMovsEmpresa] = useState<Record<string, Record<string, Movimento>> | null>(null);
     const [salvos, setSalvos] = useState(0);
@@ -721,6 +723,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                 <GrupoAcoes rotulo="Pagamento">
                     <button className={btn} disabled={!empresa || !resultados.some(r => r.situacao === 'calculado') || !!bloqueioPagamento} title={bloqueioPagamento || undefined} onClick={() => setArquivoBancario('folha')}>Arquivo bancário</button>
                     {mensal && <button className={btn} disabled={!dados || !resultados.length} title="Adiantamento salarial do mês por funcionário: valores, IRRF, arredondamento, recibos e arquivo bancário." onClick={() => setVerAdiantamentos(true)}>Cálculo de adiantamentos</button>}
+                    {mensal && <button className={btn} disabled={!empresa || !dados} title="Diferenças de meses já fechados (reajuste retroativo da convenção, acordo, lei, parcela conhecida depois), pagas com a folha deste mês." onClick={() => setComplementar(true)}>Folha complementar…</button>}
                     {mensal && resultados.some(r => r.situacao === 'calculado' && valorDoAdiantamento(r) > 0) && <button className={btn} disabled={!empresa || !movsLidos || !!bloqueioPagamento} title={bloqueioPagamento || (movsLidos ? 'Remessa do adiantamento salarial do mês (dia 20 ou o dia útil anterior), com o valor de cada um.' : 'Sem os movimentos gravados do mês (carregando ou com erro na leitura): um adiantamento informado no movimento muda o valor.')} onClick={() => setArquivoBancario('adiantamento')}>Arquivo do adiantamento</button>}
                     {mensal && resultados.some(r => valorDoAdiantamento(r) > 0) && <button className={btn} disabled={!dados || !movsLidos} title={movsLidos ? `Recibo do adiantamento salarial de cada funcionário, pago em ${br(dataAdiantamento)}, para assinatura.` : 'Sem os movimentos gravados do mês (carregando ou com erro na leitura): um adiantamento informado no movimento muda o valor.'} onClick={pdfAdiantamento}>Recibos do adiantamento (PDF)</button>}
                 </GrupoAcoes>
@@ -790,6 +793,15 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                     </div>
                 );
             })()}
+            {complementar && mensal && dados && empresa && (
+                <FolhaComplementarModal empresa={{ id: empresa.id, cnpj: empresa.cnpj, razaoSocial: empresa.razaoSocial || empresa.nomeFantasia || '', sindicatos: empresa.sindicatos }}
+                    competencia={competencia} pagamento={/^\d{4}-\d{2}$/.test(pagamento) ? pagamento : competenciaSeguinte(competencia)} fichas={dados.fichas} tabelas={dados.tabelas}
+                    folhaDoMes={resultados} encerrado={encerrado} usuario={usuario} onFechar={() => setComplementar(false)}
+                    onPdf={(lista, ins) => {
+                        relatoriosPdf().then(m => m.holeritesPdf(lista, dados.fichas, { ...opcoesPdf(), titulo: `Folha complementar ${br(competencia)} — ${ins.tpAcConv}` }).save(`complementar-${empresa.codigoSage ?? 'empresa'}-${competencia}-${ins.tpAcConv}.pdf`))
+                            .catch(e => setErrosMov([`PDF não gerado: ${(e as Error).message}`]));
+                    }} />
+            )}
             {coletivas && dados && movsAno && empresa && (
                 <FeriasColetivasModal empresa={{ id: empresa.id, cnpj: empresa.cnpj, razaoSocial: empresa.razaoSocial || empresa.nomeFantasia || '', codigoSage: empresa.codigoSage }}
                     fichas={dados.fichas} afastamentos={dados.afastamentos} movimentos={movsAno} usuario={usuario}

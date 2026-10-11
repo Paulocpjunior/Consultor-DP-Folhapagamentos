@@ -3876,3 +3876,22 @@ Paulo: administração de benefícios, com modal de links válidos para as princ
 - **Contratados da empresa:** fornecedor (do catálogo ou outro), produto, contrato/nº do cliente, dia do pedido ou da recarga (com a data do próximo e quantos dias faltam), contato, link próprio do portal (vale no lugar do catálogo) e observação. Grava em `empresas.beneficiosContratados`; quem tem a empresa na carteira grava (regra e teste).
 - **Catálogo SAGE:** benefícios cita a administração (continua parcial: falta a quantidade de VT a comprar e a coparticipação do plano de saúde).
 - **Testes:** catálogo (links, ids, marcas antigas), link seguro, contratado, próximo pedido (mês curto, virada de ano), tela (busca, contratar, dia do pedido, gravar) e regra.
+
+## 11/10/2026 — Folha complementar
+
+Paulo: "pode seguir com a folha complementar".
+
+- **Cálculo** (`services/calculo/complementar.ts`), pago com a folha da competência em que o instrumento foi celebrado:
+  - fato gerador do eSocial ({tpAcConv}): convenção (C), acordo (A), dissídio (D), antecipação (G), lei (B) e parcelas conhecidas após o fechamento (J, com a descrição do MOS); E, F, H e I ficam para o IOB. Data da celebração obrigatória de A a E e não pode passar da competência;
+  - reajuste retroativo (% de um mês a outro, anteriores à competência) sobre as **folhas gravadas**: salário, periculosidade, maternidade, horas extras e DSR, férias do mês e faltas, cada diferença no mesmo código da verba (o de/para do eSocial vale). Insalubridade e lançamentos avulsos não reajustam (aviso);
+  - lançamentos à mão por funcionário e mês de referência (verba do motor ou avulso com descrição, com as incidências);
+  - **INSS** mês a mês pela tabela e pelo teto de cada mês de referência: o INSS sobre a base gravada + a diferença, menos o da base gravada (o eSocial não calcula o do segurado em períodos anteriores; MOS, item 18.16);
+  - **FGTS** 8% (aprendiz 2%), recolhido na competência da complementar;
+  - **IRRF** no mês do pagamento, somado à folha da competência paga junto (rendimentos e deduções dela, menos o que ela reteve); sem ela, sozinho, com aviso;
+  - **RRA** (diferenças de anos anteriores ao do pagamento): o resultado fica incompleto, com aviso, porque o IRRF é exclusivo na fonte pela tabela acumulada e o eSocial pede demonstrativo próprio — por enquanto pelo IOB;
+  - avisos: mês sem folha gravada, reajuste que pega dezembro (13º à parte), desligado (verbas rescisórias à parte), diferença negativa (erro).
+- **Tela** (Cálculo › Folha do mês › Pagamento › Folha complementar…; `components/calculo/FolhaComplementarModal.tsx`): tipo, data, descrição, mês do pagamento, reajuste e lançamentos; "Usar a convenção" preenche pelo reajuste da convenção do sindicato da empresa; prévia por funcionário com meses, diferenças, INSS, IRRF, líquido, FGTS, verbas e memória; holerites em PDF; gravar, abrir, regravar e excluir.
+- **Gravação:** `folhas_complementares/{empresa}_{competência}_{tipo}` (uma por instrumento na competência). Regras: quem pode na empresa grava, regrava e exclui com a competência aberta; encerrada no Fim de mês, nada muda.
+- **eSocial:** a tela "S-1200 e S-1210" carrega as complementares gravadas da competência e põe cada uma num demonstrativo próprio (`COMP{AAAAMM}{tipo}-{matrícula}`) com `infoPerAnt/ideADC` (dtAcConv, tpAcConv, dsc, remunSuc N) e um `idePeriodo` por mês de referência com as diferenças e o INSS do mês; o IRRF vai no último mês. O pagamento entra no S-1210 junto com a folha. Conferido no XSD oficial do S-1.3. Quem não está na folha do mês (desligado) ainda não sai: aviso.
+- **Catálogo SAGE:** Folha Complementar passa de planejado a parcial (19 disponíveis, 21 parciais, 8 planejados, 3 fora).
+- **Testes:** validação, reajuste (INSS por mês, FGTS, IRRF somado, teto, aprendiz), RRA, lançamentos, sugestão pela convenção, S-1200 no XSD, tela e regras.

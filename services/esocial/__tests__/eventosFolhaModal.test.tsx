@@ -13,11 +13,13 @@ const sv = vi.hoisted(() => ({
     envios: [] as unknown[],
     consultar: vi.fn(async (..._a: unknown[]) => ({})),
     registrarConsulta: vi.fn(async (..._a: unknown[]) => undefined),
+    complementares: [] as unknown[],
 }));
 vi.mock('../../cadastros/cadastrosService', () => ({ listarRubricas: (id: string) => sv.rubricas(id), mensagemErro: (e: unknown) => String(e) }));
 vi.mock('../../empresas/empresasService', () => ({ salvarParametrosEsocialFolha: (...a: unknown[]) => sv.salvar(...a) }));
 vi.mock('../transmissaoService', async orig => ({ ...(await orig<typeof import('../transmissaoService')>()), registrarIntencao: (...a: unknown[]) => sv.registrar(...a), concluirEnvio: async () => undefined, listarEnvios: async () => sv.envios,
     registrarConsulta: (...a: unknown[]) => sv.registrarConsulta(...a) }));
+vi.mock('../../calculo/folhaComplementarService', () => ({ listarComplementares: async () => sv.complementares }));
 vi.mock('../validadorXsd', async orig => ({ ...(await orig<typeof import('../validadorXsd')>()), validarPeloXsd: async () => ({ valido: true, erros: [] }) }));
 vi.mock('../transmissao', async orig => ({ ...(await orig<typeof import('../transmissao')>()), enviarLote: (p: { eventos: string[]; tpAmb: number }) => sv.enviar(p), consultarLote: (...a: unknown[]) => sv.consultar(...a) }));
 vi.mock('../../implantacao/zip', async orig => ({ ...(await orig<typeof import('../../implantacao/zip')>()), baixarBytes: (nome: string) => { sv.baixados.push(nome); } }));
@@ -25,7 +27,7 @@ import EventosFolhaModal from '../../../components/esocial/EventosFolhaModal';
 import { fichaVazia } from '../../cadastros/funcionarios';
 import type { ResultadoCalculo } from '../../calculo/motorMensal';
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); sv.baixados.length = 0; sv.envios = []; });
+afterEach(() => { cleanup(); vi.clearAllMocks(); sv.baixados.length = 0; sv.envios = []; sv.complementares = []; });
 const CNPJ = '44388152000189';
 const rub = (codRubr: string, dscRubr: string, natRubr: string, tpRubr: string) => ({ id: codRubr, empresaId: 'E1', codRubr, ideTabRubr: 'T1', eventoIob: '', origem: '',
     vigencias: [{ iniValid: '2020-01', fimValid: '', recibo: '', dados: { dscRubr, natRubr, tpRubr, codIncCP: '11', codIncIRRF: '11', codIncFGTS: '11', codIncCPRP: '', observacao: '' } }] });
@@ -141,5 +143,15 @@ describe('tela S-1200 e S-1210', () => {
         await waitFor(() => expect(sv.enviar).toHaveBeenCalledTimes(3));
         const s = sv.enviar.mock.calls[2][0].eventos[0];
         expect([s.includes('<indRetif>1</indRetif>'), s.includes('<ideDmDev>ADT-10</ideDmDev>')]).toEqual([true, true]);
+    });
+    it('folha complementar gravada na competência: aviso na tela e demonstrativo com as diferenças no S-1200', async () => {
+        sv.rubricas.mockResolvedValue([rub('0001', 'SALARIO', '1000', '1'), rub('0901', 'INSS', '9201', '2')]);
+        const dif = { codigo: 'SAL', descricao: 'Diferença de salário', referencia: '5%', tipo: 'provento', valor: 15000, inss: true, fgts: true, irrf: true };
+        sv.complementares = [{ id: 'E1_2026-09_C', empresaId: 'E1', perApur: '2026-09', pagamento: '2026-10', instrumento: { tpAcConv: 'C', dtAcConv: '2026-09-10', dsc: 'CCT 2026/2027' }, lancamentos: [], totais: {}, gravadoPorEmail: 'u@x',
+            resultados: [{ ...res, pagamento: '2026-10', verbas: [dif], totais: { proventos: 15000, descontos: 0, liquido: 15000 }, meses: [{ perRef: '2026-08', verbas: [dif], bases: { inss: 15000, fgts: 15000, irrf: 15000 }, inss: 0, fgts: 1200, rra: false }] }] }];
+        render(<EventosFolhaModal empresa={{ ...empresa, esocialFolha: { nrInscEstab: CNPJ, codLotacao: 'LOT01', rubricas: { SAL: { codRubr: '0001', ideTabRubr: 'T1' }, INSS: { codRubr: '0901', ideTabRubr: 'T1' } } } }} competencia="2026-09" fichas={[ficha]} resultados={[res]} dataSugerida="2026-10-06" usuario={{ id: 'u', email: 'u@x' }} onFechar={() => {}} />);
+        await waitFor(() => expect(screen.getByText(/Folha complementar gravada \(C – Convenção Coletiva de Trabalho, 1 funcionário\(s\)\)/)).toBeTruthy());
+        fireEvent.click(screen.getByText('Baixar XMLs (.zip)'));
+        expect(sv.baixados).toEqual(['eventos-folha-1200-2026-09.zip']);
     });
 });
