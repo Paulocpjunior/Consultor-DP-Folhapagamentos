@@ -15,6 +15,7 @@ import { fichaNaCompetencia } from '../cadastros/funcionarios';
 import type { EventoIobSage } from '../folha/folhaTypes';
 import { eventoPorCodigo, lancarEvento, tipoDaReferencia } from './lancarEvento';
 import { salarioContratual, type Movimento } from './motorMensal';
+import type { FormulaEvento } from './formulaEvento';
 
 export interface LinhaValores {
     linha: number;
@@ -70,6 +71,8 @@ export interface AplicacaoValores { movimentos: Record<string, Movimento>; resul
 export function aplicarValores(p: {
     linhas: LinhaValores[]; competencia: string; codigoEmpresa: string;
     fichas: FichaFuncionario[]; eventos: EventoIobSage[]; movimentos: Record<string, Movimento>;
+    /** Fórmulas próprias da empresa por código de evento: valem sobre a rotina do cadastro. */
+    formulas?: Record<string, FormulaEvento>;
 }): AplicacaoValores {
     const movimentos: Record<string, Movimento> = { ...p.movimentos };
     const resultados: ResultadoLinha[] = [];
@@ -89,15 +92,17 @@ export function aplicarValores(p: {
         const f = fs[0];
         const ev = eventoPorCodigo(p.eventos, l.evento);
         if (!ev) { resultados.push({ linha: l, fichaId: f.id, nome: f.dados.nome, mensagem: `evento ${l.evento} não está no catálogo de eventos do IOB.`, ok: false }); continue; }
-        const tipo = tipoDaReferencia(ev);
+        const formula = p.formulas?.[ev.codigo];
+        const tipo = formula ? formula.referencia : tipoDaReferencia(ev);
         let ref: number;
         // Evento por valor: a referência do Lançar evento é em centavos (como a tela lê).
-        if (tipo === 'valor') ref = l.valor > 0 ? l.valor : Math.round(l.referencia * 100);
+        if (tipo === 'nenhuma') ref = 0;
+        else if (tipo === 'valor') ref = l.valor > 0 ? l.valor : Math.round(l.referencia * 100);
         else if (l.referencia > 0) ref = l.referencia;
         else { resultados.push({ linha: l, fichaId: f.id, nome: f.dados.nome, mensagem: `evento ${ev.codigo} ${ev.descricao} é por ${tipo}, e a linha traz valor.`, ok: false }); continue; }
         const sc = salarioContratual(fichaNaCompetencia(f, p.competencia).ficha.dados);
         const sal = 'erro' in sc ? null : { mensal: sc.mensal, horasMes: sc.horasMes };
-        const res = lancarEvento(ev, ref, sal, movimentos[f.id] ?? {});
+        const res = lancarEvento(ev, ref, sal, movimentos[f.id] ?? {}, formula);
         if ('erro' in res) { resultados.push({ linha: l, fichaId: f.id, nome: f.dados.nome, mensagem: res.erro, ok: false }); continue; }
         movimentos[f.id] = res.movimento;
         resultados.push({ linha: l, fichaId: f.id, nome: f.dados.nome, mensagem: res.mensagem, ok: true });

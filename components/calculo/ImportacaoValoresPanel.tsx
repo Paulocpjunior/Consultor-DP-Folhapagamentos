@@ -15,6 +15,8 @@ import { listarMovimentos, salvarMovimentos } from '../../services/calculo/movim
 import type { Movimento } from '../../services/calculo/motorMensal';
 import { mesmoMovimento } from '../../services/calculo/movimento';
 import { lerFechamento } from '../../services/fimDeMes/fechamentoService';
+import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
+import type { FormulaEvento } from '../../services/calculo/formulaEvento';
 import { aplicarValores, lerValoresIob, type LeituraValores } from '../../services/calculo/importacaoValores';
 
 const btn = 'rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
@@ -29,6 +31,7 @@ const ImportacaoValoresPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => 
     const [gravados, setGravados] = useState<Record<string, Movimento>>({});
     const [encerrado, setEncerrado] = useState(false);
     const [leitura, setLeitura] = useState<LeituraValores | null>(null);
+    const [formulas, setFormulas] = useState<Record<string, FormulaEvento> | undefined>(undefined);
     const [arquivo, setArquivo] = useState('');
     const [recarga, setRecarga] = useState(0);
     const [ocupado, setOcupado] = useState(''); const [erro, setErro] = useState(''); const [msg, setMsg] = useState('');
@@ -36,16 +39,17 @@ const ImportacaoValoresPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => 
     useEffect(() => {
         if (!ativa || !competencia) return;
         let vivo = true;
-        Promise.all([listarFuncionarios(ativa.id), carregarEventosIob(), listarMovimentos(ativa.id, competencia), lerFechamento(ativa.id, competencia).catch(() => null)])
-            .then(([fs, evs, movs, fech]) => {
+        Promise.all([listarFuncionarios(ativa.id), carregarEventosIob(), listarMovimentos(ativa.id, competencia), lerFechamento(ativa.id, competencia).catch(() => null), listarEmpresasVisiveis().catch(() => [])])
+            .then(([fs, evs, movs, fech, emps]) => {
                 if (!vivo) return;
                 setFichas(fs); setEventos(evs); setGravados(Object.fromEntries(movs.map(m => [m.fichaId, m.movimento]))); setEncerrado(fech?.situacao === 'encerrado');
+                setFormulas(emps.find(x => x.id === ativa.id)?.parametrosFolha?.formulasEventos);
             })
             .catch(e => { if (vivo) setErro(`Dados não carregados (o movimento gravado é preciso para não sobrescrever): ${mensagemErro(e)}`); });
         return () => { vivo = false; };
     }, [ativa, competencia, recarga]);
 
-    const aplicacao = useMemo(() => (leitura && ativa ? aplicarValores({ linhas: leitura.linhas, competencia, codigoEmpresa: ativa.codigoSage, fichas, eventos, movimentos: gravados }) : null), [leitura, ativa, competencia, fichas, eventos, gravados]);
+    const aplicacao = useMemo(() => (leitura && ativa ? aplicarValores({ linhas: leitura.linhas, competencia, codigoEmpresa: ativa.codigoSage, fichas, eventos, movimentos: gravados, formulas }) : null), [leitura, ativa, competencia, fichas, eventos, gravados, formulas]);
     const mudados = aplicacao ? Object.keys(aplicacao.movimentos).filter(id => !mesmoMovimento(aplicacao.movimentos[id], gravados[id])) : [];
 
     async function abrir(f: File) {
