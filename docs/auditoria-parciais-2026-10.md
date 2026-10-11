@@ -49,7 +49,7 @@ visíveis. Sem eles não dá para saber quais campos essas abas têm.
 | 7 | ~~Crédito do Trabalhador (`proc-consignado`)~~ **entregue em 11/10** | Cadastro dos contratos, desconto mensal com o limite de 35%, o grupo do desconto em folha no S-1200 e o desconto na rescisão. | nada |
 | 8 | ~~Horários (`arq-horarios`)~~ **entregue em 11/10** | Escalas e revezamento (12x36, turnos). | nada |
 | 9 | ~~Diagnóstico eSocial (`es-diagnostico`)~~ **entregue em 11/10** | Diagnóstico do cadastro inteiro (fichas, rubricas, tabelas) antes de gerar, apto ou não apto. | nada |
-| 10 | Parâmetros da empresa (`arq-empresas`) | Início da DCTFWeb e do FGTS Digital da empresa. | nada |
+| 10 | ~~Parâmetros da empresa (`arq-empresas`)~~ **entregue em 11/10** | Início da DCTFWeb e do FGTS Digital da empresa. | nada |
 | 11 | Eventos (`arq-eventos`) | Fórmula própria por evento. | nada |
 | 12 | Processo trabalhista (`es-processo-trab`) | Unicidade contratual, responsabilidade indireta e Justiça Comum no S-2500. | nada |
 | 13 | Pagamento de guias (`trib-pagamento`) | Baixa do DARF pago (consulta do pagamento no SERPRO pelo CFI, ou baixa manual). | rota do CFI, se for pela consulta |

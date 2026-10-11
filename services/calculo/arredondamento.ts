@@ -43,6 +43,10 @@ export interface ParametrosFolha {
     sindicalPatronal?: import('../sindicatos/sindicalPatronal').ConfigSindicalPatronal;
     /** Anos em que a empresa paga o 13º em parcela única (sem a 1ª parcela de novembro). */
     parcelaUnica13?: number[];
+    /** Competência (AAAA-MM) em que a empresa passou a declarar na DCTFWeb (antes: GFIP/GPS). */
+    inicioDctfweb?: string;
+    /** Competência (AAAA-MM) do início do FGTS Digital (o geral é 2024-03; antes: SEFIP/GRF). */
+    inicioFgtsDigital?: string;
 }
 export type RegimePagamento = NonNullable<ParametrosFolha['pagamentoFolha']>;
 

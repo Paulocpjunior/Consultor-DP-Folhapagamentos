@@ -4667,3 +4667,22 @@ Nono dos parciais da auditoria (o IOB Diagnóstico eSocial).
   - trabalhadores (matrícula, horário inexistente, horas diferentes, desligado fora);
   - rubricas, horários e afastamentos;
   - a ordem dos itens, a planilha e a tela.
+
+## 11/10/2026 — Início da DCTFWeb e do FGTS Digital da empresa
+
+Décimo dos parciais da auditoria (Gerenciador de Sistemas › Empresas › Parâmetros do SAGE).
+
+- **Cadastros › Enquadramento › Início das obrigações** (`services/empresas/inicioObrigacoes.ts`, nos parâmetros da folha da empresa):
+  - a competência em que a empresa passou a declarar na DCTFWeb e a do FGTS Digital;
+  - o FGTS Digital é obrigatório para todos os empregadores desde a competência 03/2024 (Edital MTE 4/2023, pagamento em abril), e em branco vale essa. Início antes disso é recusado; depois, aviso para conferir;
+  - a DCTFWeb entrou por grupos de empregadores, então o mês é o da empresa, e em branco vira aviso.
+- **Avisos nas competências antigas:**
+  - na DCTFWeb da folha: "anterior à DCTFWeb da empresa: GFIP e GPS";
+  - na consulta do FGTS: as competências antes do FGTS Digital são da SEFIP e da GRF, e a consulta não as mostra;
+  - o diagnóstico do cadastro aponta o início em branco (aviso) ou inválido (erro).
+- **Catálogo SAGE:** `arq-empresas` passa a disponível. Agora são 45 disponíveis e 6 parciais.
+- **Testes:**
+  - a validação;
+  - o sistema de cada competência (GFIP/SEFIP antes, DCTFWeb/FGTS Digital depois, indefinido sem a DCTFWeb);
+  - o diagnóstico;
+  - a tela, que grava sem apagar os outros parâmetros.

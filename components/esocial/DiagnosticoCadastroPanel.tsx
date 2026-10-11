@@ -32,7 +32,7 @@ const DiagnosticoCadastroPanel: React.FC = () => {
             .then(([emps, fichas, rubricas, horarios, afastamentos, enquadramentos]) => {
                 if (!vivo) return;
                 const emp = emps.find(x => x.id === ativa.id);
-                setEntrada({ competencia: ativa.competencia, empresa: { id: ativa.id, cnpj: emp?.cnpj ?? ativa.cnpj, esocialFolha: emp?.esocialFolha }, fichas, rubricas, horarios, afastamentos, enquadramentos });
+                setEntrada({ competencia: ativa.competencia, empresa: { id: ativa.id, cnpj: emp?.cnpj ?? ativa.cnpj, esocialFolha: emp?.esocialFolha, inicios: emp?.parametrosFolha }, fichas, rubricas, horarios, afastamentos, enquadramentos });
             })
             .catch(e => { if (vivo) setErro(`Cadastro não lido: ${mensagemErro(e)}`); });
         return () => { vivo = false; };

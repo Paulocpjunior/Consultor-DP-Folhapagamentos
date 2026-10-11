@@ -15,6 +15,7 @@ import { enquadramentoVigente, type Enquadramento } from '../cadastros/enquadram
 import { noMes } from '../calculo/motorMensal';
 import { validarDados } from './tabelaRubricas';
 import type { ParametrosEsocialFolha } from './eventosFolha';
+import { validarInicios, type IniciosObrigacoes } from '../empresas/inicioObrigacoes';
 
 export type AreaDiagnostico = 'Empresa' | 'Trabalhador' | 'Rubrica' | 'Horário' | 'Afastamento';
 export const AREAS_DIAGNOSTICO: AreaDiagnostico[] = ['Empresa', 'Trabalhador', 'Rubrica', 'Horário', 'Afastamento'];
@@ -27,7 +28,7 @@ export interface DiagnosticoCadastro {
 
 export interface EntradaDiagnostico {
     competencia: string;
-    empresa: { id: string; cnpj: string; esocialFolha?: ParametrosEsocialFolha };
+    empresa: { id: string; cnpj: string; esocialFolha?: ParametrosEsocialFolha; inicios?: IniciosObrigacoes };
     fichas: FichaFuncionario[];
     rubricas: Rubrica[];
     horarios: Horario[];
@@ -52,6 +53,10 @@ export function diagnosticarCadastro(e: EntradaDiagnostico): DiagnosticoCadastro
     if (!cnpjValido(cnpj)) add('Empresa', 'CNPJ', 'erro', [`CNPJ ${e.empresa.cnpj} inválido.`]);
     const p = e.empresa.esocialFolha;
     if (!p || !/^\d{14}$/.test(p.nrInscEstab ?? '') || !(p.codLotacao ?? '').trim()) add('Empresa', 'Parâmetros do eSocial da folha', 'erro', ['Estabelecimento e lotação do S-1200 não gravados (Cálculo › S-1200 e S-1210 › parâmetros).']);
+    // Início da DCTFWeb e do FGTS Digital (Cadastros › Enquadramento).
+    const inicios = validarInicios(e.empresa.inicios ?? {});
+    add('Empresa', 'Início das obrigações', 'erro', inicios.erros);
+    add('Empresa', 'Início das obrigações', 'aviso', inicios.avisos);
     const enq = enquadramentoVigente(e.enquadramentos, e.empresa.id, c);
     if (!('enquadramento' in enq)) add('Empresa', 'Enquadramento', 'erro', [enq.erro]);
     const vigentes = e.rubricas.filter(r => vigenciaEm(r, c));
