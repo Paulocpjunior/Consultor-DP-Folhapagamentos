@@ -16,6 +16,8 @@ import EmpresaAtivaFixa from '../empresaAtiva/EmpresaAtivaFixa';
 import FeriasColetivasModal from '../ferias/FeriasColetivasModal';
 import { conferirSalarioMinimo } from '../../services/conformidade/salarioMinimo';
 import { listarConvocacoes } from '../../services/calculo/convocacoesService';
+import { listarLotacoes } from '../../services/obras/lotacoesService';
+import type { Lotacao } from '../../services/obras/lotacoes';
 import type { Convocacao } from '../../services/calculo/intermitente';
 import { listarAfastamentos, listarEnquadramentos, listarFuncionarios, listarTabelas, mensagemErro, salvarAfastamento, type Usuario } from '../../services/cadastros/cadastrosService';
 import { enquadramentoVigente, type Enquadramento } from '../../services/cadastros/enquadramento';
@@ -209,6 +211,15 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
         Promise.all([listarFuncionarios(empresaId), listarAfastamentos(empresaId), listarTabelas(), listarConvocacoes(empresaId).catch(() => undefined)])
             .then(([fichas, afastamentos, tabelas, convocacoes]) => setDados({ fichas, afastamentos, tabelas, convocacoes }))
             .catch(e => { setErro(mensagemErro(e)); setDados({ fichas: [], afastamentos: [], tabelas: [] }); });
+    }, [empresaId, recarga]);
+    // Obras e lotações (Cadastros › Obras e lotações): rateio por obra no movimento e encargos por obra no resumo.
+    const [lotacoes, setLotacoes] = useState<Lotacao[]>([]);
+    useEffect(() => {
+        setLotacoes([]);
+        if (!empresaId) return;
+        let vivo = true;
+        listarLotacoes(empresaId).then(l => { if (vivo) setLotacoes(l); }).catch(() => undefined);
+        return () => { vivo = false; };
     }, [empresaId, recarga]);
     // Enquadramento previdenciário (parte patronal do resumo); sem ele, o resumo mostra só os segurados.
     const [enquadramentos, setEnquadramentos] = useState<Enquadramento[]>([]);
@@ -505,7 +516,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
     const competenciaPatronal = mensal || rescisao ? competencia : ferias ? '' : `${ano}-12`;
     const vigente = competenciaPatronal && empresaId ? enquadramentoVigente(enquadramentos, empresaId, competenciaPatronal) : null;
     const enqVigente = vigente && 'enquadramento' in vigente ? vigente.enquadramento : undefined;
-    const resumo = useMemo(() => resumirFolha(resultados, enqVigente), [resultados, enqVigente]);
+    const resumo = useMemo(() => resumirFolha(resultados, enqVigente, { lotacoes, lotacaoPadrao: empresa?.esocialFolha?.codLotacao }), [resultados, enqVigente, lotacoes, empresa]);
     // S-1200/S-1210: recibos de férias pagos na competência ou com gozo nela (as mesmas contas da folha do mês).
     // 1ª parcela do 13º no S-1200 de novembro (paga no mês): calculada como na aba do 13º, com os movimentos gravados.
     const primeiras13Esocial = useMemo(() => (mensal && eventosFolha && dados && movsEmpresa && /^\d{4}-11$/.test(competencia)
@@ -942,6 +953,22 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                             <p className="text-xs text-slate-600 dark:text-slate-300">{observacaoResumo} {resumo.encargos.patronal
                                 ? `Parte patronal pelo enquadramento de ${enqVigente!.vigencia.split('-').reverse().join('/')} (${resumo.encargos.patronal.regime === 'simples' ? 'Simples: patronal no DAS' : `base ${reais(resumo.encargos.patronal.base)}, sem o salário-maternidade`}). Confira o total com a Conferência pós-folha (S-5011).`
                                 : ferias ? 'Nos recibos de férias não há parte patronal própria: ela entra na folha do mês.' : erroEnq ? '' : 'Sem enquadramento vigente (Cadastros › Enquadramento): a parte patronal não entra no quadro.'}</p>
+"                            {resumo.porLotacao && resumo.porLotacao.length > 0 && (
+                                <div>
+                                    <h4 className="mt-2 text-xs font-semibold uppercase text-slate-500">Encargos por obra (lotação)</h4>
+                                    <table className="mt-1 w-full text-xs">
+                                        <thead className="text-left text-slate-500"><tr><th className="py-1">Obra</th><th className="py-1 text-right">Func.</th><th className="py-1 text-right">Base INSS</th><th className="py-1 text-right">INSS segurados</th><th className="py-1 text-right">Patronal</th><th className="py-1 text-right">RAT</th><th className="py-1 text-right">Terceiros</th><th className="py-1 text-right">FGTS</th></tr></thead>
+                                        <tbody>{resumo.porLotacao.map(l => (
+                                            <tr key={l.codigo} className="border-t border-slate-100 dark:border-slate-700" title={l.patronal?.memoria.join(' ')}>
+                                                <td className="py-1"><span className="font-mono">{l.codigo}</span> {l.descricao}</td><td className="py-1 text-right">{l.funcionarios}</td><td className="py-1 text-right">{reais(l.baseInss)}</td>
+                                                <td className="py-1 text-right">{reais(l.inssSegurados)}</td><td className="py-1 text-right">{l.patronal ? reais(l.patronal.patronal) : '—'}</td><td className="py-1 text-right">{l.patronal ? reais(l.patronal.rat) : '—'}</td>
+                                                <td className="py-1 text-right">{l.patronal ? reais(l.patronal.terceiros) : '—'}</td><td className="py-1 text-right">{reais(l.fgts)}</td>
+                                            </tr>
+                                        ))}</tbody>
+                                    </table>
+                                    <p className="mt-1 text-xs text-slate-500">Proventos divididos pelos dias em cada obra; descontos na obra principal. Passe o mouse na linha para a memória da parte patronal (CPRB, RAT/FAP da obra).</p>
+                                </div>
+                            )}
                             {erroEnq && !ferias && <p role="alert" className="rounded bg-red-50 p-2 text-xs text-red-800 dark:bg-red-900/30 dark:text-red-200">Enquadramento não carregado ({erroEnq}): a parte patronal está FORA do quadro e do total. Não use estes valores para a DCTFWeb.</p>}
                         </div>
                     </div>
@@ -972,7 +999,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                     onAplicarMovimento={(id, m) => { setMovs(x => ({ ...x, [id]: m })); setVersao(n => n + 1); setAviso(''); }} />
             )}
 
-            {sel && mensal && <Holerite key={`${sel.fichaId}-${versao}`} r={sel} mov={movs[sel.fichaId] ?? {}} gravado={gravados?.[sel.fichaId]} pendente={pendentes.includes(sel.fichaId)} arredonda={arredondaNoMes(parametrosFolha, competencia)} onMov={m => setMovs(x => ({ ...x, [sel.fichaId]: m }))}
+            {sel && mensal && <Holerite key={`${sel.fichaId}-${versao}`} r={sel} lotacoes={lotacoes} mov={movs[sel.fichaId] ?? {}} gravado={gravados?.[sel.fichaId]} pendente={pendentes.includes(sel.fichaId)} arredonda={arredondaNoMes(parametrosFolha, competencia)} onMov={m => setMovs(x => ({ ...x, [sel.fichaId]: m }))}
                 salario={salarioSel} lancado={lancado?.fichaId === sel.fichaId ? lancado.mensagem : ''}
                 mostrarPensao13={/-(11|12)$/.test(competencia) || !!dados?.fichas.find(x => x.id === sel.fichaId)?.dados.dataDesligamento?.startsWith(competencia)}
                 onLancar={encerrado ? undefined : (m, mensagem) => { setMovs(x => ({ ...x, [sel.fichaId]: m })); setLancado({ fichaId: sel.fichaId, mensagem }); setVersao(n => n + 1); }} />}
@@ -1253,7 +1280,7 @@ const LancarEvento: React.FC<{ mov: Movimento; salario: SalarioDoMes | null; lan
     );
 };
 
-const Holerite: React.FC<{ r: ResultadoCalculo; mov?: Movimento; gravado?: MovimentoGravado; pendente?: boolean; arredonda?: boolean; onMov?: (m: Movimento) => void; salario?: SalarioDoMes | null; lancado?: string; onLancar?: (m: Movimento, mensagem: string) => void; mostrarPensao13?: boolean; children?: React.ReactNode }> = ({ r, mov = {}, gravado, pendente = false, arredonda = false, onMov = () => {}, salario = null, lancado = '', onLancar, mostrarPensao13 = false, children }) => {
+const Holerite: React.FC<{ r: ResultadoCalculo; mov?: Movimento; gravado?: MovimentoGravado; pendente?: boolean; arredonda?: boolean; onMov?: (m: Movimento) => void; salario?: SalarioDoMes | null; lancado?: string; onLancar?: (m: Movimento, mensagem: string) => void; mostrarPensao13?: boolean; lotacoes?: Lotacao[]; children?: React.ReactNode }> = ({ r, mov = {}, gravado, pendente = false, arredonda = false, onMov = () => {}, salario = null, lancado = '', onLancar, mostrarPensao13 = false, lotacoes = [], children }) => {
     const pdf = React.useContext(PdfContexto);
     const emHoras = (k: string) => k === 'horasExtras50' || k === 'horasExtras100' || k === 'atrasosHoras';
     const campo = (k: 'horasExtras50' | 'horasExtras100' | 'faltasDias' | 'dsrDescontadoDias' | 'atrasosHoras' | 'feriadosLocais', rotulo: string) => (
@@ -1314,6 +1341,17 @@ const Holerite: React.FC<{ r: ResultadoCalculo; mov?: Movimento; gravado?: Movim
                     <button className="self-end rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:text-white" title="Hora extra com adicional da convenção diferente de 50% e 100% (60%, 75%…)"
                         onClick={() => setOutras([...outras, [String(outras.length ? '' : '60'), 0]])}>+ Hora extra com outro adicional</button>
                     {campo('faltasDias', 'Faltas (dias)')}
+                    {lotacoes.length > 0 && (
+                        <fieldset className="w-full rounded border border-slate-200 p-2 text-xs dark:border-slate-700 dark:text-slate-200">
+                            <legend className="px-1">Rateio por obra (dias trabalhados em cada uma; em branco, a obra da ficha)</legend>
+                            <div className="flex flex-wrap gap-2">{lotacoes.map(l => (
+                                <label key={l.codigo}><span className="font-mono">{l.codigo}</span> {l.descricao.slice(0, 24)}
+                                    <input aria-label={`Dias na obra ${l.codigo}`} className={`mt-0.5 block w-16 ${inp}`} defaultValue={mov.rateioLotacao?.[l.codigo] ? String(mov.rateioLotacao[l.codigo]).replace('.', ',') : ''}
+                                        onChange={e => { const d = decimal(e.target.value); const resto = { ...(mov.rateioLotacao ?? {}) }; if (d && d > 0) resto[l.codigo] = d; else delete resto[l.codigo]; onMov({ ...mov, rateioLotacao: Object.keys(resto).length ? resto : undefined }); }} />
+                                </label>
+                            ))}</div>
+                        </fieldset>
+                    )}
                     {campo('dsrDescontadoDias', 'DSR descontado (dias)')}
                     {campo('atrasosHoras', 'Faltas e atrasos (horas)')}
                     {campo('feriadosLocais', 'Feriados locais no mês')}

@@ -10,6 +10,8 @@
 
 import type { ResultadoCalculo } from '../calculo/motorMensal';
 import { calcularPatronal, type Enquadramento, type Patronal } from '../cadastros/enquadramento';
+import { encargosPorLotacao, type EncargosObra } from '../obras/folhaPorObra';
+import type { Lotacao } from '../obras/lotacoes';
 
 export interface LinhaVerba { codigo: string; descricao: string; tipo: 'provento' | 'desconto'; funcionarios: number; valor: number }
 export interface ResumoFolha {
@@ -43,6 +45,15 @@ export interface ResumoFolha {
         /** Segurados + patronal + RAT + terceiros − salário-família − salário-maternidade. */
         totalPrevidenciario?: number;
     };
+    /** Encargos por obra (lotação), quando há obras no mês: a soma é a da empresa. */
+    porLotacao?: EncargosObra[];
+}
+
+export interface OpcoesResumo {
+    /** Obras e lotações da empresa (Cadastros › Obras e lotações). */
+    lotacoes?: Lotacao[];
+    /** Lotação dos parâmetros do eSocial: a de quem não tem obra. */
+    lotacaoPadrao?: string;
 }
 
 // Guias: o INSS das férias é da competência do gozo (INSSFERRET, na folha dela); o do recibo (INSSFER) não entra de
@@ -54,7 +65,10 @@ const IRRF = ['IRRF', 'IRRF13', 'IRRFFER'];
 /** Verbas com período no código (férias vencidas por período) somam numa linha só. */
 const chaveVerba = (codigo: string) => codigo.replace(/\d{4}-\d{2}-\d{2}$/, '');
 
-export function resumirFolha(resultados: ResultadoCalculo[], enquadramento?: Enquadramento): ResumoFolha {
+/** Verbas de 13º salário: na transição da CPRB, fora da cota patronal. */
+const DECIMO = ['13', '13INT', '13PROP', '13IND'];
+
+export function resumirFolha(resultados: ResultadoCalculo[], enquadramento?: Enquadramento, opcoes: OpcoesResumo = {}): ResumoFolha {
     const validos = resultados.filter(r => r.situacao !== 'erro');
     const mapa = new Map<string, LinhaVerba & { fichas: Set<string> }>();
     for (const r of validos) {
@@ -75,7 +89,15 @@ export function resumirFolha(resultados: ResultadoCalculo[], enquadramento?: Enq
     const salarioFamilia = somaCodigos(['SF']);
     const salarioMaternidade = somaCodigos(['MAT']);
     const baseInss = soma(r => r.bases.inss);
-    const patronal = enquadramento ? calcularPatronal(baseInss, salarioMaternidade, enquadramento) : undefined;
+    const competencia = validos.map(r => r.competencia).find(c => /^\d{4}-\d{2}$/.test(c));
+    const comObras = validos.some(r => r.lotacoes?.length) || !!opcoes.lotacoes?.length;
+    const porLotacao = comObras ? encargosPorLotacao(validos, opcoes.lotacoes ?? [], opcoes.lotacaoPadrao ?? '', enquadramento, competencia) : undefined;
+    // Com obras, a patronal da empresa é a soma das obras (RAT/FAP e substituição podem variar por obra).
+    const patronal = !enquadramento ? undefined
+        : porLotacao && porLotacao.length > 1 && porLotacao.every(l => l.patronal)
+            ? porLotacao.reduce<Patronal>((t, l) => ({ ...t, base: t.base + l.patronal!.base, patronal: t.patronal + l.patronal!.patronal, rat: t.rat + l.patronal!.rat, terceiros: t.terceiros + l.patronal!.terceiros }),
+                { regime: enquadramento.regime, base: 0, aliquotaRat: Math.round(enquadramento.rat * enquadramento.fap * 10000) / 10000, patronal: 0, rat: 0, terceiros: 0, memoria: ['Soma dos encargos por obra (detalhe no quadro por obra).'] })
+            : calcularPatronal(baseInss, salarioMaternidade, enquadramento, { competencia, decimoTerceiro: somaCodigos(DECIMO) });
     return {
         funcionarios: new Set(resultados.map(r => r.fichaId)).size,
         registros: resultados.length,
@@ -97,5 +119,6 @@ export function resumirFolha(resultados: ResultadoCalculo[], enquadramento?: Enq
             salarioMaternidade,
             ...(patronal ? { patronal, totalPrevidenciario: inssSegurados + patronal.patronal + patronal.rat + patronal.terceiros - salarioFamilia - salarioMaternidade } : {}),
         },
+        ...(porLotacao ? { porLotacao } : {}),
     };
 }

@@ -91,6 +91,11 @@ export interface Movimento {
     irrfRetido?: number;
     irrfPagamento?: string;
     lancamentos?: Lancamento[];
+    /**
+     * Rateio entre obras (lotações tributárias) no mês: código da lotação → dias trabalhados nela. Sem o rateio, vale a
+     * obra da ficha. Os proventos se dividem pelos dias no S-1200 e nos encargos por obra.
+     */
+    rateioLotacao?: Record<string, number>;
 }
 
 export interface EntradaCalculo {
@@ -166,6 +171,8 @@ export interface ResultadoCalculo {
     deducoesAdiantamento?: { dependentes: { cpf: string; nome: string }[]; porDependente: number };
     /** Empregado doméstico: indenização compensatória de 3,2% sobre a base do FGTS (LC 150/2015, art. 22), no DAE. */
     fgtsIndenizacao?: number;
+    /** Obras (lotações) do mês com o peso de cada uma (dias): do rateio do movimento ou a obra da ficha. */
+    lotacoes?: { codigo: string; peso: number }[];
     /** Intermitente: dias trabalhados no mês e as horas (S-1200, infoInterm). */
     diasIntermitente?: { dia: number; horas: number }[];
     /** Intermitente: deduções do IRRF das férias (tpRend 13) e do 13º (tpRend 12), apurados em separado no mês. */
@@ -256,7 +263,25 @@ function diasPagosNoMes(dias: Map<string, Dia>, mesInteiro: boolean, L: number):
     return Math.max(0, 30 - (L - realPago));
 }
 
+/** Obras do mês: o rateio do movimento (dias por lotação) ou a obra da ficha (peso 1). */
+export function lotacoesDoMes(ficha: Pick<FichaFuncionario, 'dados'>, mov?: Movimento): { codigo: string; peso: number }[] | undefined {
+    const rateio = Object.entries(mov?.rateioLotacao ?? {}).filter(([, d]) => d > 0).map(([codigo, peso]) => ({ codigo, peso }));
+    if (rateio.length) return rateio;
+    const daFicha = (ficha.dados.lotacao ?? '').trim();
+    return daFicha ? [{ codigo: daFicha, peso: 1 }] : undefined;
+}
+
 export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
+    const r = calcularMensalSemObras(e);
+    const lot = lotacoesDoMes(e.ficha, e.movimento);
+    if (lot) {
+        r.lotacoes = lot;
+        if (lot.length > 1) r.memoria.push(`Rateio entre obras: ${lot.map(x => `${x.codigo} ${num(x.peso)} dia(s)`).join(', ')}; os proventos se dividem pelos dias no S-1200 e nos encargos por obra.`);
+    }
+    return r;
+}
+
+function calcularMensalSemObras(e: EntradaCalculo): ResultadoCalculo {
     const { competencia } = e;
     // Competência anterior a um reajuste: o salário vigente naquele mês, pelo histórico dos S-2200/S-2206.
     const naCompetencia = fichaNaCompetencia(e.ficha, competencia);
