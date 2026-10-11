@@ -14,6 +14,7 @@ import type { Sindicato } from '../../services/cadastros/sindicatos';
 import { conferirHorasSemanais, descricaoJornada, type Horario } from '../../services/cadastros/horarios';
 import { duracao, rotuloMotivo, type Afastamento } from '../../services/cadastros/afastamentos';
 import type { AdesaoBeneficio, Beneficio } from '../../services/calculo/beneficios';
+import { PCT_MARGEM_CONSIGNADO, type ContratoConsignado } from '../../services/calculo/consignado';
 import { ehDomestico, FUNCOES_DOMESTICAS } from '../../services/domestico/domestico';
 
 interface Props {
@@ -115,7 +116,14 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
         const atual = x.beneficios ?? [];
         return { ...x, beneficios: m === null ? atual.filter((_, k) => k !== i) : atual.map((a, k) => (k === i ? { ...a, ...m } : a)) };
     });
-    const abas = [...ABAS.map(a => ({ id: a.id, titulo: a.titulo })), { id: 'dependentes', titulo: `Dependentes (${f.dependentes.length})` }, { id: 'beneficios', titulo: `Benefícios (${adesoes.length})` }, ...(nova ? [] : [{ id: 'afastamentos', titulo: `Afastamentos (${afastamentos.length})` }, { id: 'historico', titulo: 'Histórico' }])];
+    const contratos = f.consignados ?? [];
+    const setContrato = (i: number, m: Partial<ContratoConsignado> | null) => setF(x => {
+        const atual = x.consignados ?? [];
+        return { ...x, consignados: m === null ? atual.filter((_, k) => k !== i) : atual.map((c, k) => (k === i ? { ...c, ...m } : c)) };
+    });
+    const centavos = (t: string) => { const n = Math.round(Number(t.replace(/\./g, '').replace(',', '.')) * 100); return Number.isFinite(n) ? n : 0; };
+    const emReais = (c?: number) => (c === undefined ? '' : (c / 100).toFixed(2).replace('.', ','));
+    const abas = [...ABAS.map(a => ({ id: a.id, titulo: a.titulo })), { id: 'dependentes', titulo: `Dependentes (${f.dependentes.length})` }, { id: 'beneficios', titulo: `Benefícios (${adesoes.length})` }, { id: 'consignado', titulo: `Consignado (${contratos.length})` }, ...(nova ? [] : [{ id: 'afastamentos', titulo: `Afastamentos (${afastamentos.length})` }, { id: 'historico', titulo: 'Histórico' }])];
     const atual = ABAS.find(a => a.id === aba);
 
     return (
@@ -202,6 +210,30 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                             <button className="rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600 dark:text-white" onClick={() => setF({ ...f, dependentes: [...f.dependentes, { ...DEP_VAZIO }] })}>Adicionar dependente</button>
                             {f.origens.dependentes && <p className="text-[11px] text-slate-400">{f.origens.dependentes}</p>}
                             <p className="text-[11px] text-slate-500 dark:text-slate-400">Pensão alimentícia: marque quem recebe (com CPF). Com mais de um alimentando, a cota (%) de cada um divide a pensão do mês no S-1210. No mesmo mês, quem recebe pensão não é deduzido também como dependente (Lei 9.250/1995, art. 35, § 4º): o filho alimentando fica com IRRF = Não e Pensão = Sim.</p>
+                        </div>
+                    )}
+
+                    {aba === 'consignado' && (
+                        <div className="space-y-2 text-sm dark:text-slate-100">
+                            <p className="text-xs text-slate-600 dark:text-slate-300">Contratos do Crédito do Trabalhador (consignado CLT, Lei 10.820/2003), como a instituição informa ao empregador. A folha desconta a parcela de cada contrato nos meses dele, até {PCT_MARGEM_CONSIGNADO}% da remuneração disponível (menos INSS, IRRF e pensão) e sem deixar o líquido negativo; na rescisão, das verbas rescisórias, pelo saldo informado ou pela parcela. No eSocial vai na rubrica de natureza 9253 com a instituição e o contrato (descFolha). O limite de {PCT_MARGEM_CONSIGNADO}% é o da Lei 10.820/2003, art. 2º, § 2º, I: confira a norma vigente (alterada pela Lei 15.179/2025 e pela MP 1.355/2026).</p>
+                            {contratos.length > 0 && (
+                                <table className="w-full text-xs">
+                                    <thead className="text-left text-slate-500"><tr><th className="p-1">Instituição (Tab. 37)</th><th className="p-1">Contrato</th><th className="p-1">Parcela (R$)</th><th className="p-1">1º mês</th><th className="p-1">Último mês</th><th className="p-1">Saldo na rescisão (R$)</th><th /></tr></thead>
+                                    <tbody>{contratos.map((c, i) => (
+                                        <tr key={i} className="border-t border-slate-100 dark:border-slate-700">
+                                            <td className="p-1"><input aria-label={`Instituição do contrato ${i + 1}`} className="w-16 rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" inputMode="numeric" maxLength={3} value={c.instFinanc} onChange={e => setContrato(i, { instFinanc: e.target.value.replace(/\D/g, '') })} /></td>
+                                            <td className="p-1"><input aria-label={`Número do contrato ${i + 1}`} className="w-32 rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" maxLength={15} value={c.nrDoc} onChange={e => setContrato(i, { nrDoc: e.target.value.trim() })} /></td>
+                                            <td className="p-1"><input aria-label={`Parcela do contrato ${i + 1}`} className="w-24 rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" inputMode="decimal" defaultValue={emReais(c.parcela || undefined)} onChange={e => setContrato(i, { parcela: centavos(e.target.value) })} /></td>
+                                            <td className="p-1"><input aria-label={`Primeiro mês do contrato ${i + 1}`} type="month" className="rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={c.inicio} onChange={e => setContrato(i, { inicio: e.target.value })} /></td>
+                                            <td className="p-1"><input aria-label={`Último mês do contrato ${i + 1}`} type="month" className="rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={c.fim ?? ''} onChange={e => setContrato(i, { fim: e.target.value || undefined })} /></td>
+                                            <td className="p-1"><input aria-label={`Saldo na rescisão do contrato ${i + 1}`} className="w-24 rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" inputMode="decimal" defaultValue={emReais(c.saldoRescisao)} onChange={e => setContrato(i, { saldoRescisao: e.target.value.trim() ? centavos(e.target.value) : undefined })} /></td>
+                                            <td className="p-1"><button className="text-red-700 underline dark:text-red-300" onClick={() => setContrato(i, null)}>remover</button></td>
+                                        </tr>
+                                    ))}</tbody>
+                                </table>
+                            )}
+                            <button className="rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600" onClick={() => setF(x => ({ ...x, consignados: [...(x.consignados ?? []), { instFinanc: '', nrDoc: '', parcela: 0, inicio: '' }] }))}>Adicionar contrato</button>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400">Quitado ou suspenso pela instituição: preencha o último mês. O que não couber na margem fica com aviso no cálculo; a instituição cobra a diferença do empregado.</p>
                         </div>
                     )}
 

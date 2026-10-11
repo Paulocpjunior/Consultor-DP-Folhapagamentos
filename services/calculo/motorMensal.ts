@@ -16,6 +16,7 @@
 // adicionais e médias de variáveis.
 
 import { verbasDosBeneficios, type Beneficio } from './beneficios';
+import { descontosConsignado } from './consignado';
 import { estabelecimentosNoMes } from '../cadastros/locaisTrabalho';
 import { fichaNaCompetencia, inicioNaEmpresa, memoriaDoHistorico, type FichaFuncionario } from '../cadastros/funcionarios';
 import type { Afastamento } from '../cadastros/afastamentos';
@@ -35,7 +36,11 @@ export interface Incidencias { inss: boolean; fgts: boolean; irrf: boolean }
  * (infoIRComplem/planSaude), pela operadora (CNPJ e registro na ANS).
  */
 export interface PlanoSaudeRef { cnpjOper: string; regANS: string }
-export interface Verba extends Incidencias { codigo: string; descricao: string; referencia: string; tipo: TipoVerba; valor: number; planoSaude?: PlanoSaudeRef }
+export interface Verba extends Incidencias {
+    codigo: string; descricao: string; referencia: string; tipo: TipoVerba; valor: number; planoSaude?: PlanoSaudeRef;
+    /** Desconto do Crédito do Trabalhador: o grupo descFolha do eSocial (instituição e contrato), rubrica de natureza 9253. */
+    descFolha?: { instFinanc: string; nrDoc: string; observacao?: string };
+}
 export interface Lancamento extends Incidencias {
     descricao: string; tipo: TipoVerba; valor: number;
     /** Desconto de plano de saúde coletivo (coparticipação, por exemplo): vai no S-1210 como plano de saúde. */
@@ -717,7 +722,13 @@ function calcularMensalSemObras(e: EntradaCalculo): ResultadoCalculo {
         }
     }
 
-    // 10. FGTS e totais.
+    // 10. Crédito do Trabalhador (consignado): depois dos descontos obrigatórios, dentro da margem e do líquido.
+    const consig = descontosConsignado(ficha.consignados, competencia, r.verbas);
+    for (const v of consig.verbas) verba(v);
+    if (consig.memoria.length) r.memoria.push(...consig.memoria);
+    r.avisos.push(...consig.avisos);
+
+    // 11. FGTS e totais.
     const aliqFgts = aprendiz ? ALIQUOTA_FGTS_APRENDIZ : ALIQUOTA_FGTS;
     r.fgts = Math.round(r.bases.fgts * aliqFgts / 100);
     r.memoria.push(`FGTS: ${reais(r.bases.fgts)} × ${aliqFgts}% = ${reais(r.fgts)}${aprendiz ? ' (aprendiz)' : ''}.`);

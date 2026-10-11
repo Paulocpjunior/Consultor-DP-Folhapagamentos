@@ -17,6 +17,7 @@ import { CAMPOS, type Cadastro, type Campo } from '../implantacao/implantacao';
 import { lerDependentes, type Dependente } from '../implantacao/unificacao';
 import type { AdesaoBeneficio } from '../calculo/beneficios';
 import { validarAdesoes } from '../calculo/beneficios';
+import { validarContratos, type ContratoConsignado } from '../calculo/consignado';
 import type { FaixaLocal } from './locaisTrabalho';
 import { UFS, cnpjValido, cpfValido, dataValida, centavosDeTexto, pisValido } from './documentos';
 
@@ -47,6 +48,8 @@ export interface FichaFuncionario {
     beneficios?: AdesaoBeneficio[];
     /** Local de trabalho por vigência, desde a primeira troca de estabelecimento (services/cadastros/locaisTrabalho.ts). */
     locais?: FaixaLocal[];
+    /** Contratos do Crédito do Trabalhador (consignado CLT) descontados em folha (services/calculo/consignado.ts). */
+    consignados?: ContratoConsignado[];
 }
 
 export interface FaixaSalarial {
@@ -342,6 +345,7 @@ export function validarFicha(f: FichaFuncionario): Validacao {
     const hm = (d.horasMes ?? '').trim();
     if (hm && !(/^\d{1,3}([.,]\d{1,2})?$/.test(hm) && Number(hm.replace(',', '.')) >= 1 && Number(hm.replace(',', '.')) <= 300)) erros.push('Horas mês: número de horas entre 1 e 300 (ex.: 220).');
     erros.push(...validarAdesoes(f.beneficios ?? []));
+    erros.push(...validarContratos(f.consignados ?? []));
     if (d.valeTransporteCusto && !/^\d+(\.\d{1,2})?$/.test(d.valeTransporteCusto)) erros.push('Custo do vale-transporte inválido (valor com ponto decimal, ex.: 220.00).');
     if (d.insalubridade && d.baseInsalubridade === 'valor' && !(Number(d.baseInsalubridadeValor) > 0)) erros.push('Insalubridade sobre valor informado: preencha o valor da base (piso da convenção).');
     if (d.insalubridade && d.periculosidade === 'S') avisos.push('Insalubridade e periculosidade não se acumulam (CLT, art. 193, § 2º): o empregado escolhe uma; o cálculo usa a de maior valor.');
@@ -381,10 +385,10 @@ export function validarFicha(f: FichaFuncionario): Validacao {
     return { erros, avisos };
 }
 
-export interface Alteracao { campo: ChaveOrigem | 'codigoIob' | 'matriculaEsocial' | 'cpf' | 'cnpj' | 'pendencias' | 'historicoSalario' | 'beneficios' | 'locais'; de: string; para: string }
+export interface Alteracao { campo: ChaveOrigem | 'codigoIob' | 'matriculaEsocial' | 'cpf' | 'cnpj' | 'pendencias' | 'historicoSalario' | 'beneficios' | 'locais' | 'consignados'; de: string; para: string }
 
 /** Rótulo de uma alteração na prévia e no histórico. */
-export const rotuloAlteracao = (campo: string) => (campo === 'pendencias' ? 'Pendências da importação' : campo === 'beneficios' ? 'Benefícios' : campo === 'historicoSalario' ? 'Histórico de salário' : campo === 'locais' ? 'Locais de trabalho (estabelecimentos)' : campo === 'cnpj' ? 'CNPJ do empregador' : ROTULO[campo as CampoFicha] ?? campo);
+export const rotuloAlteracao = (campo: string) => (campo === 'pendencias' ? 'Pendências da importação' : campo === 'beneficios' ? 'Benefícios' : campo === 'consignados' ? 'Crédito do Trabalhador (consignado)' : campo === 'historicoSalario' ? 'Histórico de salário' : campo === 'locais' ? 'Locais de trabalho (estabelecimentos)' : campo === 'cnpj' ? 'CNPJ do empregador' : ROTULO[campo as CampoFicha] ?? campo);
 
 // A marca "fora do eSocial" entra (a do XML é "S" e não muda o texto): trocada à mão, vira alteração e a origem passa a "Manual".
 const depsTexto = (l: Dependente[]) => l.map(d => `${d.nome} (${d.nascimento || 's/ nasc.'}${d.cpf ? `, CPF ${d.cpf}` : ''}${d.pensao === 'S' ? `, pensão${d.cotaPensao ? ` ${d.cotaPensao}%` : ''}` : ''}${d.noEsocial === 'N' ? ', fora do eSocial' : ''})`).join('; ');
@@ -410,6 +414,8 @@ export function diffFicha(antes: FichaFuncionario | null, depois: FichaFuncionar
     if (hist(antes) !== hist(depois)) r.push({ campo: 'historicoSalario', de: hist(antes), para: hist(depois) });
     const ben = (f: Pick<FichaFuncionario, 'beneficios'> | null) => (f?.beneficios ?? []).map(x => `${x.beneficioId} × ${x.vidas}${x.desde ? ` desde ${x.desde}` : ''}${x.ate ? ` até ${x.ate}` : ''}`).join('; ');
     if (ben(antes) !== ben(depois)) r.push({ campo: 'beneficios', de: ben(antes), para: ben(depois) });
+    const con = (f: Pick<FichaFuncionario, 'consignados'> | null) => (f?.consignados ?? []).map(c => `${c.instFinanc}/${c.nrDoc}: ${c.parcela} de ${c.inicio}${c.fim ? ` a ${c.fim}` : ''}${c.saldoRescisao !== undefined ? ` (saldo ${c.saldoRescisao})` : ''}`).join('; ');
+    if (con(antes) !== con(depois)) r.push({ campo: 'consignados', de: con(antes), para: con(depois) });
     const loc = (f: Pick<FichaFuncionario, 'locais'> | null) => (f?.locais ?? []).map(x => `${x.desde}: ${x.estabelecimento}`).join('; ');
     if (loc(antes) !== loc(depois)) r.push({ campo: 'locais', de: loc(antes), para: loc(depois) });
     return r;
@@ -419,7 +425,7 @@ export function diffFicha(antes: FichaFuncionario | null, depois: FichaFuncionar
 export function aplicarEdicao(antes: FichaFuncionario | null, depois: FichaFuncionario, autor: string, quando: string): FichaFuncionario {
     const origens = { ...depois.origens };
     for (const alt of diffFicha(antes, depois)) {
-        if (alt.campo === 'cpf' || alt.campo === 'matriculaEsocial' || alt.campo === 'cnpj' || alt.campo === 'historicoSalario' || alt.campo === 'beneficios') continue;
+        if (alt.campo === 'cpf' || alt.campo === 'matriculaEsocial' || alt.campo === 'cnpj' || alt.campo === 'historicoSalario' || alt.campo === 'beneficios' || alt.campo === 'consignados') continue;
         origens[alt.campo] = `Manual · ${autor} · ${quando}`;
     }
     return { ...depois, origens };

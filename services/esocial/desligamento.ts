@@ -21,7 +21,7 @@ import { PERMITE_SAQUE_FGTS } from '../calculo/motorRescisao';
 import { cpfValido } from '../cadastros/documentos';
 import { vigenciaEm, type Rubrica } from '../cadastros/rubricas';
 import { diaUtilAnterior, somarDias } from '../prazos/calendario';
-import { chaveVerba, estabelecimentoDoVinculo, lotacaoDoEstabelecimento, normalizar, quantidade, type ItemDePara, type ParametrosEsocialFolha, type RubricaEsocial } from './eventosFolha';
+import { chaveVerba, descFolhaXml, erroDescFolha, estabelecimentoDoVinculo, lotacaoDoEstabelecimento, normalizar, quantidade, type ItemDePara, type ParametrosEsocialFolha, type RubricaEsocial } from './eventosFolha';
 import { idEvento, VER_PROC, type TpAmb } from './transmissao';
 
 const NS = 'http://www.esocial.gov.br/schema/evt';
@@ -188,7 +188,7 @@ export function gerarS2299(e: EntradaS2299): ResultadoS2299 {
 
     // Verbas rescisórias, uma linha por rubrica (a mesma rubrica não se repete no demonstrativo).
     const tipoDa = new Map(e.rubricas.map(x => [`${x.ideTabRubr}|${x.codRubr}`, vigenciaEm(x, r.data.slice(0, 7))?.dados]));
-    const itens = new Map<string, { rub: RubricaEsocial; valor: number; qtd: number }>();
+    const itens = new Map<string, { rub: RubricaEsocial; valor: number; qtd: number; descFolha?: Verba['descFolha'] }>();
     for (const v of r.verbas) {
         if (v.valor <= 0) continue;
         const rub = rubricaDaVerba(p, v);
@@ -197,8 +197,11 @@ export function gerarS2299(e: EntradaS2299): ResultadoS2299 {
         if (!dados) { erros.push(`Rubrica ${rub.codRubr} (de "${v.descricao}") sem S-1010 vigente em ${br(r.data).slice(3)}.`); continue; }
         const esperado = v.tipo === 'provento' ? '1' : '2';
         if (dados.tpRubr !== esperado) erros.push(`Rubrica ${rub.codRubr} é ${({ '1': 'provento', '2': 'desconto', '3': 'informativa', '4': 'informativa dedutora' } as Record<string, string>)[dados.tpRubr] ?? `tipo ${dados.tpRubr}`} no S-1010, e "${v.descricao}" é ${v.tipo}.`);
-        const k = `${rub.ideTabRubr}|${rub.codRubr}`;
-        const atual = itens.get(k) ?? { rub, valor: 0, qtd: 0 };
+        const erroConsig = erroDescFolha(v, rub.codRubr, dados.natRubr);
+        if (erroConsig) erros.push(erroConsig);
+        // Um item por contrato do Crédito do Trabalhador (descFolha de cada um).
+        const k = `${rub.ideTabRubr}|${rub.codRubr}${v.descFolha ? `|${v.descFolha.instFinanc}|${v.descFolha.nrDoc}` : ''}`;
+        const atual = itens.get(k) ?? { rub, valor: 0, qtd: 0, ...(v.descFolha ? { descFolha: v.descFolha } : {}) };
         atual.valor += v.valor; atual.qtd += Number(quantidade(v.referencia) || 0);
         itens.set(k, atual);
     }
@@ -210,7 +213,7 @@ export function gerarS2299(e: EntradaS2299): ResultadoS2299 {
     if (grauExp && !/^[1-4]$/.test(d.grauExp ?? '')) avisos.push('Grau de exposição a agentes nocivos em branco na ficha: vai 1 (sem exposição). Confira com o S-2240.');
     const simples = p.indSimples ? `<infoSimples><indSimples>${p.indSimples}</indSimples></infoSimples>` : '';
     const detVerbas = [...itens.values()].map(i => `<detVerbas><codRubr>${esc(i.rub.codRubr)}</codRubr><ideTabRubr>${esc(i.rub.ideTabRubr)}</ideTabRubr>`
-        + `${i.qtd > 0 ? `<qtdRubr>${i.qtd.toFixed(2)}</qtdRubr>` : ''}<vrRubr>${valor(i.valor)}</vrRubr><indApurIR>0</indApurIR></detVerbas>`).join('');
+        + `${i.qtd > 0 ? `<qtdRubr>${i.qtd.toFixed(2)}</qtdRubr>` : ''}<vrRubr>${valor(i.valor)}</vrRubr><indApurIR>0</indApurIR>${descFolhaXml(i.descFolha)}</detVerbas>`).join('');
     const obs = (e.observacao ?? '').trim();
     // Sequencial pelo milésimo, como no S-1200: duas gerações no mesmo segundo não repetem o Id.
     const agora = e.agora ?? new Date();
