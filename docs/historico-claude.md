@@ -4349,3 +4349,22 @@ Paulo: "pode seguir". Primeiro dos itens planejados do catálogo do SAGE.
   - planilha da carteira em Excel.
 - **Catálogo SAGE:** `proc-agrupado` passa a parcial (faltam o 13º e as rotinas anuais em lote). Agora são 26 disponíveis, 20 parciais, 5 planejados e 2 fora.
 - **Testes:** a folha da empresa igual ao motor; linha, falha, totais e planilha; gravação, competência encerrada, empresa sem funcionários e falha de leitura; a tela processando só as marcadas.
+
+## 11/10/2026 — Transferência de funcionários entre empresas do grupo
+
+Paulo: "pode seguir". Segundo dos itens planejados do catálogo do SAGE.
+
+- **Regra:** transferência para outra empresa do mesmo grupo, sem rescisão (CLT, arts. 2º, § 2º, 10 e 448). O contrato continua com a admissão, as férias e o 13º, agora a cargo do destino.
+- **eSocial pelo Consultor:**
+  - origem: S-2299 com o motivo 11 (Tabela 19), o grupo sucessaoVinc com o CNPJ do destino e sem verbas rescisórias (vedadas para o motivo 11); a data é o último dia na origem, a véspera da transferência;
+  - destino: S-2200 com tpAdmissao 2, a admissão do primeiro empregador (regra do XSD para dtAdm) e o sucessaoVinc com o CNPJ e a matrícula de origem e a data da transferência.
+- **S-2200 pela ficha** (`services/esocial/admissao.ts`, novo): trabalhador, endereço, dependentes, contato, vínculo celetista, contrato, local e horário. O que a ficha não guarda (regime e tipo de jornada, natureza, tempo parcial, horário noturno, data-base, descrição da jornada) vem da tela. Ficam com o IOB: doméstico, aprendiz, temporário, intermitente, contrato vinculado a fato e estatutário.
+- **No Consultor** (`services/transferencia/`):
+  - a ficha vai para o destino com nova matrícula, os dependentes e o histórico de salário. Horário, lotação, departamento e código do IOB ficam, porque são da empresa;
+  - vão também as férias e os afastamentos terminados (sem os recibos) e os movimentos dos meses anteriores (médias). Mês encerrado no destino não recebe e gera aviso;
+  - a ficha de origem fica desligada com o motivo 11 e não aparece na Rescisão do Cálculo;
+  - registro em `transferencias/{ficha}_{data}`: grava quem pode nas duas empresas, as duas leem e não se apaga (regra nova com teste).
+- **Limites:** data sempre no dia 1º (a divisão do mês entre as duas empresas ainda não é feita). A troca de estabelecimento da mesma empresa (S-2206) fica para depois.
+- **Tela:** Cadastros › Transferência de funcionários, com a validação do que falta para o S-2200 já na escolha, a gravação e a lista de transferências da empresa (saídas e entradas) com a situação, a transmissão e o XML do S-2299 e do S-2200.
+- **Catálogo SAGE:** `ut-transferencia` passa a parcial. Agora são 26 disponíveis, 21 parciais, 4 planejados e 2 fora.
+- **Testes:** S-2299 e S-2200 no XSD oficial (transferência, admissão comum e contrato por prazo); fichas, validações, afastamentos; a gravação com os avisos; a tela da escolha à transmissão; regras do Firestore.

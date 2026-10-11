@@ -536,6 +536,19 @@ service cloud.firestore {
       allow delete: if podeEmpresa(resource.data.empresaId);
     }
 
+    // Transferência de empregado entre empresas do mesmo grupo: transferencias/{fichaDeOrigem}_{data}. Quem grava
+    // precisa das duas empresas (origem e destino); as duas leem. Não se apaga (é o registro da sucessão).
+    match /transferencias/{tId} {
+      allow read: if podeEmpresa(resource.data.empresaId) || podeEmpresa(resource.data.destinoId);
+      allow create, update: if podeEmpresa(request.resource.data.empresaId) && podeEmpresa(request.resource.data.destinoId)
+                    && request.resource.data.fichaId is string && request.resource.data.data is string
+                    && tId == request.resource.data.fichaId + '_' + request.resource.data.data
+                    && request.resource.data.fichaId.split('_')[0] == request.resource.data.empresaId
+                    && request.resource.data.atualizadoPor == request.auth.uid
+                    && (resource == null || (resource.data.empresaId == request.resource.data.empresaId && resource.data.destinoId == request.resource.data.destinoId));
+      allow delete: if false;
+    }
+
     // Departamentos (e centros de custo) da empresa: departamentos/{empresa}_{código}.
     match /departamentos/{depId} {
       allow read: if podeEmpresa(resource.data.empresaId);
