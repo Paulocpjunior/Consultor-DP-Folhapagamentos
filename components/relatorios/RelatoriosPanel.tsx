@@ -23,6 +23,7 @@ import { lerTotalizadores, type S5002 } from '../../services/conferencia/totaliz
 import { montarInformes } from '../../services/relatorios/informeRendimentos';
 import { avisosDeFerias, fichasFinanceiras, MESES_CURTOS, mesesSemFolha, type FolhaDoMes, type ProcessoDoMes } from '../../services/relatorios/relatoriosAnuais';
 import { lerProcessosDoAno } from '../../services/calculo/processosGravadosService';
+import { TITULO_PROCESSO } from '../../services/calculo/processosGravados';
 import { lerHistoricoSageDoAno } from '../../services/relatorios/historicoSageService';
 import type { HistoricoSageAno } from '../../services/relatorios/historicoSage';
 import type { FolhaGravada } from '../../services/calculo/folhaGravada';
@@ -134,7 +135,7 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             const obs = `Pelas folhas mensais gravadas (Folha do mês › Cálculo mensal › Gravar a folha do mês).`
                 + (mesesSage.length ? ` Meses marcados com * (${mesesSage.join(', ')}): pelo histórico de holerites do SAGE (backup restaurado), com tudo o que o SAGE processou no mês.` : '')
                 + (semFolha.length ? ` Meses sem folha: ${semFolha.join(', ')}.` : '')
-                + ' Nos meses do Consultor, férias, 13º e rescisão pagos fora da folha mensal ainda não entram.';
+                + (processosAno.length ? ' Férias, 13º e rescisões pagos fora da folha mensal: pelos processos gravados na tela de Cálculo, em linhas próprias ("Férias · …", "13º · …", "Rescisão · …").' : ' Férias, 13º e rescisões pagos fora da folha mensal entram quando gravados na tela de Cálculo.');
             return (await anuaisPdf()).fichaFinanceiraPdf(fichas, ano, o, obs, dadosDaFicha);
         }
         if (d.tipo === 'informe') return (await informePdfMod()).informePdf(informes?.informes ?? [], { ...o, previa: false });
@@ -152,7 +153,7 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const excel = () => agir(async () => {
         if (!ctx) return;
         if (sel.tipo === 'ficha-financeira') {
-            const linhas = fichas.flatMap(f => f.linhas.map(l => [f.nome, l.codigo, l.descricao, l.sage ? 'SAGE' : 'Consultor', ...l.meses.map(v => (v === null ? '' : v / 100)), l.total / 100]));
+            const linhas = fichas.flatMap(f => f.linhas.map(l => [f.nome, l.codigo, l.descricao, l.sage ? 'SAGE' : l.processo ? `Consultor (${TITULO_PROCESSO[l.processo]})` : 'Consultor', ...l.meses.map(v => (v === null ? '' : v / 100)), l.total / 100]));
             const ws = XLSX.utils.aoa_to_sheet([[sel.titulo, '', `Ano ${ano}`], [dados?.empresa?.razaoSocial || ativa.nome], [],
                 ['Funcionário', 'Código', 'Descrição', 'Origem', ...MESES_CURTOS.map(m => (mesesSage.includes(m) ? `${m}*` : m)), 'Total'], ...linhas,
                 ...(mesesSage.length ? [[], [`* Meses pelo histórico de holerites do SAGE (backup restaurado): ${mesesSage.join(', ')}.`]] : [])]);
