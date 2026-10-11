@@ -10,7 +10,9 @@ import type { User } from '../../types';
 import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
 import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
 import type { Empresa } from '../../services/empresas/empresasTypes';
-import { listarAfastamentos, listarEnquadramentos, listarFuncionarios, listarTabelas, mensagemErro } from '../../services/cadastros/cadastrosService';
+import { listarAfastamentos, listarEnquadramentos, listarFuncionarios, listarSindicatos, listarTabelas, mensagemErro } from '../../services/cadastros/cadastrosService';
+import type { Sindicato } from '../../services/cadastros/sindicatos';
+import { etiquetas, type ConteudoEtiqueta } from '../../services/relatorios/catalogoRelatorios';
 import { listarMovimentosDaEmpresa } from '../../services/calculo/movimentosService';
 import type { TabelaLegal } from '../../services/cadastros/tabelasLegais';
 import type { Movimento } from '../../services/calculo/motorMensal';
@@ -48,6 +50,9 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const [erro, setErro] = useState('');
     const [selId, setSelId] = useState(RELATORIOS[0].id);
     const [orientacao, setOrientacao] = useState<'auto' | 'retrato' | 'paisagem'>('auto');
+    const [conteudoEtiqueta, setConteudoEtiqueta] = useState<ConteudoEtiqueta>('funcionario');
+    const [pularEtiquetas, setPularEtiquetas] = useState(0);
+    const [sindicatos, setSindicatos] = useState<Sindicato[] | undefined>(undefined);
     const [enviar, setEnviar] = useState(false);
     const [gerando, setGerando] = useState(false);
     const [ano, setAno] = useState(() => ativa?.competencia.slice(0, 4) ?? String(new Date().getFullYear()));
@@ -81,6 +86,13 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             .catch(e => { if (vivo) { setErro(mensagemErro(e)); setFolhasAno([]); } });
         return () => { vivo = false; };
     }, [ativa, sel.tipo, ano]);
+    // Listagem de sindicatos: o cadastro de sindicatos (nome, data-base, piso), lido quando o relatório é aberto.
+    useEffect(() => {
+        if (selId !== 'sindicatos' || sindicatos) return;
+        let vivo = true;
+        listarSindicatos().then(l => { if (vivo) setSindicatos(l); }).catch(() => { if (vivo) setSindicatos([]); });
+        return () => { vivo = false; };
+    }, [selId, sindicatos]);
     // Provisões: tabelas legais e movimentos gravados (médias e faltas), lidos quando o relatório é aberto.
     useEffect(() => {
         if (!ativa || !sel.precisaCalculo || calc?.empresaId === ativa.id) return;
@@ -94,7 +106,8 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const ctx = useMemo((): ContextoRelatorio | null => (ativa && dados ? {
         competencia: ativa.competencia, hoje: new Date().toLocaleDateString('sv-SE'), fichas: dados.fichas, afastamentos: dados.afastamentos, folha: dados.folha?.holerites ?? null,
         ...(calc && calc.empresaId === ativa.id ? { calculo: { ...calc, enquadramentos: dados.enquadramentos } } : {}),
-    } : null), [ativa, dados, calc]);
+        sindicatos, sindicatosDaEmpresa: dados.empresa?.sindicatos,
+    } : null), [ativa, dados, calc, sindicatos]);
     if (!ativa) return <p className="text-sm text-slate-500">Ative uma empresa e um período.</p>;
 
     const comp = ativa.competencia.split('-').reverse().join('/');
@@ -139,6 +152,7 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             return (await anuaisPdf()).fichaFinanceiraPdf(fichas, ano, o, obs, dadosDaFicha);
         }
         if (d.tipo === 'informe') return (await informePdfMod()).informePdf(informes?.informes ?? [], { ...o, previa: false });
+        if (d.tipo === 'etiquetas') return (await import('../../services/relatorios/etiquetasPdf')).etiquetasPdf(etiquetas(ctx, conteudoEtiqueta, dados.empresa?.razaoSocial || ativa!.nome), pularEtiquetas);
         if (d.tipo === 'aviso-ferias') return (await anuaisPdf()).avisoFeriasPdf(avisos, { ...o, previa: false }, { razaoSocial: dados.empresa?.razaoSocial || ativa!.nome });
         const p = await relatoriosPdf();
         const folha = dados.folha?.holerites ?? [];
@@ -166,6 +180,12 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             const linhas = (informes?.informes ?? []).map(x => [x.cpf, x.nome, ...x.quadro3.map(l => l.valor / 100), x.quadro4.reduce((t, l) => t + l.valor, 0) / 100, ...x.quadro5.map(l => l.valor / 100), x.meses.join(' ')]);
             const ws = XLSX.utils.aoa_to_sheet([[sel.titulo, '', `Ano-calendário ${ano}`], [dados?.empresa?.razaoSocial || ativa.nome], [], cab, ...linhas]);
             const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Informes');
+            XLSX.writeFile(wb, nomeArquivo(sel).replace(/\.pdf$/, '.xlsx'));
+            return;
+        }
+        if (sel.tipo === 'etiquetas') {
+            const ws = XLSX.utils.aoa_to_sheet([[sel.titulo, '', `Competência ${comp}`], [dados?.empresa?.razaoSocial || ativa.nome], [], ...etiquetas(ctx, conteudoEtiqueta)]);
+            const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Etiquetas');
             XLSX.writeFile(wb, nomeArquivo(sel).replace(/\.pdf$/, '.xlsx'));
             return;
         }
@@ -207,6 +227,19 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                     <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">
                         A folha de {comp} ainda não foi gravada. Em Folha do mês › Cálculo mensal, salve o movimento e clique em "Gravar a folha do mês": os relatórios da folha saem dela.
                     </p>
+                )}
+                {sel.tipo === 'etiquetas' && (
+                    <div className="flex flex-wrap items-end gap-3">
+                        <label className="text-xs text-slate-600 dark:text-slate-300">Conteúdo
+                            <select aria-label="Conteúdo das etiquetas" className="mt-0.5 block rounded-lg border border-slate-300 px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-950" value={conteudoEtiqueta} onChange={e => setConteudoEtiqueta(e.target.value as ConteudoEtiqueta)}>
+                                <option value="funcionario">Funcionário (nome, matrícula, CPF, cargo, admissão, empresa)</option><option value="endereco">Endereço para correspondência</option>
+                            </select>
+                        </label>
+                        <label className="text-xs text-slate-600 dark:text-slate-300">Pular as primeiras (folha já usada)
+                            <input aria-label="Etiquetas a pular" type="number" min={0} max={20} className="mt-0.5 block w-24 rounded-lg border border-slate-300 px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-950" value={pularEtiquetas} onChange={e => setPularEtiquetas(Math.max(0, Math.min(20, Number(e.target.value) || 0)))} />
+                        </label>
+                        <span className="text-xs text-slate-500">{ctx ? `${etiquetas(ctx, conteudoEtiqueta).length} etiqueta(s)` : ''} · imprima em 100% (sem "ajustar à página").</span>
+                    </div>
                 )}
                 {sel.tipo === 'ficha-financeira' && (
                     <div className="flex flex-wrap items-end gap-3">
@@ -263,7 +296,7 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                     <button className={btn} disabled={!dados || faltaFolha || gerando} onClick={() => abrir(false)}>Visualizar</button>
                     <button className={btn} disabled={!dados || faltaFolha || gerando} onClick={() => abrir(true)}>Imprimir</button>
                     <button className={btn} disabled={!dados || faltaFolha || gerando} onClick={baixar}>Baixar PDF</button>
-                    {(sel.tipo === 'tabela' || sel.tipo === 'ficha-financeira' || sel.tipo === 'informe') && <button className={btn} disabled={!dados || faltaFolha || gerando} onClick={excel}>Excel</button>}
+                    {(sel.tipo === 'tabela' || sel.tipo === 'ficha-financeira' || sel.tipo === 'informe' || sel.tipo === 'etiquetas') && <button className={btn} disabled={!dados || faltaFolha || gerando} onClick={excel}>Excel</button>}
                     <button className="rounded-lg bg-teal-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-teal-500 disabled:opacity-50" disabled={!dados || faltaFolha} aria-pressed={enviar} onClick={() => setEnviar(x => !x)}>Enviar ao cliente</button>
                 </div>
                 {enviar && dados && !faltaFolha && (

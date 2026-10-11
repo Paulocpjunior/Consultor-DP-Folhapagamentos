@@ -4559,3 +4559,24 @@ Quarto dos parciais da auditoria.
   - a competência de cada processo e a chave do holerite;
   - a exclusão dos cálculos com erro;
   - as regras (gravação, tipos, ano, autor, carteira, competência encerrada e a lista por empresa e ano).
+
+## 11/10/2026 — Listagens: sindicatos e etiquetas
+
+Quinto dos parciais da auditoria. Os dois relatórios estão em Relatórios › Central › Funcionários.
+
+- **Listagem de sindicatos:**
+  - entram os sindicatos das fichas e os da empresa (Empresas › Sindicatos), estes mesmo sem funcionário;
+  - para cada um: CNPJ, código do IOB, data-base, piso, funcionários na folha no fim da competência, filiados, quem autorizou a contribuição sindical e quem se opôs à assistencial;
+  - por último, a linha de quem está sem sindicato na ficha, com o aviso;
+  - sai em PDF (paisagem) e Excel, com envio ao cliente.
+- **Etiquetas:**
+  - o conteúdo pode ser os dados do funcionário (nome, matrícula, CPF, cargo, admissão e empresa) ou o endereço para correspondência;
+  - entram os funcionários da competência por nome, sem os desligados;
+  - o PDF tem 21 etiquetas por folha A4 de 63,5 × 38,1 mm, na geometria da Avery L7160, sem cabeçalho nem rodapé;
+  - dá para pular as posições já usadas de uma folha (até 20);
+  - sai também em Excel.
+- **Catálogo SAGE:** `rel-listagens` passa a disponível. Agora são 40 disponíveis e 11 parciais.
+- **Testes:**
+  - a listagem de sindicatos: contagens, ordem, cadastro ausente e quem está sem sindicato;
+  - as etiquetas: conteúdo, endereço, desligados, posições na folha, quebra de página e as posições puladas;
+  - a tela.
