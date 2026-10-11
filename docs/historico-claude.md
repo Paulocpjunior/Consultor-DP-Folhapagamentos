@@ -4161,3 +4161,38 @@ O que muda:
 
 - **Catálogo SAGE:** `trib-reinf` passa a disponível, com destino na DCTFWeb da folha. A parte do DP é conferir a Reinf no semáforo de insumos antes de transmitir a declaração, o que já existe desde o DP #174. Aluguéis, lucros, serviços tomados e o R-4099 ficam com o Contábil.
 - Agora são 23 disponíveis, 20 parciais, 7 planejados e 2 fora.
+
+## 11/10/2026 — Trabalho intermitente (convocações, folha da convocação e eSocial)
+
+Paulo: "pode seguir com trabalho intermitente". No mesmo pedido, ele pediu a folha de obras, com a legislação vigente, e a folha por departamento e por obra dentro da mesma empresa. Esses dois vêm nos próximos lotes. Até aqui, o motor recusava a categoria 111.
+
+- **Convocações** (`services/calculo/intermitente.ts`, coleção `convocacoes_intermitente/{fichaId}_{seq}`, com regra e teste de regras):
+  - dias e horas, valor da hora (o da convocação ou o da ficha), função e local, data de envio e resposta;
+  - avisos dos prazos do art. 452-A: 3 dias corridos de antecedência (§ 1º) e resposta em 1 dia útil, com o silêncio valendo como recusa (§ 2º);
+  - erros: valor da hora abaixo do mínimo-hora (caput), dia já em outra convocação, convocação dentro das férias lançadas (§ 9º) e dias fora do vínculo;
+  - períodos aquisitivos e o prazo para dar o mês de férias;
+  - texto da convocação para copiar e enviar ao empregado.
+- **Folha da convocação** (motor mensal, categoria 111), com as convocações aceitas que têm dias na competência:
+  - horas × valor da hora;
+  - DSR por convocação: remuneração ÷ dias úteis × domingos e feriados do período, estendido até o domingo seguinte;
+  - adicional de insalubridade ou periculosidade proporcional às horas;
+  - horas extras e lançamentos do movimento;
+  - férias proporcionais (1/12) + 1/3 e 13º proporcional (1/12), conforme o § 6º;
+  - INSS: o do mês inclui as férias; o do 13º é em separado;
+  - IRRF: o do mês, o das férias (em separado, IN SRF 15/2001, art. 13) e o do 13º (exclusivo);
+  - FGTS de 8% sobre tudo;
+  - aviso quando a remuneração fica abaixo do mínimo, para o empregado complementar a contribuição (EC 103/2019, art. 29);
+  - sem convocação no mês, nada a pagar.
+- **Decisão de incidência a confirmar:** as férias do intermitente foram tratadas como gozadas (INSS e FGTS), e o cálculo avisa para conferir com a contabilidade.
+- **eSocial:**
+  - S-1200 com `ideTrabalhador/infoInterm` (os dias trabalhados), obrigatório para a categoria 111;
+  - sem convocação no mês, sem demonstrativo; no S-1200 do 13º, erro, porque o 13º do intermitente vai no mensal;
+  - S-1210 com as deduções de dependentes do 13º (tpRend 12) e das férias (tpRend 13), e a pensão do 13º no tpRend 12;
+  - rubricas com modelos e sugestões: INTERM (1000), DSRINT (1002), FERINT (1016), FERINT13 (1017) e 13INT (5001, incidências 12).
+- **Tela:** Folha do mês › Trabalho intermitente (`components/calculo/IntermitentesPanel.tsx`). O Cálculo mensal carrega as convocações da empresa.
+- **Catálogo SAGE:** `proc-intermitente` passa de planejado a parcial. Ficam para depois a rescisão do intermitente (S-2299 com infoInterm) e o salário-família.
+- **Testes:**
+  - convocação: prazos, mínimo-hora, conflitos e férias;
+  - folha: valores, DSR, INSS e IRRF em separado, dias;
+  - S-1200 e S-1210 no XSD oficial;
+  - a tela e as regras.

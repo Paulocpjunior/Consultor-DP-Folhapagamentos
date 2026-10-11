@@ -25,6 +25,7 @@ import { adicionalDeRisco, adicionalProporcional } from './adicionais';
 import { diaSemana, diaUtilAnterior, feriados, somarDias, somarMeses } from '../prazos/calendario';
 import { ehDomestico, indenizacaoCompensatoria } from '../domestico/domestico';
 import { descontosSindicais, type ContribuicaoConvencao } from '../sindicatos/contribuicoes';
+import { calcularIntermitente, type Convocacao } from './intermitente';
 
 export type TipoVerba = 'provento' | 'desconto';
 export interface Incidencias { inss: boolean; fgts: boolean; irrf: boolean }
@@ -124,6 +125,8 @@ export interface EntradaCalculo {
     beneficios?: Beneficio[];
     /** Contribuições da convenção vigente do sindicato da ficha (descontos para o sindicato). */
     contribuicoesSindicais?: ContribuicaoConvencao[];
+    /** Intermitente (categoria 111): as convocações do empregado (as aceitas com dias na competência são pagas). */
+    convocacoes?: Convocacao[];
 }
 
 /** O IRRF de um pagamento da folha: rendimentos tributáveis, deduções legais (INSS, dependentes, pensão) e o retido. */
@@ -163,6 +166,13 @@ export interface ResultadoCalculo {
     deducoesAdiantamento?: { dependentes: { cpf: string; nome: string }[]; porDependente: number };
     /** Empregado doméstico: indenização compensatória de 3,2% sobre a base do FGTS (LC 150/2015, art. 22), no DAE. */
     fgtsIndenizacao?: number;
+    /** Intermitente: dias trabalhados no mês e as horas (S-1200, infoInterm). */
+    diasIntermitente?: { dia: number; horas: number }[];
+    /** Intermitente: deduções do IRRF das férias (tpRend 13) e do 13º (tpRend 12), apurados em separado no mês. */
+    deducoesIntermitente?: {
+        ferias: { simplificado: boolean; dependentes: { cpf: string; nome: string }[]; porDependente: number };
+        decimo: { simplificado: boolean; dependentes: { cpf: string; nome: string }[]; porDependente: number; pensao: number };
+    };
 }
 
 /** FGTS: 8% (Lei 8.036/1990, art. 15); aprendiz 2% (§ 7º). */
@@ -273,10 +283,11 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
     if (deslig && deslig < ini) return erro(`Desligado em ${brData(deslig)}, antes da competência.`);
     const categoria = d.categoria || '';
     if (categoria && !/^1\d\d$/.test(categoria)) return erro(`Categoria ${categoria}: esta versão só calcula empregados (categorias 1xx).`);
-    // Intermitente (pago por convocação) tem regras próprias. Doméstico (LC 150/2015): FGTS + 3,2%, doença e maternidade pelo INSS.
+    // Intermitente (pago por convocação) tem cálculo próprio (intermitente.ts). Doméstico (LC 150/2015): FGTS + 3,2%, doença e maternidade pelo INSS.
     const domestico = ehDomestico(categoria);
     if (domestico) r.memoria.push('Empregado doméstico (LC 150/2015): FGTS de 8% + 3,2% de indenização compensatória; encargos e tributos no DAE do eSocial Doméstico.');
-    if (categoria === '111') return erro('Intermitente (categoria 111): o motor ainda não calcula a remuneração por convocação. Calcule pelo IOB.');
+    // Intermitente: pago por convocação (CLT, art. 452-A), com o cálculo próprio.
+    if (categoria === '111') return calcularIntermitente(e, r);
     if (!categoria) r.avisos.push('Ficha sem categoria do eSocial: calculado como empregado (101).');
     const aprendiz = categoria === '103';
 
