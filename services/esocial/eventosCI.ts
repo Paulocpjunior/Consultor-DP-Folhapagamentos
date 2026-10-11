@@ -6,8 +6,11 @@
 //   (item 5). Sem infoAgNocivo (só empregados e algumas categorias de avulso e cooperado);
 // - rubricas: o pró-labore e o RPA (natureza 3501 para serviços, MOS item 13.1), o INSS e o IRRF retidos (as rubricas
 //   da folha) e o ISS retido (natureza 9222, item 13.2), pelo de/para da empresa;
-// - S-1210 no mês do pagamento, com o líquido e, quando os dependentes deduzem, o infoIRComplem.
-// Só originais: a retificação ainda é pelo IOB.
+// - S-1210 no mês do pagamento, com o líquido e, quando os dependentes deduzem, o infoIRComplem;
+// - transportador autônomo (711, 712): o frete numa rubrica que não é base, as bases em rubricas informativas (20% com
+//   codIncCP 11; 10% ou 60% com codIncIRRF 11) e o SEST e o SENAT nas rubricas de codIncCP 34 e 35 (XSD do S-1010);
+// - retificação: com o recibo do evento aceito (envios do Consultor), indRetif 2. O S-1210 só é retificado direto quando
+//   o CPF não é empregado da empresa (senão o S-1210 do mês tem também a folha: retifique pela folha).
 
 import type { Rubrica } from '../cadastros/rubricas';
 import { vigenciaEm } from '../cadastros/rubricas';
@@ -35,7 +38,15 @@ export interface EntradaEventosCI {
     rubricas: Rubrica[];
     parametros: ParametrosEsocialFolha;
     agora?: Date;
+    /** Recibos vigentes (CPF → nrRecibo) para a retificação: S-1200 da competência e S-1210 do mês do pagamento. */
+    recibos?: { s1200?: Map<string, string>; s1210?: Map<string, string> };
+    /** CPFs com ficha de empregado na empresa (o S-1210 deles não é só do pró-labore/RPA). */
+    cpfsEmpregados?: Set<string>;
 }
+
+/** tpRubr esperado no S-1010 para cada tipo de item. */
+export const tpRubrDoTipo = (tipo: 'provento' | 'desconto' | 'informativa') => (tipo === 'provento' ? '1' : tipo === 'desconto' ? '2' : '3');
+const BASE_CP = ['11', '12', '13', '14', '15', '16'];
 
 export function gerarEventosCI(e: EntradaEventosCI): { eventos: EventosCI[]; erros: string[] } {
     const erros: string[] = [];
@@ -63,14 +74,20 @@ export function gerarEventosCI(e: EntradaEventosCI): { eventos: EventosCI[]; err
         if (!c.s2300 && !/^\d{6}$/.test(c.cbo)) t.erros.push('Sem o S-2300, o S-1200 leva o CBO (infoComplCont): informe no cadastro.');
         // Itens do demonstrativo pelo de/para da empresa.
         const itens: string[] = [];
-        for (const v of r.verbas) {
+        const todos = [...r.verbas.map(v => ({ ...v, tipo: v.tipo as 'provento' | 'desconto' | 'informativa' })), ...(r.informativas ?? []).map(i => ({ codigo: i.codigo, descricao: i.descricao, valor: i.valor, tipo: 'informativa' as const }))];
+        for (const v of todos) {
             if (v.valor <= 0) continue;
             const rub = p.rubricas[v.codigo];
             if (!rub) { t.erros.push(`"${v.descricao}" sem rubrica no de/para.`); continue; }
             const d = tipoDa.get(`${rub.ideTabRubr}|${rub.codRubr}`);
             if (!d) { t.erros.push(`Rubrica ${rub.codRubr} (de "${v.descricao}") sem S-1010 vigente em ${e.competencia}.`); continue; }
-            const esperado = v.tipo === 'provento' ? '1' : '2';
-            if (d.tpRubr !== esperado) t.erros.push(`Rubrica ${rub.codRubr} não é de ${v.tipo} no S-1010.`);
+            if (d.tpRubr !== tpRubrDoTipo(v.tipo)) t.erros.push(`Rubrica ${rub.codRubr} não é ${v.tipo === 'informativa' ? 'informativa' : `de ${v.tipo}`} no S-1010.`);
+            if (v.codigo === 'SEST' && d.codIncCP !== '34') t.erros.push(`Rubrica ${rub.codRubr} do SEST com incidência ${d.codIncCP || '—'}: tem de ser 34 (SEST) no S-1010.`);
+            if (v.codigo === 'SENAT' && d.codIncCP !== '35') t.erros.push(`Rubrica ${rub.codRubr} do SENAT com incidência ${d.codIncCP || '—'}: tem de ser 35 (SENAT) no S-1010.`);
+            if (v.codigo === 'BASEFRETE' && d.codIncCP !== '11') t.erros.push(`Rubrica ${rub.codRubr} da base do frete com incidência ${d.codIncCP || '—'}: tem de ser 11 (base do INSS) no S-1010.`);
+            if (v.codigo === 'FRETE' && BASE_CP.includes(d.codIncCP)) t.erros.push(`Rubrica ${rub.codRubr} do frete é base do INSS (${d.codIncCP}): o frete inteiro não é base — a base de 20% vai na rubrica informativa.`);
+            if (v.codigo === 'BASEIRFRETE' && d.codIncIRRF !== '11') t.avisos.push(`Rubrica ${rub.codRubr} do rendimento tributável do frete com codIncIRRF ${d.codIncIRRF || '—'}: o esperado é 11 (remuneração mensal).`);
+            if (v.codigo === 'FRETE' && d.codIncIRRF === '11') t.avisos.push(`Rubrica ${rub.codRubr} do frete é rendimento tributável (11): o tributável é só a parte da rubrica informativa (10% ou 60%).`);
             if (v.codigo === 'RPA' && d.natRubr !== '3501') t.avisos.push(`Rubrica ${rub.codRubr} do RPA com natureza ${d.natRubr}: o MOS (S-1200, item 13.1) indica 3501.`);
             if (v.codigo === 'ISS' && d.natRubr !== '9222') t.avisos.push(`Rubrica ${rub.codRubr} do ISS com natureza ${d.natRubr}: o MOS (S-1200, item 13.2) indica 9222.`);
             itens.push(`<itensRemun><codRubr>${esc(rub.codRubr)}</codRubr><ideTabRubr>${esc(rub.ideTabRubr)}</ideTabRubr><vrRubr>${valor(v.valor)}</vrRubr><indApurIR>0</indApurIR></itensRemun>`);
@@ -84,8 +101,11 @@ export function gerarEventosCI(e: EntradaEventosCI): { eventos: EventosCI[]; err
         const matricula = c.s2300 && c.matricula.trim() ? `<matricula>${esc(c.matricula.trim())}</matricula>` : '';
         const infoComplCont = c.s2300 ? '' : `<infoComplCont><codCBO>${c.cbo}</codCBO></infoComplCont>`;
         const id1200 = idEvento(e.cnpj, agora, ++seq);
+        const rec1200 = e.recibos?.s1200?.get(cpf);
+        const retif1200 = rec1200 ? `<indRetif>2</indRetif><nrRecibo>${rec1200}</nrRecibo>` : '<indRetif>1</indRetif>';
+        if (rec1200) t.avisos.push(`S-1200 vai como retificação do recibo ${rec1200}.`);
         t.s1200 = { id: id1200, xml: `<eSocial xmlns="${NS}/evtRemun/${VERSAO}"><evtRemun Id="${id1200}">`
-            + `<ideEvento><indRetif>1</indRetif><indApuracao>1</indApuracao><perApur>${e.competencia}</perApur><tpAmb>${e.tpAmb}</tpAmb><procEmi>1</procEmi><verProc>${VER_PROC}</verProc></ideEvento>`
+            + `<ideEvento>${retif1200}<indApuracao>1</indApuracao><perApur>${e.competencia}</perApur><tpAmb>${e.tpAmb}</tpAmb><procEmi>1</procEmi><verProc>${VER_PROC}</verProc></ideEvento>`
             + ideEmpregador + `<ideTrabalhador><cpfTrab>${cpf}</cpfTrab>${infoMV}${infoComplem}</ideTrabalhador>`
             + `<dmDev><ideDmDev>${ide}</ideDmDev><codCateg>${c.categoria}</codCateg><infoPerApur><ideEstabLot><tpInsc>1</tpInsc><nrInsc>${estab}</nrInsc><codLotacao>${esc(p.codLotacao.trim())}</codLotacao>`
             + `<remunPerApur>${matricula}${p.indSimples ? `<indSimples>${p.indSimples}</indSimples>` : ''}${itens.join('')}</remunPerApur></ideEstabLot></infoPerApur>${infoComplCont}</dmDev>`
@@ -100,17 +120,30 @@ export function gerarEventosCI(e: EntradaEventosCI): { eventos: EventosCI[]; err
             if (c.s2300) t.avisos.push('Com o S-2300, os dependentes têm de estar nele (ou num S-2306); o S-1210 só leva a dedução.');
         }
         const id1210 = idEvento(e.cnpj, agora, ++seq);
+        const rec1210 = e.recibos?.s1210?.get(cpf);
+        if (rec1210 && e.cpfsEmpregados?.has(cpf)) {
+            t.avisos.push(`S-1210 já aceito (recibo ${rec1210}) e o CPF também é empregado: o S-1210 do mês leva a folha. Retifique pela folha (exclusão e reenvio com todos os pagamentos); o S-1210 daqui não foi gerado.`);
+            continue;
+        }
+        const retif1210 = rec1210 ? `<indRetif>2</indRetif><nrRecibo>${rec1210}</nrRecibo>` : '<indRetif>1</indRetif>';
+        if (rec1210) t.avisos.push(`S-1210 vai como retificação do recibo ${rec1210}.`);
         t.s1210 = { id: id1210, xml: `<eSocial xmlns="${NS}/evtPgtos/${VERSAO}"><evtPgtos Id="${id1210}">`
-            + `<ideEvento><indRetif>1</indRetif><perApur>${t.perPgto}</perApur><tpAmb>${e.tpAmb}</tpAmb><procEmi>1</procEmi><verProc>${VER_PROC}</verProc></ideEvento>`
+            + `<ideEvento>${retif1210}<perApur>${t.perPgto}</perApur><tpAmb>${e.tpAmb}</tpAmb><procEmi>1</procEmi><verProc>${VER_PROC}</verProc></ideEvento>`
             + ideEmpregador + `<ideBenef><cpfBenef>${cpf}</cpfBenef><infoPgto><dtPgto>${r.dataPagamento}</dtPgto><tpPgto>1</tpPgto><perRef>${e.competencia}</perRef><ideDmDev>${ide}</ideDmDev><vrLiq>${valor(Math.max(0, r.totais.liquido))}</vrLiq></infoPgto>${ir}</ideBenef>`
             + '</evtPgtos></eSocial>' };
     }
     return { eventos, erros };
 }
 
-/** Itens do de/para próprios do pró-labore e do RPA (o INSS e o IRRF são os da folha). */
-export const CHAVES_CI: { chave: 'PROLAB' | 'RPA' | 'ISS'; descricao: string; tipo: 'provento' | 'desconto'; naturezas: string[]; dica: RegExp }[] = [
+/** Itens do de/para próprios do pró-labore, do RPA e do frete (o INSS e o IRRF são os da folha). */
+export type ChaveCI = 'PROLAB' | 'RPA' | 'ISS' | 'FRETE' | 'BASEFRETE' | 'BASEIRFRETE' | 'SEST' | 'SENAT';
+export const CHAVES_CI: { chave: ChaveCI; descricao: string; tipo: 'provento' | 'desconto' | 'informativa'; naturezas: string[]; codIncCP?: string; dica: RegExp }[] = [
     { chave: 'PROLAB', descricao: 'Pró-labore', tipo: 'provento', naturezas: [], dica: /PRO ?LAB|RETIRAD/ },
     { chave: 'RPA', descricao: 'Serviços prestados (RPA)', tipo: 'provento', naturezas: ['3501'], dica: /AUTON|SERVI|RPA/ },
     { chave: 'ISS', descricao: 'ISS retido', tipo: 'desconto', naturezas: ['9222'], dica: /\bISS\b/ },
+    { chave: 'FRETE', descricao: 'Frete do transportador (não é base)', tipo: 'provento', naturezas: [], dica: /FRETE|CARRET|TRANSPORT/ },
+    { chave: 'BASEFRETE', descricao: 'Base do INSS do frete, 20% (informativa, codIncCP 11)', tipo: 'informativa', naturezas: [], codIncCP: '11', dica: /BASE.*(FRETE|TRANSP)|FRETE.*20/ },
+    { chave: 'BASEIRFRETE', descricao: 'Tributável do IRRF do frete, 10%/60% (informativa)', tipo: 'informativa', naturezas: [], dica: /(IR|TRIB).*(FRETE|TRANSP)/ },
+    { chave: 'SEST', descricao: 'SEST descontado (codIncCP 34)', tipo: 'desconto', naturezas: [], codIncCP: '34', dica: /\bSEST\b/ },
+    { chave: 'SENAT', descricao: 'SENAT descontado (codIncCP 35)', tipo: 'desconto', naturezas: [], codIncCP: '35', dica: /\bSENAT\b/ },
 ];

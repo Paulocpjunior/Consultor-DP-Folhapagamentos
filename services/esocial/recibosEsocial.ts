@@ -137,6 +137,22 @@ export function recibosDosEnvios(envios: Envio[], fichas: FichaFuncionario[]): R
     return r;
 }
 
+/** Recibos dos S-1200 e S-1210 do pró-labore e do RPA que o Consultor transmitiu (ref "ci:cpf:competência"). */
+export function recibosCIDosEnvios(envios: Envio[]): ReciboEvento[] {
+    const r: ReciboEvento[] = [];
+    for (const e of envios) {
+        if (e.tpAmb !== 1) continue;
+        for (const ev of e.eventos) {
+            if ((ev.tipo !== 'S-1200' && ev.tipo !== 'S-1210') || !ev.nrRecibo || !reciboValido(ev.nrRecibo) || !ev.perApur || !ev.ref?.startsWith('ci:')) continue;
+            if (ev.cdResposta !== 201 && ev.cdResposta !== 202) continue;
+            const cpf = digitos(ev.ref.split(':')[1]);
+            if (cpf.length !== 11) continue;
+            r.push({ tipo: ev.tipo, cpf, perApur: ev.perApur, nrRecibo: ev.nrRecibo, processadoEm: e.consultadoEm ?? e.enviadoEm ?? '', origem: `transmitido pelo Consultor (protocolo ${e.protocolo})` });
+        }
+    }
+    return r;
+}
+
 /**
  * Instante para comparar recibos: o envio do Consultor vem em UTC ("Z") e o
  * dhProcessamento do download, na hora de Brasília sem fuso (sem horário de

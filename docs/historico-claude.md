@@ -4064,3 +4064,32 @@ Paulo: "pode seguir com a reinf do dp". Ele escolheu: quem envia a EFD-Reinf é 
   - validações do processo e do pagamento;
   - quatro XMLs no XSD oficial: S-2500 judicial, S-2500 de CCP com retificação, S-2501 com RRA e S-2501 com 13º;
   - a tela (cadastro, bases, gravação e S-2500) e as regras.
+
+## 11/10/2026 — RPA completo: transportador autônomo (711/712) e retificação do S-1200/S-1210
+
+Paulo: "pode seguir com RPA" e escolheu "completar o RPA".
+
+- **Transportador autônomo** (`services/contribuintes/contribuinteIndividual.ts`), categorias 712 (carga) e 711 (passageiros), sobre o valor bruto do frete:
+  - INSS de 11% até o teto e parte da empresa de 20%, ambos sobre a base de 20% do frete (Decreto 3.048/1999, art. 201, § 4º);
+  - SEST de 1,5% e SENAT de 1,0% sobre a mesma base. O próprio S-5001 calcula assim, com os códigos 121802 e 122102 para as categorias 711, 712 e 734, segundo o XSD oficial S-1.3;
+  - IRRF sobre 10% do frete (carga) ou 60% (passageiros), pela Lei 7.713/1988, art. 9º;
+  - sem ISS retido.
+- **eSocial** (`eventosCI.ts`):
+  - o frete inteiro vai numa rubrica que não é base;
+  - as bases vão em rubricas informativas (tpRubr 3): 20% com codIncCP 11 e 10%/60% com codIncIRRF 11;
+  - o SEST e o SENAT vão nas rubricas de codIncCP 34 e 35. Essas incidências vêm do XSD do S-1010 e são conferidas: rubrica errada vira erro antes do envio;
+  - o de/para ganha FRETE, BASEFRETE, BASEIRFRETE, SEST e SENAT, com sugestão pela incidência.
+- **Retificação:**
+  - em produção, quem já tem S-1200 ou S-1210 aceito pelo Consultor (`recibosCIDosEnvios`, ref `ci:cpf:competência`) vai com indRetif 2 e o recibo;
+  - o S-1210 de quem também é empregado da empresa não é gerado aqui, porque o do mês leva a folha: retifica-se pela folha (exclusão e reenvio).
+- **Catálogo SAGE:**
+  - Autônomos passa a disponível;
+  - Pró-labore continua parcial;
+  - o informe de rendimentos dos dois sai pelos S-5002 (Relatórios › Anuais);
+  - agora são 22 disponíveis, 20 parciais, 8 planejados e 2 fora.
+- **Testes:**
+  - cálculo de carga e de passageiros;
+  - S-1200 e S-1210 no XSD, inclusive a retificação;
+  - conferência das incidências;
+  - S-1210 de quem também é empregado;
+  - recibos pelos envios.
