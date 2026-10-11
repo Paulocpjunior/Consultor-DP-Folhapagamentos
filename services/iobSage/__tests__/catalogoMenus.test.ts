@@ -36,8 +36,8 @@ describe('catálogo IOB SAGE × Consultor DP', () => {
 
     it('DIRF extinta: o informe sai pelos S-5002; REINF e DCTFWeb têm a parte do DP (Paulo, 11/10/2026)', () => {
         expect(itens.find(i => i.id === 'trib-dirf')).toMatchObject({ situacao: 'disponivel', destino: 'relatorios:central' });
-        expect(itens.find(i => i.id === 'trib-reinf')?.situacao).toBe('planejado');
-        expect(itens.find(i => i.id === 'trib-reinf')?.noConsultor).toMatch(/eSocial.*S-2500\/S-2501.*R-4010/);
+        expect(itens.find(i => i.id === 'trib-reinf')).toMatchObject({ situacao: 'disponivel', destino: 'dctfweb' });
+        expect(itens.find(i => i.id === 'trib-reinf')?.noConsultor).toMatch(/semáforo.*S-2500\/S-2501.*R-4010 do DP: nenhum caso.*próprio app do DP/);
         expect(itens.find(i => i.id === 'es-processo-trab')).toMatchObject({ situacao: 'parcial', destino: 'processos' });
         expect(itens.find(i => i.id === 'trib-dctfweb')).toMatchObject({ situacao: 'disponivel', destino: 'dctfweb' });
         expect(itens.find(i => i.id === 'trib-dctfweb')?.noConsultor).toMatch(/DARF.*transmissão pelo Integra Contador/);
