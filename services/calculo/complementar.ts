@@ -30,17 +30,17 @@ import { ehDomestico, indenizacaoCompensatoria } from '../domestico/domestico';
 /** Fato gerador da remuneração de períodos anteriores (S-1200, {tpAcConv}). */
 export type TpAcConv = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J';
 
-export const TIPOS_AC_CONV: { codigo: TpAcConv; rotulo: string; suportado: boolean }[] = [
+export const TIPOS_AC_CONV: { codigo: TpAcConv; rotulo: string; suportado: boolean; motivo?: string }[] = [
     { codigo: 'C', rotulo: 'Convenção Coletiva de Trabalho', suportado: true },
     { codigo: 'A', rotulo: 'Acordo Coletivo de Trabalho', suportado: true },
     { codigo: 'D', rotulo: 'Sentença normativa (dissídio)', suportado: true },
     { codigo: 'G', rotulo: 'Antecipação de diferenças de acordo, convenção ou dissídio', suportado: true },
     { codigo: 'B', rotulo: 'Legislação federal, estadual, municipal ou distrital', suportado: true },
     { codigo: 'J', rotulo: 'Parcelas complementares conhecidas após o fechamento da folha', suportado: true },
-    { codigo: 'E', rotulo: 'Conversão de licença saúde em acidente de trabalho', suportado: false },
-    { codigo: 'F', rotulo: 'Verbas devidas após o desligamento', suportado: false },
-    { codigo: 'H', rotulo: 'Base de FGTS anterior ao FGTS Digital', suportado: false },
-    { codigo: 'I', rotulo: 'Sentença judicial (exceto reclamatória trabalhista)', suportado: false },
+    { codigo: 'F', rotulo: 'Outras verbas de natureza salarial ou não salarial devidas após o desligamento', suportado: true },
+    { codigo: 'E', rotulo: 'Conversão de licença saúde em acidente de trabalho', suportado: false, motivo: 'vai em rubrica informativa só com FGTS, recolhido na competência de cada mês com encargos (MOS, S-1200, itens 18.8 e 18.9); o Consultor ainda não gera, faça pelo IOB' },
+    { codigo: 'H', rotulo: 'Base de FGTS anterior ao FGTS Digital', suportado: false, motivo: 'o eSocial manda não usar até a regulamentação (MOS, S-1200, item 18.14)' },
+    { codigo: 'I', rotulo: 'Sentença judicial (exceto reclamatória trabalhista)', suportado: false, motivo: 'é para servidor público vinculado ao RGPS com decisão da Justiça Comum (MOS, S-1200, item 18.15); decisão da Justiça do Trabalho vai pelo S-2500 e S-2501 (eSocial › Processos trabalhistas)' },
 ];
 
 export const rotuloTpAcConv = (t: string) => TIPOS_AC_CONV.find(x => x.codigo === t)?.rotulo ?? t;
@@ -169,7 +169,7 @@ export function validarComplementar(e: Pick<EntradaComplementar, 'perApur' | 'pa
     const { tpAcConv, dtAcConv, dsc } = e.instrumento;
     const tipo = TIPOS_AC_CONV.find(x => x.codigo === tpAcConv);
     if (!tipo) erros.push('Escolha o tipo do instrumento (tpAcConv).');
-    else if (!tipo.suportado) erros.push(`Tipo ${tipo.codigo} (${tipo.rotulo}): o Consultor ainda não gera; faça pelo IOB.`);
+    else if (!tipo.suportado) erros.push(`Tipo ${tipo.codigo} (${tipo.rotulo}): ${tipo.motivo ?? 'o Consultor ainda não gera; faça pelo IOB'}.`);
     if (exigeDataAcConv(tpAcConv)) {
         if (!dtAcConv || !dataValida(dtAcConv)) erros.push('Informe a data da celebração ou da publicação do instrumento.');
         else if (competenciaValida(e.perApur) && dtAcConv > ultimoDia(e.perApur)) erros.push(`A data do instrumento (${brData(dtAcConv)}) é depois da competência ${rotuloCompetencia(e.perApur)}: a complementar vai no S-1200 do mês da celebração.`);
@@ -279,6 +279,12 @@ export function calcularComplementar(e: EntradaComplementar): { resultados: Resu
         const aliqFgts = aprendiz ? 2 : 8;
         r.memoria.push(`${rotuloTpAcConv(e.instrumento.tpAcConv)}: ${e.instrumento.dsc.trim()}${e.instrumento.dtAcConv ? ` (${brData(e.instrumento.dtAcConv)})` : ''}.`);
         if (e.reajuste) r.memoria.push(`Reajuste de ${num(e.reajuste.pct)}% de ${rotuloCompetencia(e.reajuste.de)} a ${rotuloCompetencia(e.reajuste.ate)} sobre as verbas das folhas gravadas.`);
+        // Tipo F: só verbas devidas depois do desligamento, nos meses do contrato (MOS, S-1200, item 18.12; S-2299, item 7.3).
+        if (e.instrumento.tpAcConv === 'F') {
+            const deslig = f.dados.dataDesligamento && dataValida(f.dados.dataDesligamento) ? f.dados.dataDesligamento : '';
+            if (!deslig || deslig >= `${e.perApur}-01`) r.avisos.push('Tipo F é para verbas devidas depois do desligamento, que não podiam ser apuradas antes; nos demais casos, retifique o S-1200 ou o S-2299 (MOS, S-1200, item 18.12).');
+            else for (const perRef of meses.keys()) if (perRef > deslig.slice(0, 7)) r.erros.push(`Tipo F: ${rotuloCompetencia(perRef)} é depois do desligamento (${brData(deslig)}); o mês de referência tem de estar no contrato.`);
+        }
         for (const perRef of [...meses.keys()].sort()) {
             const x = meses.get(perRef)!;
             r.avisos.push(...new Set(x.avisos));

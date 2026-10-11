@@ -223,7 +223,7 @@ const FolhaComplementarModal: React.FC<Props> = ({ empresa, competencia, pagamen
 
                 <section className="grid gap-2 sm:grid-cols-4">
                     <label className="sm:col-span-2">Fato gerador (tpAcConv)<select aria-label="Tipo do instrumento" className={`block w-full ${inp}`} value={tipo} onChange={e => { const t = e.target.value as TpAcConv; setTipo(t); if (t === 'J' && !dsc.trim()) setDsc(DSC_TIPO_J); }}>
-                        {TIPOS_AC_CONV.map(t => <option key={t.codigo} value={t.codigo} disabled={!t.suportado}>{t.codigo} – {t.rotulo}{t.suportado ? '' : ' (pelo IOB)'}</option>)}</select></label>
+                        {TIPOS_AC_CONV.map(t => <option key={t.codigo} value={t.codigo} disabled={!t.suportado} title={t.motivo}>{t.codigo} – {t.rotulo}{t.suportado ? '' : t.codigo === 'H' ? ' (aguarda regulamentação)' : t.codigo === 'I' ? ' (servidor público; Justiça Comum)' : ' (pelo IOB)'}</option>)}</select></label>
                     <label>{exigeDataAcConv(tipo) ? 'Data da celebração/publicação' : 'Data (opcional)'}<input aria-label="Data do instrumento" type="date" className={`block w-full ${inp}`} value={dtAcConv} onChange={e => setDtAcConv(e.target.value)} /></label>
                     <label>Pagamento em<input aria-label="Mês do pagamento" type="month" className={`block w-full ${inp}`} value={pag} onChange={e => setPag(e.target.value)} /></label>
                     <label className="sm:col-span-4">Descrição do instrumento<input aria-label="Descrição do instrumento" maxLength={255} className={`block w-full ${inp}`} value={dsc} placeholder="Convenção coletiva dos comerciários de São Paulo 2026/2027" onChange={e => setDsc(e.target.value)} /></label>

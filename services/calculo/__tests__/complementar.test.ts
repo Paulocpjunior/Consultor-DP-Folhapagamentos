@@ -28,7 +28,10 @@ describe('validação da complementar', () => {
         expect(validarComplementar({ ...base, instrumento: { tpAcConv: 'J', dsc: 'x' } })).toEqual([]);
     });
     it('tipos ainda não gerados, descrição e reajuste fora do período', () => {
-        expect(validarComplementar({ ...base, instrumento: { tpAcConv: 'E', dtAcConv: '2026-04-01', dsc: 'x' } }).join(' ')).toMatch(/Tipo E .* ainda não gera/);
+        expect(validarComplementar({ ...base, instrumento: { tpAcConv: 'E', dtAcConv: '2026-04-01', dsc: 'x' } }).join(' ')).toMatch(/Tipo E .* rubrica informativa só com FGTS.* ainda não gera/);
+        expect(validarComplementar({ ...base, instrumento: { tpAcConv: 'H', dsc: 'x' } }).join(' ')).toMatch(/não usar até a regulamentação \(MOS, S-1200, item 18\.14\)/);
+        expect(validarComplementar({ ...base, instrumento: { tpAcConv: 'I', dsc: 'x' } }).join(' ')).toMatch(/servidor público .* S-2500 e S-2501/);
+        expect(validarComplementar({ ...base, instrumento: { tpAcConv: 'F', dsc: 'Participação nos lucros após o desligamento' } })).toEqual([]);
         expect(validarComplementar({ ...base, instrumento: { ...CCT, dsc: ' ' } }).join(' ')).toMatch(/Descreva o instrumento/);
         expect(validarComplementar({ ...base, instrumento: { ...CCT, dsc: 'x'.repeat(256) } }).join(' ')).toMatch(/255/);
         expect(validarComplementar({ ...base, reajuste: { pct: 5, de: '2026-01', ate: '2026-04' } }).join(' ')).toMatch(/mês anterior a/);
@@ -211,4 +214,19 @@ describe('sugestão pela convenção', () => {
         expect(sugestaoDaConvencao({ ...conv, reajuste: { percentual: null, aPartirDe: '2026-01' } }, '2026-04')).toBeNull();
         expect(sugestaoDaConvencao(conv, '2026-01')).toBeNull();
     });
+
+    it('tipo F: verbas devidas depois do desligamento, nos meses do contrato', () => {
+        const dani = ficha('dani', { admissao: '2025-03-10', dataDesligamento: '2026-02-20' });
+        const F = { tpAcConv: 'F' as const, dsc: 'Comissões apuradas depois do desligamento' };
+        const lan = (perRef: string) => ({ fichaId: 'dani', perRef, codigo: 'LAN', descricao: 'Comissões', tipo: 'provento' as const, valor: 50000, inss: true, fgts: true, irrf: true });
+        const ok = calcularComplementar(entrada([dani], { instrumento: F, reajuste: undefined, gravadas: {}, folhaDoMes: [], lancamentos: [lan('2026-02')] })).resultados[0];
+        expect(ok.situacao).toBe('calculado');
+        expect(ok.avisos.join(' ')).not.toMatch(/Tipo F é para/);
+        const depois = calcularComplementar(entrada([dani], { instrumento: F, reajuste: undefined, gravadas: {}, folhaDoMes: [], lancamentos: [lan('2026-03')] })).resultados[0];
+        expect(depois.situacao).toBe('erro');
+        expect(depois.erros.join(' ')).toMatch(/03\/2026 é depois do desligamento/);
+        const ativo = calcularComplementar(entrada([ficha('ana')], { instrumento: F, reajuste: undefined, lancamentos: [{ ...lan('2026-02'), fichaId: 'ana' }] })).resultados[0];
+        expect(ativo.avisos.join(' ')).toMatch(/Tipo F é para verbas devidas depois do desligamento/);
+    });
 });
+

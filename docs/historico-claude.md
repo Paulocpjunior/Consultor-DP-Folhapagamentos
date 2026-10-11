@@ -4898,3 +4898,17 @@ Terceiro item da lista "o que posso seguir". Os códigos foram conferidos no MOS
   - o S-2299 de cada um no XSD oficial (no falecimento, com `indApurIR` 1);
   - a recusa do S-1210 no falecimento.
 
+## 11/10/2026 — Itens 4 e 5 da lista: adiantamento por CPF e tipos da complementar
+
+- **Item 4, IRRF do adiantamento com mais de um contrato no CPF:** já estava feito desde a #62. O motor soma os contratos do CPF, com os dependentes uma vez só e a parte de cada contrato proporcional ao adiantamento. Só fica travado, de propósito, o caso de contrato desligado no mês antes do adiantamento, porque a data em que a rescisão foi paga não fica gravada no Consultor. Na lista de 11/10 eu tinha descrito esse item como "cada contrato sozinho", o que estava errado.
+- **Item 5, tipos da folha complementar (tpAcConv), conferidos no MOS S-1.3 (S-1200, item 18):**
+  - **F** (verbas devidas depois do desligamento) passa a ser gerado. Mês de referência depois do desligamento é erro (S-2299, item 7.3); em quem não está desligado, aviso para retificar o S-1200 ou o S-2299 (item 18.12). O FGTS vai na competência do S-1200 (item 18.9).
+  - **E** (conversão de licença saúde em acidente) continua fora: vai em rubrica informativa só com FGTS, recolhido na competência de cada mês com encargos (itens 18.8 e 18.9), e o motor ainda não tem verba informativa.
+  - **H** (base de FGTS anterior ao FGTS Digital): o próprio eSocial manda não usar até a regulamentação (item 18.14).
+  - **I** (sentença da Justiça Comum): só para servidor público do RGPS (item 18.15). Decisão da Justiça do Trabalho vai pelo S-2500/S-2501.
+  - A tela mostra o motivo de cada tipo que não gera.
+- **Testes:**
+  - os motivos de E, H e I;
+  - o tipo F: dentro do contrato, depois do desligamento e com ativo;
+  - o S-1200 do tipo F no XSD oficial.
+
