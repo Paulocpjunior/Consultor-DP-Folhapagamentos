@@ -10,7 +10,8 @@
 // - mudança a partir de uma competência = INCLUSÃO com novo iniValid (o eSocial encerra a anterior no mês
 //   anterior); correção da mesma vigência = ALTERAÇÃO (prevalece a última); fim de validade = ALTERAÇÃO com
 //   novaValidade; EXCLUSÃO só de vigência sem uso em eventos de remuneração;
-// - códigos de incidência suspensa (9x / 9xxx) exigem o processo do S-1070 no próprio S-1010: não são gerados aqui;
+// - códigos de incidência suspensa (9x / 9xxx) levam o processo do S-1070 (ideProcessoCP, ideProcessoIRRF, ideProcessoFGTS;
+//   services/processosJud/processosJud.ts), que precisa estar aceito antes; a do RPPS (codIncCPRP 9x) fica com o IOB;
 // - rubricas de conferência (9901 a 9908): codIncCP 00, codIncFGTS 00 e codIncIRRF 9;
 // - eConsignado (9253): desconto, codIncFGTS 31, codIncCP 00 e codIncIRRF 9.
 //
@@ -176,7 +177,9 @@ export function pedidoDaVerba(empresaId: string, item: { chave: string; descrica
 
 export interface ConferenciaPedido { erros: string[]; avisos: string[] }
 
-const suspensa = (d: DadosRubrica) => /^9\d$/.test(d.codIncCP) || /^9\d$/.test(d.codIncFGTS) || /^9\d$|^9\d{3}$/.test(d.codIncIRRF) || /^9\d$/.test(d.codIncCPRP);
+const cpSuspensa = (d: DadosRubrica) => /^9\d$/.test(d.codIncCP);
+const irrfSuspensa = (d: DadosRubrica) => /^9\d$|^9\d{3}$/.test(d.codIncIRRF);
+const fgtsSuspensa = (d: DadosRubrica) => /^9\d$/.test(d.codIncFGTS);
 
 export function validarDados(d: DadosRubrica): string[] {
     const e: string[] = [];
@@ -191,7 +194,19 @@ export function validarDados(d: DadosRubrica): string[] {
     if (!/^\d{1,4}$/.test(d.codIncIRRF)) e.push('codIncIRRF: código da Tabela 21 (1 a 4 dígitos).');
     if (d.codIncCPRP && !['00', '11', '12', '31', '32', '91', '92'].includes(d.codIncCPRP)) e.push(`codIncCPRP ${d.codIncCPRP} não existe no leiaute.`);
     if (d.observacao.length > 255) e.push('Observação com mais de 255 caracteres.');
-    if (suspensa(d)) e.push('Incidência suspensa (9x) exige o processo do S-1070 no S-1010: envie esta rubrica pelo sistema que tem o processo cadastrado.');
+    // Incidência suspensa: o processo do S-1070 (aceito antes) no próprio S-1010.
+    const nr = (n: string) => /^\d{17}$|^\d{20}$|^\d{21}$/.test(n.replace(/\D/g, ''));
+    const cod = (c: string) => /^\d{1,14}$/.test(c.trim());
+    if (cpSuspensa(d) && !d.processosCP?.length) e.push(`codIncCP ${d.codIncCP} (suspensa): informe o processo do S-1070 que suspende a contribuição.`);
+    if (!cpSuspensa(d) && d.processosCP?.length) e.push('Processo de contribuição previdenciária só com codIncCP suspenso (9x).');
+    (d.processosCP ?? []).forEach((p, i) => { if (!nr(p.nrProc) || !cod(p.codSusp) || !['1', '2'].includes(p.tpProc) || !['1', '2'].includes(p.extDecisao)) e.push(`Processo de CP ${i + 1}: tipo, número (17, 20 ou 21 algarismos), extensão e código da suspensão.`); });
+    if (irrfSuspensa(d) && !d.processosIRRF?.length) e.push(`codIncIRRF ${d.codIncIRRF} (suspensa): informe o processo judicial do S-1070.`);
+    if (!irrfSuspensa(d) && d.processosIRRF?.length) e.push('Processo de IRRF só com codIncIRRF suspenso (9x ou 9xxx).');
+    (d.processosIRRF ?? []).forEach((p, i) => { if (!/^\d{20}$/.test(p.nrProc.replace(/\D/g, '')) || !cod(p.codSusp)) e.push(`Processo de IRRF ${i + 1}: número judicial (20 algarismos) e código da suspensão.`); });
+    if (fgtsSuspensa(d) && !d.processosFGTS?.length) e.push(`codIncFGTS ${d.codIncFGTS} (suspensa): informe o processo judicial do S-1070.`);
+    if (!fgtsSuspensa(d) && d.processosFGTS?.length) e.push('Processo de FGTS só com codIncFGTS suspenso (9x).');
+    (d.processosFGTS ?? []).forEach((p, i) => { if (!/^\d{20}$/.test(p.nrProc.replace(/\D/g, ''))) e.push(`Processo de FGTS ${i + 1}: número judicial (20 algarismos).`); });
+    if (/^9\d$/.test(d.codIncCPRP)) e.push('Incidência suspensa do RPPS (codIncCPRP 9x): envie esta rubrica pelo IOB.');
     if (/^990[1-8]$/.test(d.natRubr) && (d.codIncCP !== '00' || d.codIncFGTS !== '00' || d.codIncIRRF !== '9' || !['', '00'].includes(d.codIncCPRP)))
         e.push(`Natureza ${d.natRubr} (conferência de base): codIncCP 00, codIncFGTS 00 e codIncIRRF 9 (MOS, S-1010, item 1.4).`);
     if (d.natRubr === '9253' && (d.tpRubr !== '2' || d.codIncFGTS !== '31' || d.codIncCP !== '00' || d.codIncIRRF !== '9'))
@@ -260,6 +275,9 @@ function xmlDados(d: DadosRubrica): string {
         + `<codIncCP>${d.codIncCP}</codIncCP><codIncIRRF>${Number(d.codIncIRRF)}</codIncIRRF><codIncFGTS>${d.codIncFGTS}</codIncFGTS>`
         + (d.codIncCPRP ? `<codIncCPRP>${d.codIncCPRP}</codIncCPRP>` : '')
         + (d.observacao.trim() ? `<observacao>${esc(d.observacao.trim())}</observacao>` : '')
+        + (d.processosCP ?? []).map(p => `<ideProcessoCP><tpProc>${p.tpProc}</tpProc><nrProc>${p.nrProc.replace(/\D/g, '')}</nrProc><extDecisao>${p.extDecisao}</extDecisao><codSusp>${p.codSusp.trim()}</codSusp></ideProcessoCP>`).join('')
+        + (d.processosIRRF ?? []).map(p => `<ideProcessoIRRF><nrProc>${p.nrProc.replace(/\D/g, '')}</nrProc><codSusp>${p.codSusp.trim()}</codSusp></ideProcessoIRRF>`).join('')
+        + (d.processosFGTS ?? []).map(p => `<ideProcessoFGTS><nrProc>${p.nrProc.replace(/\D/g, '')}</nrProc></ideProcessoFGTS>`).join('')
         + '</dadosRubrica>';
 }
 

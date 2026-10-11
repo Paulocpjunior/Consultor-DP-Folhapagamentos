@@ -4416,3 +4416,26 @@ Paulo: "pode seguir". Terceiro dos itens planejados do catálogo do SAGE.
 - **CCI:** o acesso de leitura ao repositório do Consultor Contábil (`plano-contas-iob`) foi negado nesta sessão, então o arquivo saiu num layout neutro. A importação direta no CCI fica pendente do layout dele.
 - **Catálogo SAGE:** `div-contabil` passa a parcial. Agora são 27 disponíveis, 21 parciais, 3 planejados e 2 fora.
 - **Testes:** partidas e conferência do líquido, contas padrão e pendências, centro de custo, patronal rateado, provisões, arquivo, tela e regras do Firestore.
+
+## 11/10/2026 — S-1070: processos judiciais e administrativos
+
+Paulo: "atualiza nosso status e pode seguir". Quarto dos itens planejados do catálogo do SAGE.
+
+- **Cadastro dos processos** (`services/processosJud/processosJud.ts`; tela em Cadastros › Processos judiciais e administrativos):
+  - tipos: administrativo (17 ou 21 algarismos), judicial (20, a numeração do CNJ) e do FAP (16);
+  - campos: a matéria (tributária, ou só FGTS e a contribuição da LC 110/2001), a validade, a autoria da ação judicial e a vara (UF, município e código) do judicial tributário;
+  - suspensões da exigibilidade: o código, que é o que o S-1010, o S-1005 e o S-1020 citam, o indicativo permitido para o tipo, a data da decisão e o depósito do montante integral. O depósito é obrigatório em 02 e 03 e vedado em 90, como no XSD;
+  - gravação em `processos_s1070/{empresa}_{tipo}_{número}`: não se apaga, o excluído no eSocial fica inativo (regra nova com teste).
+- **S-1070 pelo Consultor:** inclusão; depois de aceita, alteração (com nova validade, se for o caso) e exclusão. Envio com o pré-voo, a situação de cada ação e o XML.
+- **O processo nos eventos de tabela:**
+  - S-1010: rubrica com incidência suspensa (codIncCP 9x, codIncIRRF 9x/9xxx, codIncFGTS 9x) leva ideProcessoCP (com a extensão da decisão), ideProcessoIRRF ou ideProcessoFGTS. Antes o Consultor recusava e mandava pelo IOB; a suspensão do RPPS continua com o IOB;
+  - as rubricas importadas do eSocial trazem os processos de volta, para a alteração pelo Consultor não perdê-los;
+  - S-1005 da obra com RAT ou FAP diferentes: procAdmJudRat e procAdmJudFap. Sem o processo agora é erro (era aviso);
+  - S-1020: terceiros com o recolhimento suspenso (o código combinado e um processo por terceiro);
+  - a escolha do processo nos formulários do S-1010 e das obras lista os processos tributários ativos da empresa.
+- **Catálogo SAGE:** `arq-processos-jud` passa a disponível. Agora são 28 disponíveis, 21 parciais, 2 planejados e 2 fora.
+- **Testes:**
+  - S-1070 no XSD oficial (judicial, administrativo, FAP, só FGTS, alteração com nova validade e exclusão) e as validações;
+  - S-1010 com processo no XSD e a leitura de volta;
+  - S-1005 e S-1020 com processo no XSD;
+  - a tela, do cadastro à transmissão; regras do Firestore.

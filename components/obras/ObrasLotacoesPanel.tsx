@@ -13,6 +13,7 @@ import {
 import { excluirLotacao, listarLotacoes, salvarLotacao } from '../../services/obras/lotacoesService';
 import { verificarAntesDeEnviar, transmitirVerificado, mensagemDaTransmissao } from '../../services/esocial/envioSeguro';
 import type { TpAmb } from '../../services/esocial/transmissao';
+import SeletorProcesso, { useProcessos } from '../processosJud/SeletorProcesso';
 
 const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const btn = 'rounded border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-40 dark:border-slate-600';
@@ -30,6 +31,7 @@ const CampoInscricao: React.FC<{ rotulo: string; valor: Inscricao; onChange: (i:
 
 const ObrasLotacoesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
     const { ativa } = useEmpresaAtiva();
+    const processos = useProcessos(ativa?.id ?? '');
     const [lista, setLista] = useState<Lotacao[]>([]);
     const [l, setL] = useState<Lotacao | null>(null);
     const [nova, setNova] = useState(false);
@@ -120,6 +122,8 @@ const ObrasLotacoesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
                                 <label>CNAE da obra<input aria-label="CNAE da obra" className={`block w-24 ${inp}`} value={l.cnaePrep} onChange={e => muda({ cnaePrep: digitos(e.target.value).slice(0, 7) })} /></label>
                                 <label>RAT (se diferente)<select aria-label="RAT da obra" className={`block ${inp}`} value={l.aliqRat} onChange={e => muda({ aliqRat: e.target.value as Lotacao['aliqRat'] })}><option value="">o da empresa</option><option value="1">1%</option><option value="2">2%</option><option value="3">3%</option></select></label>
                                 <label>FAP (se diferente)<input aria-label="FAP da obra" className={`block w-20 ${inp}`} value={l.fap} onChange={e => muda({ fap: e.target.value.replace(/[^\d,.]/g, '') })} /></label>
+                                {l.aliqRat && <SeletorProcesso rotulo="Processo do RAT" processos={processos} valor={l.procRat} onChange={e => muda({ procRat: e })} />}
+                                {l.fap && <SeletorProcesso rotulo="Processo do FAP" processos={processos} valor={l.procFap} onChange={e => muda({ procFap: e })} />}
                                 <label className="flex items-center gap-1"><input type="checkbox" aria-label="Empresa construtora" checked={l.construtora} onChange={e => muda({ construtora: e.target.checked })} />Empresa construtora (S-1000)</label>
                                 {l.construtora && <label className="flex items-center gap-1"><input type="checkbox" aria-label="Patronal substituída pela CPRB" checked={l.substituida} onChange={e => muda({ substituida: e.target.checked })} />Patronal da obra substituída pela CPRB</label>}
                             </>
@@ -136,6 +140,17 @@ const ObrasLotacoesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
                     <div className="flex flex-wrap items-end gap-3">
                         <label>FPAS<input aria-label="FPAS" className={`block w-16 ${inp}`} value={l.fpas} onChange={e => muda({ fpas: digitos(e.target.value).slice(0, 3) })} /></label>
                         <label>Terceiros<input aria-label="Código de terceiros" className={`block w-20 ${inp}`} value={l.codTercs} onChange={e => muda({ codTercs: digitos(e.target.value).slice(0, 4) })} /></label>
+                        <label title="Código combinado dos terceiros com recolhimento suspenso por processo judicial (Tabela 04)">Terceiros suspensos<input aria-label="Terceiros suspensos" className={`block w-20 ${inp}`} value={l.codTercsSusp ?? ''} onChange={e => muda({ codTercsSusp: digitos(e.target.value).slice(0, 4) })} /></label>
+                        {!!l.codTercsSusp && <span className="inline-flex flex-wrap items-end gap-2">
+                            {(l.procTerceiros ?? []).map((p, i) => (
+                                <span key={i} className="inline-flex items-end gap-1">
+                                    <label className="text-xs">Terceiro<input aria-label={`Terceiro suspenso ${i + 1}`} className={`block w-16 ${inp}`} value={p.codTerc} onChange={e => muda({ procTerceiros: l.procTerceiros!.map((y, j) => (j === i ? { ...y, codTerc: digitos(e.target.value).slice(0, 4) } : y)) })} /></label>
+                                    <SeletorProcesso rotulo={`Processo do terceiro ${i + 1}`} soJudicial processos={processos} valor={p.nrProcJud ? { tpProc: '2', nrProc: p.nrProcJud, codSusp: p.codSusp } : null} onChange={e => muda({ procTerceiros: l.procTerceiros!.map((y, j) => (j === i ? { ...y, nrProcJud: e?.nrProc ?? '', codSusp: e?.codSusp ?? '' } : y)) })} />
+                                    <button className="text-red-600" onClick={() => muda({ procTerceiros: l.procTerceiros!.filter((_, j) => j !== i) })}>×</button>
+                                </span>
+                            ))}
+                            <button className="text-xs text-blue-700 underline dark:text-blue-300" onClick={() => muda({ procTerceiros: [...(l.procTerceiros ?? []), { codTerc: '', nrProcJud: '', codSusp: '' }] })}>+ Processo de terceiro</button>
+                        </span>}
                         <label>Início da validade<input aria-label="Início da validade" type="month" className={`block ${inp}`} value={l.iniValid} onChange={e => muda({ iniValid: e.target.value })} /></label>
                         <label>Fim (encerramento da obra)<input aria-label="Fim da validade" type="month" className={`block ${inp}`} value={l.fimValid} onChange={e => muda({ fimValid: e.target.value })} /></label>
                         <label>Recibo do S-1020<input aria-label="Recibo do S-1020" className={`block w-44 ${inp}`} value={l.recibo1020 ?? ''} onChange={e => muda({ recibo1020: e.target.value.trim() || undefined })} /></label>

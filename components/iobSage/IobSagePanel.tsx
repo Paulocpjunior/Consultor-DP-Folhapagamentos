@@ -46,6 +46,7 @@ const ROTULO_DESTINO: Record<Destino, string> = {
     agrupado: 'Abrir Folha do mês › Processamento agrupado',
     transferencia: 'Abrir Cadastros › Transferência de funcionários',
     contabil: 'Abrir Relatórios › Integração contábil',
+    processosjud: 'Abrir Cadastros › Processos judiciais e administrativos',
 };
 
 interface Props { onNavegar?: (destino: Destino) => void; usuario?: Usuario; ehGestor?: boolean; ehAdmin?: boolean; /** Aberto pelo menu do app: o título vem do cabeçalho da página. */ embutido?: boolean }

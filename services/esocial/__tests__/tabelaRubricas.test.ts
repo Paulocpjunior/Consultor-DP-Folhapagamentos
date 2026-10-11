@@ -56,8 +56,8 @@ describe('S-1010: validação', () => {
     });
     it('incidências: leiaute, suspensão, conferência de base e eConsignado', () => {
         expect(validarDados(dados({ codIncCP: '99' }))).toContain('codIncCP 99 não existe no leiaute.');
-        expect(validarDados(dados({ codIncCP: '91' })).join(' ')).toMatch(/exige o processo do S-1070/);
-        expect(validarDados(dados({ codIncIRRF: '9011' })).join(' ')).toMatch(/exige o processo do S-1070/);
+        expect(validarDados(dados({ codIncCP: '91' })).join(' ')).toMatch(/codIncCP 91 \(suspensa\): informe o processo do S-1070/);
+        expect(validarDados(dados({ codIncIRRF: '9011' })).join(' ')).toMatch(/codIncIRRF 9011 \(suspensa\): informe o processo judicial do S-1070/);
         expect(validarDados(dados({ natRubr: '9901', tpRubr: '3', codIncCP: '00', codIncFGTS: '00', codIncIRRF: '11' })).join(' ')).toMatch(/item 1.4/);
         expect(validarDados(dados({ natRubr: '9901', tpRubr: '3', codIncCP: '00', codIncFGTS: '00', codIncIRRF: '9' }))).toEqual([]);
         expect(validarDados(dados({ natRubr: '9253', tpRubr: '2', codIncCP: '00', codIncFGTS: '00', codIncIRRF: '9' })).join(' ')).toMatch(/eConsignado/);

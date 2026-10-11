@@ -32,6 +32,9 @@ export const TIPOS_LOTACAO: Record<TipoLotacao, string> = {
 
 export interface Inscricao { tpInsc: '1' | '2'; nrInsc: string }
 
+/** Processo do S-1070 citado (tipo 1 administrativo, 2 judicial; o código da suspensão cadastrado nele). */
+export interface RefProcesso { tpProc: '1' | '2'; nrProc: string; codSusp: string }
+
 export interface Lotacao {
     empresaId: string;
     /** Código da lotação no eSocial (codLotacao). */
@@ -45,6 +48,12 @@ export interface Lotacao {
     /** Obra própria: alíquota RAT (1, 2 ou 3) e FAP só quando diferentes dos da empresa (com processo, no S-1005). */
     aliqRat: '' | '1' | '2' | '3';
     fap: string;
+    /** Processos do S-1070 que permitem o RAT e o FAP diferentes (S-1005, procAdmJudRat e procAdmJudFap). */
+    procRat?: RefProcesso | null;
+    procFap?: RefProcesso | null;
+    /** Terceiros com o recolhimento suspenso por processo judicial (S-1020): o código combinado e cada processo. */
+    codTercsSusp?: string;
+    procTerceiros?: { codTerc: string; nrProcJud: string; codSusp: string }[];
     /** Obra própria de construtora: contribuição patronal substituída pela CPRB (S-1005, infoObra/indSubstPatrObra = 1). */
     substituida: boolean;
     /** A empresa é construtora no S-1000 (indConstr = 1): o S-1005 da obra leva a informação da substituição. */
@@ -105,7 +114,9 @@ export function validarLotacao(l: Lotacao, cnpjEmpresa: string, outras: Lotacao[
             if (!/^\d{7}$/.test(l.cnaePrep)) erros.push('CNAE preponderante da obra: 7 dígitos (S-1005).');
             else if (!/^4[123]/.test(l.cnaePrep)) avisos.push(`CNAE ${l.cnaePrep} não é da seção de construção (41, 42 ou 43): confira.`);
             if (l.fap && !(Number(l.fap.replace(',', '.')) >= 0.5 && Number(l.fap.replace(',', '.')) <= 2)) erros.push('FAP da obra entre 0,5000 e 2,0000.');
-            if (l.aliqRat || l.fap) avisos.push('RAT ou FAP da obra diferente do da empresa: o S-1005 exige o processo (S-1070) que permite a alíquota diferente. Sem processo, deixe em branco.');
+            if (l.aliqRat && !l.procRat) erros.push('RAT da obra diferente do da empresa: informe o processo do S-1070 que permite a alíquota (ou deixe o RAT em branco).');
+            if (l.fap && !l.procFap) erros.push('FAP da obra diferente do da empresa: informe o processo do S-1070 (ou deixe o FAP em branco).');
+            for (const [q, r] of [['RAT', l.procRat], ['FAP', l.procFap]] as const) if (r && (!['1', '2'].includes(r.tpProc) || !/^\d{17}$|^\d{20}$|^\d{21}$/.test(digitos(r.nrProc)) || !/^\d{1,14}$/.test(r.codSusp.trim()))) erros.push(`Processo do ${q}: tipo, número e código da suspensão.`);
         } else if (l.substituida) avisos.push('Sem CNO, a lotação 01 é o próprio estabelecimento da empresa: a substituição patronal da obra (S-1005) só vale para obra com CNO.');
     }
     if (l.tipo === '02') {
@@ -119,6 +130,9 @@ export function validarLotacao(l: Lotacao, cnpjEmpresa: string, outras: Lotacao[
         else if (digitos(l.tomador).slice(0, 8) === digitos(cnpjEmpresa).slice(0, 8)) erros.push('O tomador da cessão não pode ser a própria empresa.');
         avisos.push('Cessão de mão de obra: a nota fiscal tem retenção de 11% do INSS (3,5% se a empresa estiver na CPRB), declarada pelo Fiscal na EFD-Reinf (R-2020).');
     }
+    if (l.codTercsSusp && !/^\d{4}$/.test(l.codTercsSusp)) erros.push('Terceiros suspensos: código combinado de 4 dígitos (Tabela 04).');
+    if ((l.procTerceiros ?? []).length && !l.codTercsSusp) erros.push('Processos de terceiros: informe também o código combinado dos terceiros suspensos.');
+    (l.procTerceiros ?? []).forEach((p, i) => { if (!/^\d{4}$/.test(p.codTerc) || !/^\d{20}$/.test(digitos(p.nrProcJud)) || !/^\d{1,14}$/.test(p.codSusp.trim())) erros.push(`Processo de terceiros ${i + 1}: código do terceiro (4 dígitos), número judicial (20 algarismos) e código da suspensão.`); });
     return { erros, avisos };
 }
 
@@ -141,7 +155,9 @@ export function gerarS1020(p: { cnpj: string; tpAmb: TpAmb; lotacao: Lotacao; ag
         : '';
     const xml = `<eSocial xmlns="${NS}/evtTabLotacao/${VERSAO}"><evtTabLotacao Id="${id}">${ideEvento(p.tpAmb)}${ideEmpregador(p.cnpj)}`
         + `<infoLotacao><${acao}><ideLotacao><codLotacao>${esc(l.codigo.trim())}</codLotacao>${validade(l)}</ideLotacao>`
-        + `<dadosLotacao><tpLotacao>${l.tipo}</tpLotacao>${insc}<fpasLotacao><fpas>${l.fpas}</fpas><codTercs>${l.codTercs}</codTercs></fpasLotacao>${parcial}</dadosLotacao>`
+        + `<dadosLotacao><tpLotacao>${l.tipo}</tpLotacao>${insc}<fpasLotacao><fpas>${l.fpas}</fpas><codTercs>${l.codTercs}</codTercs>${l.codTercsSusp ? `<codTercsSusp>${l.codTercsSusp}</codTercsSusp>` : ''}`
+        + ((l.procTerceiros ?? []).length ? `<infoProcJudTerceiros>${l.procTerceiros!.map(p => `<procJudTerceiro><codTerc>${p.codTerc}</codTerc><nrProcJud>${digitos(p.nrProcJud)}</nrProcJud><codSusp>${p.codSusp.trim()}</codSusp></procJudTerceiro>`).join('')}</infoProcJudTerceiros>` : '')
+        + `</fpasLotacao>${parcial}</dadosLotacao>`
         + `</${acao}></infoLotacao></evtTabLotacao></eSocial>`;
     return { id, xml };
 }
@@ -153,7 +169,8 @@ export function gerarS1005(p: { cnpj: string; tpAmb: TpAmb; lotacao: Lotacao; ag
     const id = idEvento(p.cnpj, p.agora, p.seq);
     const acao = l.recibo1005 ? 'alteracao' : 'inclusao';
     const fap = l.fap ? Number(l.fap.replace(',', '.')).toFixed(4) : '';
-    const gilrat = l.aliqRat || fap ? `<aliqGilrat>${l.aliqRat ? `<aliqRat>${l.aliqRat}</aliqRat>` : ''}${fap ? `<fap>${fap}</fap>` : ''}</aliqGilrat>` : '';
+    const proc = (tag: string, r?: RefProcesso | null) => (r ? `<${tag}><tpProc>${r.tpProc}</tpProc><nrProc>${digitos(r.nrProc)}</nrProc><codSusp>${r.codSusp.trim()}</codSusp></${tag}>` : '');
+    const gilrat = l.aliqRat || fap ? `<aliqGilrat>${l.aliqRat ? `<aliqRat>${l.aliqRat}</aliqRat>` : ''}${fap ? `<fap>${fap}</fap>` : ''}${l.aliqRat ? proc('procAdmJudRat', l.procRat) : ''}${fap ? proc('procAdmJudFap', l.procFap) : ''}</aliqGilrat>` : '';
     const xml = `<eSocial xmlns="${NS}/evtTabEstab/${VERSAO}"><evtTabEstab Id="${id}">${ideEvento(p.tpAmb)}${ideEmpregador(p.cnpj)}`
         + `<infoEstab><${acao}><ideEstab><tpInsc>4</tpInsc><nrInsc>${digitos(l.cno)}</nrInsc>${validade(l)}</ideEstab>`
         + `<dadosEstab><cnaePrep>${l.cnaePrep}</cnaePrep><cnpjResp>${digitos(p.cnpj)}</cnpjResp>${gilrat}`
