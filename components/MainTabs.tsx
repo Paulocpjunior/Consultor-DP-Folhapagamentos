@@ -49,6 +49,7 @@ import ObrasLotacoesPanel from './obras/ObrasLotacoesPanel';
 import DepartamentosPanel from './departamentos/DepartamentosPanel';
 import ProcessamentoAgrupadoPanel from './calculo/ProcessamentoAgrupadoPanel';
 import TransferenciaPanel from './transferencia/TransferenciaPanel';
+import IntegracaoContabilPanel from './contabil/IntegracaoContabilPanel';
 import { painelDeMensagens } from '../services/plataforma/servicos';
 import { EmpresaAtivaProvider } from '../services/empresaAtiva/empresaAtivaContext';
 import {
@@ -56,7 +57,7 @@ import {
     gravarEmpresaAtiva, lerEmpresaAtiva, limparEmpresaAtiva, type EmpresaAtiva,
 } from '../services/empresaAtiva/empresaAtiva';
 
-type Tab = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin' | 'fimdemes' | 'relatorios' | 'servicos' | 'demissoes' | 'beneficios' | 'contribuintes' | 'dctfweb' | 'processos' | 'intermitentes' | 'obras' | 'departamentos' | 'agrupado' | 'transferencia';
+type Tab = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin' | 'fimdemes' | 'relatorios' | 'servicos' | 'demissoes' | 'beneficios' | 'contribuintes' | 'dctfweb' | 'processos' | 'intermitentes' | 'obras' | 'departamentos' | 'agrupado' | 'transferencia' | 'contabil';
 
 /** Tema escuro guardado no navegador (preferência de cada pessoa). */
 const CHAVE_TEMA = 'consultor-dp:tema';
@@ -437,7 +438,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                             if (sub) irFolha(sub);
                             else if (cad) irCadastro(cad);
                             else if (d === 'relatorios:central' || d === 'relatorios:modelos') navegar({ aba: 'relatorios', sub: d === 'relatorios:modelos' ? 'modelos' : 'central' });
-                            else if (d === 'empresas' || d === 'esocial' || d === 'calculo' || d === 'dctfweb' || d === 'processos' || d === 'contribuintes' || d === 'intermitentes' || d === 'obras' || d === 'departamentos' || d === 'agrupado' || d === 'transferencia') setActiveTab(d);
+                            else if (d === 'empresas' || d === 'esocial' || d === 'calculo' || d === 'dctfweb' || d === 'processos' || d === 'contribuintes' || d === 'intermitentes' || d === 'obras' || d === 'departamentos' || d === 'agrupado' || d === 'transferencia' || d === 'contabil') setActiveTab(d);
                         }} />
                     </Suspense>
                 )}
@@ -487,6 +488,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                 {activeTab === 'departamentos' && <DepartamentosPanel usuario={{ id: uidAtual, email: currentUser?.email ?? '' }} />}
                 {activeTab === 'agrupado' && <ProcessamentoAgrupadoPanel usuario={{ id: uidAtual, email: currentUser?.email ?? '' }} />}
                 {activeTab === 'transferencia' && <TransferenciaPanel usuario={{ id: uidAtual, email: currentUser?.email ?? '' }} />}
+                {activeTab === 'contabil' && <IntegracaoContabilPanel usuario={{ id: uidAtual, email: currentUser?.email ?? '' }} />}
             </main>
             <MiaAssistente aba={local?.item.rotulo ?? activeTab} />
             </EmpresaAtivaProvider>
