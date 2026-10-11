@@ -19,6 +19,8 @@ export interface Informe {
     quadro4: LinhaInforme[];
     /** Quadro 5: rendimentos sujeitos à tributação exclusiva (rendimento líquido). */
     quadro5: LinhaInforme[];
+    /** Quadro 6: rendimentos recebidos acumuladamente (art. 12-A da Lei 7.713/1988), quando houver. */
+    quadro6?: { processo: string; meses: number; natureza: string; linhas: LinhaInforme[] };
     /** Quadro 7: informações complementares. */
     quadro7: string[];
     meses: string[];
@@ -28,6 +30,9 @@ export interface Informe {
 const somaCampos = (s: S5002[], f: (a: S5002['apuracoes'][number]) => number) => s.reduce((t, x) => t + x.apuracoes.reduce((u, a) => u + f(a), 0), 0);
 const isento = (s: S5002[], ...campos: string[]) => somaCampos(s, a => campos.reduce((t, c) => t + (a.isentos?.[c] ?? 0), 0));
 const ehPlr = (cr: string) => cr.startsWith('3562');
+/** IRRF sobre rendimentos recebidos acumuladamente (código de receita 1889): vai no quadro 6, não no 3. */
+export const ehRra = (cr: string) => cr.startsWith('1889');
+const fora = (cr: string) => ehPlr(cr) || ehRra(cr);
 const brl = (c: number) => (c / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const cpfFmt = (c: string) => (c.length === 11 ? `${c.slice(0, 3)}.${c.slice(3, 6)}.${c.slice(6, 9)}-${c.slice(9)}` : c);
 const cnpjFmt = (c: string) => (c.length === 14 ? `${c.slice(0, 2)}.${c.slice(2, 5)}.${c.slice(5, 8)}/${c.slice(8, 12)}-${c.slice(12)}` : c);
@@ -73,7 +78,7 @@ export function montarInformes(ano: string, lista: S5002[], cnpj: string, nomes:
         const plano = somaComplemento(s, 'planSaude');
         const deps = somaComplemento(s, 'dependentes');
         const pensao = (f: (tp: string) => boolean) => penAlim.filter(p => f(p.tpRend)).reduce((t, p) => t + p.valor, 0);
-        const rendTrib = somaCampos(s, a => (ehPlr(a.crMen) ? 0 : a.rendTrib));
+        const rendTrib = somaCampos(s, a => (fora(a.crMen) ? 0 : a.rendTrib));
         const plr = somaCampos(s, a => (ehPlr(a.crMen) ? a.rendTrib : 0));
         const irrfPlr = somaCampos(s, a => (ehPlr(a.crMen) ? a.irrf : 0));
         const r13 = somaCampos(s, a => a.rendTrib13);
@@ -98,17 +103,34 @@ export function montarInformes(ano: string, lista: S5002[], cnpj: string, nomes:
         const depsUnicos = [...new Map(deps.map(d => [d.cpf, d])).values()];
         if (depsUnicos.length) quadro7.push(`Dependentes informados no eSocial: ${depsUnicos.map(d => `${d.nome || 'sem nome'} (CPF ${cpfFmt(d.cpf)})`).join('; ')}.`);
 
+        // Quadro 6: o RRA (CR 1889), com o número do processo, os meses e as despesas do demonstrativo (infoRRA).
+        const rras = s.flatMap(x => x.rra ?? []);
+        const rendRra = somaCampos(s, a => (ehRra(a.crMen) ? a.rendTrib + a.rendTrib13 : 0));
+        const quadro6 = rendRra || rras.length ? {
+            processo: [...new Set(rras.map(r => r.nrProcRRA).filter(Boolean))].join(', ') || (rras.every(r => r.tpProcRRA === '1') && rras.length ? 'Sem processo (convenção, acordo ou pagamento do empregador)' : ''),
+            meses: Math.round(rras.reduce((t, r) => t + r.qtdMeses, 0) * 10) / 10,
+            natureza: [...new Set(rras.map(r => r.descRRA).filter(Boolean))].join('; ') || 'Rendimento do trabalho assalariado',
+            linhas: [
+                { rotulo: 'Total dos rendimentos tributáveis (inclusive férias e décimo terceiro salário)', valor: rendRra },
+                { rotulo: 'Exclusão: despesas com a ação judicial', valor: rras.reduce((t, r) => t + r.despesas, 0) },
+                { rotulo: 'Dedução: contribuição previdenciária oficial', valor: somaCampos(s, a => (ehRra(a.crMen) ? a.prevOficial + a.prevOficial13 : 0)) },
+                { rotulo: 'Dedução: pensão alimentícia (preencher também o quadro 7)', valor: 0 },
+                { rotulo: 'Imposto sobre a renda retido na fonte', valor: somaCampos(s, a => (ehRra(a.crMen) ? a.irrf + a.irrf13 : 0)) },
+                { rotulo: 'Rendimentos isentos de pensão, proventos de aposentadoria ou reforma por moléstia grave ou aposentadoria ou reforma por acidente em serviço', valor: somaCampos(s, a => (ehRra(a.crMen) ? (a.isentos?.vlrRendMoleGrave ?? 0) + (a.isentos?.vlrRendMoleGrave13 ?? 0) : 0)) },
+            ],
+        } : undefined;
         const meses = [...new Set(s.map(x => x.perApur))].sort();
         const avisosCpf: string[] = [];
+        if (quadro6 && !rras.length) avisosCpf.push('Rendimento recebido acumuladamente (CR 1889) sem o demonstrativo com o número de meses (infoRRA) no S-5002: complete o quadro 6 à mão.');
         if (meses.length < 12) avisosCpf.push(`S-5002 de ${meses.length} mês(es): ${meses.map(comp).join(', ')}. Confira se faltam meses com pagamento.`);
         informes.push({
-            cpf, nome: nomes.get(cpf) ?? '', ano, meses, avisos: avisosCpf, quadro7,
+            cpf, nome: nomes.get(cpf) ?? '', ano, meses, avisos: avisosCpf, quadro7, ...(quadro6 ? { quadro6 } : {}),
             quadro3: [
                 { rotulo: 'Total dos rendimentos (inclusive férias)', valor: rendTrib },
-                { rotulo: 'Contribuição previdenciária oficial', valor: somaCampos(s, a => a.prevOficial) },
+                { rotulo: 'Contribuição previdenciária oficial', valor: somaCampos(s, a => (ehRra(a.crMen) ? 0 : a.prevOficial)) },
                 { rotulo: 'Contribuições a entidades de previdência complementar, pública ou privada, e a fundos de aposentadoria programada individual (Fapi) (preencher também o quadro 7)', valor: previd.reduce((t, p) => t + p.valor, 0) },
                 { rotulo: 'Pensão alimentícia (preencher também o quadro 7)', valor: pensao(tp => tp !== '12' && tp !== '14') },
-                { rotulo: 'Imposto sobre a renda retido na fonte', valor: somaCampos(s, a => (ehPlr(a.crMen) ? 0 : a.irrf)) },
+                { rotulo: 'Imposto sobre a renda retido na fonte', valor: somaCampos(s, a => (fora(a.crMen) ? 0 : a.irrf)) },
             ],
             quadro4: [
                 { rotulo: 'Parcela isenta dos proventos de aposentadoria, reserva remunerada, reforma e pensão (65 anos ou mais), exceto a parcela isenta do 13º salário', valor: isento(s, 'vlrParcIsenta65') },

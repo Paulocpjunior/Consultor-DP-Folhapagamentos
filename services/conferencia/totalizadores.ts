@@ -90,8 +90,12 @@ export interface ComplementoIrrf {
     previdCompl: { tpPrev: string; cnpj: string; valor: number; valor13: number }[];
     planSaude: { cnpj: string; regANS: string; titular: number; dependentes: { cpf: string; valor: number }[] }[];
 }
+/** Demonstrativo de RRA no S-5002 (dmDev com infoRRA): para o quadro 6 do informe de rendimentos. */
+export interface RraS5002 { descRRA: string; qtdMeses: number; tpProcRRA: string; nrProcRRA: string; despesas: number }
 export interface S5002 extends Cabecalho {
     tipo: 'S-5002'; cpf: string; apuracoes: ApuracaoIrrf[];
+    /** Demonstrativos de rendimentos recebidos acumuladamente (art. 12-A da Lei 7.713/1988). */
+    rra?: RraS5002[];
     complemento?: ComplementoIrrf;
     /** consolidado = totInfoIR/consolidApurMen; demonstrativos = soma de dmDev/totApurMen (leiaute sem o consolidado). */
     fonte: 'consolidado' | 'demonstrativos';
@@ -245,7 +249,11 @@ function lerS5002(ev: Element, arquivo: string): S5002 {
     const cpf = texto(trab, 'cpfBenef');
     const consolidado = filho(trab, 'totInfoIR');
     const complemento = complementoIrrf(trab);
-    const comp = complemento ? { complemento } : {};
+    const rra = filhos(trab, 'dmDev').flatMap(dm => filhos(dm, 'infoRRA')).map(r => {
+        const d = filho(r, 'despProcJud');
+        return { descRRA: texto(r, 'descRRA'), qtdMeses: Number(texto(r, 'qtdMesesRRA')) || 0, tpProcRRA: texto(r, 'tpProcRRA'), nrProcRRA: texto(r, 'nrProcRRA'), despesas: valor(d, 'vlrDespCustas') + valor(d, 'vlrDespAdvogados') };
+    });
+    const comp = { ...(complemento ? { complemento } : {}), ...(rra.length ? { rra } : {}) };
     if (consolidado) return { ...cab, tipo: 'S-5002', cpf, apuracoes: filhos(consolidado, 'consolidApurMen').map(apuracaoIrrf), fonte: 'consolidado', ...comp };
     // Sem o consolidado, soma os totais de cada demonstrativo por código de receita.
     const porCr = new Map<string, ApuracaoIrrf>();

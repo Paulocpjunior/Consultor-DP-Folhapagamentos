@@ -52,4 +52,32 @@ describe('informe de rendimentos pelos S-5002', () => {
         const doc = informePdf(informes, { empresa: { razaoSocial: 'EMPRESA UM LTDA', cnpj: '44388152000189' }, titulo: 'Informe de rendimentos', previa: false });
         expect(doc.getNumberOfPages()).toBeGreaterThanOrEqual(1);
     });
+
+    it('RRA (CR 1889): sai do quadro 3 e vai no quadro 6 com o processo, os meses e as despesas', () => {
+        const dm = `<dmDev><perRef>2026-03</perRef><ideDmDev>COMP202603CR-M1</ideDmDev><tpPgto>1</tpPgto><dtPgto>2026-03-30</dtPgto><codCateg>101</codCateg>`
+            + `<totApurMen><CRMen>188951</CRMen><vlrRendTrib>7200.00</vlrRendTrib><vlrPrevOficial>500.00</vlrPrevOficial><vlrCRMen>120.00</vlrCRMen></totApurMen>`
+            + `<infoRRA><tpProcRRA>1</tpProcRRA><descRRA>Diferenças de 2025 - Convenção</descRRA><qtdMesesRRA>2.0</qtdMesesRRA><despProcJud><vlrDespCustas>0.00</vlrDespCustas><vlrDespAdvogados>0.00</vlrDespAdvogados></despProcJud></infoRRA></dmDev>`;
+        const xml = evt('ID7', '2026-03', '1.1.7', cons('056107', { vlrRendTrib: '5000.00', vlrPrevOficial: '550.00', vlrCRMen: '300.00' }) + cons('188951', { vlrRendTrib: '7200.00', vlrPrevOficial: '500.00', vlrCRMen: '120.00' }))
+            .replace('<totInfoIR>', `${dm}<totInfoIR>`);
+        const [s] = ler(xml);
+        expect(s.rra).toEqual([{ descRRA: 'Diferenças de 2025 - Convenção', qtdMeses: 2, tpProcRRA: '1', nrProcRRA: '', despesas: 0 }]);
+        const { informes } = montarInformes('2026', [s], '44388152000189', new Map());
+        const i = informes[0];
+        expect(i.quadro3.map(l => l.valor)).toEqual([500000, 55000, 0, 0, 30000]);
+        expect(i.quadro6).toEqual({ processo: 'Sem processo (convenção, acordo ou pagamento do empregador)', meses: 2, natureza: 'Diferenças de 2025 - Convenção', linhas: [
+            expect.objectContaining({ valor: 720000 }), expect.objectContaining({ valor: 0 }), expect.objectContaining({ valor: 50000 }), expect.objectContaining({ valor: 0 }), expect.objectContaining({ valor: 12000 }), expect.objectContaining({ valor: 0 }),
+        ] });
+        expect(i.avisos.join()).not.toMatch(/infoRRA/);
+        // Judicial, com advogado; sem o demonstrativo, aviso para completar à mão.
+        const jud = ler(xml.replace('<tpProcRRA>1</tpProcRRA>', '<tpProcRRA>2</tpProcRRA><nrProcRRA>00012345620255020001</nrProcRRA>').replace('<vlrDespAdvogados>0.00', '<vlrDespAdvogados>800.00'))[0];
+        const q = montarInformes('2026', [jud], '44388152000189', new Map()).informes[0].quadro6!;
+        expect(q.processo).toBe('00012345620255020001'); expect(q.linhas[1].valor).toBe(80000);
+        const sem = montarInformes('2026', ler(evt('ID8', '2026-03', '1.1.8', cons('188951', { vlrRendTrib: '100.00' }))), '44388152000189', new Map()).informes[0];
+        expect(sem.quadro6?.linhas[0].valor).toBe(10000);
+        expect(sem.avisos.join()).toMatch(/complete o quadro 6/);
+        expect(montarInformes('2026', eventos.filter(e => e.id === 'ID1'), '44388152000189', new Map()).informes[0].quadro6).toBeUndefined();
+        const doc = informePdf([i], { empresa: { razaoSocial: 'EMPRESA UM LTDA', cnpj: '44388152000189' }, titulo: 'Informe de rendimentos', previa: false });
+        expect(doc.getNumberOfPages()).toBeGreaterThanOrEqual(1);
+    });
 });
+

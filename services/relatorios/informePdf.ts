@@ -45,7 +45,10 @@ export function informePdf(informes: Informe[], o: OpcoesPdf): jsPDF {
         valores('3. Rendimentos tributáveis, deduções e imposto sobre a renda retido na fonte', inf.quadro3);
         valores('4. Rendimentos isentos e não tributáveis', inf.quadro4);
         valores('5. Rendimentos sujeitos à tributação exclusiva (rendimento líquido)', inf.quadro5);
-        pares('6. Rendimentos recebidos acumuladamente (art. 12-A da Lei nº 7.713/1988)', [['Situação', 'Sem rendimentos recebidos acumuladamente neste comprovante']]);
+        if (inf.quadro6) {
+            pares('6. Rendimentos recebidos acumuladamente (art. 12-A da Lei nº 7.713/1988)', [['Número do processo', inf.quadro6.processo], ['Quantidade de meses', inf.quadro6.meses.toLocaleString('pt-BR')], ['Natureza do rendimento', inf.quadro6.natureza]]);
+            valores('6.1. Valores do RRA', inf.quadro6.linhas);
+        } else pares('6. Rendimentos recebidos acumuladamente (art. 12-A da Lei nº 7.713/1988)', [['Situação', 'Sem rendimentos recebidos acumuladamente neste comprovante']]);
         autoTable(doc, { ...base, startY: y, head: [[textoPdf('7. Informações complementares')]], body: (inf.quadro7.length ? inf.quadro7 : ['Sem informações complementares.']).map(t => [textoPdf(t)]) });
         y = fimY(doc) + 1.5;
         pares('8. Responsável pelas informações', [['Nome', ''], ['Data', '____/____/______'], ['Assinatura', '']]);

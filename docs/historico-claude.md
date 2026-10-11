@@ -4836,7 +4836,7 @@ Paulo: *"VOCÊ TEM OS BACKUPS COM OS DADOS NECESSÁRIOS"*. Os prints do Office n
   - pagamento de guias;
   - RRA na complementar;
   - abas Complementos, Lanç. automático e Holerite.
-- **Testes:** 1310, com tsc, build e regras do Firestore verdes. Nenhum PR aberto.
+- **Testes:** 1304 (corrigido; antes informado como 1310), com tsc, build e regras do Firestore verdes. Nenhum PR aberto.
 - **Depende do Paulo:**
   - integração contábil direta: layout do CCI ou acesso ao `plano-contas-iob`;
   - divergências da rodada 09/2026 da 1200 (#61);
@@ -4845,4 +4845,18 @@ Paulo: *"VOCÊ TEM OS BACKUPS COM OS DADOS NECESSÁRIOS"*. Os prints do Office n
   - o primeiro RRA transmitido: o S-5002, para a rubrica de IRRF dentro do demonstrativo com indRRA;
   - a leitura da `lancauto` num backup com dados (marcas dos meses);
   - a consulta automática do DARF pago no e-CAC, que depende de uma rota nova no CFI.
+
+## 11/10/2026 — Informe de rendimentos com o RRA (quadro 6)
+
+Primeiro item da lista "o que posso seguir" (Paulo: "pode seguir").
+
+- **Leitura do S-5002** (`services/conferencia/totalizadores.ts`): os demonstrativos com `infoRRA` trazem a descrição, a quantidade de meses, o tipo e o número do processo, e as despesas (custas e advogados).
+- **Informe** (`services/relatorios/informeRendimentos.ts`):
+  - o RRA (código de receita 1889) sai do quadro 3: rendimentos, previdência e IRRF;
+  - vai para o quadro 6 do comprovante (IN RFB 2.060/2021): número do processo (ou "sem processo" no tipo 1), quantidade de meses, natureza, e as linhas de rendimentos tributáveis, despesas com a ação judicial, previdência oficial, pensão, IRRF e isentos por moléstia grave;
+  - RRA no S-5002 sem o demonstrativo `infoRRA` vira aviso para completar o quadro 6 à mão.
+- **Quadro 6 no PDF e no Excel:** o PDF mostra o quadro quando há RRA; o Excel ganha as colunas do RRA.
+- **Pensão no RRA:** o S-5002 não separa a pensão do RRA pelo tipo de rendimento conhecido; a linha fica zerada e a pensão segue no quadro 7.
+- **Catálogo:** `rel-informe` sem a ressalva do RRA.
+- **Testes:** a leitura do `infoRRA` e o RRA fora do quadro 3, nos casos convenção, judicial com advogado e sem demonstrativo.
 
