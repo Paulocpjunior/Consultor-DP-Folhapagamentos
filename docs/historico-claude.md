@@ -4860,3 +4860,18 @@ Primeiro item da lista "o que posso seguir" (Paulo: "pode seguir").
 - **Catálogo:** `rel-informe` sem a ressalva do RRA.
 - **Testes:** a leitura do `infoRRA` e o RRA fora do quadro 3, nos casos convenção, judicial com advogado e sem demonstrativo.
 
+## 11/10/2026 — RRA com a diferença do 13º de ano anterior
+
+Segundo item da lista "o que posso seguir".
+
+- **Regra:** IN RFB 1.500/2014, art. 36. O 13º entra nos rendimentos do RRA, com os acréscimos (§ 2º), e conta como um mês (§ 1º).
+- **Cálculo** (`services/calculo/complementar.ts`):
+  - a diferença do 13º de ano anterior deixa de marcar a complementar como incompleta;
+  - a base do RRA soma as diferenças do mês e as do 13º;
+  - deduz o INSS do mês e o do 13º;
+  - os meses do RRA são os meses com diferença mais um por 13º;
+  - o IRRF do 13º "exclusivo do ano" continua só para o 13º do ano do pagamento.
+- **eSocial:** sem mudança. O 13º do RRA vai no demonstrativo com indRRA, no perRef de dezembro.
+- **Fontes:** a redação do art. 36 vem de fontes secundárias (TOTVS TDN, COAD); o texto consolidado da IN no site da Receita não abriu daqui.
+- **Testes:** dois meses de diferença mais o 13º dão 3 meses, com o INSS do 13º deduzido e um só IRRF (o do RRA).
+
