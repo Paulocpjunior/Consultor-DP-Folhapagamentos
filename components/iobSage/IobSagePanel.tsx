@@ -37,6 +37,7 @@ const ROTULO_DESTINO: Record<Destino, string> = {
     'iobsage:restaurar': 'Abrir a restauração do backup',
     'relatorios:central': 'Abrir Relatórios › Central de relatórios',
     'relatorios:modelos': 'Abrir Relatórios › Contratos e modelos',
+    dctfweb: 'Abrir eSocial › DCTFWeb da folha',
 };
 
 interface Props { onNavegar?: (destino: Destino) => void; usuario?: Usuario; ehGestor?: boolean; ehAdmin?: boolean; /** Aberto pelo menu do app: o título vem do cabeçalho da página. */ embutido?: boolean }

@@ -38,7 +38,8 @@ describe('catálogo IOB SAGE × Consultor DP', () => {
         expect(itens.find(i => i.id === 'trib-dirf')).toMatchObject({ situacao: 'disponivel', destino: 'relatorios:central' });
         expect(itens.find(i => i.id === 'trib-reinf')?.situacao).toBe('planejado');
         expect(itens.find(i => i.id === 'trib-reinf')?.noConsultor).toMatch(/R-4010.*R-4099/);
-        expect(itens.find(i => i.id === 'trib-dctfweb')?.noConsultor).toMatch(/DARF pelo Integra Contador/);
+        expect(itens.find(i => i.id === 'trib-dctfweb')).toMatchObject({ situacao: 'disponivel', destino: 'dctfweb' });
+        expect(itens.find(i => i.id === 'trib-dctfweb')?.noConsultor).toMatch(/DARF.*transmissão pelo Integra Contador/);
     });
 
     it('o resumo soma todos os itens', () => {
