@@ -1,7 +1,8 @@
 // components/processoTrabalhista/ProcessosTrabalhistasPanel.tsx
 //
 // eSocial › Processos trabalhistas (S-2500 e S-2501) da empresa ativa. O DP cadastra o processo (judicial ou acordo em
-// CCP/NINTER), o trabalhador com o contrato (tipos 1 a 7, inclusive reconhecimento de vínculo e TSVE), o período e as
+// CCP/NINTER, ou da Justiça Comum), o trabalhador com o contrato (tipos 1 a 9, inclusive reconhecimento de vínculo, TSVE,
+// responsabilidade indireta e unicidade contratual), o período e as
 // bases mês a mês do cálculo homologado, e cada pagamento com as contribuições por código de receita e o IRRF. Transmite pelo pré-voo e pela fila de sempre (CFI, A1 do cofre).
 
 import React, { useEffect, useState } from 'react';
@@ -10,8 +11,8 @@ import { listarFuncionarios, mensagemErro, type Usuario } from '../../services/c
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
 import { centavosDeTexto, reais, UFS } from '../../services/cadastros/documentos';
 import {
-    comBases, contratoVazio, CR_IRRF, indContrDe, gerarS2500, gerarS2501, mesesEntre, processoVazio, REPERCUSSOES, ROTULO_ORIGEM, TIPOS_CCP, totaisDoPagamento, validarPagamento, validarProcesso,
-    type IrrfProcesso, type PagamentoProcesso, type PagamentoTrabalhador, type ProcessoTrabalhista, type TrabalhadorProcesso,
+    comBases, contratoVazio, CR_IRRF, ehJudicial, indContrDe, gerarS2500, gerarS2501, mesesEntre, processoVazio, REPERCUSSOES, ROTULO_ORIGEM, TIPOS_CCP, totaisDoPagamento, validarPagamento, validarProcesso,
+    type IrrfProcesso, type OrigemProcesso, type PagamentoProcesso, type ResponsavelDireto, type PagamentoTrabalhador, type ProcessoTrabalhista, type TrabalhadorProcesso,
 } from '../../services/processoTrabalhista/processoTrabalhista';
 import ContratoDoProcesso from './ContratoDoProcesso';
 import { listarProcessos, salvarProcesso } from '../../services/processoTrabalhista/processosService';
@@ -125,7 +126,7 @@ const ProcessosTrabalhistasPanel: React.FC<{ usuario: Usuario }> = ({ usuario })
                 <p className="text-slate-600 dark:text-slate-300">
                     Decisões e acordos da Justiça do Trabalho e das CCP/NINTER vão pelo eSocial: o S-2500 leva o processo e as bases mês a mês; o S-2501, os tributos de cada pagamento
                     (até o dia 15 do mês seguinte). Os valores vêm do cálculo homologado. Vale para vínculo no eSocial (com ou sem mudança de datas), reconhecimento de vínculo, vínculo anterior ao eSocial,
-                    trabalhador sem vínculo (TSVE), mudança de categoria ou natureza da atividade e pagamento por depósito judicial. Responsabilidade indireta e unicidade contratual continuam pelo IOB ou pelo portal.
+                    trabalhador sem vínculo (TSVE), responsabilidade indireta, unicidade contratual, mudança de categoria ou natureza da atividade, pagamento por depósito judicial e processo da Justiça Comum (este sem S-2501).
                 </p>
             </div>
             {ocupado && <p className="text-blue-700 dark:text-blue-300">{ocupado}</p>}
@@ -148,14 +149,15 @@ const ProcessosTrabalhistasPanel: React.FC<{ usuario: Usuario }> = ({ usuario })
                 <>
                     <section className="space-y-2 rounded border border-slate-200 p-3 dark:border-slate-700">
                         <div className="flex flex-wrap items-end gap-3">
-                            <label>Origem<select aria-label="Origem" className={`block ${inp}`} value={p.origem} onChange={e => muda({ origem: e.target.value as '1' | '2' })}>{Object.entries(ROTULO_ORIGEM).map(([k, r]) => <option key={k} value={k}>{r}</option>)}</select></label>
-                            <label>{p.origem === '1' ? 'Número do processo (CNJ, 20 dígitos)' : 'Número da ata/conciliação'}<input aria-label="Número do processo" className={`block w-64 font-mono ${inp}`} value={p.nrProcTrab} onChange={e => muda({ nrProcTrab: e.target.value.replace(/[^\d.-]/g, '') })} /></label>
-                            {p.origem === '1' ? (
+                            <label>Origem<select aria-label="Origem" className={`block ${inp}`} value={p.origem} onChange={e => muda({ origem: e.target.value as OrigemProcesso })}>{Object.entries(ROTULO_ORIGEM).map(([k, r]) => <option key={k} value={k}>{r}</option>)}</select></label>
+                            <label>{ehJudicial(p.origem) ? 'Número do processo (CNJ, 20 dígitos)' : 'Número da ata/conciliação'}<input aria-label="Número do processo" className={`block w-64 font-mono ${inp}`} value={p.nrProcTrab} onChange={e => muda({ nrProcTrab: e.target.value.replace(/[^\d.-]/g, '') })} /></label>
+                            {ehJudicial(p.origem) ? (
                                 <>
                                     <label>Data da decisão<input aria-label="Data da decisão" type="date" className={`block ${inp}`} value={p.dtSent} onChange={e => muda({ dtSent: e.target.value })} /></label>
                                     <label>UF da Vara<select aria-label="UF da Vara" className={`block ${inp}`} value={p.ufVara} onChange={e => muda({ ufVara: e.target.value })}><option value="">—</option>{UFS.map(u => <option key={u} value={u}>{u}</option>)}</select></label>
                                     <label>Município (IBGE)<input aria-label="Município da Vara" className={`block w-24 ${inp}`} value={p.codMunic} onChange={e => muda({ codMunic: e.target.value.replace(/\D/g, '').slice(0, 7) })} /></label>
                                     <label>Vara<input aria-label="Vara" className={`block w-16 ${inp}`} value={p.idVara} onChange={e => muda({ idVara: e.target.value.replace(/\D/g, '').slice(0, 4) })} /></label>
+                                    {p.origem === '3' && <label>Cota patronal da requisição<Valor rotulo="Cota patronal da requisição" valor={p.infoPatPrec ?? 0} onChange={c => muda({ infoPatPrec: c })} /></label>}
                                 </>
                             ) : (
                                 <>
@@ -166,6 +168,23 @@ const ProcessosTrabalhistasPanel: React.FC<{ usuario: Usuario }> = ({ usuario })
                             )}
                         </div>
                         <label className="block">Observação<input aria-label="Observação do processo" className={`block w-full ${inp}`} value={p.obs} onChange={e => muda({ obs: e.target.value })} /></label>
+                        {p.trabalhadores.some(t => t.tpContr === '6' || t.tpContr === '8') && (
+                            <div className="flex flex-wrap items-end gap-3 text-xs">
+                                <label className="flex items-center gap-1"><input type="checkbox" aria-label="Responsável direto" checked={!!p.ideResp} onChange={e => muda({ ideResp: e.target.checked ? { tpInsc: '1', nrInsc: '', matRespDir: '', dtAdmRespDir: '' } : null })} />Responsável direto (responsabilidade indireta)</label>
+                                {p.ideResp && (() => {
+                                    const r = p.ideResp;
+                                    const mudaR = (x: Partial<ResponsavelDireto>) => muda({ ideResp: { ...r, ...x } });
+                                    return (
+                                        <>
+                                            <label>Inscrição<select aria-label="Tipo de inscrição do responsável" className={`block ${inp}`} value={r.tpInsc} onChange={e => mudaR({ tpInsc: e.target.value as '1' | '2' })}><option value="1">CNPJ</option><option value="2">CPF</option></select></label>
+                                            <label>Número<input aria-label="Inscrição do responsável" className={`block w-40 ${inp}`} value={r.nrInsc} onChange={e => mudaR({ nrInsc: e.target.value.replace(/\D/g, '').slice(0, 14) })} /></label>
+                                            <label>Matrícula lá<input aria-label="Matrícula no responsável" className={`block w-32 ${inp}`} value={r.matRespDir} onChange={e => mudaR({ matRespDir: e.target.value })} /></label>
+                                            {!r.matRespDir.trim() && <label>Admissão lá (sem matrícula)<input aria-label="Admissão no responsável" type="date" className={`block ${inp}`} value={r.dtAdmRespDir} onChange={e => mudaR({ dtAdmRespDir: e.target.value })} /></label>}
+                                        </>
+                                    );
+                                })()}
+                            </div>
+                        )}
                     </section>
 
                     <section className="space-y-3 rounded border border-slate-200 p-3 dark:border-slate-700">
@@ -208,7 +227,7 @@ const ProcessosTrabalhistasPanel: React.FC<{ usuario: Usuario }> = ({ usuario })
 
                     <section className="space-y-3 rounded border border-slate-200 p-3 dark:border-slate-700">
                         <div className="flex items-center gap-2"><p className="font-medium">Pagamentos (S-2501)</p>
-                            <button className={btn} disabled={!p.trabalhadores.length} onClick={() => muda({ pagamentos: [...p.pagamentos, { perApurPgto: ativa.competencia, ideSeqProc: '', obs: '', trabalhadores: p.trabalhadores.filter(t => t.indReperc !== '2').map(t => ({ cpf: t.cpf, contribuicoes: [], irrf: [] })) }] })}>+ Pagamento</button>
+                            <button className={btn} disabled={!p.trabalhadores.length || p.origem === '3'} onClick={() => muda({ pagamentos: [...p.pagamentos, { perApurPgto: ativa.competencia, ideSeqProc: '', obs: '', trabalhadores: p.trabalhadores.filter(t => t.indReperc !== '2').map(t => ({ cpf: t.cpf, contribuicoes: [], irrf: [] })) }] })}>+ Pagamento</button>
                         </div>
                         {p.pagamentos.map((g, gi) => {
                             const tot = totaisDoPagamento(g);
@@ -262,13 +281,14 @@ const ProcessosTrabalhistasPanel: React.FC<{ usuario: Usuario }> = ({ usuario })
                                                         </div>
                                                     );
                                                 })}
-                                                <button className={btn} onClick={() => mudaPagTrab(gi, ti, { irrf: [...t.irrf, irrfVazio(p.origem === '1' ? '593656' : '056152')] })}>+ IRRF</button>
+                                                <button className={btn} onClick={() => mudaPagTrab(gi, ti, { irrf: [...t.irrf, irrfVazio(p.origem === '2' ? '056152' : '593656')] })}>+ IRRF</button>
                                             </div>
                                         );
                                     })}
                                 </div>
                             );
                         })}
+                        {p.origem === '3' && <p className="text-xs text-amber-700 dark:text-amber-300">Processo da Justiça Comum não tem S-2501: as contribuições e o IRRF seguem a requisição de pagamento.</p>}
                         <p className="text-xs text-slate-500">Códigos de receita das contribuições: os da Tabela 29 vigente, como na guia (6 dígitos). O IRRF de RRA (188951) vale para rendimentos de anos anteriores ao do pagamento.</p>
                     </section>
 

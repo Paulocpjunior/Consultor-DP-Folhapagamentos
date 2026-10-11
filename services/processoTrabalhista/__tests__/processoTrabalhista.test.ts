@@ -196,3 +196,53 @@ describe('contratos além do tipo 1', () => {
         expect(validarPagamento(p5, g).avisos.join()).toMatch(/depósito judicial/);
     });
 });
+
+describe('responsabilidade indireta, unicidade e Justiça Comum', () => {
+    const NR_COMUM = cnj('0004321', '2025826' + '0001'); // 2025, J=8 (estadual), TR=26
+    it('responsabilidade indireta (8): ideResp no ideEmpregador e o vínculo no infoCompl', async () => {
+        const p = com({ ...reconhecido(), tpContr: '8' });
+        expect(validarProcesso(p, '2026-10-11').erros.join()).toMatch(/responsável direto/);
+        p.ideResp = { tpInsc: '1', nrInsc: '11222333000181', matRespDir: '', dtAdmRespDir: '2024-11-04' };
+        expect(validarProcesso(p, '2026-10-11')).toEqual({ erros: [], avisos: [] });
+        const xml = s2500(p, 9);
+        expect(xml).toContain('<ideEmpregador><tpInsc>1</tpInsc><nrInsc>44388152</nrInsc><ideResp><tpInsc>1</tpInsc><nrInsc>11222333000181</nrInsc><dtAdmRespDir>2024-11-04</dtAdmRespDir></ideResp></ideEmpregador>');
+        expect(xml).toContain('<tpContr>8</tpContr><indContr>N</indContr>');
+        expect(xml).toContain('<infoCompl>');
+        expect(await validarPeloXsd(xml, lerXsd)).toEqual({ valido: true, erros: [] });
+        const comMatr = { ...p, ideResp: { tpInsc: '1' as const, nrInsc: '11222333000181', matRespDir: 'X-77', dtAdmRespDir: '' } };
+        const xmlM = s2500(comMatr, 9);
+        expect(xmlM).toContain('<ideResp><tpInsc>1</tpInsc><nrInsc>11222333000181</nrInsc><matRespDir>X-77</matRespDir></ideResp>');
+        expect(await validarPeloXsd(xmlM, lerXsd)).toEqual({ valido: true, erros: [] });
+        const ruim = { ...p, ideResp: { tpInsc: '2' as const, nrInsc: '52998224725', matRespDir: 'X', dtAdmRespDir: '2024-11-04' } };
+        const e = validarProcesso(ruim, '2026-10-11').erros.join(' | ');
+        expect(e).toMatch(/não pode ser o do trabalhador/); expect(e).toMatch(/não os dois/);
+        expect(validarProcesso({ ...processo(), ideResp: p.ideResp }, '2026-10-11').erros.join()).toMatch(/só vai com contrato do tipo 6 ou 8/);
+    });
+    it('unicidade contratual (9): unicContr com matrícula ou categoria e início', async () => {
+        expect(validarProcesso(com({ tpContr: '9' }), '2026-10-11').erros.join()).toMatch(/contratos incorporados/);
+        const p = com({ tpContr: '9', unificados: [{ matUnic: '000031', codCateg: '', dtInicio: '' }, { matUnic: '', codCateg: '701', dtInicio: '2024-06-03' }] });
+        expect(validarProcesso(p, '2026-10-11').erros).toEqual([]);
+        const xml = s2500(p, 9);
+        expect(xml).toContain('<tpContr>9</tpContr><indContr>S</indContr>');
+        expect(xml).toContain('<matricula>000052</matricula><unicContr><matUnic>000031</matUnic></unicContr><unicContr><codCateg>701</codCateg><dtInicio>2024-06-03</dtInicio></unicContr><ideEstab>');
+        expect(await validarPeloXsd(xml, lerXsd)).toEqual({ valido: true, erros: [] });
+        const e = validarProcesso(com({ tpContr: '9', unificados: [{ matUnic: '000052', codCateg: '', dtInicio: '' }, { matUnic: '', codCateg: '7', dtInicio: '' }] }), '2026-10-11').erros.join(' | ');
+        expect(e).toMatch(/mesma do contrato que incorpora/); expect(e).toMatch(/categoria e a data de início/);
+        expect(validarProcesso(com({ unificados: [{ matUnic: '1', codCateg: '', dtInicio: '' }] }), '2026-10-11').avisos.join()).toMatch(/só vão no XML com o tipo 9/);
+    });
+    it('Justiça Comum (3): segmento 4 ou 8, infoPatPrec, só tipo 1 e sem S-2501', async () => {
+        const p: ProcessoTrabalhista = { ...processo(), origem: '3', nrProcTrab: NR_COMUM, infoPatPrec: 123456 };
+        const v = validarProcesso(p, '2026-10-11');
+        expect(v.erros).toEqual([]);
+        expect(v.avisos.join()).toMatch(/não há S-2501/);
+        const xml = s2500(p, 9);
+        expect(xml).toContain('<origem>3</origem>');
+        expect(xml).toContain('<idVara>12</idVara><infoPatPrec>1234.56</infoPatPrec></infoProcJud>');
+        expect(await validarPeloXsd(xml, lerXsd)).toEqual({ valido: true, erros: [] });
+        const e = validarProcesso({ ...p, nrProcTrab: NR, infoPatPrec: undefined, trabalhadores: [{ ...p.trabalhadores[0], tpContr: '5' }] }, '2026-10-11').erros.join(' | ');
+        expect(e).toMatch(/segmento\) deve ser 4/); expect(e).toMatch(/infoPatPrec/); expect(e).toMatch(/contrato é do tipo 1/);
+        expect(validarPagamento(p, pagamento()).erros.join()).toMatch(/não tem S-2501/);
+        // Trabalhista sem infoPatPrec; CCP mantém o IRRF 056152.
+        expect(s2500(processo(), 9)).not.toContain('infoPatPrec');
+    });
+});

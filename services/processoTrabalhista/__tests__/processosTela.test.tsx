@@ -89,4 +89,23 @@ describe('processos trabalhistas (tela)', () => {
         expect(srv.lotes[0][0].xml).toContain('<nmTrab>BRUNO</nmTrab><dtNascto>1990-04-02</dtNascto><infoContr><tpContr>5</tpContr><indContr>N</indContr>');
         expect(srv.lotes[0][0].xml).toContain('<vrSalFx>2500.00</vrSalFx>');
     });
+
+    it('Justiça Comum: cota patronal e sem S-2501; tipo 8 pede o responsável direto; tipo 9 os contratos incorporados', async () => {
+        render(<EmpresaAtivaProvider ativa={ATIVA} trocar={() => {}}><ProcessosTrabalhistasPanel usuario={{ id: 'u', email: 'dp@x' }} /></EmpresaAtivaProvider>);
+        fireEvent.click(await screen.findByText('+ Novo processo'));
+        fireEvent.change(screen.getByLabelText('Origem'), { target: { value: '3' } });
+        expect(screen.getByLabelText('Cota patronal da requisição')).toBeTruthy();
+        expect(screen.getByText(/Justiça Comum não tem S-2501/)).toBeTruthy();
+        await waitFor(() => expect(screen.getAllByRole('option', { name: /ANA/ }).length).toBeGreaterThan(0));
+        fireEvent.change(screen.getByLabelText('Incluir funcionário'), { target: { value: 'E1_52998224725_M1' } });
+        expect((screen.getByText('+ Pagamento') as HTMLButtonElement).disabled).toBe(true);
+        fireEvent.change(screen.getByLabelText('Tipo de contrato de ANA'), { target: { value: '9' } });
+        fireEvent.click(screen.getByText('+ Contrato incorporado'));
+        fireEvent.change(screen.getByLabelText('Matrícula incorporada 1 de ANA'), { target: { value: '000031' } });
+        fireEvent.change(screen.getByLabelText('Tipo de contrato de ANA'), { target: { value: '8' } });
+        fireEvent.click(screen.getByLabelText('Responsável direto'));
+        fireEvent.change(screen.getByLabelText('Inscrição do responsável'), { target: { value: '11.222.333/0001-81' } });
+        expect((screen.getByLabelText('Inscrição do responsável') as HTMLInputElement).value).toBe('11222333000181');
+        expect(screen.getByLabelText('Admissão no responsável')).toBeTruthy();
+    });
 });

@@ -7,8 +7,10 @@
 // Tipos de contrato (tpContr) aceitos: 1 a 4 (vínculo no eSocial, com ou sem mudança das datas de admissão e de
 // desligamento), 5 (reconhecimento de vínculo), 6 (trabalhador sem vínculo, TSVE) e 7 (vínculo anterior ao eSocial),
 // com mudança de categoria ou de natureza da atividade (mudCategAtiv) e depósito judicial (repercussão 4 e 5).
-// Responsabilidade indireta (8), unicidade contratual (9) e processo da Justiça Comum ficam fora: o IOB (ou o portal)
-// continua para esses casos.
+// Também a responsabilidade indireta (8: o declarante responde pelo vínculo de outro empregador, o responsável direto,
+// no grupo ideResp), a unicidade contratual (9: a matrícula que incorpora as demais, no grupo unicContr) e o processo
+// da Justiça Comum (origem 3: número do CNJ com o segmento 4 ou 8, a cota patronal da requisição em infoPatPrec, só
+// contrato tipo 1 e sem S-2501), como no XSD S-1.3.
 // Contrato sem evento no eSocial (indContr N: 5, 7 e o TSVE não cadastrado) leva os dados do vínculo no próprio S-2500
 // (infoCompl): CBO, remuneração, regime, admissão e desligamento. Mudança das datas de um vínculo que está no eSocial
 // (2 a 4) segue o leiaute: o S-2500 leva a admissão original e o S-2200/S-2299 retificados levam as datas novas.
@@ -22,8 +24,10 @@ import { idEvento, VER_PROC, type TpAmb } from '../esocial/transmissao';
 const NS = 'http://www.esocial.gov.br/schema/evt';
 const VERSAO = 'v_S_01_03_00';
 
-export type OrigemProcesso = '1' | '2';
-export const ROTULO_ORIGEM: Record<OrigemProcesso, string> = { 1: 'Processo judicial trabalhista', 2: 'Acordo em CCP ou NINTER' };
+export type OrigemProcesso = '1' | '2' | '3';
+export const ROTULO_ORIGEM: Record<OrigemProcesso, string> = { 1: 'Processo judicial trabalhista', 2: 'Acordo em CCP ou NINTER', 3: 'Processo da Justiça Comum' };
+/** Origens com decisão judicial (infoProcJud): a trabalhista e a da Justiça Comum. */
+export const ehJudicial = (o: OrigemProcesso) => o === '1' || o === '3';
 export const TIPOS_CCP: Record<string, string> = { 1: 'CCP no âmbito de empresa', 2: 'CCP no âmbito de sindicato', 3: 'NINTER' };
 export type Repercussao = '1' | '2' | '3' | '4' | '5';
 export const REPERCUSSOES: Record<Repercussao, string> = {
@@ -36,7 +40,7 @@ export const REPERCUSSOES: Record<Repercussao, string> = {
 /** Repercussões que levam as bases mês a mês (idePeriodo obrigatório). */
 export const comBases = (r: Repercussao) => r === '1' || r === '5';
 
-export type TpContrProc = '1' | '2' | '3' | '4' | '5' | '6' | '7';
+export type TpContrProc = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9';
 export const TIPOS_CONTRATO: Record<TpContrProc, string> = {
     1: 'Vínculo no eSocial, sem mudar admissão nem desligamento',
     2: 'Vínculo no eSocial, com nova data de admissão',
@@ -45,7 +49,14 @@ export const TIPOS_CONTRATO: Record<TpContrProc, string> = {
     5: 'Reconhecimento de vínculo (empregado sem registro)',
     6: 'Trabalhador sem vínculo de emprego (TSVE)',
     7: 'Vínculo formalizado antes do eSocial',
+    8: 'Responsabilidade indireta (vínculo com outro empregador)',
+    9: 'Unicidade contratual (contratos unificados)',
 };
+
+/** Responsável direto, na responsabilidade indireta (ideResp): CNPJ ou CPF e a matrícula ou a admissão lá. */
+export interface ResponsavelDireto { tpInsc: '1' | '2'; nrInsc: string; matRespDir: string; dtAdmRespDir: string }
+/** Contrato incorporado na unicidade contratual (unicContr): a matrícula ou, no TSVE sem matrícula, categoria e início. */
+export interface ContratoUnificado { matUnic: string; codCateg: string; dtInicio: string }
 export const UNIDADES_SALARIO: Record<string, string> = { 1: 'Por hora', 2: 'Por dia', 3: 'Por semana', 4: 'Por quinzena', 5: 'Por mês', 6: 'Por tarefa', 7: 'Não aplicável (só variável)' };
 export const TEMPO_PARCIAL: Record<string, string> = { 0: 'Não é tempo parcial', 1: 'Até 25h semanais (doméstico)', 2: 'Até 30h semanais', 3: 'Até 26h semanais' };
 export const DURACAO: Record<string, string> = { 1: 'Prazo indeterminado', 2: 'Prazo determinado (em dias)', 3: 'Prazo determinado (vinculado a fato)' };
@@ -105,6 +116,8 @@ export interface TrabalhadorProcesso {
     contrato?: ContratoNovo;
     /** Indenização substitutiva do seguro-desemprego e do abono salarial (anos-base). */
     indenSD?: boolean; indenAbono?: boolean; anosAbono?: string[];
+    /** Unicidade contratual (tipo 9): os contratos incorporados na matrícula deste. */
+    unificados?: ContratoUnificado[];
 }
 export interface ContribuicaoProcesso { perRef: string; tpCR: string; valor: number }
 export interface RraProcesso { descRRA: string; qtdMeses: number; custas: number; advogados: number }
@@ -122,6 +135,10 @@ export interface ProcessoTrabalhista {
     dtSent: string; ufVara: string; codMunic: string; idVara: string;
     /** CCP/NINTER. */
     dtCCP: string; tpCCP: string; cnpjCCP: string;
+    /** Justiça Comum (origem 3): cota patronal da requisição autônoma (centavos). */
+    infoPatPrec?: number;
+    /** Responsabilidade indireta: o responsável direto (obrigatório com contrato tipo 8; opcional com o 6). */
+    ideResp?: ResponsavelDireto | null;
     trabalhadores: TrabalhadorProcesso[];
     pagamentos: PagamentoProcesso[];
 }
@@ -167,7 +184,7 @@ export const tpContrDe = (t: TrabalhadorProcesso): TpContrProc => t.tpContr ?? '
 /** O contrato está no eSocial (S-2200/S-2300)? 1 a 4 sim; 5 e 7 não; 6 conforme o cadastro do TSVE. */
 export function indContrDe(t: TrabalhadorProcesso): 'S' | 'N' {
     const tp = tpContrDe(t);
-    if (tp === '5' || tp === '7') return 'N';
+    if (tp === '5' || tp === '7' || tp === '8') return 'N';
     if (tp === '6') return t.indContr ?? 'S';
     return 'S';
 }
@@ -267,10 +284,26 @@ function validarContrato(p: ProcessoTrabalhista, t: TrabalhadorProcesso, quem: s
         if (!matr) erros.push(`${quem}: crie uma matrícula para o contrato reconhecido.`);
         else if (matr.toLowerCase().startsWith('esocial')) erros.push(`${quem}: a matrícula não pode começar com "eSocial".`);
         if (!/^\d{3}$/.test(categ)) erros.push(`${quem}: categoria do trabalhador (Tabela 01, 3 dígitos) obrigatória.`);
-        else if (tp !== '6' && !/^[13]\d\d$/.test(categ)) erros.push(`${quem}: a categoria ${categ} não é de empregado (S-2200).`);
+        else if (tp !== '6' && tp !== '8' && !/^[13]\d\d$/.test(categ)) erros.push(`${quem}: a categoria ${categ} não é de empregado (S-2200).`);
         else if (tp === '6' && /^1\d\d$/.test(categ)) erros.push(`${quem}: a categoria ${categ} é de empregado, não de TSVE.`);
-        validarContratoNovo(t, quem, p.origem === '1' ? p.dtSent : p.dtCCP, hoje, erros, avisos);
+        validarContratoNovo(t, quem, ehJudicial(p.origem) ? p.dtSent : p.dtCCP, hoje, erros, avisos);
     }
+    // Unicidade contratual (9): a matrícula que incorpora e os contratos incorporados.
+    const unif = t.unificados ?? [];
+    if (tp === '9') {
+        if (!matr) erros.push(`${quem}: na unicidade contratual, informe a matrícula que incorpora as demais.`);
+        if (!unif.length) erros.push(`${quem}: informe os contratos incorporados (matrícula, ou categoria e início do TSVE sem matrícula).`);
+        const chaves = new Set<string>();
+        for (const u of unif) {
+            const m = u.matUnic.trim();
+            if (m) { if (m === matr) erros.push(`${quem}: a matrícula incorporada ${m} é a mesma do contrato que incorpora.`); }
+            else if (!/^\d{3}$/.test(u.codCateg) || !data.test(u.dtInicio)) erros.push(`${quem}: contrato incorporado sem matrícula exige a categoria e a data de início do S-2300.`);
+            const k = m || `${u.codCateg}|${u.dtInicio}`;
+            if (chaves.has(k)) erros.push(`${quem}: contrato incorporado repetido (${k}).`);
+            chaves.add(k);
+        }
+        if (unif.length > 99) erros.push(`${quem}: no máximo 99 contratos incorporados.`);
+    } else if (unif.length) avisos.push(`${quem}: os contratos incorporados só vão no XML com o tipo 9 (unicidade contratual).`);
     if (t.grauExp && !/^[1-4]$/.test(t.grauExp)) erros.push(`${quem}: grau de exposição de 1 a 4.`);
     if (!categ && tp !== '6' && comBases(t.indReperc)) avisos.push(`${quem}: sem a categoria, as bases vão como de empregado (101).`);
     const mud = t.mudancas ?? [];
@@ -295,9 +328,16 @@ function validarContrato(p: ProcessoTrabalhista, t: TrabalhadorProcesso, quem: s
 export function validarProcesso(p: ProcessoTrabalhista, hoje: string): Validacao {
     const erros: string[] = []; const avisos: string[] = [];
     const nr = digitos(p.nrProcTrab);
-    if (p.origem === '1') {
+    if (!ROTULO_ORIGEM[p.origem]) erros.push('Origem do processo inválida.');
+    if (ehJudicial(p.origem)) {
         if (!numeroCnjValido(nr)) erros.push('Número do processo: 20 dígitos no padrão do CNJ, com os dígitos verificadores certos.');
-        else if (nr[13] !== '5') avisos.push('O número não é da Justiça do Trabalho (segmento 5): confira.');
+        else if (p.origem === '1' && nr[13] !== '5') avisos.push('O número não é da Justiça do Trabalho (segmento 5): confira.');
+        else if (p.origem === '3' && nr[13] !== '4' && nr[13] !== '8') erros.push('Processo da Justiça Comum: o 14º dígito (segmento) deve ser 4 (Justiça Federal) ou 8 (Justiça Estadual).');
+        if (p.origem === '3') {
+            if (!(Number.isInteger(p.infoPatPrec) && (p.infoPatPrec ?? -1) >= 0)) erros.push('Justiça Comum: informe a cota patronal da requisição autônoma (infoPatPrec; 0 se não houver).');
+            for (const t of p.trabalhadores) if (tpContrDe(t) !== '1') erros.push(`${t.nome || t.cpf}: no processo da Justiça Comum o contrato é do tipo 1 (vínculo no eSocial, sem mudar as datas).`);
+            avisos.push('Processo da Justiça Comum: não há S-2501 (as contribuições e o IRRF seguem a requisição de pagamento).');
+        }
         if (!data.test(p.dtSent) || p.dtSent > hoje) erros.push('Data da decisão (trânsito/homologação/cumprimento): obrigatória e não futura.');
         if (!UFS.includes(p.ufVara)) erros.push('UF da Vara: obrigatória.');
         if (!/^\d{7}$/.test(p.codMunic)) erros.push('Município da Vara: código do IBGE com 7 dígitos.');
@@ -307,6 +347,19 @@ export function validarProcesso(p: ProcessoTrabalhista, hoje: string): Validacao
         if (!data.test(p.dtCCP) || p.dtCCP > hoje) erros.push('Data do acordo na CCP/NINTER: obrigatória e não futura.');
         if (!TIPOS_CCP[p.tpCCP]) erros.push('Âmbito do acordo: CCP de empresa, CCP de sindicato ou NINTER.');
         if (p.cnpjCCP && !cnpjValido(digitos(p.cnpjCCP))) erros.push('CNPJ do sindicato da CCP inválido.');
+    }
+    // Responsabilidade indireta: o responsável direto (ideResp), com contrato 8 (obrigatório) ou 6 (opcional).
+    const tipos = new Set(p.trabalhadores.map(tpContrDe));
+    const r = p.ideResp;
+    if (tipos.has('8') && !r) erros.push('Responsabilidade indireta (tipo 8): informe o responsável direto (CNPJ ou CPF do empregador de origem).');
+    if (r) {
+        const n = digitos(r.nrInsc);
+        if (![...tipos].every(x => x === '6' || x === '8')) erros.push('O responsável direto só vai com contrato do tipo 6 ou 8.');
+        if (r.tpInsc === '1' && !cnpjValido(n)) erros.push('Responsável direto: CNPJ inválido (14 dígitos).');
+        if (r.tpInsc === '2' && !cpfValido(n)) erros.push('Responsável direto: CPF inválido.');
+        if (r.tpInsc === '2' && p.trabalhadores.some(t => digitos(t.cpf) === n)) erros.push('Responsável direto: o CPF não pode ser o do trabalhador.');
+        if (r.matRespDir.trim() && r.dtAdmRespDir) erros.push('Responsável direto: informe a matrícula lá ou a data de admissão (sem a matrícula), não os dois.');
+        if (r.dtAdmRespDir && !data.test(r.dtAdmRespDir)) erros.push('Responsável direto: data de admissão inválida.');
     }
     if (!p.trabalhadores.length) erros.push('Inclua o trabalhador do processo.');
     const mesHoje = hoje.slice(0, 7);
@@ -339,12 +392,13 @@ export function validarProcesso(p: ProcessoTrabalhista, hoje: string): Validacao
 /** Um pagamento (S-2501). */
 export function validarPagamento(p: ProcessoTrabalhista, g: PagamentoProcesso): Validacao {
     const erros: string[] = []; const avisos: string[] = [];
-    const inicio = (p.origem === '1' ? p.dtSent : p.dtCCP).slice(0, 7);
+    const inicio = (ehJudicial(p.origem) ? p.dtSent : p.dtCCP).slice(0, 7);
     if (!mes.test(g.perApurPgto)) erros.push('Mês do pagamento (perApurPgto) no formato AAAA-MM.');
     else if (inicio && g.perApurPgto < inicio) erros.push(`O mês do pagamento não pode ser anterior ao da decisão/acordo (${inicio}).`);
     if (g.ideSeqProc && !/^\d{1,3}$/.test(g.ideSeqProc)) erros.push('Sequencial do pagamento: até 3 dígitos.');
     if (!g.trabalhadores.length) erros.push('Inclua ao menos um trabalhador no pagamento.');
-    const crIrrfDaOrigem = p.origem === '1' ? '593656' : '056152';
+    if (p.origem === '3') erros.push('Processo da Justiça Comum não tem S-2501: as contribuições e o IRRF seguem a requisição de pagamento.');
+    const crIrrfDaOrigem = p.origem === '2' ? '056152' : '593656';
     for (const t of g.trabalhadores) {
         const tp = p.trabalhadores.find(x => digitos(x.cpf) === digitos(t.cpf));
         const quem = tp?.nome || t.cpf;
@@ -424,8 +478,9 @@ export function gerarS2500(p: { cnpj: string; tpAmb: TpAmb; processo: ProcessoTr
     if (!t) throw new Error('S-2500: trabalhador fora do processo.');
     const cnpj = digitos(p.cnpj);
     const id = p.id ?? idEvento(cnpj);
-    const dados = pr.origem === '1'
-        ? `<infoProcJud><dtSent>${pr.dtSent}</dtSent><ufVara>${pr.ufVara}</ufVara><codMunic>${pr.codMunic}</codMunic><idVara>${Number(pr.idVara)}</idVara></infoProcJud>`
+    const dados = ehJudicial(pr.origem)
+        ? `<infoProcJud><dtSent>${pr.dtSent}</dtSent><ufVara>${pr.ufVara}</ufVara><codMunic>${pr.codMunic}</codMunic><idVara>${Number(pr.idVara)}</idVara>`
+            + (pr.origem === '3' ? `<infoPatPrec>${v(pr.infoPatPrec ?? 0)}</infoPatPrec>` : '') + '</infoProcJud>'
         : `<infoCCP><dtCCP>${pr.dtCCP}</dtCCP><tpCCP>${pr.tpCCP}</tpCCP>${pr.cnpjCCP ? `<cnpjCCP>${digitos(pr.cnpjCCP)}</cnpjCCP>` : ''}</infoCCP>`;
     const tp = tpContrDe(t);
     const ind = indContrDe(t);
@@ -453,8 +508,11 @@ export function gerarS2500(p: { cnpj: string; tpAmb: TpAmb; processo: ProcessoTr
         + (matr ? `<matricula>${esc(matr)}</matricula>` : '')
         + (ind === 'N' || !matr ? `<codCateg>${(t.codCateg ?? '').trim()}</codCateg>` : '')
         + ((tp === '6' && ind === 'N') || !matr ? `<dtInicio>${t.dtInicio ?? ''}</dtInicio>` : '')
-        + (ind === 'N' ? infoCompl(t, pr.origem === '1' ? pr.dtSent : pr.dtCCP) : '')
+        + (ind === 'N' ? infoCompl(t, ehJudicial(pr.origem) ? pr.dtSent : pr.dtCCP) : '')
         + mudancas
+        + (tp === '9' ? (t.unificados ?? []).slice(0, 99).map(u => (u.matUnic.trim()
+            ? `<unicContr><matUnic>${esc(u.matUnic.trim())}</matUnic></unicContr>`
+            : `<unicContr><codCateg>${u.codCateg}</codCateg><dtInicio>${u.dtInicio}</dtInicio></unicContr>`)).join('') : '')
         + `<ideEstab><tpInsc>1</tpInsc><nrInsc>${cnpj}</nrInsc><infoVlr><compIni>${t.compIni}</compIni><compFim>${t.compFim}</compFim><indReperc>${t.indReperc}</indReperc>`
         + (t.indenSD ? '<indenSD>S</indenSD>' : '')
         + (anos.length ? `<indenAbono>S</indenAbono>${anos.slice(0, 9).map(a => `<abono><anoBase>${a}</anoBase></abono>`).join('')}` : '')
@@ -462,7 +520,11 @@ export function gerarS2500(p: { cnpj: string; tpAmb: TpAmb; processo: ProcessoTr
         + '</infoVlr></ideEstab></infoContr>';
     const xml = `<eSocial xmlns="${NS}/evtProcTrab/${VERSAO}"><evtProcTrab Id="${id}">`
         + ideEvento(p.tpAmb, p.nrRecibo)
-        + `<ideEmpregador><tpInsc>1</tpInsc><nrInsc>${raiz(cnpj)}</nrInsc></ideEmpregador>`
+        + `<ideEmpregador><tpInsc>1</tpInsc><nrInsc>${raiz(cnpj)}</nrInsc>`
+        + (pr.ideResp && (tp === '6' || tp === '8') ? `<ideResp><tpInsc>${pr.ideResp.tpInsc}</tpInsc><nrInsc>${digitos(pr.ideResp.nrInsc)}</nrInsc>`
+            + (pr.ideResp.dtAdmRespDir && !pr.ideResp.matRespDir.trim() ? `<dtAdmRespDir>${pr.ideResp.dtAdmRespDir}</dtAdmRespDir>` : '')
+            + (pr.ideResp.matRespDir.trim() ? `<matRespDir>${esc(pr.ideResp.matRespDir.trim())}</matRespDir>` : '') + '</ideResp>' : '')
+        + '</ideEmpregador>'
         + `<infoProcesso><origem>${pr.origem}</origem><nrProcTrab>${digitos(pr.nrProcTrab)}</nrProcTrab>`
         + (pr.obs.trim() ? `<obsProcTrab>${esc(pr.obs.trim().slice(0, 999))}</obsProcTrab>` : '')
         + `<dadosCompl>${dados}</dadosCompl></infoProcesso>`
