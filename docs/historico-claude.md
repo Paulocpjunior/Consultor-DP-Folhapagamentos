@@ -4519,3 +4519,20 @@ Segundo dos parciais da auditoria (Utilitários › Estorno do Cálculo do SAGE)
   - o movimento zerado;
   - a tela: motivo, confirmação, folha apagada e movimento zerado, e a competência encerrada;
   - a regra do Firestore (quem pode na empresa apaga a folha aberta; outra carteira não).
+
+## 11/10/2026 — Processamento agrupado: 13º em lote
+
+Terceiro dos parciais da auditoria.
+
+- **Folha do mês › Processamento agrupado:** novo campo "Processar", com Folha mensal, 13º 1ª parcela e 13º 2ª parcela. O 13º usa o ano da competência.
+  - Cada empresa é calculada como na tela do 13º, com os movimentos gravados do ano (médias e faltas).
+  - 1ª parcela: paga em novembro. Ficam fora as empresas em parcela única no ano e quem recebeu a 1ª parcela com as férias, com o aviso na linha da empresa.
+  - 2ª parcela: paga em dezembro, com o INSS e o IRRF do 13º e a parte patronal pelo enquadramento de dezembro.
+  - É só prévia: a folha do 13º não é gravada e não há provisões. Holerites, S-1200 anual e arquivo bancário saem por empresa na tela do 13º.
+  - A planilha da carteira leva o nome da parcela.
+- **Rotinas anuais:** RAIS e DIRF foram extintas (eSocial e EFD-Reinf). O informe de rendimentos continua por empresa em Relatórios › Anuais, a partir dos S-5002.
+- **Catálogo SAGE:** `proc-agrupado` passa a disponível. Agora são 38 disponíveis e 13 parciais.
+- **Testes:**
+  - 1ª e 2ª parcelas de uma empresa (valores, pagamento, sem gravação);
+  - 1ª parcela com um funcionário que a recebeu nas férias;
+  - empresa em parcela única: 1ª vazia com o aviso e 2ª com todos.

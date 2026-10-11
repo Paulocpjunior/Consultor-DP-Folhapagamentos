@@ -11,10 +11,10 @@ import { calcularFolhaMensal, type DadosFolhaEmpresa } from '../folhaDaEmpresa';
 import { linhaComFalha, linhaDaEmpresa, planilhaAgrupada, totaisAgrupados } from '../processamentoAgrupado';
 import { resumirFolha } from '../../relatorios/resumoFolha';
 
-const srv = vi.hoisted(() => ({ fichas: {} as Record<string, unknown[]>, encerradas: new Set<string>(), gravadas: [] as unknown[][], falha: new Set<string>() }));
+const srv = vi.hoisted(() => ({ afast: {} as Record<string, unknown[]>, fichas: {} as Record<string, unknown[]>, encerradas: new Set<string>(), gravadas: [] as unknown[][], falha: new Set<string>() }));
 vi.mock('../../cadastros/cadastrosService', () => ({
     listarFuncionarios: async (id: string) => { if (srv.falha.has(id)) throw new Error('sem permissão'); return srv.fichas[id] ?? []; },
-    listarAfastamentos: async () => [], listarEnquadramentos: async () => [], listarTabelas: async () => TAB,
+    listarAfastamentos: async (id: string) => srv.afast[id] ?? [], listarEnquadramentos: async () => [], listarTabelas: async () => TAB,
     mensagemErro: (e: unknown) => (e as Error).message,
 }));
 vi.mock('../convocacoesService', () => ({ listarConvocacoes: async () => [] }));
@@ -38,7 +38,7 @@ const EMPRESAS = [
     { id: 'E3', cnpj: '11222333000181', razaoSocial: 'GAMA LTDA', nomeFantasia: 'GAMA', codigoSage: '0003', criadoPor: 'u' },
 ] as never[];
 const USUARIO = { id: 'u', email: 'dp@x' };
-afterEach(() => { cleanup(); srv.fichas = {}; srv.encerradas.clear(); srv.gravadas.length = 0; srv.falha.clear(); });
+afterEach(() => { cleanup(); srv.afast = {}; srv.fichas = {}; srv.encerradas.clear(); srv.gravadas.length = 0; srv.falha.clear(); });
 
 describe('folha da empresa (a mesma conta da tela)', () => {
     it('cada funcionário da competência sai igual ao motor mensal', () => {
@@ -107,5 +107,30 @@ describe('tela do processamento agrupado', () => {
         expect(res.textContent).not.toMatch(/GAMA/);
         expect(srv.gravadas).toHaveLength(0);
         fireEvent.click(screen.getByText('Planilha (Excel)'));
+    });
+});
+
+describe('13º em lote (rotina anual)', () => {
+    const base = { competencia: '2026-11', gravar: false, provisoes: false, usuario: USUARIO, tabelas: TAB, convencoes: [] };
+    it('1ª e 2ª parcelas de cada empresa, como na tela do 13º; não grava', async () => {
+        srv.fichas.E1 = [ficha('E1_1', 'E1', '3000.00'), ficha('E1_2', 'E1', '4000.00')];
+        const p1 = await processarEmpresa(EMPRESAS[0], { ...base, folha: '13-1a' });
+        expect(p1).toMatchObject({ competencia: '2026-13', pagamento: '2026-11', situacao: 'ok', funcionarios: 2, gravacao: 'nao-pedida', proventos: 350000, liquido: 350000 });
+        const p2 = await processarEmpresa(EMPRESAS[0], { ...base, folha: '13-2a', gravar: true });
+        expect(p2).toMatchObject({ pagamento: '2026-12', situacao: 'ok', funcionarios: 2, proventos: 700000 });
+        expect(p2.inssSegurados).toBeGreaterThan(0);
+        expect(srv.gravadas).toEqual([]);
+    });
+    it('parcela única da empresa e a 1ª parcela já paga com as férias ficam fora da 1ª', async () => {
+        srv.fichas.E1 = [ficha('E1_1', 'E1', '3000.00'), ficha('E1_2', 'E1', '4000.00')];
+        srv.afast.E1 = [{ id: 'E1_1_2026-07-06', fichaId: 'E1_1', motivo: '15', dtInicio: '2026-07-06', dtFim: '2026-07-25', adiantar13: 'S' }];
+        const p1 = await processarEmpresa(EMPRESAS[0], { ...base, folha: '13-1a' });
+        expect([p1.funcionarios, p1.proventos]).toEqual([1, 200000]);
+        expect(p1.mensagens.join(' ')).toMatch(/1 funcionário\(s\) já receberam a 1ª parcela com as férias/);
+        const unica = { ...EMPRESAS[0] as object, parametrosFolha: { parcelaUnica13: [2026] } } as never;
+        const u1 = await processarEmpresa(unica, { ...base, folha: '13-1a' });
+        expect([u1.funcionarios, u1.mensagens[0]]).toEqual([0, 'Parcela única em 2026 (parâmetro da empresa): sem 1ª parcela; o 13º sai inteiro na 2ª.']);
+        const u2 = await processarEmpresa(unica, { ...base, folha: '13-2a' });
+        expect(u2.funcionarios).toBe(2);
     });
 });
