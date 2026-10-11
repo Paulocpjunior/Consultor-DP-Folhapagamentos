@@ -14,7 +14,7 @@ import * as XLSX from 'xlsx';
 import { diasEntre, feriado, somarDias } from '../prazos/calendario';
 import type { FichaFuncionario } from '../cadastros/funcionarios';
 import type { Afastamento } from '../cadastros/afastamentos';
-import type { Movimento } from '../calculo/motorMensal';
+import type { Movimento, PlanoSaudeRef } from '../calculo/motorMensal';
 import { centavosDeTexto, cpfValido } from '../cadastros/documentos';
 
 export const OPERADORAS_VT = ['SPTrans (Bilhete Único)', 'BOM (EMTU)', 'TOP (Metrô/CPTM)', 'Metrô', 'CPTM', 'EMTU', 'Outra'];
@@ -129,8 +129,11 @@ export function coparticipacaoPorFicha(linhas: LinhaCopart[], fichas: FichaFunci
     return { porFicha, semFicha };
 }
 
-/** O movimento com a coparticipação do mês (substitui a lançada antes por este mesmo caminho). */
-export function comCoparticipacao(mov: Movimento | null, valor: number): Movimento {
+/**
+ * O movimento com a coparticipação do mês (substitui a lançada antes por este mesmo caminho). Com a operadora, o desconto
+ * vai no S-1210 como plano de saúde (dedução do IR do empregado).
+ */
+export function comCoparticipacao(mov: Movimento | null, valor: number, planoSaude?: PlanoSaudeRef): Movimento {
     const outros = (mov?.lancamentos ?? []).filter(l => l.descricao !== DESCRICAO_COPART);
-    return { ...(mov ?? {}), lancamentos: [...outros, ...(valor > 0 ? [{ descricao: DESCRICAO_COPART, tipo: 'desconto' as const, valor, inss: false, fgts: false, irrf: false }] : [])] };
+    return { ...(mov ?? {}), lancamentos: [...outros, ...(valor > 0 ? [{ descricao: DESCRICAO_COPART, tipo: 'desconto' as const, valor, inss: false, fgts: false, irrf: false, ...(planoSaude ? { planoSaude } : {}) }] : [])] };
 }

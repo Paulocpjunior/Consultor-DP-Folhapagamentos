@@ -734,6 +734,18 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                 t.erros.push(`O S-1210 de ${mes(pm.perApur)} aceito (recibo ${ex.nrRecibo}) tem deduções do IRRF (dependentes ou pensão) diferentes das deste cálculo: o reenvio manteria as antigas. Confira o cálculo ou retifique pelo IOB.`);
         }
         if (t.erros.length || !dmDevs.length) continue;
+        // Plano de saúde coletivo: o que o empregado pagou na folha (mensalidade e coparticipação), por operadora, vai no
+        // S-1210 do mês do pagamento (infoIRComplem/planSaude), para a dedução no IR dele. Sem a divisão por dependente,
+        // o valor vai todo no titular.
+        const planos = new Map<string, { cnpjOper: string; regANS: string; valor: number }>();
+        for (const { r } of contratos) for (const v of r?.verbas ?? []) {
+            if (!v.planoSaude || v.tipo !== 'desconto' || !(v.valor > 0)) continue;
+            const k = `${v.planoSaude.cnpjOper}|${v.planoSaude.regANS}`;
+            const p = planos.get(k) ?? { cnpjOper: v.planoSaude.cnpjOper, regANS: v.planoSaude.regANS, valor: 0 };
+            p.valor += v.valor; planos.set(k, p);
+        }
+        const planSaudeXml = [...planos.values()].map(p => `<planSaude><cnpjOper>${digitos(p.cnpjOper)}</cnpjOper>${/^\d{6}$/.test(p.regANS) ? `<regANS>${p.regANS}</regANS>` : ''}<vlrSaudeTit>${valor(p.valor)}</vlrSaudeTit></planSaude>`).join('');
+        if (planos.size) t.avisos.push(`Plano de saúde no S-1210: ${[...planos.values()].map(p => `${valor(p.valor)} (operadora ${p.cnpjOper})`).join('; ')}, todo no titular.`);
         /** Informações de IR do mês: as da folha (tpRend 11) no mês do pagamento dela e as dos recibos de férias (tpRend 13) no mês de cada um. */
         const irDoMes = (m: string) => {
             const daFolha = m === perPgto;
@@ -751,7 +763,9 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             const deduz = (c: string) => dedDepMes.has(c) || dedF.has(c);
             const infoDepXml = [...deps].map(([c, dep]) => `<infoDep><cpfDep>${c}</cpfDep>${/^\d{4}-\d{2}-\d{2}$/.test(dep.nascimento) ? `<dtNascto>${dep.nascimento}</dtNascto>` : ''}`
                 + `${dep.nome ? `<nome>${esc(dep.nome.slice(0, 70))}</nome>` : ''}${deduz(c) ? `<depIRRF>S</depIRRF><tpDep>${dep.tipo}</tpDep>` : ''}</infoDep>`);
-            return irCR.length ? `<infoIRComplem>${infoDepXml.join('')}<infoIRCR><tpCR>056107</tpCR>${irCR.join('')}</infoIRCR></infoIRComplem>` : '';
+            const planosMes = daFolha ? planSaudeXml : '';
+            if (!irCR.length && !planosMes) return '';
+            return `<infoIRComplem>${irCR.length ? `${infoDepXml.join('')}<infoIRCR><tpCR>056107</tpCR>${irCR.join('')}</infoIRCR>` : ''}${planosMes}</infoIRComplem>`;
         };
         const id1200 = idEvento(e.cnpj, agora, ++seq);
         t.s1200 = { id: id1200, xml: `<eSocial xmlns="${NS}/evtRemun/${VERSAO}"><evtRemun Id="${id1200}">`
@@ -772,9 +786,15 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             // No mês da competência o cálculo tem todos os recibos pagos nele: o tpRend 13 do aceito é conciliado (sai o
             // que não vale mais). Em outro mês, o aceito tem recibos de outra competência e o tpRend 13 dele fica.
             const doAdiantamento = pm.perApur === e.competencia && pm.perApur !== perPgto;
-            const ir = ex?.irComplem?.length ? mesclarIRFerias(ex.irComplem.join(''), novo, pm.perApur === e.competencia, doAdiantamento,
+            let ir = ex?.irComplem?.length ? mesclarIRFerias(ex.irComplem.join(''), novo, pm.perApur === e.competencia, doAdiantamento,
                 doAdiantamento && contratos.some(c => adiantamentoDoMes(c.r) > 0 && c.r.irrfAdiantamento !== undefined) && !contratos.some(c => c.r.irrfAdiantamentoFolha),
                 anual && pm.perApur === perPgto ? '12' : undefined) : novo;
+            // O aceito volta sem o plano de saúde de agora (a mescla só cuida das deduções): ele entra aqui; se o aceito já tem, fica o dele.
+            if (ex?.irComplem?.length && pm.perApur === perPgto && planSaudeXml) {
+                if (ir.includes('<planSaude>')) t.avisos.push(`O S-1210 de ${mes(pm.perApur)} aceito já tem plano de saúde: ele volta como estava (o desta folha não é somado).`);
+                else if (ir.includes('</infoIRComplem>')) { const i = ir.search(/<infoReembMed>|<\/infoIRComplem>/); ir = ir.slice(0, i) + planSaudeXml + ir.slice(i); }
+                else ir = `<infoIRComplem>${planSaudeXml}</infoIRComplem>`;
+            }
             if (ex?.irComplem?.length && novo) t.avisos.push(`As deduções do IRRF (dependentes e pensão) voltam como estavam no S-1210 de ${mes(pm.perApur)} aceito, com as das férias deste envio; confira se mudaram.`);
             const id1210 = idEvento(e.cnpj, agora, ++seq);
             pm.s1210 = { id: id1210, xml: `<eSocial xmlns="${NS}/evtPgtos/${VERSAO}"><evtPgtos Id="${id1210}">`

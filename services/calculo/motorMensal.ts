@@ -28,9 +28,16 @@ import { descontosSindicais, type ContribuicaoConvencao } from '../sindicatos/co
 
 export type TipoVerba = 'provento' | 'desconto';
 export interface Incidencias { inss: boolean; fgts: boolean; irrf: boolean }
-export interface Verba extends Incidencias { codigo: string; descricao: string; referencia: string; tipo: TipoVerba; valor: number }
+/**
+ * Plano de saúde coletivo empresarial: o que o empregado paga (desconto) deduz do IR dele e vai no S-1210
+ * (infoIRComplem/planSaude), pela operadora (CNPJ e registro na ANS).
+ */
+export interface PlanoSaudeRef { cnpjOper: string; regANS: string }
+export interface Verba extends Incidencias { codigo: string; descricao: string; referencia: string; tipo: TipoVerba; valor: number; planoSaude?: PlanoSaudeRef }
 export interface Lancamento extends Incidencias {
     descricao: string; tipo: TipoVerba; valor: number;
+    /** Desconto de plano de saúde coletivo (coparticipação, por exemplo): vai no S-1210 como plano de saúde. */
+    planoSaude?: PlanoSaudeRef;
     /** Entra na média de férias, 13º e rescisão (comissão, adicional noturno…). Sem marcar: provento com INSS entra. */
     media?: boolean;
 }

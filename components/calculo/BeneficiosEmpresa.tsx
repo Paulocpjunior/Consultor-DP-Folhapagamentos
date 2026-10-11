@@ -17,7 +17,9 @@ const BeneficiosEmpresa: React.FC<{ beneficios: Beneficio[]; competencia: string
     const [erros, setErros] = useState<string[]>([]);
     const set = (id: string, m: Partial<Beneficio>) => setLista(l => l.map(b => (b.id === id ? { ...b, ...m } : b)));
     const salvar = () => {
-        const limpa = lista.map(b => ({ ...b, nome: b.nome.trim().replace(/\s+/g, ' '), codigoIob: (b.codigoIob ?? '').trim() }));
+        // Sem plano de saúde, a chave sai (o Firestore não grava undefined).
+        const limpa = lista.map(({ planoSaude, ...b }) => ({ ...b, nome: b.nome.trim().replace(/\s+/g, ' '), codigoIob: (b.codigoIob ?? '').trim(),
+            ...(planoSaude && (planoSaude.cnpjOper.trim() || planoSaude.regANS) ? { planoSaude: { cnpjOper: planoSaude.cnpjOper.replace(/\D/g, ''), regANS: planoSaude.regANS } } : {}) }));
         const e = [...validarBeneficios(limpa), ...edicaoRetroativa(beneficios, limpa, competencia)];
         setErros(e);
         // Mudança de valor, tipo, incidência ou ativo vale desta competência em diante; os meses anteriores ficam com a de antes.
@@ -32,7 +34,7 @@ const BeneficiosEmpresa: React.FC<{ beneficios: Beneficio[]; competencia: string
             <p className="text-xs text-slate-600 dark:text-slate-300">Mudanças de valor, incidência ou ativo valem a partir de {competencia.split('-').reverse().join('/')} (a competência da tela); os meses anteriores ficam com o que valia neles. Descontos (ou proventos) fixos por vida, como a assistência odontológica do IOB (evento 7001, ref. = vidas). Quem tem o benefício e com quantas vidas é marcado na ficha, aba "Benefícios". O motor lança todo mês.</p>
             <div className="overflow-x-auto">
                 <table className="w-full min-w-[640px] text-xs">
-                    <thead className="text-left text-slate-500"><tr><th className="p-1">Nome</th><th className="p-1">Evento IOB</th><th className="p-1">Tipo</th><th className="p-1">Valor por vida (R$)</th><th className="p-1">INSS</th><th className="p-1">FGTS</th><th className="p-1">IRRF</th><th className="p-1">Ativo</th><th /></tr></thead>
+                    <thead className="text-left text-slate-500"><tr><th className="p-1">Nome</th><th className="p-1">Evento IOB</th><th className="p-1">Tipo</th><th className="p-1">Valor por vida (R$)</th><th className="p-1">INSS</th><th className="p-1">FGTS</th><th className="p-1">IRRF</th><th className="p-1">Ativo</th><th className="p-1">Plano de saúde (S-1210): CNPJ da operadora · reg. ANS</th><th /></tr></thead>
                     <tbody>{lista.map((b, i) => (
                         <tr key={b.id} className="border-t border-slate-100 dark:border-slate-700">
                             <td className="p-1"><input aria-label={`Nome do benefício ${i + 1}`} className={`w-48 ${inp}`} value={b.nome} onChange={e => set(b.id, { nome: e.target.value })} /></td>
@@ -42,6 +44,12 @@ const BeneficiosEmpresa: React.FC<{ beneficios: Beneficio[]; competencia: string
                                 onChange={e => { const t = e.target.value; setValores(v => ({ ...v, [b.id]: t })); set(b.id, { valor: centavosDeTexto(t) ?? 0 }); }} /></td>
                             {(['inss', 'fgts', 'irrf'] as const).map(k => <td key={k} className="p-1 text-center"><input type="checkbox" aria-label={`${k.toUpperCase()} do benefício ${i + 1}`} checked={b[k]} onChange={e => set(b.id, { [k]: e.target.checked })} /></td>)}
                             <td className="p-1 text-center"><input type="checkbox" aria-label={`Benefício ${i + 1} ativo`} checked={b.ativo} onChange={e => set(b.id, { ativo: e.target.checked })} /></td>
+                            <td className="p-1 whitespace-nowrap">
+                                <input aria-label={`CNPJ da operadora do benefício ${i + 1}`} placeholder="só se for plano de saúde" className={`w-40 ${inp}`} value={b.planoSaude?.cnpjOper ?? ''}
+                                    onChange={e => { const c = e.target.value; set(b.id, { planoSaude: c.trim() || b.planoSaude?.regANS ? { cnpjOper: c, regANS: b.planoSaude?.regANS ?? '' } : undefined }); }} />
+                                <input aria-label={`Registro ANS do benefício ${i + 1}`} placeholder="ANS" className={`ml-1 w-20 ${inp}`} value={b.planoSaude?.regANS ?? ''}
+                                    onChange={e => { const r = e.target.value.replace(/\D/g, '').slice(0, 6); set(b.id, { planoSaude: r || b.planoSaude?.cnpjOper ? { cnpjOper: b.planoSaude?.cnpjOper ?? '', regANS: r } : undefined }); }} />
+                            </td>
                             <td className="p-1"><button className="text-red-700 underline dark:text-red-300" onClick={() => setLista(l => l.filter(x => x.id !== b.id))}>remover</button></td>
                         </tr>
                     ))}</tbody>
@@ -54,6 +62,7 @@ const BeneficiosEmpresa: React.FC<{ beneficios: Beneficio[]; competencia: string
                 <button className="rounded bg-blue-700 px-3 py-1.5 text-xs font-medium text-white" onClick={salvar}>Salvar benefícios</button>
             </div>
             <p className="text-[11px] text-slate-500 dark:text-slate-400">Para encerrar um benefício, desmarque "Ativo": os meses anteriores continuam com ele. "Remover" tira o benefício também dos meses passados.</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">Plano de saúde coletivo: com o CNPJ da operadora (e o registro na ANS), o desconto do empregado vai no S-1210 como plano de saúde e entra no informe de rendimentos (dedução do IR dele). A coparticipação importada em Administração de benefícios vai junto.</p>
             <p className="text-[11px] text-slate-500 dark:text-slate-400">Incidências: confira com a rubrica do evento em Cadastros › Incidências (assistência odontológica descontada do empregado normalmente não incide em INSS, FGTS nem IRRF).</p>
         </section>
     );

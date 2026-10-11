@@ -5,7 +5,8 @@
 // cadastra o benefício uma vez (valor por vida, incidências) e a ficha diz
 // quem aderiu, com quantas vidas e desde quando. O motor mensal lança sozinho.
 
-import type { TipoVerba, Verba } from './motorMensal';
+import type { PlanoSaudeRef, TipoVerba, Verba } from './motorMensal';
+import { cnpjValido } from '../cadastros/documentos';
 
 export interface Beneficio {
     id: string;
@@ -18,6 +19,8 @@ export interface Beneficio {
     inss: boolean; fgts: boolean; irrf: boolean;
     /** Desligado na empresa: deixa de entrar na folha de todos. */
     ativo: boolean;
+    /** Plano de saúde coletivo empresarial: o desconto do empregado vai no S-1210 (plano de saúde) com a operadora. */
+    planoSaude?: PlanoSaudeRef;
     /**
      * Definições anteriores, cada uma valendo até a competência `ate` (inclusive): mudar o valor, o tipo, as
      * incidências ou desativar não reescreve os meses passados (Codex #122).
@@ -97,6 +100,11 @@ export function validarBeneficios(lista: Beneficio[]): string[] {
         if (!b.nome.trim()) erros.push(`${n}: informe o nome.`);
         if (!(b.valor > 0)) erros.push(`${n}: informe o valor por vida.`);
         if (b.tipo !== 'desconto' && b.tipo !== 'provento') erros.push(`${n}: tipo inválido.`);
+        if (b.planoSaude) {
+            if (!cnpjValido(b.planoSaude.cnpjOper.replace(/\D/g, ''))) erros.push(`${n}: CNPJ da operadora do plano de saúde inválido.`);
+            if (b.planoSaude.regANS && !/^\d{6}$/.test(b.planoSaude.regANS)) erros.push(`${n}: registro na ANS com 6 dígitos.`);
+            if (b.tipo !== 'desconto') erros.push(`${n}: plano de saúde é desconto do empregado.`);
+        }
     });
     const nomes = lista.map(b => b.nome.trim().toUpperCase()).filter(Boolean);
     if (new Set(nomes).size !== nomes.length) erros.push('Há benefícios com o mesmo nome.');
@@ -132,7 +140,8 @@ export function verbasDosBeneficios(catalogo: Beneficio[] | undefined, adesoes: 
         const d = definicaoNoMes(b, competencia);
         if (!d.ativo || !(d.valor > 0)) continue;
         const valor = Math.round(d.valor * a.vidas);
-        verbas.push({ codigo: `${PREFIXO_BENEFICIO}${b.id}`, descricao: b.nome, referencia: `${a.vidas} vida${a.vidas > 1 ? 's' : ''}`, tipo: d.tipo, valor, inss: d.inss, fgts: d.fgts, irrf: d.irrf });
+        verbas.push({ codigo: `${PREFIXO_BENEFICIO}${b.id}`, descricao: b.nome, referencia: `${a.vidas} vida${a.vidas > 1 ? 's' : ''}`, tipo: d.tipo, valor, inss: d.inss, fgts: d.fgts, irrf: d.irrf,
+            ...(b.planoSaude && d.tipo === 'desconto' ? { planoSaude: { cnpjOper: b.planoSaude.cnpjOper.replace(/\D/g, ''), regANS: b.planoSaude.regANS } } : {}) });
         memoria.push(`${b.nome}${b.codigoIob ? ` (evento ${b.codigoIob} do IOB)` : ''}: ${(d.valor / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} por vida × ${a.vidas} = ${(valor / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (benefício da empresa).`);
     }
     return { verbas, memoria };

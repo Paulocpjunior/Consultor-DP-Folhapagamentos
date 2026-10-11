@@ -4112,3 +4112,17 @@ Paulo: "segue para próximo". O RRA ficou para depois porque falta confirmar com
 - **Regras:** grava e lê quem pode na empresa, com o id da ficha da empresa (teste de regras).
 - **Catálogo SAGE:** o item de benefícios continua parcial, mas sem as duas faltas. Fica pendente a coparticipação na dedução do IRRF (S-1210, plano de saúde).
 - **Testes:** dias de uso (feriados de 11/2026, férias e admissão no meio do mês), pedido por operadora, leitura da planilha, soma e substituição no movimento, e a tela.
+
+## 11/10/2026 — Plano de saúde no S-1210 (mensalidade e coparticipação)
+
+Paulo: "pode seguir". O RRA ficou para o fim da lista, e este era o próximo item: a coparticipação na dedução do IRRF.
+
+- **Benefício da empresa** (Cálculo › Benefícios): ganha o campo "plano de saúde", com o CNPJ da operadora e o registro na ANS (6 dígitos). Só vale para desconto; CNPJ e registro inválidos são recusados. O desconto do empregado sai do motor marcado com a operadora (`Verba.planoSaude`).
+- **Coparticipação** (Administração de benefícios): na importação, informa-se a operadora, e o lançamento avulso leva a mesma marca (`Lancamento.planoSaude`).
+- **S-1210 da folha** (`eventosFolha.ts`):
+  - soma o que o empregado pagou na folha do mês por operadora (mensalidade e coparticipação);
+  - informa em `infoIRComplem/planSaude` (cnpjOper, regANS, vlrSaudeTit), no mês do pagamento;
+  - o valor vai todo no titular, porque ainda não há divisão por dependente; a tela avisa;
+  - com S-1210 já aceito, o plano entra se o aceito não tinha; se tinha, fica o dele, com aviso.
+- **Informe de rendimentos:** já lia o planSaude dos S-5002, então o valor passa a aparecer nele.
+- **Testes:** validação do benefício; mensalidade e coparticipação somadas no planSaude, com o S-1210 no XSD oficial S-1.3; sem a operadora, nada de planSaude.
