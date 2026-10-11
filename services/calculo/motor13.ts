@@ -21,6 +21,10 @@
 // IN RFB 2.141/2023), quando maior que as deduções legais, como nas férias e na
 // rescisão; o redutor de 2026 também. Os dois ficam como opção da tela.
 // 13º na rescisão fica de fora.
+// - 1ª parcela com as férias (Lei 4.749/1965, art. 2º, § 2º): pedida em janeiro, sai no recibo de férias (o gozo
+//   marcado em Afastamentos) pelo mês do pagamento delas; a 1ª de novembro não sai de novo e a 2ª desconta a das férias.
+// - Parcela única: a empresa que paga o 13º inteiro em dezembro não tem 1ª parcela; a lei manda adiantar a metade
+//   até 30 de novembro (Lei 4.749/1965, art. 2º), e o descumprimento tem multa (Lei 7.855/1989, art. 3º).
 
 import { fichaNaData, memoriaDoHistorico, type FichaFuncionario } from '../cadastros/funcionarios';
 import type { Afastamento } from '../cadastros/afastamentos';
@@ -28,7 +32,7 @@ import { inicioBeneficio } from '../cadastros/afastamentos';
 import { dataValida, reais } from '../cadastros/documentos';
 import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros/tabelasLegais';
 import { adicionalDeRisco } from './adicionais';
-import { somarDias } from '../prazos/calendario';
+import { diaUtilAnterior, somarDias } from '../prazos/calendario';
 import { mediaDasVariaveis, salarioContratual, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
 import { ehDomestico, indenizacaoCompensatoria } from '../domestico/domestico';
 
@@ -49,6 +53,37 @@ export interface Entrada13 {
     /** Valor efetivamente pago na 1ª parcela, se diferente do calculado (ex.: adiantado nas férias). */
     primeiraPaga?: number;
     opcoes?: Opcoes13;
+    /** Parcela única: a empresa paga o 13º inteiro na 2ª parcela, sem a 1ª de novembro. */
+    parcelaUnica?: boolean;
+    /** Cálculo da 1ª parcela para o recibo de férias (não recusa por já ter sido paga nas férias). */
+    noReciboDeFerias?: boolean;
+}
+
+/** Mês do pagamento do recibo de férias: o dia útil até 2 dias antes do início (como o motor das férias). */
+export const mesDoPagamentoDasFerias = (gozo: Afastamento) => diaUtilAnterior(somarDias(gozo.dtInicio, -2)).slice(0, 7);
+
+/**
+ * Gozo de férias do ano com a 1ª parcela do 13º adiantada (pedido do empregado, Lei 4.749/1965, art. 2º, § 2º): o
+ * primeiro marcado com pagamento de janeiro a novembro do ano.
+ */
+export function feriasComAdiantamento13(ano: number, afastamentos: Afastamento[], fichaId?: string): { gozo: Afastamento; pagamento: string } | null {
+    const gozos = afastamentos.filter(a => a.motivo === '15' && a.adiantar13 === 'S' && dataValida(a.dtInicio) && (!fichaId || a.fichaId === fichaId))
+        .map(gozo => ({ gozo, pagamento: mesDoPagamentoDasFerias(gozo) }))
+        .filter(x => x.pagamento >= `${ano}-01` && x.pagamento <= `${ano}-11`)
+        .sort((a, b) => a.pagamento.localeCompare(b.pagamento) || a.gozo.dtInicio.localeCompare(b.gozo.dtInicio));
+    return gozos[0] ?? null;
+}
+
+/**
+ * Valor da 1ª parcela paga no recibo de férias do ano (0 se não houve): o mesmo cálculo da 1ª parcela no mês do
+ * pagamento das férias, com o vínculo daquele momento (um desligamento posterior não a desfaz).
+ */
+export function primeiraParcelaNasFerias(e: Omit<Entrada13, 'parcela' | 'pagamento' | 'primeiraPaga'>): { valor: number; pagamento: string; gozo: Afastamento } | null {
+    const x = feriasComAdiantamento13(e.ano, e.afastamentos, e.ficha.id);
+    if (!x) return null;
+    const ficha = { ...e.ficha, dados: { ...e.ficha.dados, dataDesligamento: '' } };
+    const r = calcular13({ ...e, ficha, parcela: '1a', pagamento: x.pagamento, noReciboDeFerias: true, parcelaUnica: false });
+    return { valor: r.situacao === 'erro' ? 0 : r.verbas.find(v => v.codigo === '13A')?.valor ?? 0, pagamento: x.pagamento, gozo: x.gozo };
 }
 
 const ALIQUOTA_FGTS = 8;
@@ -116,6 +151,11 @@ export function calcular13(e: Entrada13): ResultadoCalculo {
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(pagamento)) return erro('Mês do pagamento inválido.');
     if (!d.admissao || !dataValida(d.admissao)) return erro('Ficha sem data de admissão válida.');
     if (d.admissao > `${ano}-12-31`) return erro(`Admitido em ${brData(d.admissao)}, depois do ano.`);
+    if (parcela === '1a' && !e.noReciboDeFerias) {
+        const nasFerias = feriasComAdiantamento13(ano, e.afastamentos, ficha.id);
+        if (nasFerias) return erro(`1ª parcela já paga com as férias de ${brData(nasFerias.gozo.dtInicio)} (recibo de ${rotuloCompetencia(nasFerias.pagamento)}, a pedido do empregado): não sai de novo.`);
+        if (e.parcelaUnica) return erro(`Parcela única: o 13º de ${ano} sai inteiro na 2ª parcela, sem a 1ª.`);
+    }
     if (parcela === '1a' && d.admissao > ultimoDia(pagamento)) return erro(`Admitido em ${brData(d.admissao)}, depois do pagamento da 1ª parcela: recebe o 13º inteiro na 2ª.`);
     const deslig = d.dataDesligamento && dataValida(d.dataDesligamento) ? d.dataDesligamento : '';
     if (deslig && deslig < `${ano}-12-31`) return erro(`Desligado em ${brData(deslig)}: o 13º é pago na rescisão, que ainda não está no motor.`);
@@ -176,14 +216,21 @@ export function calcular13(e: Entrada13): ResultadoCalculo {
         r.memoria.push(`1ª parcela: metade de (${reais(remuneracao)} × ${avos1}/12) = ${reais(primeiraCalculada)}; sem INSS e sem IRRF (descontados na 2ª).`);
         r.bases.fgts = primeiraCalculada;
     } else {
-        // Sem valor informado, desconta o que a 1ª parcela calculou em novembro
-        // (avos projetados e média até outubro), que é o que foi pago.
-        const r1 = e.primeiraPaga === undefined ? calcular13({ ...e, parcela: '1a', pagamento: `${ano}-11` }) : null;
+        // Sem valor informado: a 1ª parcela paga com as férias, se houve; senão, o que a 1ª parcela calculou em
+        // novembro (avos projetados e média até outubro), que é o que foi pago; na parcela única, nada.
+        const nasFerias = e.primeiraPaga === undefined ? primeiraParcelaNasFerias(e) : null;
+        const r1 = e.primeiraPaga === undefined && !nasFerias && !e.parcelaUnica ? calcular13({ ...e, parcela: '1a', pagamento: `${ano}-11` }) : null;
         // 1ª de novembro com erro (ex.: admitido depois de novembro) = nada foi adiantado.
         const primeiraNov = r1 && r1.situacao !== 'erro' ? r1.verbas.find(x => x.codigo === '13A')?.valor ?? 0 : 0;
-        const primeira = e.primeiraPaga ?? primeiraNov;
+        const primeira = e.primeiraPaga ?? nasFerias?.valor ?? primeiraNov;
         if (e.primeiraPaga !== undefined) r.memoria.push(`1ª parcela informada como paga: ${reais(primeira)}.`);
-        else if (!primeira) r.memoria.push('Sem adiantamento: não houve 1ª parcela em novembro.');
+        else if (nasFerias) {
+            r.memoria.push(`Adiantamento: ${reais(primeira)}, a 1ª parcela paga com as férias de ${brData(nasFerias.gozo.dtInicio)} (recibo de ${rotuloCompetencia(nasFerias.pagamento)}; Lei 4.749/1965, art. 2º, § 2º).`);
+            if (e.parcelaUnica) r.avisos.push('Parcela única na empresa, mas este empregado recebeu a 1ª parcela com as férias: ela é descontada.');
+        } else if (e.parcelaUnica) {
+            r.memoria.push('Parcela única: o 13º inteiro nesta parcela, sem adiantamento.');
+            if (pagamento > `${ano}-11`) r.avisos.push('Parcela única: a lei manda pagar a 1ª parcela até 30 de novembro (Lei 4.749/1965, art. 2º); pagar tudo de uma vez depois disso sujeita a empresa a multa por empregado (Lei 7.855/1989, art. 3º).');
+        } else if (!primeira) r.memoria.push('Sem adiantamento: não houve 1ª parcela em novembro.');
         else {
             r.memoria.push(`Adiantamento: ${reais(primeira)}, o valor da 1ª parcela calculada para novembro.`);
             r.avisos.push('Adiantamento descontado pelo valor calculado da 1ª parcela em novembro; se o pago foi outro (ex.: nas férias), informe.');

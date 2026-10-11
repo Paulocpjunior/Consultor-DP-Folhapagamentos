@@ -31,7 +31,7 @@ import { dataValida, reais } from '../cadastros/documentos';
 import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros/tabelasLegais';
 import { aniversario, diasEntre, somarDias, somarMeses } from '../prazos/calendario';
 import { calcularMensal, competenciaAnterior, mediaDasVariaveis, salarioContratual, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
-import { avosDoAno } from './motor13';
+import { avosDoAno, primeiraParcelaNasFerias } from './motor13';
 import { folhaPagaAntes } from './arredondamento';
 import { diasDeDireito, feriasDaCompetencia, mesesDoPeriodo, periodosAquisitivos } from './motorFerias';
 import { inssDetalhado, irrfDetalhado, type OpcoesIrrf } from './tributos';
@@ -281,7 +281,11 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
         // O reflexo do aviso indenizado no 13º é remuneração: tem INSS (Nota PGFN/CRJ 485/2016).
         verba({ codigo: '13IND', descricao: '13º sobre o aviso indenizado', referencia: `${avosAviso}/12`, tipo: 'provento', valor: ind, inss: true, fgts: true, irrf: true });
         r.memoria.push(`13º: ${reais(remuneracao)} × ${avosReal}/12 = ${reais(prop)}${ind ? `; projeção do aviso + ${avosAviso}/12${avosSeguinte ? ` (${avosSeguinte} de ${ano + 1})` : ''} = ${reais(ind)}` : ''}.`);
-        const adiantado = e.adiantamento13 ?? 0;
+        // Sem o adiantamento informado: a 1ª parcela paga com as férias do ano, antes do desligamento (Lei 4.749/1965, art. 2º, § 2º).
+        const nasFerias = e.adiantamento13 === undefined && !interm ? primeiraParcelaNasFerias({ ano, ficha, afastamentos: e.afastamentos, tabelas: e.tabelas, movimentos: e.movimentos }) : null;
+        const feriasAntes = nasFerias && nasFerias.valor > 0 && nasFerias.pagamento <= data.slice(0, 7) ? nasFerias : null;
+        const adiantado = e.adiantamento13 ?? feriasAntes?.valor ?? 0;
+        if (feriasAntes) r.memoria.push(`Adiantamento do 13º: ${reais(feriasAntes.valor)}, a 1ª parcela paga com as férias de ${br(feriasAntes.gozo.dtInicio)} (informe outro valor se o pago foi diferente).`);
         if (adiantado) verba({ codigo: '13ADT', descricao: 'Adiantamento do 13º', referencia: '', tipo: 'desconto', valor: adiantado, inss: false, fgts: false, irrf: false });
         else if (!interm && data.slice(5, 7) === '12') r.avisos.push('Desligamento em dezembro: se a 1ª parcela do 13º já foi paga, informe o adiantamento.');
         else if (prop) r.avisos.push('Se o 13º foi adiantado no ano (nas férias, por exemplo), informe o adiantamento: senão ele sai inteiro.');

@@ -4477,3 +4477,23 @@ Paulo: "faça essa auditoria completa, e qual arquivo precisa de mim da IOB". O 
   - grava no movimento do mês sem duplicar; uma competência encerrada não recebe lançamentos.
 - **Catálogo SAGE:** `ut-imp-valores` passa a disponível. Agora são 35 disponíveis, 16 parciais, nenhum planejado e 2 fora.
 - **Testes:** a leitura dos dois layouts e seus erros, o lançamento no movimento (hora extra, comissão, faltas, reimportação), as linhas que ficam de fora e a tela.
+
+## 11/10/2026 — 13º: 1ª parcela com as férias e parcela única
+
+Primeiro dos 16 parciais da auditoria (`docs/auditoria-parciais-2026-10.md`).
+
+- **1ª parcela com as férias** (Lei 4.749/1965, art. 2º, § 2º: pedido do empregado em janeiro):
+  - marcada no gozo de férias, em Cadastros › Afastamentos ou no próprio recibo (Cálculo › Férias). É só do Consultor e não vai ao S-2230;
+  - o recibo de férias paga a 1ª parcela, com a mesma conta da 1ª de novembro feita no mês do pagamento das férias, sem INSS e IRRF e com FGTS na competência do pagamento;
+  - no S-1200 ela entra pelo demonstrativo do recibo (natureza 5504);
+  - recibo pago em dezembro não adianta, porque já é a 2ª parcela;
+  - a 1ª parcela de novembro não sai de novo, nem no S-1200 de novembro;
+  - a 2ª parcela desconta o valor das férias (um valor informado na tela prevalece);
+  - a rescisão desconta automaticamente o que foi pago antes do desligamento.
+- **Parcela única:** é um parâmetro da empresa por ano, nas telas do 13º.
+  - Não há 1ª parcela, nem no S-1200 de novembro, e a 2ª paga o 13º inteiro.
+  - Paga depois de novembro, aparece o aviso do prazo legal (Lei 4.749/1965, art. 2º) e da multa (Lei 7.855/1989, art. 3º).
+  - Quem recebeu a 1ª parcela com as férias continua tendo ela descontada.
+- **Correção:** a pensão sobre férias gravada no afastamento não era salva. O campo não estava no modelo do afastamento e a gravação o descartava. Agora é gravada e, como o abono e a 1ª parcela do 13º, sobrevive à reimportação do S-2230.
+- **Catálogo SAGE:** `proc-13` passa a disponível. Agora são 36 disponíveis e 15 parciais.
+- **Testes:** o recibo com a 1ª parcela, a de novembro recusada, o desconto na 2ª e na rescisão, as férias de dezembro, a parcela única com e sem férias, e a gravação e a reimportação do afastamento.

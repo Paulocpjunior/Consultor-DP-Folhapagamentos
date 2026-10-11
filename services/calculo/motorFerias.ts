@@ -27,6 +27,7 @@ import { adicionalDeRisco } from './adicionais';
 import { aniversario, diaUtilAnterior, diasEntre, somarDias, somarMeses } from '../prazos/calendario';
 import { mediaDasVariaveis, salarioContratual, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
 import { ehDomestico } from '../domestico/domestico';
+import { calcular13 } from './motor13';
 
 export interface OpcoesFerias { simplificado: boolean; redutor: boolean }
 export const OPCOES_FERIAS_PADRAO: OpcoesFerias = { simplificado: true, redutor: true };
@@ -57,6 +58,8 @@ export interface ResultadoFerias extends ResultadoCalculo {
     porCompetencia: CompetenciaFerias[];
     /** IRRF das férias, sempre informado (também quando não há retenção). */
     irrf: InfoIrrfFerias | null;
+    /** 1ª parcela do 13º paga no recibo (pedido do empregado): valor, FGTS e a competência do pagamento. */
+    adiantamento13?: { valor: number; fgts: number; competencia: string };
 }
 
 export interface InfoIrrfFerias {
@@ -344,6 +347,27 @@ export function calcularFerias(e: EntradaFerias): ResultadoFerias {
     r.bases.inss = ferias + terco;
     r.bases.fgts = ferias + terco;
     r.fgts = r.porCompetencia.reduce((s, x) => s + x.fgts, 0);
+
+    // 1ª parcela do 13º com as férias, a pedido do empregado em janeiro (Lei 4.749/1965, art. 2º, § 2º): a mesma conta
+    // da 1ª parcela, no mês do pagamento do recibo; sem INSS e IRRF (vão na 2ª), com FGTS na competência do pagamento.
+    if (gozo.adiantar13 === 'S') {
+        const ano = Number(pagamento.slice(0, 4));
+        if (!/^\d{4}-(0[1-9]|1[01])$/.test(pagamento)) r.avisos.push(`1ª parcela do 13º não entra: recibo pago em ${pagamento ? rotuloCompetencia(pagamento) : '—'}; o adiantamento com as férias vai de janeiro a novembro (em dezembro já é a 2ª parcela).`);
+        else {
+            const fichaAntes = { ...e.ficha, dados: { ...e.ficha.dados, dataDesligamento: '' } };
+            const r13 = calcular13({ ano, parcela: '1a', pagamento, ficha: fichaAntes, afastamentos: e.afastamentos, tabelas: e.tabelas, movimentos: e.movimentos, noReciboDeFerias: true });
+            const valor = r13.situacao === 'erro' ? 0 : r13.verbas.find(v => v.codigo === '13A')?.valor ?? 0;
+            if (!valor) r.avisos.push(`1ª parcela do 13º não calculada: ${r13.erros.join(' ') || 'sem valor'}`);
+            else {
+                verba({ codigo: '13A', descricao: '13º salário — 1ª parcela (com as férias)', referencia: r13.verbas.find(v => v.codigo === '13A')?.referencia ?? '', tipo: 'provento', valor, inss: false, fgts: true, irrf: false });
+                const fgts13 = Math.round(valor * (aprendiz ? ALIQUOTA_FGTS_APRENDIZ : ALIQUOTA_FGTS) / 100);
+                r.adiantamento13 = { valor, fgts: fgts13, competencia: pagamento };
+                r.bases.fgts += valor;
+                r.fgts += fgts13;
+                r.memoria.push(`1ª parcela do 13º com as férias (pedido do empregado; Lei 4.749/1965, art. 2º, § 2º): ${reais(valor)}, sem INSS e IRRF (descontados na 2ª parcela); FGTS ${reais(fgts13)} na competência de ${rotuloCompetencia(pagamento)}. A 1ª parcela de novembro não sai de novo e a 2ª a desconta.`);
+            }
+        }
+    }
 
     // IRRF em separado, tabela do mês do pagamento.
     const tributavel = r.verbas.filter(v => v.irrf && v.tipo === 'provento').reduce((s, v) => s + v.valor, 0);
