@@ -4,6 +4,7 @@
 // mês pelo SERPRO comparado com a folha do Consultor (o resultado atualiza o popup de pendências, um aviso por
 // empresa e mês), o extrato de cada funcionário (folha × S-5003) e a procuração do FGTS Digital.
 
+import { sistemaDaCompetencia } from '../../services/empresas/inicioObrigacoes';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
 import { listarEmpresasVisiveis, salvarProcuracaoFgts } from '../../services/empresas/empresasService';
@@ -125,6 +126,10 @@ const PainelFgts: React.FC = () => {
                 </div>
                 <a className={btn} href={LINK_FGTS_DIGITAL} target="_blank" rel="noopener noreferrer">FGTS Digital ↗</a>
             </div>
+            {(() => {
+                const antigas = competencias.filter(c => sistemaDaCompetencia(empresa?.parametrosFolha, c).fgts === 'sefip');
+                return antigas.length ? <p role="note" className="rounded bg-amber-50 p-2 text-xs text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">{antigas.length} competência(s) antes do FGTS Digital da empresa ({antigas.map(mes).join(', ')}): o FGTS delas é da SEFIP e da GRF, e a consulta do FGTS Digital não as mostra.</p> : null;
+            })()}
 
             <div className="grid gap-3 md:grid-cols-2">
                 <div className="space-y-1 rounded border border-slate-200 p-2 text-xs dark:border-slate-700">

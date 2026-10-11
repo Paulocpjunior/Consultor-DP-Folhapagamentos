@@ -6,6 +6,8 @@
 // com pendência, quem transmite é o Fiscal, com justificativa — a regra é do CFI, a tela só orienta.
 
 import React, { useEffect, useRef, useState } from 'react';
+import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
+import { sistemaDaCompetencia, type IniciosObrigacoes } from '../../services/empresas/inicioObrigacoes';
 import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
 import {
     consultarDctfWebDebitos, consultarDctfWebStatus, consultarInsumosDctfweb, gerarDarfDctfweb, transmitirDctfweb,
@@ -43,6 +45,14 @@ const DctfwebFolhaPanel: React.FC = () => {
     const pedido = useRef(0);
 
     useEffect(() => { pedido.current++; setLeitura(null); setDarf(null); setErro(''); setFeito(''); }, [ativa?.id, ativa?.competencia]);
+    // Início da DCTFWeb da empresa (Cadastros › Enquadramento): competência anterior é da GFIP/GPS.
+    const [inicios, setInicios] = useState<IniciosObrigacoes | undefined>(undefined);
+    useEffect(() => {
+        if (!ativa) return;
+        let vivo = true;
+        listarEmpresasVisiveis().then(l => { if (vivo) setInicios(l.find(e => e.id === ativa.id)?.parametrosFolha); }).catch(() => { /* sem o início: sem o aviso */ });
+        return () => { vivo = false; };
+    }, [ativa]);
     if (!ativa) return <p className="text-sm text-slate-500">Ative uma empresa e um período.</p>;
     const cnpj = ativa.cnpj.replace(/\D/g, '');
     const comp = ativa.competencia;
@@ -108,6 +118,7 @@ const DctfwebFolhaPanel: React.FC = () => {
                     A DCTFWeb junta a folha (eSocial, S-1299), a EFD-Reinf (Contábil) e o MIT (Fiscal). O DP emite o DARF a qualquer momento e transmite quando os três insumos estão confirmados;
                     com pendência, a transmissão é do Fiscal. Se o S-1299 saiu com "Transmitir a DCTFWeb logo após o fechamento", a Receita pode já ter transmitido: a situação abaixo mostra.
                 </p>
+                {sistemaDaCompetencia(inicios, comp).avisos.filter(a => /DCTFWeb/.test(a)).map(a => <p key={a} role="note" className="mt-2 rounded bg-amber-50 p-2 text-xs text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">{a}</p>)}
                 <button className={`${btn} mt-3 bg-blue-700 text-white`} disabled={!!ocupado} onClick={consultar}>{leitura ? 'Consultar de novo' : 'Consultar a DCTFWeb'}</button>
             </div>
 
