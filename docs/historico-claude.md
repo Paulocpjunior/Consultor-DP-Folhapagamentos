@@ -4595,3 +4595,30 @@ Sexto dos parciais da auditoria (Utilitários › Envio de Relatórios por E-mai
   - os destinatários (e-mail inválido, holerite com erro, ordem por nome);
   - o nome do arquivo, o assunto e a mensagem;
   - a tela, com um envio que falha.
+
+## 11/10/2026 — Crédito do Trabalhador (consignado CLT)
+
+Sétimo dos parciais da auditoria.
+
+- **Contratos** (Cadastros › Funcionários › Consignado; `services/calculo/consignado.ts`):
+  - cada contrato tem a instituição (código de 3 dígitos da Tabela 37 do eSocial), o número do contrato, a parcela, o primeiro e o último mês e o saldo informado para a rescisão;
+  - a validação segue o XSD (TS_nrDoc: 2 a 15 caracteres) e recusa contrato repetido;
+  - os contratos são gravados e auditados com a ficha.
+- **Folha mensal:**
+  - a parcela de cada contrato vigente sai depois de INSS, IRRF e pensão, na ordem do início do contrato;
+  - o limite é 35% da remuneração disponível (os proventos menos INSS, IRRF e pensão; Lei 10.820/2003, art. 2º, § 2º, I) e o desconto não deixa o líquido negativo;
+  - o que não couber fica com o aviso, porque a instituição cobra a diferença. As bases de INSS, IRRF e FGTS não mudam.
+- **Rescisão:** o desconto sai uma vez só, sobre as verbas rescisórias (o saldo informado pela instituição ou a parcela do mês), no mesmo limite. O saldo de salário calculado pelo motor mensal não desconta de novo.
+- **eSocial** (XSD S-1.3, T_descFolha):
+  - a rubrica de natureza 9253 vai com o grupo descFolha (tpDesc 1, instFinanc, nrDoc e a observação), um item por contrato, no S-1200 (itensRemun) e no S-2299 (detVerbas);
+  - antes do envio são recusados o desconto em rubrica sem a natureza 9253 e a 9253 sem contrato;
+  - o de/para sugere a natureza 9253.
+- **Pesquisa:**
+  - o grupo e os campos foram conferidos no XSD oficial que está no repositório;
+  - o limite de 35% vem da Lei 10.820/2003, art. 2º, § 2º, I, na redação da Lei 13.172/2015;
+  - a lei foi alterada depois pela Lei 15.179/2025 e pela MP 1.355/2026, por isso o percentual fica numa constante e a tela pede para conferir a norma vigente.
+- **Catálogo SAGE:** `proc-consignado` passa a disponível. Agora são 42 disponíveis e 9 parciais.
+- **Testes:**
+  - a validação, os meses e a margem com dois contratos, o limite pelo líquido;
+  - o motor mensal (bases intactas) e a rescisão (uma vez só, com o saldo);
+  - o S-1200 e o S-2299 com o descFolha no XSD oficial, e a recusa da rubrica sem a 9253.

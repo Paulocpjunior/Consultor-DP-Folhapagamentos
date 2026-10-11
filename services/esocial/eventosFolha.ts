@@ -90,6 +90,19 @@ const valor = (c: number) => (c / 100).toFixed(2);
 export const normalizar = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9%]+/g, ' ').trim();
 
 /** Chave da verba no de/para: o código do motor; lançamento avulso, pela descrição. */
+/** Grupo descFolha do Crédito do Trabalhador (T_descFolha do XSD S-1.3): tpDesc 1 (eConsignado), instituição e contrato. */
+export function descFolhaXml(d: Verba['descFolha']): string {
+    if (!d) return '';
+    return `<descFolha><tpDesc>1</tpDesc><instFinanc>${esc(d.instFinanc)}</instFinanc><nrDoc>${esc(d.nrDoc)}</nrDoc>${d.observacao ? `<observacao>${esc(d.observacao)}</observacao>` : ''}</descFolha>`;
+}
+
+/** O desconto do consignado precisa de rubrica de natureza 9253, e a 9253 só serve ao consignado (com o descFolha). */
+export function erroDescFolha(v: Pick<Verba, 'descricao' | 'descFolha'>, codRubr: string, natRubr: string | undefined): string {
+    if (v.descFolha && natRubr !== '9253') return `"${v.descricao}" é desconto do Crédito do Trabalhador: a rubrica ${codRubr} precisa ter a natureza 9253 no S-1010 (tem ${natRubr || 'outra'}). Acerte o de/para.`;
+    if (!v.descFolha && natRubr === '9253') return `Rubrica ${codRubr} (natureza 9253, consignado) usada em "${v.descricao}", que não é desconto de contrato do Crédito do Trabalhador: o eSocial exige o contrato (descFolha). Lance o contrato na ficha ou acerte o de/para.`;
+    return '';
+}
+
 export const chaveVerba = (v: Pick<Verba, 'codigo' | 'descricao'>) => (/^LAN\d+$/.test(v.codigo) ? `LAN:${normalizar(v.descricao)}` : v.codigo);
 
 /** Natureza (Tabela 03) e tipo (1 = provento, 2 = desconto) que cada verba do motor deve ter no S-1010. */
@@ -127,6 +140,8 @@ const SUGESTAO: Record<string, { naturezas: string[]; dica?: RegExp; evita?: Reg
     PENSAO: { naturezas: ['9213'] },
     PENSAO13: { naturezas: ['9213'] },
     PENSAOFER: { naturezas: ['9213'] },
+    // Crédito do Trabalhador (consignado CLT): natureza 9253, com o grupo descFolha.
+    CONSIG: { naturezas: ['9253'] },
     // Adiantamento salarial: no demonstrativo próprio, a rubrica de provento do adiantamento (a natureza varia
     // no S-1010 de cada empresa: vai pela descrição); na folha, o desconto (9200). Vale-transporte: 9216.
     // Só adiantamento de salário (ou "vale", "quinzena"): comissão, gorjeta, férias e 13º têm rubricas próprias (Codex #115).
@@ -474,7 +489,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
         const avisoNatureza = new Set<string>();
         /** Itens por rubrica (a mesma rubrica não se repete no demonstrativo). */
         const itensDe = (verbas: Verba[]) => {
-            const itens = new Map<string, { rub: RubricaEsocial; valor: number; qtd: number }>();
+            const itens = new Map<string, { rub: RubricaEsocial; valor: number; qtd: number; descFolha?: Verba['descFolha'] }>();
             for (const v of verbas) {
                 if (v.valor <= 0) continue;
                 const rub = p.rubricas[chaveVerba(v)];
@@ -494,8 +509,12 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                 }
                 const esperado = v.tipo === 'provento' ? '1' : '2';
                 if (dados.tpRubr !== esperado) t.erros.push(`Rubrica ${rub.codRubr} é ${({ '1': 'provento', '2': 'desconto', '3': 'informativa', '4': 'informativa dedutora' } as Record<string, string>)[dados.tpRubr] ?? `tipo ${dados.tpRubr}`} no S-1010, e "${v.descricao}" é ${v.tipo}.`);
-                const k = `${rub.ideTabRubr}|${rub.codRubr}`;
-                const atual = itens.get(k) ?? { rub, valor: 0, qtd: 0 };
+                // Crédito do Trabalhador: rubrica de natureza 9253 com o grupo descFolha, e só ela (XSD S-1.3, CONDICAO_GRUPO).
+                const erroConsig = erroDescFolha(v, rub.codRubr, dados.natRubr);
+                if (erroConsig) t.erros.push(erroConsig);
+                // Um item por contrato: cada um leva a sua instituição e o seu número.
+                const k = `${rub.ideTabRubr}|${rub.codRubr}${v.descFolha ? `|${v.descFolha.instFinanc}|${v.descFolha.nrDoc}` : ''}`;
+                const atual = itens.get(k) ?? { rub, valor: 0, qtd: 0, ...(v.descFolha ? { descFolha: v.descFolha } : {}) };
                 atual.valor += v.valor; atual.qtd += Number(quantidade(v.referencia) || 0);
                 itens.set(k, atual);
             }
@@ -537,7 +556,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             `<ideEstabLot><tpInsc>${g.tpInsc}</tpInsc><nrInsc>${g.nrInsc}</nrInsc><codLotacao>${esc(g.cod)}</codLotacao>`
             + `<remunPerApur><matricula>${esc(f.matriculaEsocial.trim())}</matricula>${p.indSimples ? `<indSimples>${p.indSimples}</indSimples>` : ''}`
             // indApurIR 0 (apuração normal): obrigatório desde 07/2021 na folha mensal.
-            + g.itens.map(i => `<itensRemun><codRubr>${esc(i.rub.codRubr)}</codRubr><ideTabRubr>${esc(i.rub.ideTabRubr)}</ideTabRubr>${i.qtd > 0 ? `<qtdRubr>${i.qtd.toFixed(2)}</qtdRubr>` : ''}<vrRubr>${valor(i.valor)}</vrRubr><indApurIR>0</indApurIR></itensRemun>`).join('')
+            + g.itens.map(i => `<itensRemun><codRubr>${esc(i.rub.codRubr)}</codRubr><ideTabRubr>${esc(i.rub.ideTabRubr)}</ideTabRubr>${i.qtd > 0 ? `<qtdRubr>${i.qtd.toFixed(2)}</qtdRubr>` : ''}<vrRubr>${valor(i.valor)}</vrRubr><indApurIR>0</indApurIR>${descFolhaXml(i.descFolha)}</itensRemun>`).join('')
             // Grau de exposição (Tabela 02): obrigatório para empregados (1XX, 2XX, 3XX) e 731/734/738; padrão 1.
             + (/^[123]\d\d$|^73[148]$/.test(categ) ? `<infoAgNocivo><grauExp>${/^[1-4]$/.test(f.dados.grauExp ?? '') ? f.dados.grauExp : '1'}</grauExp></infoAgNocivo>` : '')
             + '</remunPerApur></ideEstabLot>';

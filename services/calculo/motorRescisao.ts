@@ -32,6 +32,7 @@ import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros
 import { aniversario, diasEntre, somarDias, somarMeses } from '../prazos/calendario';
 import { calcularMensal, competenciaAnterior, mediaDasVariaveis, salarioContratual, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
 import { avosDoAno, primeiraParcelaNasFerias } from './motor13';
+import { descontosConsignado } from './consignado';
 import { folhaPagaAntes } from './arredondamento';
 import { diasDeDireito, feriasDaCompetencia, mesesDoPeriodo, periodosAquisitivos } from './motorFerias';
 import { inssDetalhado, irrfDetalhado, type OpcoesIrrf } from './tributos';
@@ -203,7 +204,8 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
     // Rescisão paga no próprio mês, com a folha anterior paga nele: o IRRF do saldo soma a folha (regime de caixa).
     const folhaPagaAntesNoMes = pagamento === comp && e.regimePagamento
         ? folhaPagaAntes(e.movimentos, comp, m => d.admissao.slice(0, 7) <= m, e.regimePagamento) : null;
-    const mes = calcularMensal({ competencia: comp, pagamento, ficha: fichaDeslig, afastamentos: e.afastamentos, tabelas: e.tabelas, movimento: e.movimentos[comp], contribuicoesSindicais: e.contribuicoesSindicais,
+    // O consignado sai uma vez só, no fim, sobre as verbas rescisórias (não no saldo de salário).
+    const mes = calcularMensal({ competencia: comp, pagamento, ficha: { ...fichaDeslig, consignados: [] }, afastamentos: e.afastamentos, tabelas: e.tabelas, movimento: e.movimentos[comp], contribuicoesSindicais: e.contribuicoesSindicais,
         feriasDoMes: feriasDaCompetencia(fichaDeslig, e.afastamentos, e.tabelas, e.movimentos, comp), folhaPagaAntesNoMes, convocacoes: e.convocacoes });
     if (interm) r.diasIntermitente = mes.diasIntermitente ?? [];
     if (mes.situacao === 'erro') { r.erros.push(...mes.erros); r.situacao = 'erro'; }
@@ -383,6 +385,13 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
         }
     }
     r.memoria.push(r.saqueFgts);
+
+    // Crédito do Trabalhador: a parcela do mês (ou o saldo informado pela instituição) das verbas rescisórias, até 35%
+    // da verba disponível (Lei 10.820/2003); o que não couber a instituição cobra do ex-empregado.
+    const consig = descontosConsignado(ficha.consignados, comp, r.verbas, { rescisao: true });
+    for (const v of consig.verbas) r.verbas.push(v);
+    if (consig.memoria.length) r.memoria.push(...consig.memoria);
+    r.avisos.push(...consig.avisos);
 
     r.totais.proventos = r.verbas.filter(v => v.tipo === 'provento').reduce((s, v) => s + v.valor, 0);
     r.totais.descontos = r.verbas.filter(v => v.tipo === 'desconto').reduce((s, v) => s + v.valor, 0);
