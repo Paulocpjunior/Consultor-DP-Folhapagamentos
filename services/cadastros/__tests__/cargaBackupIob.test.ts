@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { aplicarComplementos, chaveColuna, compararComFichas, complementosFolhaWin, dataDoIob, derivarContrato, historicoSalarialSage, linhaParaCampos, normalizarValor, proporMapeamento } from '../cargaBackupIob';
+import { mensagemDoBackup, aplicarComplementos, chaveColuna, compararComFichas, complementosFolhaWin, dataDoIob, derivarContrato, historicoSalarialSage, linhaParaCampos, normalizarValor, proporMapeamento } from '../cargaBackupIob';
 import { mesclarComEsocial } from '../funcionarios';
 import { fichaVazia, idFuncionario, type FichaFuncionario } from '../funcionarios';
 
@@ -351,3 +351,13 @@ describe('histórico de salário do SAGE (rsalfunc/salarios)', () => {
         expect(mesclarComEsocial(doSage, comReajuste).ficha.historicoSalario).toEqual(comReajuste.historicoSalario);
     });
 });
+
+describe('mensagem geral do holerite (mensa)', () => {
+    it('junta as linhas não vazias, até 300 caracteres', () => {
+        expect(mensagemDoBackup({ colunas: ['mensagem', 'pk_padrao'], linhas: [['  Feliz   Natal! ', '1'], [null, '2'], ['Boas festas', '3']] })).toBe('Feliz Natal! Boas festas');
+        expect(mensagemDoBackup({ colunas: ['outra'], linhas: [['x']] })).toBe('');
+        expect(mensagemDoBackup(null)).toBe('');
+        expect(mensagemDoBackup({ colunas: ['MENSAGEM'], linhas: [['x'.repeat(400)]] })).toHaveLength(300);
+    });
+});
+

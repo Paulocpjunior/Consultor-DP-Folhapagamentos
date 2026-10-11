@@ -4924,3 +4924,12 @@ Sexto item da lista "o que posso seguir".
 - **Regras:** sem mudança. Os holerites não dependem do documento-resumo.
 - **Testes** (Firestore simulado): 1.000 holerites em 3 lotes com o resumo por último; estorno de 1.000 com o resumo e a auditoria no primeiro lote; leitura filtrada pelo resumo; processos em lotes.
 
+## 11/10/2026 — Itens 7 e 8 da lista: férias pagas depois do gozo e mensagem do holerite pelo backup
+
+- **Item 7 (recibo de férias pago depois do mês do gozo):** não foi construído. O MOS S-1.3 (S-1200, item 23) só prevê o pagamento das férias depois do gozo para o servidor estatutário (exemplo "d"), e na CLT as férias são pagas até 2 dias antes do início (art. 145). O bloqueio continua, agora com esse motivo na mensagem, para a equipe conferir a data do recibo.
+- **Item 8 (mensagem geral do holerite pelo backup):**
+  - o "Completar pelo backup do IOB" lê a tabela `mensa` do mesmo schema da `func`, com as linhas não vazias, até 300 caracteres;
+  - se a empresa ainda não tem mensagem, oferece gravá-la nos parâmetros da folha;
+  - a gravação confere de novo e não substitui uma mensagem já cadastrada.
+- **Testes:** a leitura da `mensa`.
+

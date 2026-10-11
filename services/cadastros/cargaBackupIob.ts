@@ -364,6 +364,7 @@ export const TABELAS_COMPLEMENTARES: [string, string][] = [
     ['esocialdadosficha_s1200_dmdev', 'a categoria e o CBO do S-1200'], ['esocialdadosficha_s1300_contribsind', 'o CNPJ do sindicato (S-1300)'],
     ['hist_horarios', 'o horário (hist_horarios)'], ['cad_horarios', 'as horas semanais (cad_horarios)'],
     ['lancauto', 'os lançamentos automáticos (lancauto)'],
+    ['mensa', 'a mensagem geral do holerite (mensa)'],
 ];
 
 /** Valor do registro mais recente de cada codfun (pela coluna de data ou anomes), só os que passam no filtro. */
@@ -582,5 +583,13 @@ export function automaticosDoBackup(t: TabelaLida | null): Map<string, Lancament
         r.set(k, lista);
     }
     return r;
+}
+
+/** Mensagem geral do holerite da empresa (tabela `mensa` do FolhaWin: mensagem): as linhas não vazias, até 300 caracteres. */
+export function mensagemDoBackup(t: TabelaLida | null): string {
+    if (!t) return '';
+    const i = col(t, 'mensagem');
+    if (i < 0) return '';
+    return t.linhas.map(l => (l[i] ?? '').replace(/\s+/g, ' ').trim()).filter(Boolean).join(' ').slice(0, 300);
 }
 

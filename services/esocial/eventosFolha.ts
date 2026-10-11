@@ -659,7 +659,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                 if (!parte) continue;
                 ferRecibos += parte.ferias + parte.terco;
                 const mesPg = dataPagamento.slice(0, 7);
-                if (mesPg > e.competencia) t.erros.push(`Recibo de ${gozo}${quem} pago em ${br(dataPagamento)}, depois do mês do gozo: o Consultor não gera esse caso. Transmita pelo IOB.`);
+                if (mesPg > e.competencia) t.erros.push(`Recibo de ${gozo}${quem} pago em ${br(dataPagamento)}, depois do mês do gozo: as férias são pagas até 2 dias antes do início (CLT, art. 145), e o eSocial só prevê o pagamento depois do gozo para o servidor estatutário (MOS, S-1200, item 23, exemplo "d"). Confira a data do pagamento do recibo.`);
             }
             const ferFolha = r.verbas.filter(v => v.codigo === 'FERMES' || v.codigo === 'FERMES13').reduce((s, v) => s + v.valor, 0);
             if (ferFolha !== ferRecibos) t.erros.push(`Férias do mês na folha (${reais(ferFolha)}) não batem com os recibos de férias com gozo em ${mes(e.competencia)} (${reais(ferRecibos)})${quem}: confira os gozos em Cadastros › Afastamentos e recalcule.`);
