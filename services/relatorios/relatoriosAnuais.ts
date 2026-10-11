@@ -11,14 +11,19 @@ import type { ResultadoCalculo } from '../calculo/motorMensal';
 import type { FichaFuncionario } from '../cadastros/funcionarios';
 import type { Afastamento } from '../cadastros/afastamentos';
 import { mesesDoHistorico, type HistoricoSageAno, type LinhaHistoricoSage } from './historicoSage';
+import { TIPOS_PROCESSO, TITULO_PROCESSO, type TipoProcesso } from '../calculo/processosGravados';
 
 export const MESES_CURTOS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
 export interface FolhaDoMes { competencia: string; holerites: ResultadoCalculo[] }
+/** Processo pago fora da folha mensal e gravado (férias, 13º, rescisão), na competência em que foi gravado. */
+export interface ProcessoDoMes { tipo: TipoProcesso; competencia: string; holerites: ResultadoCalculo[] }
 export interface LinhaFicha {
     codigo: string; descricao: string; tipo: 'provento' | 'desconto' | 'total' | 'base'; meses: (number | null)[]; total: number;
     /** Evento do SAGE (meses sem folha gravada no Consultor). */
     sage?: boolean;
+    /** Processo fora da folha mensal (férias, 13º, rescisão) a que a linha pertence. */
+    processo?: TipoProcesso;
 }
 export interface FichaFinanceira {
     fichaId: string; nome: string; linhas: LinhaFicha[]; mesesComFolha: number[];
@@ -32,26 +37,38 @@ const soma = (v: (number | null)[]) => v.reduce<number>((s, x) => s + (x ?? 0), 
  * Ficha financeira de cada funcionário que aparece nas folhas gravadas do ano ou no histórico do SAGE. No mesmo mês,
  * a folha gravada no Consultor vale; o SAGE só preenche os meses sem ela.
  */
-export function fichasFinanceiras(ano: string, folhas: FolhaDoMes[], filtroFichaId?: string, historico: HistoricoSageAno[] = []): FichaFinanceira[] {
+export function fichasFinanceiras(ano: string, folhas: FolhaDoMes[], filtroFichaId?: string, historico: HistoricoSageAno[] = [], processos: ProcessoDoMes[] = []): FichaFinanceira[] {
     const doAno = folhas.filter(f => f.competencia.startsWith(`${ano}-`));
-    const porFicha = new Map<string, { nome: string; porMes: Map<number, ResultadoCalculo>; sage: LinhaHistoricoSage[] }>();
+    type Proc = { tipo: TipoProcesso; m: number; r: ResultadoCalculo };
+    const porFicha = new Map<string, { nome: string; porMes: Map<number, ResultadoCalculo>; sage: LinhaHistoricoSage[]; procs: Proc[] }>();
+    const novo = (nome: string) => ({ nome, porMes: new Map<number, ResultadoCalculo>(), sage: [] as LinhaHistoricoSage[], procs: [] as Proc[] });
     for (const f of doAno) {
         const m = Number(f.competencia.slice(5, 7)) - 1;
         for (const r of f.holerites) {
             if (r.situacao === 'erro' || (filtroFichaId && r.fichaId !== filtroFichaId)) continue;
-            const x = porFicha.get(r.fichaId) ?? { nome: r.nome, porMes: new Map(), sage: [] };
+            const x = porFicha.get(r.fichaId) ?? novo(r.nome);
             x.porMes.set(m, r); x.nome = r.nome || x.nome;
+            porFicha.set(r.fichaId, x);
+        }
+    }
+    for (const p of processos) {
+        if (!p.competencia.startsWith(`${ano}-`)) continue;
+        const m = Number(p.competencia.slice(5, 7)) - 1;
+        for (const r of p.holerites) {
+            if (r.situacao === 'erro' || (filtroFichaId && r.fichaId !== filtroFichaId)) continue;
+            const x = porFicha.get(r.fichaId) ?? novo(r.nome);
+            x.procs.push({ tipo: p.tipo, m, r }); x.nome = x.nome || r.nome;
             porFicha.set(r.fichaId, x);
         }
     }
     for (const h of historico) {
         if (h.ano !== ano || (filtroFichaId && h.fichaId !== filtroFichaId)) continue;
-        const x = porFicha.get(h.fichaId) ?? { nome: h.nome, porMes: new Map(), sage: [] };
+        const x = porFicha.get(h.fichaId) ?? novo(h.nome);
         x.sage.push(...h.linhas);
         porFicha.set(h.fichaId, x);
     }
     const out: FichaFinanceira[] = [];
-    for (const [fichaId, { nome, porMes, sage }] of porFicha) {
+    for (const [fichaId, { nome, porMes, sage, procs }] of porFicha) {
         const verbas = new Map<string, LinhaFicha>();
         for (const [m, r] of porMes) {
             for (const v of r.verbas) {
@@ -89,10 +106,38 @@ export function fichasFinanceiras(ano: string, folhas: FolhaDoMes[], filtroFicha
             linha('', 'Base do FGTS', 'base', porMesDe(r => r.bases.fgts)),
             linha('', 'FGTS do mês', 'base', porMesDe(r => r.fgts)),
             ...ordenar(linhasSage.values(), 'base'),
+            ...linhasDosProcessos(procs),
         ].map(l => ({ ...l, total: soma(l.meses) }));
         out.push({ fichaId, nome, linhas, mesesComFolha: [...porMes.keys()].sort((a, b) => a - b), mesesSage });
     }
     return out.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+}
+
+/**
+ * Linhas dos processos fora da folha mensal, depois das da folha: por processo (férias, 13º, rescisão), as verbas no
+ * mês em que foi gravado e o líquido dele. A descrição leva o processo, para não somar com a mesma verba da folha.
+ */
+function linhasDosProcessos(procs: { tipo: TipoProcesso; m: number; r: ResultadoCalculo }[]): LinhaFicha[] {
+    const out: LinhaFicha[] = [];
+    for (const tipo of TIPOS_PROCESSO) {
+        const doTipo = procs.filter(p => p.tipo === tipo);
+        if (!doTipo.length) continue;
+        const titulo = TITULO_PROCESSO[tipo];
+        const verbas = new Map<string, LinhaFicha>();
+        const liquido: (number | null)[] = Array(12).fill(null);
+        for (const { m, r } of doTipo) {
+            for (const v of r.verbas) {
+                const k = `${v.tipo}|${v.codigo}`;
+                const l = verbas.get(k) ?? { codigo: v.codigo, descricao: `${titulo} · ${v.descricao}`, tipo: v.tipo, meses: Array(12).fill(null), total: 0, processo: tipo };
+                l.meses[m] = (l.meses[m] ?? 0) + v.valor;
+                verbas.set(k, l);
+            }
+            liquido[m] = (liquido[m] ?? 0) + r.totais.liquido;
+        }
+        const ord = (t: LinhaFicha['tipo']) => [...verbas.values()].filter(l => l.tipo === t).sort((a, b) => a.codigo.localeCompare(b.codigo, 'pt-BR', { numeric: true }));
+        out.push(...ord('provento'), ...ord('desconto'), { codigo: '', descricao: `Líquido · ${titulo}`, tipo: 'total', meses: liquido, total: 0, processo: tipo });
+    }
+    return out;
 }
 
 /** Meses do ano (até a competência) sem folha gravada nem histórico do SAGE. */

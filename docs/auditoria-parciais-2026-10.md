@@ -43,7 +43,7 @@ visíveis. Sem eles não dá para saber quais campos essas abas têm.
 | 1 | ~~13º salário (`proc-13`)~~ **entregue em 11/10** | Parcela única em dezembro (sem 1ª parcela, sem desconto do adiantamento) e a 1ª parcela paga com as férias, a pedido do empregado (Lei 4.749/1965, art. 2º, § 2º), no recibo de férias. | nada |
 | 2 | ~~Estorno do cálculo (`ut-estorno`)~~ **entregue em 11/10** | Estornar (apagar) a folha gravada da competência aberta, com o aviso dos eventos do eSocial já enviados (S-3000). | nada |
 | 3 | ~~Processamento agrupado (`proc-agrupado`)~~ **entregue em 11/10** | 13º (1ª e 2ª parcelas) e as rotinas anuais em lote. | nada |
-| 4 | Ficha financeira (`rel-ficha`) | Férias, 13º e rescisão pagos fora da folha mensal nos meses do Consultor (precisa gravar esses cálculos). | nada |
+| 4 | ~~Ficha financeira (`rel-ficha`)~~ **entregue em 11/10** | Férias, 13º e rescisão pagos fora da folha mensal nos meses do Consultor (precisa gravar esses cálculos). | nada |
 | 5 | Listagens (`rel-listagens`) | Etiquetas e a listagem de sindicatos. | nada |
 | 6 | Envio por e-mail (`ut-email`) | Holerite individual por e-mail ao funcionário (o e-mail da ficha), pelo serviço de e-mail do escritório. | nada |
 | 7 | Crédito do Trabalhador (`proc-consignado`) | Cadastro dos contratos, desconto mensal com o limite de 35%, o grupo do desconto em folha no S-1200 e o desconto na rescisão. | nada |

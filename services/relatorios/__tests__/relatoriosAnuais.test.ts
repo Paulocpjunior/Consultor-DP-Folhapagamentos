@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { avisosDeFerias, fichasFinanceiras, mesesSemFolha, type FolhaDoMes } from '../relatoriosAnuais';
+import { avisosDeFerias, fichasFinanceiras, mesesSemFolha, type FolhaDoMes, type ProcessoDoMes } from '../relatoriosAnuais';
+import { chaveDoHolerite, competenciaDoProcesso, paraGravar } from '../../calculo/processosGravados';
 import { avisoFeriasPdf, fichaFinanceiraPdf } from '../relatoriosAnuaisPdf';
 import type { ResultadoCalculo } from '../../calculo/motorMensal';
 import { fichaVazia, type FichaFuncionario } from '../../cadastros/funcionarios';
@@ -32,6 +33,38 @@ describe('ficha financeira', () => {
         expect(b.linhas.find(l => l.descricao === 'Líquido')!.total).toBe(300000 - 24000 + 345000 - 24000);
         expect(fichasFinanceiras('2026', folhas, 'f2').map(f => f.nome)).toEqual(['ANA']);
         expect(mesesSemFolha('2026', folhas, '2026-10')).toEqual(['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Out']);
+    });
+    it('férias, 13º e rescisão gravados entram depois da folha, por processo e no mês gravado', () => {
+        const ferias = { ...hol('f1', 'BRUNO', '2026-09', 0, [{ codigo: 'FER', tipo: 'provento', valor: 300000 }, { codigo: 'FER13', tipo: 'provento', valor: 100000 }]), gozoId: 'E_1_M_2026-09-01' };
+        const processos: ProcessoDoMes[] = [
+            { tipo: 'ferias', competencia: '2026-09', holerites: [ferias] },
+            { tipo: '13-1a', competencia: '2026-11', holerites: [hol('f1', 'BRUNO', '2026-13', 150000), hol('f3', 'CAIO', '2026-13', 100000)] },
+            { tipo: 'rescisao', competencia: '2025-09', holerites: [hol('f1', 'BRUNO', '2025-09', 1)] },
+        ];
+        const fs = fichasFinanceiras('2026', folhas, undefined, [], processos);
+        expect(fs.map(f => f.nome)).toEqual(['ANA', 'BRUNO', 'CAIO']);
+        const b = fs.find(f => f.nome === 'BRUNO')!;
+        const descr = b.linhas.map(l => l.descricao);
+        // Folha mensal primeiro; a mesma verba (SAL) do 13º fica numa linha própria, sem somar à da folha.
+        expect(descr.indexOf('Líquido')).toBeLessThan(descr.indexOf('Férias · FER'));
+        expect(b.linhas.find(l => l.descricao === 'Salário')!.total).toBe(600000);
+        expect(b.linhas.find(l => l.descricao === '13º 1ª parcela · Salário')!.meses[10]).toBe(150000);
+        expect(b.linhas.find(l => l.descricao === 'Férias · FER')).toMatchObject({ processo: 'ferias', total: 300000 });
+        expect(b.linhas.find(l => l.descricao === 'Líquido · Férias')!.meses[8]).toBe(ferias.totais.liquido);
+        // Rescisão de outro ano não entra; quem só tem processo (CAIO) aparece.
+        expect(descr.some(d => d.startsWith('Rescisão'))).toBe(false);
+        expect(fs.find(f => f.nome === 'CAIO')!.mesesComFolha).toEqual([]);
+        expect(chaveDoHolerite(ferias)).toBe('E_1_M_2026-09-01');
+        expect(chaveDoHolerite(hol('f1', 'BRUNO', '2026-13', 1))).toBe('f1');
+    });
+    it('competência do processo: o mês do pagamento no 13º (padrão nov/dez); a da tela nas férias e rescisão; erros ficam fora', () => {
+        expect(competenciaDoProcesso('13-1a', '2026-10', 2026, '2026-10')).toBe('2026-10');
+        expect(competenciaDoProcesso('13-2a', '2026-10', 2026, '2025-12')).toBe('2026-12');
+        expect(competenciaDoProcesso('13-1a', '2026-10', 2026, '')).toBe('2026-11');
+        expect(competenciaDoProcesso('rescisao', '2026-10', 2026, '2026-11')).toBe('2026-10');
+        const erro = { ...hol('f9', 'ZÉ', '2026-10', 1), situacao: 'erro' as const, erros: ['sem admissão'] };
+        const g = paraGravar([hol('f1', 'BRUNO', '2026-10', 100000), erro]);
+        expect([g.validos.length, g.totais.funcionarios, g.foraPorErro]).toEqual([1, 1, ['ZÉ: sem admissão']]);
     });
     it('PDF em paisagem, uma página por funcionário', () => {
         const doc = fichaFinanceiraPdf(fichasFinanceiras('2026', folhas), '2026', { empresa: { razaoSocial: 'EMPRESA', cnpj: '11222333000181' }, titulo: 'Ficha financeira', previa: false }, 'obs', () => 'Matrícula 1');
