@@ -251,6 +251,30 @@ const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resu
                     <p className="self-end text-slate-500">O S-1210 vai no mês do pagamento ({data ? comp(data.slice(0, 7)) : '—'}).{comFerias.length ? ` Recibos de férias pagos em ${comp(competencia)}: demonstrativo próprio, pago na data do recibo (S-1210 de ${comp(competencia)}).` : ''}{comAdiantamento ? ` Adiantamento salarial: demonstrativo próprio, pago na data do adiantamento (S-1210 de ${dataAdiant ? comp(dataAdiant.slice(0, 7)) : '—'}); a folha desconta o que ele pagou.` : ''}{complementaresGravadas.length ? ` Folha complementar gravada (${complementaresGravadas.map(c => `${c.instrumento.tpAcConv} – ${rotuloTpAcConv(c.instrumento.tpAcConv)}, ${c.resultados.length} funcionário(s)`).join('; ')}): demonstrativo próprio com as diferenças por mês de referência (infoPerAnt), pago com a folha.` : ''}</p>
                 </section>
 
+                {(() => {
+                    // Filiais: quem trabalha noutro estabelecimento da empresa (local de trabalho da ficha) sai nele; a lotação é a da filial, se informada.
+                    const daEmpresa = params.nrInscEstab.replace(/\D/g, '');
+                    const naFolha = [...new Set(fichas.map(f => (f.dados.estabelecimento ?? '').replace(/\D/g, '')).filter(x => x.length === 14 && x !== daEmpresa))];
+                    const lista = params.estabelecimentos ?? [];
+                    const muda = (l: { nrInsc: string; codLotacao: string }[]) => setParams(p => ({ ...p, estabelecimentos: l }));
+                    if (!naFolha.length && !lista.length) return null;
+                    return (
+                        <section aria-label="Lotação por estabelecimento" className="space-y-1 rounded border border-slate-200 p-2 text-xs dark:border-slate-700">
+                            <p className="font-medium">Filiais (estabelecimentos do local de trabalho das fichas)</p>
+                            <p className="text-slate-500">Cada funcionário sai no estabelecimento da ficha; no mês da troca, nos dois, pelos dias. Sem lotação própria, a filial usa a lotação acima ({params.codLotacao || '—'}). O estabelecimento precisa estar no S-1005 da empresa.</p>
+                            {naFolha.filter(x => !lista.some(l => l.nrInsc === x)).map(x => <p key={x}>Filial {x}: lotação {params.codLotacao || '—'} <button className="text-blue-700 underline dark:text-blue-300" onClick={() => muda([...lista, { nrInsc: x, codLotacao: '' }])}>informar lotação própria</button></p>)}
+                            {lista.map((l, i) => (
+                                <div key={i} className="flex flex-wrap items-center gap-2">
+                                    <input aria-label={`CNPJ da filial ${i + 1}`} className={inp} value={l.nrInsc} placeholder="CNPJ" onChange={e => muda(lista.map((y, j) => (j === i ? { ...y, nrInsc: e.target.value.replace(/\D/g, '').slice(0, 14) } : y)))} />
+                                    <input aria-label={`Lotação da filial ${i + 1}`} className={inp} value={l.codLotacao} placeholder="código da lotação" maxLength={30} onChange={e => muda(lista.map((y, j) => (j === i ? { ...y, codLotacao: e.target.value } : y)))} />
+                                    <button className="text-red-600" aria-label={`Remover a filial ${i + 1}`} onClick={() => muda(lista.filter((_, j) => j !== i))}>×</button>
+                                </div>
+                            ))}
+                            <button className="text-blue-700 underline dark:text-blue-300" onClick={() => muda([...lista, { nrInsc: '', codLotacao: '' }])}>+ Filial com lotação própria</button>
+                        </section>
+                    );
+                })()}
+
                 <section className="space-y-1">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="font-medium">De/para das verbas com as rubricas do S-1010</p>

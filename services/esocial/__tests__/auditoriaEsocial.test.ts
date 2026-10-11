@@ -84,9 +84,25 @@ describe('ficha', () => {
         expect(r.trabalhadores[0].erros).toContain('CPF inválido na ficha.');
     });
 
-    it('local de trabalho em outro estabelecimento: erro', () => {
+    it('local de trabalho em outro estabelecimento da empresa: o S-1200 vai nele, com aviso; de outra empresa: erro', () => {
         const r = gerar({ fichas: [{ ...FICHA, dados: { ...FICHA.dados, estabelecimento: '44388152000260' } }] });
-        expect(r.trabalhadores[0].erros.join(' ')).toMatch(/local de trabalho da ficha é o CNPJ 44388152000260/);
+        expect(r.trabalhadores[0].erros).toEqual([]);
+        expect(r.trabalhadores[0].s1200!.xml).toContain('<ideEstabLot><tpInsc>1</tpInsc><nrInsc>44388152000260</nrInsc>');
+        expect(r.avisos.join(' ')).toMatch(/Estabelecimento 44388152000260 .*S-1005/);
+        const outra = gerar({ fichas: [{ ...FICHA, dados: { ...FICHA.dados, estabelecimento: '29463877000109' } }] });
+        expect(outra.trabalhadores[0].erros.join(' ')).toMatch(/local de trabalho da ficha é o CNPJ 29463877000109, de outra empresa/);
+    });
+
+    it('mês da troca de estabelecimento: proventos pelos dias em cada um, descontos no de mais dias; lotação da filial', () => {
+        const filial = '44388152000260';
+        const r = gerar({ resultados: [resultado(BASE, { estabelecimentos: [{ estab: CNPJ, peso: 10 }, { estab: filial, peso: 20 }] })],
+            fichas: [{ ...FICHA, dados: { ...FICHA.dados, estabelecimento: filial } }], parametros: params({}, { estabelecimentos: [{ nrInsc: filial, codLotacao: 'LOTFIL' }] }) });
+        const xml = r.trabalhadores[0].s1200!.xml;
+        expect(r.trabalhadores[0].erros).toEqual([]);
+        expect(xml).toContain(`<nrInsc>${CNPJ}</nrInsc><codLotacao>LOT01</codLotacao><remunPerApur><matricula>M1</matricula><itensRemun><codRubr>SAL</codRubr><ideTabRubr>T1</ideTabRubr><vrRubr>1000.00</vrRubr>`);
+        expect(xml).toContain(`<nrInsc>${filial}</nrInsc><codLotacao>LOTFIL</codLotacao><remunPerApur><matricula>M1</matricula><itensRemun><codRubr>SAL</codRubr><ideTabRubr>T1</ideTabRubr><vrRubr>2000.00</vrRubr>`);
+        // O INSS (desconto) fica no estabelecimento de mais dias.
+        expect(xml.split(filial)[1]).toContain('<codRubr>INSS</codRubr>');
     });
 
     it('grau de exposição em branco: aviso único e vai 1', () => {

@@ -49,6 +49,18 @@ describe('S-2299 pelo Consultor', () => {
         expect(rubricaDaVerba({ ...FOLHA, rubricas: { ...FOLHA.rubricas, AVISO: { codRubr: '0001', ideTabRubr: 'T1' } } }, { codigo: 'AVISO', descricao: '' })).toBeUndefined();
     });
 
+    it('verbas no estabelecimento da ficha na data (filial), com a lotação dela; outra empresa: erro', async () => {
+        const filial = '29463877000290';
+        const r = resc();
+        const ficha = { ...FICHA, dados: { ...FICHA.dados, estabelecimento: filial } };
+        const g = gerarS2299({ cnpj: CNPJ, tpAmb: 2, ficha, rescisao: r, rubricas: RUBRICAS, parametros: comSugestoes({ ...FOLHA, estabelecimentos: [{ nrInsc: filial, codLotacao: 'LOTFIL' }] }, r), hoje: '2026-10-06', agora: new Date('2026-10-06T12:00:00Z') });
+        expect(g.erros).toEqual([]);
+        expect(g.evento!.xml).toContain(`<ideEstabLot><tpInsc>1</tpInsc><nrInsc>${filial}</nrInsc><codLotacao>LOTFIL</codLotacao>`);
+        expect(await validarPeloXsd(g.evento!.xml, lerXsd)).toEqual({ valido: true, erros: [] });
+        const outra = gerarS2299({ cnpj: CNPJ, tpAmb: 2, ficha: { ...FICHA, dados: { ...FICHA.dados, estabelecimento: '44388152000189' } }, rescisao: r, rubricas: RUBRICAS, parametros: comSugestoes(FOLHA, r), hoje: '2026-10-06' });
+        expect(outra.erros.join(' ')).toMatch(/de outra empresa/);
+    });
+
     it('evento válido pelo XSD oficial S-1.3: aviso indenizado com a data projetada, verbas, pensAlim', async () => {
         const r = resc();
         const g = gerarS2299({ cnpj: CNPJ, tpAmb: 2, ficha: FICHA, rescisao: r, rubricas: RUBRICAS, parametros: comSugestoes(FOLHA, r), hoje: '2026-10-06', agora: new Date('2026-10-06T12:00:00Z') });

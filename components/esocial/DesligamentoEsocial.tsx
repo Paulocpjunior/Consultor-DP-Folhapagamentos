@@ -176,7 +176,7 @@ const DesligamentoEsocial: React.FC<Props> = ({ empresa, ficha, rescisao: r, usu
                             <p className="font-medium">De/para das verbas da rescisão com as rubricas do S-1010</p>
                             <button className="rounded bg-blue-700 px-2 py-1 text-white disabled:opacity-50" disabled={!naoGravado || !!ocupado} onClick={gravar}>{naoGravado ? 'Gravar de/para' : 'Gravado'}</button>
                         </div>
-                        <p className="text-slate-500">CNPJ do estabelecimento e lotação: os da folha (S-1200), {params.nrInscEstab || '—'} · {params.codLotacao || '—'}. Verba sem rubrica própria aqui usa a da folha.</p>
+                        <p className="text-slate-500">CNPJ do estabelecimento e lotação: o local de trabalho da ficha na data do desligamento e a lotação dele (sem local na ficha, os da folha: {params.nrInscEstab || '—'} · {params.codLotacao || '—'}). Verba sem rubrica própria aqui usa a da folha.</p>
                         {rubricas && !rubricas.length && <p role="note" className="rounded bg-amber-50 p-2 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">A empresa não tem rubricas do S-1010 no Consultor. Importe em Cadastros › Incidências antes de gerar.</p>}
                         <div className="max-h-56 overflow-auto rounded border border-slate-200 dark:border-slate-700">
                             <table className="w-full">

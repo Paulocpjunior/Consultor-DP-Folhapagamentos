@@ -21,7 +21,7 @@ import { PERMITE_SAQUE_FGTS } from '../calculo/motorRescisao';
 import { cpfValido } from '../cadastros/documentos';
 import { vigenciaEm, type Rubrica } from '../cadastros/rubricas';
 import { diaUtilAnterior, somarDias } from '../prazos/calendario';
-import { chaveVerba, normalizar, quantidade, type ItemDePara, type ParametrosEsocialFolha, type RubricaEsocial } from './eventosFolha';
+import { chaveVerba, estabelecimentoDoVinculo, lotacaoDoEstabelecimento, normalizar, quantidade, type ItemDePara, type ParametrosEsocialFolha, type RubricaEsocial } from './eventosFolha';
 import { idEvento, VER_PROC, type TpAmb } from './transmissao';
 
 const NS = 'http://www.esocial.gov.br/schema/evt';
@@ -152,8 +152,10 @@ export function gerarS2299(e: EntradaS2299): ResultadoS2299 {
     if (categ === '104') erros.push('Empregado doméstico (categoria 104): o desligamento vai pelo eSocial Doméstico (módulo web), que gera o DAE da rescisão. Lance lá a rescisão conferida aqui.');
     if (estab.length !== 14) erros.push('Informe o CNPJ do estabelecimento (parâmetros do eSocial da folha).');
     if (!p.codLotacao.trim()) erros.push('Informe o código da lotação tributária (S-1020) nos parâmetros do eSocial da folha.');
-    const localTrab = digitos(d.estabelecimento);
-    if (localTrab.length === 14 && estab.length === 14 && localTrab !== estab) erros.push(`O local de trabalho da ficha é o CNPJ ${localTrab}, e o estabelecimento dos parâmetros é ${estab}: o Consultor gera um estabelecimento só. Transmita pelo IOB.`);
+    // Estabelecimento do vínculo na data do desligamento (o da ficha); outra raiz de CNPJ é outra empresa.
+    const doVinculo = estab.length === 14 && DATA.test(r.data) ? estabelecimentoDoVinculo(f, p, r.data) : estab;
+    if (doVinculo.slice(0, 8) !== estab.slice(0, 8)) erros.push(`O local de trabalho da ficha é o CNPJ ${doVinculo}, de outra empresa: confira a ficha.`);
+    else if (doVinculo !== estab) avisos.push(`Verbas no estabelecimento ${doVinculo} (o da ficha), lotação ${lotacaoDoEstabelecimento(p, doVinculo)}.`);
     if (e.hoje && DATA.test(r.data) && r.data > somarDias(e.hoje, 10)) erros.push(`Desligamento em ${br(r.data)}: o eSocial só aceita até 10 dias depois de hoje.`);
     if (d.dataDesligamento && d.dataDesligamento !== r.data) avisos.push(`A ficha tem desligamento em ${br(d.dataDesligamento)}; o S-2299 vai com ${br(r.data)}.`);
     if (d.motivoDesligamento && r.tipo && d.motivoDesligamento !== r.tipo) avisos.push(`A ficha tem o motivo ${d.motivoDesligamento}; o S-2299 vai com ${r.tipo}.`);
@@ -223,7 +225,7 @@ export function gerarS2299(e: EntradaS2299): ResultadoS2299 {
         // Intermitente: os dias trabalhados no mês do desligamento (0 se não houve; obrigatório para a categoria 111).
         + (categ === '111' ? (r.diasIntermitente?.length ? r.diasIntermitente.map(x => `<infoInterm><dia>${x.dia}</dia></infoInterm>`).join('') : '<infoInterm><dia>0</dia></infoInterm>') : '')
         + (obs ? `<observacoes><observacao>${esc(obs.slice(0, 255))}</observacao></observacoes>` : '')
-        + `<verbasResc><dmDev><ideDmDev>${esc(ide)}</ideDmDev><infoPerApur><ideEstabLot><tpInsc>1</tpInsc><nrInsc>${estab}</nrInsc><codLotacao>${esc(p.codLotacao.trim())}</codLotacao>`
+        + `<verbasResc><dmDev><ideDmDev>${esc(ide)}</ideDmDev><infoPerApur><ideEstabLot><tpInsc>1</tpInsc><nrInsc>${doVinculo}</nrInsc><codLotacao>${esc(lotacaoDoEstabelecimento(p, doVinculo))}</codLotacao>`
         + detVerbas + grauExp + simples
         + '</ideEstabLot></infoPerApur></dmDev></verbasResc>'
         + '</infoDeslig></evtDeslig></eSocial>';

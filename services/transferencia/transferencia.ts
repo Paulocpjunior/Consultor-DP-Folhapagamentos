@@ -9,8 +9,9 @@
 //   com o CNPJ e a matrícula de origem e a data da transferência (services/esocial/admissao.ts).
 // No Consultor, a ficha é copiada para a empresa de destino (mesmo CPF, nova matrícula, o local de trabalho dela),
 // com os dependentes e o histórico de salário; os movimentos e as férias da origem vão junto, para as médias e os
-// períodos aquisitivos. A ficha de origem fica desligada com o motivo 11. A data é sempre um dia 1º: a folha do mês
-// da transferência fica inteira no destino (a divisão do mês entre as duas empresas ainda não é feita).
+// períodos aquisitivos. A ficha de origem fica desligada com o motivo 11 na véspera. No mês da transferência, cada
+// empresa paga os seus dias: a origem até a véspera, o destino desde a data (dados.inicioNaEmpresa da ficha nova).
+// O 13º do ano é todo do destino (a origem não paga 13º a quem saiu pela transferência).
 // Entre estabelecimentos da mesma empresa (mesma raiz do CNPJ) não há S-2299: é alteração contratual (S-2206).
 
 import { cnpjValido, dataValida } from '../cadastros/documentos';
@@ -51,8 +52,6 @@ export function validarTransferencia(t: Transferencia, fichasDestino: FichaFunci
     else if (digitos(t.origem.cnpj).slice(0, 8) === digitos(t.destino.cnpj).slice(0, 8)) e.push('Mesma raiz de CNPJ: é troca de estabelecimento da mesma empresa (alteração contratual, S-2206), não transferência entre empresas.');
     if (!dataValida(t.data)) e.push('Informe a data da transferência (primeiro dia na empresa de destino).');
     else if (f.dados.admissao && t.data <= f.dados.admissao) e.push('A transferência tem de ser depois da admissão.');
-    // A folha do mês da transferência seria dividida entre as duas empresas: o Consultor ainda não faz essa divisão.
-    else if (!t.data.endsWith('-01')) e.push('Transferência no dia 1º do mês: o Consultor ainda não divide a folha do mês entre as duas empresas.');
     const m = t.matricula.trim();
     if (!m || m.length > 30 || /^esocial/i.test(m)) e.push('Matrícula no destino com até 30 caracteres, sem começar por "eSocial".');
     if (digitos(t.estabelecimento).length !== 14 || !cnpjValido(digitos(t.estabelecimento))) e.push('CNPJ do estabelecimento de destino (local de trabalho).');
@@ -73,7 +72,7 @@ export function fichaNoDestino(t: Transferencia): FichaFuncionario {
     const { codigoIob: _c, horario: _h, lotacao: _l, departamento: _d, departamentoIob: _di, cargoIob: _ci, sindicatoIob: _si, dataDesligamento: _dd, motivoDesligamento: _md, dataProjetadaAviso: _dp, ...dados } = f.dados;
     return {
         id: idFuncionario(t.destino.id, cpf, t.matricula.trim()), empresaId: t.destino.id, cnpj: t.destino.cnpj, cpf, matriculaEsocial: t.matricula.trim(), situacao: 'ativo',
-        dados: { ...dados, estabelecimento: digitos(t.estabelecimento) },
+        dados: { ...dados, estabelecimento: digitos(t.estabelecimento), inicioNaEmpresa: t.data },
         dependentes: f.dependentes.map(d => ({ ...d })),
         origens: { ...Object.fromEntries(Object.keys(dados).map(k => [k, origem])), estabelecimento: origem, dependentes: origem, situacao: origem },
         pendenciasImportacao: [],

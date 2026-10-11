@@ -16,7 +16,8 @@
 // adicionais e médias de variáveis.
 
 import { verbasDosBeneficios, type Beneficio } from './beneficios';
-import { fichaNaCompetencia, memoriaDoHistorico, type FichaFuncionario } from '../cadastros/funcionarios';
+import { estabelecimentosNoMes } from '../cadastros/locaisTrabalho';
+import { fichaNaCompetencia, inicioNaEmpresa, memoriaDoHistorico, type FichaFuncionario } from '../cadastros/funcionarios';
 import type { Afastamento } from '../cadastros/afastamentos';
 import { inicioBeneficio, rotuloMotivo } from '../cadastros/afastamentos';
 import { centavosDeTexto, dataValida, reais } from '../cadastros/documentos';
@@ -173,6 +174,8 @@ export interface ResultadoCalculo {
     fgtsIndenizacao?: number;
     /** Obras (lotações) do mês com o peso de cada uma (dias): do rateio do movimento ou a obra da ficha. */
     lotacoes?: { codigo: string; peso: number }[];
+    /** Mês da troca de estabelecimento: os dois (CNPJ) com os dias em cada um; o S-1200 divide os proventos por eles. */
+    estabelecimentos?: { estab: string; peso: number }[];
     /** Intermitente: dias trabalhados no mês e as horas (S-1200, infoInterm). */
     diasIntermitente?: { dia: number; horas: number }[];
     /** Intermitente: deduções do IRRF das férias (tpRend 13) e do 13º (tpRend 12), apurados em separado no mês. */
@@ -278,6 +281,11 @@ export function calcularMensal(e: EntradaCalculo): ResultadoCalculo {
         r.lotacoes = lot;
         if (lot.length > 1) r.memoria.push(`Rateio entre obras: ${lot.map(x => `${x.codigo} ${num(x.peso)} dia(s)`).join(', ')}; os proventos se dividem pelos dias no S-1200 e nos encargos por obra.`);
     }
+    const estabs = estabelecimentosNoMes(e.ficha, e.competencia);
+    if (estabs.length > 1) {
+        r.estabelecimentos = estabs.map(x => ({ estab: x.estab, peso: x.dias }));
+        r.memoria.push(`Troca de estabelecimento no mês: ${estabs.map(x => `${x.estab} ${x.dias} dia(s)`).join(', ')}; os proventos se dividem pelos dias no S-1200.`);
+    }
     return r;
 }
 
@@ -303,7 +311,9 @@ function calcularMensalSemObras(e: EntradaCalculo): ResultadoCalculo {
     if (!competenciaValida(pagamento)) return erro('Mês do pagamento inválido.');
     const ini = `${competencia}-01`; const ult = ultimoDia(competencia);
     if (!d.admissao || !dataValida(d.admissao)) return erro('Ficha sem data de admissão válida.');
-    if (d.admissao > ult) return erro(`Admitido em ${brData(d.admissao)}, depois da competência.`);
+    // Transferido de outra empresa do grupo: o vínculo aqui começa na transferência (a admissão é a do primeiro empregador).
+    const inicio = inicioNaEmpresa(d);
+    if (inicio > ult) return erro(inicio === d.admissao ? `Admitido em ${brData(d.admissao)}, depois da competência.` : `Transferido para esta empresa em ${brData(inicio)}, depois da competência.`);
     const deslig = d.dataDesligamento && dataValida(d.dataDesligamento) ? d.dataDesligamento : '';
     if (deslig && deslig < ini) return erro(`Desligado em ${brData(deslig)}, antes da competência.`);
     const categoria = d.categoria || '';
@@ -337,13 +347,15 @@ function calcularMensalSemObras(e: EntradaCalculo): ResultadoCalculo {
     if (adicional) r.memoria.push(`Salário-hora com o adicional: (${reais(mensal)} + ${reais(adicional.mensal)}) ÷ ${num(horasMes)} h = ${reais(Math.round(salarioHora))} (base das horas extras e dos atrasos).`);
 
     // 2. Dias do mês: vínculo e afastamentos.
-    const de = d.admissao > ini ? d.admissao : ini;
+    const de = inicio > ini ? inicio : ini;
     const ate = deslig && deslig < ult ? deslig : ult;
     const dias = new Map<string, Dia>();
     for (let x = de; x <= ate; x = somarDias(x, 1)) dias.set(x, 'pago');
     const mesInteiro = de === ini && ate === ult;
     if (!mesInteiro) r.memoria.push(`Vínculo no mês: ${brData(de)} a ${brData(ate)} (${dias.size} dia(s)).`);
-    if (deslig && deslig <= ult) incompleto(`Desligado em ${brData(deslig)}: só o saldo de salário foi calculado; a rescisão não está no motor.`);
+    if (deslig && deslig <= ult && d.motivoDesligamento === '11') r.memoria.push(`Transferido para outra empresa do grupo; último dia aqui em ${brData(deslig)}: o saldo do mês até ele, sem rescisão (o contrato continua na outra empresa).`);
+    else if (deslig && deslig <= ult) incompleto(`Desligado em ${brData(deslig)}: só o saldo de salário foi calculado; a rescisão não está no motor.`);
+    if (inicio !== d.admissao && inicio >= ini) r.memoria.push(`Transferido de outra empresa do grupo em ${brData(inicio)} (admissão em ${brData(d.admissao)}): o mês aqui conta desde a transferência.`);
 
     let diasAcidenteInss = 0;
     // Doméstica em licença-maternidade: o INSS paga direto; o empregador recolhe o FGTS sobre a remuneração desses dias.
@@ -514,7 +526,7 @@ function calcularMensalSemObras(e: EntradaCalculo): ResultadoCalculo {
     // Automático só para quem tinha vínculo no dia do adiantamento (dia 20 ou o útil anterior): admitido depois, ou
     // desligado antes, não recebeu (Codex #115). O valor pago num caso desses vai no movimento.
     const diaAdiant = dataSugeridaAdiantamento(competencia);
-    const semVinculoNoDia = d.admissao > diaAdiant || (!!deslig && deslig < diaAdiant);
+    const semVinculoNoDia = inicio > diaAdiant || (!!deslig && deslig < diaAdiant);
     // O automático é pelo salário do mês como estava no dia do adiantamento: desligamento ou afastamento que começa depois
     // dele não muda o que já foi pago (antes, a rescisão de 27/03 descontava menos que os 40% pagos em 20/03).
     const doFicha = (a: Afastamento) => !a.fichaId || a.fichaId === ficha.id;
@@ -872,5 +884,5 @@ export function apurarIrrf(t: TabelaLegal, rendimentos: number, legais: number) 
 /** Funcionários com vínculo em algum dia da competência. */
 export function noMes(fichas: FichaFuncionario[], competencia: string): FichaFuncionario[] {
     const ini = `${competencia}-01`; const ult = ultimoDia(competencia);
-    return fichas.filter(f => (f.dados.admissao ?? '') <= ult && !!f.dados.admissao && (!f.dados.dataDesligamento || f.dados.dataDesligamento >= ini));
+    return fichas.filter(f => !!f.dados.admissao && inicioNaEmpresa(f.dados) <= ult && (!f.dados.dataDesligamento || f.dados.dataDesligamento >= ini));
 }

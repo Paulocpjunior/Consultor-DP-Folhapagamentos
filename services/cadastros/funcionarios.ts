@@ -17,6 +17,7 @@ import { CAMPOS, type Cadastro, type Campo } from '../implantacao/implantacao';
 import { lerDependentes, type Dependente } from '../implantacao/unificacao';
 import type { AdesaoBeneficio } from '../calculo/beneficios';
 import { validarAdesoes } from '../calculo/beneficios';
+import type { FaixaLocal } from './locaisTrabalho';
 import { UFS, cnpjValido, cpfValido, dataValida, centavosDeTexto, pisValido } from './documentos';
 
 export type { Dependente };
@@ -24,7 +25,7 @@ export type CampoExtra = 'codigoIob' | 'horario' | 'banco' | 'agencia' | 'conta'
     | 'adiantamentoPct' | 'valeTransporte' | 'valeTransporteCusto' | 'horasMes'
     | 'insalubridade' | 'baseInsalubridade' | 'baseInsalubridadeValor' | 'periculosidade'
     | 'contribuicaoSindical' | 'oposicaoAssistencial' | 'associadoSindicato'
-    | 'lotacao' | 'departamento';
+    | 'lotacao' | 'departamento' | 'inicioNaEmpresa';
 export type CampoFicha = Exclude<Campo, 'dependentes' | 'matriculaIob'> | CampoExtra;
 export type Situacao = 'ativo' | 'desligado';
 export type ChaveOrigem = CampoFicha | 'dependentes' | 'situacao';
@@ -44,6 +45,8 @@ export interface FichaFuncionario {
     historicoSalario?: FaixaSalarial[];
     /** Benefícios da empresa a que o funcionário aderiu (desconto fixo na folha, como a assistência odontológica). */
     beneficios?: AdesaoBeneficio[];
+    /** Local de trabalho por vigência, desde a primeira troca de estabelecimento (services/cadastros/locaisTrabalho.ts). */
+    locais?: FaixaLocal[];
 }
 
 export interface FaixaSalarial {
@@ -79,7 +82,14 @@ export const ROTULO: Record<CampoFicha, string> = {
     associadoSindicato: 'Filiado ao sindicato (confederativa e mensalidade)',
     lotacao: 'Obra ou lotação tributária (código do S-1020)',
     departamento: 'Departamento (cadastro; vazio = o do IOB)',
+    inicioNaEmpresa: 'Início nesta empresa (transferência do grupo; a admissão é a do primeiro empregador)',
 };
+
+/**
+ * Primeiro dia do vínculo nesta empresa: a admissão ou, para quem veio transferido de outra empresa do grupo, a data
+ * da transferência (a admissão continua a do primeiro empregador, para férias, 13º e tempo de casa).
+ */
+export const inicioNaEmpresa = (d: Partial<Record<CampoFicha, string>>) => (d.inicioNaEmpresa && d.inicioNaEmpresa > (d.admissao ?? '') ? d.inicioNaEmpresa : d.admissao ?? '');
 
 /** Motivos de desligamento (Tabela 19 do eSocial) mais usados; outro código fica como está. */
 export const MOTIVOS_DESLIGAMENTO: [string, string][] = [
@@ -121,7 +131,7 @@ const OPCOES: Partial<Record<CampoFicha, [string, string][]>> = {
     tipoConta: [['corrente', 'Corrente'], ['poupanca', 'Poupança'], ['salario', 'Salário'], ['pagamento', 'Pagamento']],
     uf: UFS.map(u => [u, u]), ufCtps: UFS.map(u => [u, u]),
 };
-const DATAS: CampoFicha[] = ['nascimento', 'admissao', 'fimContrato', 'emissaoRg', 'dataDesligamento', 'dataProjetadaAviso'];
+const DATAS: CampoFicha[] = ['nascimento', 'admissao', 'inicioNaEmpresa', 'fimContrato', 'emissaoRg', 'dataDesligamento', 'dataProjetadaAviso'];
 const LONGOS: CampoFicha[] = ['observacoes', 'jornada', 'deficiencia', 'enderecoExterior'];
 
 export function defCampo(campo: CampoFicha): DefCampo {
@@ -134,7 +144,7 @@ export function defCampo(campo: CampoFicha): DefCampo {
 /** Abas na ordem do IOB Office. Complementos, Lanç. Automático e Holerite dependem dos prints do Office. */
 export const ABAS: { id: string; titulo: string; campos: CampoFicha[] }[] = [
     { id: 'dados', titulo: 'Dados', campos: ['nome', 'nascimento', 'sexo', 'estadoCivil', 'raca', 'escolaridade', 'nacionalidade', 'paisNascimento', 'naturalidade', 'mae', 'pai', 'cep', 'logradouro', 'numero', 'complemento', 'bairro', 'municipio', 'uf', 'telefone', 'email'] },
-    { id: 'identAdm', titulo: 'Ident. Adm.', campos: ['codigoIob', 'admissao', 'categoria', 'tipoContrato', 'fimContrato', 'cargo', 'cbo', 'funcao', 'cargoIob', 'departamentoIob', 'departamento', 'salario', 'unidadeSalario', 'horasSemanais', 'horasMes', 'horario', 'jornada', 'horarioTrabalho', 'horarioIntervalo', 'sindicato', 'sindicatoIob', 'estabelecimento', 'lotacao', 'regimeTrabalhista', 'regimePrevidenciario', 'opcaoFgts', 'grauExp', 'dataDesligamento', 'motivoDesligamento', 'dataProjetadaAviso'] },
+    { id: 'identAdm', titulo: 'Ident. Adm.', campos: ['codigoIob', 'admissao', 'categoria', 'tipoContrato', 'fimContrato', 'cargo', 'cbo', 'funcao', 'cargoIob', 'departamentoIob', 'departamento', 'salario', 'unidadeSalario', 'horasSemanais', 'horasMes', 'horario', 'jornada', 'horarioTrabalho', 'horarioIntervalo', 'sindicato', 'sindicatoIob', 'estabelecimento', 'lotacao', 'inicioNaEmpresa', 'regimeTrabalhista', 'regimePrevidenciario', 'opcaoFgts', 'grauExp', 'dataDesligamento', 'motivoDesligamento', 'dataProjetadaAviso'] },
     { id: 'adiantVt', titulo: 'Adiant. e VT', campos: ['adiantamentoPct', 'valeTransporte', 'valeTransporteCusto'] },
     { id: 'adicionais', titulo: 'Adicionais', campos: ['insalubridade', 'baseInsalubridade', 'baseInsalubridadeValor', 'periculosidade'] },
     { id: 'sindicato', titulo: 'Sindicato', campos: ['contribuicaoSindical', 'oposicaoAssistencial', 'associadoSindicato'] },
@@ -162,6 +172,7 @@ export function fichaDoEsocial(c: Cadastro, empresa: { id: string; cnpj: string 
     }
     const dependentes = lerDependentes(c.dados.dependentes);
     const historicoSalario = historicoDosEventos(c);
+    const locais = locaisDosEventos(c);
     if (c.origens.dependentes) origens.dependentes = `eSocial: ${c.origens.dependentes}`;
     const s2299 = c.eventos.filter(e => e.tipo === 'S-2299').sort((a, b) => a.data.localeCompare(b.data)).pop();
     if (s2299?.data) { dados.dataDesligamento = s2299.data; origens.dataDesligamento = 'eSocial: S-2299'; }
@@ -174,7 +185,7 @@ export function fichaDoEsocial(c: Cadastro, empresa: { id: string; cnpj: string 
     return {
         id: idFuncionario(empresa.id, c.cpf, c.matricula), empresaId: empresa.id, cnpj: empresa.cnpj,
         cpf: c.cpf, matriculaEsocial: c.matricula, situacao: c.desligado ? 'desligado' : 'ativo',
-        dados, dependentes, origens, ...(historicoSalario.length ? { historicoSalario } : {}),
+        dados, dependentes, origens, ...(historicoSalario.length ? { historicoSalario } : {}), ...(locais.length ? { locais } : {}),
         // A mesma pendência em vários eventos (ex.: leiaute antigo em cada S-2206) aparece uma vez.
         pendenciasImportacao: [...new Set(c.pendencias.filter(p => !/Matrícula para IOB|Código IOB repetido|campo de 6 dígitos/.test(p)))],
     };
@@ -199,6 +210,23 @@ export function historicoDosEventos(c: Pick<Cadastro, 'eventos'>): FaixaSalarial
         else if (!ultima || textoFaixa(ultima) !== textoFaixa(faixa)) r.push(faixa);
     }
     return r;
+}
+
+/**
+ * Local de trabalho por vigência pelos S-2200/S-2206 aceitos (localTrabGeral): só quando houve troca de
+ * estabelecimento; com um só, a ficha basta (dados.estabelecimento).
+ */
+export function locaisDosEventos(c: Pick<Cadastro, 'eventos'>): FaixaLocal[] {
+    const r: FaixaLocal[] = [];
+    const eventos = c.eventos.filter(e => (e.tipo === 'S-2200' || e.tipo === 'S-2206') && /^\d{14}$/.test(e.dados.estabelecimento ?? '') && dataValida(e.data))
+        .sort((a, b) => a.data.localeCompare(b.data) || (a.tipo === 'S-2200' ? -1 : b.tipo === 'S-2200' ? 1 : 0));
+    for (const e of eventos) {
+        const faixa: FaixaLocal = { desde: e.data, estabelecimento: e.dados.estabelecimento!, origem: `${e.tipo} · ${e.recibo || e.id}` };
+        const ultima = r[r.length - 1];
+        if (ultima && ultima.desde === faixa.desde) r[r.length - 1] = faixa;
+        else if (!ultima || ultima.estabelecimento !== faixa.estabelecimento) r.push(faixa);
+    }
+    return r.length > 1 ? r : [];
 }
 
 const fimDoMes = (competencia: string) => { const [a, m] = competencia.split('-').map(Number); return `${competencia}-${String(new Date(Date.UTC(a, m, 0)).getUTCDate()).padStart(2, '0')}`; };
@@ -353,10 +381,10 @@ export function validarFicha(f: FichaFuncionario): Validacao {
     return { erros, avisos };
 }
 
-export interface Alteracao { campo: ChaveOrigem | 'codigoIob' | 'matriculaEsocial' | 'cpf' | 'cnpj' | 'pendencias' | 'historicoSalario' | 'beneficios'; de: string; para: string }
+export interface Alteracao { campo: ChaveOrigem | 'codigoIob' | 'matriculaEsocial' | 'cpf' | 'cnpj' | 'pendencias' | 'historicoSalario' | 'beneficios' | 'locais'; de: string; para: string }
 
 /** Rótulo de uma alteração na prévia e no histórico. */
-export const rotuloAlteracao = (campo: string) => (campo === 'pendencias' ? 'Pendências da importação' : campo === 'beneficios' ? 'Benefícios' : campo === 'historicoSalario' ? 'Histórico de salário' : campo === 'cnpj' ? 'CNPJ do empregador' : ROTULO[campo as CampoFicha] ?? campo);
+export const rotuloAlteracao = (campo: string) => (campo === 'pendencias' ? 'Pendências da importação' : campo === 'beneficios' ? 'Benefícios' : campo === 'historicoSalario' ? 'Histórico de salário' : campo === 'locais' ? 'Locais de trabalho (estabelecimentos)' : campo === 'cnpj' ? 'CNPJ do empregador' : ROTULO[campo as CampoFicha] ?? campo);
 
 // A marca "fora do eSocial" entra (a do XML é "S" e não muda o texto): trocada à mão, vira alteração e a origem passa a "Manual".
 const depsTexto = (l: Dependente[]) => l.map(d => `${d.nome} (${d.nascimento || 's/ nasc.'}${d.cpf ? `, CPF ${d.cpf}` : ''}${d.pensao === 'S' ? `, pensão${d.cotaPensao ? ` ${d.cotaPensao}%` : ''}` : ''}${d.noEsocial === 'N' ? ', fora do eSocial' : ''})`).join('; ');
@@ -382,6 +410,8 @@ export function diffFicha(antes: FichaFuncionario | null, depois: FichaFuncionar
     if (hist(antes) !== hist(depois)) r.push({ campo: 'historicoSalario', de: hist(antes), para: hist(depois) });
     const ben = (f: Pick<FichaFuncionario, 'beneficios'> | null) => (f?.beneficios ?? []).map(x => `${x.beneficioId} × ${x.vidas}${x.desde ? ` desde ${x.desde}` : ''}${x.ate ? ` até ${x.ate}` : ''}`).join('; ');
     if (ben(antes) !== ben(depois)) r.push({ campo: 'beneficios', de: ben(antes), para: ben(depois) });
+    const loc = (f: Pick<FichaFuncionario, 'locais'> | null) => (f?.locais ?? []).map(x => `${x.desde}: ${x.estabelecimento}`).join('; ');
+    if (loc(antes) !== loc(depois)) r.push({ campo: 'locais', de: loc(antes), para: loc(depois) });
     return r;
 }
 
@@ -429,6 +459,10 @@ export function mesclarComEsocial(existente: FichaFuncionario | undefined, impor
     if (hImp.length && (temReajusteEsocial(hImp) || !temDoSage)) ficha.historicoSalario = [
         ...anterior.filter(x => x.desde < hImp[0].desde), ...hImp, ...(parcial ? anterior.filter(x => x.desde > hImp[hImp.length - 1].desde) : []),
     ];
+    // Locais de trabalho do eSocial (trocas de estabelecimento pelo S-2206): os do eSocial valem até a última data que
+    // trazem; as trocas registradas no Consultor depois dela ficam.
+    const lImp = importada.locais ?? [];
+    if (lImp.length) ficha.locais = [...lImp, ...(existente.locais ?? []).filter(x => x.desde > lImp[lImp.length - 1].desde)];
     if (depsTexto(existente.dependentes) !== depsTexto(importada.dependentes)) {
         if (ehManual(existente.origens.dependentes)) {
             if (importada.dependentes.length) preservados.push({ campo: 'dependentes', manual: depsTexto(existente.dependentes), esocial: depsTexto(importada.dependentes) });
