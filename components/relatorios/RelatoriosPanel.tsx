@@ -178,8 +178,8 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
             return;
         }
         if (sel.tipo === 'informe') {
-            const cab = ['CPF', 'Nome', 'Rendimentos tributáveis', 'Previdência oficial', 'Previdência complementar', 'Pensão alimentícia', 'IRRF', 'Isentos', '13º líquido', 'IRRF 13º', 'PLR líquida', 'Meses'];
-            const linhas = (informes?.informes ?? []).map(x => [x.cpf, x.nome, ...x.quadro3.map(l => l.valor / 100), x.quadro4.reduce((t, l) => t + l.valor, 0) / 100, ...x.quadro5.map(l => l.valor / 100), x.meses.join(' ')]);
+            const cab = ['CPF', 'Nome', 'Rendimentos tributáveis', 'Previdência oficial', 'Previdência complementar', 'Pensão alimentícia', 'IRRF', 'Isentos', '13º líquido', 'IRRF 13º', 'PLR líquida', 'RRA tributável', 'RRA meses', 'IRRF do RRA', 'Meses'];
+            const linhas = (informes?.informes ?? []).map(x => [x.cpf, x.nome, ...x.quadro3.map(l => l.valor / 100), x.quadro4.reduce((t, l) => t + l.valor, 0) / 100, ...x.quadro5.map(l => l.valor / 100), (x.quadro6?.linhas[0].valor ?? 0) / 100, x.quadro6?.meses ?? 0, (x.quadro6?.linhas[4].valor ?? 0) / 100, x.meses.join(' ')]);
             const ws = XLSX.utils.aoa_to_sheet([[sel.titulo, '', `Ano-calendário ${ano}`], [dados?.empresa?.razaoSocial || ativa.nome], [], cab, ...linhas]);
             const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Informes');
             XLSX.writeFile(wb, nomeArquivo(sel).replace(/\.pdf$/, '.xlsx'));
