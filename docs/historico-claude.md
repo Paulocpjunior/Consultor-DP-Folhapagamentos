@@ -4622,3 +4622,25 @@ Sétimo dos parciais da auditoria.
   - a validação, os meses e a margem com dois contratos, o limite pelo líquido;
   - o motor mensal (bases intactas) e a rescisão (uma vez só, com o saldo);
   - o S-1200 e o S-2299 com o descFolha no XSD oficial, e a recusa da rubrica sem a 9253.
+
+## 11/10/2026 — Horários: escalas e revezamento
+
+Oitavo dos parciais da auditoria.
+
+- **Escala em ciclo** (Cadastros › Horários, `escala` no horário):
+  - tipos: 12 x 36, 24 x 48, turno ininterrupto de revezamento e folga variável;
+  - o ciclo tem de 2 a 42 dias (trabalho ou folga, com entrada, intervalo e saída) e se repete a partir de uma data de referência, também para trás;
+  - há ciclos prontos: 12x36 das 7h às 19h, 24x48 e revezamento de 6 h em três turnos com duas folgas;
+  - a média semanal (horas do ciclo × 7 ÷ dias do ciclo) entra no total do horário e na conferência das horas semanais da ficha;
+  - a tela mostra as horas noturnas e o mês da escala (dias de trabalho, folgas e horas).
+- **Avisos:**
+  - 12 x 36 só por acordo escrito ou norma coletiva, e a remuneração já abrange DSR e feriados (CLT, art. 59-A); 12 h seguidas e ciclo de 2 dias;
+  - interjornada de 11 h (art. 66) e 7 dias seguidos sem folga (art. 67);
+  - mais de 10 h no dia, 6 h no revezamento (CF, art. 7º, XIV) e média acima de 44 h.
+- **S-2200:** o contrato pega do horário da ficha o tpJornada (12 x 36 = 2, revezamento = 7, folga variável = 3, DSR fixo no domingo = 4, em outro dia = 5), a descrição da jornada (a escala, até 999 caracteres) e o trabalho noturno. A transferência já usa isso.
+- **Catálogo SAGE:** `arq-horarios` passa a disponível. Agora são 43 disponíveis e 8 parciais.
+- **Testes:**
+  - o dia da escala (para a frente e para trás), as médias, o mês;
+  - os avisos (12 x 36 fora do padrão, sem descanso semanal, interjornada);
+  - o revezamento, a 24x48 e o tpJornada;
+  - o S-2200 de uma 12 x 36 noturna no XSD oficial.

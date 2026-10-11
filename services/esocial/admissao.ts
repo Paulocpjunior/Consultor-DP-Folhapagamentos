@@ -11,6 +11,7 @@
 // Sem o grupo FGTS (vedado para admissão desde 05/10/1988, exceto doméstico antes de 10/2015), sem aprendiz, sem
 // trabalhador temporário e sem estatutário: esses ficam com o IOB.
 
+import { descricaoJornada, resumirHorario, tpJornadaDoHorario, type Horario } from '../cadastros/horarios';
 import { cnpjValido, cpfValido, dataValida } from '../cadastros/documentos';
 import type { FichaFuncionario } from '../cadastros/funcionarios';
 import { idEvento, VER_PROC, type TpAmb } from './transmissao';
@@ -37,9 +38,11 @@ export interface ContratoS2200 {
     /** Descrição da jornada semanal (dias, entrada, saída e intervalos). */
     dscJorn: string;
 }
-export const contratoPadrao = (f?: FichaFuncionario): ContratoS2200 => ({
-    tpRegJor: '1', natAtividade: '1', dtBase: '', tpJornada: '9', tmpParc: '0', horNoturno: 'N',
-    dscJorn: [f?.dados.jornada, f?.dados.horarioTrabalho, f?.dados.horarioIntervalo ? `intervalo ${f.dados.horarioIntervalo}` : ''].filter(Boolean).join('; '),
+/** Contrato do S-2200 com o que a ficha tem; com o horário ligado a ela, a jornada (tipo, descrição e trabalho noturno) sai dele. */
+export const contratoPadrao = (f?: FichaFuncionario, horario?: Horario | null): ContratoS2200 => ({
+    tpRegJor: '1', natAtividade: '1', dtBase: '',
+    tpJornada: horario ? tpJornadaDoHorario(horario) : '9', tmpParc: '0', horNoturno: horario && resumirHorario(horario).noturno > 0 ? 'S' : 'N',
+    dscJorn: horario ? descricaoJornada(horario) : [f?.dados.jornada, f?.dados.horarioTrabalho, f?.dados.horarioIntervalo ? `intervalo ${f.dados.horarioIntervalo}` : ''].filter(Boolean).join('; '),
 });
 export const TIPOS_JORNADA: [string, string][] = [
     ['2', '12 x 36'], ['3', 'Horário fixo, folga variável'], ['4', 'Horário fixo, folga fixa no domingo'], ['5', 'Horário fixo, folga fixa fora do domingo'],

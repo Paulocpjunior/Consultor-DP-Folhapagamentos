@@ -22,7 +22,17 @@ export interface Horario {
     descricao: string;
     dias: Record<Dia, DiaHorario>;
     observacoes: string;
+    /** Escala em ciclo (12x36, 24x48, revezamento, folga variável): com ela, os dias da semana não valem. */
+    escala?: Escala | null;
 }
+
+/**
+ * Escala: um ciclo de dias (trabalho ou folga) que se repete a partir da data de referência, o primeiro dia do ciclo.
+ * 12x36 (CLT, art. 59-A), 24x48, turnos de revezamento (CF, art. 7º, XIV) e outras escalas de folga variável.
+ */
+export type TipoEscala = '12x36' | '24x48' | 'revezamento' | 'ciclo';
+export interface Escala { tipo: TipoEscala; referencia: string; ciclo: DiaHorario[] }
+export const ROTULO_ESCALA: Record<TipoEscala, string> = { '12x36': '12 x 36', '24x48': '24 x 48', revezamento: 'Turno ininterrupto de revezamento', ciclo: 'Escala com folga variável (ciclo)' };
 
 export const DIAS: Dia[] = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom'];
 export const NOME_DIA: Record<Dia, string> = { seg: 'Seg', ter: 'Ter', qua: 'Qua', qui: 'Qui', sex: 'Sex', sab: 'Sáb', dom: 'Dom' };
@@ -32,7 +42,7 @@ const diaVazio = (tipo: TipoDia): DiaHorario => ({ tipo, entrada: '', saidaInter
 
 export function horarioVazio(empresaId: string): Horario {
     return {
-        id: '', empresaId, codigo: '', descricao: '', observacoes: '',
+        id: '', empresaId, codigo: '', descricao: '', observacoes: '', escala: null,
         dias: { seg: diaVazio('trabalho'), ter: diaVazio('trabalho'), qua: diaVazio('trabalho'), qui: diaVazio('trabalho'), sex: diaVazio('trabalho'), sab: diaVazio('folga'), dom: diaVazio('dsr') },
     };
 }
@@ -72,6 +82,7 @@ export function calcularDia(d: DiaHorario): CalculoDia {
 export interface Resumo { semanal: number; noturno: number; diasTrabalho: number; porDia: Record<Dia, CalculoDia> }
 
 export function resumirHorario(h: Horario): Resumo {
+    if (h.escala) { const e = resumirEscala(h.escala); return { porDia: Object.fromEntries(DIAS.map(d => [d, calcularDia(diaVazio('folga'))])) as Record<Dia, CalculoDia>, semanal: e.semanal, noturno: e.noturnoSemanal, diasTrabalho: e.diasTrabalho }; }
     const porDia = Object.fromEntries(DIAS.map(d => [d, calcularDia(h.dias[d])])) as Record<Dia, CalculoDia>;
     return {
         porDia,
@@ -91,6 +102,7 @@ export function validarHorario(h: Horario, existentes: Horario[] = []): Validaca
     if (!h.codigo.trim()) erros.push('Informe o código do horário.');
     else if (!h.id && existentes.some(e => e.empresaId === h.empresaId && e.codigo.trim() === h.codigo.trim())) erros.push('Já existe um horário com este código nesta empresa.');
     if (!h.descricao.trim()) erros.push('Informe a descrição.');
+    if (h.escala) { const v = validarEscala(h.escala); return { erros: [...erros, ...v.erros], avisos: v.avisos }; }
     const r = resumirHorario(h);
     if (!r.diasTrabalho) erros.push('Marque ao menos um dia de trabalho.');
     let diasOk = true;
@@ -121,6 +133,7 @@ const textoDia = (d: DiaHorario) => (d.tipo === 'trabalho'
 
 /** Descrição da jornada no formato do campo dscJorn do S-2200 (até 999 caracteres), juntando dias iguais seguidos. */
 export function descricaoJornada(h: Horario): string {
+    if (h.escala) return descricaoEscala(h.escala);
     const partes: string[] = [];
     let i = 0;
     while (i < 7) {
@@ -140,4 +153,101 @@ export function conferirHorasSemanais(horasSemanais: string | undefined, h: Hora
     if (Number.isNaN(ficha)) return null;
     const total = resumirHorario(h).semanal;
     return ficha === total ? null : `Horas semanais da ficha (${hhmm(ficha)}) diferentes do horário ${h.codigo} (${hhmm(total)}).`;
+}
+
+// ---------- Escalas (ciclo de dias) ----------
+
+const DATA = /^\d{4}-\d{2}-\d{2}$/;
+const diaUTC = (d: string) => Date.UTC(Number(d.slice(0, 4)), Number(d.slice(5, 7)) - 1, Number(d.slice(8, 10))) / 86400000;
+const trabalho = (entrada: string, saidaIntervalo: string, retornoIntervalo: string, saida: string): DiaHorario => ({ tipo: 'trabalho', entrada, saidaIntervalo, retornoIntervalo, saida });
+
+/** Ciclos prontos: 12x36 (7h às 19h, 1 h de intervalo), 24x48 (7h às 7h) e revezamento de 6 h (manhã, tarde, noite e folgas). */
+export function escalaPronta(tipo: TipoEscala, referencia: string): Escala {
+    if (tipo === '12x36') return { tipo, referencia, ciclo: [trabalho('07:00', '12:00', '13:00', '19:00'), diaVazio('folga')] };
+    if (tipo === '24x48') return { tipo, referencia, ciclo: [trabalho('07:00', '12:00', '13:00', '07:00'), diaVazio('folga'), diaVazio('folga')] };
+    if (tipo === 'revezamento') return { tipo, referencia, ciclo: [
+        ...Array.from({ length: 2 }, () => trabalho('06:00', '', '', '12:00')), ...Array.from({ length: 2 }, () => trabalho('12:00', '', '', '18:00')),
+        ...Array.from({ length: 2 }, () => trabalho('18:00', '', '', '00:00')), diaVazio('folga'), diaVazio('folga')] };
+    return { tipo, referencia, ciclo: [...Array.from({ length: 6 }, () => trabalho('08:00', '12:00', '13:00', '16:20')), diaVazio('folga')] };
+}
+
+/** O dia do ciclo numa data (antes da referência, o ciclo corre para trás). */
+export function diaDaEscala(e: Escala, data: string): { indice: number; dia: DiaHorario } {
+    const n = e.ciclo.length;
+    const i = ((Math.round(diaUTC(data) - diaUTC(e.referencia)) % n) + n) % n;
+    return { indice: i, dia: e.ciclo[i] };
+}
+
+export interface ResumoEscala { porDiaDoCiclo: CalculoDia[]; noCiclo: number; semanal: number; noturnoSemanal: number; diasTrabalho: number }
+
+/** Horas no ciclo e a média semanal (horas do ciclo × 7 ÷ dias do ciclo), que vai ao S-2200 (qtdHrsSem). */
+export function resumirEscala(e: Escala): ResumoEscala {
+    const porDiaDoCiclo = e.ciclo.map(calcularDia);
+    const n = Math.max(1, e.ciclo.length);
+    const noCiclo = porDiaDoCiclo.reduce((s, c) => s + c.trabalhado, 0);
+    const noturno = porDiaDoCiclo.reduce((s, c) => s + c.noturno, 0);
+    return { porDiaDoCiclo, noCiclo, semanal: Math.round(noCiclo * 7 / n), noturnoSemanal: Math.round(noturno * 7 / n), diasTrabalho: e.ciclo.filter(d => d.tipo === 'trabalho').length };
+}
+
+export function validarEscala(e: Escala): ValidacaoHorario {
+    const erros: string[] = []; const avisos: string[] = [];
+    if (!DATA.test(e.referencia)) erros.push('Escala: informe a data de referência (o primeiro dia do ciclo).');
+    if (e.ciclo.length < 2 || e.ciclo.length > 42) erros.push('Escala: o ciclo tem de 2 a 42 dias.');
+    const r = resumirEscala(e);
+    if (!r.diasTrabalho) erros.push('Escala: marque ao menos um dia de trabalho no ciclo.');
+    r.porDiaDoCiclo.forEach((c, i) => { if (c.erro) erros.push(`Escala, dia ${i + 1} do ciclo: ${c.erro}.`); });
+    if (erros.length) return { erros, avisos };
+    const n = e.ciclo.length;
+    if (e.tipo === '12x36') {
+        avisos.push('12 x 36 só por acordo individual escrito, convenção ou acordo coletivo (CLT, art. 59-A); a remuneração mensal já abrange o DSR e os feriados (parágrafo único).');
+        e.ciclo.forEach((d, i) => { if (d.tipo === 'trabalho') { const c = r.porDiaDoCiclo[i]; if (c.trabalhado + c.intervalo !== 12 * 60) avisos.push(`Escala, dia ${i + 1}: ${hhmm(c.trabalhado + c.intervalo)} da entrada à saída; a 12 x 36 tem 12 h seguidas.`); } });
+        if (n !== 2 || e.ciclo[1].tipo === 'trabalho') avisos.push('A 12 x 36 é um ciclo de 2 dias: um de trabalho e um de folga.');
+    } else {
+        // Interjornada entre dias seguidos do ciclo (o último emenda no primeiro) e uma folga a cada 7 dias.
+        for (let i = 0; i < n; i++) {
+            const a = e.ciclo[i]; const b = e.ciclo[(i + 1) % n];
+            if (a.tipo !== 'trabalho' || b.tipo !== 'trabalho') continue;
+            const descanso = r.porDiaDoCiclo[(i + 1) % n].inicio + 1440 - r.porDiaDoCiclo[i].fim;
+            if (descanso < 11 * 60) avisos.push(`Escala, do dia ${i + 1} para o ${(i + 1) % n + 1}: ${hhmm(Math.max(descanso, 0))} entre jornadas, menos de 11 h (CLT, art. 66).`);
+        }
+        for (let i = 0; i < n; i++) {
+            const janela = Array.from({ length: 7 }, (_, k) => e.ciclo[(i + k) % n]);
+            if (janela.every(d => d.tipo === 'trabalho')) { avisos.push('Escala com 7 dias seguidos de trabalho: falta o descanso semanal de 24 h (CLT, art. 67).'); break; }
+        }
+        r.porDiaDoCiclo.forEach((c, i) => { if (c.trabalhado > 10 * 60) avisos.push(`Escala, dia ${i + 1}: mais de 10 h no dia (CLT, arts. 58 e 59).`); });
+    }
+    if (e.tipo === 'revezamento' && r.porDiaDoCiclo.some(c => c.trabalhado > 6 * 60)) avisos.push('Turno ininterrupto de revezamento: jornada de 6 h, salvo negociação coletiva (CF, art. 7º, XIV).');
+    if (r.semanal > 44 * 60) avisos.push(`Média semanal de ${hhmm(r.semanal)} acima de 44 h (CF, art. 7º, XIII).`);
+    return { erros, avisos };
+}
+
+/** dscJorn do S-2200: o tipo, os dias do ciclo e a data de referência. */
+export function descricaoEscala(e: Escala): string {
+    const dias = e.ciclo.map((d, i) => `${i + 1}º ${textoDia(d)}`).join('; ');
+    const ref = DATA.test(e.referencia) ? e.referencia.split('-').reverse().join('/') : '—';
+    return `Escala ${ROTULO_ESCALA[e.tipo]}, ciclo de ${e.ciclo.length} dias a partir de ${ref}: ${dias}`.slice(0, 999);
+}
+
+/** Tipo de jornada do S-2200 (tpJornada) sugerido pelo horário. */
+export function tpJornadaDoHorario(h: Horario): string {
+    if (h.escala) return h.escala.tipo === '12x36' ? '2' : h.escala.tipo === 'revezamento' ? '7' : h.escala.tipo === 'ciclo' ? '3' : '9';
+    const dsr = DIAS.filter(d => h.dias[d].tipo === 'dsr');
+    return dsr.length === 1 ? (dsr[0] === 'dom' ? '4' : '5') : '9';
+}
+
+export interface MesDaEscala { dias: { data: string; indice: number; dia: DiaHorario; horas: number }[]; trabalhados: number; folgas: number; horas: number; noturno: number }
+
+/** O mês pela escala: cada dia (trabalho ou folga), os dias trabalhados, as horas e as noturnas. */
+export function mesDaEscala(e: Escala, competencia: string): MesDaEscala {
+    const [a, m] = competencia.split('-').map(Number);
+    const ultimo = new Date(Date.UTC(a, m, 0)).getUTCDate();
+    const r: MesDaEscala = { dias: [], trabalhados: 0, folgas: 0, horas: 0, noturno: 0 };
+    for (let d = 1; d <= ultimo; d++) {
+        const data = `${competencia}-${String(d).padStart(2, '0')}`;
+        const x = diaDaEscala(e, data);
+        const c = calcularDia(x.dia);
+        r.dias.push({ data, indice: x.indice, dia: x.dia, horas: c.trabalhado });
+        if (x.dia.tipo === 'trabalho') { r.trabalhados++; r.horas += c.trabalhado; r.noturno += c.noturno; } else r.folgas++;
+    }
+    return r;
 }

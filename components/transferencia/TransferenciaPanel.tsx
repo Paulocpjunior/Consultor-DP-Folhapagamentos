@@ -13,7 +13,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
 import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
 import type { Empresa } from '../../services/empresas/empresasTypes';
-import { listarFuncionarios, mensagemErro, salvarFuncionario, type Usuario } from '../../services/cadastros/cadastrosService';
+import { listarFuncionarios, listarHorarios, mensagemErro, salvarFuncionario, type Usuario } from '../../services/cadastros/cadastrosService';
 import { estabelecimentoNoDia, trocarEstabelecimento, validarTrocaDeEstabelecimento } from '../../services/cadastros/locaisTrabalho';
 import { gerarS2206, refTrocaEstabelecimento } from '../../services/esocial/alteracaoContratual';
 import { validarContrato } from '../../services/esocial/admissao';
@@ -99,6 +99,8 @@ const TransferenciaPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
         setFichaId(id);
         const f = fichas.find(x => x.id === id);
         setMatricula(f?.matriculaEsocial ?? ''); setContrato(contratoPadrao(f));
+        // Com o horário da ficha (Cadastros › Horários), a jornada do S-2200 vem dele, inclusive a escala.
+        if (f?.dados.horario) listarHorarios(f.empresaId).then(hs => { const h = hs.find(x => x.codigo === f.dados.horario || x.id === f.dados.horario); if (h) setContrato(c => ({ ...c, ...contratoPadrao(f, h) })); }).catch(() => { /* sem horários: fica a jornada da ficha */ });
     }
     async function gravarTroca() {
         if (!ficha || !origem || errosTroca.length) return;
