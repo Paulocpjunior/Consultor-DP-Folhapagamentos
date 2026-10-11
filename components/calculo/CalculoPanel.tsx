@@ -801,7 +801,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
             })()}
             {complementar && mensal && dados && empresa && (
                 <FolhaComplementarModal empresa={{ id: empresa.id, cnpj: empresa.cnpj, razaoSocial: empresa.razaoSocial || empresa.nomeFantasia || '', sindicatos: empresa.sindicatos }}
-                    competencia={competencia} pagamento={/^\d{4}-\d{2}$/.test(pagamento) ? pagamento : competenciaSeguinte(competencia)} fichas={dados.fichas} tabelas={dados.tabelas}
+                    competencia={competencia} pagamento={/^\d{4}-\d{2}$/.test(pagamento) ? pagamento : competenciaSeguinte(competencia)} fichas={dados.fichas} afastamentos={dados.afastamentos} tabelas={dados.tabelas}
                     folhaDoMes={resultados} encerrado={encerrado} usuario={usuario} onFechar={() => setComplementar(false)}
                     onPdf={(lista, ins) => {
                         relatoriosPdf().then(m => m.holeritesPdf(lista, dados.fichas, { ...opcoesPdf(), titulo: `Folha complementar ${br(competencia)} — ${ins.tpAcConv}` }).save(`complementar-${empresa.codigoSage ?? 'empresa'}-${competencia}-${ins.tpAcConv}.pdf`))

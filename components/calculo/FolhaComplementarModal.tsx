@@ -8,6 +8,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
 import type { TabelaLegal } from '../../services/cadastros/tabelasLegais';
+import type { Afastamento } from '../../services/cadastros/afastamentos';
+import type { Movimento } from '../../services/calculo/motorMensal';
+import { listarMovimentosDaEmpresa } from '../../services/calculo/movimentosService';
+import { complemento13, diferenca13DoReajuste, diferencasDaRescisao, juntarDiferencas, type DiferencasDosMotores } from '../../services/calculo/complementaresMotores';
 import type { ResultadoCalculo } from '../../services/calculo/motorMensal';
 import { centavosDeTexto, reais } from '../../services/cadastros/documentos';
 import { listarSindicatos, mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
@@ -40,6 +44,8 @@ interface Props {
     /** Mês do pagamento da folha da competência. */
     pagamento: string;
     fichas: FichaFuncionario[];
+    /** Afastamentos da empresa (13º e rescisões refeitos pelos motores). */
+    afastamentos: Afastamento[];
     tabelas: TabelaLegal[];
     /** Holerites da folha da competência (o IRRF soma o dela). */
     folhaDoMes: ResultadoCalculo[];
@@ -49,7 +55,7 @@ interface Props {
     onFechar: () => void;
 }
 
-const FolhaComplementarModal: React.FC<Props> = ({ empresa, competencia, pagamento, fichas, tabelas, folhaDoMes, encerrado, usuario, onPdf, onFechar }) => {
+const FolhaComplementarModal: React.FC<Props> = ({ empresa, competencia, pagamento, fichas, afastamentos, tabelas, folhaDoMes, encerrado, usuario, onPdf, onFechar }) => {
     const [tipo, setTipo] = useState<TpAcConv>('C');
     const [dtAcConv, setDtAcConv] = useState('');
     const [dsc, setDsc] = useState('');
@@ -59,6 +65,13 @@ const FolhaComplementarModal: React.FC<Props> = ({ empresa, competencia, pagamen
     const [de, setDe] = useState('');
     const [ate, setAte] = useState(anterior(competencia));
     const [linhas, setLinhas] = useState<LinhaLancamento[]>([]);
+    // 13º e rescisões pelos motores: a diferença do 13º e as rescisões no reajuste; em janeiro, o 13º complementar do ano anterior.
+    const [com13Dif, setCom13Dif] = useState(false);
+    const [comRescisoes, setComRescisoes] = useState(false);
+    const [comComplemento13, setComComplemento13] = useState(false);
+    const [movimentos, setMovimentos] = useState<Record<string, Record<string, Movimento>> | null>(null);
+    const janeiro = competencia.endsWith('-01');
+    const anoAnterior = Number(competencia.slice(0, 4)) - 1;
     const [gravadas, setGravadas] = useState<Record<string, ResultadoCalculo[]>>({});
     const [lendo, setLendo] = useState(false);
     const [existentes, setExistentes] = useState<FolhaComplementarGravada[]>([]);
@@ -107,14 +120,37 @@ const FolhaComplementarModal: React.FC<Props> = ({ empresa, competencia, pagamen
 
     const instrumento: Instrumento = { tpAcConv: tipo, dtAcConv: dtAcConv || undefined, dsc };
     const reajuste = comReajuste ? { pct: Number(pct.replace(',', '.')) || 0, de, ate } : undefined;
+    const precisaMotores = (comComplemento13 && janeiro) || (comReajuste && (com13Dif || comRescisoes));
+    useEffect(() => {
+        if (!precisaMotores || movimentos) return;
+        let vivo = true;
+        listarMovimentosDaEmpresa(empresa.id).then(m => { if (vivo) setMovimentos(m); }).catch(e => { if (vivo) { setMovimentos({}); setErro(`Movimentos não carregados (as médias saem sem eles): ${mensagemErro(e)}`); } });
+        return () => { vivo = false; };
+    }, [precisaMotores, movimentos, empresa.id]);
+    const dezembros = reajuste ? mesesEntre(reajuste.de, reajuste.ate).filter(m => m.endsWith('-12')).map(m => Number(m.slice(0, 4))) : [];
+    const motores = useMemo<DiferencasDosMotores | null>(() => {
+        if (!precisaMotores) return { diferencas: [], decimos: [], avisos: [] };
+        if (!movimentos) return null;
+        const d = { fichas, afastamentos, movimentos, tabelas };
+        const partes: DiferencasDosMotores[] = [];
+        if (comComplemento13 && janeiro) partes.push(complemento13(d, anoAnterior));
+        if (reajuste && reajuste.pct > 0 && /^\d{4}-\d{2}$/.test(reajuste.de) && /^\d{4}-\d{2}$/.test(reajuste.ate)) {
+            if (com13Dif) for (const ano of dezembros) partes.push(diferenca13DoReajuste(d, ano, reajuste.pct));
+            if (comRescisoes) partes.push(diferencasDaRescisao(d, reajuste, gravadas));
+        }
+        return juntarDiferencas(...partes);
+    }, [precisaMotores, movimentos, fichas, afastamentos, tabelas, comComplemento13, janeiro, anoAnterior, JSON.stringify(reajuste), com13Dif, comRescisoes, gravadas]); // eslint-disable-line react-hooks/exhaustive-deps
     const lancamentos: LancamentoComplementar[] = linhas.map(l => {
         const verba = VERBAS_LANCAVEIS.find(v => v.codigo === l.codigo);
         return { fichaId: l.fichaId, perRef: l.perRef, codigo: l.codigo, descricao: l.descricao, tipo: verba?.tipo ?? 'provento', valor: centavosDeTexto(l.valor) ?? 0, inss: l.inss, fgts: l.fgts, irrf: l.irrf };
     });
     // Só calcula com todas as folhas dos meses lidas (senão avisaria "sem folha gravada" por um instante).
-    const carregado = meses.every(m => m in gravadas);
-    const calculo = useMemo(() => (!carregado ? null : calcularComplementar({ perApur: competencia, pagamento: pag, instrumento, reajuste, lancamentos, fichas, gravadas, folhaDoMes, tabelas })),
-        [carregado, competencia, pag, JSON.stringify(instrumento), JSON.stringify(reajuste), JSON.stringify(lancamentos), fichas, gravadas, folhaDoMes, tabelas]); // eslint-disable-line react-hooks/exhaustive-deps
+    const carregado = meses.every(m => m in gravadas) && !!motores;
+    const calculo = useMemo(() => {
+        if (!carregado || !motores) return null;
+        const c = calcularComplementar({ perApur: competencia, pagamento: pag, instrumento, reajuste, lancamentos, fichas, gravadas, folhaDoMes, tabelas, diferencas: motores.diferencas, decimos: motores.decimos });
+        return { ...c, avisos: [...c.avisos, ...motores.avisos] };
+    }, [carregado, motores, competencia, pag, JSON.stringify(instrumento), JSON.stringify(reajuste), JSON.stringify(lancamentos), fichas, gravadas, folhaDoMes, tabelas]); // eslint-disable-line react-hooks/exhaustive-deps
     const resultados = calculo?.resultados ?? [];
     const tot = totaisComplementar(resultados);
     const doMesmoTipo = existentes.find(c => c.instrumento.tpAcConv === tipo);
@@ -128,6 +164,7 @@ const FolhaComplementarModal: React.FC<Props> = ({ empresa, competencia, pagamen
     function abrir(c: FolhaComplementarGravada) {
         setTipo(c.instrumento.tpAcConv); setDtAcConv(c.instrumento.dtAcConv ?? ''); setDsc(c.instrumento.dsc); setPag(c.pagamento);
         setComReajuste(!!c.reajuste);
+        setCom13Dif(!!c.opcoes?.decimo); setComRescisoes(!!c.opcoes?.rescisoes); setComComplemento13(!!c.opcoes?.complemento13);
         if (c.reajuste) { setPct(String(c.reajuste.pct).replace('.', ',')); setDe(c.reajuste.de); setAte(c.reajuste.ate); }
         setLinhas(c.lancamentos.map(l => ({ fichaId: l.fichaId, perRef: l.perRef, codigo: l.codigo, descricao: l.codigo === 'LAN' || l.descricao !== VERBAS_LANCAVEIS.find(v => v.codigo === l.codigo)?.descricao ? l.descricao : '', valor: (l.valor / 100).toFixed(2).replace('.', ','), inss: l.inss, fgts: l.fgts, irrf: l.irrf })));
         setMsg(`Complementar ${c.instrumento.tpAcConv} aberta para conferir ou regravar.`);
@@ -139,7 +176,7 @@ const FolhaComplementarModal: React.FC<Props> = ({ empresa, competencia, pagamen
         if (doMesmoTipo && !window.confirm(`Já há complementar ${tipo} gravada em ${br(competencia)}: substituir?`)) return;
         setOcupado('Gravando…'); setErro('');
         try {
-            await gravarComplementar({ empresaId: empresa.id, perApur: competencia, pagamento: pag, instrumento, reajuste, lancamentos, resultados }, usuario);
+            await gravarComplementar({ empresaId: empresa.id, perApur: competencia, pagamento: pag, instrumento, reajuste, lancamentos, resultados, opcoes: { decimo: com13Dif, rescisoes: comRescisoes, complemento13: comComplemento13 } }, usuario);
             setMsg('Complementar gravada. Ela vai no S-1200 da competência pela tela "S-1200 e S-1210", paga com a folha.'); setRecarga(n => n + 1);
         } catch (e) { setErro(`Não foi possível gravar (${mensagemErro(e)}).`); }
         finally { setOcupado(''); }
@@ -200,8 +237,23 @@ const FolhaComplementarModal: React.FC<Props> = ({ empresa, competencia, pagamen
                             <label>De<input aria-label="Reajuste de" type="month" className={`block w-full ${inp}`} value={de} onChange={e => setDe(e.target.value)} /></label>
                             <label>Até<input aria-label="Reajuste até" type="month" className={`block w-full ${inp}`} value={ate} onChange={e => setAte(e.target.value)} /></label>
                             <p className="self-end text-xs text-slate-500">Reajusta salário, periculosidade, maternidade, horas extras, DSR, férias do mês e faltas, no mesmo código (o de/para do eSocial vale).</p>
+                            <label className="flex items-center gap-2 sm:col-span-2" title={dezembros.length ? 'O 13º é pela remuneração de dezembro: o percentual sobre o 13º do ano, no mês de referência de dezembro.' : 'O reajuste não pega dezembro.'}>
+                                <input type="checkbox" disabled={!dezembros.length} checked={com13Dif && dezembros.length > 0} onChange={e => setCom13Dif(e.target.checked)} />Diferença do 13º{dezembros.length ? ` de ${dezembros.join(', ')}` : ' (o reajuste não pega dezembro)'}</label>
+                            <label className="flex items-center gap-2 sm:col-span-2" title="Desligados com o desligamento nos meses do reajuste: a rescisão é refeita com o salário reajustado (aviso, 13º e férias).">
+                                <input type="checkbox" checked={comRescisoes} onChange={e => setComRescisoes(e.target.checked)} />Rescisões no período (rescisão complementar dos desligados)</label>
                         </div>
                     )}
+                </section>
+
+                <section className="space-y-1 rounded border border-slate-200 p-2 dark:border-slate-700">
+                    <label className="flex items-center gap-2 font-medium">
+                        <input type="checkbox" disabled={!janeiro} checked={comComplemento13 && janeiro} onChange={e => {
+                            setComComplemento13(e.target.checked);
+                            if (e.target.checked) { setTipo('J'); setComReajuste(false); if (!dsc.trim()) setDsc(`13º salário complementar de ${anoAnterior} (variáveis de dezembro; Decreto 10.854/2021, art. 77)`); }
+                        }} />13º complementar de {janeiro ? anoAnterior : 'dezembro'} (variáveis de dezembro)</label>
+                    <p className="text-xs text-slate-500">{janeiro
+                        ? `A média do 13º com as variáveis de dezembro (movimento gravado), menos o pago na 2ª parcela; pago até 10/01 (Decreto 10.854/2021, art. 77). No eSocial, no S-1200 de janeiro com o tipo J e o mês de referência 12/${anoAnterior}, rubrica de natureza 5005.`
+                        : 'Disponível na competência de janeiro: o complemento do 13º do ano anterior vai no S-1200 de janeiro.'}</p>
                 </section>
 
                 <section className="space-y-2 rounded border border-slate-200 p-2 dark:border-slate-700">
@@ -224,7 +276,7 @@ const FolhaComplementarModal: React.FC<Props> = ({ empresa, competencia, pagamen
                     ))}
                 </section>
 
-                {lendo && <p className="text-slate-500">Lendo as folhas gravadas…</p>}
+                {(lendo || (precisaMotores && !movimentos)) && <p className="text-slate-500">Lendo as folhas gravadas e os movimentos…</p>}
                 {calculo && calculo.erros.length > 0 && <ul role="alert" className="list-disc rounded bg-red-50 p-2 pl-6 text-red-800 dark:bg-red-900/30 dark:text-red-200">{calculo.erros.map(x => <li key={x}>{x}</li>)}</ul>}
                 {calculo && calculo.avisos.length > 0 && <ul className="list-disc rounded bg-amber-50 p-2 pl-6 text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">{calculo.avisos.map(x => <li key={x}>{x}</li>)}</ul>}
                 {resultados.length > 0 && (
@@ -237,8 +289,8 @@ const FolhaComplementarModal: React.FC<Props> = ({ empresa, competencia, pagamen
                                         <td className="p-2">{r.nome}</td>
                                         <td className="p-2">{r.meses.map(m => br(m.perRef)).join(', ')}</td>
                                         <td className="p-2 text-right">{reais(r.totais.proventos)}</td>
-                                        <td className="p-2 text-right">{reais(r.meses.reduce((s, m) => s + m.inss, 0))}</td>
-                                        <td className="p-2 text-right">{reais(r.irrfApurado?.valor ?? 0)}</td>
+                                        <td className="p-2 text-right">{reais(r.meses.reduce((s, m) => s + m.inss + (m.inss13 ?? 0), 0))}</td>
+                                        <td className="p-2 text-right">{reais(r.verbas.filter(v => v.codigo === 'IRRF' || v.codigo === 'IRRF13').reduce((s, v) => s + v.valor, 0))}</td>
                                         <td className="p-2 text-right font-medium">{reais(r.totais.liquido)}</td>
                                         <td className="p-2 text-right">{reais(r.fgts)}</td>
                                         <td className="p-2"><span className={`rounded-full px-2 py-0.5 text-xs ${SITUACAO[r.situacao]}`}>{r.situacao}</span></td>

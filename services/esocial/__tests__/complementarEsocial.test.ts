@@ -9,6 +9,7 @@ import { gerarEventosFolha, ideDmDevComplementar, sugerirDePara, type Parametros
 import { validarPeloXsd } from '../validadorXsd';
 import { calcularMensal, type ResultadoCalculo } from '../../calculo/motorMensal';
 import { calcularComplementar, type Instrumento } from '../../calculo/complementar';
+import { diferencasDaRescisao } from '../../calculo/complementaresMotores';
 import { TABELAS_OFICIAIS_2026 } from '../../cadastros/tabelasOficiais';
 import { fichaVazia, type FichaFuncionario } from '../../cadastros/funcionarios';
 import type { Rubrica } from '../../cadastros/rubricas';
@@ -88,7 +89,39 @@ describe('folha complementar no eSocial', () => {
         expect(outro.trabalhadores[0].erros.join(' ')).toMatch(/calculada com pagamento em 05\/2026/);
         const inc = gerarEventosFolha({ ...base, dataPagamento: '2026-05-06', resultados: [folha], complementares: [{ instrumento: CCT, resultados: [{ ...comp.resultados[0], situacao: 'incompleto', avisos: ['RRA'] }] }] });
         expect(inc.trabalhadores[0].erros.join(' ')).toMatch(/Complementar \(C\) incompleta: RRA/);
-        const sem = gerarEventosFolha({ ...base, dataPagamento: '2026-05-06', resultados: [], complementares: [{ instrumento: CCT, resultados: comp.resultados }] });
-        expect(sem.avisos.join(' ')).toMatch(/Complementar de ANA sem a folha de 04\/2026 calculada/);
+    });
+
+    it('desligado (sem a folha do mês): S-1200 só com o demonstrativo das diferenças, pago na data da folha; passa no XSD', async () => {
+        const { folha, comp } = montar('2026-05');
+        const sem = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-04', dataPagamento: '2026-05-06', fichas: [FICHA], rubricas: RUBRICAS,
+            parametros: params([folha, ...comp.resultados], '2026-04'), resultados: [], complementares: [{ instrumento: CCT, resultados: comp.resultados }] });
+        const t = sem.trabalhadores[0];
+        expect(t.erros).toEqual([]);
+        expect(txt(t.s1200!.xml, 'ideDmDev')).toEqual(['COMP202604C-M1']);
+        expect(t.s1200!.xml).not.toContain('<infoPerApur>');
+        expect(await validarPeloXsd(t.s1200!.xml, lerXsd)).toEqual({ valido: true, erros: [] });
+        expect(txt(t.s1210!.xml, 'dtPgto')).toEqual(['2026-05-06']);
+        expect(t.liquido).toBe(comp.resultados[0].totais.liquido);
+    });
+    it('rescisão complementar de desligado: verbas rescisórias e 13º com INSS próprio, de/para sugerido pela natureza; passa no XSD', async () => {
+        const deslig: FichaFuncionario = { ...FICHA, situacao: 'desligado', dados: { ...FICHA.dados, admissao: '2025-06-02', salario: '3000.00', dataDesligamento: '2026-03-20', motivoDesligamento: '02', dataProjetadaAviso: '2026-04-28' } };
+        const extra: Rubrica[] = ([['AV', 'AVISO PREVIO INDENIZADO', '6003', '1', { codIncCP: '00', codIncFGTS: '11', codIncIRRF: '00' }], ['13P', '13 SALARIO PROPORCIONAL', '6002', '1', { codIncCP: '12', codIncFGTS: '12', codIncIRRF: '12' }],
+            ['FP', 'FERIAS PROPORCIONAIS', '6006', '1', {}], ['FP13', 'TERCO FERIAS PROPORCIONAIS', '6006', '1', {}], ['13I', '13 SALARIO INDENIZADO AVISO', '6001', '1', { codIncCP: '12', codIncFGTS: '12', codIncIRRF: '12' }],
+            ['I13', 'INSS 13 SALARIO', '9201', '2', { codIncCP: '32', codIncIRRF: '42' }], ['R13', 'IRRF 13 SALARIO', '9203', '2', { codIncIRRF: '32' }]] as [string, string, string, '1' | '2', Record<string, string>][])
+            .map(([k, dsc, nat, tp, inc]) => ({ id: k, empresaId: 'E1', codRubr: k, ideTabRubr: 'T1', eventoIob: '', origem: '',
+                vigencias: [{ iniValid: '2020-01', fimValid: '', recibo: '', dados: { dscRubr: dsc, natRubr: nat, tpRubr: tp, codIncCP: '00', codIncIRRF: '09', codIncFGTS: '00', codIncCPRP: '', observacao: '', ...inc } }] }));
+        const rubricas = [...RUBRICAS, ...extra];
+        const x = diferencasDaRescisao({ fichas: [deslig], afastamentos: [], movimentos: {}, tabelas: TAB }, { pct: 10, de: '2026-01', ate: '2026-03' }, {});
+        const ins: Instrumento = { tpAcConv: 'A', dtAcConv: '2026-04-01', dsc: 'Acordo coletivo 2026' };
+        const comp = calcularComplementar({ perApur: '2026-04', pagamento: '2026-05', instrumento: ins, fichas: [deslig], gravadas: {}, tabelas: TAB, ...x });
+        expect(comp.resultados[0].situacao).toBe('calculado');
+        const p: ParametrosEsocialFolha = { nrInscEstab: CNPJ, codLotacao: 'LOT01', rubricas: Object.fromEntries(sugerirDePara(comp.resultados, rubricas, '2026-04').filter(i => i.sugestao).map(i => [i.chave, i.sugestao!])) };
+        expect(Object.fromEntries(Object.entries(p.rubricas).map(([k, r]) => [k, r.codRubr]))).toMatchObject({ AVISO: 'AV', '13PROP': '13P', FP: 'FP', FP13: 'FP13', INSS13: 'I13' });
+        const g = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-04', dataPagamento: '2026-05-06', fichas: [deslig], resultados: [], rubricas, parametros: p, complementares: [{ instrumento: ins, resultados: comp.resultados }] });
+        const t = g.trabalhadores[0];
+        expect(t.erros).toEqual([]);
+        expect(txt(t.s1200!.xml, 'perRef')).toEqual(['2026-03']);
+        expect(txt(t.s1200!.xml, 'codRubr')).toEqual(expect.arrayContaining(['AV', '13P', 'I13']));
+        expect(await validarPeloXsd(t.s1200!.xml, lerXsd)).toEqual({ valido: true, erros: [] });
     });
 });

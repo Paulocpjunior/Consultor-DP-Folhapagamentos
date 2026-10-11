@@ -13,20 +13,22 @@ const sv = vi.hoisted(() => ({
     gravar: vi.fn(async (..._a: unknown[]) => 'id'),
     excluir: vi.fn(async (_id: string) => undefined),
     convencoes: [] as unknown[],
+    movimentos: {} as Record<string, unknown>,
 }));
 vi.mock('../folhaGravadaService', () => ({ lerFolhaGravada: async (_e: string, c: string) => (sv.gravadas[c] ? { holerites: sv.gravadas[c] } : null) }));
 vi.mock('../folhaComplementarService', () => ({ listarComplementares: async () => sv.existentes, gravarComplementar: (...a: unknown[]) => sv.gravar(...a), excluirComplementar: (id: string) => sv.excluir(id) }));
+vi.mock('../movimentosService', () => ({ listarMovimentosDaEmpresa: async () => sv.movimentos }));
 vi.mock('../../sindicatos/convencoesService', () => ({ listarConvencoes: async () => sv.convencoes }));
 vi.mock('../../cadastros/cadastrosService', () => ({ listarSindicatos: async () => [{ cnpj: '11111111000191', nome: 'dos Comerciários' }], mensagemErro: (e: unknown) => String(e) }));
 import FolhaComplementarModal from '../../../components/calculo/FolhaComplementarModal';
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); sv.gravadas = {}; sv.existentes = []; sv.convencoes = []; });
+afterEach(() => { cleanup(); vi.clearAllMocks(); sv.gravadas = {}; sv.existentes = []; sv.convencoes = []; sv.movimentos = {}; });
 const TAB = TABELAS_OFICIAIS_2026.map((t, i) => ({ ...t, id: `t${i}` }));
 const FICHA: FichaFuncionario = { ...fichaVazia({ id: 'E1', cnpj: '44388152000189' }), id: 'f1', cpf: '52998224725', matriculaEsocial: 'M1', situacao: 'ativo',
     dados: { nome: 'ANA', admissao: '2024-01-02', salario: '3000.00', unidadeSalario: '5', horasSemanais: '44', categoria: '101' } };
 const mes = (c: string) => calcularMensal({ competencia: c, pagamento: c, ficha: FICHA, afastamentos: [], tabelas: TAB, folhaPagaAntesNoMes: null });
 const props = { empresa: { id: 'E1', cnpj: '44388152000189', razaoSocial: 'EMPRESA EXEMPLO', sindicatos: ['11111111000191'] }, competencia: '2026-04', pagamento: '2026-04',
-    fichas: [FICHA], tabelas: TAB, folhaDoMes: [mes('2026-04')], encerrado: false, usuario: { id: 'u', email: 'u@x' }, onPdf: vi.fn(), onFechar: () => {} };
+    fichas: [FICHA], afastamentos: [], tabelas: TAB, folhaDoMes: [mes('2026-04')], encerrado: false, usuario: { id: 'u', email: 'u@x' }, onPdf: vi.fn(), onFechar: () => {} };
 
 describe('Folha complementar (tela)', () => {
     it('usa a convenção do sindicato, calcula sobre as folhas gravadas e grava', async () => {
@@ -73,5 +75,26 @@ describe('Folha complementar (tela)', () => {
     it('competência encerrada: não grava', async () => {
         render(<FolhaComplementarModal {...props} encerrado />);
         expect((screen.getByText('Gravar a complementar') as HTMLButtonElement).disabled).toBe(true);
+    });
+    it('janeiro: 13º complementar do ano anterior pelas variáveis de dezembro (tipo J), gravado com a opção', async () => {
+        const TAB27 = [...TAB, ...TAB.filter(t => t.tipo === 'irrf' || t.tipo === 'inss').map(t => ({ ...t, id: `${t.id}-27`, vigencia: '2027-01' }))];
+        sv.movimentos = { f1: Object.fromEntries(Array.from({ length: 12 }, (_, i) => [`2026-${String(i + 1).padStart(2, '0')}`, { horasExtras50: i === 11 ? 40 : 10 }])) };
+        vi.spyOn(window, 'confirm').mockReturnValue(true);
+        render(<FolhaComplementarModal {...props} competencia="2027-01" pagamento="2027-01" tabelas={TAB27} folhaDoMes={[]} />);
+        fireEvent.click(screen.getByLabelText(/13º complementar de 2026/));
+        expect((screen.getByLabelText('Tipo do instrumento') as HTMLSelectElement).value).toBe('J');
+        expect((screen.getByLabelText('Descrição do instrumento') as HTMLInputElement).value).toMatch(/13º salário complementar de 2026/);
+        await waitFor(() => expect(screen.getByText('ANA', { selector: 'td' })).toBeTruthy());
+        expect(screen.getByText('ANA', { selector: 'td' }).closest('tr')!.textContent).toMatch(/12\/2026/);
+        fireEvent.click(screen.getByText('Gravar a complementar'));
+        await waitFor(() => expect(sv.gravar).toHaveBeenCalled());
+        expect((sv.gravar.mock.calls[0][0] as { opcoes: unknown }).opcoes).toEqual({ decimo: false, rescisoes: false, complemento13: true });
+    });
+
+    it('fora de janeiro o 13º complementar fica desabilitado; reajuste que pega dezembro libera a diferença do 13º', async () => {
+        render(<FolhaComplementarModal {...props} />);
+        expect((screen.getByLabelText(/13º complementar de dezembro/) as HTMLInputElement).disabled).toBe(true);
+        fireEvent.change(screen.getByLabelText('Reajuste de'), { target: { value: '2025-11' } });
+        expect((screen.getByLabelText(/Diferença do 13º de 2025/) as HTMLInputElement).disabled).toBe(false);
     });
 });

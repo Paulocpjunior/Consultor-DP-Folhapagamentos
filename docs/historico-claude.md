@@ -3912,3 +3912,30 @@ Paulo: "pode seguir com folha de domésticas" (caseiro, cozinheira, babá, entre
 - **Ficha:** com a categoria 104, o campo CBO sugere as funções domésticas (serviços gerais/caseiro 5121-05 e babá 5162-05 conferidos na CBO; cozinheiro, cuidador, jardineiro e motorista marcados para conferir).
 - **Catálogo SAGE:** Cálculo da Folha cita os domésticos.
 - **Testes:** mensal (FGTS + 3,2%, doença, maternidade), 13º, férias (2 períodos), rescisão (sem justa causa, pedido, contrato a termo), DAE (composição e vencimento), eSocial e o quadro do DAE.
+
+## 11/10/2026 — Rescisão e 13º complementares
+
+Paulo: "pode seguir com rescisão e 13 complementares".
+
+Tudo pela Folha complementar (Cálculo › Pagamento › Folha complementar…), conforme o MOS do S-1200:
+
+- **13º complementar** (`complemento13`, `services/calculo/complementaresMotores.ts`): na competência de janeiro, o 13º do ano anterior com as variáveis de dezembro na média (movimento gravado), menos o pago na 2ª parcela. Pago até 10/01 (Decreto 10.854/2021, art. 77). No eSocial: S-1200 de janeiro, tipo J, mês de referência 12, rubrica de natureza 5005 (MOS, item 19.2). Não é RRA.
+- **Diferença do 13º pelo reajuste** (`diferenca13DoReajuste`): quando o reajuste retroativo pega dezembro, o percentual sobre o 13º do ano, no mês de referência de dezembro (MOS, item 18.13).
+- **Rescisão complementar** (`diferencasDaRescisao`): quem foi desligado nos meses do reajuste tem a rescisão refeita com o salário (e o histórico) reajustado. As diferenças de aviso, 13º proporcional e indenizado, férias vencidas e proporcionais com 1/3 e art. 479 vão no mês do desligamento (MOS, item 18.10, exemplo 3).
+  - O saldo de salário só entra se o holerite do mês não estiver na folha gravada.
+  - O aviso indenizado é deduzido da data projetada da ficha.
+  - Correção de erro na rescisão continua sendo retificação do S-2299.
+- **INSS e IRRF do 13º** na complementar:
+  - INSS pela base própria do 13º (o pago + a diferença), pela tabela do mês;
+  - IRRF exclusivo na fonte, recalculado sobre o 13º pago + a diferença, menos o retido;
+  - rubricas INSS13 e IRRF13.
+- **Domésticos:** os 3,2% também na complementar.
+- **eSocial:**
+  - quem não está na folha do mês (desligado) passa a ter o S-1200 só com o demonstrativo das diferenças, pago na data da folha;
+  - o de/para sugere as naturezas: 5005 e 5001 para o 13º; 6003, 6002, 6001, 6006, 6007, 6004 e 6104 para as verbas rescisórias.
+- **Tela:**
+  - no reajuste, as opções "Diferença do 13º" (só quando o reajuste pega dezembro) e "Rescisões no período";
+  - em janeiro, "13º complementar", que preenche o tipo J e a descrição;
+  - as opções ficam gravadas com a complementar.
+- **Catálogo SAGE:** 13º, Rescisão e Folha Complementar atualizados.
+- **Testes:** os três cálculos, a complementar com o 13º (INSS e IRRF próprios, sem RRA em janeiro), o S-1200 do desligado no XSD (só complementar e rescisão complementar com o de/para sugerido) e a tela.

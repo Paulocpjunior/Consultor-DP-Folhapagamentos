@@ -128,6 +128,20 @@ const SUGESTAO: Record<string, { naturezas: string[]; dica?: RegExp; evita?: Reg
     ABONO13: { naturezas: ['1023'] },
     INSSFER: { naturezas: ['9201'], dica: /FERIAS/ },
     IRRFFER: { naturezas: ['9203'], dica: /FERIAS/ },
+    // Folha complementar: 13º complementar (5005, MOS S-1200, item 19.2), diferença do 13º e as verbas rescisórias de quem
+    // saiu antes do instrumento (MOS, item 18.10), nas mesmas naturezas da rescisão.
+    '13COMP': { naturezas: ['5005'] },
+    '13DIF': { naturezas: ['5001', '5005'] },
+    AVISO: { naturezas: ['6003'], dica: /AVISO/, evita: /DESC|13|FERIAS/ },
+    ART479: { naturezas: ['6104'] },
+    '13PROP': { naturezas: ['6002'] },
+    '13IND': { naturezas: ['6001'] },
+    FV: { naturezas: ['6007'], evita: /\b1 3\b|TERCO|DOBR/ },
+    FVD: { naturezas: ['6004'], evita: /\b1 3\b|TERCO/ },
+    FP: { naturezas: ['6006'], evita: /\b1 3\b|TERCO/ },
+    FV13: { naturezas: [], dica: /(\b1 3\b|TERCO).*VENC|VENC.*(\b1 3\b|TERCO)/, evita: /DOBR/ },
+    FVD13: { naturezas: [], dica: /DOBR.*(\b1 3\b|TERCO)|(\b1 3\b|TERCO).*DOBR/ },
+    FP13: { naturezas: [], dica: /(\b1 3\b|TERCO).*PROP|PROP.*(\b1 3\b|TERCO)/ },
 };
 
 const IRRF_FERIAS_DO_GOZO = new Set(['FERMES', 'FERMES13', 'FERPAGO']);
@@ -341,20 +355,25 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
 
     const porFicha = new Map(e.fichas.map(f => [f.id, f]));
     const tipoDa = new Map(e.rubricas.map(r => [`${r.ideTabRubr}|${r.codRubr}`, vigenciaEm(r, e.competencia)?.dados]));
-    const grupos = new Map<string, { ficha: FichaFuncionario; r: ResultadoCalculo }[]>();
+    // r null: só a folha complementar (desligado, ou sem holerite no mês), com o demonstrativo das diferenças.
+    const grupos = new Map<string, { ficha: FichaFuncionario; r: ResultadoCalculo | null }[]>();
+    const agrupar = (f: FichaFuncionario, r: ResultadoCalculo | null) => { const cpf = digitos(f.cpf); grupos.set(cpf, [...(grupos.get(cpf) ?? []), { ficha: f, r }]); };
     for (const r of e.resultados) {
         const f = porFicha.get(r.fichaId);
-        if (!f) continue;
-        const cpf = digitos(f.cpf);
-        grupos.set(cpf, [...(grupos.get(cpf) ?? []), { ficha: f, r }]);
+        if (f) agrupar(f, r);
+    }
+    const soComplementar = new Set<string>();
+    for (const c of e.complementares ?? []) for (const rc of c.resultados) {
+        if (e.resultados.some(r => r.fichaId === rc.fichaId) || soComplementar.has(rc.fichaId)) continue;
+        const f = porFicha.get(rc.fichaId);
+        if (!f) { avisos.push(`Complementar de ${rc.nome}: ficha não encontrada, o demonstrativo não vai.`); continue; }
+        soComplementar.add(rc.fichaId); agrupar(f, null);
     }
     const recibosDa = new Map<string, ReciboFeriasEsocial[]>();
     for (const x of e.recibosFerias ?? []) recibosDa.set(x.r.fichaId, [...(recibosDa.get(x.r.fichaId) ?? []), x]);
     for (const [fichaId, lista] of recibosDa) if (!e.resultados.some(r => r.fichaId === fichaId) && lista.some(x => x.dataPagamento.slice(0, 7) === e.competencia))
         avisos.push(`Recibo de férias de ${lista[0].r.nome} pago em ${mes(e.competencia)} sem a folha do mês calculada: o demonstrativo dele não vai.`);
     const perPgto = e.dataPagamento.slice(0, 7);
-    for (const c of e.complementares ?? []) for (const rc of c.resultados) if (!e.resultados.some(r => r.fichaId === rc.fichaId))
-        avisos.push(`Complementar de ${rc.nome} sem a folha de ${mes(e.competencia)} calculada: o demonstrativo das diferenças não vai. Calcule o funcionário na folha do mês ou transmita pelo IOB.`);
     const agora = e.agora ?? new Date();
     // O Id leva o segundo da geração e um sequencial. Começar pelo milésimo evita o mesmo Id em duas gerações no
     // mesmo segundo (ex.: o S-3000 e, gerado de novo depois, o S-1210 do mesmo trabalhador) — o pré-voo barraria.
@@ -400,7 +419,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
         if (v.codigo !== 'ADIANTPAG' && cls !== 'suspensa' && cls !== 'outra' && (cls === 'tributavel') !== v.irrf) avisar('IRRF', v.irrf, rotuloIrrf(d.codIncIRRF));
     };
     for (const [cpf, contratos] of grupos) {
-        const t: EventosDoTrabalhador = { cpf, nome: contratos[0].r.nome, fichaIds: contratos.map(c => c.ficha.id), s1200: null, liquido: 0, erros: [], avisos: [],
+        const t: EventosDoTrabalhador = { cpf, nome: contratos[0].r?.nome ?? (contratos[0].ficha.dados.nome || cpf), fichaIds: contratos.map(c => c.ficha.id), s1200: null, liquido: 0, erros: [], avisos: [],
             retifica1200: e.retificacao?.s1200.get(cpf), perApur: perPgto, s1210: null, exclusao1210: null, existente1210: e.retificacao?.s1210.get(cpf), outrosPagamentos: 0,
             outrosMeses: [], recibosFerias: 0 };
         trabalhadores.push(t);
@@ -462,8 +481,37 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                 + '</remunPerAnt></ideEstabLot></idePeriodo>').join('')
             + '</ideADC></infoPerAnt></dmDev>';
         const infoPgto = (data: string, ide: string, liquido: number) => `<infoPgto><dtPgto>${data}</dtPgto><tpPgto>1</tpPgto><perRef>${e.competencia}</perRef><ideDmDev>${esc(ide)}</ideDmDev><vrLiq>${valor(Math.max(0, liquido))}</vrLiq></infoPgto>`;
+        /** Demonstrativos da folha complementar do funcionário (infoPerAnt), pagos com a folha. */
+        const complementaresDe = (f: FichaFuncionario, categ: string, mat: string, quem: string) => {
+            for (const c of e.complementares ?? []) {
+                const rc = c.resultados.find(x => x.fichaId === f.id);
+                if (!rc) continue;
+                const qual = `Complementar (${c.instrumento.tpAcConv})${quem}`;
+                if (anual) { t.erros.push(`${qual}: vai no S-1200 mensal, não no do 13º.`); continue; }
+                if (rc.situacao !== 'calculado') { t.erros.push(`${qual} ${rc.situacao === 'erro' ? 'com erro' : 'incompleta'}: ${[...rc.erros, ...rc.avisos].join(' ') || 'confira o cálculo'}.`); continue; }
+                if (rc.competencia !== e.competencia) { t.erros.push(`${qual} é da competência ${mes(rc.competencia)}, não de ${mes(e.competencia)}.`); continue; }
+                if (rc.pagamento !== perPgto) { t.erros.push(`${qual} calculada com pagamento em ${mes(rc.pagamento)}, e a folha é paga em ${br(e.dataPagamento)}: recalcule a complementar com o mês do pagamento da folha.`); continue; }
+                const periodos = rc.meses.filter(m => m.verbas.length).map(m => ({ perRef: m.perRef, itens: itensDe(m.verbas.map(v => ({ ...v, referencia: '' }))) }));
+                if (!periodos.length) continue;
+                if (periodos.length > 180) { t.erros.push(`${qual}: mais de 180 meses de referência.`); continue; }
+                const ideC = unico(ideDmDevComplementar(e.competencia, c.instrumento.tpAcConv, mat));
+                dmDevs.push(dmDevPerAnt(ideC, categ, f, c.instrumento, periodos));
+                pagamentos.push({ mes: perPgto, xml: infoPgto(e.dataPagamento, ideC, rc.totais.liquido) });
+                t.liquido += rc.totais.liquido;
+            }
+        };
         for (const { ficha: f, r } of contratos) {
             const quem = contratos.length > 1 ? ` (matrícula ${f.matriculaEsocial || '?'})` : '';
+            if (!r) {
+                // Só a complementar (desligado ou fora da folha do mês): o demonstrativo das diferenças, pago na data da folha.
+                const categ = digitos(f.dados.categoria);
+                if (!f.matriculaEsocial.trim()) t.erros.push(`Sem matrícula do eSocial na ficha${quem}.`);
+                if (!/^\d{3}$/.test(categ)) { t.erros.push(`Categoria do eSocial (3 dígitos) em branco na ficha${quem}.`); continue; }
+                if (categ === '104') { t.erros.push(`Empregado doméstico${quem}: a folha vai pelo eSocial Doméstico (módulo web).`); continue; }
+                if (f.dependentes.some(x => x.irrf === 'S' && x.pensao !== 'S')) t.avisos.push(`Complementar sem a folha do mês${quem}: o IRRF dela deduziu os dependentes, e a dedução não vai no S-1210. Confira o IRRF no S-5002.`);
+                complementaresDe(f, categ, f.matriculaEsocial.trim(), quem);
+                continue;
+            }
             if (r.situacao !== 'calculado') { t.erros.push(`Cálculo ${r.situacao === 'erro' ? 'com erro' : 'incompleto'}${quem}: ${[...r.erros, ...r.avisos].join(' ') || 'confira o holerite'}.`); continue; }
             // IRRF do adiantamento é do CPF no mês; com dois contratos, cada um foi calculado sozinho (Codex #118).
             if (contratos.length > 1 && r.irrfAdiantamento !== undefined && !r.irrfAdiantamentoCpf) { t.erros.push(`IRRF do adiantamento com mais de um contrato no CPF${quem}: o Consultor ainda calcula cada contrato sozinho. Confira pelo IOB.`); continue; }
@@ -513,22 +561,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             t.liquido += r.totais.liquido;
 
             // Folha complementar: diferenças de meses anteriores, paga com a folha (o IRRF dela somou o da folha).
-            for (const c of e.complementares ?? []) {
-                const rc = c.resultados.find(x => x.fichaId === f.id);
-                if (!rc) continue;
-                const qual = `Complementar (${c.instrumento.tpAcConv})${quem}`;
-                if (anual) { t.erros.push(`${qual}: vai no S-1200 mensal, não no do 13º.`); continue; }
-                if (rc.situacao !== 'calculado') { t.erros.push(`${qual} ${rc.situacao === 'erro' ? 'com erro' : 'incompleta'}: ${[...rc.erros, ...rc.avisos].join(' ') || 'confira o cálculo'}.`); continue; }
-                if (rc.competencia !== e.competencia) { t.erros.push(`${qual} é da competência ${mes(rc.competencia)}, não de ${mes(e.competencia)}.`); continue; }
-                if (rc.pagamento !== perPgto) { t.erros.push(`${qual} calculada com pagamento em ${mes(rc.pagamento)}, e a folha é paga em ${br(e.dataPagamento)}: recalcule a complementar com o mês do pagamento da folha.`); continue; }
-                const periodos = rc.meses.filter(m => m.verbas.length).map(m => ({ perRef: m.perRef, itens: itensDe(m.verbas.map(v => ({ ...v, referencia: '' }))) }));
-                if (!periodos.length) continue;
-                if (periodos.length > 180) { t.erros.push(`${qual}: mais de 180 meses de referência.`); continue; }
-                const ideC = unico(ideDmDevComplementar(e.competencia, c.instrumento.tpAcConv, mat));
-                dmDevs.push(dmDevPerAnt(ideC, categ, f, c.instrumento, periodos));
-                pagamentos.push({ mes: perPgto, xml: infoPgto(e.dataPagamento, ideC, rc.totais.liquido) });
-                t.liquido += rc.totais.liquido;
-            }
+            complementaresDe(f, categ, mat, quem);
 
             // Adiantamento salarial: demonstrativo próprio, pago na data do adiantamento (MOS S-1200, item 3.4).
             const adiant = adiantamentoDoMes(r);
@@ -625,9 +658,9 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             else if (t.retifica1200) t.avisos.push(`Nenhum S-1210 de ${mes(m)} carregado: se o pagamento desta folha já foi informado (inclusive em outro mês), carregue o download com ele; o eSocial recusa retificar o S-1200 enquanto um S-1210 aponta para ele.`);
             // O IRRF do adiantamento somou a folha anterior, paga neste mês: o S-1210 dele tem de levar esse pagamento junto,
             // senão substituiria o aceito sem ele (ou o omitiria). Sem o S-1210 do mês com a folha anterior, não sai (Codex #118).
-            const anterior = m === e.competencia && m !== perPgto ? contratos.find(c => c.r.irrfAdiantamentoFolha)?.r.irrfAdiantamentoFolha : undefined;
+            const anterior = m === e.competencia && m !== perPgto ? contratos.find(c => c.r?.irrfAdiantamentoFolha)?.r?.irrfAdiantamentoFolha : undefined;
             // A folha mensal anterior em si (ideDmDev do Consultor, ou o "…MENS" do IOB), não outro pagamento da competência (Codex #118).
-            const matAnt = contratos.find(c => c.r.irrfAdiantamentoFolha)?.ficha.matriculaEsocial ?? '';
+            const matAnt = contratos.find(c => c.r?.irrfAdiantamentoFolha)?.ficha.matriculaEsocial ?? '';
             const ehFolhaAnterior = (pg: { perRef: string; ideDmDev: string; tpPgto: string }) => pg.tpPgto === '1' && pg.perRef === anterior
                 && (pg.ideDmDev === ideDmDev(anterior ?? '', matAnt) || /MENS$/i.test(pg.ideDmDev));
             if (anterior && !(ex?.pagamentos ?? []).some(ehFolhaAnterior))
@@ -640,6 +673,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
         // Dependentes deduzidos no IRRF do adiantamento sem folha anterior no mês: vão no S-1210 do mês do adiantamento (Codex #118).
         const dedDepAdi = new Map<string, number>(); const infoDepAdi = new Map<string, Dependente>();
         for (const { ficha: f, r } of contratos) {
+            if (!r) continue;
             const d = r.deducoesIrrf;
             if (d && !d.simplificado && d.porDependente > 0) for (const dep of d.dependentes) {
                 const cpfDep = digitos(dep.cpf);
