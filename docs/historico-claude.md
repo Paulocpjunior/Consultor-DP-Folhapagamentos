@@ -4686,3 +4686,26 @@ Décimo dos parciais da auditoria (Gerenciador de Sistemas › Empresas › Par�
   - o sistema de cada competência (GFIP/SEFIP antes, DCTFWeb/FGTS Digital depois, indefinido sem a DCTFWeb);
   - o diagnóstico;
   - a tela, que grava sem apagar os outros parâmetros.
+
+## 11/10/2026 — Fórmula própria por evento
+
+Décimo primeiro dos parciais da auditoria (Arquivos › Eventos › Cadastro do SAGE).
+
+- **Cadastros › Eventos IOB › Fórmulas da empresa** (`services/calculo/formulaEvento.ts`, nos parâmetros da folha da empresa):
+  - para um código de evento do IOB, a conta própria da empresa ativa, no lugar da rotina do cadastro;
+  - a fórmula usa:
+    - variáveis REF (a referência digitada), SALARIO, SALARIO_HORA, SALARIO_DIA, HORAS_MES e COEF;
+    - as quatro operações, parênteses e vírgula decimal;
+    - as funções MIN, MAX e ARRED;
+  - a referência pode ser lida em horas, dias, %, valor ou nenhuma;
+  - a tela mostra o exemplo na hora (salário de R$ 3.000,00 e referência 10) e grava, substitui e remove.
+- **Avaliador próprio, sem eval:**
+  - qualquer coisa fora das variáveis, números e operações vira erro em português (variável desconhecida, parêntese, divisão por zero, caractere não permitido);
+  - valor menor ou igual a zero é recusado.
+- **Uso:** o "Lançar evento" do Cálculo (o campo da referência segue a fórmula) e a importação de valores calculam pela fórmula. O resultado vai como lançamento avulso com as incidências do evento.
+- **Catálogo SAGE:** `arq-eventos` passa a disponível. Agora são 46 disponíveis e 5 parciais.
+- **Testes:**
+  - o avaliador: contas, precedência, funções e erros, inclusive tentativas de código;
+  - o Lançar evento com e sem referência, sem salário e com valor negativo;
+  - a importação com fórmula;
+  - a tela.

@@ -15,6 +15,7 @@ import {
 } from '../../services/folha/folhaFirestoreService';
 import EventoEditModal from './EventoEditModal';
 import HistoricoEventosModal from './HistoricoEventosModal';
+import FormulasEventosEmpresa from './FormulasEventosEmpresa';
 
 interface Props {
     currentUser: User;
@@ -223,6 +224,7 @@ const EventosIobSagePanel: React.FC<Props> = ({ currentUser }) => {
 
     return (
         <div>
+            <FormulasEventosEmpresa eventos={catalogo?.eventos ?? []} />
             {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                 <StatCard label="Total no catálogo" valor={stats.total} />

@@ -6,6 +6,7 @@
 // o que foi digitado e ainda não salvo fica marcado. O resultado do cálculo
 // não é gravado: serve para conferir o motor contra o holerite do IOB.
 
+import type { FormulaEvento } from '../../services/calculo/formulaEvento';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import type { Empresa } from '../../services/empresas/empresasTypes';
@@ -684,6 +685,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
     }
 
     return (
+        <FormulasContexto.Provider value={parametrosFolha?.formulasEventos}>
         <PdfContexto.Provider value={r => pdfHolerites([r], `holerite-${empresa?.codigoSage ?? 'empresa'}-${sufixoArquivo}-${(nomeDe(r.fichaId) || r.fichaId).replace(/[^A-Za-z0-9]+/g, '-').toLowerCase()}.pdf`)}>
         <div className="space-y-4">
             {homologado ? (
@@ -1296,10 +1298,13 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
             )}
         </div>
         </PdfContexto.Provider>
+        </FormulasContexto.Provider>
     );
 };
 
 const PdfContexto = React.createContext<((r: ResultadoCalculo) => void) | null>(null);
+/** Fórmulas próprias da empresa por código de evento (Cadastros › Eventos IOB), para o "Lançar evento". */
+const FormulasContexto = React.createContext<Record<string, FormulaEvento> | undefined>(undefined);
 
 /** "Lançar evento" como no Sage: código do evento do IOB + referência; o Consultor calcula e põe no movimento. */
 const LancarEvento: React.FC<{ mov: Movimento; salario: SalarioDoMes | null; lancado: string; onLancar: (m: Movimento, mensagem: string) => void }> = ({ mov, salario, lancado, onLancar }) => {
@@ -1308,9 +1313,11 @@ const LancarEvento: React.FC<{ mov: Movimento; salario: SalarioDoMes | null; lan
     const [ref, setRef] = useState('');
     const [erro, setErro] = useState('');
     const carregar = () => { if (!eventos) carregarEventosIob().then(setEventos).catch(() => setErro('Não foi possível carregar o catálogo de eventos do IOB.')); };
+    const formulas = React.useContext(FormulasContexto);
     const ev = eventos ? eventoPorCodigo(eventos, codigo) : null;
-    const tipo = ev ? tipoDaReferencia(ev) : null;
-    const rotulo = { horas: 'Horas (8,5 ou 8:30)', dias: 'Dias', percentual: '%', valor: 'Valor (R$)' };
+    const formula = ev ? formulas?.[ev.codigo] : undefined;
+    const tipo = ev ? (formula ? formula.referencia : tipoDaReferencia(ev)) : null;
+    const rotulo = { horas: 'Horas (8,5 ou 8:30)', dias: 'Dias', percentual: '%', valor: 'Valor (R$)', nenhuma: 'Sem referência' };
     const lancar = async () => {
         setErro('');
         const lista = eventos ?? await carregarEventosIob().catch(() => null);
@@ -1318,9 +1325,11 @@ const LancarEvento: React.FC<{ mov: Movimento; salario: SalarioDoMes | null; lan
         if (!eventos) setEventos(lista);
         const e = eventoPorCodigo(lista, codigo);
         if (!e) { setErro(codigo.trim() ? `Evento ${codigo.trim()} não está no catálogo do IOB (Cadastros › Eventos IOB).` : 'Informe o código do evento.'); return; }
-        const n = lerReferencia(ref, tipoDaReferencia(e));
+        const f = formulas?.[e.codigo];
+        const tipoRef = f ? f.referencia : tipoDaReferencia(e);
+        const n = tipoRef === 'nenhuma' ? 0 : lerReferencia(ref, tipoRef);
         if (n === null) { setErro('Referência inválida.'); return; }
-        const res = lancarEvento(e, n, salario, mov);
+        const res = lancarEvento(e, n, salario, mov, f);
         if ('erro' in res) setErro(res.erro);
         else onLancar(res.movimento, res.mensagem);
     };
@@ -1332,7 +1341,7 @@ const LancarEvento: React.FC<{ mov: Movimento; salario: SalarioDoMes | null; lan
                     onFocus={carregar} onChange={e => { setCodigo(e.target.value); setErro(''); }} /></label>
                 <label>{tipo ? rotulo[tipo] : 'Referência'}<input aria-label="Referência do evento" className={`mt-0.5 block w-24 ${inp}`} value={ref} onChange={e => { setRef(e.target.value); setErro(''); }} /></label>
                 <button type="submit" className="rounded border border-slate-300 px-2 py-1 dark:border-slate-600 dark:text-white">Lançar</button>
-                {ev && <span className="pb-1 text-slate-500 dark:text-slate-400">{ev.descricao} · {ev.tipo === 'V' ? 'provento' : ev.tipo === 'D' ? 'desconto' : 'informativo'}</span>}
+                {ev && <span className="pb-1 text-slate-500 dark:text-slate-400">{ev.descricao} · {ev.tipo === 'V' ? 'provento' : ev.tipo === 'D' ? 'desconto' : 'informativo'}{formula ? ` · fórmula da empresa: ${formula.expressao}` : ''}</span>}
             </form>
             {erro && <p role="alert" className="mt-1 text-xs text-red-700 dark:text-red-300">{erro}</p>}
             {lancado && !erro && <p role="status" className="mt-1 text-xs text-green-700 dark:text-green-300">{lancado}</p>}

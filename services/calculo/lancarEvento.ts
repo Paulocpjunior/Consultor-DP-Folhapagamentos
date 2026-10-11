@@ -11,6 +11,7 @@ import { reais } from '../cadastros/documentos';
 import type { EventoIobSage } from '../folha/folhaTypes';
 import type { CampoNumerico } from './movimento';
 import type { Lancamento, Movimento } from './motorMensal';
+import { avaliarFormula, variaveisDaFormula, type FormulaEvento } from './formulaEvento';
 
 export interface SalarioDoMes { mensal: number; horasMes: number }
 export type Lancado = { movimento: Movimento; mensagem: string } | { erro: string };
@@ -130,7 +131,7 @@ function valorPelaRotina(ev: EventoIobSage, ref: number, sal: SalarioDoMes | nul
  * Lança o evento no movimento. Campos próprios são substituídos (como no Sage, o evento vale uma vez por mês);
  * o lançamento avulso do mesmo código também.
  */
-export function lancarEvento(ev: EventoIobSage, ref: number, sal: SalarioDoMes | null, mov: Movimento): Lancado {
+export function lancarEvento(ev: EventoIobSage, ref: number, sal: SalarioDoMes | null, mov: Movimento, formula?: FormulaEvento): Lancado {
     const titulo = `${ev.codigo} ${ev.descricao}`;
     // O tipo do cadastro é V ou D, mas o catálogo extraído do PDF do IOB tem eventos com N (informativo) e S.
     const tipoNoCadastro: string = ev.tipo;
@@ -138,6 +139,17 @@ export function lancarEvento(ev: EventoIobSage, ref: number, sal: SalarioDoMes |
     if (ev.tipo !== 'V' && ev.tipo !== 'D') return { erro: `Evento ${titulo}: o tipo "${ev.tipo}" do cadastro não é vencimento (V) nem desconto (D). Corrija em Cadastros › Eventos IOB ou use lançamento avulso.` };
     const calc = calculadoPeloConsultor(ev);
     if (calc) return { erro: `Evento ${titulo}: ${calc}.` };
+    // Fórmula própria da empresa (Cadastros › Eventos IOB): vale sobre a rotina e vai como lançamento avulso.
+    if (formula) {
+        if (formula.referencia !== 'nenhuma' && !(ref > 0)) return { erro: 'Informe a referência (maior que zero).' };
+        const usaSalario = /\bSALARIO/i.test(formula.expressao);
+        if (usaSalario && !sal) return { erro: 'Ficha sem salário: a fórmula do evento usa o salário.' };
+        const r = avaliarFormula(formula.expressao, variaveisDaFormula(ref, formula.referencia, sal, ev.coeficiente));
+        if ('erro' in r) return { erro: `Evento ${titulo}: fórmula "${formula.expressao}": ${r.erro}` };
+        const valor = Math.round(r.valor * 100);
+        if (!(valor > 0)) return { erro: `Evento ${titulo}: a fórmula "${formula.expressao}" dá ${reais(valor)}.` };
+        return avulso(ev, titulo, valor, `fórmula ${formula.expressao}${formula.referencia !== 'nenhuma' ? ` com REF ${formula.referencia === 'valor' ? reais(Math.round(ref)) : num(ref)}` : ''}`, mov);
+    }
     if (!(ref > 0)) return { erro: 'Informe a referência (maior que zero).' };
     const tipo = tipoDaReferencia(ev);
 
@@ -180,13 +192,18 @@ export function lancarEvento(ev: EventoIobSage, ref: number, sal: SalarioDoMes |
     const v = valorPelaRotina(ev, ref, sal);
     if ('erro' in v) return v;
     if (!(v.valor > 0)) return { erro: `Evento ${titulo}: o valor calculado é zero.` };
-    const l: Lancamento = { descricao: titulo, tipo: ev.tipo === 'V' ? 'provento' : 'desconto', valor: v.valor, inss: ev.incidencias.in === 'S', fgts: ev.incidencias.fg === 'S', irrf: ev.incidencias.ir === 'S' };
+    return avulso(ev, titulo, v.valor, v.memoria, mov);
+}
+
+/** Lançamento avulso com as incidências do evento; o do mesmo código no mês é substituído. */
+function avulso(ev: EventoIobSage, titulo: string, valor: number, memoria: string, mov: Movimento): Lancado {
+    const l: Lancamento = { descricao: titulo, tipo: ev.tipo === 'V' ? 'provento' : 'desconto', valor, inss: ev.incidencias.in === 'S', fgts: ev.incidencias.fg === 'S', irrf: ev.incidencias.ir === 'S' };
     const lancs = mov.lancamentos ?? [];
     const i = lancs.findIndex(x => x.descricao.startsWith(`${ev.codigo} `));
     const inc = (['inss', 'fgts', 'irrf'] as const).filter(k => l[k]).map(k => k.toUpperCase()).join(', ') || 'sem incidências';
     return {
         movimento: { ...mov, lancamentos: i >= 0 ? lancs.map((x, j) => (j === i ? l : x)) : [...lancs, l] },
-        mensagem: `${titulo}: ${l.tipo} de ${reais(v.valor)} (${v.memoria}; ${inc})${i >= 0 ? `; substituiu ${reais(lancs[i].valor)}` : ''}.`,
+        mensagem: `${titulo}: ${l.tipo} de ${reais(valor)} (${memoria}; ${inc})${i >= 0 ? `; substituiu ${reais(lancs[i].valor)}` : ''}.`,
     };
 }
 
