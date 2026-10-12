@@ -4,7 +4,7 @@ import { calcularRescisao } from '../../calculo/motorRescisao';
 import { TABELAS_OFICIAIS_2026 } from '../../cadastros/tabelasOficiais';
 import { fichaVazia, type FichaFuncionario } from '../../cadastros/funcionarios';
 import type { Rubrica } from '../../cadastros/rubricas';
-import { chaveVerbaRescisao, gerarS2299, ideDmDevRescisao, prazoS2299, refDesligamento, rubricaDaVerba, sugerirDeParaRescisao } from '../desligamento';
+import { afastamentoQueImpede, chaveVerbaRescisao, gerarS2299, MOTIVOS_COM_AFASTADO, ideDmDevRescisao, prazoS2299, refDesligamento, rubricaDaVerba, sugerirDeParaRescisao } from '../desligamento';
 import type { ParametrosEsocialFolha } from '../eventosFolha';
 import { statusPorRef } from '../statusEvento';
 import { validarPeloXsd } from '../validadorXsd';
@@ -154,5 +154,28 @@ describe('S-2299 dos motivos 05, 10 e 17', () => {
             expect(g.avisos.join(' ')).not.toMatch(/parte trabalhada/);
             expect(await validarPeloXsd(g.evento!.xml, lerXsd)).toEqual({ valido: true, erros: [] });
         }
+    });
+
+    it('afastado (inclusive férias) só com os motivos da regra do eSocial; a data é a do fim projetado do aviso', () => {
+        const r = calcularRescisao({ ficha: FICHA, data: '2026-10-05', tipo: '02', aviso: 'indenizado', afastamentos: [], tabelas: TAB, movimentos: {} });
+        const ferias = { id: 'g', fichaId: FICHA.id, dtInicio: '2026-10-20', dtFim: '2026-11-18', motivo: '15' } as never;
+        const emFerias = { id: 'h', fichaId: FICHA.id, dtInicio: '2026-10-01', dtFim: '2026-12-30', motivo: '15' } as never;
+        // Férias que acabam antes do fim projetado do aviso não impedem: a regra olha a maior das duas datas.
+        expect(gerarS2299({ cnpj: CNPJ, tpAmb: 2, ficha: FICHA, rescisao: r, rubricas: RUBRICAS, parametros: comSugestoes(FOLHA, r), afastamentos: [{ ...(emFerias as object), dtFim: r.dataProjetada.replace(/..$/, '01') } as never] }).erros.join(' ')).not.toMatch(/REGRA_DESLIG/);
+        const g = gerarS2299({ cnpj: CNPJ, tpAmb: 2, ficha: FICHA, rescisao: r, rubricas: RUBRICAS, parametros: comSugestoes(FOLHA, r), afastamentos: [emFerias] });
+        expect(g.evento).toBeNull();
+        expect(g.erros.join(' ')).toMatch(/o trabalhador está em férias .*Desligue depois do fim das férias/);
+        const sem = gerarS2299({ cnpj: CNPJ, tpAmb: 2, ficha: FICHA, rescisao: r, rubricas: RUBRICAS, parametros: comSugestoes(FOLHA, r), afastamentos: [] });
+        expect(sem.erros.join(' ')).not.toMatch(/REGRA_DESLIG_TRABALHADOR_AFASTADO/);
+        expect(afastamentoQueImpede([ferias], FICHA.id, '02', '2026-10-25')?.texto).toMatch(/^Em 25\/10\/2026 o trabalhador está em férias \(15 - /);
+        expect(afastamentoQueImpede([ferias], FICHA.id, '07', '2026-10-25')).toBeNull();
+        expect(afastamentoQueImpede([ferias], FICHA.id, '47', '2026-10-25')).toBeNull();
+        expect(afastamentoQueImpede([ferias], 'outra', '02', '2026-10-25')).toBeNull();
+        expect(afastamentoQueImpede([ferias], FICHA.id, '02', '2026-10-10')).toBeNull();
+        expect(afastamentoQueImpede([ferias], FICHA.id, '02', '2026-10-10', '2026-11-18')?.data).toBe('2026-11-18');
+        expect(afastamentoQueImpede([ferias], FICHA.id, '02', '2026-10-10', '2026-11-19')).toBeNull();
+        const doenca = { id: 'd', fichaId: FICHA.id, dtInicio: '2026-09-01', dtFim: '', motivo: '03' } as never;
+        expect(afastamentoQueImpede([doenca], FICHA.id, '33', '2026-10-05')?.texto).toMatch(/sem data de fim.*Informe o fim do afastamento/);
+        expect(MOTIVOS_COM_AFASTADO).toHaveLength(30);
     });
 });

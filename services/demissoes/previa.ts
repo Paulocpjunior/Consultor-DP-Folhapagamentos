@@ -16,6 +16,7 @@ import { salarioContratual, type Movimento } from '../calculo/motorMensal';
 import type { OpcoesIrrf } from '../calculo/tributos';
 import { fichaNaData, type FichaFuncionario } from '../cadastros/funcionarios';
 import { emAberto, rotuloMotivo, type Afastamento } from '../cadastros/afastamentos';
+import { afastamentoQueImpede } from '../esocial/desligamento';
 import type { TabelaLegal } from '../cadastros/tabelasLegais';
 import type { Sindicato } from '../cadastros/sindicatos';
 import { calcularPatronal, type Enquadramento, type Patronal } from '../cadastros/enquadramento';
@@ -116,8 +117,12 @@ export function indenizacaoDataBase(r: Pick<ResultadoRescisao, 'tipo' | 'data' |
 /** Alertas que mudam a decisão (fora as do próprio cálculo, que vêm em r.avisos). */
 export function alertasDaDemissao(e: Pick<EntradaPrevia, 'ficha' | 'afastamentos' | 'sindicato'>, c: CenarioDemissao, r: ResultadoRescisao): string[] {
     const a: string[] = []; const d = e.ficha.dados;
+    // Regra do eSocial (REGRA_DESLIG_TRABALHADOR_AFASTADO): afastado (inclusive em férias) só com alguns motivos.
+    const impede = afastamentoQueImpede(e.afastamentos, e.ficha.id, c.tipo, c.data, r.dataProjetada);
+    if (impede) a.push(impede.texto);
     const aberto = e.afastamentos.find(x => x.motivo !== '15' && emAberto(x, c.data));
-    if (aberto) a.push(`Afastado em ${br(c.data)} (${rotuloMotivo(aberto.motivo)}, desde ${br(aberto.dtInicio)}): o eSocial só aceita o desligamento depois do fim do afastamento, salvo pedido de demissão e outras exceções do MOS. Confira estabilidade (acidente de trabalho: 12 meses, Lei 8.213/1991, art. 118).`);
+    if (aberto && !impede) a.push(`Afastado em ${br(c.data)} (${rotuloMotivo(aberto.motivo)}, desde ${br(aberto.dtInicio)}): o eSocial aceita o motivo ${c.tipo} com o afastamento. Confira estabilidade (acidente de trabalho: 12 meses, Lei 8.213/1991, art. 118).`);
+    else if (aberto) a.push('Confira estabilidade (acidente de trabalho: 12 meses, Lei 8.213/1991, art. 118).');
     if (d.tipoContrato && d.tipoContrato !== '1' && d.fimContrato && d.fimContrato > c.data) {
         if (c.tipo === '02' || c.tipo === '07') a.push(`Contrato a termo até ${br(d.fimContrato)}: o término antecipado é o motivo 03 (pelo empregador, art. 479) ou 04 (pelo empregado, art. 480), salvo cláusula de rescisão antecipada (art. 481).`);
     }
