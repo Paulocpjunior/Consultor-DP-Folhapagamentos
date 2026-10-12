@@ -5368,3 +5368,14 @@ Paulo: *"podemos fazer o P2 usando o terminal do meu mac"* (12/10).
 - **Paulo:** "você não pode alterar os dados já inseridos! Esse sistema é verídico" e "sim, deve reverter".
 - **Feito:** os arquivos de teste e as fixtures voltaram a ser exatamente como estavam antes do #238. O #238 não tinha mexido em dados do sistema (Firestore, eSocial ou backups reais), só em cópias usadas pelos testes.
 - **Regra:** nada que envolva dados reais, nem em arquivos de teste, sem confirmação explícita do Paulo.
+
+## 12/10/2026 — Ícones do menu de volta, versão e data no cabeçalho, novidades a qualquer momento
+
+- **Paulo (print do iPad):** "Aonde você colocou os ícones que estavam ao lado do nome dos botões? Os ícones são fundamentais para a memorização dos colaboradores. Também não está disponível a versão do sistema e data. Você também retirou o popup de informações das atualizações publicadas."
+- **Causa:** no #236 o ícone de cada grupo do menu passou a aparecer só em tela de 1280px ou mais, para o menu caber. No iPad ele sumia.
+- **Agora:**
+  - o ícone aparece em qualquer largura. O espaçamento ficou mais justo abaixo de 1280px, e o menu inteiro cabe a partir de cerca de 1000px. Se não couber, o menu rola na própria linha, sem esconder ícones;
+  - abaixo de "SP Assessoria" aparece a versão e a data e hora da publicação (horário de Brasília), por exemplo "v2.4.0 · 12/10/2026 18:05". Clicar abre o popup "Novidades do Consultor DP" com as últimas atualizações publicadas. Se houver versão nova esperando, abre o aviso dela;
+  - o login mostra versão, release e data;
+  - o popup automático não tinha sido retirado: ele aparece uma vez por navegador quando entra uma versão nova (conferido no build, com a lista do que mudou). O botão da versão é para revê-lo quando quiser.
+- **Testes:** 4 casos novos em `updateAviso.test.tsx`. Conferido no navegador em 390, 820, 1024, 1180, 1280 e 1440px: 9 ícones em todas as larguras, sem rolagem da página.

@@ -97,3 +97,45 @@ describe('popup de atualização', () => {
         expect(localStorage.getItem('spc_update_ultima_build_vista')).toBe('aaa1111');
     });
 });
+
+describe('novidades pelo botão da versão (cabeçalho)', () => {
+    beforeEach(() => { localStorage.clear(); svc.remotoAtual = null; localStorage.setItem('spc_update_ultima_build_vista', 'aaa1111'); });
+    afterEach(() => cleanup());
+
+    it('abre a lista das últimas novidades publicadas e fecha', async () => {
+        const { abrirNovidades } = await import('../updateService');
+        svc.remotoAtual = { ...REMOTO, build: 'aaa1111' };
+        render(<UpdateBanner />);
+        await act(async () => { abrirNovidades(); });
+        const d = await screen.findByRole('dialog', { name: 'Novidades do Consultor DP' });
+        expect(d.textContent).toContain('Versão 2.4.0');
+        expect(d.textContent).toContain('Ficha pelo eSocial que o IOB transmitiu');
+        expect(d.textContent).toContain('Boas-vindas antes do portão');
+        fireEvent.click(screen.getByRole('button', { name: 'Fechar' }));
+        expect(screen.queryByRole('dialog')).toBeNull();
+    });
+
+    it('sem o version.json, avisa que não carregou (não mostra lista vazia como se nada tivesse mudado)', async () => {
+        const { abrirNovidades } = await import('../updateService');
+        render(<UpdateBanner />);
+        await act(async () => { abrirNovidades(); });
+        expect((await screen.findByRole('dialog')).textContent).toContain('Não foi possível carregar a lista de novidades');
+    });
+
+    it('com versão nova esperando, o botão abre o aviso dela', async () => {
+        const { abrirNovidades } = await import('../updateService');
+        render(<UpdateBanner />);
+        act(() => svc.listener!(REMOTO));
+        fireEvent.click(screen.getByRole('button', { name: /Depois/ }));
+        expect(screen.queryByRole('alertdialog')).toBeNull();
+        await act(async () => { abrirNovidades(); });
+        expect(screen.getByRole('alertdialog', { name: 'Nova versão do Consultor DP' })).toBeTruthy();
+    });
+
+    it('data da versão no fuso de Brasília; sem builtAt, pela release', async () => {
+        const { dataDaVersao } = await import('../updateService');
+        expect(dataDaVersao('2026-10-12T21:40:00Z', '')).toBe('12/10/2026 18:40');
+        expect(dataDaVersao('', '20261012-007')).toBe('12/10/2026');
+        expect(dataDaVersao('', '')).toBe('');
+    });
+});

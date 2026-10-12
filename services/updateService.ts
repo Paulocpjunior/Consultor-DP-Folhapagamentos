@@ -26,6 +26,23 @@ export const APP_INFO = Object.freeze({
     builtAt: APP_BUILT_AT,
 });
 
+/** Data e hora da build no fuso de Brasília (ex.: "12/10/2026 18:40"); sem builtAt, a data da release. */
+export function dataDaVersao(builtAt: string = APP_BUILT_AT, release: string = APP_RELEASE): string {
+    const d = builtAt ? new Date(builtAt) : null;
+    if (d && !Number.isNaN(d.getTime())) {
+        const fmt = (o: Intl.DateTimeFormatOptions) => d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', ...o });
+        return `${fmt({ day: '2-digit', month: '2-digit', year: 'numeric' })} ${fmt({ hour: '2-digit', minute: '2-digit' })}`;
+    }
+    const m = /^(\d{4})(\d{2})(\d{2})/.exec(release);
+    return m ? `${m[3]}/${m[2]}/${m[1]}` : '';
+}
+
+/** Pede ao UpdateBanner o popup com as novidades publicadas (botão da versão no cabeçalho). */
+export const EVENTO_NOVIDADES = 'spc:novidades';
+export function abrirNovidades(): void {
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event(EVENTO_NOVIDADES));
+}
+
 /** Uma mudança publicada (commit do main), gerada no build por scripts/genVersion.mjs. */
 export interface Novidade {
     build: string;
