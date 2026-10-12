@@ -5231,3 +5231,19 @@ Paulo: *"podemos fazer o P2 usando o terminal do meu mac"* (12/10).
   - todas em Node 24. O upload-pages-artifact@v5 usa por dentro um upload-artifact em Node 24; ele passa a deixar de fora os arquivos ocultos, e o `public/` não tem nenhum.
 - **Ambiente:** `runs-on: ubuntu-24.04` em vez de `ubuntu-latest`, para a troca do Ubuntu não chegar de surpresa. A mudança para o 26 vira decisão, com teste.
 - A mesma mudança foi feita no CFI e na sp-plataforma.
+
+## 12/10/2026 — Pré-voo: regras oficiais que dependem das rubricas (S-1010)
+
+- **Fonte:** "Regras de validação" do leiaute S-1.3 (NT 07/2026 rev. 24/09/2026), no gov.br. O evento de cada regra foi conferido na página dos leiautes.
+- **Novo em `regrasOficiais.ts` (`regrasDasRubricas`)**, para S-1200, S-1202, S-1207, S-2299 e S-2399, demonstrativo por demonstrativo:
+  - **REGRA_DEMONSTRATIVO (bloqueio):**
+    - descontos maiores que os vencimentos;
+    - contribuição do segurado negativa, por código: codIncCP 31, 32, 34 e 35 no RGPS, codIncCPRP 31 e 32 no RPPS;
+    - rubrica que não está no S-1010 do Consultor, ou sem validade na competência, vira alerta. Nesse caso as somas do demonstrativo não são conferidas (ausente não é zero), porque o S-1010 pode estar só no eSocial.
+  - **REGRA_DESCONTO_IRRF_POSITIVO (alerta):** codIncIRRF 31 a 34 com devolução maior que a retenção. O governo recusa o S-1210 que paga o demonstrativo, então o aviso sai já no S-1200.
+  - **REGRA_RUBRICA_COMPATIVEL_DECTERCEIRO (alerta):** no 13º, só as incidências da lista oficial; no S-1200, também sem a natureza 9253.
+  - **REGRA_RUBRICA_COMPATIVEL_RESC (alerta):** codIncFGTS 21 e 93 só no S-2299/S-2399 ou em períodos anteriores do S-1200.
+- **Competência das rubricas:** perApur (o anual vale como dezembro); o mês do desligamento (S-2299) ou do término (S-2399); o perRef nos períodos anteriores.
+- **Leitura do S-1010:** `verificarAntesDeEnviar` só lê as rubricas da empresa se o lote tem demonstrativo. A tela de eventos da folha passa as que já carregou. Se a leitura falha, sai um alerta dizendo que essas regras não foram conferidas.
+- Os modelos de rubrica do Consultor já seguem a lista do 13º (INSS 32, IRRF 32/42, pensão 52).
+- **Testes:** 7 casos novos em `regrasOficiais.test.ts`.
