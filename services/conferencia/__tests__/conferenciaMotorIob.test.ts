@@ -155,4 +155,12 @@ describe('conferência motor × IOB', () => {
         const ana = r.competencias[0].linhas.find(l => l.nome === 'ANA')!;
         expect(ana.itens.filter(i => /S-500/.test(i.item)).map(i => [i.item, i.iob, i.ok])).toEqual([['INSS (S-5001)', 25341, true], ['Base FGTS (S-5003)', 315000, true], ['FGTS (S-5003)', 25200, true]]);
     });
+    it('salário-paternidade (tpValor 33) e maternidade (32) do S-5001 entram só quando há valor', () => {
+        const s5001 = [{ tipo: 'S-5001', id: 'x', perApur: '2026-07', cpf: '52998224725', calculos: [{ tpCR: '108201', calculado: 25341, descontado: 25341 }],
+            vinculos: [{ estab: '', codLotacao: '', matricula: 'M1', codCateg: '101', bases: [{ ind13: '0', tpValor: '11', valor: 300000 }, { ind13: '0', tpValor: '33', valor: 90000 }] }] }] as never;
+        const r = conferirMotorComIob({ leitura: { remuneracoes: rems('2026-07'), s5001, s5003: [] }, rubricas: RUBRICAS, fichas: FICHAS, motor: motorDe });
+        const ana = r.competencias[0].linhas.find(l => l.nome === 'ANA')!;
+        expect(ana.itens.filter(i => /maternidade|paternidade/.test(i.item)).map(i => [i.item, i.motor, i.iob, i.ok])).toEqual([['Salário-paternidade (S-5001)', 0, 90000, false]]);
+        expect(ana.situacao).toBe('diverge');
+    });
 });

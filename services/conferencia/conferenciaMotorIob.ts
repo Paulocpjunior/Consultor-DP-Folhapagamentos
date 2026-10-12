@@ -140,9 +140,12 @@ export async function lerEsocialIob(arquivos: { nome: string; bytes: Uint8Array 
 // ─── comparação ─────────────────────────────────────────────────────────────
 
 /** Natureza (Tabela 03 do eSocial) das rubricas comparadas uma a uma. */
-export const NATUREZA = { salario: '1000', salarioFamilia: '1409', inss: '9201', irrf: '9203' } as const;
+export const NATUREZA = { salario: '1000', salarioFamilia: '1409', inss: '9201', irrf: '9203', salarioMaternidade: '4050', salarioPaternidade: '4052' } as const;
+/** tpValor do S-5001 do salário-maternidade (32) e do salário-paternidade (33, a partir de 2027-01; NT 07/2026 rev.). */
+export const TPVALOR_LICENCA = { maternidade: '32', paternidade: '33' } as const;
 
-export type ItemComparado = 'Proventos' | 'Descontos' | 'Líquido' | 'Salário' | 'INSS' | 'IRRF' | 'Salário-família' | 'INSS (S-5001)' | 'Base FGTS (S-5003)' | 'FGTS (S-5003)';
+export type ItemComparado = 'Proventos' | 'Descontos' | 'Líquido' | 'Salário' | 'INSS' | 'IRRF' | 'Salário-família' | 'INSS (S-5001)' | 'Base FGTS (S-5003)' | 'FGTS (S-5003)'
+    | 'Salário-maternidade' | 'Salário-paternidade' | 'Salário-maternidade (S-5001)' | 'Salário-paternidade (S-5001)';
 export interface LinhaItem { item: ItemComparado; motor: number; iob: number; diferenca: number; ok: boolean }
 /** Rubrica do IOB no mês, com o que o S-1010 diz dela. */
 export interface RubricaDoMes { codRubr: string; ideTabRubr: string; descricao: string; tpRubr: string; natRubr: string; qtd: string; valor: number }
@@ -270,6 +273,10 @@ export function conferirMotorComIob(e: EntradaConferenciaIob): ResultadoConferen
             comparar('INSS', inssMotor, porNatureza(NATUREZA.inss));
             comparar('IRRF', v(m, 'IRRF', 'IRRFFERRET'), porNatureza(NATUREZA.irrf));
             comparar('Salário-família', v(m, 'SF'), porNatureza(NATUREZA.salarioFamilia));
+            // Licenças: só entram na comparação quando um dos lados tem valor (a maioria dos meses não tem).
+            const licenca = (item: ItemComparado, motorV: number, iobV: number) => { if (motorV || iobV) comparar(item, motorV, iobV); };
+            licenca('Salário-maternidade', v(m, 'MAT'), porNatureza(NATUREZA.salarioMaternidade));
+            licenca('Salário-paternidade', v(m, 'PAT'), porNatureza(NATUREZA.salarioPaternidade));
             // Um totalizador por S-1200: repetido (original e retificador) só vale o ligado ao recibo do S-1200 usado.
             let repetido = false;
             const doTrabalhador = <T extends { cpf: string; nrRecArqBase: string }>(lista: T[], nome: string): T[] => {
@@ -282,7 +289,13 @@ export function conferirMotorComIob(e: EntradaConferenciaIob): ResultadoConferen
                 return [];
             };
             const t1 = doTrabalhador(s5001, 'S-5001');
-            if (t1.length) comparar('INSS (S-5001)', inssMotor, t1.flatMap(t => t.calculos).filter(x => !CR_NAO_INSS.has(x.tpCR)).reduce((s, x) => s + x.descontado, 0));
+            if (t1.length) {
+                comparar('INSS (S-5001)', inssMotor, t1.flatMap(t => t.calculos).filter(x => !CR_NAO_INSS.has(x.tpCR)).reduce((s, x) => s + x.descontado, 0));
+                const baseDoTipo = (tp: string) => t1.flatMap(t => t.vinculos.flatMap(x => x.bases)).filter(b => b.tpValor === tp && b.ind13 !== '1').reduce((s, b) => s + b.valor, 0);
+                const licencaS5001 = (item: ItemComparado, motorV: number, tp: string) => { const iobV = baseDoTipo(tp); if (motorV || iobV) comparar(item, motorV, iobV); };
+                licencaS5001('Salário-maternidade (S-5001)', v(m, 'MAT'), TPVALOR_LICENCA.maternidade);
+                licencaS5001('Salário-paternidade (S-5001)', v(m, 'PAT'), TPVALOR_LICENCA.paternidade);
+            }
             const t3 = doTrabalhador(s5003, 'S-5003').flatMap(t => t.itens).filter(i => !i.periodoAnterior);
             if (t3.length) {
                 comparar('Base FGTS (S-5003)', m.bases.fgts, t3.reduce((s, i) => s + i.remuneracao, 0));
