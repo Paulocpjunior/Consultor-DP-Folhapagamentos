@@ -6,7 +6,7 @@ import { chaveDoEvento, competenciaFechada, lerEventoLote, regrasDoLote } from '
 import { alertasDaFila, consultaVencida, etapaDoEnvio, podeLiberar, proximaConsulta, resumoDaFila, situacaoAtual } from '../filaEnvios';
 import { situacaoDaFalha, type Envio, type EventoEnviado } from '../transmissaoService';
 
-const lerXsd = (nome: string) => readFile(new URL(`../../../public/esocial-xsd/v_S_01_03_00/${nome}`, import.meta.url), 'utf8');
+const lerXsd = (nome: string, pasta = "v_S_01_03_00") => readFile(new URL(`../../../public/esocial-xsd/${pasta}/${nome}`, import.meta.url), 'utf8');
 const CNPJ = '29463877000109';
 const INFO: InfoFech = { evtRemun: true, evtPgtos: true, evtComProd: false, evtContratAvNP: false, evtInfoComplPer: false, transDCTFWeb: false };
 const ID = (n: number) => `ID12946387700000020261010120000${String(n).padStart(5, '0')}`;

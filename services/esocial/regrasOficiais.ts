@@ -18,7 +18,14 @@
 //                                    32, 34, 35; no RPPS codIncCPRP 31, 32) não fica negativa; rubrica no S-1010 vigente;
 //   REGRA_DESCONTO_IRRF_POSITIVO     IRRF retido (codIncIRRF 31 a 34) não fica negativo (o S-1210 do pagamento é recusado);
 //   REGRA_RUBRICA_COMPATIVEL_DECTERCEIRO  13º só com as incidências da lista oficial (o governo devolve alerta);
-//   REGRA_RUBRICA_COMPATIVEL_RESC    FGTS rescisório (codIncFGTS 21, 93) só no S-2299/S-2399 ou em períodos anteriores.
+//   REGRA_RUBRICA_COMPATIVEL_RESC    FGTS rescisório (codIncFGTS 21, 93) só no S-2299/S-2399 ou em períodos anteriores;
+//   REGRA_RUBRICA_COMPATIVEL_CATEGORIA  rubrica compatível com a categoria do trabalhador (itens 1a, 1b, 2a-2c, 2e, 4-6).
+// E as validações da NT 07/2026 rev. que entram por data (produção; a produção restrita recebe antes):
+//   26/10/2026  S-2200: infoCota não é mais informado para admissão/transferência/mudança de CPF desde 26/10/2026;
+//   23/11/2026  S-2200/S-2206: horas semanais dentro do limite do tempo parcial; 12x36 sem tempo parcial;
+//               S-1010: observação obrigatória na rubrica informativa dedutora (tpRubr 4);
+//               S-1000: indOptRegEletron não é informado com validade desde 2026-02;
+//               CPF de dependente conferido na base da Receita (aqui: dígitos verificadores).
 // Puro: sem rede, sem Firebase.
 
 import type { Achado, EventoLote } from './preVoo';
@@ -50,12 +57,36 @@ const TABELAS = new Set(['S-1000', 'S-1005', 'S-1010', 'S-1020', 'S-1070']);
 const REMUNERACAO = new Set(['S-1200', 'S-1202', 'S-1207']);
 const mostrar = (ch: string) => (ch === '\t' ? 'tab' : ch === '\n' || ch === '\r' ? 'enter' : ch === ' ' ? 'espaço não separável' : `"${ch}" (U+${ch.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')})`);
 
-/** Regras oficiais de um evento. `hoje` em AAAA-MM-DD (data do envio, no fuso de São Paulo). */
-export function regrasOficiaisDoEvento(e: EventoLote, hoje: string): Achado[] {
+/** Implantação das etapas da NT 07/2026 rev. (produção e produção restrita). */
+export const ETAPAS_NT07 = {
+    '2026-10-26': { producao: '2026-10-26', restrita: '2026-10-13' },
+    '2026-11-23': { producao: '2026-11-23', restrita: '2026-11-09' },
+    '2026-12-14': { producao: '2026-12-14', restrita: '2026-12-07' },
+} as const;
+/** A etapa já vale na data do envio, no ambiente? */
+export const etapaValendo = (etapa: keyof typeof ETAPAS_NT07, hoje: string, tpAmb: 1 | 2 = 1) => hoje >= ETAPAS_NT07[etapa][tpAmb === 2 ? 'restrita' : 'producao'];
+
+/** CPF com os dígitos verificadores certos (11 dígitos, não repetidos). */
+export function cpfComDigitosValidos(cpf: string): boolean {
+    const d = cpf.replace(/\D/g, '');
+    if (d.length !== 11 || /^(\d)\1{10}$/.test(d)) return false;
+    const dv = (n: number) => { let s = 0; for (let i = 0; i < n; i++) s += Number(d[i]) * (n + 1 - i); const r = (s * 10) % 11; return r === 10 ? 0 : r; };
+    return dv(9) === Number(d[9]) && dv(10) === Number(d[10]);
+}
+
+const EVENTOS_COM_CPF_DEP = new Set(['S-1210', 'S-2200', 'S-2205', 'S-2300', 'S-2400', 'S-2405', 'S-2501']);
+const LIMITE_TEMPO_PARCIAL: Record<string, number> = { '1': 25, '2': 30, '3': 26 };
+
+/** Regras oficiais de um evento. `hoje` em AAAA-MM-DD (data do envio, no fuso de São Paulo); `tpAmb` o ambiente. */
+export function regrasOficiaisDoEvento(e: EventoLote, hoje: string, tpAmb: 1 | 2 = 1): Achado[] {
     const out: Achado[] = [];
     if (e.erro || !e.xml) return out;
     const rotulo = `${e.tipo || e.nome}${e.perApur ? ` (${e.perApur})` : ''}`;
     const bloq = (regra: string, mensagem: string) => out.push({ nivel: 'bloqueio', regra, mensagem: `${rotulo}: ${mensagem} (${regra}).`, eventoId: e.id });
+    const avisar = (regra: string, mensagem: string) => out.push({ nivel: 'aviso', regra, mensagem: `${rotulo}: ${mensagem} (${regra}).`, eventoId: e.id });
+    /** Regra que entra por data: antes da implantação, alerta de que vai valer; depois, bloqueio. */
+    const porEtapa = (etapa: keyof typeof ETAPAS_NT07, regra: string, mensagem: string) =>
+        etapaValendo(etapa, hoje, tpAmb) ? bloq(regra, mensagem) : avisar(regra, `${mensagem}; o eSocial passa a recusar em ${br(ETAPAS_NT07[etapa][tpAmb === 2 ? 'restrita' : 'producao'])}`);
     const xml = e.xml;
     const mesHoje = hoje.slice(0, 7);
 
@@ -103,6 +134,33 @@ export function regrasOficiaisDoEvento(e: EventoLote, hoje: string): Achado[] {
                 bloq('REGRA_ADMISSAO_VALIDA_DURACAO_CONTRATO', `contrato rural por pequeno prazo (102) até ${br(dtTerm)}: no máximo 60 dias da admissão`);
             }
         }
+    }
+
+    // NT 07/2026 rev.
+    if (e.tipo === 'S-2200' || e.tipo === 'S-2206') {
+        const datas = (e.tipo === 'S-2200' ? [pegar(xml, 'dtAdm'), pegar(xml, 'dtTransf'), pegar(xml, 'dtAltCPF')] : [pegar(xml, 'dtAlteracao')]).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
+        const ref = datas[datas.length - 1] ?? '';
+        if (e.tipo === 'S-2200' && /<(?:\w+:)?infoCota>/.test(xml) && ref >= '2026-10-26' && etapaValendo('2026-10-26', hoje, tpAmb)) {
+            bloq('NT 07/2026, S-2200 infoCota', `o campo infoCota não é mais informado para admissão, transferência ou mudança de CPF desde 26/10/2026 (aqui ${br(ref)})`);
+        }
+        if (ref >= '2026-11-23') {
+            const tmpParc = pegar(xml, 'tmpParc'); const horas = Number(pegar(xml, 'qtdHrsSem').replace(',', '.'));
+            const limite = LIMITE_TEMPO_PARCIAL[tmpParc];
+            if (limite && horas > limite) porEtapa('2026-11-23', 'NT 07/2026, qtdHrsSem', `tempo parcial limitado a ${limite} horas semanais com ${horas} horas`);
+            if (pegar(xml, 'tpJornada') === '2' && tmpParc && tmpParc !== '0') porEtapa('2026-11-23', 'NT 07/2026, tmpParc', 'jornada 12x36 não pode ser contrato em tempo parcial (tmpParc 0)');
+        }
+    }
+    if (e.tipo === 'S-1010') {
+        for (const d of todos(xml, 'dadosRubrica')) {
+            if (pegar(d, 'tpRubr') === '4' && !pegar(d, 'observacao')) porEtapa('2026-11-23', 'NT 07/2026, S-1010 observacao', 'rubrica informativa dedutora (tpRubr 4) sem observação');
+        }
+    }
+    if (e.tipo === 'S-1000' && /<(?:\w+:)?indOptRegEletron>/.test(xml) && (pegar(xml, 'iniValid') || '0000-00') >= '2026-02') {
+        porEtapa('2026-11-23', 'NT 07/2026, S-1000 indOptRegEletron', 'indOptRegEletron não é informado com validade a partir de 2026-02');
+    }
+    if (EVENTOS_COM_CPF_DEP.has(e.tipo)) {
+        const ruins = [...new Set(todos(xml, 'cpfDep').map(c => c.trim()).filter(c => c && !cpfComDigitosValidos(c)))];
+        for (const c of ruins.slice(0, 5)) bloq('CPF do dependente', `CPF de dependente ${c} com dígitos verificadores inválidos; o eSocial confere o CPF na base da Receita`);
     }
 
     if (TABELAS.has(e.tipo)) {
@@ -156,6 +214,36 @@ const mesBr = (comp: string) => comp.split('-').reverse().join('/');
 
 interface ItemDoDemonstrativo { codRubr: string; ideTabRubr: string; centavos: number; competencia: string; anterior: boolean }
 
+const CI_EMPREGADO = new Set(['721', '722', '723', '771']);
+const IRRF_SO_EMPREGADO = new Set([12, 13, 32, 33, 42, 43, 47, 48, 52, 53, 62, 63, 64, 65, 66, 71, 76, 77, 92, 93, 9012, 9013, 9032, 9033, 9042, 9043, 9047, 9048, 9052, 9053, 9062, 9063, 9064, 9065, 9066, 9832, 9833]);
+const IRRF_SO_GRUPO_EMPREGADO = new Set([14, 34, 54, 94, 9014, 9034, 9054, 9834]);
+
+/**
+ * REGRA_RUBRICA_COMPATIVEL_CATEGORIA (Anexo II do leiaute). Erro nos itens 1b, 2e, 5 e 6; alerta nos demais. Ficam de
+ * fora os itens que precisam do S-1000 (1c e 2d: classTrib) e do S-2300 (3: dirigente sindical). O 1b entra em
+ * 23/11/2026 (NT 07/2026 rev.); antes, alerta.
+ */
+function compatibilidadeComCategoria(categ: string, d: DadosRubrica, quando: { hoje?: string; tpAmb?: 1 | 2 }): [Achado['nivel'], string, string][] {
+    const out: [Achado['nivel'], string, string][] = [];
+    const cp = inc(d.codIncCP); const irrf = inc(d.codIncIRRF); const fgts = inc(d.codIncFGTS);
+    const g = categ[0];
+    if ((g === '1' || g === '2') && (cp === 34 || cp === 35)) out.push(['aviso', '1a', `com codIncCP ${d.codIncCP} (SEST/SENAT) não cabe para empregado ou avulso`]);
+    if (g === '2' && (cp === 21 || cp === 22)) {
+        const vale = !quando.hoje || etapaValendo('2026-11-23', quando.hoje, quando.tpAmb ?? 1);
+        out.push([vale ? 'bloqueio' : 'aviso', '1b', `com codIncCP ${d.codIncCP} (salário-maternidade) não cabe para trabalhador avulso${vale ? '' : '; o eSocial passa a recusar em 23/11/2026'}`]);
+    }
+    if (g === '7') {
+        if ([12, 32, 92, 93, 94].includes(cp) && !CI_EMPREGADO.has(categ)) out.push(['aviso', '2a', `com codIncCP ${d.codIncCP} é própria de segurado empregado`]);
+        if (IRRF_SO_EMPREGADO.has(irrf) && !CI_EMPREGADO.has(categ)) out.push(['aviso', '2b', `com codIncIRRF ${d.codIncIRRF} é própria de segurado empregado`]);
+        if ((cp === 34 || cp === 35) && !['711', '712', '734'].includes(categ)) out.push(['aviso', '2c', `com codIncCP ${d.codIncCP} (SEST/SENAT) só cabe para transportador autônomo`]);
+        if ((cp === 21 || cp === 22) && !['721', '722', '723'].includes(categ)) out.push(['bloqueio', '2e', `com codIncCP ${d.codIncCP} (salário-maternidade) não cabe para contribuinte individual`]);
+    }
+    if (categ === '901' && (![0, 1].includes(cp) || fgts !== 0)) out.push(['aviso', '4', 'de estagiário precisa de codIncCP 00/01 e codIncFGTS 00']);
+    if (g !== '1' && IRRF_SO_GRUPO_EMPREGADO.has(irrf)) out.push(['bloqueio', '5', `com codIncIRRF ${d.codIncIRRF} só cabe para empregado`]);
+    if (g !== '1' && categ !== '721' && d.natRubr === '9253') out.push(['bloqueio', '6', 'de consignado (natureza 9253) só cabe para empregado ou diretor com FGTS']);
+    return out;
+}
+
 /** Itens de um dmDev: os do período de apuração na competência do evento; os de infoPerAnt no seu perRef. */
 function itensDoDemonstrativo(dm: string, tag: string, competencia: string): ItemDoDemonstrativo[] {
     const out: ItemDoDemonstrativo[] = [];
@@ -180,7 +268,7 @@ function competenciaDoEvento(e: EventoLote): string {
  * Regras oficiais que precisam das rubricas (S-1010) da empresa. Rubrica que o Consultor não tem (ou sem validade na
  * competência) vira alerta e o demonstrativo não tem as somas conferidas: o S-1010 pode estar só no eSocial.
  */
-export function regrasDasRubricas(e: EventoLote, rubricas: Rubrica[]): Achado[] {
+export function regrasDasRubricas(e: EventoLote, rubricas: Rubrica[], quando: { hoje?: string; tpAmb?: 1 | 2 } = {}): Achado[] {
     const out: Achado[] = [];
     const tag = TAG_DO_ITEM[e.tipo];
     if (!tag || e.erro || !e.xml) return out;
@@ -199,6 +287,7 @@ export function regrasDasRubricas(e: EventoLote, rubricas: Rubrica[]): Achado[] 
 
     for (const dm of todos(e.xml, 'dmDev')) {
         const nome = `demonstrativo ${pegar(dm, 'ideDmDev') || 'sem identificação'}`;
+        const categ = pegar(dm, 'codCateg') || pegar(e.xml, 'codCateg');
         const itens = itensDoDemonstrativo(dm, tag, competencia);
         const lidos: { item: ItemDoDemonstrativo; dados: DadosRubrica }[] = [];
         const faltam: string[] = [];
@@ -232,6 +321,14 @@ export function regrasDasRubricas(e: EventoLote, rubricas: Rubrica[]): Achado[] 
                     : [!DEC_CPRP.has(inc(dados.codIncCPRP)) && `codIncCPRP ${dados.codIncCPRP || 'vazio'}`, !DEC_IRRF.has(inc(dados.codIncIRRF)) && `codIncIRRF ${dados.codIncIRRF || 'vazio'}`];
                 const motivos = fora.filter(Boolean);
                 if (motivos.length) avisarUmaVez(`13|${item.codRubr}|${item.ideTabRubr}`, 'REGRA_RUBRICA_COMPATIVEL_DECTERCEIRO', `${qual} no 13º com ${motivos.join(', ')}, fora das incidências aceitas no 13º; o eSocial devolve alerta`);
+            }
+            if (RGPS.has(e.tipo) && /^\d{3}$/.test(categ)) {
+                for (const [nivel, item_, texto] of compatibilidadeComCategoria(categ, dados, quando)) {
+                    const chave = `cat|${item_}|${item.codRubr}|${item.ideTabRubr}`;
+                    if (avisados.has(chave)) continue;
+                    avisados.add(chave);
+                    achar(nivel, 'REGRA_RUBRICA_COMPATIVEL_CATEGORIA', `${qual} ${texto} (categoria ${categ}, item ${item_})`);
+                }
             }
             if (e.tipo === 'S-1200' && !item.anterior && FGTS_RESCISORIO.has(inc(dados.codIncFGTS))) {
                 avisarUmaVez(`resc|${item.codRubr}|${item.ideTabRubr}`, 'REGRA_RUBRICA_COMPATIVEL_RESC', `${qual} com codIncFGTS ${dados.codIncFGTS} (verba rescisória) no período de apuração; ela vai no S-2299/S-2399 ou em períodos anteriores; o eSocial devolve alerta`);

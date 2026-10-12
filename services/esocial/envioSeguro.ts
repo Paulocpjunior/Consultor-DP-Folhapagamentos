@@ -27,16 +27,17 @@ export async function verificarAntesDeEnviar(p: { empresa: Empresa; eventos: Eve
     const achados = regrasDoLote(eventos, historico, p.tpAmb);
     // Regras oficiais de validação que dependem só do XML (regrasOficiais.ts).
     const hoje = p.hoje ?? hojeSp();
-    for (const e of eventos) achados.push(...regrasOficiaisDoEvento(e, hoje));
+    for (const e of eventos) achados.push(...regrasOficiaisDoEvento(e, hoje, p.tpAmb === 2 ? 2 : 1));
     achados.push(...regrasOficiaisDoLote(eventos));
     // As que precisam das rubricas: só lê o S-1010 da empresa se o lote tem demonstrativo de valores.
     const comRubricas = eventos.filter(e => !e.erro && EVENTOS_COM_RUBRICAS.has(e.tipo));
     if (comRubricas.length) {
         const rubricas = p.rubricas ?? await listarRubricas(p.empresa.id).catch(() => null);
-        if (rubricas) for (const e of comRubricas) achados.push(...regrasDasRubricas(e, rubricas));
+        if (rubricas) for (const e of comRubricas) achados.push(...regrasDasRubricas(e, rubricas, { hoje, tpAmb: p.tpAmb === 2 ? 2 : 1 }));
         else achados.push({ nivel: 'aviso', regra: 'REGRA_DEMONSTRATIVO', mensagem: 'Não foi possível ler as rubricas (S-1010) da empresa: as regras oficiais que dependem delas não foram conferidas.' });
     }
-    for (const e of eventos.filter(x => !x.erro)) achados.push(...achadosDoXsd(e, await validarPeloXsd(e.xml)));
+    // O XSD é o do pacote vigente na data do envio, no ambiente do lote (NT 07/2026: 26/10, 23/11, 14/12/2026).
+    for (const e of eventos.filter(x => !x.erro)) achados.push(...achadosDoXsd(e, await validarPeloXsd(e.xml, undefined, { data: hoje, tpAmb: p.tpAmb === 2 ? 2 : 1 })));
     return { eventos, achados, ok: bloqueios(achados).length === 0, tpAmb: p.tpAmb, empresaId: p.empresa.id };
 }
 

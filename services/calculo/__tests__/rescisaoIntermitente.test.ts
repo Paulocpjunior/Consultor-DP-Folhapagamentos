@@ -11,7 +11,7 @@ import { gerarS2299 } from '../../esocial/desligamento';
 import { validarPeloXsd } from '../../esocial/validadorXsd';
 import type { ParametrosEsocialFolha } from '../../esocial/eventosFolha';
 
-const lerXsd = (nome: string) => readFile(new URL(`../../../public/esocial-xsd/v_S_01_03_00/${nome}`, import.meta.url), 'utf8');
+const lerXsd = (nome: string, pasta = "v_S_01_03_00") => readFile(new URL(`../../../public/esocial-xsd/${pasta}/${nome}`, import.meta.url), 'utf8');
 const TAB = TABELAS_OFICIAIS_2026.map((t, i) => ({ ...t, id: `t${i}` }));
 const CNPJ = '29463877000109';
 const FICHA: FichaFuncionario = { ...fichaVazia({ id: 'E1', cnpj: CNPJ }), id: 'f1', cpf: '52998224725', matriculaEsocial: 'M1', situacao: 'desligado',

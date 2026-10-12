@@ -5309,3 +5309,27 @@ Paulo: *"podemos fazer o P2 usando o terminal do meu mac"* (12/10).
 - **Ícones:** já eram SVG de traço fino (1,7), no espírito dos SF Symbols; ficaram como estão.
 - **Capturas antes/depois:** a tela de login, nos temas claro e escuro e no celular, com build de configuração fictícia (as telas internas exigem login). Mandadas pelo chat.
 - **Volta:** reverter o PR.
+
+## 12/10/2026 — NT 07/2026 rev. por data de implantação, licenças na conferência e limpeza
+
+- **Fonte:**
+  - NT S-1.3 nº 07/2026 (rev. 24/09/2026);
+  - os pacotes XSD da documentação técnica do gov.br: 26/10, 23/11 e 14/12/2026 e 18/01/2027;
+  - o Anexo II (regras).
+- **XSD por data:**
+  - cada pacote fica em `public/esocial-xsd/v_S_01_03_00_AAAA-MM-DD`, só com os arquivos que mudaram;
+  - o manifesto `PACOTES_XSD` traz a data da produção e a da produção restrita. A restrita recebe antes: 13/10, 09/11 e 07/12;
+  - o pré-voo usa o pacote da data do envio, no ambiente do lote;
+  - rodada de conferência: todos os eventos que o Consultor gera passaram no pacote de 18/01/2027.
+- **Regras novas no pré-voo** (antes da data, alerta "o eSocial passa a recusar em…"; depois, bloqueio):
+  - **26/10:** o S-2200 não leva mais `infoCota` com admissão, transferência ou mudança de CPF a partir de 26/10/2026. O gerador do Consultor já não emitia;
+  - **23/11:**
+    - S-2200/S-2206: horas semanais dentro do limite do tempo parcial (25/30/26) e 12x36 sem tempo parcial;
+    - S-1010: observação obrigatória na rubrica informativa dedutora;
+    - S-1000: sem `indOptRegEletron` com validade desde 2026-02;
+  - **CPF de dependente** com dígito inválido: bloqueio sempre (S-1210, S-2200, S-2205, S-2300, S-2400, S-2405, S-2501);
+  - **REGRA_RUBRICA_COMPATIVEL_CATEGORIA:** itens 1a, 1b (desde 23/11), 2a a 2c, 2e, 4, 5 e 6. Ficam de fora o 1c e o 2d (precisam da classificação tributária do S-1000) e o 3 (dirigente sindical).
+- **Conferência motor × eSocial:**
+  - salário-maternidade (natureza 4050 e S-5001 tpValor 32) e salário-paternidade (natureza 4052 e tpValor 33);
+  - os itens só aparecem quando há valor.
+- **Limpeza:** sai o `lucide-react`, que não era usado.

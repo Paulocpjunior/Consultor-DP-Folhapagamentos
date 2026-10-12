@@ -4,14 +4,56 @@
 // governo. Os XSDs ficam em public/esocial-xsd/v_S_01_03_00 (pacote oficial do eSocial) e o validador é o
 // libxml2 (xmllint) compilado para WebAssembly, que roda no navegador. A assinatura não é cobrada aqui: quem
 // assina é o CFI, com o A1 do cofre, depois desta conferência.
+//
+// O XSD muda por data de implantação, dentro do mesmo leiaute (NT 07/2026 rev.: 26/10, 23/11 e 14/12/2026 e
+// 18/01/2027). Cada pacote do gov.br fica numa pasta com só os arquivos que mudaram em relação ao anterior; o
+// arquivo que não está no pacote vem do anterior. O pacote é o da data do envio, no ambiente (a produção restrita
+// recebe antes).
 
 export const VERSAO_XSD = 'v_S_01_03_00';
 export const ROTULO_VERSAO_XSD = 'S-1.3';
 
-export interface ErroXsd { mensagem: string; original: string }
-export interface ResultadoXsd { valido: boolean; erros: ErroXsd[]; /** Sem como validar (XSD ou validador indisponível). */ indisponivel?: string }
+export interface PacoteXsd {
+    pasta: string;
+    /** Implantação em produção e em produção restrita (AAAA-MM-DD). */
+    producao: string; restrita: string;
+    /** Arquivos que mudaram em relação ao pacote anterior (o primeiro pacote tem todos). */
+    arquivos: string[] | 'todos';
+    origem: string;
+}
 
-export type LerXsd = (nome: string) => Promise<string>;
+/** Pacotes de XSD do leiaute S-1.3, do mais antigo ao mais novo (documentação técnica do eSocial, gov.br). */
+export const PACOTES_XSD: PacoteXsd[] = [
+    { pasta: VERSAO_XSD, producao: '2026-07-01', restrita: '2026-07-01', arquivos: 'todos', origem: 'até NT 06/2026, CNPJ alfanumérico (produção em 01/07/2026)' },
+    { pasta: `${VERSAO_XSD}_2026-10-26`, producao: '2026-10-26', restrita: '2026-10-13', origem: 'até NT 07/2026 rev. (produção em 26/10/2026)',
+        arquivos: ['evtAdmPrelim.xsd', 'evtAdmissao.xsd', 'evtAfastTemp.xsd', 'evtAltCadastral.xsd', 'evtAltContratual.xsd', 'evtAnotJud.xsd', 'evtCdBenAlt.xsd', 'evtCdBenIn.xsd', 'evtCdBenTerm.xsd', 'evtCessao.xsd', 'evtDeslig.xsd', 'evtIrrfBenef.xsd', 'evtProcTrab.xsd', 'evtRmnRPPS.xsd', 'evtTSVInicio.xsd', 'evtTSVTermino.xsd', 'tipos.xsd'] },
+    { pasta: `${VERSAO_XSD}_2026-11-23`, producao: '2026-11-23', restrita: '2026-11-09', origem: 'até NT 07/2026 rev. (produção em 23/11/2026)',
+        arquivos: ['evtContProc.xsd', 'evtDeslig.xsd', 'evtInfoEmpregador.xsd', 'evtPgtos.xsd', 'evtTabRubrica.xsd', 'tipos.xsd'] },
+    { pasta: `${VERSAO_XSD}_2026-12-14`, producao: '2026-12-14', restrita: '2026-12-07', origem: 'até NT 07/2026 rev. (produção em 14/12/2026)',
+        arquivos: ['evtBasesTrab.xsd', 'evtCS.xsd', 'evtContProc.xsd', 'evtInfoEmpregador.xsd', 'evtTabRubrica.xsd'] },
+    // A NT não traz a data da produção restrita desta etapa: vale a da produção.
+    { pasta: `${VERSAO_XSD}_2027-01-18`, producao: '2027-01-18', restrita: '2027-01-18', origem: 'até NT 07/2026 rev. (produção em 18/01/2027)',
+        arquivos: ['evtAnotJud.xsd'] },
+];
+
+/** Índice do pacote vigente na data (AAAA-MM-DD) e ambiente (1 produção, 2 produção restrita). */
+export function pacoteXsdEm(data: string, tpAmb: 1 | 2 = 1): number {
+    let i = 0;
+    PACOTES_XSD.forEach((p, k) => { if ((tpAmb === 2 ? p.restrita : p.producao) <= data) i = k; });
+    return i;
+}
+
+/** Pasta de onde vem o arquivo no pacote: a do próprio pacote, se ele mudou ali, ou a do anterior que o tem. */
+export function pastaDoArquivo(nome: string, pacote: number): string {
+    for (let k = pacote; k > 0; k--) { const a = PACOTES_XSD[k].arquivos; if (a === 'todos' || a.includes(nome)) return PACOTES_XSD[k].pasta; }
+    return PACOTES_XSD[0].pasta;
+}
+
+export interface ErroXsd { mensagem: string; original: string }
+export interface ResultadoXsd { valido: boolean; erros: ErroXsd[]; /** Sem como validar (XSD ou validador indisponível). */ indisponivel?: string; }
+
+/** Lê um XSD. A pasta é a do pacote (sem ela, a do primeiro pacote). */
+export type LerXsd = (nome: string, pasta?: string) => Promise<string>;
 
 const semNs = (s: string) => s.replace(/\{[^}]*\}/g, '');
 const lista = (s: string) => semNs(s).split(',').map(x => x.trim()).filter(Boolean);
@@ -55,20 +97,23 @@ export function elementoEVersao(xml: string): { elemento: string; versao: string
 }
 
 const cache = new Map<string, Promise<string>>();
-const lerDoSite: LerXsd = async nome => {
+const lerDoSite: LerXsd = async (nome, pasta = VERSAO_XSD) => {
     const base = (import.meta.env?.BASE_URL ?? '/').replace(/\/?$/, '/');
-    const r = await fetch(`${base}esocial-xsd/${VERSAO_XSD}/${nome}`);
+    const r = await fetch(`${base}esocial-xsd/${pasta}/${nome}`);
     if (!r.ok) throw new Error(`XSD ${nome}: HTTP ${r.status}`);
     return r.text();
 };
-const lerComCache = (ler: LerXsd, nome: string) => {
-    const k = nome;
-    if (!cache.has(k)) cache.set(k, ler(nome).catch(e => { cache.delete(k); throw e; }));
+const lerComCache = (ler: LerXsd, nome: string, pasta: string) => {
+    const k = `${pasta}/${nome}`;
+    if (!cache.has(k)) cache.set(k, ler(nome, pasta).catch(e => { cache.delete(k); throw e; }));
     return cache.get(k)!;
 };
+const hojeSp = () => new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Sao_Paulo' }).format(new Date());
 
-/** Valida um evento (sem assinatura) pelo XSD oficial. */
-export async function validarPeloXsd(xml: string, ler: LerXsd = lerDoSite): Promise<ResultadoXsd> {
+/** Valida um evento (sem assinatura) pelo XSD oficial do pacote vigente na data do envio (padrão: hoje, produção). */
+export async function validarPeloXsd(xml: string, ler: LerXsd = lerDoSite, quando: { data?: string; tpAmb?: 1 | 2 } = {}): Promise<ResultadoXsd> {
+    const pacote = pacoteXsdEm(quando.data ?? hojeSp(), quando.tpAmb ?? 1);
+    const pasta = (nome: string) => pastaDoArquivo(nome, pacote);
     const { elemento, versao } = elementoEVersao(xml);
     if (!elemento) return { valido: false, erros: [{ mensagem: 'Não é um evento do eSocial (<eSocial><evt…>).', original: '' }] };
     if (versao && versao !== VERSAO_XSD) {
@@ -77,7 +122,7 @@ export async function validarPeloXsd(xml: string, ler: LerXsd = lerDoSite): Prom
     }
     let schema: string, tipos: string, dsig: string;
     try {
-        [schema, tipos, dsig] = await Promise.all([lerComCache(ler, `${elemento}.xsd`), lerComCache(ler, 'tipos.xsd'), lerComCache(ler, 'xmldsig-core-schema.xsd')]);
+        [schema, tipos, dsig] = await Promise.all([`${elemento}.xsd`, 'tipos.xsd', 'xmldsig-core-schema.xsd'].map(n => lerComCache(ler, n, pasta(n))));
     } catch (e) {
         return { valido: true, erros: [], indisponivel: `XSD de ${elemento} não carregou (${(e as Error).message}).` };
     }

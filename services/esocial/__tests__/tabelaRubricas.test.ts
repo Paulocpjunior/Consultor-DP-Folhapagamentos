@@ -9,7 +9,7 @@ import { statusPorRef } from '../statusEvento';
 import { validarPeloXsd } from '../validadorXsd';
 import type { Envio } from '../transmissaoService';
 
-const lerXsd = (nome: string) => readFile(new URL(`../../../public/esocial-xsd/v_S_01_03_00/${nome}`, import.meta.url), 'utf8');
+const lerXsd = (nome: string, pasta = "v_S_01_03_00") => readFile(new URL(`../../../public/esocial-xsd/${pasta}/${nome}`, import.meta.url), 'utf8');
 const CNPJ = '29463877000109';
 const AGORA = new Date('2026-10-10T12:00:00.123Z');
 const dados = (x: Partial<PedidoS1010['dados'] & object> = {}) => ({ dscRubr: 'Salário', natRubr: '1000', tpRubr: '1', codIncCP: '11', codIncIRRF: '11', codIncFGTS: '11', codIncCPRP: '', observacao: '', ...x });
