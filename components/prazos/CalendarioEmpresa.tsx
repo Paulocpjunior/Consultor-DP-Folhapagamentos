@@ -21,7 +21,8 @@ import {
     type BaixaGuia, type GuiaRegistrada, type LinhaConferenciaReceita,
 } from '../../services/guias/pagamentoGuias';
 import { darBaixa, desfazerBaixa, listarGuias } from '../../services/guias/pagamentoGuiasService';
-import { consultarFgtsRecolhimento, consultarPagamentosReceita, emitirComprovanteReceita } from '../../services/serpro/serproIntegrationService';
+import { consultarFgtsRecolhimento, consultarPagamentosReceita, emitirComprovanteReceita, situacaoDarfsNaReceita } from '../../services/serpro/serproIntegrationService';
+import { avisosDarfReceita, competenciasParaCruzar, type AvisoDarfReceita } from '../../services/guias/avisoDarfReceita';
 import { bytesDoBase64 } from '../../services/dctfweb/dctfwebFolha';
 import { baixarBytes } from '../../services/implantacao/zip';
 
@@ -59,6 +60,26 @@ const CalendarioEmpresa: React.FC<Props> = ({ empresa, fichas, sindicatos, usuar
     }, [empresa.id, empresa.competencia]);
     useEffect(() => { carregar(); }, [carregar]);
     useEffect(() => { setNaReceita(null); }, [empresa.id, empresa.competencia]);
+
+    // Aviso de DARF vencido sem pagamento: o que o CFI conferiu na Receita (cron diário), cruzado com a baixa no DP.
+    // Sem resposta do CFI, não há aviso (o calendário segue normal).
+    const [avisosDarf, setAvisosDarf] = useState<AvisoDarfReceita[]>([]);
+    const [recargaDarf, setRecargaDarf] = useState(0);
+    const temUsuario = !!usuario;
+    useEffect(() => {
+        let vivo = true;
+        setAvisosDarf([]);
+        const cnpj = (empresa.cnpj ?? '').replace(/\D/g, '');
+        if (!temUsuario || cnpj.length !== 14) return;
+        (async () => {
+            const r = await situacaoDarfsNaReceita(empresa.id, cnpj);
+            if (!r.ok || !r.situacoes?.length) return;
+            const comps = competenciasParaCruzar(r.situacoes);
+            const guiasPorComp = new Map(await Promise.all(comps.map(async c => [c, await listarGuias(empresa.id, c)] as const)));
+            if (vivo) setAvisosDarf(avisosDarfReceita(r.situacoes, guiasPorComp));
+        })().catch(() => { /* sem o CFI, sem aviso */ });
+        return () => { vivo = false; };
+    }, [empresa.id, empresa.cnpj, temUsuario, recargaDarf]);
 
     const { obrigacoes, semGuia, foraDoCadastro } = useMemo(() => {
         const cnpjs = cnpjsSindicatosDaEmpresa(fichas, empresa.id);
@@ -162,7 +183,7 @@ const CalendarioEmpresa: React.FC<Props> = ({ empresa, fichas, sindicatos, usuar
             }
             setNaReceita(ls => ls && ls.map(l => (prontas.includes(l) ? { ...l, estado: 'confere' as const, baixa: null } : l)));
             setAviso(`${prontas.length} baixa(s) gravada(s) pela Receita.`);
-            carregar();
+            carregar(); setRecargaDarf(x => x + 1);
         } catch (e) { setErro(mensagemErro(e)); }
         finally { setGravando(''); }
     }
@@ -186,7 +207,7 @@ const CalendarioEmpresa: React.FC<Props> = ({ empresa, fichas, sindicatos, usuar
         if (v.erros.length) { setErro(v.erros.join(' ')); return; }
         if (v.avisos.length && !window.confirm(`${v.avisos.join('\n')}\n\nDar baixa assim mesmo?`)) return;
         setGravando(o.id); setErro('');
-        try { await darBaixa(empresa.id, empresa.competencia, o, dados, b, usuario); setBaixa(null); setAviso(''); carregar(); }
+        try { await darBaixa(empresa.id, empresa.competencia, o, dados, b, usuario); setBaixa(null); setAviso(''); carregar(); setRecargaDarf(x => x + 1); }
         catch (e) { setErro(mensagemErro(e)); }
         finally { setGravando(''); }
     }
@@ -194,7 +215,7 @@ const CalendarioEmpresa: React.FC<Props> = ({ empresa, fichas, sindicatos, usuar
     async function desfazerPagamento(o: ObrigacaoEmpresa, g: GuiaRegistrada) {
         if (!usuario || !window.confirm(`Desfazer a baixa de "${o.nome}"? A guia volta a ficar em aberto.`)) return;
         setGravando(o.id); setErro('');
-        try { await desfazerBaixa(empresa.id, empresa.competencia, o, g, usuario); carregar(); }
+        try { await desfazerBaixa(empresa.id, empresa.competencia, o, g, usuario); carregar(); setRecargaDarf(x => x + 1); }
         catch (e) { setErro(mensagemErro(e)); }
         finally { setGravando(''); }
     }
@@ -228,6 +249,17 @@ const CalendarioEmpresa: React.FC<Props> = ({ empresa, fichas, sindicatos, usuar
                 {cont['nao-se-aplica'] > 0 && <span className="rounded-full bg-slate-100 px-2.5 py-1 text-slate-700 dark:bg-slate-700 dark:text-slate-200">Não se aplica: {cont['nao-se-aplica']}</span>}
                 {daGuia.length > 0 && <span aria-label="Resumo das guias" className="rounded-full bg-blue-50 px-2.5 py-1 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">Guias: {daGuia.length - rg.abertas} de {daGuia.length} com baixa{rg.pago > 0 ? ` · ${reais(rg.pago)} pagos` : ''}{rg.vencidas > 0 ? ` · ${rg.vencidas} vencida(s) sem baixa` : ''}</span>}
             </div>
+
+            {avisosDarf.length > 0 && (
+                <ul aria-label="DARF sem baixa conferidos na Receita" className="mt-2 space-y-1 text-sm">
+                    {avisosDarf.map(a => (
+                        <li key={`${a.tipo}-${a.competencia}`} className={`rounded p-2 ${a.tipo === 'sem-pagamento' ? 'bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-200' : 'bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200'}`}>
+                            {a.tipo === 'sem-pagamento' ? '🚨 ' : '💸 '}{a.texto}
+                            {a.competencia !== empresa.competencia && onTrocar && <> <button className="underline" onClick={onTrocar}>Trocar o período</button></>}
+                        </li>
+                    ))}
+                </ul>
+            )}
 
             {usuario && empresa.cnpj && daGuia.some(o => o.id.startsWith('darf-')) && (
                 <div className="mt-2">
