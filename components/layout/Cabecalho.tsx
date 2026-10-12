@@ -4,12 +4,13 @@
 // na ordem do trabalho do DP (services/navegacao/menu.ts). Cada grupo abre um painel com os itens
 // e a descrição de cada um.
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Logo from '../Logo';
 import { corDoGrupo } from './cores';
 import { ondeEsta, type Destino, type GrupoMenu } from '../../services/navegacao/menu';
 import { ICONES, type NomeIcone } from './icones';
 import { competenciaBr, type EmpresaAtiva } from '../../services/empresaAtiva/empresaAtiva';
+import { APP_INFO, abrirNovidades, dataDaVersao } from '../../services/updateService';
 
 export const Ico: React.FC<{ nome: NomeIcone; className?: string }> = ({ nome, className = 'h-4 w-4' }) => (
     <svg aria-hidden viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" className={className}><path d={ICONES[nome]} /></svg>
@@ -40,15 +41,33 @@ const Cabecalho: React.FC<Props> = ({ menu, destino, onNavegar, ativa, onTrocar,
     const [aberto, setAberto] = useState<string | null>(null);
     const ref = useRef<HTMLElement>(null);
     const atual = ondeEsta(destino, menu);
-    // Celular: o menu fica numa linha com rolagem e o painel abre em largura total, abaixo dela.
-    const [estreito, setEstreito] = useState(() => typeof window !== 'undefined' && !!window.matchMedia?.('(max-width: 1023px)').matches);
+    // Tela pequena, ou menu (com os ícones) mais largo que a tela: o menu fica numa linha com rolagem
+    // e o painel abre em largura total, abaixo dela. Os ícones nunca somem (Paulo, 12/10: ajudam a
+    // memorizar cada área).
+    const [telaPequena, setTelaPequena] = useState(() => typeof window !== 'undefined' && !!window.matchMedia?.('(max-width: 1023px)').matches);
     useEffect(() => {
         const mq = typeof window !== 'undefined' ? window.matchMedia?.('(max-width: 1023px)') : undefined;
         if (!mq) return;
-        const mudar = () => setEstreito(mq.matches);
+        const mudar = () => setTelaPequena(mq.matches);
         mq.addEventListener?.('change', mudar);
         return () => mq.removeEventListener?.('change', mudar);
     }, []);
+    const listaRef = useRef<HTMLUListElement>(null);
+    const [transborda, setTransborda] = useState(false);
+    useLayoutEffect(() => {
+        const ul = listaRef.current;
+        if (!ul) return;
+        const medir = () => setTransborda(ul.scrollWidth > ul.clientWidth + 1);
+        medir();
+        if (typeof ResizeObserver === 'undefined') {
+            window.addEventListener('resize', medir);
+            return () => window.removeEventListener('resize', medir);
+        }
+        const ro = new ResizeObserver(medir);
+        ro.observe(ul);
+        return () => ro.disconnect();
+    }, [menu, contadores]);
+    const estreito = telaPequena || transborda;
 
     useEffect(() => {
         if (!aberto) return;
@@ -89,6 +108,10 @@ const Cabecalho: React.FC<Props> = ({ menu, destino, onNavegar, ativa, onTrocar,
                     <div className="leading-tight">
                         <div className="text-sm font-semibold tracking-tight text-white">Consultor DP</div>
                         <div className="text-[11px] text-slate-400">SP Assessoria</div>
+                        <button onClick={abrirNovidades} title={`Release ${APP_INFO.release}. Ver o que mudou`}
+                            className="mt-0.5 flex items-center gap-1 rounded-sm text-[11px] text-slate-300 hover:text-white">
+                            <Ico nome="presente" className="h-3 w-3" />v{APP_INFO.version} · {dataDaVersao()}
+                        </button>
                     </div>
                 </div>
 
@@ -134,14 +157,14 @@ const Cabecalho: React.FC<Props> = ({ menu, destino, onNavegar, ativa, onTrocar,
             </div>
 
             <nav aria-label="Menu principal" className="border-t border-white/5 bg-black/10">
-                <ul className="mx-auto flex max-w-7xl items-stretch gap-0.5 overflow-x-auto px-2 scrollbar-none sm:px-4 lg:overflow-visible">
+                <ul ref={listaRef} className={`mx-auto flex max-w-7xl items-stretch gap-0.5 px-2 scrollbar-none xl:px-4 ${estreito ? 'overflow-x-auto' : 'overflow-visible'}`}>
                     {menu.map(g => {
                         const ativo = atual?.grupo.id === g.id;
                         return (
                             <li key={g.id} className={`relative ${g.direita ? 'ml-auto' : ''}`}>
                                 <button aria-haspopup="menu" aria-expanded={aberto === g.id} onClick={() => setAberto(a => (a === g.id ? null : g.id))}
-                                    className={`flex items-center gap-1.5 whitespace-nowrap border-b-2 px-2 py-2 text-sm transition-colors 2xl:gap-2 2xl:px-3 ${ativo ? `${corDoGrupo(g.id).ativo} font-medium text-white` : 'border-transparent text-slate-300 hover:text-white'}`}>
-                                    <span className={`hidden h-6 w-6 place-items-center rounded-md text-white shadow-xs xl:grid ${corDoGrupo(g.id).solido} ${ativo ? 'ring-2 ring-white/40' : ''}`}><Ico nome={g.icone} className="h-3.5 w-3.5" /></span>
+                                    className={`flex items-center gap-1 whitespace-nowrap border-b-2 px-1.5 py-2 text-sm transition-colors xl:gap-1.5 xl:px-2 2xl:gap-2 2xl:px-3 ${ativo ? `${corDoGrupo(g.id).ativo} font-medium text-white` : 'border-transparent text-slate-300 hover:text-white'}`}>
+                                    <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-md text-white shadow-xs ${corDoGrupo(g.id).solido} ${ativo ? 'ring-2 ring-white/40' : ''}`}><Ico nome={g.icone} className="h-3.5 w-3.5" /></span>
                                     {g.rotulo}
                                     {!!contadores[g.id] && <span aria-label={`${contadores[g.id]} pendente(s)`} className="rounded-full bg-amber-400 px-1.5 text-[10px] font-bold leading-4 text-slate-900">{contadores[g.id]}</span>}
                                     <Ico nome="chevron" className={`hidden h-3 w-3 opacity-60 transition-transform 2xl:block ${aberto === g.id ? 'rotate-180' : ''}`} />

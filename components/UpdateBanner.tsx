@@ -7,6 +7,8 @@
 //   "Depois" só adia por 10 minutos; enquanto isso fica uma faixa no topo.
 // - Depois de atualizar: popup "Sistema atualizado" com o que mudou desde a
 //   última versão que esta pessoa usou neste navegador.
+// - Botão da versão no cabeçalho: popup "Novidades do Consultor DP" com as
+//   últimas mudanças publicadas, a qualquer momento.
 // A lista vem do version.json (novidades geradas no build por genVersion.mjs).
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -17,6 +19,8 @@ import {
     novidadesDesde,
     mesmoBuild,
     APP_INFO,
+    EVENTO_NOVIDADES,
+    dataDaVersao,
     type Novidade,
     type RemoteVersion,
 } from '../services/updateService';
@@ -66,8 +70,12 @@ const UpdateBanner: React.FC = () => {
     const [remote, setRemote] = useState<RemoteVersion | null>(null);
     const [aberto, setAberto] = useState(false);
     const [atualizado, setAtualizado] = useState<{ itens: Novidade[]; mais: number } | null>(null);
+    // Aberto pelo botão da versão: as últimas novidades publicadas (null = fechado; erro = não carregou).
+    const [historico, setHistorico] = useState<{ itens: Novidade[]; mais: number; erro?: boolean } | null>(null);
     const [reloading, setReloading] = useState(false);
     const botao = useRef<HTMLButtonElement>(null);
+    const remoteRef = useRef<RemoteVersion | null>(null);
+    remoteRef.current = remote;
     const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Nova versão publicada.
@@ -80,6 +88,19 @@ const UpdateBanner: React.FC = () => {
             else setAberto(true);
         });
         return () => { unsub(); if (timer.current) clearTimeout(timer.current); };
+    }, []);
+
+    // Botão da versão no cabeçalho: com versão nova esperando, abre o aviso dela; senão, a lista das novidades.
+    useEffect(() => {
+        const abrir = () => {
+            if (remoteRef.current) { setAberto(true); return; }
+            fetchRemoteVersion().then(r => {
+                const todas = r?.novidades ?? [];
+                setHistorico(r ? { itens: todas.slice(0, 15), mais: Math.max(0, todas.length - 15) } : { itens: [], mais: 0, erro: true });
+            });
+        };
+        window.addEventListener(EVENTO_NOVIDADES, abrir);
+        return () => window.removeEventListener(EVENTO_NOVIDADES, abrir);
     }, []);
 
     // Acabou de atualizar: mostra o que mudou desde a última versão vista neste navegador.
@@ -107,6 +128,34 @@ const UpdateBanner: React.FC = () => {
         timer.current = setTimeout(() => setAberto(true), ADIAMENTO_MS);
     };
     const fecharAtualizado = () => setAtualizado(null);
+
+    if (!remote && historico) {
+        return (
+            <div className="fixed inset-0 z-80 flex items-center justify-center bg-slate-900/70 p-4 backdrop-blur-xs"
+                onKeyDown={e => { if (e.key === 'Escape') setHistorico(null); }}>
+                <div role="dialog" aria-modal="true" aria-labelledby="novidades-titulo"
+                    className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-slate-800">
+                    <div className="flex items-center gap-3 bg-linear-to-r from-blue-600 to-indigo-700 px-5 py-4 text-white">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/20">
+                            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M20 12v9H4v-9M2 7h20v5H2zM12 21V7M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" /></svg>
+                        </span>
+                        <div className="min-w-0">
+                            <h2 id="novidades-titulo" className="text-lg font-bold leading-tight">Novidades do Consultor DP</h2>
+                            <p className="text-xs text-white/80">Versão {APP_INFO.version} · {dataDaVersao()} · release <span className="font-mono">{APP_INFO.release}</span></p>
+                        </div>
+                    </div>
+                    <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
+                        {historico.erro
+                            ? <p className="text-sm text-amber-700 dark:text-amber-300">Não foi possível carregar a lista de novidades agora. Tente de novo em instantes.</p>
+                            : <><p className="text-sm text-slate-700 dark:text-slate-200">Últimas atualizações publicadas:</p><ListaNovidades itens={historico.itens} mais={historico.mais} /></>}
+                    </div>
+                    <div className="flex justify-end border-t border-slate-200 px-5 py-3 dark:border-slate-700">
+                        <button autoFocus className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-blue-700" onClick={() => setHistorico(null)}>Fechar</button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     if (!remote && !atualizado) return null;
 
