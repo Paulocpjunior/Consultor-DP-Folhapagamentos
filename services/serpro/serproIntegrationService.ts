@@ -12,6 +12,7 @@
  * com mesmo email para que o token seja aceito.
  */
 import { PREFIXO_INTEGRACAO, postarNoServico, servicoDaRota } from '../plataforma/servicos';
+import type { ConsultaPagamentosReceita } from '../guias/pagamentoGuias';
 
 /**
  * Rota do túnel /api/dp-integration no serviço que a atende (services/plataforma/servicos.ts): sem
@@ -147,4 +148,11 @@ export async function transmitirDctfweb(empresaId: string, cnpj: string, compete
     retificadora?: boolean; motivo?: string; confirmarInsumosPendentes?: boolean; justificativa?: string;
 } = {}): Promise<DctfWebTransmissaoResult> {
     return callFiscal<DctfWebTransmissaoResult>('/dctfweb/transmitir', { empresaId, cnpj, competencia, ...opcoes });
+}
+
+// ─── Pagamentos (PAGTOWEB) ───────────────────────────────────────────────
+
+/** DARF pago: pagamentos registrados na Receita pelo número do documento (PAGTOWEB/PAGAMENTOS71 no CFI). */
+export async function consultarPagamentosReceita(empresaId: string, cnpj: string, numerosDocumento: string[]): Promise<ConsultaPagamentosReceita> {
+    return callFiscal<ConsultaPagamentosReceita>('/pagamentos/consultar', { empresaId, cnpj, numerosDocumento });
 }

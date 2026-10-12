@@ -17,11 +17,11 @@ import {
 import { desmarcarObrigacao, listarMarcacoes, marcarObrigacao } from '../../services/prazos/obrigacoesStatusService';
 import { centavosDeTexto } from '../../services/cadastros/documentos';
 import {
-    ehGuia, observacaoDaBaixa, resumoGuias, ROTULO_GUIA, situacaoDaGuia, validarBaixa, valorPagoNoFgts,
+    baixaPelaReceita, ehGuia, observacaoDaBaixa, resumoGuias, ROTULO_GUIA, situacaoDaGuia, validarBaixa, valorPagoNoFgts,
     type BaixaGuia, type GuiaRegistrada,
 } from '../../services/guias/pagamentoGuias';
 import { darBaixa, desfazerBaixa, listarGuias } from '../../services/guias/pagamentoGuiasService';
-import { consultarFgtsRecolhimento } from '../../services/serpro/serproIntegrationService';
+import { consultarFgtsRecolhimento, consultarPagamentosReceita } from '../../services/serpro/serproIntegrationService';
 
 interface Props {
     empresa: { id: string; nome: string; competencia: string; cnpj?: string };
@@ -105,6 +105,18 @@ const CalendarioEmpresa: React.FC<Props> = ({ empresa, fichas, sindicatos, usuar
             if ('erro' in r) { setAviso(''); setErro(r.erro); return; }
             mudaBaixa({ valorPago: texto(r.valorPago), valorDevido: texto(r.valorDevido), fonte: 'fgts-digital' });
             setAviso(`FGTS Digital: ${reais(r.valorPago)} recolhidos. Informe a data do pagamento do comprovante.`);
+        } catch (e) { setAviso(''); setErro(mensagemErro(e)); }
+    }
+
+    async function conferirReceita() {
+        if (!empresa.cnpj || !baixa) return;
+        const numero = baixa.f.numeroDocumento;
+        setAviso('Consultando o pagamento na Receita…'); setErro('');
+        try {
+            const r = baixaPelaReceita(await consultarPagamentosReceita(empresa.id, empresa.cnpj.replace(/\D/g, ''), [numero]), numero);
+            if ('erro' in r) { setAviso(''); setErro(r.erro); return; }
+            mudaBaixa({ data: r.data, valorPago: texto(r.valorPago), fonte: 'receita' });
+            setAviso(`${r.detalhe} Informe a autenticação do comprovante, se tiver.`);
         } catch (e) { setAviso(''); setErro(mensagemErro(e)); }
     }
 
@@ -210,12 +222,13 @@ const CalendarioEmpresa: React.FC<Props> = ({ empresa, fichas, sindicatos, usuar
                                     <tr className="bg-green-50/50 dark:bg-green-900/10">
                                         <td colSpan={5} className="p-2">
                                             <div role="group" aria-label={`Baixa de ${o.nome}`} className="flex flex-wrap items-end gap-2 text-xs dark:text-slate-100">
-                                                <label>Data do pagamento<input aria-label="Data do pagamento" type="date" className={inp} value={aberta.data} max={hoje} onChange={e => mudaBaixa({ data: e.target.value })} /></label>
+                                                <label>Data do pagamento<input aria-label="Data do pagamento" type="date" className={inp} value={aberta.data} max={hoje} onChange={e => mudaBaixa({ data: e.target.value, ...(aberta.fonte === 'receita' ? { fonte: 'manual' as const } : {}) })} /></label>
                                                 <label>Valor pago (R$)<input aria-label="Valor pago" inputMode="decimal" className={`${inp} w-28 text-right`} value={aberta.valorPago} onChange={e => mudaBaixa({ valorPago: e.target.value, fonte: 'manual' })} /></label>
                                                 <label>Autenticação<input aria-label="Autenticação" className={`${inp} w-44`} value={aberta.autenticacao} placeholder="do comprovante" onChange={e => mudaBaixa({ autenticacao: e.target.value })} /></label>
                                                 <label>Valor da guia (R$)<input aria-label="Valor da guia" inputMode="decimal" className={`${inp} w-28 text-right`} value={aberta.valorDevido} onChange={e => mudaBaixa({ valorDevido: e.target.value })} /></label>
-                                                <label>Nº do documento<input aria-label="Número do documento" className={`${inp} w-48`} value={aberta.numeroDocumento} onChange={e => mudaBaixa({ numeroDocumento: e.target.value })} /></label>
+                                                <label>Nº do documento<input aria-label="Número do documento" className={`${inp} w-48`} value={aberta.numeroDocumento} onChange={e => mudaBaixa({ numeroDocumento: e.target.value, ...(aberta.fonte === 'receita' ? { fonte: 'manual' as const } : {}) })} /></label>
                                                 {o.id.startsWith('fgts-') && empresa.cnpj && <button className={`${btn} border-blue-600 text-blue-700 dark:text-blue-300`} disabled={!!gravando} onClick={conferirFgts}>Conferir no FGTS Digital</button>}
+                                                {o.id.startsWith('darf-') && empresa.cnpj && <button className={`${btn} border-blue-600 text-blue-700 dark:text-blue-300`} disabled={!!gravando || !aberta.numeroDocumento.trim()} title={aberta.numeroDocumento.trim() ? 'Pagamento registrado na Receita pelo número do documento' : 'Informe o número do documento do DARF'} onClick={conferirReceita}>Conferir na Receita</button>}
                                                 <button className={`${btn} border-green-700 bg-green-700 text-white`} disabled={!!gravando} onClick={() => gravarBaixa(o)}>{gravando === o.id ? 'Gravando…' : 'Gravar a baixa'}</button>
                                                 <button className={`${btn} border-slate-300 dark:border-slate-600`} onClick={() => { setBaixa(null); setAviso(''); }}>Cancelar</button>
                                             </div>
@@ -241,7 +254,7 @@ const CalendarioEmpresa: React.FC<Props> = ({ empresa, fichas, sindicatos, usuar
                 </p>
             )}
             <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                Datas com o ajuste de dia útil (feriados nacionais, Carnaval e Sexta-feira Santa); feriado estadual ou municipal pode mudar a data. A EFD-Reinf é transmitida pelo fiscal: o DP marca quando confirmar com ele. A baixa da guia (data, valor pago e autenticação do comprovante) marca a guia como entregue; o DARF emitido na DCTFWeb da folha já traz o valor e o documento.
+                Datas com o ajuste de dia útil (feriados nacionais, Carnaval e Sexta-feira Santa); feriado estadual ou municipal pode mudar a data. A EFD-Reinf é transmitida pelo fiscal: o DP marca quando confirmar com ele. A baixa da guia (data, valor pago e autenticação do comprovante) marca a guia como entregue; o DARF emitido na DCTFWeb da folha já traz o valor e o documento, e "Conferir na Receita" traz a data e o valor arrecadados pelo número do documento (o pagamento leva alguns dias para aparecer).
             </p>
         </section>
     );

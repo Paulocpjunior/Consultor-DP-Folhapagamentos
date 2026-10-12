@@ -6,9 +6,9 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 const st = vi.hoisted(() => ({ listar: vi.fn(), marcar: vi.fn(), desmarcar: vi.fn() }));
 vi.mock('../obrigacoesStatusService', () => ({ listarMarcacoes: st.listar, marcarObrigacao: st.marcar, desmarcarObrigacao: st.desmarcar }));
 vi.mock('../../cadastros/cadastrosService', () => ({ mensagemErro: (e: Error) => e.message }));
-const gu = vi.hoisted(() => ({ listar: vi.fn(), baixa: vi.fn(), desfazer: vi.fn(), fgts: vi.fn() }));
+const gu = vi.hoisted(() => ({ listar: vi.fn(), baixa: vi.fn(), desfazer: vi.fn(), fgts: vi.fn(), receita: vi.fn() }));
 vi.mock('../../guias/pagamentoGuiasService', () => ({ listarGuias: gu.listar, darBaixa: gu.baixa, desfazerBaixa: gu.desfazer }));
-vi.mock('../../serpro/serproIntegrationService', () => ({ consultarFgtsRecolhimento: gu.fgts }));
+vi.mock('../../serpro/serproIntegrationService', () => ({ consultarFgtsRecolhimento: gu.fgts, consultarPagamentosReceita: gu.receita }));
 import CalendarioEmpresa from '../../../components/prazos/CalendarioEmpresa';
 import { sindicatoVazio } from '../../cadastros/sindicatos';
 
@@ -93,6 +93,43 @@ describe('calendário da empresa ativa', () => {
         await waitFor(() => expect(gu.baixa).toHaveBeenCalledWith('E1', '2026-09', expect.objectContaining({ id: 'fgts-2026-09' }), { valorDevido: 123456, numeroDocumento: '' },
             { data: '2026-10-21', valorPago: 123456, autenticacao: 'ABC123', fonte: 'fgts-digital' }, usuario));
         expect(confirmar.mock.calls[0][0]).toMatch(/Lei 8.036\/1990/);
+    });
+
+    it('baixa do DARF: data e valor pagos pela Receita (PAGTOWEB), pelo número do documento', async () => {
+        const guiaDarf = { obrigacao: 'darf-2026-09', competencia: '2026-09', nome: 'DARF', vencimento: '2026-10-20', valorDevido: 100000, numeroDocumento: '07.20.26252.7312345-6', pagamento: null };
+        gu.listar.mockResolvedValue(new Map([['darf-2026-09', guiaDarf]]));
+        st.listar.mockResolvedValue(new Map());
+        gu.receita.mockResolvedValue({ ok: true, fonte: 'serpro', situacoes: [{ numeroDocumento: '07202625273123456', localizado: true,
+            pagamento: { numeroDocumento: '07202625273123456', dataArrecadacao: '2026-10-21', valorTotal: 1020.5, valorPrincipal: 1000, valorMulta: 6.6, valorJuros: 13.9 } }] });
+        gu.baixa.mockResolvedValue(undefined);
+        render(<CalendarioEmpresa {...props} empresa={{ ...props.empresa, cnpj: '44.388.152/0001-89' }} />);
+        await waitFor(() => expect(gu.listar).toHaveBeenCalled());
+        fireEvent.click(await screen.findByRole('button', { name: 'Dar baixa: DARF da DCTFWeb (INSS e IRRF)' }));
+        const grupo = screen.getByRole('group', { name: 'Baixa de DARF da DCTFWeb (INSS e IRRF)' });
+        await waitFor(() => expect((screen.getByLabelText('Número do documento') as HTMLInputElement).value).toBe('07.20.26252.7312345-6'));
+        fireEvent.click(within(grupo).getByText('Conferir na Receita'));
+        await waitFor(() => expect((screen.getByLabelText('Valor pago') as HTMLInputElement).value).toBe('1020,50'));
+        expect(gu.receita).toHaveBeenCalledWith('E1', '44388152000189', ['07.20.26252.7312345-6']);
+        expect((screen.getByLabelText('Data do pagamento') as HTMLInputElement).value).toBe('2026-10-21');
+        expect(screen.getByRole('status').textContent).toMatch(/arrecadados em 21\/10\/2026 \(multa R\$\s6,60, juros R\$\s13,90\)/);
+        vi.spyOn(window, 'confirm').mockReturnValue(true);
+        fireEvent.click(within(grupo).getByText('Gravar a baixa'));
+        await waitFor(() => expect(gu.baixa).toHaveBeenCalledWith('E1', '2026-09', expect.objectContaining({ id: 'darf-2026-09' }), { valorDevido: 100000, numeroDocumento: '07.20.26252.7312345-6' },
+            { data: '2026-10-21', valorPago: 102050, autenticacao: '', fonte: 'receita' }, usuario));
+    });
+
+    it('DARF não localizado na Receita: a baixa continua manual, com o motivo', async () => {
+        gu.listar.mockResolvedValue(new Map());
+        st.listar.mockResolvedValue(new Map());
+        gu.receita.mockResolvedValue({ ok: true, fonte: 'serpro', situacoes: [{ numeroDocumento: '123', localizado: false, pagamento: null, observacao: 'Não localizado no PAGTOWEB. A arrecadação leva alguns dias para aparecer; isto não quer dizer que não foi pago.' }] });
+        render(<CalendarioEmpresa {...props} empresa={{ ...props.empresa, cnpj: '44.388.152/0001-89' }} />);
+        fireEvent.click(await screen.findByRole('button', { name: 'Dar baixa: DARF da DCTFWeb (INSS e IRRF)' }));
+        const grupo = screen.getByRole('group', { name: 'Baixa de DARF da DCTFWeb (INSS e IRRF)' });
+        expect((within(grupo).getByText('Conferir na Receita') as HTMLButtonElement).disabled).toBe(true); // sem número do documento
+        fireEvent.change(screen.getByLabelText('Número do documento'), { target: { value: '123' } });
+        fireEvent.click(within(grupo).getByText('Conferir na Receita'));
+        expect((await screen.findByRole('alert')).textContent).toMatch(/não quer dizer que não foi pago/);
+        expect((screen.getByLabelText('Valor pago') as HTMLInputElement).value).toBe('');
     });
 
     it('guia paga mostra a baixa e o resumo; data futura é recusada', async () => {

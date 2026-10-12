@@ -34,6 +34,8 @@ describe('pagamentos_guias', () => {
     await assertSucceeds(setDoc(doc(fs('col'), 'pagamentos_guias/A_darf-2026-09'), g('A', 'darf-2026-09', 'col', { pagamento: null })));
     await assertSucceeds(setDoc(doc(fs('col'), 'pagamentos_guias/A_guia-11222333000181-2026-09'), g('A', 'guia-11222333000181-2026-09', 'col', { valorDevido: 0, numeroDocumento: '' })));
     await assertSucceeds(setDoc(doc(fs('col'), 'pagamentos_guias/A_darf-13-2026'), g('A', 'darf-13-2026', 'col', { competencia: '2026-12', pagamento: pg({ fonte: 'fgts-digital' }) })));
+    await assertSucceeds(setDoc(doc(fs('col'), 'pagamentos_guias/A_darf-13-2026'), g('A', 'darf-13-2026', 'col', { competencia: '2026-12', pagamento: pg({ fonte: 'receita' }) })));
+    await assertFails(setDoc(doc(fs('col'), 'pagamentos_guias/A_darf-13-2026'), g('A', 'darf-13-2026', 'col', { competencia: '2026-12', pagamento: pg({ fonte: 'banco' }) })));
   });
   it('recusa outra empresa, autor errado, obrigação que não é guia, id errado e baixa inválida; não apaga', async () => {
     await assertFails(setDoc(doc(fs('col'), 'pagamentos_guias/B_darf-2026-09'), g('B', 'darf-2026-09', 'col')));

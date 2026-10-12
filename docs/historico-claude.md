@@ -4933,3 +4933,18 @@ Sexto item da lista "o que posso seguir".
   - a gravação confere de novo e não substitui uma mensagem já cadastrada.
 - **Testes:** a leitura da `mensa`.
 
+## 12/10/2026 — Pagamento de guias: DARF pago conferido na Receita (PAGTOWEB pelo CFI)
+
+Paulo: *"senão pode trabalhar no CFI"* (11/10). A rota que faltava para a baixa automática do DARF.
+
+- **CFI:** rota nova `POST /api/dp-integration/pagamentos/consultar` (PAGTOWEB/PAGAMENTOS71 do Integra Contador, leiaute conferido na documentação oficial do SERPRO em 12/10). Só o Consultor DP entra, e só nas empresas da carteira.
+- **DP:**
+  - na baixa do DARF (calendário da empresa), o botão **"Conferir na Receita"** consulta pelo número do documento e preenche a data de arrecadação e o valor total pago, com multa e juros no aviso. Fica desabilitado sem número do documento;
+  - `baixaPelaReceita` (pura): documento não localizado não vira "não pago" (a arrecadação leva dias para aparecer); sem data ou sem valor, não preenche (ausente ≠ zero); resposta simulada ou de outra fonte é recusada;
+  - a baixa ganha a fonte `receita` ("pagamento conferido na Receita"); mudar a data ou o número depois volta a fonte para manual;
+  - `pagamentos` entra no mapa de rotas do túnel (serviço governo).
+- **Regras:** `pagamentos_guias.pagamento.fonte` aceita `receita`.
+- **Catálogo e auditoria:** `trib-pagamento` e o item 13 da auditoria atualizados.
+- **Pré-requisito no SERPRO:** produto PAGTOWEB contratado e procuração do cliente cobrindo o serviço; sem isso a tela mostra a mensagem do SERPRO e a baixa continua manual.
+- **Testes:** `baixaPelaReceita`, a observação da baixa, a tela (preenche e grava com fonte `receita`; não localizado mostra o motivo) e a regra da fonte.
+
