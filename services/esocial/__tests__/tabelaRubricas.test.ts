@@ -80,7 +80,7 @@ describe('S-1010: validação', () => {
         expect(exc.avisos[0]).toMatch(/prefira informar o fim da validade/);
         expect(validarPedido(ped({ acao: 'alteracao', codRubr: '0001', iniValid: '2020-01', dados: dados({ natRubr: '1099' }) }), [SAL]).avisos[0]).toMatch(/natureza muda de 1000 para 1099/);
         expect(validarPedido(ped({ acao: 'alteracao', codRubr: '0001', iniValid: '2020-01', novaFimValid: '2026-09' }), [SAL]).erros).toContain('Para informar o fim da validade, repita o início em "novo início".');
-        expect(validarPedido(ped({ iniValid: '2027-01' }), [], '2026-10').avisos[0]).toMatch(/no futuro/);
+        expect(validarPedido(ped({ iniValid: '2027-01' }), [], '2026-10').erros).toContainEqual(expect.stringMatching(/no futuro.*REGRA_VALIDA_DT_FUTURA/));
     });
     it('lote: até 50 e um pedido por rubrica', () => {
         expect(validarLote([])).toEqual(['Nenhum pedido para transmitir.']);

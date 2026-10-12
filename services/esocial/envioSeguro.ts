@@ -1,7 +1,8 @@
 // services/esocial/envioSeguro.ts
 //
 // Envio do eSocial com o pré-voo e a fila (Saúde do eSocial). Todas as telas que transmitem passam por aqui:
-//   1) verificarAntesDeEnviar: XSD oficial + regras de ordem e duplicidade pelo histórico da empresa;
+//   1) verificarAntesDeEnviar: XSD oficial + regras de ordem e duplicidade pelo histórico da empresa + regras oficiais
+//      de validação que dependem só do XML (regrasOficiais.ts);
 //   2) transmitirVerificado: registra o lote ANTES de sair, envia pelo CFI e grava a resposta — ou, se ela não
 //      volta, deixa o lote "sem resposta" (nunca perdido) para conferir antes de qualquer reenvio.
 
@@ -10,16 +11,23 @@ import { enviarLote, type Certificado, type RetornoEnvio, type TpAmb } from './t
 import { concluirEnvio, listarEnvios, registrarFalhaEnvio, registrarIntencao, type Envio } from './transmissaoService';
 import { achadosDoXsd, bloqueios, lerEventoLote, regrasDoLote, type Achado, type EventoLote } from './preVoo';
 import { validarPeloXsd } from './validadorXsd';
+import { regrasOficiaisDoEvento, regrasOficiaisDoLote } from './regrasOficiais';
+
+const hojeSp = () => new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Sao_Paulo' }).format(new Date());
 
 export interface EventoParaEnvio { xml: string; nome?: string; /** Registro do Consultor que gerou o evento. */ ref?: string }
 export interface Empresa { id: string; cnpj: string }
 
 export interface ResultadoPreVoo { eventos: EventoLote[]; achados: Achado[]; ok: boolean; tpAmb: TpAmb; empresaId: string }
 
-export async function verificarAntesDeEnviar(p: { empresa: Empresa; eventos: EventoParaEnvio[]; tpAmb: TpAmb; historico?: Envio[] }): Promise<ResultadoPreVoo> {
+export async function verificarAntesDeEnviar(p: { empresa: Empresa; eventos: EventoParaEnvio[]; tpAmb: TpAmb; historico?: Envio[]; hoje?: string }): Promise<ResultadoPreVoo> {
     const eventos = p.eventos.map((e, i) => lerEventoLote(e.nome ?? `evento ${i + 1}`, e.xml, p.empresa, p.tpAmb, e.ref));
     const historico = p.historico ?? await listarEnvios(p.empresa.id);
     const achados = regrasDoLote(eventos, historico, p.tpAmb);
+    // Regras oficiais de validação que dependem só do XML (regrasOficiais.ts).
+    const hoje = p.hoje ?? hojeSp();
+    for (const e of eventos) achados.push(...regrasOficiaisDoEvento(e, hoje));
+    achados.push(...regrasOficiaisDoLote(eventos));
     for (const e of eventos.filter(x => !x.erro)) achados.push(...achadosDoXsd(e, await validarPeloXsd(e.xml)));
     return { eventos, achados, ok: bloqueios(achados).length === 0, tpAmb: p.tpAmb, empresaId: p.empresa.id };
 }

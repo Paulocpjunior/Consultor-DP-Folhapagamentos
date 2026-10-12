@@ -256,7 +256,7 @@ export function validarPedido(p: PedidoS1010, rubricas: Rubrica[], hojeComp?: st
         if (p.novaFimValid && (!COMP.test(p.novaFimValid) || p.novaFimValid < (p.novaIniValid || p.iniValid))) erros.push('Novo fim da validade em AAAA-MM, igual ou depois do início.');
         if (p.novaFimValid && !p.novaIniValid) erros.push('Para informar o fim da validade, repita o início em "novo início".');
     }
-    if (hojeComp && COMP.test(p.iniValid) && p.iniValid > hojeComp && p.acao === 'inclusao') avisos.push(`Início da validade no futuro (${p.iniValid}): o eSocial só aceita até a competência seguinte à atual.`);
+    if (hojeComp && COMP.test(p.iniValid) && p.iniValid > hojeComp && p.acao === 'inclusao') erros.push(`Início da validade no futuro (${p.iniValid}): o eSocial não aceita validade que comece depois do mês do envio (REGRA_VALIDA_DT_FUTURA).`);
 
     const r = rubricas.find(x => x.ideTabRubr === p.ideTabRubr && x.codRubr === p.codRubr);
     const mesma = r?.vigencias.find(v => v.iniValid === p.iniValid);
