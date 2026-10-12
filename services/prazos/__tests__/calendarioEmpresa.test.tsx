@@ -6,15 +6,16 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 const st = vi.hoisted(() => ({ listar: vi.fn(), marcar: vi.fn(), desmarcar: vi.fn() }));
 vi.mock('../obrigacoesStatusService', () => ({ listarMarcacoes: st.listar, marcarObrigacao: st.marcar, desmarcarObrigacao: st.desmarcar }));
 vi.mock('../../cadastros/cadastrosService', () => ({ mensagemErro: (e: Error) => e.message }));
-const gu = vi.hoisted(() => ({ listar: vi.fn(), baixa: vi.fn(), desfazer: vi.fn(), fgts: vi.fn(), receita: vi.fn(), comprovante: vi.fn(), baixar: vi.fn() }));
+const gu = vi.hoisted(() => ({ listar: vi.fn(), baixa: vi.fn(), desfazer: vi.fn(), fgts: vi.fn(), receita: vi.fn(), comprovante: vi.fn(), baixar: vi.fn(), situacaoDarf: vi.fn() }));
 vi.mock('../../guias/pagamentoGuiasService', () => ({ listarGuias: gu.listar, darBaixa: gu.baixa, desfazerBaixa: gu.desfazer }));
-vi.mock('../../serpro/serproIntegrationService', () => ({ consultarFgtsRecolhimento: gu.fgts, consultarPagamentosReceita: gu.receita, emitirComprovanteReceita: gu.comprovante }));
+vi.mock('../../serpro/serproIntegrationService', () => ({ consultarFgtsRecolhimento: gu.fgts, consultarPagamentosReceita: gu.receita, emitirComprovanteReceita: gu.comprovante, situacaoDarfsNaReceita: gu.situacaoDarf }));
 vi.mock('../../implantacao/zip', () => ({ baixarBytes: gu.baixar }));
 import CalendarioEmpresa from '../../../components/prazos/CalendarioEmpresa';
 import { sindicatoVazio } from '../../cadastros/sindicatos';
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); vi.restoreAllMocks(); gu.listar.mockReset(); gu.listar.mockResolvedValue(new Map()); });
+afterEach(() => { cleanup(); vi.clearAllMocks(); vi.restoreAllMocks(); gu.listar.mockReset(); gu.listar.mockResolvedValue(new Map()); gu.situacaoDarf.mockResolvedValue({ ok: true, situacoes: [] }); });
 gu.listar.mockResolvedValue(new Map());
+gu.situacaoDarf.mockResolvedValue({ ok: true, situacoes: [] });
 
 const ficha = (cpf: string, sindicato: string) => ({ empresaId: 'E1', cpf, situacao: 'ativo', dados: { sindicato } }) as never;
 const sind = (cnpj: string, nome: string, extra = {}) => ({ ...sindicatoVazio(), id: cnpj, cnpj, nome, ...extra });
@@ -191,5 +192,38 @@ describe('calendário da empresa ativa', () => {
         fireEvent.click(screen.getByText('Gravar a baixa'));
         await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/não pode ser futura/));
         expect(gu.baixa).not.toHaveBeenCalled();
+    });
+
+    it('aviso do CFI: DARF vencido sem pagamento e pago sem baixa; com baixa no DP não avisa', async () => {
+        const sit = (competencia: string, situacao: string, extra = {}) => ({ competencia, numerosDocumento: ['0720'], vencimento: `${competencia === '2026-09' ? '2026-10-20' : '2026-09-19'}`, valor: 500, situacao, pagamento: null, aviso: null, conferidoEm: '2026-10-26', erro: null, ...extra });
+        gu.situacaoDarf.mockResolvedValue({ ok: true, situacoes: [
+            sit('2026-09', 'nao_localizado'),
+            sit('2026-08', 'pago', { pagamento: { numeroDocumento: 'X2', dataArrecadacao: '2026-09-18', valorTotal: 500, outroDocumento: true } }),
+            sit('2026-07', 'nao_localizado'),
+            sit('2026-06', 'aguardando'),
+        ] });
+        gu.listar.mockImplementation(async (_e: string, c: string) => (c === '2026-07' ? new Map([['darf-2026-07', { pagamento: { data: '2026-08-20' } }]]) : new Map()));
+        const trocar = vi.fn();
+        render(<CalendarioEmpresa {...props} empresa={{ ...props.empresa, cnpj: '44.388.152/0001-89' }} onTrocar={trocar} />);
+        const lista = await screen.findByLabelText('DARF sem baixa conferidos na Receita');
+        expect(gu.situacaoDarf).toHaveBeenCalledWith('E1', '44388152000189');
+        expect(gu.listar).toHaveBeenCalledWith('E1', '2026-07');
+        expect(gu.listar).not.toHaveBeenCalledWith('E1', '2026-06');
+        const itens = within(lista).getAllByRole('listitem').map(li => li.textContent);
+        expect(itens).toHaveLength(2);
+        expect(itens[0]).toMatch(/DARF da DCTFWeb de 09\/2026 de R\$\s500,00, vencido em 20\/10\/2026: sem pagamento localizado na Receita até 26\/10\/2026/);
+        expect(itens[1]).toMatch(/pagamento do DARF de 08\/2026 em 18\/09\/2026 \(R\$\s500,00\), com outro documento \(X2\): falta a baixa no DP/);
+        fireEvent.click(within(lista).getByText('Trocar o período'));
+        expect(trocar).toHaveBeenCalled();
+    });
+    it('sem usuário ou sem resposta do CFI, nenhum aviso', async () => {
+        gu.situacaoDarf.mockRejectedValue(new Error('CFI fora'));
+        render(<CalendarioEmpresa {...props} empresa={{ ...props.empresa, cnpj: '44.388.152/0001-89' }} />);
+        await waitFor(() => expect(gu.situacaoDarf).toHaveBeenCalled());
+        expect(screen.queryByLabelText('DARF sem baixa conferidos na Receita')).toBeNull();
+        cleanup(); gu.situacaoDarf.mockClear();
+        render(<CalendarioEmpresa {...props} usuario={undefined} empresa={{ ...props.empresa, cnpj: '44.388.152/0001-89' }} />);
+        await screen.findByText('DARF da DCTFWeb (INSS e IRRF)');
+        expect(gu.situacaoDarf).not.toHaveBeenCalled();
     });
 });

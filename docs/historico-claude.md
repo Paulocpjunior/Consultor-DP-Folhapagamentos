@@ -5069,3 +5069,20 @@ Paulo: *"pode seguir do item 1 ao 3 o item 4 nao é necessario p nos"* (12/10). 
   - histórico: id, máscara, registro, texto e separação; telas do holerite e do cartão com o histórico (fica de fora, reenviar, grava a falha, falha ao gravar);
   - lembrete: só a empresa, o de hoje, quem recebeu, o aviso da competência e o atalho;
   - regras: `testes-regras/enviosFuncionario.test.mjs`.
+
+## 12/10/2026 — Aviso de DARF vencido sem pagamento (CFI confere, DP avisa)
+
+Paulo: *"podemos seguir com o P2 e o alerta de darf nao pago no CFI"* (12/10).
+
+- **No CFI (#1403):**
+  - todo dia útil, às 10h20, o cron `dp-darf-nao-pago-cron` confere na Receita (PAGTOWEB/PAGAMENTOS71) os DARF da DCTFWeb que o DP emitiu pelo túnel e que já venceram;
+  - grava a situação por CNPJ e competência: pago (também com outro número, pelo período de apuração), aguardando (3 dias úteis de carência) ou não localizado;
+  - o CFI não lê o banco do DP: só a própria auditoria das emissões. DARF registrado à mão no DP, sem passar pelo túnel, fica fora do aviso.
+- **No DP** (`services/guias/avisoDarfReceita.ts`, calendário da empresa em Prazos do DP):
+  - lê a situação pela rota `/pagamentos/situacao-darf`, que não consulta a Receita na hora;
+  - cruza com a baixa no DP. Sem pagamento localizado e sem baixa: aviso vermelho para conferir com o cliente. Pago na Receita e sem baixa: aviso azul para dar a baixa ("Conferir na Receita"). Com baixa, ou ainda aguardando: nada;
+  - competência diferente da ativa traz o atalho "Trocar o período";
+  - sem usuário ou sem resposta do CFI, não há aviso, e o calendário segue normal;
+  - depois de uma baixa, os avisos são relidos.
+- **Pendente do Paulo:** rodar `scripts/setup-cloud-schedulers.sh` do CFI no Cloud Shell para criar o job `dp-darf-nao-pago-cron`. Até lá, o aviso não aparece.
+- **Testes:** `calendarioEmpresa.test.tsx` (avisos, cruzamento com a baixa, atalho, sem CFI e sem usuário).

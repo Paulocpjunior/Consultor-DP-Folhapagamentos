@@ -157,6 +157,25 @@ export async function consultarPagamentosReceita(empresaId: string, cnpj: string
     return callFiscal<ConsultaPagamentosReceita>('/pagamentos/consultar', { empresaId, cnpj, numerosDocumento });
 }
 
+/** Situação de um DARF da DCTFWeb emitido pelo DP, conferida todo dia útil pelo CFI (cron dp-darf-nao-pago). */
+export interface SituacaoDarfReceita {
+    competencia: string;
+    numerosDocumento: string[];
+    vencimento: string | null;
+    valor: number | null;
+    situacao: 'pago' | 'aguardando' | 'nao_localizado';
+    pagamento: { numeroDocumento: string | null; dataArrecadacao: string | null; valorTotal: number | null; outroDocumento: boolean } | null;
+    aviso: string | null;
+    conferidoEm: string | null;
+    erro: string | null;
+}
+export interface SituacaoDarfsResult { ok: boolean; situacoes?: SituacaoDarfReceita[]; error?: string }
+
+/** O que o CFI já conferiu na Receita para os DARF da empresa (não consulta a Receita na hora). */
+export async function situacaoDarfsNaReceita(empresaId: string, cnpj: string): Promise<SituacaoDarfsResult> {
+    return callFiscal<SituacaoDarfsResult>('/pagamentos/situacao-darf', { empresaId, cnpj });
+}
+
 export interface ComprovanteReceitaResult { ok: boolean; fonte?: string; pdfBase64?: string; error?: string; mensagens?: unknown[] }
 
 /** Comprovante de arrecadação em PDF (PAGTOWEB/COMPARRECADACAO72 no CFI), pelo número do documento. */
