@@ -61,6 +61,9 @@ export const TIPOS_RESCISAO = {
     '17': 'Rescisão indireta (art. 483)',
     '47': 'Encerramento da empresa, do estabelecimento ou de parte das atividades',
     '48': 'Falecimento do empregador individual sem continuação da atividade',
+    '09': 'Opção do empregado pelo falecimento do empregador individual (art. 483, § 2º)',
+    '26': 'Paralisação por ato de autoridade (fato do príncipe, art. 486)',
+    '49': 'Falecimento do empregador doméstico sem continuação da atividade',
     '27': 'Força maior (art. 501)',
     '08': 'Por interesse do empregado (arts. 394 e 483, § 1º, da CLT)',
     '41': 'Aprendiz: desempenho insuficiente ou inadaptação (art. 433, I)',
@@ -72,18 +75,45 @@ export const CATEGORIAS_DO_MOTIVO: Partial<Record<TipoRescisao, { so?: string[];
     '42': { so: ['103'], texto: 'só para o aprendiz (categoria 103)' },
     '47': { exceto: ['104'], texto: 'não vale para o doméstico (categoria 104)' },
     '48': { exceto: ['104'], texto: 'não vale para o doméstico (categoria 104; o dele é o 49)' },
+    '26': { exceto: ['104'], texto: 'não vale para o doméstico (categoria 104)' },
+    '49': { so: ['104'], texto: 'só para o empregado doméstico (categoria 104)' },
 };
 /** Motivos com aviso prévio do empregador (indenizado ou trabalhado): dispensa, acordo, indireta, culpa recíproca e o fim da atividade. */
-const COM_AVISO: readonly string[] = ['02', '33', '17', '05', '47', '48'];
+const COM_AVISO: readonly string[] = ['02', '33', '17', '05', '47', '48', '26'];
 /** Dispensa sem justa causa, para a convenção (dias a mais de aviso) e a multa de 40%. */
-const DISPENSA: readonly string[] = ['02', '17', '47', '48'];
+const DISPENSA: readonly string[] = ['02', '17', '47', '48', '26'];
+
+/**
+ * Motivos que só se usam com o fato que os ampara (Paulo, 12/10/2026: "deve ser cadastrado de forma que o uso só ocorre
+ * quando houver uma das situações; todas devem obedecer o amparo legal"). Sem a data e a descrição do fato, a rescisão
+ * fica incompleta e o S-2299 não sai.
+ */
+export const AMPARO_DO_MOTIVO: Partial<Record<TipoRescisao, { pede: string; base: string }>> = {
+    '09': { pede: 'Data do óbito do empregador individual e a certidão de óbito (número, cartório)', base: 'CLT, art. 483, § 2º' },
+    '26': { pede: 'Data e identificação do ato da autoridade que paralisou a atividade (órgão, número, publicação)', base: 'CLT, art. 486' },
+    '27': { pede: 'Data e descrição do fato de força maior que extinguiu a empresa ou o estabelecimento', base: 'CLT, arts. 501 e 502' },
+    '47': { pede: 'Data e documento do encerramento (baixa, distrato, ata ou supressão da atividade)', base: 'CLT, art. 477; TST, Súmula 44' },
+    '48': { pede: 'Data do óbito do empregador individual e a certidão de óbito (número, cartório)', base: 'CLT, art. 485' },
+    '49': { pede: 'Data do óbito do empregador doméstico e a certidão de óbito (número, cartório)', base: 'LC 150/2015, art. 22' },
+};
+export interface AmparoMotivo { data: string; descricao: string }
+
+/** Erro do amparo do motivo (vazio = em ordem ou o motivo não pede). O fato vem no dia do desligamento ou antes. */
+export function erroDoAmparo(tipo: string, amparo: AmparoMotivo | undefined, dataDesligamento: string): string {
+    const req = AMPARO_DO_MOTIVO[tipo as TipoRescisao];
+    if (!req) return '';
+    const falta = `Motivo ${tipo} (${req.base}): informe ${req.pede.charAt(0).toLowerCase()}${req.pede.slice(1)}. Sem o fato que ampara o motivo, a rescisão não fecha.`;
+    if (!amparo || !/^\d{4}-\d{2}-\d{2}$/.test(amparo.data) || (amparo.descricao ?? '').trim().length < 10) return falta;
+    if (dataDesligamento && amparo.data > dataDesligamento) return `Motivo ${tipo}: o fato (${amparo.data.split('-').reverse().join('/')}) é posterior ao desligamento; o motivo só se usa depois dele.`;
+    return '';
+}
 export type TipoRescisao = keyof typeof TIPOS_RESCISAO;
 /**
  * Motivos com saque do FGTS: só nestes há guia rescisória do FGTS Digital. Nos
  * demais (pedido de demissão, justa causa, término antecipado pelo empregado)
  * o FGTS do mês vai na guia mensal (FAQ do FGTS Digital 04.04).
  */
-export const PERMITE_SAQUE_FGTS: readonly string[] = ['02', '03', '05', '06', '10', '17', '33', '27', '47', '48'];
+export const PERMITE_SAQUE_FGTS: readonly string[] = ['02', '03', '05', '06', '10', '17', '33', '27', '47', '48', '09', '26', '49'];
 /** Motivos em que o aviso prévio e as proporcionais vão pela metade: acordo (art. 484-A) e culpa recíproca (Súmula 14 do TST). */
 export const AVISO_PELA_METADE: readonly string[] = ['33', '05'];
 export type AvisoPrevio = 'indenizado' | 'trabalhado' | 'dispensado' | 'nao-cumprido';
@@ -120,6 +150,8 @@ export interface EntradaRescisao {
     contribuicoesSindicais?: ContribuicaoConvencao[];
     /** Intermitente: as convocações do empregado (média dos 12 meses e as do mês do desligamento). */
     convocacoes?: Convocacao[];
+    /** Fato que ampara os motivos 09, 26, 27, 47, 48 e 49 (AMPARO_DO_MOTIVO). */
+    amparo?: AmparoMotivo;
 }
 
 export interface ResultadoRescisao extends ResultadoCalculo {
@@ -133,6 +165,8 @@ export interface ResultadoRescisao extends ResultadoCalculo {
     saqueFgts: string;
     /** Deduções do IRRF do 13º da rescisão (tributação exclusiva, tpRend 12 no S-1210). As do saldo vêm em deducoesIrrf. */
     deducoes13?: { simplificado: boolean; dependentes: { cpf: string; nome: string }[]; porDependente: number; pensao: number };
+    /** O fato que ampara o motivo, quando ele pede (vai na memória e no TRCT). */
+    amparo?: AmparoMotivo;
 }
 
 const ALIQUOTA_FGTS = 8;
@@ -179,6 +213,11 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
     const restricao = CATEGORIAS_DO_MOTIVO[tipo];
     if (restricao && ((restricao.so && !restricao.so.includes(categoria)) || (restricao.exceto && restricao.exceto.includes(categoria)))) {
         return erro(`Motivo ${tipo} (${TIPOS_RESCISAO[tipo]}): ${restricao.texto}, pela Tabela 19 do eSocial.`);
+    }
+    const semAmparo = erroDoAmparo(tipo, e.amparo, data);
+    if (AMPARO_DO_MOTIVO[tipo] && !semAmparo && e.amparo) {
+        r.amparo = { data: e.amparo.data, descricao: e.amparo.descricao.trim() };
+        r.memoria.push(`Amparo do motivo ${tipo} (${AMPARO_DO_MOTIVO[tipo]!.base}): ${r.amparo.descricao}, em ${br(r.amparo.data)}.`);
     }
     // Doméstico (LC 150/2015): sem multa de 40% ou 20%; os 3,2% depositados no contrato substituem a multa (art. 22).
     const domestico = ehDomestico(categoria);
@@ -305,6 +344,12 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
         r.avisos.push('Força maior: a extinção precisa ser do estabelecimento ou da empresa e o fato, imprevisível e alheio ao empregador (art. 501). Contrato a termo tem a indenização do art. 479 pela metade (art. 502, III): lance no movimento, se for o caso.');
     } else if (tipo === '08') r.memoria.push('Rescisão por interesse do empregado (arts. 394 e 483, § 1º): sem aviso prévio de nenhuma das partes.');
     else if (tipo === '41' || tipo === '42') r.memoria.push('Extinção antecipada da aprendizagem (art. 433): sem aviso prévio e sem as indenizações dos arts. 479 e 480 (art. 433, § 2º).');
+    else if (tipo === '09') r.memoria.push('Opção do empregado pelo falecimento do empregador individual (art. 483, § 2º): sem aviso prévio de nenhuma das partes e sem multa do FGTS; saque liberado (Lei 8.036/1990, art. 20, II).');
+    else if (tipo === '49') r.memoria.push('Falecimento do empregador doméstico sem continuação: extinção sem culpa do empregado; sem aviso prévio; os 3,2% vão para o empregado (LC 150/2015, art. 22).');
+    if (tipo === '26') {
+        r.memoria.push('Fato do príncipe (art. 486): verbas da dispensa sem justa causa, com o aviso prévio; a indenização (a multa de 40% do FGTS) fica a cargo do governo responsável.');
+        r.avisos.push('Fato do príncipe (art. 486): a guia rescisória do FGTS sai com a multa pelo FGTS Digital; o ressarcimento do governo responsável é pedido à parte (art. 486, § 1º). Confira com o jurídico antes de pagar.');
+    }
     if (tipo === '47' || tipo === '48') r.memoria.push(`${tipo === '47' ? 'Encerramento da atividade' : 'Falecimento do empregador individual sem continuação (art. 485)'}: verbas da dispensa sem justa causa, com o aviso prévio (TST, Súmula 44) e a multa de 40%.`);
 
     // 3. 13º proporcional e sobre o aviso indenizado.
@@ -414,7 +459,9 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
         : tipo === '10' ? 'Saque do FGTS pelos dependentes habilitados na Previdência ou, sem eles, pelos sucessores (Lei 8.036/1990, art. 20, IV; Lei 6.858/1980).'
         : tipo === '05' ? 'Saque do saldo do FGTS liberado (Lei 8.036/1990, art. 20, I), com a multa de 20% (art. 18, § 2º); sem seguro-desemprego.'
         : tipo === '27' ? 'Saque do saldo do FGTS liberado (Lei 8.036/1990, art. 20, I), com a multa de 20% (art. 18, § 2º).'
-        : tipo === '47' || tipo === '48' ? 'Saque do saldo do FGTS liberado (Lei 8.036/1990, art. 20, I e II), com a multa de 40%.'
+        : tipo === '47' || tipo === '48' || tipo === '26' ? 'Saque do saldo do FGTS liberado (Lei 8.036/1990, art. 20, I e II), com a multa de 40%.'
+        : tipo === '09' ? 'Saque do saldo do FGTS liberado (Lei 8.036/1990, art. 20, II: falecimento do empregador individual); sem multa.'
+        : tipo === '49' ? 'Saque do saldo do FGTS liberado, com os 3,2% da indenização compensatória (LC 150/2015, art. 22).'
         : PERMITE_SAQUE_FGTS.includes(tipo) ? 'Saque do saldo do FGTS liberado.' : 'Sem saque do FGTS por este motivo.';
     if (domestico) {
         // Fim do contrato a termo: o eSocial Doméstico gera o DAE do mês só com os 8%, sem os 3,2%.
@@ -448,6 +495,7 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
         r.memoria.push(`Falecimento: sem IRRF na rescisão${ir ? ` (os ${reais(ir)} calculados não são retidos)` : ''}; o S-2299 vai com indApurIR 1 e sem S-1210, e a retenção, se houver, é com o CPF de quem recebe, na EFD-Reinf (MOS, S-2299, item 11.1).`);
         r.avisos.push('Falecimento: pague aos dependentes habilitados na Previdência ou, sem eles, aos sucessores indicados em alvará judicial (Lei 6.858/1980). A data do desligamento é a do óbito.');
     }
+    if (semAmparo) { r.avisos.unshift(semAmparo); if (r.situacao === 'calculado') r.situacao = 'incompleto'; }
     if (tipo === '17') r.avisos.push('Rescisão indireta reconhecida em juízo: o S-2299 vai com o número do processo e sem as verbas, e os valores pelo S-2500 (MOS, S-2299, item 20). O S-2299 com as verbas é para a rescisão indireta reconhecida pelo empregador.');
     r.totais.proventos = r.verbas.filter(v => v.tipo === 'provento').reduce((s, v) => s + v.valor, 0);
     r.totais.descontos = r.verbas.filter(v => v.tipo === 'desconto').reduce((s, v) => s + v.valor, 0);

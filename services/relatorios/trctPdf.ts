@@ -28,7 +28,7 @@ export interface SecaoTrct { titulo: string; linhas: LinhaTrct[] }
 /** Seções de identificação do TRCT (parte pura, para a tela e os testes). */
 export function secoesDoTrct(r: ResultadoRescisao, f: FichaFuncionario | undefined, empresa: { razaoSocial: string; cnpj: string }): SecaoTrct[] {
     const d = f?.dados ?? {};
-    const tipo = r.tipo ? `${TIPOS_RESCISAO[r.tipo]} (motivo ${r.tipo} da Tabela 19 do eSocial)` : '';
+    const tipo = r.tipo ? `${TIPOS_RESCISAO[r.tipo]} (motivo ${r.tipo} da Tabela 19 do eSocial)${r.amparo ? `. Amparo: ${r.amparo.descricao}, em ${r.amparo.data.split('-').reverse().join('/')}` : ''}` : '';
     const indenizado = r.verbas.some(v => v.codigo === 'AVISO');
     const naoCumprido = r.verbas.some(v => v.codigo === 'AVISODESC');
     const endereco = [[d.logradouro, d.numero].filter(Boolean).join(', '), d.complemento, d.bairro, [d.municipio, d.uf].filter(Boolean).join('/'), d.cep && `CEP ${d.cep}`].filter(Boolean).join(' – ');

@@ -5122,3 +5122,25 @@ Paulo: *"pode seguir com regra do afastado"* (12/10).
   - motivo aceito (ex.: 07) → "o eSocial aceita o motivo com o afastamento" e a estabilidade a conferir;
   - antes, o alerta tratava todo afastado como recusado e ignorava as férias.
 - **Testes:** `desligamento.test.ts` (férias, afastamento sem fim, motivo aceito, data do fim projetado, outra ficha) e `previa.test.ts`.
+
+## 12/10/2026 — Motivos 09, 26 e 49 e o amparo legal obrigatório
+
+Paulo: *"motivo de rescisão é algo que deve ser cadastrado de forma que o uso só ocorre quando houver uma das situações; todas devem obedecer o amparo legal"* (12/10).
+
+- **Amparo obrigatório** (`AMPARO_DO_MOTIVO`, `erroDoAmparo`):
+  - os motivos que dependem de um fato só fecham com a data e a descrição do fato e do documento:
+    - 09 e 48: certidão de óbito do empregador individual;
+    - 26: ato da autoridade;
+    - 27: fato de força maior;
+    - 47: baixa, distrato ou ata do encerramento;
+    - 49: certidão de óbito do empregador doméstico;
+  - sem o amparo, a rescisão fica incompleta, com o aviso do que falta e da base legal, e o S-2299 não sai;
+  - fato posterior ao desligamento é recusado;
+  - com o amparo, o fato vai na memória do cálculo e na causa do TRCT;
+  - na tela (Cálculo › Rescisão), os campos "Data do fato" e "Fato e documento" aparecem só para esses motivos.
+- **As restrições de categoria da Tabela 19 continuam:** 41 e 42 só para aprendiz, 49 só para doméstico, e 26, 47 e 48 nunca para doméstico.
+- **Motivos novos:**
+  - **09, opção do empregado pelo falecimento do empregador individual** (CLT, art. 483, § 2º): sem aviso de nenhuma parte e sem multa; saque do FGTS (Lei 8.036/1990, art. 20, II);
+  - **26, fato do príncipe** (CLT, art. 486): verbas da dispensa, com aviso e multa de 40%, e saque. A indenização fica a cargo do governo responsável: a tela avisa que a guia sai pelo FGTS Digital e que o ressarcimento é pedido à parte (§ 1º), a conferir com o jurídico. Seguro-desemprego: sim;
+  - **49, falecimento do empregador doméstico sem continuação:** sem aviso; os 3,2% vão para o empregado (LC 150/2015, art. 22, caput; o § 1º não inclui este caso); saque liberado. O S-2299 do doméstico continua pelo eSocial Doméstico.
+- **Testes:** `rescisaoTabela19.test.ts` (amparo, 09, 26 e 49).
