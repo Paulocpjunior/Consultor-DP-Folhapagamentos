@@ -12,7 +12,7 @@ const base: Cadastro = {
 };
 const ficha = (extra: Partial<FichaLida['ficha']> = {}): FichaLida => ({
     nome: 'ficha.pdf', hash: 'a'.repeat(64), tamanho: 10,
-    ficha: { cnpj, cpf: base.cpf, matricula: base.matricula, dados: { nome: 'PESSOA TESTE', mae: 'MAE TESTE', pis: '13054012041', salario: '2000.00' }, avisos: [], ...extra },
+    ficha: { cnpj, cpf: base.cpf, matricula: base.matricula, dados: { nome: 'PESSOA TESTE', mae: 'MAE TESTE', pis: '12098765438', salario: '2000.00' }, avisos: [], ...extra },
 });
 
 describe('unificação automática XML + PDF', () => {
@@ -21,7 +21,7 @@ describe('unificação automática XML + PDF', () => {
         const f = r.funcionarios[0];
         expect(f.ficha?.nome).toBe('ficha.pdf');
         expect(f.dados.mae).toBe('MAE TESTE');
-        expect(f.dados.pis).toBe('13054012041');
+        expect(f.dados.pis).toBe('12098765438');
         expect(f.dados.salario).toBe('3000.00');
         expect(f.complementosPdf.sort()).toEqual(['mae', 'pis']);
         expect(f.divergencias).toEqual([{ campo: 'salario', rotulo: 'Salário fixo (decimal com ponto)', xml: '3000.00', pdf: '2000.00' }]);

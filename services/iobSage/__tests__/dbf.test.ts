@@ -31,7 +31,7 @@ describe('DBF', () => {
         expect(t.campos.map(c => c.nome)).toEqual(['CODIGO', 'NOME', 'ADMISSAO', 'SALARIO', 'HORAS', 'ATUALIZ', 'DEMITIDO', 'OBS', 'CARGO']);
         expect(t.campos.find(c => c.nome === 'CARGO')?.anulavel).toBe(true);
         const [a, b] = await tudo(t);
-        expect(a).toEqual(['836292', 'ANDRÉ LUIS DE JESUS DOS SANTOS', '2026-09-16', '3243.6500', '220', '2026-09-28 14:30:05', 'false', 'linha 1\r\nlinha 2 com acentuação', 'AUXILIAR']);
+        expect(a).toEqual(['836292', 'JOSUÉ TESTE DE SOUZA DOS ANJOS', '2026-09-16', '3243.6500', '220', '2026-09-28 14:30:05', 'false', 'linha 1\r\nlinha 2 com acentuação', 'AUXILIAR']);
         expect(b.slice(0, 7)).toEqual(['2', "JOSÉ D'ÁVILA", null, '1518.0000', '0', null, 'true']);
     });
 

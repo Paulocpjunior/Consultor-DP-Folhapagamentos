@@ -58,11 +58,13 @@ describe('templatePadraoDetector v2.1.0', () => {
       const det = await detectarTemplatePadrao(wb);
       const linhas = lerLinhasApontamento(wb, det);
       expect(linhas.length).toBe(46);
+      // A fixture veio de uma empresa real: os nomes dos funcionários ficam fictícios (LGPD).
+      expect(linhas.every(l => /^FUNCIONARIO FICTICIO \d{2}$/.test(l.nome))).toBe(true);
 
-      // Alexandre — primeira linha de dados
+      // Primeira linha de dados (nomes fictícios na fixture)
       expect(linhas[0]).toMatchObject({
         matricula: '000109',
-        nome: 'ALEXANDRE ARAUJO DOS SANTOS',
+        nome: 'FUNCIONARIO FICTICIO 01',
         codigoEvento: '5650',
         tipo: 'R',
         referencia: 2,
