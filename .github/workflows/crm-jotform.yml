@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   sincronizar:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       JOTFORM_API_KEY: ${{ secrets.JOTFORM_API_KEY }}
       FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
