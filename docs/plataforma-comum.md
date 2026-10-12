@@ -156,7 +156,6 @@ O CORS libera as mesmas origens do CFI. Para os módulos, nada muda.
 | P-c | Pôr a chave do Gemini no Secret Manager (`gemini-api-key`) e dar "Secret Manager Secret Accessor" à conta do serviço da plataforma | P2 |
 | P-d | Criar `VITE_SERVICO_IA_URL` no GitHub do DP com o endereço que eu passar | P2 |
 | P-e | Credenciais do Graph no Secret Manager, com acesso da plataforma | P3 |
-| P-f | Segredos do A1 (`cfi-empresa-cert-key`, `sefaz-cert-a1`, `sefaz-cert-password`), bucket dos certificados e credenciais do SERPRO com acesso da plataforma | P4 |
 | P-f | Acesso da plataforma a `cfi-empresa-cert-key`, `sefaz-cert-a1`, `sefaz-cert-password` e às credenciais SERPRO | P4 |
 
 | Fase | O que eu faço |
