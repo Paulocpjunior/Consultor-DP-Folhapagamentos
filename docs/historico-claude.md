@@ -5221,3 +5221,13 @@ Paulo: *"podemos fazer o P2 usando o terminal do meu mac"* (12/10).
   - `VITE_SERVICO_IA_URL` gravada no GitHub do DP, e este deploy do DP passa a mandar a MIA e a leitura dos holerites para a plataforma.
 - **Volta:** apagar `VITE_SERVICO_IA_URL` e publicar.
 - **Não testado daqui:** a rede desta sessão não alcança `*.run.app`. A primeira pergunta à MIA no app publicado é a prova com usuário real.
+
+## 12/10/2026 — Esteiras: actions em Node 24 e Ubuntu fixo
+
+- O GitHub avisou que as actions em Node 20 vão parar e que o `ubuntu-latest` passa a ser o Ubuntu 26 em 19/10/2026.
+- **Actions** (o runtime de cada versão conferido no `action.yml` oficial):
+  - checkout@v5, setup-node@v5 e setup-java@v5;
+  - configure-pages@v6, deploy-pages@v5 e upload-pages-artifact@v5;
+  - todas em Node 24. O upload-pages-artifact@v5 usa por dentro um upload-artifact em Node 24; ele passa a deixar de fora os arquivos ocultos, e o `public/` não tem nenhum.
+- **Ambiente:** `runs-on: ubuntu-24.04` em vez de `ubuntu-latest`, para a troca do Ubuntu não chegar de surpresa. A mudança para o 26 vira decisão, com teste.
+- A mesma mudança foi feita no CFI e na sp-plataforma.
