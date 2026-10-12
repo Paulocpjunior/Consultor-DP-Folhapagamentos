@@ -73,6 +73,29 @@ describe('S-1210 do pagamento da rescisão', () => {
         expect(await validarPeloXsd(g.s1210!.xml, lerXsd)).toEqual({ valido: true, erros: [] });
         expect(gerarS1210Rescisao({ ...base, ficha: { ...ficha, dependentes: [{ ...alim, cpf: '' } as never] }, rescisao: r }).erros.join(' ')).toContain('sem CPF válido');
     });
+
+    it('pensão da folha aceita e da rescisão no mesmo mês: soma por alimentando e tpRend; válido pelo XSD', async () => {
+        const alim = { ...FILHO, irrf: 'N', pensao: 'S' };
+        const outro = { ...FILHO, nome: 'CAIO', cpf: '11144477735', irrf: 'N', pensao: 'S' };
+        const ficha = { ...FICHA, dependentes: [alim as never] };
+        const r = { ...RESC, deducoesIrrf: undefined, deducoes13: undefined, verbas: [...RESC.verbas, { codigo: 'PENSAO', descricao: 'Pensão', referencia: '', tipo: 'desconto' as const, valor: 50000, inss: false, fgts: false, irrf: false }] };
+        const folha = '<infoPgto><dtPgto>2026-10-06</dtPgto><tpPgto>1</tpPgto><perRef>2026-09</perRef><ideDmDev>FOLHA202609-M1</ideDmDev><vrLiq>7000.00</vrLiq></infoPgto>';
+        const ex: ReciboEvento = { tipo: 'S-1210', cpf: '52998224725', perApur: '2026-10', nrRecibo: '1.1.0000000000000000002', processadoEm: '', origem: 'download',
+            pagamentos: [{ tpPgto: '1', perRef: '2026-09', ideDmDev: 'FOLHA202609-M1', xml: folha }],
+            irComplem: ['<infoIRComplem><infoDep><cpfDep>39053344705</cpfDep><dtNascto>2015-01-01</dtNascto><nome>BIA</nome></infoDep><infoIRCR><tpCR>056107</tpCR><penAlim><tpRend>11</tpRend><cpfDep>39053344705</cpfDep><vlrDedPenAlim>700.00</vlrDedPenAlim></penAlim></infoIRCR></infoIRComplem>'] };
+        const g = gerarS1210Rescisao({ ...base, ficha, rescisao: r, existente: ex });
+        expect(g.erros).toEqual([]);
+        const xml = g.s1210!.xml;
+        expect(await validarPeloXsd(xml, lerXsd)).toEqual({ valido: true, erros: [] });
+        expect(xml.match(/<penAlim>/g)).toHaveLength(1);
+        expect(xml).toContain('<penAlim><tpRend>11</tpRend><cpfDep>39053344705</cpfDep><vlrDedPenAlim>1200.00</vlrDedPenAlim></penAlim>');
+        expect(g.avisos.join(' ')).toMatch(/Pensão alimentícia somada .*700\.00 \+ 500\.00 = 1200\.00/);
+        // Outro alimentando na rescisão: entra como penAlim novo, depois do que já havia.
+        const dois = gerarS1210Rescisao({ ...base, ficha: { ...FICHA, dependentes: [outro as never] }, rescisao: r, existente: ex });
+        expect(dois.erros).toEqual([]);
+        expect(await validarPeloXsd(dois.s1210!.xml, lerXsd)).toEqual({ valido: true, erros: [] });
+        expect(dois.s1210!.xml).toContain('<vlrDedPenAlim>700.00</vlrDedPenAlim></penAlim><penAlim><tpRend>11</tpRend><cpfDep>11144477735</cpfDep><vlrDedPenAlim>500.00</vlrDedPenAlim></penAlim>');
+    });
 });
 
 describe('falecimento do empregado', () => {

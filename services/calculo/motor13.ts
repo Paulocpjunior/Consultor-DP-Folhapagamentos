@@ -158,7 +158,7 @@ export function calcular13(e: Entrada13): ResultadoCalculo {
     }
     if (parcela === '1a' && d.admissao > ultimoDia(pagamento)) return erro(`Admitido em ${brData(d.admissao)}, depois do pagamento da 1ª parcela: recebe o 13º inteiro na 2ª.`);
     const deslig = d.dataDesligamento && dataValida(d.dataDesligamento) ? d.dataDesligamento : '';
-    if (deslig && deslig < `${ano}-12-31`) return erro(`Desligado em ${brData(deslig)}: o 13º é pago na rescisão, que ainda não está no motor.`);
+    if (deslig && deslig < `${ano}-12-31`) return erro(`Desligado em ${brData(deslig)}: o 13º proporcional é pago na rescisão (Cálculo › Rescisão, ou Demissões para a prévia), não na folha do 13º.`);
     const categoria = d.categoria || '';
     if (categoria && !/^1\d\d$/.test(categoria)) return erro(`Categoria ${categoria}: esta versão só calcula empregados (categorias 1xx).`);
     const aprendiz = categoria === '103';

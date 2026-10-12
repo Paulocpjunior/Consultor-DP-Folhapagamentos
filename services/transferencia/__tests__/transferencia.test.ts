@@ -49,13 +49,14 @@ describe('transferência entre empresas do grupo', () => {
 
     it('S-2200 de admissão comum e contrato por prazo; cobra o que falta', async () => {
         const det = { ...FICHA, dados: { ...FICHA.dados, tipoContrato: '2', fimContrato: '2026-12-31', raca: '6', admissao: '2026-10-01' } };
-        const g = gerarS2200({ cnpj: ORIGEM.cnpj, tpAmb: 2, ficha: { ...det, dados: { ...det.dados, raca: '3' } }, contrato: { ...contratoPadrao(det), dtBase: '05', tpJornada: '4' }, agora: AGORA });
+        const g = gerarS2200({ cnpj: ORIGEM.cnpj, tpAmb: 2, ficha: { ...det, dados: { ...det.dados, raca: '3' } }, contrato: { ...contratoPadrao(det), dtBase: '05', tpJornada: '4', clauAssec: 'N' }, agora: AGORA });
+        expect(g.erros).toEqual([]);
         expect(await validarPeloXsd(g.evento!.xml, lerXsd)).toEqual({ valido: true, erros: [] });
         expect(g.evento!.xml).toContain('<tpAdmissao>1</tpAdmissao>');
         expect(g.evento!.xml).toContain('<dtBase>5</dtBase>');
-        expect(g.evento!.xml).toContain('<duracao><tpContr>2</tpContr><dtTerm>2026-12-31</dtTerm></duracao>');
+        expect(g.evento!.xml).toContain('<duracao><tpContr>2</tpContr><dtTerm>2026-12-31</dtTerm><clauAssec>N</clauAssec></duracao>');
         const e = validarS2200({ cnpj: ORIGEM.cnpj, tpAmb: 2, ficha: { ...det, dados: { ...det.dados, sindicato: '', municipio: '', categoria: '104' } }, contrato: { ...contratoPadrao(), dscJorn: '' } }).join(' ');
-        for (const m of [/sindicato/, /município/, /Categoria 104/, /Descrição da jornada/, /não informado/]) expect(e).toMatch(m);
+        for (const m of [/sindicato/, /município/, /Categoria 104 \(doméstico\): o vínculo vai pelo eSocial Doméstico/, /Descrição da jornada/, /não informado/, /cláusula assecuratória/]) expect(e).toMatch(m);
     });
 
     it('fichas: destino com nova matrícula, histórico e sem os dados da empresa; origem desligada com o motivo 11', () => {
@@ -104,5 +105,58 @@ describe('transferência entre empresas do grupo', () => {
         expect(rd.memoria.join(' ')).toMatch(/Transferido de outra empresa do grupo em 16\/11\/2026/);
         expect(noMes([destino], '2026-10')).toEqual([]);
         expect(noMes([destino], '2026-11')).toHaveLength(1);
+    });
+});
+
+describe('S-2200 e S-2206 por categoria (XSD S-1.3)', () => {
+    const adm = (dados: Partial<FichaFuncionario['dados']>) => ({ ...FICHA, dados: { ...FICHA.dados, admissao: '2026-10-01', ...dados } });
+    const s2200 = (f: FichaFuncionario, c: Partial<ReturnType<typeof contratoPadrao>> = {}) =>
+        gerarS2200({ cnpj: ORIGEM.cnpj, tpAmb: 2, ficha: f, contrato: { ...contratoPadrao(f), ...c }, agora: AGORA });
+
+    it('intermitente (111): sem horas semanais; passa no XSD', async () => {
+        const g = s2200(adm({ categoria: '111', horasSemanais: '' }));
+        expect(g.erros).toEqual([]);
+        expect(await validarPeloXsd(g.evento!.xml, lerXsd)).toEqual({ valido: true, erros: [] });
+        expect(g.evento!.xml).toContain('<codCateg>111</codCateg>');
+        expect(g.evento!.xml).toMatch(/<horContratual><tpJornada>/);
+        expect(validarS2200({ cnpj: ORIGEM.cnpj, tpAmb: 2, ficha: adm({ categoria: '101', horasSemanais: '' }), contrato: contratoPadrao() }).join(' ')).toMatch(/Horas semanais/);
+    });
+
+    it('aprendiz (103): grupo aprend, prazo determinado; passa no XSD', async () => {
+        const f = adm({ categoria: '103', tipoContrato: '2', fimContrato: '2027-09-30' });
+        expect(validarS2200({ cnpj: ORIGEM.cnpj, tpAmb: 2, ficha: { ...f, dados: { ...f.dados, tipoContrato: '1' } }, contrato: contratoPadrao(f) }).join(' ')).toMatch(/Aprendiz admitido desde 22\/04\/2024: contrato por prazo determinado/);
+        expect(validarS2200({ cnpj: ORIGEM.cnpj, tpAmb: 2, ficha: f, contrato: { ...contratoPadrao(f), clauAssec: 'N' } }).join(' ')).toMatch(/CNPJ da entidade qualificadora/);
+        const g = s2200(f, { clauAssec: 'N', aprend: { indAprend: '1', cnpjEntQual: '11222333000181' } });
+        expect(g.erros).toEqual([]);
+        expect(await validarPeloXsd(g.evento!.xml, lerXsd)).toEqual({ valido: true, erros: [] });
+        expect(g.evento!.xml).toContain('<cnpjSindCategProf>11222333000181</cnpjSindCategProf><aprend><indAprend>1</indAprend><cnpjEntQual>11222333000181</cnpjEntQual></aprend></infoCeletista>');
+        const ind = s2200(f, { clauAssec: 'S', aprend: { indAprend: '2', tpInsc: '1', nrInsc: '29463877000109' } });
+        expect(ind.erros).toEqual([]);
+        expect(ind.evento!.xml).toContain('<aprend><indAprend>2</indAprend><tpInsc>1</tpInsc><nrInsc>29463877000109</nrInsc></aprend>');
+        expect(s2200(f, { clauAssec: 'S', aprend: { indAprend: '2', tpInsc: '1', nrInsc: '44388152000189' } }).erros.join(' ')).toMatch(/outra empresa/);
+    });
+
+    it('temporário (106): trabTemporario com tomador e substituídos; passa no XSD', async () => {
+        const f = adm({ categoria: '106', tipoContrato: '2', fimContrato: '2027-01-31' });
+        expect(s2200(f, { clauAssec: 'N' }).erros.join(' ')).toMatch(/o fato que justifica a contratação/);
+        const t = { hipLeg: '1' as const, justContr: 'Substituição de empregada em licença-maternidade', ideEstabVinc: { tpInsc: '1' as const, nrInsc: '29463877000109' }, cpfSubstituidos: [] as string[] };
+        expect(s2200(f, { clauAssec: 'N', trabTemporario: t }).erros.join(' ')).toMatch(/CPF de quem é substituído/);
+        const g = s2200(f, { clauAssec: 'N', trabTemporario: { ...t, cpfSubstituidos: ['39053344705'] } });
+        expect(g.erros).toEqual([]);
+        expect(await validarPeloXsd(g.evento!.xml, lerXsd)).toEqual({ valido: true, erros: [] });
+        expect(g.evento!.xml).toContain('<trabTemporario><hipLeg>1</hipLeg><justContr>Substituição de empregada em licença-maternidade</justContr><ideEstabVinc><tpInsc>1</tpInsc><nrInsc>29463877000109</nrInsc></ideEstabVinc><ideTrabSubstituido><cpfTrabSubst>39053344705</cpfTrabSubst></ideTrabSubstituido></trabTemporario>');
+    });
+
+    it('contrato vinculado a fato (tpContr 3): objeto determinante e cláusula; passa no XSD', async () => {
+        const f = adm({ tipoContrato: '3' });
+        expect(s2200(f).erros.join(' ')).toMatch(/objeto determinante/);
+        const g = s2200(f, { clauAssec: 'N', objDet: 'Obra da sede nova' });
+        expect(g.erros).toEqual([]);
+        expect(await validarPeloXsd(g.evento!.xml, lerXsd)).toEqual({ valido: true, erros: [] });
+        expect(g.evento!.xml).toContain('<duracao><tpContr>3</tpContr><clauAssec>N</clauAssec><objDet>Obra da sede nova</objDet></duracao>');
+    });
+
+    it('contrato verde e amarelo (107/108) continua com o IOB', () => {
+        expect(validarS2200({ cnpj: ORIGEM.cnpj, tpAmb: 2, ficha: adm({ categoria: '107' }), contrato: contratoPadrao() }).join(' ')).toMatch(/Categoria 107 \(contrato verde e amarelo\): o S-2200 dela fica com o IOB/);
     });
 });

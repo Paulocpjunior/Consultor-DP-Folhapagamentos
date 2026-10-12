@@ -4998,3 +4998,30 @@ Paulo: *"pode seguir com a correcao"* (12/10). É o achado do tipo E.
   - S-1200: rubrica informativa, líquido e S-1210 sem ela, XSD e erro sem de/para;
   - validador: 9905 com FGTS 11 aceita, 9902 recusada.
 
+## 12/10/2026 — Lote A: S-2200/S-2206 por categoria, pensão de dois pagamentos no S-1210 e mensagem do 13º
+
+Paulo: *"PODE SEGUIR DE 1 A 4"* (12/10).
+
+- **Item 1, S-2200 e S-2206 por categoria** (`services/esocial/admissao.ts`). As regras vêm das anotações de validação do XSD S-1.3 (evtAdmissao e evtAltContratual) que está no repositório.
+  - **103, aprendiz:** grupo `aprend`, com contratação direta (CNPJ da entidade qualificadora) ou indireta (estabelecimento cumpridor da cota, de outra empresa) e o CNPJ das atividades práticas, que é opcional. Exige tpContr 2 para admissão desde 22/04/2024. Antes, a categoria 103 passava sem o grupo, que é obrigatório desde 22/01/2024.
+  - **106, temporário (Lei 6.019/1974):** grupo `trabTemporario` no S-2200, com a hipótese legal, a justificativa, o tomador (CNPJ de outra empresa ou CPF) e, na substituição de pessoal, os CPFs substituídos.
+  - **105 (prazo determinado da Lei 9.601/1998):** liberada.
+  - **111, intermitente:** liberada, sem `qtdHrsSem`.
+  - **tpContr 3 (contrato vinculado a fato):** `objDet` (o objeto determinante).
+  - **tpContr 2 e 3:** `clauAssec` (a cláusula assecuratória), que o XSD marca como obrigatória. **O S-2200 com contrato por prazo ia sem ela** e seria recusado pelo eSocial.
+  - **Categorias que continuam fora:** 104 (doméstico, pelo eSocial Doméstico); 107 e 108 (contrato verde e amarelo, com o IOB).
+  - **S-2206:** `aprend` para o 103, e a regra de categoria passa a valer igual ao S-2200.
+  - **Tela** (Transferência e Troca de estabelecimento): os campos aparecem conforme a categoria e o tipo de contrato da ficha.
+- **Item 2, pensão de dois pagamentos no mesmo mês** (`pagamentoRescisao.ts`, `somarPensao`):
+  - o S-1210 aceito no mês com pensão e a rescisão também com pensão eram recusados ("junte pelo IOB");
+  - agora o mesmo alimentando no mesmo tpRend vira um `penAlim` só, com a soma, e o alimentando novo entra depois;
+  - a tela avisa o que foi somado.
+- **Item 3, outros motivos da Tabela 19: não feito.**
+  - A Tabela 19 não está no MOS nem no XSD do repositório; o XSD só cita os códigos nas regras.
+  - O site do eSocial (www.gov.br) está bloqueado na rede desta sessão, e o backup do IOB não traz a tabela.
+  - Sem a tabela oficial os códigos não entram, porque código errado é recusado pelo eSocial.
+- **Item 4:** a folha do 13º dizia "a rescisão ainda não está no motor" para o desligado; agora aponta Cálculo › Rescisão e Demissões.
+- **Testes:**
+  - S-2200 de 111, 103 (direta e indireta), 106 (com substituição) e tpContr 3, todos no XSD oficial, mais as recusas;
+  - S-1210 com a pensão somada e com um alimentando novo, no XSD.
+

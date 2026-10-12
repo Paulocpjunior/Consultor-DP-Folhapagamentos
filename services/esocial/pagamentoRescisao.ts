@@ -113,7 +113,6 @@ export function gerarS1210Rescisao(e: EntradaS1210Rescisao): ResultadoS1210Resci
             if (pg.tpPgto === '2' && pg.ideDmDev === e.ideDmDev) { erros.push(`O S-1210 de ${mes(perApur)} aceito já tem o pagamento desta rescisão (${e.ideDmDev}). Para corrigir o valor, retifique o S-2299 e exclua o S-1210 pelo IOB ou pela Saúde do eSocial.`); continue; }
             outros.push(pg.xml);
         }
-        if (penAlim.length && ex.irComplem?.some(x => /<penAlim>/.test(x))) erros.push(`O S-1210 de ${mes(perApur)} aceito já tem pensão alimentícia, e a rescisão também: junte as duas pelo IOB (o Consultor ainda não soma a pensão de dois pagamentos no mesmo mês).`);
     }
     if (erros.length) return sair(outros.length);
 
@@ -131,8 +130,11 @@ export function gerarS1210Rescisao(e: EntradaS1210Rescisao): ResultadoS1210Resci
         if (penXml.length) {
             const cr = /<infoIRCR><tpCR>056107<\/tpCR>[\s\S]*?<\/infoIRCR>/.exec(aceito)?.[0];
             if (cr) {
-                const i = cr.search(/<previdCompl>|<infoProcRet>|<\/infoIRCR>/);
-                aceito = aceito.replace(cr, cr.slice(0, i) + penXml.join('') + cr.slice(i));
+                // Pensão de dois pagamentos no mês (a folha aceita e a rescisão): soma por alimentando e tpRend; a que o
+                // aceito não tem entra antes de previdCompl/infoProcRet (ordem do XSD).
+                const s = somarPensao(cr, penAlim);
+                if (s.somadas.length) avisos.push(`Pensão alimentícia somada à do S-1210 de ${mes(perApur)} aceito: ${s.somadas.join('; ')}.`);
+                aceito = aceito.replace(cr, s.cr);
             } else {
                 const i = aceito.search(/<planSaude>|<infoReembMed>|<\/infoIRComplem>/);
                 aceito = i >= 0 ? aceito.slice(0, i) + `<infoIRCR><tpCR>056107</tpCR>${penXml.join('')}</infoIRCR>` + aceito.slice(i) : aceito + novoIr;
@@ -159,6 +161,25 @@ export function gerarS1210Rescisao(e: EntradaS1210Rescisao): ResultadoS1210Resci
         + `<ideEvento><indRetif>1</indRetif><perApur>${perApur}</perApur><tpAmb>${e.tpAmb}</tpAmb><procEmi>1</procEmi><verProc>${VER_PROC}</verProc></ideEvento>`
         + ideEmpregador + `<ideBenef><cpfBenef>${cpf}</cpfBenef>` + outros.join('') + pgto + ir + '</ideBenef></evtPgtos></eSocial>' };
     return { perApur, exclusao, s1210, outrosPagamentos: outros.length, erros, avisos };
+}
+
+/**
+ * Soma a pensão da rescisão à do bloco infoIRCR aceito: o mesmo alimentando no mesmo tpRend vira um penAlim só, com
+ * os dois valores; o que não existe entra antes de previdCompl/infoProcRet.
+ */
+export function somarPensao(cr: string, pens: { tpRend: string; cpf: string; valor: number }[]): { cr: string; somadas: string[] } {
+    let out = cr; const somadas: string[] = []; const novas: string[] = [];
+    for (const p of pens) {
+        const re = new RegExp(`<penAlim><tpRend>${p.tpRend}</tpRend><cpfDep>${p.cpf}</cpfDep><vlrDedPenAlim>([\\d.]+)</vlrDedPenAlim></penAlim>`);
+        const m = re.exec(out);
+        if (m) {
+            const antes = Math.round(Number(m[1]) * 100);
+            out = out.replace(m[0], `<penAlim><tpRend>${p.tpRend}</tpRend><cpfDep>${p.cpf}</cpfDep><vlrDedPenAlim>${valor(antes + p.valor)}</vlrDedPenAlim></penAlim>`);
+            somadas.push(`CPF ${p.cpf} (tpRend ${p.tpRend}) ${valor(antes)} + ${valor(p.valor)} = ${valor(antes + p.valor)}`);
+        } else novas.push(`<penAlim><tpRend>${p.tpRend}</tpRend><cpfDep>${p.cpf}</cpfDep><vlrDedPenAlim>${valor(p.valor)}</vlrDedPenAlim></penAlim>`);
+    }
+    if (novas.length) { const i = out.search(/<previdCompl>|<infoProcRet>|<\/infoIRCR>/); out = out.slice(0, i) + novas.join('') + out.slice(i); }
+    return { cr: out, somadas };
 }
 
 /** Referência do S-1210 da rescisão no registro de envios. */
