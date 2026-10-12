@@ -14,8 +14,8 @@ import type { Codificacao } from '../../services/iobSage/dbf';
 import type { Usuario } from '../../services/cadastros/cadastrosService';
 import RestaurarEmpresaNoConsultor from './RestaurarEmpresaNoConsultor';
 
-const botao = 'rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-40';
-const botaoSec = 'rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:text-slate-200 disabled:opacity-40';
+const botao = 'rounded-sm bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-40';
+const botaoSec = 'rounded-sm border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:text-slate-200 disabled:opacity-40';
 const th = 'px-2 py-1 text-left font-medium text-slate-600 dark:text-slate-300';
 const td = 'px-2 py-1 text-slate-800 dark:text-slate-100';
 const LIMITE_LISTA = 300;
@@ -107,7 +107,7 @@ const RestaurarBackupModal: React.FC<Props> = ({ aberto, onFechar, usuario, pode
                         </p>
                         <p className="mt-1 text-xs font-medium text-green-700 dark:text-green-300">Os arquivos são lidos no seu computador e não são enviados a lugar nenhum. O Consultor só grava o que você confirmar em "Restaurar a empresa no Consultor".</p>
                     </div>
-                    <button aria-label="Fechar" className="rounded px-2 text-xl text-slate-500 hover:text-slate-800 dark:hover:text-white" onClick={onFechar}>×</button>
+                    <button aria-label="Fechar" className="rounded-sm px-2 text-xl text-slate-500 hover:text-slate-800 dark:hover:text-white" onClick={onFechar}>×</button>
                 </div>
 
                 <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -116,10 +116,10 @@ const RestaurarBackupModal: React.FC<Props> = ({ aberto, onFechar, usuario, pode
                         <input aria-label="Arquivos do backup" type="file" multiple className="sr-only" disabled={lendo}
                             onChange={e => { const l = Array.from(e.target.files ?? []); e.target.value = ''; setGrupo(''); setBusca(''); void abrir(l, codificacao); }} />
                     </label>
-                    {r && <button className="rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:text-slate-200" onClick={baixarInventario}>Baixar inventário da estrutura (CSV)</button>}
+                    {r && <button className="rounded-sm border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:text-slate-200" onClick={baixarInventario}>Baixar inventário da estrutura (CSV)</button>}
                     {r && r.dbfs.length > 0 && (
                         <label className="text-sm text-slate-700 dark:text-slate-200">Acentos dos DBF
-                            <select aria-label="Codificação dos DBF" className="ml-2 rounded border border-slate-300 bg-white px-2 py-1 dark:border-slate-600 dark:bg-slate-900" value={codificacao}
+                            <select aria-label="Codificação dos DBF" className="ml-2 rounded-sm border border-slate-300 bg-white px-2 py-1 dark:border-slate-600 dark:bg-slate-900" value={codificacao}
                                 onChange={e => { const c = e.target.value as Codificacao | ''; setCodificacao(c); void abrir(arquivos, c); }}>
                                 {CODIFICACOES.map(c => <option key={c.v} value={c.v}>{c.r}</option>)}
                             </select>
@@ -135,7 +135,7 @@ const RestaurarBackupModal: React.FC<Props> = ({ aberto, onFechar, usuario, pode
                 {r && (
                     <>
                         <h4 className="mt-4 text-sm font-semibold text-slate-800 dark:text-white">Arquivos ({r.arquivos.length})</h4>
-                        <div className="mt-1 max-h-48 overflow-auto rounded border border-slate-200 dark:border-slate-700">
+                        <div className="mt-1 max-h-48 overflow-auto rounded-sm border border-slate-200 dark:border-slate-700">
                             <table className="min-w-full text-xs">
                                 <thead className="sticky top-0 bg-slate-50 dark:bg-slate-900"><tr><th className={th}>Arquivo</th><th className={th}>Tipo</th><th className={th}>Tamanho</th><th className={th}>Conteúdo</th></tr></thead>
                                 <tbody>{r.arquivos.map(a => (
@@ -164,23 +164,23 @@ const RestaurarBackupModal: React.FC<Props> = ({ aberto, onFechar, usuario, pode
 
                         <div className="mt-4 flex flex-wrap items-end gap-3">
                             <label className="text-sm text-slate-700 dark:text-slate-200">Esquema ou pasta
-                                <select aria-label="Esquema ou pasta" className="mt-1 block max-w-xs rounded border border-slate-300 bg-white px-2 py-1 dark:border-slate-600 dark:bg-slate-900" value={grupo} onChange={e => setGrupo(e.target.value)}>
+                                <select aria-label="Esquema ou pasta" className="mt-1 block max-w-xs rounded-sm border border-slate-300 bg-white px-2 py-1 dark:border-slate-600 dark:bg-slate-900" value={grupo} onChange={e => setGrupo(e.target.value)}>
                                     <option value="">Todos ({r.grupos.length})</option>
                                     {r.grupos.map(s => <option key={s} value={s}>{s}</option>)}
                                 </select>
                             </label>
                             <label className="text-sm text-slate-700 dark:text-slate-200">Buscar tabela ou coluna
-                                <input aria-label="Buscar tabela ou coluna" className="mt-1 block w-64 rounded border border-slate-300 bg-white px-2 py-1 dark:border-slate-600 dark:bg-slate-900" value={busca} onChange={e => setBusca(e.target.value)} placeholder="ex.: empresa, cnpj, salario" />
+                                <input aria-label="Buscar tabela ou coluna" className="mt-1 block w-64 rounded-sm border border-slate-300 bg-white px-2 py-1 dark:border-slate-600 dark:bg-slate-900" value={busca} onChange={e => setBusca(e.target.value)} placeholder="ex.: empresa, cnpj, salario" />
                             </label>
                             <p className="text-xs text-slate-500 dark:text-slate-400">{filtradas.length} tabela(s){filtradas.length > LIMITE_LISTA ? `; mostrando as ${LIMITE_LISTA} primeiras, refine a busca` : ''}.</p>
                         </div>
 
-                        <div className="mt-2 max-h-80 overflow-auto rounded border border-slate-200 dark:border-slate-700">
+                        <div className="mt-2 max-h-80 overflow-auto rounded-sm border border-slate-200 dark:border-slate-700">
                             <table className="min-w-full text-sm">
                                 <thead className="sticky top-0 bg-slate-50 dark:bg-slate-900"><tr><th className={th}>Origem</th><th className={th}>Esquema / pasta</th><th className={th}>Tabela</th><th className={th}>Colunas</th><th className={th}>Registros</th><th className={th}>No backup</th><th className={th}></th></tr></thead>
                                 <tbody>{filtradas.slice(0, LIMITE_LISTA).map(t => (
                                     <tr key={t.id} className="border-t border-slate-100 dark:border-slate-700">
-                                        <td className={td}><span className={`rounded px-1.5 py-0.5 text-xs ${t.origem === 'dbf' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200' : 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200'}`}>{t.origem === 'dbf' ? 'DBF' : 'PostgreSQL'}</span></td>
+                                        <td className={td}><span className={`rounded-sm px-1.5 py-0.5 text-xs ${t.origem === 'dbf' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200' : 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200'}`}>{t.origem === 'dbf' ? 'DBF' : 'PostgreSQL'}</span></td>
                                         <td className={`${td} text-xs`}>{t.grupo}</td>
                                         <td className={`${td} font-medium`}>{t.tabela}</td>
                                         <td className={`${td} max-w-md truncate text-xs text-slate-500 dark:text-slate-400`} title={t.colunas.join(', ')}>{t.colunas.length} · {t.colunas.slice(0, 6).join(', ')}{t.colunas.length > 6 ? '…' : ''}</td>
@@ -197,7 +197,7 @@ const RestaurarBackupModal: React.FC<Props> = ({ aberto, onFechar, usuario, pode
                         {previa && (
                             <div className="mt-4">
                                 <h4 className="text-sm font-semibold text-slate-800 dark:text-white">{previa.t.grupo} › {previa.t.tabela} · {previa.linhas.length < LINHAS_PREVIA ? `${previa.linhas.length} linha(s)` : `primeiras ${LINHAS_PREVIA} linhas`}</h4>
-                                <div className="mt-2 max-h-80 overflow-auto rounded border border-slate-200 dark:border-slate-700">
+                                <div className="mt-2 max-h-80 overflow-auto rounded-sm border border-slate-200 dark:border-slate-700">
                                     <table className="min-w-full text-xs">
                                         <thead className="sticky top-0 bg-slate-50 dark:bg-slate-900"><tr>{previa.t.colunas.map(c => <th key={c} className={th}>{c}</th>)}</tr></thead>
                                         <tbody>{previa.linhas.map((l, i) => (

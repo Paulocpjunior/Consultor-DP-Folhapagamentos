@@ -270,7 +270,7 @@ export default function WizardMapeamentoMapas({
                                 <select
                                     value={sheetName}
                                     onChange={(e) => setSheetName(e.target.value)}
-                                    className="px-2 py-0.5 text-sm font-mono border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-white"
+                                    className="px-2 py-0.5 text-sm font-mono border border-slate-300 dark:border-slate-600 rounded-sm bg-white dark:bg-slate-900 text-slate-800 dark:text-white"
                                 >
                                     {sheetNames.map((s) => (
                                         <option key={s} value={s}>{s}</option>
@@ -287,7 +287,7 @@ export default function WizardMapeamentoMapas({
                         </div>
                     </div>
                     {modoAjuste && (
-                        <div className="mt-3 px-3 py-2 text-xs bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200 rounded">
+                        <div className="mt-3 px-3 py-2 text-xs bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200 rounded-sm">
                             As colunas já mapeadas vêm preenchidas. Preencha o evento das que estão em branco
                             (é o que faz a coluna virar lançamento no TXT) ou apague o código para desativar
                             uma coluna. <strong>Matrículas cadastradas e demais configurações são preservadas.</strong>
@@ -300,7 +300,7 @@ export default function WizardMapeamentoMapas({
                     <b>RV:</b> V = valor R$, R = referência (horas/quantidade).
                 </div>
 
-                <div className="border border-slate-200 dark:border-slate-700 rounded overflow-auto">
+                <div className="border border-slate-200 dark:border-slate-700 rounded-sm overflow-auto">
                     <table className="w-full text-sm">
                         <thead className="bg-slate-100 dark:bg-slate-900 sticky top-0">
                             <tr>
@@ -330,7 +330,7 @@ export default function WizardMapeamentoMapas({
                                             value={r.eventCode}
                                             onChange={(e) => update(i, { eventCode: e.target.value })}
                                             list={catalogoEventos.length > 0 ? `eventos-list-${i}` : undefined}
-                                            className="w-20 px-2 py-1 text-sm font-mono border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-white"
+                                            className="w-20 px-2 py-1 text-sm font-mono border border-slate-300 dark:border-slate-600 rounded-sm bg-white dark:bg-slate-900 text-slate-800 dark:text-white"
                                         />
                                         {catalogoEventos.length > 0 && (
                                             <datalist id={`eventos-list-${i}`}>
@@ -346,7 +346,7 @@ export default function WizardMapeamentoMapas({
                                             placeholder={r.headerLabel}
                                             value={r.descricao}
                                             onChange={(e) => update(i, { descricao: e.target.value })}
-                                            className="w-full px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-white"
+                                            className="w-full px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 rounded-sm bg-white dark:bg-slate-900 text-slate-800 dark:text-white"
                                         />
                                     </td>
                                     <td className="px-2 py-1.5 text-center">
@@ -354,7 +354,7 @@ export default function WizardMapeamentoMapas({
                                             <select
                                                 value={r.tipo}
                                                 onChange={(e) => update(i, { tipo: e.target.value as TipoEvento })}
-                                                className="px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-white"
+                                                className="px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 rounded-sm bg-white dark:bg-slate-900 text-slate-800 dark:text-white"
                                             >
                                                 <option value="V">V</option>
                                                 <option value="D">D</option>
@@ -366,7 +366,7 @@ export default function WizardMapeamentoMapas({
                                             <select
                                                 value={r.rv}
                                                 onChange={(e) => update(i, { rv: e.target.value as ReferenciaValor })}
-                                                className="px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-white"
+                                                className="px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 rounded-sm bg-white dark:bg-slate-900 text-slate-800 dark:text-white"
                                             >
                                                 <option value="V">V</option>
                                                 <option value="R">R</option>
@@ -390,7 +390,7 @@ export default function WizardMapeamentoMapas({
                 </div>
 
                 {error && (
-                    <div className="mt-3 px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm rounded">
+                    <div className="mt-3 px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm rounded-sm">
                         {error}
                     </div>
                 )}
@@ -403,14 +403,14 @@ export default function WizardMapeamentoMapas({
                         <button
                             onClick={onCancel}
                             disabled={saving}
-                            className="px-4 py-1.5 text-sm border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
+                            className="px-4 py-1.5 text-sm border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-sm"
                         >
                             Cancelar
                         </button>
                         <button
                             onClick={handleSave}
                             disabled={saving || (mappedCount === 0 && !modoAjuste)}
-                            className="px-4 py-1.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded"
+                            className="px-4 py-1.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-sm"
                         >
                             {saving ? 'Salvando…' : 'Salvar e processar'}
                         </button>

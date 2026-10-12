@@ -46,7 +46,7 @@ const SimplesNacionalDashboard: React.FC<SimplesNacionalDashboardProps> = ({ emp
                 </div>
                 <button
                     onClick={onAddNew}
-                    className="btn-press flex items-center gap-2 px-4 py-2 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900 transition-colors"
+                    className="btn-press flex items-center gap-2 px-4 py-2 bg-sky-600 text-white font-semibold rounded-lg hover:bg-sky-700 focus:outline-hidden focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900 transition-colors"
                 >
                     <PlusIcon className="w-5 h-5" />
                     Nova Empresa
@@ -54,7 +54,7 @@ const SimplesNacionalDashboard: React.FC<SimplesNacionalDashboardProps> = ({ emp
             </div>
             
             {empresasComResumo.length > 0 ? (
-                <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm overflow-hidden">
+                <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xs overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm text-left text-slate-500 dark:text-slate-400">
                             <thead className="text-xs text-slate-700 uppercase bg-slate-50 dark:bg-slate-700 dark:text-slate-300">
@@ -78,7 +78,7 @@ const SimplesNacionalDashboard: React.FC<SimplesNacionalDashboardProps> = ({ emp
                                         </td>
                                         {isAdminView && (
                                             <td className="px-6 py-4">
-                                                <span className="text-xs font-mono bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded">
+                                                <span className="text-xs font-mono bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-sm">
                                                     {e.createdByEmail || 'Desconhecido'}
                                                 </span>
                                             </td>
@@ -127,7 +127,7 @@ const SimplesNacionalDashboard: React.FC<SimplesNacionalDashboardProps> = ({ emp
                     </div>
                 </div>
             ) : (
-                <div className="text-center p-8 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
+                <div className="text-center p-8 bg-white dark:bg-slate-800 rounded-lg shadow-xs">
                     <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-200">Nenhuma empresa cadastrada</h3>
                     <p className="mt-2 text-slate-500 dark:text-slate-400">
                         Clique em "Nova Empresa" para começar a fazer seus cálculos do Simples Nacional.

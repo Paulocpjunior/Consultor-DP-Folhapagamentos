@@ -8,7 +8,7 @@ import React, { useState } from 'react';
 import { comHistorico, edicaoRetroativa, novoBeneficio, validarBeneficios, type Beneficio } from '../../services/calculo/beneficios';
 import { centavosDeTexto } from '../../services/cadastros/documentos';
 
-const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const reaisTexto = (c: number) => (c ? (c / 100).toFixed(2).replace('.', ',') : '');
 
 const BeneficiosEmpresa: React.FC<{ beneficios: Beneficio[]; competencia: string; onSalvar: (l: Beneficio[]) => void; onFechar: () => void }> = ({ beneficios, competencia, onSalvar, onFechar }) => {
@@ -56,10 +56,10 @@ const BeneficiosEmpresa: React.FC<{ beneficios: Beneficio[]; competencia: string
                 </table>
             </div>
             {!lista.length && <p className="text-xs text-slate-500">Nenhum benefício cadastrado.</p>}
-            {erros.length > 0 && <ul role="alert" className="list-disc rounded bg-red-50 p-2 pl-6 text-xs text-red-800 dark:bg-red-900/30 dark:text-red-200">{erros.map(e => <li key={e}>{e}</li>)}</ul>}
+            {erros.length > 0 && <ul role="alert" className="list-disc rounded-sm bg-red-50 p-2 pl-6 text-xs text-red-800 dark:bg-red-900/30 dark:text-red-200">{erros.map(e => <li key={e}>{e}</li>)}</ul>}
             <div className="flex flex-wrap gap-2">
-                <button className="rounded border border-slate-300 px-3 py-1.5 text-xs dark:border-slate-600" onClick={() => setLista(l => [...l, novoBeneficio()])}>Adicionar benefício</button>
-                <button className="rounded bg-blue-700 px-3 py-1.5 text-xs font-medium text-white" onClick={salvar}>Salvar benefícios</button>
+                <button className="rounded-sm border border-slate-300 px-3 py-1.5 text-xs dark:border-slate-600" onClick={() => setLista(l => [...l, novoBeneficio()])}>Adicionar benefício</button>
+                <button className="rounded-sm bg-blue-700 px-3 py-1.5 text-xs font-medium text-white" onClick={salvar}>Salvar benefícios</button>
             </div>
             <p className="text-[11px] text-slate-500 dark:text-slate-400">Para encerrar um benefício, desmarque "Ativo": os meses anteriores continuam com ele. "Remover" tira o benefício também dos meses passados.</p>
             <p className="text-[11px] text-slate-500 dark:text-slate-400">Plano de saúde coletivo: com o CNPJ da operadora (e o registro na ANS), o desconto do empregado vai no S-1210 como plano de saúde e entra no informe de rendimentos (dedução do IR dele). A coparticipação importada em Administração de benefícios vai junto.</p>

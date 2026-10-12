@@ -51,7 +51,7 @@ const ESocialAuditLog: React.FC = () => {
                     Histórico de Ações ({logs.length})
                 </h3>
                 <select value={limite} onChange={e => setLimite(Number(e.target.value))}
-                    className="px-2 py-1 text-xs border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200">
+                    className="px-2 py-1 text-xs border border-slate-300 dark:border-slate-600 rounded-sm bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200">
                     <option value={25}>Últimos 25</option>
                     <option value={50}>Últimos 50</option>
                     <option value={100}>Últimos 100</option>
@@ -87,7 +87,7 @@ const ESocialAuditLog: React.FC = () => {
                                             {formatDate(log.criadoEm)}
                                         </td>
                                         <td className="py-1.5 px-2">
-                                            <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-medium ${acaoInfo.cls}`}>
+                                            <span className={`inline-block px-1.5 py-0.5 rounded-sm text-xs font-medium ${acaoInfo.cls}`}>
                                                 {acaoInfo.label}
                                             </span>
                                         </td>

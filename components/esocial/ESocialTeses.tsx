@@ -139,7 +139,7 @@ const ESocialTeses: React.FC = () => {
                         <div>
                             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Empresa *</label>
                             <select value={fEmpresaId} onChange={e => setFEmpresaId(e.target.value)} required
-                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200">
+                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200">
                                 <option value="">Selecione...</option>
                                 {empresas.map(emp => <option key={emp.id} value={emp.id}>{emp.nomeFantasia}</option>)}
                             </select>
@@ -147,7 +147,7 @@ const ESocialTeses: React.FC = () => {
                         <div>
                             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Tipo de Tese *</label>
                             <select value={fTipo} onChange={e => setFTipo(e.target.value as TeseTipo)}
-                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200">
+                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200">
                                 <option value="inss_verbas_indenizatorias">INSS sobre Verbas Indenizatórias</option>
                                 <option value="fgts_verbas_indenizatorias">FGTS sobre Verbas Indenizatórias</option>
                                 <option value="cpp_plr">Contribuição Patronal sobre PLR</option>
@@ -156,17 +156,17 @@ const ESocialTeses: React.FC = () => {
                         <div>
                             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Valor Estimado (R$) *</label>
                             <input type="number" step="0.01" value={fValor} onChange={e => setFValor(e.target.value)} required
-                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200" />
+                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200" />
                         </div>
                         <div>
                             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Período *</label>
                             <input type="text" value={fPeriodo} onChange={e => setFPeriodo(e.target.value)} required placeholder="Ex: 01/2020 a 12/2024"
-                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200" />
+                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200" />
                         </div>
                     </div>
                     <div className="flex gap-2">
-                        <button type="submit" className="px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 text-white rounded font-medium">Salvar</button>
-                        <button type="button" onClick={() => setShowForm(false)} className="px-3 py-1.5 text-sm bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-200 rounded font-medium">Cancelar</button>
+                        <button type="submit" className="px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 text-white rounded-sm font-medium">Salvar</button>
+                        <button type="button" onClick={() => setShowForm(false)} className="px-3 py-1.5 text-sm bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-200 rounded-sm font-medium">Cancelar</button>
                     </div>
                 </form>
             )}
@@ -201,7 +201,7 @@ const ESocialTeses: React.FC = () => {
                                 <select
                                     value={t.status}
                                     onChange={e => handleStatusChange(t.id, e.target.value as TeseStatus)}
-                                    className="px-2 py-1 text-xs border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 shrink-0"
+                                    className="px-2 py-1 text-xs border border-slate-300 dark:border-slate-600 rounded-sm bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 shrink-0"
                                 >
                                     <option value="identificada">Identificada</option>
                                     <option value="em_analise">Em Análise</option>

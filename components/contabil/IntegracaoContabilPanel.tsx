@@ -30,8 +30,8 @@ import { baixarBytes } from '../../services/implantacao/zip';
 import { CONTAS_FIXAS, configVazia, gerarLoteContabil, loteCsv, saldoDaConta, verbasDoLote, type ConfigContabil } from '../../services/contabil/integracaoContabil';
 import { lerConfigContabil, salvarConfigContabil } from '../../services/contabil/contabilService';
 
-const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
-const btn = 'rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
+const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const btn = 'rounded-sm border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
 const br = (c: string) => `${c.slice(5, 7)}/${c.slice(0, 4)}`;
 const brData = (d: string) => d.split('-').reverse().join('/');
 /** O plano como é gravado (sem as contas em branco), para saber se mudou. */
@@ -102,7 +102,7 @@ const IntegracaoContabilPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) =>
         XLSX.writeFile(wb, `${nomeArq}.xlsx`);
     }
 
-    if (!ativa) return <p className="rounded border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">Ative uma empresa para a integração contábil.</p>;
+    if (!ativa) return <p className="rounded-sm border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">Ative uma empresa para a integração contábil.</p>;
     const mudaConta = (k: string, v: string) => setConfig(c => ({ ...c, contas: { ...c.contas, [k]: v.slice(0, 40) } }));
     const campoConta = (k: string, rotulo: string) => (
         <label key={k} className="text-xs">{rotulo}<input aria-label={`Conta ${rotulo}`} className={`block w-full ${inp}`} value={config.contas[k] ?? ''} onChange={e => mudaConta(k, e.target.value)} /></label>
@@ -114,13 +114,13 @@ const IntegracaoContabilPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) =>
                 <p className="text-slate-600 dark:text-slate-300">O lote de lançamentos da folha gravada do mês, em partidas dobradas: proventos na despesa contra salários a pagar, descontos contra as contas de INSS, IRRF e as demais, FGTS e a parte patronal contra os encargos a recolher e, se marcado, as provisões de férias e 13º. Centro de custo pelo departamento do funcionário (Cadastros › Departamentos).</p>
             </div>
             {!dados && !erro && <p role="status">Carregando…</p>}
-            {dados && !dados.folha && <p role="note" className="rounded bg-amber-50 p-2 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">A folha de {br(competencia)} ainda não foi gravada (Folha do mês › Cálculo mensal › Gravar a folha). O lote contábil sai da folha gravada.</p>}
+            {dados && !dados.folha && <p role="note" className="rounded-sm bg-amber-50 p-2 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">A folha de {br(competencia)} ainda não foi gravada (Folha do mês › Cálculo mensal › Gravar a folha). O lote contábil sai da folha gravada.</p>}
 
             {dados && (
-                <section aria-label="Plano de contas da folha" className="space-y-2 rounded border border-slate-200 p-3 dark:border-slate-700">
+                <section aria-label="Plano de contas da folha" className="space-y-2 rounded-sm border border-slate-200 p-3 dark:border-slate-700">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="font-medium">Plano de contas da folha (códigos do plano de contas do cliente)</p>
-                        <button className="rounded bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={!naoGravado || !!ocupado} onClick={gravar}>{naoGravado ? 'Gravar o plano' : 'Gravado'}</button>
+                        <button className="rounded-sm bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={!naoGravado || !!ocupado} onClick={gravar}>{naoGravado ? 'Gravar o plano' : 'Gravado'}</button>
                     </div>
                     <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={config.porCentroCusto} onChange={e => setConfig(c => ({ ...c, porCentroCusto: e.target.checked }))} />Lançar por centro de custo (o do departamento)</label>
                     {(['folha', 'encargos', 'provisoes'] as const).map(g => (
@@ -137,7 +137,7 @@ const IntegracaoContabilPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) =>
             )}
 
             {lote && (
-                <section aria-label="Lote contábil" className="space-y-2 rounded border border-slate-200 p-3 dark:border-slate-700">
+                <section aria-label="Lote contábil" className="space-y-2 rounded-sm border border-slate-200 p-3 dark:border-slate-700">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="font-medium">Lote de {brData(lote.data)}: {lote.lancamentos.length} lançamento(s), {reais(lote.total)}</p>
                         <div className="flex flex-wrap items-center gap-2">
@@ -146,8 +146,8 @@ const IntegracaoContabilPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) =>
                             <button className={btn} disabled={lote.pendencias.length > 0} onClick={baixarExcel}>Excel</button>
                         </div>
                     </div>
-                    {lote.pendencias.length > 0 && <ul role="alert" className="list-disc rounded bg-red-50 p-2 pl-6 text-red-800 dark:bg-red-900/30 dark:text-red-200">{lote.pendencias.map(x => <li key={x}>{x}</li>)}</ul>}
-                    {lote.avisos.length > 0 && <ul className="list-disc rounded bg-amber-50 p-2 pl-6 text-xs text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">{lote.avisos.map(x => <li key={x}>{x}</li>)}</ul>}
+                    {lote.pendencias.length > 0 && <ul role="alert" className="list-disc rounded-sm bg-red-50 p-2 pl-6 text-red-800 dark:bg-red-900/30 dark:text-red-200">{lote.pendencias.map(x => <li key={x}>{x}</li>)}</ul>}
+                    {lote.avisos.length > 0 && <ul className="list-disc rounded-sm bg-amber-50 p-2 pl-6 text-xs text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">{lote.avisos.map(x => <li key={x}>{x}</li>)}</ul>}
                     {saldoSalarios !== null && <p className={`text-xs ${saldoSalarios === liquido ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>Conferência: saldo de salários a pagar {reais(saldoSalarios)} × líquido da folha {reais(liquido)}{saldoSalarios === liquido ? ' ✓' : ' (diferente: confira as contas)'}.</p>}
                     <div className="max-h-96 overflow-auto">
                         <table className="w-full text-xs">
@@ -161,8 +161,8 @@ const IntegracaoContabilPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) =>
             )}
 
             {ocupado && <p role="status" className="text-blue-700 dark:text-blue-300">{ocupado}</p>}
-            {msg && <p role="status" className="rounded bg-green-50 p-2 text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
-            {erro && <p role="alert" className="rounded bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+            {msg && <p role="status" className="rounded-sm bg-green-50 p-2 text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
+            {erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
         </div>
     );
 };

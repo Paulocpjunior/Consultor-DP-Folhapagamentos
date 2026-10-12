@@ -79,12 +79,12 @@ const CofreCertificadosPanel: React.FC<{ /** Aberto pelo menu do app: o título 
                     </p>
                 </div>
                 <div className="flex gap-2">
-                    <button onClick={carregar} disabled={carregando} className="rounded border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50 dark:border-slate-600 dark:text-white">{carregando ? 'Atualizando…' : '↻ Atualizar'}</button>
-                    <button onClick={exportar} disabled={!dados?.linhas.length} className="rounded border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50 dark:border-slate-600 dark:text-white">Exportar Excel</button>
+                    <button onClick={carregar} disabled={carregando} className="rounded-sm border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50 dark:border-slate-600 dark:text-white">{carregando ? 'Atualizando…' : '↻ Atualizar'}</button>
+                    <button onClick={exportar} disabled={!dados?.linhas.length} className="rounded-sm border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50 dark:border-slate-600 dark:text-white">Exportar Excel</button>
                 </div>
             </header>
 
-            {erro && <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+            {erro && <p role="alert" className="rounded-sm bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
             {!dados && !erro && <p className="text-sm text-slate-500">Carregando o cofre…</p>}
 
             {dados && (
@@ -99,7 +99,7 @@ const CofreCertificadosPanel: React.FC<{ /** Aberto pelo menu do app: o título 
                     </div>
 
                     {dados.foraDoCfi.length > 0 && (
-                        <p className="rounded bg-amber-50 p-2 text-xs text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">
+                        <p className="rounded-sm bg-amber-50 p-2 text-xs text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">
                             {dados.foraDoCfi.length} empresa(s) da sua carteira não estão no cadastro central do Consultor Fiscal, então não têm certificado no cofre: {dados.foraDoCfi.map(c => dados.nomes.get(c) ?? cnpjFmt(c)).join('; ')}.
                         </p>
                     )}
@@ -115,7 +115,7 @@ const CofreCertificadosPanel: React.FC<{ /** Aberto pelo menu do app: o título 
                                     return (
                                         <tr key={l.cnpj} className="border-t border-slate-100 align-top dark:border-slate-700 dark:text-slate-100">
                                             <td className="px-3 py-2"><strong>{nome(l)}</strong><span className="block text-xs text-slate-500">{cnpjFmt(l.cnpj)}</span></td>
-                                            <td className="px-3 py-2"><span className={`rounded px-2 py-0.5 text-xs font-medium ${corSituacao(l)}`}>{ROTULO_SITUACAO[l.situacao] ?? l.situacao}</span></td>
+                                            <td className="px-3 py-2"><span className={`rounded-sm px-2 py-0.5 text-xs font-medium ${corSituacao(l)}`}>{ROTULO_SITUACAO[l.situacao] ?? l.situacao}</span></td>
                                             <td className="px-3 py-2 text-xs">{c ? <>{c.titular ?? '—'}<span className="block text-slate-500">{c.tipo} · {c.emissor ?? ''}{l.certificadoDaRaiz ? ' · certificado da matriz' : ''}</span></> : '—'}</td>
                                             <td className="px-3 py-2 text-xs">{br(c?.validoAte)}<span className="block text-slate-500">{prazo(diasDaLinha(l))}</span></td>
                                             <td className="px-3 py-2 text-xs">
@@ -123,8 +123,8 @@ const CofreCertificadosPanel: React.FC<{ /** Aberto pelo menu do app: o título 
                                                     Vencimento acompanhado: {br(l.legal.vencimentoInformado)}
                                                     {l.legal.ultimaRenovacao && <span className="block text-slate-500">Renovado: {br(l.legal.ultimaRenovacao.dataAntiga)} → {br(l.legal.ultimaRenovacao.dataNova)}</span>}
                                                 </> : <span className="text-slate-500">—</span>}
-                                                {l.divergenciaLegal === 'renovado-sem-upload' && <span className="mt-1 block rounded bg-red-50 px-1 font-medium text-red-700 dark:bg-red-900/30 dark:text-red-200">Renovado no Legal, mas o A1 novo não subiu ao cofre</span>}
-                                                {l.divergenciaLegal === 'legal-desatualizado' && <span className="mt-1 block rounded bg-amber-50 px-1 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">Cofre mais novo que o acompanhamento do Legal</span>}
+                                                {l.divergenciaLegal === 'renovado-sem-upload' && <span className="mt-1 block rounded-sm bg-red-50 px-1 font-medium text-red-700 dark:bg-red-900/30 dark:text-red-200">Renovado no Legal, mas o A1 novo não subiu ao cofre</span>}
+                                                {l.divergenciaLegal === 'legal-desatualizado' && <span className="mt-1 block rounded-sm bg-amber-50 px-1 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">Cofre mais novo que o acompanhamento do Legal</span>}
                                             </td>
                                             <td className="px-3 py-2 text-xs text-slate-600 dark:text-slate-300">{l.acao ?? (l.apto ? '' : l.motivo)}</td>
                                         </tr>

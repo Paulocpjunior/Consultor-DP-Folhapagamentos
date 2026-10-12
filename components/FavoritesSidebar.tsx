@@ -84,7 +84,7 @@ const FavoritesSidebar: React.FC<FavoritesSidebarProps> = ({
                 <ul className="space-y-1">
                     {items.map(item => (
                         <li key={`${item.type}-${item.code}`} className="group flex items-center justify-between p-2 rounded-md hover:bg-sky-100 dark:hover:bg-slate-700">
-                            <button onClick={() => onFavoriteSelect(item)} className="text-left flex-grow min-w-0">
+                            <button onClick={() => onFavoriteSelect(item)} className="text-left grow min-w-0">
                                 <p className="font-semibold text-slate-700 dark:text-slate-200 truncate">{item.code}</p>
                                 <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{item.description}</p>
                             </button>
@@ -160,7 +160,7 @@ const FavoritesSidebar: React.FC<FavoritesSidebarProps> = ({
                     <ul className="space-y-1">
                         {history.map(item => (
                             <li key={item.id} className="group flex items-center justify-between p-2 rounded-md hover:bg-sky-100 dark:hover:bg-slate-700">
-                                <button onClick={() => onHistorySelect(item)} className="text-left flex-grow min-w-0">
+                                <button onClick={() => onHistorySelect(item)} className="text-left grow min-w-0">
                                     <div className="flex items-center justify-between">
                                         <p className="font-semibold text-slate-700 dark:text-slate-200 truncate pr-2 max-w-[140px]">
                                             {item.queries.join(' vs ')}
@@ -201,7 +201,7 @@ const FavoritesSidebar: React.FC<FavoritesSidebarProps> = ({
             <aside className={`
                 transform transition-all ease-in-out duration-300
                 ${isCollapsed ? 'w-20' : 'w-80'} 
-                flex-shrink-0 bg-white dark:bg-slate-800 rounded-xl p-4
+                shrink-0 bg-white dark:bg-slate-800 rounded-xl p-4
                 
                 fixed right-0 top-0 h-full z-30 
                 md:relative md:h-auto md:z-auto md:transform-none md:shadow-md

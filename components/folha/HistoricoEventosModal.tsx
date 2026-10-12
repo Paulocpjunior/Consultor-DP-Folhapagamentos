@@ -31,7 +31,7 @@ const HistoricoEventosModal: React.FC<Props> = ({ aberto, onFechar }) => {
             recode: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
         };
         return (
-            <span className={`px-2 py-0.5 text-xs font-semibold rounded ${map[a]}`}>{a}</span>
+            <span className={`px-2 py-0.5 text-xs font-semibold rounded-sm ${map[a]}`}>{a}</span>
         );
     };
 

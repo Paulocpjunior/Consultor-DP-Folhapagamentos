@@ -20,7 +20,7 @@ import { competenciasAte, extratoDoFuncionario, fgtsDasFolhas, registroDoPopup, 
 import { LINK_FGTS_DIGITAL } from '../../services/demissoes/efetivacao';
 import { reais } from '../../services/cadastros/documentos';
 
-const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const btn = 'rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700';
 const hojeSp = () => new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Sao_Paulo' }).format(new Date());
 const br = (d: string) => (d ? d.split('-').reverse().join('/') : '—');
@@ -70,7 +70,7 @@ const PainelFgts: React.FC = () => {
     }, [fichas, fichaSel, competencias, folhas, s5003, hoje]);
     const ordenadas = useMemo(() => [...fichas].sort((a, b) => (a.dados.nome ?? '').localeCompare(b.dados.nome ?? '', 'pt-BR')), [fichas]);
 
-    if (!ativa) return <p className="rounded border border-dashed border-slate-300 p-4 text-center text-sm text-slate-500">Ative uma empresa para consultar o FGTS dela.</p>;
+    if (!ativa) return <p className="rounded-sm border border-dashed border-slate-300 p-4 text-center text-sm text-slate-500">Ative uma empresa para consultar o FGTS dela.</p>;
     const cnpj = ativa.cnpj.replace(/\D/g, '');
     const sp = situacaoProcuracao(empresa?.procuracaoFgts, hoje);
 
@@ -128,11 +128,11 @@ const PainelFgts: React.FC = () => {
             </div>
             {(() => {
                 const antigas = competencias.filter(c => sistemaDaCompetencia(empresa?.parametrosFolha, c).fgts === 'sefip');
-                return antigas.length ? <p role="note" className="rounded bg-amber-50 p-2 text-xs text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">{antigas.length} competência(s) antes do FGTS Digital da empresa ({antigas.map(mes).join(', ')}): o FGTS delas é da SEFIP e da GRF, e a consulta do FGTS Digital não as mostra.</p> : null;
+                return antigas.length ? <p role="note" className="rounded-sm bg-amber-50 p-2 text-xs text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">{antigas.length} competência(s) antes do FGTS Digital da empresa ({antigas.map(mes).join(', ')}): o FGTS delas é da SEFIP e da GRF, e a consulta do FGTS Digital não as mostra.</p> : null;
             })()}
 
             <div className="grid gap-3 md:grid-cols-2">
-                <div className="space-y-1 rounded border border-slate-200 p-2 text-xs dark:border-slate-700">
+                <div className="space-y-1 rounded-sm border border-slate-200 p-2 text-xs dark:border-slate-700">
                     <p className="font-medium">Procuração do FGTS Digital</p>
                     <p className={sp.situacao === 'valida' ? 'text-green-700 dark:text-green-300' : sp.situacao === 'vencendo' ? 'text-amber-700 dark:text-amber-300' : 'text-red-700 dark:text-red-300'}>{sp.texto}</p>
                     <div className="flex flex-wrap items-end gap-2">
@@ -142,7 +142,7 @@ const PainelFgts: React.FC = () => {
                         <button className={btn} onClick={gravarProcuracao}>Gravar</button>
                     </div>
                 </div>
-                <div className="space-y-1 rounded border border-slate-200 p-2 text-xs dark:border-slate-700">
+                <div className="space-y-1 rounded-sm border border-slate-200 p-2 text-xs dark:border-slate-700">
                     <p className="font-medium">Certificado de regularidade (CRF)</p>
                     {crf ? <p className={crf.status === 'negativa' ? 'text-green-700 dark:text-green-300' : crf.status === 'indisponivel' || crf.status === 'nao_consultada' ? 'text-slate-500' : 'text-red-700 dark:text-red-300'}>
                         {crf.status === 'negativa' ? 'Regular' : crf.status === 'positiva' ? 'Irregular' : crf.status === 'positiva_efeitos_negativa' ? 'Regular com pendências (efeito de negativa)' : 'Não consultado'}{crf.validade ? ` · válido até ${br(crf.validade)}` : ''}{crf.motivo ? ` · ${crf.motivo}` : ''}</p>
@@ -197,8 +197,8 @@ const PainelFgts: React.FC = () => {
             </div>
 
             {ocupado && <p role="status" className="text-sm text-blue-700 dark:text-blue-300">{ocupado}</p>}
-            {erro && <p role="alert" className="rounded bg-red-50 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
-            {msg && <p role="status" className="rounded bg-green-50 p-2 text-sm text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
+            {erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+            {msg && <p role="status" className="rounded-sm bg-green-50 p-2 text-sm text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
         </section>
     );
 };

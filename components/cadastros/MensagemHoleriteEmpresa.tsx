@@ -10,7 +10,7 @@ import { mensagemErro } from '../../services/cadastros/cadastrosService';
 import { LIMITE_MENSAGEM_ANIVERSARIO, MENSAGEM_ANIVERSARIO_PADRAO, mensagemAniversario } from '../../services/relatorios/aniversarios';
 
 export const LIMITE_MENSAGEM_HOLERITE = 300;
-const inp = 'rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 
 const MensagemHoleriteEmpresa: React.FC<{ empresa: Empresa }> = ({ empresa }) => {
     const [texto, setTexto] = useState(empresa.parametrosFolha?.mensagemHolerite ?? '');
@@ -56,7 +56,7 @@ const MensagemHoleriteEmpresa: React.FC<{ empresa: Empresa }> = ({ empresa }) =>
             <p className="font-medium">Mensagem no holerite</p>
             <textarea aria-label="Mensagem geral do holerite" rows={2} className={`block w-full ${inp}`} value={texto} placeholder="Ex.: Feliz aniversário aos aniversariantes do mês!" onChange={e => setTexto(e.target.value)} />
             <div className="flex items-center gap-3">
-                <button className="rounded bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={texto.trim() === salvo || ocupado || longo} onClick={gravar}>{ocupado ? 'Gravando…' : 'Gravar'}</button>
+                <button className="rounded-sm bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={texto.trim() === salvo || ocupado || longo} onClick={gravar}>{ocupado ? 'Gravando…' : 'Gravar'}</button>
                 <span className={`text-xs ${longo ? 'text-red-700 dark:text-red-300' : 'text-slate-500'}`}>{texto.trim().length}/{LIMITE_MENSAGEM_HOLERITE}</span>
             </div>
             <p className="text-xs text-slate-500">Sai em todos os holerites em PDF da empresa, antes da assinatura, com as mensagens da aba Holerite de cada ficha.</p>
@@ -65,7 +65,7 @@ const MensagemHoleriteEmpresa: React.FC<{ empresa: Empresa }> = ({ empresa }) =>
                 <label className="flex items-center gap-2 font-medium"><input type="checkbox" aria-label="Mensagem de aniversário ligada" checked={anivLigada} onChange={e => setAnivLigada(e.target.checked)} />Mensagem de aniversário</label>
                 {anivLigada && <textarea aria-label="Mensagem de aniversário" rows={2} className={`mt-1 block w-full ${inp}`} value={aniv} onChange={e => setAniv(e.target.value)} />}
                 <div className="mt-1 flex items-center gap-3">
-                    <button className="rounded bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={ocupado || anivLonga || (anivLigada && !aniv.trim()) || (aniv.trim() === anivSalva.texto && anivLigada === anivSalva.ligada)} onClick={gravarAniversario}>Gravar a mensagem de aniversário</button>
+                    <button className="rounded-sm bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={ocupado || anivLonga || (anivLigada && !aniv.trim()) || (aniv.trim() === anivSalva.texto && anivLigada === anivSalva.ligada)} onClick={gravarAniversario}>Gravar a mensagem de aniversário</button>
                     {anivLigada && <span className={`text-xs ${anivLonga ? 'text-red-700 dark:text-red-300' : 'text-slate-500'}`}>{aniv.trim().length}/{LIMITE_MENSAGEM_ANIVERSARIO}</span>}
                     {anivLigada && aniv.trim() !== MENSAGEM_ANIVERSARIO_PADRAO && <button className="text-xs text-blue-700 underline dark:text-blue-300" onClick={() => setAniv(MENSAGEM_ANIVERSARIO_PADRAO)}>Voltar ao texto padrão</button>}
                 </div>

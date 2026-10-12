@@ -83,7 +83,7 @@ const ESocialCalendario: React.FC = () => {
                                     <strong>Vencimento:</strong> {o.dataVencimento.split('-').reverse().join('/')}
                                 </span>
                                 {o.observacao && <span className="text-amber-700 dark:text-amber-300">{o.observacao}</span>}
-                                <span className="font-mono px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 rounded">
+                                <span className="font-mono px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 rounded-sm">
                                     {o.sigla}
                                 </span>
                             </div>

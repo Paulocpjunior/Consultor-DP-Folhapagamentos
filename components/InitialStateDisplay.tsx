@@ -2,7 +2,7 @@ import React from 'react';
 import { SearchType } from '../types';
 
 const InitialStateDisplay: React.FC<{ searchType: SearchType, mode: 'single' | 'compare' }> = ({ searchType, mode }) => (
-    <div className="text-center p-8 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
+    <div className="text-center p-8 bg-white dark:bg-slate-800 rounded-lg shadow-xs">
         <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-200">Pronto para começar?</h3>
         <p className="mt-2 text-slate-500 dark:text-slate-400">
             {searchType === SearchType.REFORMA_TRIBUTARIA

@@ -18,8 +18,8 @@ import { reais } from '../../services/cadastros/documentos';
 import { processarEmpresas, type FolhaAgrupada } from '../../services/calculo/processamentoAgrupadoService';
 import { planilhaAgrupada, ROTULO_GRAVACAO, ROTULO_SITUACAO_AGRUPADA, totaisAgrupados, type LinhaAgrupada } from '../../services/calculo/processamentoAgrupado';
 
-const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
-const btn = 'rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
+const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const btn = 'rounded-sm border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
 const br = (c: string) => (/^\d{4}-\d{2}$/.test(c) ? `${c.slice(5, 7)}/${c.slice(0, 4)}` : c);
 const nomeDe = (e: Empresa) => e.nomeFantasia || e.razaoSocial;
 const corSituacao: Record<LinhaAgrupada['situacao'], string> = {
@@ -91,7 +91,7 @@ const ProcessamentoAgrupadoPanel: React.FC<{ usuario: Usuario }> = ({ usuario })
                 <p className="text-slate-600 dark:text-slate-300">A folha mensal das empresas escolhidas de uma vez, com o mesmo cálculo da tela de Cálculo e os movimentos gravados de cada uma (o que foi digitado e não salvo não entra). Para cada empresa: situação, totais, adiantamento a pagar, encargos e, se marcado, as provisões de férias e 13º. As rotinas anuais também vão em lote: a 1ª parcela do 13º (paga em novembro; fora quem a recebeu com as férias e as empresas em parcela única) e a 2ª (dezembro, com INSS e IRRF), do ano da competência.</p>
             </div>
 
-            <section className="space-y-2 rounded border border-slate-200 p-3 dark:border-slate-700">
+            <section className="space-y-2 rounded-sm border border-slate-200 p-3 dark:border-slate-700">
                 <div className="flex flex-wrap items-end gap-3">
                     <label>Processar<select aria-label="O que processar" className={`block ${inp}`} value={folha} onChange={e => { setFolha(e.target.value as FolhaAgrupada); setLinhas([]); }}>
                         <option value="mensal">Folha mensal</option><option value="13-1a">13º — 1ª parcela</option><option value="13-2a">13º — 2ª parcela</option></select></label>
@@ -100,7 +100,7 @@ const ProcessamentoAgrupadoPanel: React.FC<{ usuario: Usuario }> = ({ usuario })
                     <button className={btn} onClick={() => marcar(filtradas.map(e => e.id), true)}>Marcar {busca ? 'as filtradas' : 'todas'}</button>
                     <button className={btn} onClick={() => marcar(filtradas.map(e => e.id), false)}>Desmarcar {busca ? 'as filtradas' : 'todas'}</button>
                 </div>
-                <div className="max-h-56 overflow-y-auto rounded border border-slate-100 p-1 dark:border-slate-700">
+                <div className="max-h-56 overflow-y-auto rounded-sm border border-slate-100 p-1 dark:border-slate-700">
                     {filtradas.length === 0 && <p className="p-2 text-slate-500">{empresas.length ? 'Nenhuma empresa com essa busca.' : 'Nenhuma empresa na sua carteira.'}</p>}
                     {filtradas.map(e => (
                         <label key={e.id} className="flex items-center gap-2 px-1 py-0.5">
@@ -113,15 +113,15 @@ const ProcessamentoAgrupadoPanel: React.FC<{ usuario: Usuario }> = ({ usuario })
                     {!decimo && <label className="flex items-center gap-2"><input type="checkbox" checked={provisoes} onChange={e => setProvisoes(e.target.checked)} />Calcular as provisões de férias e 13º</label>}
                     {!decimo && <label className="flex items-center gap-2" title="Grava a folha do mês de cada empresa com a competência aberta, como o botão Gravar a folha da tela de Cálculo."><input type="checkbox" checked={gravar} onChange={e => setGravar(e.target.checked)} />Gravar a folha de cada empresa</label>}
                     {decimo && <span className="text-xs text-slate-500">Prévia do 13º (a folha do 13º não é gravada); holerites, S-1200 e arquivo bancário de cada empresa saem na tela de Cálculo › 13º.</span>}
-                    <button className="ml-auto rounded bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={!!andamento || !escolhidas.length || !compOk || !tabelas.length} onClick={processar}>Processar {escolhidas.length} empresa(s)</button>
+                    <button className="ml-auto rounded-sm bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={!!andamento || !escolhidas.length || !compOk || !tabelas.length} onClick={processar}>Processar {escolhidas.length} empresa(s)</button>
                 </div>
             </section>
 
             {andamento && <p role="status" className="text-blue-700 dark:text-blue-300">{andamento}</p>}
-            {erro && <p role="alert" className="rounded bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+            {erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
 
             {linhas.length > 0 && (
-                <section aria-label="Resultado do processamento" className="space-y-2 rounded border border-slate-200 p-3 dark:border-slate-700">
+                <section aria-label="Resultado do processamento" className="space-y-2 rounded-sm border border-slate-200 p-3 dark:border-slate-700">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="font-medium">{t.empresas} empresa(s) · {t.ok} calculada(s) sem pendência · {t.pendencias} com pendência</p>
                         <button className={btn} disabled={!!andamento} onClick={planilha}>Planilha (Excel)</button>

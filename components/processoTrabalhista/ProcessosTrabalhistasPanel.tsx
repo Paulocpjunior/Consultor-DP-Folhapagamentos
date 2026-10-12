@@ -19,9 +19,9 @@ import { listarProcessos, salvarProcesso } from '../../services/processoTrabalhi
 import { verificarAntesDeEnviar, transmitirVerificado, mensagemDaTransmissao } from '../../services/esocial/envioSeguro';
 import type { TpAmb } from '../../services/esocial/transmissao';
 
-const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
-const btn = 'rounded border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-40 dark:border-slate-600';
-const btnP = 'rounded bg-blue-700 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40';
+const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const btn = 'rounded-sm border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-40 dark:border-slate-600';
+const btnP = 'rounded-sm bg-blue-700 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40';
 const hoje = () => new Date().toLocaleDateString('sv-SE');
 
 /** Campo de valor em reais: guarda o texto enquanto digita e devolve centavos ao sair. */
@@ -130,15 +130,15 @@ const ProcessosTrabalhistasPanel: React.FC<{ usuario: Usuario }> = ({ usuario })
                 </p>
             </div>
             {ocupado && <p className="text-blue-700 dark:text-blue-300">{ocupado}</p>}
-            {erro && <p role="alert" className="rounded bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
-            {msg && <p role="status" className="rounded bg-green-50 p-2 text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
+            {erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+            {msg && <p role="status" className="rounded-sm bg-green-50 p-2 text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
 
             {!p && (
-                <section className="space-y-2 rounded border border-slate-200 p-3 dark:border-slate-700">
+                <section className="space-y-2 rounded-sm border border-slate-200 p-3 dark:border-slate-700">
                     <div className="flex items-center justify-between"><p className="font-medium">Processos da empresa</p><button className={btnP} onClick={() => { setErro(''); setMsg(''); setP(processoVazio(ativa.id)); }}>+ Novo processo</button></div>
                     {!processos.length && <p className="text-slate-500">Nenhum processo cadastrado.</p>}
                     {processos.map(x => (
-                        <button key={x.nrProcTrab} className="block w-full rounded border border-slate-100 p-2 text-left hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800" onClick={() => { setErro(''); setMsg(''); setP(x); }}>
+                        <button key={x.nrProcTrab} className="block w-full rounded-sm border border-slate-100 p-2 text-left hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800" onClick={() => { setErro(''); setMsg(''); setP(x); }}>
                             <span className="font-mono">{x.nrProcTrab}</span> · {ROTULO_ORIGEM[x.origem]} · {x.trabalhadores.map(t => t.nome).join(', ') || 'sem trabalhador'} · {x.pagamentos.length} pagamento(s)
                         </button>
                     ))}
@@ -147,7 +147,7 @@ const ProcessosTrabalhistasPanel: React.FC<{ usuario: Usuario }> = ({ usuario })
 
             {p && validacao && (
                 <>
-                    <section className="space-y-2 rounded border border-slate-200 p-3 dark:border-slate-700">
+                    <section className="space-y-2 rounded-sm border border-slate-200 p-3 dark:border-slate-700">
                         <div className="flex flex-wrap items-end gap-3">
                             <label>Origem<select aria-label="Origem" className={`block ${inp}`} value={p.origem} onChange={e => muda({ origem: e.target.value as OrigemProcesso })}>{Object.entries(ROTULO_ORIGEM).map(([k, r]) => <option key={k} value={k}>{r}</option>)}</select></label>
                             <label>{ehJudicial(p.origem) ? 'Número do processo (CNJ, 20 dígitos)' : 'Número da ata/conciliação'}<input aria-label="Número do processo" className={`block w-64 font-mono ${inp}`} value={p.nrProcTrab} onChange={e => muda({ nrProcTrab: e.target.value.replace(/[^\d.-]/g, '') })} /></label>
@@ -187,7 +187,7 @@ const ProcessosTrabalhistasPanel: React.FC<{ usuario: Usuario }> = ({ usuario })
                         )}
                     </section>
 
-                    <section className="space-y-3 rounded border border-slate-200 p-3 dark:border-slate-700">
+                    <section className="space-y-3 rounded-sm border border-slate-200 p-3 dark:border-slate-700">
                         <div className="flex flex-wrap items-center gap-2"><p className="font-medium">Trabalhadores (S-2500)</p>
                             <select aria-label="Incluir funcionário" className={inp} value="" onChange={e => incluirFicha(e.target.value)}>
                                 <option value="">+ Incluir funcionário…</option>
@@ -196,7 +196,7 @@ const ProcessosTrabalhistasPanel: React.FC<{ usuario: Usuario }> = ({ usuario })
                             <button className={btn} onClick={incluirSemFicha}>+ Trabalhador sem ficha</button>
                         </div>
                         {p.trabalhadores.map((t, i) => (
-                            <div key={i} className="space-y-2 rounded bg-slate-50 p-2 dark:bg-slate-800">
+                            <div key={i} className="space-y-2 rounded-sm bg-slate-50 p-2 dark:bg-slate-800">
                                 <div className="flex flex-wrap items-end gap-3">
                                     {t.fichaId
                                         ? <span className="font-medium">{t.nome} · CPF {t.cpf} · matrícula {t.matricula || '—'}</span>
@@ -225,14 +225,14 @@ const ProcessosTrabalhistasPanel: React.FC<{ usuario: Usuario }> = ({ usuario })
                         ))}
                     </section>
 
-                    <section className="space-y-3 rounded border border-slate-200 p-3 dark:border-slate-700">
+                    <section className="space-y-3 rounded-sm border border-slate-200 p-3 dark:border-slate-700">
                         <div className="flex items-center gap-2"><p className="font-medium">Pagamentos (S-2501)</p>
                             <button className={btn} disabled={!p.trabalhadores.length || p.origem === '3'} onClick={() => muda({ pagamentos: [...p.pagamentos, { perApurPgto: ativa.competencia, ideSeqProc: '', obs: '', trabalhadores: p.trabalhadores.filter(t => t.indReperc !== '2').map(t => ({ cpf: t.cpf, contribuicoes: [], irrf: [] })) }] })}>+ Pagamento</button>
                         </div>
                         {p.pagamentos.map((g, gi) => {
                             const tot = totaisDoPagamento(g);
                             return (
-                                <div key={gi} className="space-y-2 rounded bg-slate-50 p-2 dark:bg-slate-800">
+                                <div key={gi} className="space-y-2 rounded-sm bg-slate-50 p-2 dark:bg-slate-800">
                                     <div className="flex flex-wrap items-end gap-3">
                                         <label>Mês do pagamento<input aria-label="Mês do pagamento" type="month" className={`block ${inp}`} value={g.perApurPgto} onChange={e => mudaPag(gi, { perApurPgto: e.target.value })} /></label>
                                         <label>Sequencial (parcelas no mesmo mês)<input aria-label="Sequencial do pagamento" className={`block w-16 ${inp}`} value={g.ideSeqProc} onChange={e => mudaPag(gi, { ideSeqProc: e.target.value.replace(/\D/g, '').slice(0, 3) })} /></label>

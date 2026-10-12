@@ -65,12 +65,12 @@ const EfetivacaoRescisao: React.FC<Props> = ({ empresa, ficha, rescisao: r, usua
     const copiar = (rotulo: string, valor: string) => { navigator.clipboard?.writeText(valor).then(() => setCopiado(rotulo)).catch(() => setCopiado('')); };
 
     return (
-        <section aria-label="Efetivação da rescisão" className="space-y-2 rounded border border-slate-200 p-2 text-xs dark:border-slate-700">
+        <section aria-label="Efetivação da rescisão" className="space-y-2 rounded-sm border border-slate-200 p-2 text-xs dark:border-slate-700">
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="font-medium">Efetivação da rescisão · {concluidos} de {passos.length} passos</span>
                 <div className="flex flex-wrap gap-2">
-                    <button type="button" className="rounded border border-slate-300 px-2 py-1 dark:border-slate-600" onClick={orientacoes}>Orientações ao trabalhador (PDF)</button>
-                    <a className="rounded border border-slate-300 px-2 py-1 dark:border-slate-600" href={LINK_FGTS_DIGITAL} target="_blank" rel="noopener noreferrer">FGTS Digital ↗</a>
+                    <button type="button" className="rounded-sm border border-slate-300 px-2 py-1 dark:border-slate-600" onClick={orientacoes}>Orientações ao trabalhador (PDF)</button>
+                    <a className="rounded-sm border border-slate-300 px-2 py-1 dark:border-slate-600" href={LINK_FGTS_DIGITAL} target="_blank" rel="noopener noreferrer">FGTS Digital ↗</a>
                 </div>
             </div>
             <ol className="space-y-1">
@@ -80,7 +80,7 @@ const EfetivacaoRescisao: React.FC<Props> = ({ empresa, ficha, rescisao: r, usua
                     const marcado = ef?.passos[p.id];
                     const vencido = !ok && !!p.prazo && hoje > p.prazo;
                     return (
-                        <li key={p.id} className={`rounded border p-1.5 ${ok ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20' : vencido ? 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20' : 'border-slate-200 dark:border-slate-700'}`}>
+                        <li key={p.id} className={`rounded-sm border p-1.5 ${ok ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20' : vencido ? 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20' : 'border-slate-200 dark:border-slate-700'}`}>
                             <div className="flex flex-wrap items-center gap-2">
                                 {auto ? <span aria-hidden>{ok ? '✓' : '○'}</span>
                                     : <input type="checkbox" aria-label={p.titulo} checked={!!marcado?.feito} disabled={!ef} onChange={e => marcar(p.id, e.target.checked)} />}
@@ -92,12 +92,12 @@ const EfetivacaoRescisao: React.FC<Props> = ({ empresa, ficha, rescisao: r, usua
                             <p className="text-slate-600 dark:text-slate-300">{p.detalhe}</p>
                             {!auto && !marcado?.feito && (
                                 <input aria-label={`Observação de ${p.titulo}`} placeholder={p.id === 'seguro' ? 'Número do requerimento' : p.id === 'fgts' ? 'Data do pagamento da guia' : 'Observação (opcional)'} maxLength={300}
-                                    className="mt-1 w-full rounded border border-slate-300 px-2 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={obs[p.id] ?? ''} onChange={e => setObs(o => ({ ...o, [p.id]: e.target.value }))} />
+                                    className="mt-1 w-full rounded-sm border border-slate-300 px-2 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={obs[p.id] ?? ''} onChange={e => setObs(o => ({ ...o, [p.id]: e.target.value }))} />
                             )}
                             {p.id === 'seguro' && (
                                 <div className="mt-1 space-y-1">
                                     <div className="flex flex-wrap items-center gap-2">
-                                        <label>Solicitação do trabalhador<select aria-label="Solicitação do seguro-desemprego" className="ml-1 rounded border border-slate-300 px-1 dark:border-slate-600 dark:bg-slate-900" value={solicitacao} onChange={e => setSolicitacao(Number(e.target.value) as Solicitacao)}>
+                                        <label>Solicitação do trabalhador<select aria-label="Solicitação do seguro-desemprego" className="ml-1 rounded-sm border border-slate-300 px-1 dark:border-slate-600 dark:bg-slate-900" value={solicitacao} onChange={e => setSolicitacao(Number(e.target.value) as Solicitacao)}>
                                             <option value={1}>1ª</option><option value={2}>2ª</option><option value={3}>3ª ou mais</option></select></label>
                                         <span className={seguro.cabe ? 'text-green-700 dark:text-green-300' : 'text-amber-700 dark:text-amber-300'}>{seguro.motivo}</span>
                                         {seguro.mediaSalarios > 0 && <span className="text-slate-500">média dos 3 últimos salários: {reais(seguro.mediaSalarios)}</span>}

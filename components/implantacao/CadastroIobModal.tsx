@@ -13,9 +13,9 @@ import { gerarArquivoRais, VARIANTES_RAIS, type VarianteRais, type EmpresaRais, 
 import { gerarModeloCadastroIobXlsx, nomeArquivoModeloCadastro } from '../../services/implantacao/modeloCadastroExcel';
 import { baixarBytes, gerarZip } from '../../services/implantacao/zip';
 
-const input = 'w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 p-2 text-sm text-slate-900 dark:text-white';
-const botao = 'rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-40';
-const botaoSec = 'rounded border border-slate-400 px-3 py-2 text-sm disabled:opacity-40';
+const input = 'w-full rounded-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 p-2 text-sm text-slate-900 dark:text-white';
+const botao = 'rounded-sm bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-40';
+const botaoSec = 'rounded-sm border border-slate-400 px-3 py-2 text-sm disabled:opacity-40';
 
 /** Dados que a RAIS exige e o dossiê não guarda. Ficam no navegador do usuário. */
 interface ConfigRais { empresa: EmpresaRais; anoBase: string; padroes: PadroesRais; responsavel: ResponsavelRais }
@@ -185,11 +185,11 @@ export default function CadastroIobModal({ usuario, dossie, cadastros, avisos, o
                 {!!unificacao.fichasSemVinculo.length && <ul className="mt-2 list-disc pl-5 text-sm text-amber-800 dark:text-amber-300">{unificacao.fichasSemVinculo.map(x => <li key={x.nome}>{x.nome}: {x.motivo}</li>)}</ul>}
                 {!!unificacao.avisos.length && <ul className="mt-2 list-disc pl-5 text-sm text-amber-800 dark:text-amber-300">{unificacao.avisos.map(a => <li key={a}>{a}</li>)}</ul>}
             </section>
-            {!!erros.length && <div role="alert" className="rounded bg-red-50 p-3 text-sm text-red-800">{erros.map((e, i) => <p key={i}>{e}</p>)}</div>}
-            {mensagem && <p role="status" className="rounded bg-green-50 p-3 text-sm text-green-800">{mensagem}</p>}
+            {!!erros.length && <div role="alert" className="rounded-sm bg-red-50 p-3 text-sm text-red-800">{erros.map((e, i) => <p key={i}>{e}</p>)}</div>}
+            {mensagem && <p role="status" className="rounded-sm bg-green-50 p-3 text-sm text-green-800">{mensagem}</p>}
             <section>
                 <h4 className="font-semibold">2. Funcionários unificados</h4>
-                {!total && <p className="mt-2 rounded border border-dashed p-4 text-center text-sm text-slate-500">Nenhum vínculo ainda. Informe o CNPJ no painel e adicione os XMLs do eSocial.</p>}
+                {!total && <p className="mt-2 rounded-sm border border-dashed p-4 text-center text-sm text-slate-500">Nenhum vínculo ainda. Informe o CNPJ no painel e adicione os XMLs do eSocial.</p>}
                 {!!total && <div className="mt-2 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b"><th className="p-2">Matrícula</th><th className="p-2">Funcionário / CPF</th><th className="p-2">Admissão</th><th className="p-2">Cargo</th><th className="p-2">Ficha PDF</th><th className="p-2">Da ficha</th><th className="p-2">Divergências</th><th className="p-2">Pendências</th></tr></thead><tbody>
                     {unificacao.funcionarios.map(f => <tr key={f.chave} className="border-b align-top">
                         <td className="p-2 font-mono">{f.matricula}</td>
@@ -215,7 +215,7 @@ export default function CadastroIobModal({ usuario, dossie, cadastros, avisos, o
                 <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">{layout.campos.length} campos · {txt.tamanhoRegistro ? `${txt.tamanhoRegistro} posições por registro` : `separador "${layout.separador}"`} · datas {layout.formatoData} · {layout.codificacao} · {layout.quebraLinha}{layout.homologado ? ' · homologado' : ' · não homologado: confira na tela Layout da rotina IOB e ajuste aqui'}</p>
                 {editor && <EditorLayout layout={layout} onChange={aplicarLayout} onReset={() => { aplicarLayout(LAYOUT_PADRAO); setMensagem('Layout padrão restaurado.'); }} onCarregar={carregarLayoutArquivo} onCarregarExcel={importarLayoutExcel} />}
                 {!!errosLayout.length && <ul role="alert" className="mt-2 list-disc pl-5 text-sm text-red-700">{errosLayout.map(e => <li key={e}>{e}</li>)}</ul>}
-                {previa && !!total && <pre aria-label="Prévia do TXT" className="mt-2 max-h-56 overflow-auto rounded bg-slate-900 p-2 font-mono text-xs text-green-200 whitespace-pre">{txt.conteudo}</pre>}
+                {previa && !!total && <pre aria-label="Prévia do TXT" className="mt-2 max-h-56 overflow-auto rounded-sm bg-slate-900 p-2 font-mono text-xs text-green-200 whitespace-pre">{txt.conteudo}</pre>}
                 {!!txt.erros.length && <details className="mt-2 text-sm" open><summary className="cursor-pointer text-amber-700 dark:text-amber-300">{txt.erros.length} alerta(s) de formatação do TXT</summary><ul className="list-disc pl-5">{txt.erros.map((e, i) => <li key={i}>{e}</li>)}</ul></details>}
                 {txt.avisos.map(a => <p key={a} className="mt-2 text-xs text-amber-700 dark:text-amber-300">{a}</p>)}
             </section>
@@ -227,7 +227,7 @@ export default function CadastroIobModal({ usuario, dossie, cadastros, avisos, o
                     <button className={botao} disabled={!total} onClick={baixarXmls}>Baixar XMLs S-2200 (ZIP)</button>
                     <button className={botaoSec} onClick={() => baixarBytes('layout-cadastro-iob.json', new TextEncoder().encode(serializarLayout(layout)), 'application/json')}>Baixar layout (JSON)</button>
                 </div>
-                <div className="mt-2 rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200">
+                <div className="mt-2 rounded-sm border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200">
                     <strong>Confira qual IOB você usa antes de contar com o TXT.</strong> A rotina
                     <em> Importação de Funcionários/Base de Cálculo</em> existe no <strong>IOB Gestão Contábil</strong>.
                     No <strong>IOB Office Folha de Pagamento</strong> ela não existe: em Utilitários › Importações há só
@@ -336,7 +336,7 @@ function EditorLayout({ layout, onChange, onReset, onCarregar, onCarregarExcel }
     const mover = (i: number, delta: number) => { const j = i + delta; if (j < 0 || j >= layout.campos.length) return; const lista = [...layout.campos]; [lista[i], lista[j]] = [lista[j], lista[i]]; onChange({ ...layout, campos: lista }); };
     const remover = (i: number) => onChange({ ...layout, campos: layout.campos.filter((_, j) => j !== i) });
     const adicionar = () => onChange({ ...layout, campos: [...layout.campos, { id: `campo_${Date.now()}`, rotulo: 'Novo campo', origem: 'branco', tamanho: 1, tipo: 'A' }] });
-    const pequeno = input + ' !p-1 !text-xs';
+    const pequeno = input + ' p-1! text-xs!';
     return <div className="mt-3 space-y-3 text-sm">
         <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
             <label className="text-xs">Nome<input className={pequeno} value={layout.nome} onChange={e => onChange({ ...layout, nome: e.target.value })} /></label>
@@ -353,7 +353,7 @@ function EditorLayout({ layout, onChange, onReset, onCarregar, onCarregarExcel }
         <div className="max-h-80 overflow-auto"><table className="w-full text-left text-xs"><thead><tr className="border-b"><th className="p-1">#</th><th className="p-1">Campo</th><th className="p-1">Origem</th><th className="p-1">Início</th><th className="p-1">Fim</th><th className="p-1">Tam.</th><th className="p-1">Tipo</th><th className="p-1">Dec.</th><th className="p-1">Constante</th><th className="p-1">Obrig.</th><th className="p-1">Ações</th></tr></thead><tbody>
             {campos.map((c, i) => <tr key={c.id} className="border-b">
                 <td className="p-1">{i + 1}</td>
-                <td className="p-1"><input aria-label={`Rótulo do campo ${i + 1}`} className={pequeno + ' min-w-[10rem]'} value={c.rotulo} onChange={e => setCampo(i, { rotulo: e.target.value })} /></td>
+                <td className="p-1"><input aria-label={`Rótulo do campo ${i + 1}`} className={pequeno + ' min-w-40'} value={c.rotulo} onChange={e => setCampo(i, { rotulo: e.target.value })} /></td>
                 <td className="p-1"><select aria-label={`Origem do campo ${i + 1}`} className={pequeno} value={c.origem} onChange={e => setCampo(i, { origem: e.target.value as OrigemCampo })}>{(Object.keys(ORIGENS) as OrigemCampo[]).map(k => <option key={k} value={k}>{ORIGENS[k]}</option>)}</select></td>
                 <td className="p-1 font-mono">{c.inicio}</td><td className="p-1 font-mono">{c.fim}</td>
                 <td className="p-1"><input aria-label={`Tamanho do campo ${i + 1}`} type="number" min={1} max={500} className={pequeno + ' w-16'} value={c.tamanho} onChange={e => setCampo(i, { tamanho: Number(e.target.value) })} /></td>

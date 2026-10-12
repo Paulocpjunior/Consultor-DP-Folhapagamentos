@@ -93,10 +93,10 @@ const ConsolidationViewer: React.FC<Props> = ({ data, onBack, collaboratorName }
     return (
         <div className="space-y-6 animate-fadeIn pb-20">
             {/* Header / Summary */}
-            <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-xs border border-slate-200 dark:border-slate-700 flex flex-col md:flex-row justify-between items-center gap-4">
                 <div>
                     <h2 className="text-2xl font-black text-slate-800 dark:text-white flex items-center gap-2">
-                        <span className="bg-purple-600 text-white text-xs px-2 py-1 rounded">GRUPO</span>
+                        <span className="bg-purple-600 text-white text-xs px-2 py-1 rounded-sm">GRUPO</span>
                         Consolidação de DREs
                     </h2>
                     <div className="flex gap-2 text-sm text-slate-500 mt-1">
@@ -117,14 +117,14 @@ const ConsolidationViewer: React.FC<Props> = ({ data, onBack, collaboratorName }
             </div>
 
             {/* Matrix View */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xs border border-slate-200 dark:border-slate-700 overflow-hidden">
                 <div className="p-4 border-b dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
                      <input 
                         type="text" 
                         placeholder="Filtrar contas consolidadas..." 
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
-                        className="p-2 text-sm rounded border w-64 dark:bg-slate-700 dark:text-white"
+                        className="p-2 text-sm rounded-sm border w-64 dark:bg-slate-700 dark:text-white"
                     />
                     <div className="text-sm font-bold text-slate-700 dark:text-slate-300">
                         Resultado Aglutinado: <span className={totalResult >= 0 ? 'text-green-600' : 'text-red-600'}>{formatCurrency(totalResult)}</span>

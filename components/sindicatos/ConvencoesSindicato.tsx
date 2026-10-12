@@ -15,7 +15,7 @@ import { TAMANHO_MAXIMO_PDF, abrirPdfConvencao, listarConvencoes, salvarConvenca
 import { lerTextoPdf } from '../../services/sindicatos/textoPdf';
 import { contribuicaoPadrao, TIPOS_CONTRIBUICAO, type ContribuicaoConvencao, type FormaContribuicao, type RegraAvisoConvencao, type TipoContribuicao } from '../../services/sindicatos/contribuicoes';
 
-const inp = 'w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const inp = 'w-full rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const br = (d: string) => (d ? d.split('-').reverse().join('/') : '');
 const txt = (c: number | null) => (c === null ? '' : (c / 100).toFixed(2).replace('.', ','));
 const COR = { vigente: 'text-green-700 dark:text-green-400', 'a vencer': 'text-amber-700 dark:text-amber-300', vencida: 'text-red-700 dark:text-red-300' };
@@ -108,10 +108,10 @@ const ConvencoesSindicato: React.FC<{ sindicato: Sindicato; usuario: Usuario; on
 
     const set = (k: keyof ConvencaoColetiva, v: string) => setEdicao(e => e && ({ ...e, c: { ...e.c, [k]: v } }));
     return (
-        <section aria-label="Convenções coletivas" className="space-y-2 rounded border border-slate-200 p-2 text-sm dark:border-slate-700">
+        <section aria-label="Convenções coletivas" className="space-y-2 rounded-sm border border-slate-200 p-2 text-sm dark:border-slate-700">
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="flex flex-wrap items-center gap-2 font-medium text-slate-800 dark:text-white">Convenções e acordos coletivos {todas && <SinalRenovacao r={renovacaoDoSindicato(lista, sindicato.cnpj, hoje)} />}</p>
-                {!edicao && <button className="rounded bg-blue-700 px-3 py-1.5 text-white" onClick={() => { setErros([]); setMsg(''); setEdicao(paraEdicao({ ...convencaoVazia(sindicato.cnpj), dataBase: sindicato.dataBase })); }}>Nova convenção (PDF)</button>}
+                {!edicao && <button className="rounded-sm bg-blue-700 px-3 py-1.5 text-white" onClick={() => { setErros([]); setMsg(''); setEdicao(paraEdicao({ ...convencaoVazia(sindicato.cnpj), dataBase: sindicato.dataBase })); }}>Nova convenção (PDF)</button>}
             </div>
             {!todas && <p className="text-slate-500">Carregando…</p>}
             {todas && !lista.length && !edicao && <p className="text-slate-500">Nenhuma convenção deste sindicato. Anexe o PDF da última convenção registrada no Mediador.</p>}
@@ -134,7 +134,7 @@ const ConvencoesSindicato: React.FC<{ sindicato: Sindicato; usuario: Usuario; on
                 </ul>
             )}
             {edicao && (
-                <div className="space-y-2 rounded border border-blue-200 bg-blue-50/40 p-2 dark:border-blue-900 dark:bg-blue-900/10">
+                <div className="space-y-2 rounded-sm border border-blue-200 bg-blue-50/40 p-2 dark:border-blue-900 dark:bg-blue-900/10">
                     <label className="block text-xs">PDF da convenção {edicao.c.arquivo ? `(atual: ${edicao.c.arquivo.nome}; escolha outro para trocar)` : ''}
                         <input type="file" accept="application/pdf" className="block text-sm dark:text-white" aria-label="PDF da convenção" onChange={e => escolherPdf(e.target.files?.[0] ?? null)} /></label>
                     <div className="grid gap-2 sm:grid-cols-4">
@@ -159,7 +159,7 @@ const ConvencoesSindicato: React.FC<{ sindicato: Sindicato; usuario: Usuario; on
                                 <button className="text-xs text-red-600 underline" onClick={() => setEdicao({ ...edicao, pisos: edicao.pisos.filter((_, j) => j !== i) })}>Remover</button>
                             </div>
                         ))}
-                        <button className="mt-1 rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:text-white" onClick={() => setEdicao({ ...edicao, pisos: [...edicao.pisos, { descricao: '', cbo: '', valor: '' }] })}>Adicionar piso</button>
+                        <button className="mt-1 rounded-sm border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:text-white" onClick={() => setEdicao({ ...edicao, pisos: [...edicao.pisos, { descricao: '', cbo: '', valor: '' }] })}>Adicionar piso</button>
                     </div>
                     <div>
                         <p className="text-xs font-medium">Descontos para o sindicato (quem paga vem da ficha, aba Sindicato: autorização, oposição e filiação)</p>
@@ -179,7 +179,7 @@ const ConvencoesSindicato: React.FC<{ sindicato: Sindicato; usuario: Usuario; on
                                 </div>
                             );
                         })}
-                        <button className="mt-1 rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:text-white" onClick={() => {
+                        <button className="mt-1 rounded-sm border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:text-white" onClick={() => {
                             const livre = (Object.keys(TIPOS_CONTRIBUICAO) as TipoContribuicao[]).find(t => !edicao.contribuicoes.some(x => x.tipo === t)) ?? 'assistencial';
                             const p = contribuicaoPadrao(livre);
                             setEdicao({ ...edicao, contribuicoes: [...edicao.contribuicoes, { tipo: p.tipo, forma: p.forma, valor: p.valor ? String(p.valor) : '', meses: p.meses.join(', '), teto: '', descricao: p.descricao }] });
@@ -199,22 +199,22 @@ const ConvencoesSindicato: React.FC<{ sindicato: Sindicato; usuario: Usuario; on
                                 </div>
                             );
                         })}
-                        <button className="mt-1 rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:text-white" onClick={() => setEdicao({ ...edicao, avisos: [...edicao.avisos, { idade: '', anos: '', dias: '', descricao: '' }] })}>Adicionar regra de aviso</button>
+                        <button className="mt-1 rounded-sm border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:text-white" onClick={() => setEdicao({ ...edicao, avisos: [...edicao.avisos, { idade: '', anos: '', dias: '', descricao: '' }] })}>Adicionar regra de aviso</button>
                     </div>
                     <label className="block text-xs">Obrigações da convenção a conferir em cada empresa (uma por linha: cesta básica, seguro de vida, PLR, auxílio-creche…)
                         <textarea aria-label="Obrigações da convenção" rows={3} className={inp} value={edicao.obrigacoes} onChange={e => setEdicao({ ...edicao, obrigacoes: e.target.value })} /></label>
-                    {(() => { const av = avisosConvencao(deEdicao(edicao).c, lista, hoje); return av.length ? <ul className="list-disc rounded bg-amber-50 p-2 pl-6 text-xs text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">{av.map(x => <li key={x}>{x}</li>)}</ul> : null; })()}
+                    {(() => { const av = avisosConvencao(deEdicao(edicao).c, lista, hoje); return av.length ? <ul className="list-disc rounded-sm bg-amber-50 p-2 pl-6 text-xs text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">{av.map(x => <li key={x}>{x}</li>)}</ul> : null; })()}
                     {dataValidaIso(edicao.c.vigenciaFim) && <p className="text-xs text-slate-600 dark:text-slate-300">Renovação (a nova convenção tem de valer a partir de): <strong>{br(somarUmDia(edicao.c.vigenciaFim))}</strong>. Depois dela, sem a nova cadastrada, o app conta os dias em atraso.</p>}
                     <label className="block text-xs">Observação<input aria-label="Observação da convenção" className={inp} value={edicao.c.observacao} onChange={e => set('observacao', e.target.value)} /></label>
                     <div className="flex justify-end gap-2">
-                        <button className="rounded border border-slate-300 px-3 py-1.5 dark:border-slate-600 dark:text-white" onClick={() => setEdicao(null)}>Cancelar</button>
-                        <button className="rounded bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={!!ocupado} onClick={gravar}>Gravar convenção</button>
+                        <button className="rounded-sm border border-slate-300 px-3 py-1.5 dark:border-slate-600 dark:text-white" onClick={() => setEdicao(null)}>Cancelar</button>
+                        <button className="rounded-sm bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={!!ocupado} onClick={gravar}>Gravar convenção</button>
                     </div>
                 </div>
             )}
             {ocupado && <p role="status" className="text-blue-700 dark:text-blue-300">{ocupado}</p>}
             {msg && <p role="status" className="text-green-700 dark:text-green-300">{msg}</p>}
-            {erros.length > 0 && <ul role="alert" className="list-disc rounded bg-red-50 p-2 pl-6 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erros.map(x => <li key={x}>{x}</li>)}</ul>}
+            {erros.length > 0 && <ul role="alert" className="list-disc rounded-sm bg-red-50 p-2 pl-6 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erros.map(x => <li key={x}>{x}</li>)}</ul>}
         </section>
     );
 };

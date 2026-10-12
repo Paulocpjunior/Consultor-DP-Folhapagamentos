@@ -69,13 +69,13 @@ const ComparisonDisplay: React.FC<{ result: ComparisonResult | null }> = ({ resu
     return (
         <div id="comparison-content" className="space-y-6 animate-fade-in">
             {/* AI Summary Section */}
-            <div className="p-6 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
+            <div className="p-6 bg-white dark:bg-slate-800 rounded-lg shadow-xs">
                  <div className="flex justify-between items-center mb-4">
                     <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Análise Comparativa por IA</h2>
                     <button
                         onClick={handleExportPDF}
                         disabled={isExporting}
-                        className="btn-press flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 dark:focus:ring-offset-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="btn-press flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 focus:outline-hidden focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 dark:focus:ring-offset-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <DownloadIcon className="w-5 h-5" />
                         {isExporting ? 'Exportando...' : 'Exportar PDF'}

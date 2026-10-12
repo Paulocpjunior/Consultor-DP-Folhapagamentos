@@ -14,7 +14,7 @@ import { excluirEnquadramento, listarEnquadramentos, mensagemErro, salvarEnquadr
 
 interface Props { empresa: Empresa; usuario: Usuario; isAdmin: boolean }
 
-const inp = 'w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const inp = 'w-full rounded-sm border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const rot = 'text-xs font-medium text-slate-600 dark:text-slate-300';
 const num = (n: number, casas = 4) => (Number.isFinite(n) && n ? n.toLocaleString('pt-BR', { maximumFractionDigits: casas }) : '');
 interface Edicao { antes: Enquadramento | null; e: Enquadramento; patronal: string; fap: string; terceiros: string }
@@ -60,19 +60,19 @@ const EnquadramentoCadastro: React.FC<Props> = ({ empresa, usuario, isAdmin }) =
 
     return (
         <div className="space-y-3">
-            <p className="rounded bg-slate-50 p-3 text-sm text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+            <p className="rounded-sm bg-slate-50 p-3 text-sm text-slate-700 dark:bg-slate-800 dark:text-slate-200">
                 Enquadramento previdenciário de <strong>{empresa.nomeFantasia || empresa.razaoSocial}</strong>, por vigência. Fecha a parte patronal no resumo da folha (DCTFWeb). Informe a partir do FPAS, do RAT do CNAE preponderante e do FAP publicado para o ano, ou carregue do backup do IOB.
             </p>
             <InicioObrigacoesEmpresa key={empresa.id} empresa={empresa} />
             <MensagemHoleriteEmpresa key={`msg-${empresa.id}`} empresa={empresa} />
             <div className="flex flex-wrap gap-2">
-                <button className="rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white" onClick={() => abrir(null)}>Novo enquadramento</button>
-                <button className="rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:text-white" onClick={() => setCarga(true)}>Carregar do backup do IOB (todas as empresas)</button>
+                <button className="rounded-sm bg-blue-700 px-3 py-2 text-sm font-medium text-white" onClick={() => abrir(null)}>Novo enquadramento</button>
+                <button className="rounded-sm border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:text-white" onClick={() => setCarga(true)}>Carregar do backup do IOB (todas as empresas)</button>
             </div>
             {carga && <CargaEnquadramentoIobModal usuario={usuario} onFechar={() => setCarga(false)} onGravado={() => { setCarga(false); carregar(); }} />}
-            {erro && <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+            {erro && <p role="alert" className="rounded-sm bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
             {!lista && <p className="text-sm text-slate-500">Carregando…</p>}
-            {lista && !lista.length && !erro && <p className="rounded border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-600">Nenhum enquadramento: o resumo da folha mostra só a parte dos segurados.</p>}
+            {lista && !lista.length && !erro && <p className="rounded-sm border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-600">Nenhum enquadramento: o resumo da folha mostra só a parte dos segurados.</p>}
             {lista && lista.length > 0 && (
                 <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white text-sm dark:divide-slate-700 dark:border-slate-700 dark:bg-slate-800">
                     {lista.map(e => (
@@ -121,10 +121,10 @@ const EnquadramentoCadastro: React.FC<Props> = ({ empresa, usuario, isAdmin }) =
                             )}
                             <label className="block sm:col-span-2"><span className={rot}>Observação (ex.: fonte do FAP, CNAE)</span><textarea aria-label="Observação do enquadramento" rows={2} className={inp} value={ed.e.observacao} onChange={x => set({ observacao: x.target.value })} /></label>
                         </div>
-                        {erros.length > 0 && <ul role="alert" className="list-disc rounded bg-red-50 p-2 pl-6 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erros.map(e => <li key={e}>{e}</li>)}</ul>}
+                        {erros.length > 0 && <ul role="alert" className="list-disc rounded-sm bg-red-50 p-2 pl-6 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erros.map(e => <li key={e}>{e}</li>)}</ul>}
                         <div className="flex justify-end gap-2">
-                            <button className="rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:text-white" onClick={() => setEd(null)}>Cancelar</button>
-                            <button className="rounded bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={salvando} onClick={salvar}>{salvando ? 'Salvando…' : 'Salvar'}</button>
+                            <button className="rounded-sm border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:text-white" onClick={() => setEd(null)}>Cancelar</button>
+                            <button className="rounded-sm bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={salvando} onClick={salvar}>{salvando ? 'Salvando…' : 'Salvar'}</button>
                         </div>
                     </div>
                 </div>

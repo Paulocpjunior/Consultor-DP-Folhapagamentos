@@ -98,7 +98,7 @@ const CarteiraModal: React.FC<Props> = ({ alvo, ator, atorUid, usuario, empresas
                     </div>
                     <button aria-label="Fechar" className="px-2 text-xl text-slate-500" onClick={onFechar}>×</button>
                 </div>
-                <p className="rounded bg-slate-50 p-2 text-xs text-slate-600 dark:bg-slate-900/40 dark:text-slate-300">
+                <p className="rounded-sm bg-slate-50 p-2 text-xs text-slate-600 dark:bg-slate-900/40 dark:text-slate-300">
                     {alvo.nome} só verá e trabalhará nas empresas marcadas (e nas que ele mesmo cadastrar).
                     {ator === 'admin' && ' Como admin, você só inclui ou retira empresas da sua própria carteira.'}
                 </p>
@@ -111,7 +111,7 @@ const CarteiraModal: React.FC<Props> = ({ alvo, ator, atorUid, usuario, empresas
                         {crm && (
                             <>
                                 <label className="block text-xs text-slate-600 dark:text-slate-300">Responsável no CRM
-                                    <select aria-label="Responsável no CRM" className="mt-1 block w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                                    <select aria-label="Responsável no CRM" className="mt-1 block w-full rounded-sm border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                                         value={idsCrm[0] ?? ''} disabled={!onLigarCrm} onChange={e => void ligar(e.target.value)}>
                                         <option value="">— não ligado —</option>
                                         {crm.colaboradores.filter(c => c.jotformId).map(c => <option key={c.jotformId} value={c.jotformId}>{rotuloColaborador(c)}</option>)}
@@ -121,8 +121,8 @@ const CarteiraModal: React.FC<Props> = ({ alvo, ator, atorUid, usuario, empresas
                                     <div className="space-y-1 text-xs text-slate-700 dark:text-slate-200">
                                         <p>O CRM aponta {sugestao.empresaIds.length + sugestao.naoCadastradas.length} empresa(s) para {alvo.nome}: {sugestao.empresaIds.length} no Consultor{faltam.length ? `, ${faltam.length} fora desta carteira` : ''}{sugestao.naoCadastradas.length ? `, ${sugestao.naoCadastradas.length} ainda não cadastrada(s) no Consultor` : ''}.</p>
                                         <div className="flex flex-wrap gap-2">
-                                            <button className="rounded bg-sky-700 px-2 py-1 text-white disabled:opacity-50" disabled={!faltam.length} onClick={() => setMarcadas(m => new Set([...m, ...faltam]))}>Marcar as {faltam.length} do CRM</button>
-                                            {foraDoCrm.length > 0 && <button className="rounded border border-slate-300 px-2 py-1 dark:border-slate-600" onClick={() => setMarcadas(m => new Set([...m].filter(id => !foraDoCrm.includes(id))))}>Desmarcar as {foraDoCrm.length} que não estão no CRM</button>}
+                                            <button className="rounded-sm bg-sky-700 px-2 py-1 text-white disabled:opacity-50" disabled={!faltam.length} onClick={() => setMarcadas(m => new Set([...m, ...faltam]))}>Marcar as {faltam.length} do CRM</button>
+                                            {foraDoCrm.length > 0 && <button className="rounded-sm border border-slate-300 px-2 py-1 dark:border-slate-600" onClick={() => setMarcadas(m => new Set([...m].filter(id => !foraDoCrm.includes(id))))}>Desmarcar as {foraDoCrm.length} que não estão no CRM</button>}
                                         </div>
                                         {sugestao.naoCadastradas.length > 0 && (
                                             <details><summary className="cursor-pointer">Não cadastradas no Consultor</summary>
@@ -137,12 +137,12 @@ const CarteiraModal: React.FC<Props> = ({ alvo, ator, atorUid, usuario, empresas
                 )}
                 <div className="flex flex-wrap items-center gap-2">
                     <input aria-label="Buscar empresa" placeholder="Buscar por nome, CNPJ ou código SAGE" value={busca} onChange={e => setBusca(e.target.value)}
-                        className="min-w-0 flex-1 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100" />
+                        className="min-w-0 flex-1 rounded-sm border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100" />
                     <label className="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-300"><input type="checkbox" checked={soMarcadas} onChange={e => setSoMarcadas(e.target.checked)} /> só as marcadas</label>
-                    <button className="rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:text-white" onClick={() => marcarLista(true)}>Marcar as {lista.length} da lista</button>
-                    <button className="rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:text-white" onClick={() => marcarLista(false)}>Desmarcar</button>
+                    <button className="rounded-sm border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:text-white" onClick={() => marcarLista(true)}>Marcar as {lista.length} da lista</button>
+                    <button className="rounded-sm border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:text-white" onClick={() => marcarLista(false)}>Desmarcar</button>
                 </div>
-                <ul className="max-h-[50vh] divide-y divide-slate-100 overflow-y-auto rounded border border-slate-200 text-sm dark:divide-slate-700 dark:border-slate-700">
+                <ul className="max-h-[50vh] divide-y divide-slate-100 overflow-y-auto rounded-sm border border-slate-200 text-sm dark:divide-slate-700 dark:border-slate-700">
                     {lista.map(e => {
                         const pode = editavel(e.id);
                         return (
@@ -159,10 +159,10 @@ const CarteiraModal: React.FC<Props> = ({ alvo, ator, atorUid, usuario, empresas
                 </ul>
                 {invisiveis.length > 0 && <p className="text-xs text-slate-500">{invisiveis.length} empresa(s) desta carteira estão fora da sua visão e continuam como estão.</p>}
                 {(incluidas.length > 0 || removidas.length > 0) && <p className="text-xs text-slate-600 dark:text-slate-300">Ao salvar: {incluidas.length} incluída(s), {removidas.length} retirada(s).</p>}
-                {erros.length > 0 && <ul role="alert" className="list-disc rounded bg-red-50 p-2 pl-6 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erros.map(x => <li key={x}>{x}</li>)}</ul>}
+                {erros.length > 0 && <ul role="alert" className="list-disc rounded-sm bg-red-50 p-2 pl-6 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erros.map(x => <li key={x}>{x}</li>)}</ul>}
                 <div className="flex justify-end gap-2">
-                    <button className="rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:text-white" onClick={onFechar}>Cancelar</button>
-                    <button className="rounded bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={salvando || (!incluidas.length && !removidas.length)} onClick={salvar}>{salvando ? 'Salvando…' : 'Salvar carteira'}</button>
+                    <button className="rounded-sm border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:text-white" onClick={onFechar}>Cancelar</button>
+                    <button className="rounded-sm bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={salvando || (!incluidas.length && !removidas.length)} onClick={salvar}>{salvando ? 'Salvando…' : 'Salvar carteira'}</button>
                 </div>
             </div>
         </div>

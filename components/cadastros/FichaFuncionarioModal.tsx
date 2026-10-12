@@ -32,7 +32,7 @@ interface Props {
     onSalvo: () => void;
 }
 
-const inp = 'w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const inp = 'w-full rounded-sm border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const DEP_VAZIO: Dependente = { tipo: '', nome: '', nascimento: '', cpf: '', irrf: 'N', salarioFamilia: 'N', pensao: 'N', cotaPensao: '', noEsocial: 'N' };
 const formatarCpf = (c: string) => (c.length === 11 ? `${c.slice(0, 3)}.${c.slice(3, 6)}.${c.slice(6, 9)}-${c.slice(9)}` : c);
 
@@ -140,7 +140,7 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                         <p className="text-xs text-slate-500 dark:text-slate-400">Arquivos › Funcionários › Cadastro {nova ? '(nova ficha)' : ''}</p>
                         <h3 className="truncate text-lg font-semibold text-slate-800 dark:text-white">{f.dados.nome || 'Funcionário sem nome'}</h3>
                     </div>
-                    <button aria-label="Fechar" className="rounded px-2 text-xl text-slate-500 hover:text-slate-800 dark:hover:text-white" onClick={onFechar}>×</button>
+                    <button aria-label="Fechar" className="rounded-sm px-2 text-xl text-slate-500 hover:text-slate-800 dark:hover:text-white" onClick={onFechar}>×</button>
                 </div>
 
                 <div className="grid gap-3 border-b border-slate-200 p-4 sm:grid-cols-4 dark:border-slate-700">
@@ -158,7 +158,7 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                 </div>
 
                 {f.pendenciasImportacao.length > 0 && (
-                    <details className="mx-4 mt-3 rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200">
+                    <details className="mx-4 mt-3 rounded-sm border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200">
                         <summary className="cursor-pointer font-medium">Pendências da última importação do eSocial ({f.pendenciasImportacao.length})</summary>
                         <ul className="mt-1 list-disc pl-5">{f.pendenciasImportacao.map(p => <li key={p}>{p}</li>)}</ul>
                     </details>
@@ -173,7 +173,7 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                     ))}
                 </nav>
 
-                <div className="min-h-[18rem] p-4">
+                <div className="min-h-72 p-4">
                     {atual && <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{atual.campos.filter(c => c !== 'codigoIob').map(campo)}</div>}
                     {aba === 'identAdm' && !!f.historicoSalario?.length && (
                         <div className="mt-4 space-y-1 text-sm">
@@ -213,7 +213,7 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                                 </table>
                             </div>
                             {!f.dependentes.length && <p className="text-sm text-slate-500">Nenhum dependente.</p>}
-                            <button className="rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600 dark:text-white" onClick={() => setF({ ...f, dependentes: [...f.dependentes, { ...DEP_VAZIO }] })}>Adicionar dependente</button>
+                            <button className="rounded-sm border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600 dark:text-white" onClick={() => setF({ ...f, dependentes: [...f.dependentes, { ...DEP_VAZIO }] })}>Adicionar dependente</button>
                             {f.origens.dependentes && <p className="text-[11px] text-slate-400">{f.origens.dependentes}</p>}
                             <p className="text-[11px] text-slate-500 dark:text-slate-400">Pensão alimentícia: marque quem recebe (com CPF). Com mais de um alimentando, a cota (%) de cada um divide a pensão do mês no S-1210. No mesmo mês, quem recebe pensão não é deduzido também como dependente (Lei 9.250/1995, art. 35, § 4º): o filho alimentando fica com IRRF = Não e Pensão = Sim.</p>
                         </div>
@@ -227,18 +227,18 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                                     <thead className="text-left text-slate-500"><tr><th className="p-1">Instituição (Tab. 37)</th><th className="p-1">Contrato</th><th className="p-1">Parcela (R$)</th><th className="p-1">1º mês</th><th className="p-1">Último mês</th><th className="p-1">Saldo na rescisão (R$)</th><th /></tr></thead>
                                     <tbody>{contratos.map((c, i) => (
                                         <tr key={i} className="border-t border-slate-100 dark:border-slate-700">
-                                            <td className="p-1"><input aria-label={`Instituição do contrato ${i + 1}`} className="w-16 rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" inputMode="numeric" maxLength={3} value={c.instFinanc} onChange={e => setContrato(i, { instFinanc: e.target.value.replace(/\D/g, '') })} /></td>
-                                            <td className="p-1"><input aria-label={`Número do contrato ${i + 1}`} className="w-32 rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" maxLength={15} value={c.nrDoc} onChange={e => setContrato(i, { nrDoc: e.target.value.trim() })} /></td>
-                                            <td className="p-1"><input aria-label={`Parcela do contrato ${i + 1}`} className="w-24 rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" inputMode="decimal" defaultValue={emReais(c.parcela || undefined)} onChange={e => setContrato(i, { parcela: centavos(e.target.value) })} /></td>
-                                            <td className="p-1"><input aria-label={`Primeiro mês do contrato ${i + 1}`} type="month" className="rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={c.inicio} onChange={e => setContrato(i, { inicio: e.target.value })} /></td>
-                                            <td className="p-1"><input aria-label={`Último mês do contrato ${i + 1}`} type="month" className="rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={c.fim ?? ''} onChange={e => setContrato(i, { fim: e.target.value || undefined })} /></td>
-                                            <td className="p-1"><input aria-label={`Saldo na rescisão do contrato ${i + 1}`} className="w-24 rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" inputMode="decimal" defaultValue={emReais(c.saldoRescisao)} onChange={e => setContrato(i, { saldoRescisao: e.target.value.trim() ? centavos(e.target.value) : undefined })} /></td>
+                                            <td className="p-1"><input aria-label={`Instituição do contrato ${i + 1}`} className="w-16 rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" inputMode="numeric" maxLength={3} value={c.instFinanc} onChange={e => setContrato(i, { instFinanc: e.target.value.replace(/\D/g, '') })} /></td>
+                                            <td className="p-1"><input aria-label={`Número do contrato ${i + 1}`} className="w-32 rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" maxLength={15} value={c.nrDoc} onChange={e => setContrato(i, { nrDoc: e.target.value.trim() })} /></td>
+                                            <td className="p-1"><input aria-label={`Parcela do contrato ${i + 1}`} className="w-24 rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" inputMode="decimal" defaultValue={emReais(c.parcela || undefined)} onChange={e => setContrato(i, { parcela: centavos(e.target.value) })} /></td>
+                                            <td className="p-1"><input aria-label={`Primeiro mês do contrato ${i + 1}`} type="month" className="rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={c.inicio} onChange={e => setContrato(i, { inicio: e.target.value })} /></td>
+                                            <td className="p-1"><input aria-label={`Último mês do contrato ${i + 1}`} type="month" className="rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={c.fim ?? ''} onChange={e => setContrato(i, { fim: e.target.value || undefined })} /></td>
+                                            <td className="p-1"><input aria-label={`Saldo na rescisão do contrato ${i + 1}`} className="w-24 rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" inputMode="decimal" defaultValue={emReais(c.saldoRescisao)} onChange={e => setContrato(i, { saldoRescisao: e.target.value.trim() ? centavos(e.target.value) : undefined })} /></td>
                                             <td className="p-1"><button className="text-red-700 underline dark:text-red-300" onClick={() => setContrato(i, null)}>remover</button></td>
                                         </tr>
                                     ))}</tbody>
                                 </table>
                             )}
-                            <button className="rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600" onClick={() => setF(x => ({ ...x, consignados: [...(x.consignados ?? []), { instFinanc: '', nrDoc: '', parcela: 0, inicio: '' }] }))}>Adicionar contrato</button>
+                            <button className="rounded-sm border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600" onClick={() => setF(x => ({ ...x, consignados: [...(x.consignados ?? []), { instFinanc: '', nrDoc: '', parcela: 0, inicio: '' }] }))}>Adicionar contrato</button>
                             <p className="text-[11px] text-slate-500 dark:text-slate-400">Quitado ou suspenso pela instituição: preencha o último mês. O que não couber na margem fica com aviso no cálculo; a instituição cobra a diferença do empregado.</p>
                         </div>
                     )}
@@ -247,13 +247,13 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                         <div className="space-y-2 text-sm dark:text-slate-100">
                             <p className="text-xs text-slate-600 dark:text-slate-300">Eventos do IOB que entram no movimento do mês sozinhos, como o Lançamento Automático do IOB (ex.: uma gratificação fixa, um desconto de convênio). No Cálculo, "Lançamentos automáticos" põe os do mês no movimento pelo mesmo cálculo do "Lançar evento" (rotina do evento ou fórmula da empresa); cada um entra uma vez por mês. Sem meses marcados, entra todo mês.</p>
                             {automaticos.map((a, i) => (
-                                <div key={i} role="group" aria-label={`Lançamento automático ${i + 1}`} className="space-y-1 rounded border border-slate-200 p-2 text-xs dark:border-slate-700">
+                                <div key={i} role="group" aria-label={`Lançamento automático ${i + 1}`} className="space-y-1 rounded-sm border border-slate-200 p-2 text-xs dark:border-slate-700">
                                     <div className="flex flex-wrap items-end gap-2">
-                                        <label>Evento<input aria-label={`Evento do lançamento automático ${i + 1}`} className="mt-0.5 block w-20 rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" inputMode="numeric" maxLength={5} value={a.codigoEvento} onChange={e => setAutomatico(i, { codigoEvento: e.target.value.replace(/\D/g, '') })} /></label>
-                                        <label>Referência<input aria-label={`Referência do lançamento automático ${i + 1}`} className="mt-0.5 block w-24 rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" placeholder="8:30 ou 150,00" maxLength={20} value={a.referencia} onChange={e => setAutomatico(i, { referencia: e.target.value })} /></label>
-                                        <label>A partir de<input aria-label={`Início do lançamento automático ${i + 1}`} type="month" className="mt-0.5 block rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={a.desde} onChange={e => setAutomatico(i, { desde: e.target.value })} /></label>
-                                        <label>Até<input aria-label={`Fim do lançamento automático ${i + 1}`} type="month" className="mt-0.5 block rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={a.ate} onChange={e => setAutomatico(i, { ate: e.target.value })} /></label>
-                                        <label className="flex-1">Observação<input aria-label={`Observação do lançamento automático ${i + 1}`} className="mt-0.5 block w-full rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" maxLength={100} value={a.observacao ?? ''} onChange={e => setAutomatico(i, { observacao: e.target.value })} /></label>
+                                        <label>Evento<input aria-label={`Evento do lançamento automático ${i + 1}`} className="mt-0.5 block w-20 rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" inputMode="numeric" maxLength={5} value={a.codigoEvento} onChange={e => setAutomatico(i, { codigoEvento: e.target.value.replace(/\D/g, '') })} /></label>
+                                        <label>Referência<input aria-label={`Referência do lançamento automático ${i + 1}`} className="mt-0.5 block w-24 rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" placeholder="8:30 ou 150,00" maxLength={20} value={a.referencia} onChange={e => setAutomatico(i, { referencia: e.target.value })} /></label>
+                                        <label>A partir de<input aria-label={`Início do lançamento automático ${i + 1}`} type="month" className="mt-0.5 block rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={a.desde} onChange={e => setAutomatico(i, { desde: e.target.value })} /></label>
+                                        <label>Até<input aria-label={`Fim do lançamento automático ${i + 1}`} type="month" className="mt-0.5 block rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={a.ate} onChange={e => setAutomatico(i, { ate: e.target.value })} /></label>
+                                        <label className="flex-1">Observação<input aria-label={`Observação do lançamento automático ${i + 1}`} className="mt-0.5 block w-full rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" maxLength={100} value={a.observacao ?? ''} onChange={e => setAutomatico(i, { observacao: e.target.value })} /></label>
                                         <button className="text-red-700 underline dark:text-red-300" onClick={() => setAutomatico(i, null)}>remover</button>
                                     </div>
                                     <div className="flex flex-wrap items-center gap-2"><span className="text-slate-500">Meses ({textoMeses(a.meses)}):</span>
@@ -264,7 +264,7 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                                     </div>
                                 </div>
                             ))}
-                            <button className="rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600" onClick={() => setF(x => ({ ...x, lancamentosAutomaticos: [...(x.lancamentosAutomaticos ?? []), automaticoVazio()] }))}>Adicionar lançamento automático</button>
+                            <button className="rounded-sm border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600" onClick={() => setF(x => ({ ...x, lancamentosAutomaticos: [...(x.lancamentosAutomaticos ?? []), automaticoVazio()] }))}>Adicionar lançamento automático</button>
                         </div>
                     )}
 
@@ -278,17 +278,17 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                                         const b = beneficios.find(x => x.id === a.beneficioId);
                                         return (
                                             <tr key={i} className="border-t border-slate-100 dark:border-slate-700">
-                                                <td className="p-1"><select aria-label={`Benefício ${i + 1}`} className="rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={a.beneficioId} onChange={e => setAdesao(i, { beneficioId: e.target.value })}>
+                                                <td className="p-1"><select aria-label={`Benefício ${i + 1}`} className="rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={a.beneficioId} onChange={e => setAdesao(i, { beneficioId: e.target.value })}>
                                                     <option value="">escolha…</option>
                                                     {beneficios.map(x => <option key={x.id} value={x.id}>{x.nome}{x.codigoIob ? ` (evento ${x.codigoIob})` : ''}{x.ativo ? '' : ' — inativo'}</option>)}
                                                     {a.beneficioId && !b && <option value={a.beneficioId}>(removido da empresa)</option>}
                                                 </select></td>
                                                 <td className="p-1">{b?.valor ? (b.valor / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—'}</td>
-                                                <td className="p-1"><input aria-label={`Vidas do benefício ${i + 1}`} className="w-16 rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" type="number" min={1} max={20} value={a.vidas || ''}
+                                                <td className="p-1"><input aria-label={`Vidas do benefício ${i + 1}`} className="w-16 rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" type="number" min={1} max={20} value={a.vidas || ''}
                                                     onChange={e => setAdesao(i, { vidas: Number(e.target.value) })} /></td>
-                                                <td className="p-1"><input aria-label={`Desde do benefício ${i + 1}`} type="month" className="rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={a.desde ?? ''}
+                                                <td className="p-1"><input aria-label={`Desde do benefício ${i + 1}`} type="month" className="rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={a.desde ?? ''}
                                                     onChange={e => setAdesao(i, { desde: e.target.value || undefined })} /></td>
-                                                <td className="p-1"><input aria-label={`Até do benefício ${i + 1}`} type="month" className="rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={a.ate ?? ''}
+                                                <td className="p-1"><input aria-label={`Até do benefício ${i + 1}`} type="month" className="rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={a.ate ?? ''}
                                                     onChange={e => setAdesao(i, { ate: e.target.value || undefined })} /></td>
                                                 <td className="p-1"><button className="text-red-700 underline dark:text-red-300" onClick={() => setAdesao(i, null)}>remover</button></td>
                                             </tr>
@@ -296,7 +296,7 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                                     })}</tbody>
                                 </table>
                             )}
-                            {beneficios.length > 0 && <button className="rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600" onClick={() => setF(x => ({ ...x, beneficios: [...(x.beneficios ?? []), { beneficioId: beneficios.find(b => b.ativo)?.id ?? beneficios[0].id, vidas: 1 }] }))}>Adicionar benefício</button>}
+                            {beneficios.length > 0 && <button className="rounded-sm border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600" onClick={() => setF(x => ({ ...x, beneficios: [...(x.beneficios ?? []), { beneficioId: beneficios.find(b => b.ativo)?.id ?? beneficios[0].id, vidas: 1 }] }))}>Adicionar benefício</button>}
                             <p className="text-[11px] text-slate-500 dark:text-slate-400">Valor no mês = valor por vida × vidas, lançado pelo motor em toda folha mensal entre "desde" e "até" (em branco, sem limite). Mudou o número de vidas? Preencha "até" no período atual e adicione outro a partir do mês seguinte: os meses passados ficam com as vidas de antes.</p>
                         </div>
                     )}
@@ -326,7 +326,7 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                             {!hist && !histErro && <p className="text-slate-500">Carregando…</p>}
                             {hist?.length === 0 && <p className="text-slate-500">Sem registros.</p>}
                             {hist?.map(h => (
-                                <details key={h.id} className="rounded border border-slate-200 p-2 dark:border-slate-700">
+                                <details key={h.id} className="rounded-sm border border-slate-200 p-2 dark:border-slate-700">
                                     <summary className="cursor-pointer dark:text-white">{h.quando ? h.quando.toLocaleString('pt-BR') : '—'} · {h.acao} · {h.autorEmail} · {h.totalAlteracoes} campo(s)</summary>
                                     {h.origem && <p className="mt-1 text-xs text-slate-500">{h.origem}</p>}
                                     <ul className="mt-1 space-y-0.5 text-xs dark:text-slate-300">{h.alteracoes.map((a, i) => <li key={i}><strong>{rotuloAlteracao(a.campo)}:</strong> {a.de || '∅'} → {a.para || '∅'}</li>)}</ul>
@@ -341,13 +341,13 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                 <datalist id="lista-cbo-domesticos">{FUNCOES_DOMESTICAS.map(x => <option key={x.cbo} value={x.cbo}>{x.titulo}{x.conferido ? '' : ' (conferir na CBO)'}</option>)}</datalist>
 
                 <div className="space-y-2 border-t border-slate-200 p-4 dark:border-slate-700">
-                    {erros.length > 0 && <ul role="alert" className="list-disc rounded bg-red-50 p-2 pl-6 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erros.map(e => <li key={e}>{e}</li>)}</ul>}
+                    {erros.length > 0 && <ul role="alert" className="list-disc rounded-sm bg-red-50 p-2 pl-6 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erros.map(e => <li key={e}>{e}</li>)}</ul>}
                     {validacao.avisos.length > 0 && <p className="text-xs text-amber-700 dark:text-amber-300">Atenção (não impede gravar): {validacao.avisos.join(' ')}</p>}
                     <div className="flex flex-wrap justify-between gap-2">
-                        <div>{!nova && isAdmin && <button className="rounded border border-red-300 px-3 py-2 text-sm text-red-700 dark:text-red-300" disabled={salvando} onClick={excluir}>Excluir ficha</button>}</div>
+                        <div>{!nova && isAdmin && <button className="rounded-sm border border-red-300 px-3 py-2 text-sm text-red-700 dark:text-red-300" disabled={salvando} onClick={excluir}>Excluir ficha</button>}</div>
                         <div className="flex gap-2">
-                            <button className="rounded border border-slate-300 px-4 py-2 text-sm dark:border-slate-600 dark:text-white" onClick={onFechar}>Cancelar</button>
-                            <button className="rounded bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={salvando} onClick={salvar}>{salvando ? 'Gravando…' : 'Gravar'}</button>
+                            <button className="rounded-sm border border-slate-300 px-4 py-2 text-sm dark:border-slate-600 dark:text-white" onClick={onFechar}>Cancelar</button>
+                            <button className="rounded-sm bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={salvando} onClick={salvar}>{salvando ? 'Gravando…' : 'Gravar'}</button>
                         </div>
                     </div>
                 </div>

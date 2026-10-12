@@ -54,8 +54,8 @@ const FolhaPanel: React.FC<FolhaPanelProps> = ({ currentUser, onIrParaEmpresas, 
             </header>}
 
             {!sessao && !embutido && <div className="mb-4 flex flex-wrap gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 dark:bg-slate-800">
-                <button className="rounded bg-blue-700 px-4 py-2 text-sm text-white" onClick={() => selecionarModo('cadastro')}>Primeiro acesso da empresa — unificar eSocial + ficha</button>
-                <button className="rounded border px-4 py-2 text-sm" onClick={() => selecionarModo('apontamentos')}>Rotina mensal — apontamentos</button>
+                <button className="rounded-sm bg-blue-700 px-4 py-2 text-sm text-white" onClick={() => selecionarModo('cadastro')}>Primeiro acesso da empresa — unificar eSocial + ficha</button>
+                <button className="rounded-sm border px-4 py-2 text-sm" onClick={() => selecionarModo('apontamentos')}>Rotina mensal — apontamentos</button>
             </div>}
             <div className={`flex gap-2 mb-4 border-b border-slate-200 dark:border-slate-700 ${embutido ? 'hidden' : ''}`}>
                 <button
@@ -377,7 +377,7 @@ const SeletorEmpresa: React.FC<SeletorProps> = ({ currentUser, onSelecionar, onN
                     </div>
                     <button
                         onClick={() => baixarTemplateApontamento({ competencia: competenciaAtual() })}
-                        className="px-4 py-2 text-sm font-semibold bg-amber-600 hover:bg-amber-700 text-white rounded-lg shadow-sm inline-flex items-center gap-2"
+                        className="px-4 py-2 text-sm font-semibold bg-amber-600 hover:bg-amber-700 text-white rounded-lg shadow-xs inline-flex items-center gap-2"
                     >
                         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -423,7 +423,7 @@ const SeletorEmpresa: React.FC<SeletorProps> = ({ currentUser, onSelecionar, onN
 
             {modal && (
                 <div
-                    className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4"
+                    className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
                     onClick={() => setModal(null)}
                 >
                     <div
@@ -485,7 +485,7 @@ const SeletorEmpresa: React.FC<SeletorProps> = ({ currentUser, onSelecionar, onN
                                             value={competencia}
                                             onChange={(ev) => setCompetencia(ev.target.value)}
                                             placeholder="MM/AAAA"
-                                            className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded font-mono"
+                                            className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-sm font-mono"
                                         />
                                     </label>
                                     <label className="text-xs">
@@ -495,7 +495,7 @@ const SeletorEmpresa: React.FC<SeletorProps> = ({ currentUser, onSelecionar, onN
                                         <select
                                             value={tipo}
                                             onChange={(ev) => setTipo(ev.target.value)}
-                                            className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded"
+                                            className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-sm"
                                         >
                                             {TIPOS_FOLHA.map((t) => (
                                                 <option key={t} value={t}>{t}</option>
@@ -509,14 +509,14 @@ const SeletorEmpresa: React.FC<SeletorProps> = ({ currentUser, onSelecionar, onN
                         <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2">
                             <button
                                 onClick={() => setModal(null)}
-                                className="px-3 py-1.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
+                                className="px-3 py-1.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-sm"
                             >
                                 Cancelar
                             </button>
                             <button
                                 onClick={confirmarSelecao}
                                 disabled={!empresaEscolhida}
-                                className="px-4 py-1.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded"
+                                className="px-4 py-1.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-sm"
                             >
                                 Continuar →
                             </button>

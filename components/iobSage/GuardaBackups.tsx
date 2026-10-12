@@ -16,8 +16,8 @@ import { listarGuarda, registrarGuarda } from '../../services/backups/guardaServ
 
 interface Props { usuario?: Usuario; podeRegistrar: boolean }
 
-const btn = 'rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
-const inp = 'w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const btn = 'rounded-sm border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
+const inp = 'w-full rounded-sm border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const br = (d: string) => d.split('-').reverse().join('/');
 
 /** Empresas do backup (schemas fNNNN do PostgreSQL); sem conseguir ler, lista vazia. */
@@ -93,10 +93,10 @@ const GuardaBackups: React.FC<Props> = ({ usuario, podeRegistrar }) => {
                 </label>
             </div>
             {ocupado && <p className="text-sm text-blue-700 dark:text-blue-300">{ocupado}</p>}
-            {erro && <p role="alert" className="rounded bg-red-50 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+            {erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
 
             {conferencia && (
-                <p role="status" className={`rounded p-2 text-sm ${conferencia.resultado.situacao === 'integro' ? 'bg-green-50 text-green-800 dark:bg-green-900/30 dark:text-green-200' : 'bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200'}`}>
+                <p role="status" className={`rounded-sm p-2 text-sm ${conferencia.resultado.situacao === 'integro' ? 'bg-green-50 text-green-800 dark:bg-green-900/30 dark:text-green-200' : 'bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200'}`}>
                     {conferencia.resultado.situacao === 'integro' && `${conferencia.arquivo}: íntegro — igual ao registrado em ${br(conferencia.resultado.registro.dataBackup)} (${conferencia.resultado.registro.localGuarda}).`}
                     {conferencia.resultado.situacao === 'nome-diferente' && `${conferencia.arquivo}: conteúdo igual ao registrado como "${conferencia.resultado.registro.arquivo}" (renomeado).`}
                     {conferencia.resultado.situacao === 'alterado' && `${conferencia.arquivo}: ATENÇÃO — há registro com este nome, mas a assinatura é outra: o arquivo foi alterado ou corrompido.`}
@@ -105,7 +105,7 @@ const GuardaBackups: React.FC<Props> = ({ usuario, podeRegistrar }) => {
             )}
 
             {novo && (
-                <div className="space-y-2 rounded border border-blue-200 p-3 text-sm dark:border-blue-800 dark:text-slate-100">
+                <div className="space-y-2 rounded-sm border border-blue-200 p-3 text-sm dark:border-blue-800 dark:text-slate-100">
                     <p><strong>{novo.arquivo}</strong> · {tamanhoLegivel(novo.tamanho)} · empresas {novo.empresas.length ? novo.empresas.join(', ') : 'não identificadas'}</p>
                     <p className="break-all font-mono text-xs text-slate-500">SHA-256 {novo.sha256}</p>
                     <div className="grid gap-2 sm:grid-cols-3">
@@ -115,7 +115,7 @@ const GuardaBackups: React.FC<Props> = ({ usuario, podeRegistrar }) => {
                     <label className="block">Observação<input className={inp} value={novo.observacao} onChange={e => setNovo({ ...novo, observacao: e.target.value })} placeholder="Ex.: pasta, responsável pela cópia, prazo de guarda" /></label>
                     <div className="flex justify-end gap-2">
                         <button className={btn} onClick={() => setNovo(null)}>Cancelar</button>
-                        <button className="rounded bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={!!ocupado} onClick={confirmar}>Registrar</button>
+                        <button className="rounded-sm bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={!!ocupado} onClick={confirmar}>Registrar</button>
                     </div>
                 </div>
             )}

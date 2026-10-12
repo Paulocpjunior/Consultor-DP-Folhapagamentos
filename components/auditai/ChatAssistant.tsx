@@ -34,14 +34,14 @@ const ChatAssistant: React.FC = () => {
                     <div className="bg-blue-600 p-3 text-white font-bold rounded-t-xl">Assistente Contábil</div>
                     <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-50 dark:bg-slate-900/50">
                         {messages.map((msg, idx) => (
-                            <div key={idx} className={`p-2 rounded max-w-[85%] text-sm ${msg.role === 'user' ? 'bg-blue-600 text-white ml-auto' : 'bg-white dark:bg-slate-700 dark:text-white border'}`}>{msg.text}</div>
+                            <div key={idx} className={`p-2 rounded-sm max-w-[85%] text-sm ${msg.role === 'user' ? 'bg-blue-600 text-white ml-auto' : 'bg-white dark:bg-slate-700 dark:text-white border'}`}>{msg.text}</div>
                         ))}
                         {isLoading && <div className="text-xs text-slate-500">Digitando...</div>}
                         <div ref={messagesEndRef} />
                     </div>
                     <div className="p-3 border-t dark:border-slate-700 flex gap-2">
-                        <input type="text" className="flex-1 border rounded px-2 py-1 text-sm dark:bg-slate-700 dark:text-white" value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSend()} placeholder="Dúvida?" />
-                        <button onClick={handleSend} disabled={isLoading} className="bg-blue-600 text-white px-3 rounded text-sm">Enviar</button>
+                        <input type="text" className="flex-1 border rounded-sm px-2 py-1 text-sm dark:bg-slate-700 dark:text-white" value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSend()} placeholder="Dúvida?" />
+                        <button onClick={handleSend} disabled={isLoading} className="bg-blue-600 text-white px-3 rounded-sm text-sm">Enviar</button>
                     </div>
                 </div>
             )}

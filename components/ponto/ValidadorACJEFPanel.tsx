@@ -174,7 +174,7 @@ const ValidadorACJEFPanel: React.FC<Props> = ({ currentUser }) => {
         </p>
       </header>
 
-      <div className="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded">
+      <div className="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded-sm">
         <p className="text-amber-800 dark:text-amber-200 text-sm">
           <strong>Modo de teste.</strong> Os eventos lidos aqui NAO sao enviados ao IOB SAGE
           nem persistidos. Esta tela serve apenas para conferir se o parser esta extraindo
@@ -340,10 +340,10 @@ const ResultadoView: React.FC<{
           </h4>
           <p className="text-xs text-amber-700 dark:text-amber-300 mb-2">
             Estes codigos aparecem no arquivo mas nao tem mapeamento para evento IOB SAGE.
-            Cadastre em <code className="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">
+            Cadastre em <code className="bg-amber-100 dark:bg-amber-900/40 px-1 rounded-sm">
             ponto_modelos/{modelo.id}/deParaEventos</code> ou no layout da empresa.
           </p>
-          <code className="text-xs bg-amber-100 dark:bg-amber-900/40 p-2 rounded block break-all">
+          <code className="text-xs bg-amber-100 dark:bg-amber-900/40 p-2 rounded-sm block break-all">
             {codigosSemMapeamento.join(', ')}
           </code>
         </div>

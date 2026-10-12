@@ -16,9 +16,9 @@ import {
 } from '../../services/calculo/intermitente';
 import { excluirConvocacao, listarConvocacoes, novoIdConvocacao, salvarConvocacao } from '../../services/calculo/convocacoesService';
 
-const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
-const btn = 'rounded border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-40 dark:border-slate-600';
-const btnP = 'rounded bg-blue-700 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40';
+const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const btn = 'rounded-sm border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-40 dark:border-slate-600';
+const btnP = 'rounded-sm bg-blue-700 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40';
 const br = (d: string) => (d ? d.split('-').reverse().join('/') : '—');
 const SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const hoje = () => new Date().toLocaleDateString('sv-SE');
@@ -108,8 +108,8 @@ const IntermitentesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
                     A convocação aceita entra no Cálculo mensal pelos dias trabalhados, com DSR, férias proporcionais com 1/3, 13º proporcional e adicionais (CLT, art. 452-A).
                 </p>
             </div>
-            {erro && <p role="alert" className="rounded bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
-            {msg && <p role="status" className="whitespace-pre-wrap rounded bg-green-50 p-2 text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
+            {erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+            {msg && <p role="status" className="whitespace-pre-wrap rounded-sm bg-green-50 p-2 text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
 
             <div className="flex flex-wrap items-end gap-3">
                 <label>Empregado<select aria-label="Empregado intermitente" className={`block ${inp}`} value={fichaId} onChange={e => { setFichaId(e.target.value); setC(null); }}>
@@ -143,7 +143,7 @@ const IntermitentesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
             )}
 
             {ficha && c && v && (
-                <section className="space-y-3 rounded border border-slate-200 p-3 dark:border-slate-700">
+                <section className="space-y-3 rounded-sm border border-slate-200 p-3 dark:border-slate-700">
                     <div className="flex flex-wrap items-end gap-3">
                         <label>Enviada em<input aria-label="Enviada em" type="date" className={`block ${inp}`} value={c.enviadaEm} onChange={e => muda({ enviadaEm: e.target.value })} /></label>
                         <label>Função<input aria-label="Função" className={`block w-40 ${inp}`} value={c.funcao} onChange={e => muda({ funcao: e.target.value })} /></label>
@@ -151,7 +151,7 @@ const IntermitentesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
                         <label>Valor da hora (vazio = ficha)<input aria-label="Valor da hora" inputMode="decimal" className={`block w-28 text-right ${inp}`} value={valorTxt}
                             onChange={e => setValorTxt(e.target.value)} onBlur={() => muda({ valorHora: centavosDeTexto(valorTxt) ?? 0 })} /></label>
                     </div>
-                    <div className="flex flex-wrap items-end gap-3 rounded bg-slate-50 p-2 dark:bg-slate-800">
+                    <div className="flex flex-wrap items-end gap-3 rounded-sm bg-slate-50 p-2 dark:bg-slate-800">
                         <label>De<input aria-label="Início do período" type="date" className={`block ${inp}`} value={periodo.inicio} onChange={e => setPeriodo({ ...periodo, inicio: e.target.value })} /></label>
                         <label>Até<input aria-label="Fim do período" type="date" className={`block ${inp}`} value={periodo.fim} onChange={e => setPeriodo({ ...periodo, fim: e.target.value })} /></label>
                         <span className="flex gap-1">{SEMANA.map((s, i) => (

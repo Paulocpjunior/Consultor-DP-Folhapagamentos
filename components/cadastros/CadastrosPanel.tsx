@@ -98,7 +98,7 @@ const CadastrosPanel: React.FC<Props> = ({ currentUser, subInicial, onAbrirEvent
             {porEmpresa && (
                 <div className="space-y-3">
                     {ativa ? (embutido ? null : <EmpresaAtivaFixa />) : <label className="block max-w-md text-sm font-medium text-slate-700 dark:text-slate-200">Empresa
-                        <select className="mt-1 block w-full rounded border border-slate-300 px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-white" value={empresaId} onChange={e => setEmpresaId(e.target.value)} aria-label="Empresa">
+                        <select className="mt-1 block w-full rounded-sm border border-slate-300 px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-white" value={empresaId} onChange={e => setEmpresaId(e.target.value)} aria-label="Empresa">
                             <option value="">{empresas ? 'Selecione a empresa' : 'Carregando…'}</option>
                             {empresas?.map(e => <option key={e.id} value={e.id}>{e.codigoSage} · {e.nomeFantasia || e.razaoSocial}</option>)}
                         </select>

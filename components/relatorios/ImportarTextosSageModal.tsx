@@ -87,7 +87,7 @@ const ImportarTextosSageModal: React.FC<Props> = ({ empresaId, empresaNome, admi
                             converte o RTF e liga os campos do SAGE aos do Consultor. Confira cada texto antes de gravar; depois dá para editar normalmente.
                         </p>
                     </div>
-                    <button aria-label="Fechar" className="rounded px-2 text-xl text-slate-500" onClick={onFechar}>×</button>
+                    <button aria-label="Fechar" className="rounded-sm px-2 text-xl text-slate-500" onClick={onFechar}>×</button>
                 </div>
                 <input aria-label="Arquivos do backup do SAGE" type="file" multiple accept=".zip,.backup,.dbf,.fpt,.dbt" disabled={!!ocupado}
                     onChange={e => abrir(Array.from(e.target.files ?? []))} className="block text-sm" />
@@ -121,7 +121,7 @@ const ImportarTextosSageModal: React.FC<Props> = ({ empresaId, empresaNome, admi
                                     <li key={i.chave} className="flex items-center gap-2 rounded-lg bg-slate-50 px-2 py-1 dark:bg-slate-900">
                                         <input type="checkbox" aria-label={`Importar ${i.titulo}`} checked={i.marcado} onChange={e => setItens(l => l.map((x, j) => (j === k ? { ...x, marcado: e.target.checked } : x)))} />
                                         <button className="flex-1 truncate text-left text-sm text-slate-800 underline-offset-2 hover:underline dark:text-slate-100" onClick={() => setVerId(i.chave)}>{i.titulo}</button>
-                                        <select aria-label={`Categoria de ${i.titulo}`} className="rounded border border-slate-300 px-1 py-0.5 text-xs dark:border-slate-600 dark:bg-slate-950" value={i.categoria}
+                                        <select aria-label={`Categoria de ${i.titulo}`} className="rounded-sm border border-slate-300 px-1 py-0.5 text-xs dark:border-slate-600 dark:bg-slate-950" value={i.categoria}
                                             onChange={e => setItens(l => l.map((x, j) => (j === k ? { ...x, categoria: e.target.value as CategoriaModelo } : x)))}>
                                             {(Object.keys(ROTULO_CATEGORIA) as CategoriaModelo[]).map(c => <option key={c} value={c}>{ROTULO_CATEGORIA[c]}</option>)}
                                         </select>
@@ -137,7 +137,7 @@ const ImportarTextosSageModal: React.FC<Props> = ({ empresaId, empresaNome, admi
                                 {marcadores.map(m => (
                                     <li key={m} className="grid grid-cols-2 items-center gap-2">
                                         <code className="truncate text-xs text-slate-700 dark:text-slate-200">{m}</code>
-                                        <select aria-label={`Campo para ${m}`} className="rounded border border-slate-300 px-1 py-1 text-xs dark:border-slate-600 dark:bg-slate-950" value={ligacao[m] ?? ''} onChange={e => setLigacao(l => ({ ...l, [m]: e.target.value }))}>
+                                        <select aria-label={`Campo para ${m}`} className="rounded-sm border border-slate-300 px-1 py-1 text-xs dark:border-slate-600 dark:bg-slate-950" value={ligacao[m] ?? ''} onChange={e => setLigacao(l => ({ ...l, [m]: e.target.value }))}>
                                             <option value="">Manter como está</option>
                                             {CAMPOS_MODELO.map(c => <option key={c.chave} value={c.chave}>{c.grupo} · {c.rotulo}</option>)}
                                         </select>

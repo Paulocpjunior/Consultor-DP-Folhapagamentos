@@ -58,11 +58,11 @@ const DiagnosticoCadastroPanel: React.FC = () => {
                     <p className="text-slate-600 dark:text-slate-300">Antes de gerar os eventos: a empresa, os trabalhadores da competência, as rubricas vigentes, os horários e os afastamentos do mês, com as mesmas validações de cada cadastro. Com erro, o evento seria recusado; os avisos não impedem.</p>
                 </div>
                 <div className="flex gap-2">
-                    <button className="rounded border border-slate-300 px-3 py-1.5 dark:border-slate-600 dark:text-white" onClick={() => setRecarga(n => n + 1)}>Diagnosticar de novo</button>
-                    <button className="rounded border border-slate-300 px-3 py-1.5 disabled:opacity-50 dark:border-slate-600 dark:text-white" disabled={!d} onClick={planilha}>Planilha (Excel)</button>
+                    <button className="rounded-sm border border-slate-300 px-3 py-1.5 dark:border-slate-600 dark:text-white" onClick={() => setRecarga(n => n + 1)}>Diagnosticar de novo</button>
+                    <button className="rounded-sm border border-slate-300 px-3 py-1.5 disabled:opacity-50 dark:border-slate-600 dark:text-white" disabled={!d} onClick={planilha}>Planilha (Excel)</button>
                 </div>
             </div>
-            {erro && <p role="alert" className="rounded bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+            {erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
             {!d && !erro && <p role="status">Lendo o cadastro…</p>}
             {d && (
                 <>
@@ -72,7 +72,7 @@ const DiagnosticoCadastroPanel: React.FC = () => {
                     <div className="grid gap-2 sm:grid-cols-5">
                         {AREAS_DIAGNOSTICO.map(a => (
                             <button key={a} aria-pressed={filtro === a} onClick={() => setFiltro(f => (f === a ? '' : a))}
-                                className={`rounded border p-2 text-left ${filtro === a ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/30' : 'border-slate-200 dark:border-slate-700'} dark:text-slate-100`}>
+                                className={`rounded-sm border p-2 text-left ${filtro === a ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/30' : 'border-slate-200 dark:border-slate-700'} dark:text-slate-100`}>
                                 <span className="block font-medium">{a}</span>
                                 <span className="text-xs text-slate-500">{d.porArea[a].verificados} verificado(s)</span>
                                 <span className={`block text-xs ${d.porArea[a].erros ? 'text-red-700 dark:text-red-300' : 'text-green-700 dark:text-green-300'}`}>{d.porArea[a].erros} erro(s) · {d.porArea[a].avisos} aviso(s)</span>
@@ -81,7 +81,7 @@ const DiagnosticoCadastroPanel: React.FC = () => {
                     </div>
                     <label className="flex items-center gap-2 dark:text-slate-100"><input type="checkbox" checked={soErros} onChange={e => setSoErros(e.target.checked)} />Só os erros</label>
                     {itens.length === 0 ? <p className="text-slate-500">Nada a corrigir{filtro ? ` em ${filtro}` : ''}.</p> : (
-                        <div className="max-h-[32rem] overflow-auto rounded border border-slate-200 dark:border-slate-700">
+                        <div className="max-h-128 overflow-auto rounded-sm border border-slate-200 dark:border-slate-700">
                             <table aria-label="Itens do diagnóstico" className="w-full text-xs">
                                 <thead className="sticky top-0 bg-slate-50 text-left text-slate-500 dark:bg-slate-900"><tr><th className="p-2">Situação</th><th className="p-2">Área</th><th className="p-2">Onde</th><th className="p-2">O que corrigir</th></tr></thead>
                                 <tbody>{itens.map((x, i) => (

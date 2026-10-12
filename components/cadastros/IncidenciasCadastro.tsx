@@ -20,7 +20,7 @@ import TabelaRubricasEsocial, { type InicioS1010 } from '../esocial/TabelaRubric
 
 interface Props { empresa: Empresa; usuario: Usuario }
 
-const btn = 'rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
+const btn = 'rounded-sm border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
 const COR: Record<SituacaoInc | 'sem', string> = {
     ok: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200',
     divergente: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200',
@@ -84,11 +84,11 @@ const IncidenciasCadastro: React.FC<Props> = ({ empresa, usuario }) => {
                 Cada rubrica que a empresa enviou ao eSocial (S-1010) ao lado do evento do IOB com o mesmo código. Se as incidências discordam, a folha do IOB e os totalizadores do eSocial (S-5001, S-5003) não fecham.
             </p>
             <div className="flex flex-wrap items-center gap-2">
-                <button className="rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={!rubricas} onClick={() => setImportar(true)}>Importar S-1010 (XML)</button>
+                <button className="rounded-sm bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={!rubricas} onClick={() => setImportar(true)}>Importar S-1010 (XML)</button>
                 <button className={btn} disabled={!rubricas} onClick={() => setS1010({ inicio: null })}>S-1010 pelo Consultor</button>
                 <button className={btn} disabled={!linhas.length} onClick={exportar}>Exportar Excel</button>
-                <label className="ml-auto text-sm dark:text-white">Competência <input type="month" className="ml-1 rounded border border-slate-300 px-2 py-1.5 dark:border-slate-600 dark:bg-slate-900" value={competencia} onChange={e => setCompetencia(e.target.value)} aria-label="Competência das incidências" /></label>
-                <select className="rounded border border-slate-300 px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-white" value={filtro} onChange={e => setFiltro(e.target.value as typeof filtro)} aria-label="Filtro das incidências">
+                <label className="ml-auto text-sm dark:text-white">Competência <input type="month" className="ml-1 rounded-sm border border-slate-300 px-2 py-1.5 dark:border-slate-600 dark:bg-slate-900" value={competencia} onChange={e => setCompetencia(e.target.value)} aria-label="Competência das incidências" /></label>
+                <select className="rounded-sm border border-slate-300 px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-white" value={filtro} onChange={e => setFiltro(e.target.value as typeof filtro)} aria-label="Filtro das incidências">
                     <option value="problemas">Só o que precisa de atenção</option><option value="todas">Todas</option>
                 </select>
             </div>
@@ -97,9 +97,9 @@ const IncidenciasCadastro: React.FC<Props> = ({ empresa, usuario }) => {
                     {(['divergente', 'conferir', 'sem', 'suspensa', 'ok'] as const).filter(s => contagem[s]).map(s => <span key={s} className={`rounded-full px-2.5 py-1 ${COR[s]}`}>{ROTULO[s]}: {contagem[s]}</span>)}
                 </div>
             )}
-            {erro && <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+            {erro && <p role="alert" className="rounded-sm bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
             {!rubricas && !erro && <p className="text-sm text-slate-500">Carregando…</p>}
-            {rubricas?.length === 0 && !erro && <p className="rounded border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-600">Nenhuma rubrica desta empresa. Importe os XMLs do S-1010 baixados do eSocial.</p>}
+            {rubricas?.length === 0 && !erro && <p className="rounded-sm border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-600">Nenhuma rubrica desta empresa. Importe os XMLs do S-1010 baixados do eSocial.</p>}
             {rubricas && rubricas.length > 0 && !linhas.length && <p className="text-sm text-slate-500">Nenhuma rubrica vigente em {competencia}.</p>}
             {visiveis.length > 0 && (
                 <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
@@ -122,7 +122,7 @@ const IncidenciasCadastro: React.FC<Props> = ({ empresa, usuario }) => {
                                         </td>
                                         <td className="p-2 font-mono text-xs">{l.ev ? `${marca(l.ev.incidencias.in === 'S' || l.ev.incidencias.inf === 'S' ? 'S' : 'N')} · ${marca(l.ev.incidencias.ir === 'S' || l.ev.incidencias.irf === 'S' ? 'S' : 'N')} · ${marca(l.ev.incidencias.fg)}` : ''}</td>
                                         <td className="p-2 text-xs">
-                                            <span className={`rounded px-2 py-0.5 ${COR[l.situacao as SituacaoInc | 'sem']}`}>{ROTULO[l.situacao as SituacaoInc | 'sem']}</span>
+                                            <span className={`rounded-sm px-2 py-0.5 ${COR[l.situacao as SituacaoInc | 'sem']}`}>{ROTULO[l.situacao as SituacaoInc | 'sem']}</span>
                                             <ul className="mt-1 space-y-0.5">{l.itens.filter(i => i.situacao !== 'ok').map(i => <li key={i.tributo}><strong>{i.tributo}:</strong> {i.mensagem}</li>)}</ul>
                                             {l.situacao !== 'ok' && <button className="mt-1 block text-blue-700 underline dark:text-blue-300" onClick={() => setS1010({ inicio: { acao: 'alteracao', rubrica: l.r, competencia } })}>Corrigir no eSocial (S-1010)</button>}
                                         </td>
@@ -154,10 +154,10 @@ const VinculoModal: React.FC<{ r: Rubrica; eventos: Map<string, EventoIobSage>; 
             <div className="w-full max-w-md space-y-3 rounded-xl bg-white p-4 shadow-xl dark:bg-slate-800">
                 <h3 className="font-semibold text-slate-800 dark:text-white">Rubrica {r.codRubr} → evento do IOB</h3>
                 <p className="text-sm text-slate-600 dark:text-slate-300">Vazio = ligar pelo próprio código da rubrica. Use quando o código no eSocial não é o código do evento no IOB.</p>
-                <input className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-white" value={codigo} onChange={e => setCodigo(e.target.value.replace(/\D/g, '').slice(0, 4))} aria-label="Código do evento IOB" placeholder="ex.: 0001" />
+                <input className="w-full rounded-sm border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-white" value={codigo} onChange={e => setCodigo(e.target.value.replace(/\D/g, '').slice(0, 4))} aria-label="Código do evento IOB" placeholder="ex.: 0001" />
                 {alvo && <p className="text-sm text-green-700 dark:text-green-400">{alvo.codigo} · {alvo.descricao} ({alvo.tipo})</p>}
                 {erro && <p role="alert" className="text-sm text-red-700">{erro}</p>}
-                <div className="flex justify-end gap-2"><button className={btn} onClick={onFechar}>Cancelar</button><button className="rounded bg-blue-700 px-4 py-2 text-sm text-white" onClick={salvar}>Gravar</button></div>
+                <div className="flex justify-end gap-2"><button className={btn} onClick={onFechar}>Cancelar</button><button className="rounded-sm bg-blue-700 px-4 py-2 text-sm text-white" onClick={salvar}>Gravar</button></div>
             </div>
         </div>
     );
@@ -194,18 +194,18 @@ const ImportarS1010Modal: React.FC<{ empresa: Empresa; existentes: Rubrica[]; us
                         <h3 className="text-lg font-semibold text-slate-800 dark:text-white">Importar rubricas (S-1010) — {empresa.nomeFantasia}</h3>
                         <p className="text-sm text-slate-600 dark:text-slate-300">XMLs do S-1010 baixados do eSocial, soltos ou em .zip. Inclusões, alterações e exclusões são aplicadas na ordem de processamento. Só eventos com recibo entram; nada é gravado antes de você confirmar.</p>
                     </div>
-                    <button aria-label="Fechar" className="rounded px-2 text-xl text-slate-500" onClick={onFechar}>×</button>
+                    <button aria-label="Fechar" className="rounded-sm px-2 text-xl text-slate-500" onClick={onFechar}>×</button>
                 </div>
                 <div className="flex flex-wrap items-end gap-3">
                     <input className="text-sm dark:text-white" type="file" multiple accept=".xml,.zip" onChange={e => { setArquivos(Array.from(e.target.files ?? [])); setPrevia(null); }} aria-label="XMLs do S-1010" />
-                    <button className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50" disabled={!arquivos.length || !!ocupado} onClick={ler}>Ler arquivos</button>
+                    <button className="rounded-sm bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50" disabled={!arquivos.length || !!ocupado} onClick={ler}>Ler arquivos</button>
                 </div>
                 {ocupado && <p className="text-sm text-blue-700 dark:text-blue-300">{ocupado}</p>}
-                {erro && <p role="alert" className="rounded bg-red-50 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+                {erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
                 {previa && (
                     <>
                         <p className="text-sm dark:text-white">{previa.itens.length} rubrica(s) nos arquivos: {previa.itens.filter(i => i.novo).length} nova(s), {previa.itens.filter(i => !i.novo && i.mudou).length} atualizada(s), {previa.itens.filter(i => !i.mudou).length} sem mudança.</p>
-                        <div className="max-h-72 overflow-auto rounded border border-slate-200 dark:border-slate-700">
+                        <div className="max-h-72 overflow-auto rounded-sm border border-slate-200 dark:border-slate-700">
                             <table className="w-full text-sm">
                                 <thead className="sticky top-0 bg-slate-50 text-left text-xs text-slate-500 dark:bg-slate-900"><tr><th className="p-2">Rubrica</th><th className="p-2">Descrição</th><th className="p-2">Vigências</th><th className="p-2">Situação</th></tr></thead>
                                 <tbody>{previa.itens.map(i => (
@@ -227,7 +227,7 @@ const ImportarS1010Modal: React.FC<{ empresa: Empresa; existentes: Rubrica[]; us
                         )}
                         <div className="flex justify-end gap-2">
                             <button className={btn} onClick={onFechar}>Cancelar</button>
-                            <button className="rounded bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={!gravar.length || !!ocupado} onClick={confirmar}>Gravar {gravar.length} rubrica(s)</button>
+                            <button className="rounded-sm bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={!gravar.length || !!ocupado} onClick={confirmar}>Gravar {gravar.length} rubrica(s)</button>
                         </div>
                     </>
                 )}

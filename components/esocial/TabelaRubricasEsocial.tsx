@@ -23,8 +23,8 @@ import { statusPorRef, type SituacaoEvento, type StatusEvento } from '../../serv
 import AchadosPreVoo from './AchadosPreVoo';
 import SeletorProcesso, { useProcessos } from '../processosJud/SeletorProcesso';
 
-const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
-const btn = 'rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
+const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const btn = 'rounded-sm border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
 const COR: Record<SituacaoEvento, string> = {
     'nao-enviado': 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200',
     iob: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200',
@@ -166,7 +166,7 @@ const TabelaRubricasEsocial: React.FC<Props> = ({ empresa, usuario, rubricas, in
                         <h3 className="text-lg font-semibold text-slate-800 dark:text-white">Tabela de rubricas (S-1010) — {empresa.nomeFantasia}</h3>
                         <p className="text-slate-600 dark:text-slate-300">Inclusão, alteração (inclusive o fim da validade) e exclusão de rubricas pelo Consultor. O S-1010 vai antes do S-1200 e do S-2299 que usam a rubrica. As incidências são declaratórias: confira com a contabilidade antes de transmitir em produção.</p>
                     </div>
-                    <button aria-label="Fechar" className="rounded px-2 text-xl text-slate-500" onClick={onFechar}>×</button>
+                    <button aria-label="Fechar" className="rounded-sm px-2 text-xl text-slate-500" onClick={onFechar}>×</button>
                 </div>
 
                 {!editando && (
@@ -187,9 +187,9 @@ const TabelaRubricasEsocial: React.FC<Props> = ({ empresa, usuario, rubricas, in
                 <div className="space-y-1">
                     <p className="font-medium">Pedidos</p>
                     {!pedidos && <p className="text-slate-500">Carregando…</p>}
-                    {pedidos?.length === 0 && <p className="rounded border border-dashed border-slate-300 p-4 text-center text-slate-500 dark:border-slate-600">Nenhum pedido de S-1010 desta empresa.</p>}
+                    {pedidos?.length === 0 && <p className="rounded-sm border border-dashed border-slate-300 p-4 text-center text-slate-500 dark:border-slate-600">Nenhum pedido de S-1010 desta empresa.</p>}
                     {pedidos && pedidos.length > 0 && (
-                        <div className="max-h-80 overflow-auto rounded border border-slate-200 dark:border-slate-700">
+                        <div className="max-h-80 overflow-auto rounded-sm border border-slate-200 dark:border-slate-700">
                             <table className="w-full">
                                 <thead className="sticky top-0 bg-slate-50 text-left text-xs text-slate-500 dark:bg-slate-900"><tr><th className="p-2">Rubrica</th><th className="p-2">Pedido</th><th className="p-2">Situação</th><th className="p-2" /></tr></thead>
                                 <tbody>{pedidos.map(p => {
@@ -222,9 +222,9 @@ const TabelaRubricasEsocial: React.FC<Props> = ({ empresa, usuario, rubricas, in
                 </div>
 
                 {aceitos.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-2 rounded bg-green-50 p-2 dark:bg-green-900/30">
+                    <div className="flex flex-wrap items-center gap-2 rounded-sm bg-green-50 p-2 dark:bg-green-900/30">
                         <span>{aceitos.length} S-1010 aceito(s) em produção ainda fora do cadastro.</span>
-                        <button className="rounded bg-green-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={!!ocupado} onClick={aplicarAceitos}>Atualizar a tabela de rubricas</button>
+                        <button className="rounded-sm bg-green-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={!!ocupado} onClick={aplicarAceitos}>Atualizar a tabela de rubricas</button>
                     </div>
                 )}
 
@@ -233,10 +233,10 @@ const TabelaRubricasEsocial: React.FC<Props> = ({ empresa, usuario, rubricas, in
                         <option value={2}>{ROTULO_AMBIENTE[2]}</option><option value={1}>{ROTULO_AMBIENTE[1]}</option></select></label>
                     <label>Certificado<select aria-label="Certificado do S-1010" className={`block ${inp}`} value={certificado} onChange={e => setCertificado(e.target.value as Certificado)}>
                         <option value="escritorio">Certificado do escritório (procurador)</option><option value="empresa">Certificado da empresa</option></select></label>
-                    <button className="rounded bg-green-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={!paraEnviar.length || errosLote.length > 0 || !!ocupado || !!editando} onClick={transmitir}>Transmitir {paraEnviar.length} S-1010</button>
+                    <button className="rounded-sm bg-green-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={!paraEnviar.length || errosLote.length > 0 || !!ocupado || !!editando} onClick={transmitir}>Transmitir {paraEnviar.length} S-1010</button>
                     {comErro.length > 0 && <span className="text-amber-700 dark:text-amber-300">{comErro.length} pedido(s) com erro ficam de fora.</span>}
                 </div>
-                {errosLote.length > 0 && <ul role="alert" className="list-disc rounded bg-red-50 p-2 pl-6 text-red-800 dark:bg-red-900/30 dark:text-red-200">{errosLote.map(x => <li key={x}>{x}</li>)}</ul>}
+                {errosLote.length > 0 && <ul role="alert" className="list-disc rounded-sm bg-red-50 p-2 pl-6 text-red-800 dark:bg-red-900/30 dark:text-red-200">{errosLote.map(x => <li key={x}>{x}</li>)}</ul>}
                 {ocupado && <p role="status" className="text-blue-700 dark:text-blue-300">{ocupado}</p>}
                 {erro && <p role="alert" className="whitespace-pre-line text-red-700 dark:text-red-300">{erro}</p>}
                 <AchadosPreVoo achados={achados} />
@@ -271,7 +271,7 @@ const EditorPedido: React.FC<{ pedido: PedidoS1010; rubricas: Rubrica[]; compete
     }
 
     return (
-        <div className="space-y-2 rounded border border-blue-200 bg-blue-50/40 p-3 dark:border-blue-900 dark:bg-blue-900/10">
+        <div className="space-y-2 rounded-sm border border-blue-200 bg-blue-50/40 p-3 dark:border-blue-900 dark:bg-blue-900/10">
             <div className="grid gap-2 sm:grid-cols-4">
                 <label>Operação<select aria-label="Operação do S-1010" className={`block w-full ${inp}`} value={p.acao} onChange={e => mudarAcao(e.target.value as AcaoS1010)} disabled={!!p.id}>
                     {(['inclusao', 'alteracao', 'exclusao'] as const).map(a => <option key={a} value={a}>{ROTULO_ACAO[a]}</option>)}</select></label>
@@ -325,12 +325,12 @@ const EditorPedido: React.FC<{ pedido: PedidoS1010; rubricas: Rubrica[]; compete
                     )}
                 </div>
             )}
-            {modelo?.nota && <p role="note" className="rounded bg-amber-50 p-2 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">{modelo.nota}</p>}
-            {conf.erros.length > 0 && <ul role="alert" className="list-disc rounded bg-red-50 p-2 pl-6 text-red-800 dark:bg-red-900/30 dark:text-red-200">{conf.erros.map(x => <li key={x}>{x}</li>)}</ul>}
+            {modelo?.nota && <p role="note" className="rounded-sm bg-amber-50 p-2 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">{modelo.nota}</p>}
+            {conf.erros.length > 0 && <ul role="alert" className="list-disc rounded-sm bg-red-50 p-2 pl-6 text-red-800 dark:bg-red-900/30 dark:text-red-200">{conf.erros.map(x => <li key={x}>{x}</li>)}</ul>}
             {conf.avisos.length > 0 && <ul className="list-disc pl-6 text-amber-900 dark:text-amber-100">{conf.avisos.map(x => <li key={x}>{x}</li>)}</ul>}
             <div className="flex justify-end gap-2">
                 <button className={btn} onClick={onCancelar}>Cancelar</button>
-                <button className="rounded bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={ocupado || conf.erros.length > 0} onClick={() => onSalvar(p)}>Gravar rascunho</button>
+                <button className="rounded-sm bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={ocupado || conf.erros.length > 0} onClick={() => onSalvar(p)}>Gravar rascunho</button>
             </div>
         </div>
     );

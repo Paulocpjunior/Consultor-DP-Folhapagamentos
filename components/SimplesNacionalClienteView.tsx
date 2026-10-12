@@ -254,7 +254,7 @@ const SimplesNacionalClienteView: React.FC<SimplesNacionalClienteViewProps> = ({
             
             <div id="cliente-report-content" className="bg-white dark:bg-slate-800 rounded-xl shadow-xl overflow-hidden">
                 {/* Branding Header */}
-                <div className="bg-gradient-to-r from-sky-700 to-blue-900 p-8 text-white">
+                <div className="bg-linear-to-r from-sky-700 to-blue-900 p-8 text-white">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                         <div>
                             <div className="flex items-center gap-3 mb-2">
@@ -288,7 +288,7 @@ const SimplesNacionalClienteView: React.FC<SimplesNacionalClienteViewProps> = ({
                                 id="mes-ref"
                                 value={mesApuracao.toISOString().substring(0, 7)}
                                 onChange={e => setMesApuracao(new Date(e.target.value + '-02'))}
-                                className="bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-sm rounded-lg focus:ring-sky-500 focus:border-sky-500 block p-2.5 cursor-pointer shadow-sm"
+                                className="bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-sm rounded-lg focus:ring-sky-500 focus:border-sky-500 block p-2.5 cursor-pointer shadow-xs"
                             >
                                 {mesesOptions.map(date => (
                                     <option key={date.toISOString()} value={date.toISOString().substring(0, 7)}>
@@ -332,7 +332,7 @@ const SimplesNacionalClienteView: React.FC<SimplesNacionalClienteViewProps> = ({
                         </div>
 
                         {/* Destaque Tributário */}
-                        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+                        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-xs">
                             <div className="bg-slate-50 dark:bg-slate-700/50 px-8 py-4 border-b border-slate-200 dark:border-slate-700">
                                 <h3 className="font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2">
                                     Cálculo do Imposto
@@ -356,14 +356,14 @@ const SimplesNacionalClienteView: React.FC<SimplesNacionalClienteViewProps> = ({
                             </div>
                              <div className="px-8 py-3 bg-yellow-50 dark:bg-yellow-900/20 border-t border-yellow-100 dark:border-yellow-800/30">
                                 <p className="text-xs text-yellow-700 dark:text-yellow-400 flex items-center gap-2">
-                                    <span className="font-bold bg-yellow-200 dark:bg-yellow-800 px-1.5 rounded text-[10px]">NOTA</span> 
+                                    <span className="font-bold bg-yellow-200 dark:bg-yellow-800 px-1.5 rounded-sm text-[10px]">NOTA</span> 
                                     Este é um cálculo simulado com base nos dados informados. A guia oficial para pagamento deve ser gerada exclusivamente no portal do e-CAC.
                                 </p>
                             </div>
                         </div>
 
                         {/* Resumo da Receita Bruta (Tabela) - Included for PDF Export */}
-                        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+                        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-xs">
                             <div className="bg-slate-50 dark:bg-slate-700/50 px-6 py-3 border-b border-slate-200 dark:border-slate-700">
                                 <h3 className="font-bold text-slate-700 dark:text-slate-200 text-sm">
                                     Detalhamento da Receita Bruta (RBT12)
@@ -392,7 +392,7 @@ const SimplesNacionalClienteView: React.FC<SimplesNacionalClienteViewProps> = ({
                         </div>
                         
                         {/* Memória de Cálculo - Discriminação dos Impostos */}
-                        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm break-inside-avoid">
+                        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-xs break-inside-avoid">
                             <div className="bg-slate-50 dark:bg-slate-700/50 px-6 py-3 border-b border-slate-200 dark:border-slate-700">
                                 <h3 className="font-bold text-slate-700 dark:text-slate-200 text-sm">
                                     Discriminação Estimada dos Tributos (Memória de Cálculo)
@@ -444,7 +444,7 @@ const SimplesNacionalClienteView: React.FC<SimplesNacionalClienteViewProps> = ({
                         {/* Gráfico */}
                         <div>
                             <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200 mb-4">Evolução do Faturamento</h3>
-                            <div className="h-80 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-sm">
+                            <div className="h-80 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 shadow-xs">
                                 {resumo.historico_simulado.length > 0 ? (
                                     <SimpleChart type="bar" options={chartOptions} data={chartData} />
                                 ) : (

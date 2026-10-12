@@ -13,7 +13,7 @@ import {
     type BeneficioContratado, type CategoriaFornecedor,
 } from '../../services/beneficios/fornecedores';
 
-const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const hojeSp = () => new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Sao_Paulo' }).format(new Date());
 const br = (d: string) => d.split('-').reverse().join('/');
 const CATEGORIAS = Object.keys(ROTULO_CATEGORIA) as CategoriaFornecedor[];
@@ -67,18 +67,18 @@ const AdministracaoBeneficios: React.FC = () => {
                 <div className="flex flex-wrap items-center justify-between gap-2">
                     <h2 className="text-lg font-semibold">Benefícios contratados — {empresa?.nomeFantasia || ativa.nome}</h2>
                     <div className="flex gap-2">
-                        <button className="rounded border border-slate-300 px-3 py-1.5 dark:border-slate-600" onClick={() => adicionar('')}>Outro fornecedor</button>
-                        <button className="rounded bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={!alterado || salvando || !empresa} onClick={gravar}>{alterado ? 'Gravar' : 'Gravado'}</button>
+                        <button className="rounded-sm border border-slate-300 px-3 py-1.5 dark:border-slate-600" onClick={() => adicionar('')}>Outro fornecedor</button>
+                        <button className="rounded-sm bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={!alterado || salvando || !empresa} onClick={gravar}>{alterado ? 'Gravar' : 'Gravado'}</button>
                     </div>
                 </div>
                 <p className="text-slate-600 dark:text-slate-300">Quem é o fornecedor de cada benefício desta empresa, o contrato, o dia do pedido ou da recarga e o contato. O valor e a parte do empregado ficam em Cálculo › Benefícios da empresa (entram na folha).</p>
-                {!lista.length && <p className="rounded border border-dashed border-slate-300 p-4 text-center text-slate-500 dark:border-slate-600">Nenhum benefício contratado. Escolha o fornecedor no catálogo abaixo ("Contratar") ou use "Outro fornecedor".</p>}
+                {!lista.length && <p className="rounded-sm border border-dashed border-slate-300 p-4 text-center text-slate-500 dark:border-slate-600">Nenhum benefício contratado. Escolha o fornecedor no catálogo abaixo ("Contratar") ou use "Outro fornecedor".</p>}
                 {lista.map(b => {
                     const f = fornecedorPorId(b.fornecedorId);
                     const prox = proximoPedido(b.diaPedido, hoje);
                     const link = linkDoContratado(b);
                     return (
-                        <div key={b.id} className="space-y-1 rounded border border-slate-200 p-2 dark:border-slate-700">
+                        <div key={b.id} className="space-y-1 rounded-sm border border-slate-200 p-2 dark:border-slate-700">
                             <div className="flex flex-wrap items-center gap-2">
                                 <strong>{nomeDoContratado(b)}</strong>
                                 {f && <span className="text-xs text-slate-500">{ROTULO_CATEGORIA[f.categoria]}</span>}
@@ -99,7 +99,7 @@ const AdministracaoBeneficios: React.FC = () => {
                         </div>
                     );
                 })}
-                {erros.length > 0 && <ul role="alert" className="list-disc rounded bg-red-50 p-2 pl-6 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erros.map(x => <li key={x}>{x}</li>)}</ul>}
+                {erros.length > 0 && <ul role="alert" className="list-disc rounded-sm bg-red-50 p-2 pl-6 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erros.map(x => <li key={x}>{x}</li>)}</ul>}
                 {msg && <p role="status" className="text-green-700 dark:text-green-300">{msg}</p>}
             </section>
 
@@ -119,7 +119,7 @@ const AdministracaoBeneficios: React.FC = () => {
                                     <li key={f.id} className="flex flex-wrap items-center gap-2 py-1.5">
                                         <span className="min-w-48 font-medium"><Link url={f.url}>{f.nome}</Link>{f.antes && <span className="ml-1 text-xs text-slate-500">(antiga {f.antes})</span>}</span>
                                         <span className="flex-1 text-xs text-slate-600 dark:text-slate-300">{f.descricao}{!f.conferido && <span className="ml-1 text-amber-700 dark:text-amber-300">· endereço a conferir ao abrir</span>}</span>
-                                        <button className="rounded border border-slate-300 px-2 py-1 text-xs disabled:opacity-50 dark:border-slate-600" disabled={!empresa} onClick={() => adicionar(f.id)}>Contratar</button>
+                                        <button className="rounded-sm border border-slate-300 px-2 py-1 text-xs disabled:opacity-50 dark:border-slate-600" disabled={!empresa} onClick={() => adicionar(f.id)}>Contratar</button>
                                     </li>
                                 ))}
                             </ul>

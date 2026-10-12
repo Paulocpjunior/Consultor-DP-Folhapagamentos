@@ -20,11 +20,11 @@ import { carregarExistentes, gravarRestauracao, lerParametros, salvarParametros 
 
 interface Props { restauracao: Restauracao; arquivos: string[]; usuario?: Usuario; podeRestaurar: boolean }
 
-const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 // Opção do seletor: o schema e a empresa (o código SAGE pode estar repetido no Consultor).
 const chaveOpcao = (x: { grupo: string; empresa: Empresa | null }) => `${x.grupo}|${x.empresa?.id ?? ''}`;
 const num = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
-const botao = 'rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-40';
+const botao = 'rounded-sm bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-40';
 
 const RestaurarEmpresaNoConsultor: React.FC<Props> = ({ restauracao, arquivos, usuario, podeRestaurar }) => {
     const [empresas, setEmpresas] = useState<Empresa[] | null>(null);
@@ -95,7 +95,7 @@ const RestaurarEmpresaNoConsultor: React.FC<Props> = ({ restauracao, arquivos, u
                 </p>
             </div>
             {escolhida?.repetido && (
-                <p role="alert" className="rounded bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
+                <p role="alert" className="rounded-sm bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
                     Há mais de uma empresa com o código SAGE {escolhida.codigo} no Consultor. Escolha a do CNPJ que o IOB transmite (a etapa 1 avisa "empregador diferente" quando não é) e corrija o código da outra em Empresas.
                 </p>
             )}
@@ -120,7 +120,7 @@ const RestaurarEmpresaNoConsultor: React.FC<Props> = ({ restauracao, arquivos, u
                     </label>
                 )}
             </div>
-            <fieldset className="grid gap-2 rounded border border-slate-200 p-2 text-xs sm:grid-cols-3 dark:border-slate-700 dark:text-slate-200">
+            <fieldset className="grid gap-2 rounded-sm border border-slate-200 p-2 text-xs sm:grid-cols-3 dark:border-slate-700 dark:text-slate-200">
                 <legend className="px-1 font-medium">Parâmetros (salvos para as próximas empresas)</legend>
                 <label>Histórico da folha a partir de<input aria-label="Histórico a partir de" type="month" className={`block ${inp}`} value={param.historicoDesde} onChange={e => mudar({ historicoDesde: e.target.value })} /></label>
                 <label>Ficha financeira do SAGE a partir de<input aria-label="Ficha financeira a partir de" type="month" className={`block ${inp}`} value={param.fichaFinanceiraDesde} onChange={e => mudar({ fichaFinanceiraDesde: e.target.value })} /></label>
@@ -137,15 +137,15 @@ const RestaurarEmpresaNoConsultor: React.FC<Props> = ({ restauracao, arquivos, u
             </fieldset>
             <div className="flex flex-wrap gap-2">
                 <button className={botao} disabled={!podeRestaurar || !escolhida?.empresa || !!ocupado} onClick={preparar}>Preparar a restauração</button>
-                {plano && <button className="rounded bg-green-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-40" disabled={!total || !!ocupado || !usuario} onClick={gravar}>Gravar tudo ({total})</button>}
+                {plano && <button className="rounded-sm bg-green-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-40" disabled={!total || !!ocupado || !usuario} onClick={gravar}>Gravar tudo ({total})</button>}
             </div>
             {ocupado && <p className="text-sm text-blue-700 dark:text-blue-300">{ocupado}</p>}
-            {erro && <p role="alert" className="rounded bg-red-50 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
-            {feito && <p role="status" className="rounded bg-green-50 p-2 text-sm text-green-800 dark:bg-green-900/30 dark:text-green-200">{feito} Confira em Cadastros e calcule em Cálculo; depois siga com a próxima empresa.</p>}
+            {erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+            {feito && <p role="status" className="rounded-sm bg-green-50 p-2 text-sm text-green-800 dark:bg-green-900/30 dark:text-green-200">{feito} Confira em Cadastros e calcule em Cálculo; depois siga com a próxima empresa.</p>}
             {plano && (
                 <ol className="space-y-2 text-sm">
                     {plano.plano.etapas.map((e, i) => (
-                        <li key={i} className="rounded border border-slate-200 p-2 dark:border-slate-700 dark:text-slate-100">
+                        <li key={i} className="rounded-sm border border-slate-200 p-2 dark:border-slate-700 dark:text-slate-100">
                             <p><strong>{i + 1}. {e.titulo}</strong> — {e.resumo}</p>
                             {e.avisos.length > 0 && (
                                 <details className="mt-1 text-xs text-slate-600 dark:text-slate-300">
@@ -159,7 +159,7 @@ const RestaurarEmpresaNoConsultor: React.FC<Props> = ({ restauracao, arquivos, u
             )}
             {eventos.length > 0 && (
                 // A classe mostrada é a do último preparo; o select mostra o acerto atual.
-                <details open className="rounded border border-slate-200 p-2 text-xs dark:border-slate-700 dark:text-slate-200">
+                <details open className="rounded-sm border border-slate-200 p-2 text-xs dark:border-slate-700 dark:text-slate-200">
                     <summary className="cursor-pointer text-sm font-medium">Eventos do histórico ({eventos.length}) — confira com o IOB e acerte o que for preciso</summary>
                     <p className="mt-1 text-slate-600 dark:text-slate-300">A classificação automática vem da natureza da rubrica (S-1010) e da descrição. Ao mudar um evento, o acerto fica salvo nos parâmetros; clique em "Preparar a restauração" de novo antes de gravar.</p>
                     <div className="mt-1 max-h-96 overflow-auto">

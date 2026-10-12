@@ -102,10 +102,10 @@ const ESocialRelatorio: React.FC = () => {
             <div className="flex flex-wrap items-center gap-3">
                 <h3 className="font-semibold text-slate-700 dark:text-slate-200">Relatório Mensal eSocial</h3>
                 <input type="month" value={competencia} onChange={e => setCompetencia(e.target.value)}
-                    className="px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200" />
+                    className="px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-sm bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200" />
                 {resumoPorEmpresa.length > 0 && (
                     <button onClick={handleExportCSV}
-                        className="px-3 py-1.5 text-sm bg-emerald-600 hover:bg-emerald-700 text-white rounded font-medium ml-auto">
+                        className="px-3 py-1.5 text-sm bg-emerald-600 hover:bg-emerald-700 text-white rounded-sm font-medium ml-auto">
                         Exportar CSV
                     </button>
                 )}
@@ -153,7 +153,7 @@ const ESocialRelatorio: React.FC = () => {
                                     <td className="py-2 px-3">
                                         <div className="flex flex-wrap gap-1">
                                             {r.tiposUsados.map(t => (
-                                                <span key={t} className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 text-xs font-mono rounded">{t}</span>
+                                                <span key={t} className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 text-xs font-mono rounded-sm">{t}</span>
                                             ))}
                                         </div>
                                     </td>
@@ -187,7 +187,7 @@ const MiniCard: React.FC<{ label: string; value: number; cor: string }> = ({ lab
         red: 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 text-red-700 dark:text-red-300',
     };
     return (
-        <div className={`p-2 rounded border text-center ${cls[cor] || cls.slate}`}>
+        <div className={`p-2 rounded-sm border text-center ${cls[cor] || cls.slate}`}>
             <div className="text-xl font-bold">{value}</div>
             <div className="text-xs">{label}</div>
         </div>

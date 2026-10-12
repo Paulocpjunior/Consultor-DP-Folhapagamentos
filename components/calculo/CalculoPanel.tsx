@@ -78,8 +78,8 @@ import BeneficiosEmpresa from './BeneficiosEmpresa';
 // O PDF (jspdf) só carrega no clique: a tela do Cálculo abre mais leve. O xlsx já vem no pacote principal (Folha).
 const relatoriosPdf = () => import('../../services/relatorios/holeritePdf');
 
-const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
-const btn = 'rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
+const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const btn = 'rounded-sm border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
 const SITUACAO: Record<ResultadoCalculo['situacao'], [string, string]> = {
     calculado: ['calculado', 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200'],
     incompleto: ['incompleto', 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'],
@@ -117,7 +117,7 @@ const quando = (d?: Date) => (d ? d.toLocaleString('pt-BR', { dateStyle: 'short'
 /** Ações do Cálculo agrupadas num menu (Conferir, Relatórios, Pagamento, Envios): os itens são os botões de sempre. */
 const GrupoAcoes: React.FC<{ rotulo: string; children: React.ReactNode }> = ({ rotulo, children }) => (
     <details className="group relative">
-        <summary className="flex cursor-pointer list-none items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700 [&::-webkit-details-marker]:hidden">
+        <summary className="flex cursor-pointer list-none items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 shadow-xs hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700 [&::-webkit-details-marker]:hidden">
             {rotulo}<svg aria-hidden viewBox="0 0 24 24" className="h-3.5 w-3.5 opacity-60 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth={2}><path d="M6 9l6 6 6-6" /></svg>
         </summary>
         {/* Escolher um item fecha o menu. */}
@@ -706,12 +706,12 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
             {homologado ? (
                 <div className="flex flex-wrap items-center gap-2 rounded-lg border border-green-300 bg-green-50 p-3 text-sm text-green-900 dark:border-green-700 dark:bg-green-900/20 dark:text-green-100">
                     <span><strong>Motor de cálculo ativo</strong> para {empresa?.nomeFantasia || empresa?.razaoSocial} desde {br(parametrosFolha!.motorHomologado!.desde)} (empresa homologada; ativado por {parametrosFolha!.motorHomologado!.por}). Holerites, recibos e resumos saem sem a marca de prévia. O movimento do mês é gravado em "Salvar movimento". Adicionais, comissões e outras médias ainda não estão no motor: lance como lançamento no movimento.</span>
-                    {podeHomologar && <button className="ml-auto rounded border border-green-400 px-2 py-1 text-xs dark:border-green-600" onClick={() => ativarMotor(false)}>Voltar para prévia</button>}
+                    {podeHomologar && <button className="ml-auto rounded-sm border border-green-400 px-2 py-1 text-xs dark:border-green-600" onClick={() => ativarMotor(false)}>Voltar para prévia</button>}
                 </div>
             ) : (
                 <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-100">
                     <span><strong>Prévia do motor de cálculo.</strong> Não substitui o cálculo do IOB enquanto a empresa não for homologada: os documentos saem com a marca de PRÉVIA. O movimento do mês é gravado quando você clica em "Salvar movimento". 13º, férias e rescisão usam as médias de horas extras dos movimentos gravados. Adicionais, comissões e outras médias ainda não estão no motor.</span>
-                    {podeHomologar && empresa && <button className="ml-auto rounded bg-green-700 px-3 py-1.5 text-xs font-medium text-white" title="Empresa conferida com o IOB: os documentos passam a sair sem a marca de prévia, a partir da competência da tela." onClick={() => ativarMotor(true)}>Ativar o motor para esta empresa</button>}
+                    {podeHomologar && empresa && <button className="ml-auto rounded-sm bg-green-700 px-3 py-1.5 text-xs font-medium text-white" title="Empresa conferida com o IOB: os documentos passam a sair sem a marca de prévia, a partir da competência da tela." onClick={() => ativarMotor(true)}>Ativar o motor para esta empresa</button>}
                 </div>
             )}
             {mensal && empresa && (gravada || encerrado) && (
@@ -770,21 +770,21 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                         </select></label>
                     <button className={btn} aria-pressed={verBeneficios} onClick={() => setVerBeneficios(x => !x)}>Benefícios ({parametrosFolha?.beneficios?.length ?? 0})</button>
                 </span>}
-                {mensal && comAutomaticos.length > 0 && <button className="ml-auto rounded border border-blue-700 px-3 py-2 text-sm font-medium text-blue-800 disabled:opacity-50 dark:border-blue-400 dark:text-blue-200"
+                {mensal && comAutomaticos.length > 0 && <button className="ml-auto rounded-sm border border-blue-700 px-3 py-2 text-sm font-medium text-blue-800 disabled:opacity-50 dark:border-blue-400 dark:text-blue-200"
                     disabled={encerrado || !movsLidos} title={encerrado ? MSG_ENCERRADO(competencia) : 'Põe no movimento os lançamentos automáticos das fichas (aba "Lanç. automático") que valem neste mês; o que já entrou não entra de novo.'}
                     onClick={() => void lancarAutomaticos()}>Lançamentos automáticos ({comAutomaticos.length})</button>}
-                {mensal && <button className={`${comAutomaticos.length ? '' : 'ml-auto '}rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-50`} disabled={!pendentes.length || salvando || !gravados || encerrado} title={encerrado ? MSG_ENCERRADO(competencia) : undefined} onClick={salvar}>
+                {mensal && <button className={`${comAutomaticos.length ? '' : 'ml-auto '}rounded-sm bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-50`} disabled={!pendentes.length || salvando || !gravados || encerrado} title={encerrado ? MSG_ENCERRADO(competencia) : undefined} onClick={salvar}>
                     {salvando ? 'Salvando…' : `Salvar movimento${pendentes.length ? ` (${pendentes.length})` : ''}`}
                 </button>}
-                {mensal && <button className="rounded border border-blue-700 px-3 py-2 text-sm font-medium text-blue-800 disabled:opacity-50 dark:border-blue-400 dark:text-blue-200"
+                {mensal && <button className="rounded-sm border border-blue-700 px-3 py-2 text-sm font-medium text-blue-800 disabled:opacity-50 dark:border-blue-400 dark:text-blue-200"
                     disabled={!empresa || encerrado || gravandoFolha || pendentes.length > 0 || !gravados || !resultadosCalculados.some(r => r.situacao !== 'erro')}
                     title={encerrado ? MSG_ENCERRADO(competencia) : pendentes.length ? 'Salve o movimento antes de gravar a folha.' : 'Guarda os holerites do mês como estão (o Fim de mês exige a folha gravada).'}
                     onClick={gravarFolhaDoMes}>{gravandoFolha ? 'Gravando…' : gravada ? 'Regravar a folha do mês' : 'Gravar a folha do mês'}</button>}
-                {tipoProcesso && <button className="rounded border border-blue-700 px-3 py-2 text-sm font-medium text-blue-800 disabled:opacity-50 dark:border-blue-400 dark:text-blue-200"
+                {tipoProcesso && <button className="rounded-sm border border-blue-700 px-3 py-2 text-sm font-medium text-blue-800 disabled:opacity-50 dark:border-blue-400 dark:text-blue-200"
                     disabled={!empresa || encerrado || gravandoFolha || !resultadosDoProcesso.some(r => r.situacao !== 'erro')}
                     title={encerrado ? MSG_ENCERRADO(competencia) : `Guarda ${TITULO_PROCESSO[tipoProcesso].toLowerCase()} de ${br(competenciaProcesso || competencia)} como está, para a ficha financeira.${processoGravado ? ` Gravado por ${processoGravado.gravadoPorEmail}${processoGravado.gravadoEm ? ` em ${quando(processoGravado.gravadoEm)}` : ''}: ${processoGravado.holerites.length} holerite(s).` : ''}`}
                     onClick={gravarProcessoDaTela}>{gravandoFolha ? 'Gravando…' : `${processoGravado ? 'Regravar' : 'Gravar'} ${tipoProcesso === 'ferias' ? 'os recibos de férias' : tipoProcesso === 'rescisao' ? 'as rescisões' : 'a folha do 13º'}${processoGravado ? ' 📁' : ''}`}</button>}
-                {mensal && (gravada || Object.keys(gravados ?? {}).length > 0) && <button className="rounded border border-red-700 px-3 py-2 text-sm font-medium text-red-800 disabled:opacity-50 dark:border-red-400 dark:text-red-200"
+                {mensal && (gravada || Object.keys(gravados ?? {}).length > 0) && <button className="rounded-sm border border-red-700 px-3 py-2 text-sm font-medium text-red-800 disabled:opacity-50 dark:border-red-400 dark:text-red-200"
                     disabled={!empresa || !dados || encerrado || pendentes.length > 0 || gravandoFolha}
                     title={encerrado ? MSG_ENCERRADO(competencia) : pendentes.length ? 'Salve ou descarte o movimento antes de estornar.' : 'Desfaz o processamento do mês (a folha gravada e, se quiser, o movimento), como o Estorno do Cálculo do SAGE.'}
                     onClick={() => setEstorno(true)}>Estornar o cálculo…</button>}
@@ -816,7 +816,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
             {mensal && empresa && verBeneficios && <BeneficiosEmpresa key={`${empresa.id}-${competencia}`} beneficios={parametrosFolha?.beneficios ?? []} competencia={competencia} onFechar={() => setVerBeneficios(false)}
                 onSalvar={l => { gravarParametrosFolha(p => ({ ...p, beneficios: l })); setVerBeneficios(false); }} />}
             {rescisao && dados && (
-                <div className="space-y-2 rounded border border-slate-200 p-2 text-xs text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                <div className="space-y-2 rounded-sm border border-slate-200 p-2 text-xs text-slate-700 dark:border-slate-700 dark:text-slate-200">
                     <p>Desligados no mês pela data da ficha (S-2299) e simulações. Confira o tipo e o aviso de cada um no detalhe. Pagamento em até 10 dias do término.</p>
                     <div className="flex flex-wrap items-end gap-2">
                         <span className="font-medium">Simular rescisão:</span>
@@ -831,7 +831,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                         <select aria-label="Aviso da simulação" className={inp} value={simular.aviso} onChange={e => setSimular(x => ({ ...x, aviso: e.target.value as AvisoPrevio }))}>
                             {Object.entries(ROTULO_AVISO).map(([c, t]) => <option key={c} value={c}>{t}</option>)}
                         </select>
-                        <button className="rounded bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={!simular.fichaId || !/^\d{4}-\d{2}-\d{2}$/.test(simular.data)}
+                        <button className="rounded-sm bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={!simular.fichaId || !/^\d{4}-\d{2}-\d{2}$/.test(simular.data)}
                             onClick={() => { setParamsResc(x => ({ ...x, [simular.fichaId]: { data: simular.data, tipo: simular.tipo, aviso: simular.aviso, simulada: true } })); setCompetencia(simular.data.slice(0, 7)); setAberto(simular.fichaId); }}>Simular</button>
                     </div>
                     <div className="flex flex-wrap items-center gap-4">
@@ -854,7 +854,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                     setCompetencia(progFerias.inicio.slice(0, 7)); setAberto(g.id);
                 }
                 return (
-                    <div className="space-y-2 rounded border border-slate-200 p-2 text-xs text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                    <div className="space-y-2 rounded-sm border border-slate-200 p-2 text-xs text-slate-700 dark:border-slate-700 dark:text-slate-200">
                         <p className="text-slate-500 dark:text-slate-400">eSocial: o recibo vai no S-1200 do mês em que é pago, em demonstrativo próprio (Cálculo › Mensal dessa competência › "S-1200 e S-1210"), com o gozo gravado em Cadastros › Afastamentos.</p>
                         <div className="flex flex-wrap items-end gap-2">
                             <span className="font-medium">Programar férias:</span>
@@ -865,8 +865,8 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                             <label>Início<input aria-label="Início das férias programadas" type="date" className={`ml-1 ${inp}`} value={progFerias.inicio} onChange={e => setProgFerias(x => ({ ...x, inicio: e.target.value }))} /></label>
                             <label>Dias de gozo<input aria-label="Dias de gozo" inputMode="numeric" className={`ml-1 w-14 ${inp}`} value={progFerias.dias} onChange={e => setProgFerias(x => ({ ...x, dias: e.target.value.replace(/\D/g, '').slice(0, 2) }))} /></label>
                             <label>Abono (dias)<input aria-label="Dias de abono programados" inputMode="numeric" className={`ml-1 w-14 ${inp}`} value={progFerias.abono} onChange={e => setProgFerias(x => ({ ...x, abono: e.target.value.replace(/\D/g, '').slice(0, 2) }))} /></label>
-                            <button className="rounded bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={!valido} onClick={programar}>Calcular</button>
-                            <button className="rounded border border-slate-300 px-3 py-1.5 disabled:opacity-50 dark:border-slate-600" disabled={!movsAno} onClick={() => setColetivas(true)}>Férias coletivas…</button>
+                            <button className="rounded-sm bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={!valido} onClick={programar}>Calcular</button>
+                            <button className="rounded-sm border border-slate-300 px-3 py-1.5 disabled:opacity-50 dark:border-slate-600" disabled={!movsAno} onClick={() => setColetivas(true)}>Férias coletivas…</button>
                         </div>
                         <p className="text-slate-500 dark:text-slate-400">O período aquisitivo é o mais antigo com saldo, pela admissão e pelas férias já gozadas (Cadastros › Afastamentos). A programação é uma simulação até você gravar no detalhe do recibo.</p>
                     </div>
@@ -890,7 +890,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                     onFechar={() => setColetivas(false)} onGravado={inicio => { setColetivas(false); setCompetencia(inicio.slice(0, 7)); setRecarga(n => n + 1); setAviso(`Férias coletivas gravadas em Cadastros › Afastamentos. Os recibos estão abaixo, na competência ${br(inicio.slice(0, 7))}.`); }} />
             )}
             {ferias && (
-                <div className="flex flex-wrap items-center gap-4 rounded border border-slate-200 p-2 text-xs text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                <div className="flex flex-wrap items-center gap-4 rounded-sm border border-slate-200 p-2 text-xs text-slate-700 dark:border-slate-700 dark:text-slate-200">
                     <span>Recibo de cada gozo lançado em Cadastros › Afastamentos (motivo 15) ou programado acima. Pagamento até 2 dias antes do início; o IRRF usa a tabela desse mês.</span>
                     <span className="font-medium">IRRF das férias (confirme com o IOB):</span>
                     <label className="flex items-center gap-1"><input type="checkbox" checked={opcoesFerias.simplificado} onChange={e => setOpcoesFerias(o => ({ ...o, simplificado: e.target.checked }))} />desconto simplificado</label>
@@ -898,7 +898,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                 </div>
             )}
             {(folha === '13-1a' || folha === '13-2a') && empresa && (
-                <div className="flex flex-wrap items-center gap-4 rounded border border-slate-200 p-2 text-xs text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                <div className="flex flex-wrap items-center gap-4 rounded-sm border border-slate-200 p-2 text-xs text-slate-700 dark:border-slate-700 dark:text-slate-200">
                     <label className="flex items-center gap-1" title="Parâmetro da empresa para o ano: sem a 1ª parcela de novembro (nem no S-1200 de novembro); o 13º sai inteiro na 2ª parcela.">
                         <input type="checkbox" aria-label="Parcela única do 13º" checked={parcelaUnica13}
                             onChange={e => { const ligar = e.target.checked; gravarParametrosFolha(p => ({ ...p, parcelaUnica13: [...new Set([...(p?.parcelaUnica13 ?? []).filter(x => x !== ano), ...(ligar ? [ano] : [])])].sort((x, y) => x - y) })); }} />
@@ -909,7 +909,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                 </div>
             )}
             {folha === '13-2a' && (
-                <div className="flex flex-wrap items-center gap-4 rounded border border-slate-200 p-2 text-xs text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                <div className="flex flex-wrap items-center gap-4 rounded-sm border border-slate-200 p-2 text-xs text-slate-700 dark:border-slate-700 dark:text-slate-200">
                     <span className="font-medium">IRRF do 13º (confirme a regra na norma e com o IOB):</span>
                     <label className="flex items-center gap-1"><input type="checkbox" checked={opcoes13.redutor} onChange={e => setOpcoes13(o => ({ ...o, redutor: e.target.checked }))} />aplicar o redutor de 2026</label>
                     <label className="flex items-center gap-1"><input type="checkbox" checked={opcoes13.simplificado} onChange={e => setOpcoes13(o => ({ ...o, simplificado: e.target.checked }))} />aplicar o desconto simplificado</label>
@@ -919,7 +919,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                 const c = conferirSalarioMinimo(dados.fichas, dados.tabelas, empresa.uf ?? '', competencia);
                 if (!c.alertas.length && !c.avisos.length) return null;
                 return (
-                    <section aria-label="Salário mínimo" className="space-y-1 rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-100">
+                    <section aria-label="Salário mínimo" className="space-y-1 rounded-sm border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-100">
                         <p className="font-medium">Salário mínimo federal e estadual</p>
                         {c.alertas.length > 0 && <ul className="list-disc pl-5">{c.alertas.map(a => <li key={a.fichaId + a.regra} className={a.nivel === 'erro' ? 'text-red-800 dark:text-red-200' : ''}><strong>{a.nome}:</strong> {a.mensagem}</li>)}</ul>}
                         {c.avisos.map(a => <p key={a}>{a}</p>)}
@@ -927,13 +927,13 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                     </section>
                 );
             })()}
-            {errosMov.length > 0 && <ul role="alert" aria-label="Erros do movimento" className="list-disc rounded bg-red-50 p-2 pl-6 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{errosMov.map(e => <li key={e}>{e}</li>)}</ul>}
-            {aviso && <p role="status" className="rounded bg-green-50 p-2 text-sm text-green-800 dark:bg-green-900/30 dark:text-green-200">{aviso}</p>}
+            {errosMov.length > 0 && <ul role="alert" aria-label="Erros do movimento" className="list-disc rounded-sm bg-red-50 p-2 pl-6 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{errosMov.map(e => <li key={e}>{e}</li>)}</ul>}
+            {aviso && <p role="status" className="rounded-sm bg-green-50 p-2 text-sm text-green-800 dark:bg-green-900/30 dark:text-green-200">{aviso}</p>}
 
-            {erro && <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+            {erro && <p role="alert" className="rounded-sm bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
             {empresaId && !dados && <p className="text-sm text-slate-500">Carregando…</p>}
             {dados && !mensal && !movsAno && !erro && <p className="text-sm text-slate-500">Carregando os movimentos gravados…</p>}
-            {dados && !resultados.length && (mensal || movsAno) && <p className="rounded border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-600">{mensal ? 'Nenhum funcionário com vínculo nesta competência. Confira o cadastro em Cadastros › Funcionários.' : rescisao ? `Nenhum desligamento em ${br(competencia)}. Use "Simular rescisão" para calcular a de um funcionário ativo.` : ferias ? `Nenhum gozo de férias começando em ${br(competencia).slice(0, 7)}. Use "Programar férias" acima ou lance em Cadastros › Afastamentos (motivo 15 — gozo de férias).` : `Nenhum funcionário com 13º em ${ano} (desligados recebem na rescisão). Confira o cadastro em Cadastros › Funcionários.`}</p>}
+            {dados && !resultados.length && (mensal || movsAno) && <p className="rounded-sm border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-600">{mensal ? 'Nenhum funcionário com vínculo nesta competência. Confira o cadastro em Cadastros › Funcionários.' : rescisao ? `Nenhum desligamento em ${br(competencia)}. Use "Simular rescisão" para calcular a de um funcionário ativo.` : ferias ? `Nenhum gozo de férias começando em ${br(competencia).slice(0, 7)}. Use "Programar férias" acima ou lance em Cadastros › Afastamentos (motivo 15 — gozo de férias).` : `Nenhum funcionário com 13º em ${ano} (desligados recebem na rescisão). Confira o cadastro em Cadastros › Funcionários.`}</p>}
 
             {resultados.length > 0 && (departamentos.length > 0 || lotacoes.length > 0) && (
                 <div className="flex flex-wrap items-center gap-2 text-sm dark:text-slate-200">
@@ -962,7 +962,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                                     <td className="p-2 text-right">{real(v(r, 'SF'))}</td>
                                     <td className="p-2 text-right font-medium">{r.situacao === 'erro' ? '—' : reais(r.totais.liquido)}</td>
                                     <td className="p-2 text-right">{real(r.fgts)}</td>
-                                    <td className="p-2 text-xs" title={[...r.erros, ...r.avisos].join('\n')}><span className={`rounded px-1.5 ${SITUACAO[r.situacao][1]}`}>{SITUACAO[r.situacao][0]}</span>{r.avisos.length > 0 && <span className="ml-1 text-amber-700 dark:text-amber-300">{r.avisos.length} aviso(s)</span>}</td>
+                                    <td className="p-2 text-xs" title={[...r.erros, ...r.avisos].join('\n')}><span className={`rounded-sm px-1.5 ${SITUACAO[r.situacao][1]}`}>{SITUACAO[r.situacao][0]}</span>{r.avisos.length > 0 && <span className="ml-1 text-amber-700 dark:text-amber-300">{r.avisos.length} aviso(s)</span>}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -1032,7 +1032,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                                     <p className="mt-1 text-xs text-slate-500">Proventos divididos pelos dias em cada obra; descontos na obra principal. Passe o mouse na linha para a memória da parte patronal (CPRB, RAT/FAP da obra).</p>
                                 </div>
                             )}
-                            {erroEnq && !ferias && <p role="alert" className="rounded bg-red-50 p-2 text-xs text-red-800 dark:bg-red-900/30 dark:text-red-200">Enquadramento não carregado ({erroEnq}): a parte patronal está FORA do quadro e do total. Não use estes valores para a DCTFWeb.</p>}
+                            {erroEnq && !ferias && <p role="alert" className="rounded-sm bg-red-50 p-2 text-xs text-red-800 dark:bg-red-900/30 dark:text-red-200">Enquadramento não carregado ({erroEnq}): a parte patronal está FORA do quadro e do total. Não use estes valores para a DCTFWeb.</p>}
                         </div>
                     </div>
                 </section>
@@ -1088,7 +1088,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                                 </select>
                             </label>
                             {p.tipo && AMPARO_DO_MOTIVO[p.tipo] && (
-                                <fieldset className="space-y-1 rounded border border-amber-300 p-2 dark:border-amber-700">
+                                <fieldset className="space-y-1 rounded-sm border border-amber-300 p-2 dark:border-amber-700">
                                     <legend className="px-1 font-medium">Amparo do motivo {p.tipo} ({AMPARO_DO_MOTIVO[p.tipo]!.base})</legend>
                                     <p className="text-slate-500">{AMPARO_DO_MOTIVO[p.tipo]!.pede}. Sem isso, a rescisão não fecha e o S-2299 não sai.</p>
                                     <label className="block">Data do fato
@@ -1122,7 +1122,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                                     <EfetivacaoRescisao key={`e-${t.fichaId}-${t.data}`} empresa={empresa} ficha={ficha} rescisao={t} usuario={usuario} envios={enviosEsocial} />
                                 </> : null;
                             })()}
-                            {p.simulada && <button className="rounded border border-slate-300 px-2 py-1 dark:border-slate-600" onClick={() => { setParamsResc(x => { const y = { ...x }; delete y[t.fichaId]; return y; }); setAberto(''); }}>Remover simulação</button>}
+                            {p.simulada && <button className="rounded-sm border border-slate-300 px-2 py-1 dark:border-slate-600" onClick={() => { setParamsResc(x => { const y = { ...x }; delete y[t.fichaId]; return y; }); setAberto(''); }}>Remover simulação</button>}
                         </div>
                     </Holerite>
                 );
@@ -1182,11 +1182,11 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                                     <tbody>{f.porCompetencia.map(c => <tr key={c.competencia}><td>{br(c.competencia)}</td><td className="text-right">{c.dias}</td><td className="text-right">{reais(c.ferias + c.terco)}</td><td className="text-right">{reais(c.inss)}</td><td className="text-right">{reais(c.fgts)}</td></tr>)}</tbody></table>
                             )}
                             {f.irrf && (
-                                <div aria-label="IRRF sobre férias" className="rounded border border-slate-200 p-2 dark:border-slate-700">
+                                <div aria-label="IRRF sobre férias" className="rounded-sm border border-slate-200 p-2 dark:border-slate-700">
                                     <p className="font-medium">IRRF sobre férias (em separado)</p>
                                     <p>Rendimento tributável {reais(f.irrf.tributavel)} − {f.irrf.usouSimplificado ? 'desconto simplificado' : `INSS${f.irrf.dependentes ? ` e ${f.irrf.dependentes} dependente(s)` : ''}`} {reais(f.irrf.deducoes)} = base <strong>{reais(f.irrf.base)}</strong></p>
                                     <p>Tabela: {f.irrf.aliquota.toLocaleString('pt-BR')}%{f.irrf.parcelaDeduzir ? ` − ${reais(f.irrf.parcelaDeduzir)}` : ''} = {reais(f.irrf.calculado)}{f.irrf.redutor ? ` · redutor 2026 −${reais(f.irrf.redutor)}` : ''}{f.irrf.dispensado ? ` · dispensado (até R$ 10,00) −${reais(f.irrf.dispensado)}` : ''} · <strong>IRRF devido {reais(f.irrf.devido)}</strong></p>
-                                    {f.irrf.semRetencao && <p role="note" className="mt-1 rounded bg-amber-50 p-1 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">Sem retenção: {f.irrf.semRetencao}.</p>}
+                                    {f.irrf.semRetencao && <p role="note" className="mt-1 rounded-sm bg-amber-50 p-1 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">Sem retenção: {f.irrf.semRetencao}.</p>}
                                 </div>
                             )}
                             {(() => {
@@ -1199,9 +1199,9 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                             })()}
                             {/* Atalho: o pacote fica na barra do topo, longe de quem está no recibo. */}
                             {f.situacao === 'calculado' && (
-                                <div className="flex flex-wrap items-center gap-2 rounded border border-slate-200 p-2 dark:border-slate-700">
+                                <div className="flex flex-wrap items-center gap-2 rounded-sm border border-slate-200 p-2 dark:border-slate-700">
                                     <span className="font-medium">Enviar ao cliente</span>
-                                    <button type="button" className="rounded bg-green-700 px-2 py-1 text-white" onClick={() => setPacote(true)}>Pacote do cliente</button>
+                                    <button type="button" className="rounded-sm bg-green-700 px-2 py-1 text-white" onClick={() => setPacote(true)}>Pacote do cliente</button>
                                     <span className="text-slate-500 dark:text-slate-400">.zip com os recibos de férias de {br(competencia)}, a agenda e o LEIA-ME, com envio por WhatsApp ou e-mail.</span>
                                 </div>
                             )}
@@ -1233,11 +1233,11 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                                     finally { setGravandoGozo(false); }
                                 }
                                 return (
-                                    <div className="rounded bg-amber-50 p-2 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">
+                                    <div className="rounded-sm bg-amber-50 p-2 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">
                                         <p><strong>Simulação:</strong> férias programadas aqui, ainda não gravadas em Afastamentos.</p>
                                         <div className="mt-1 flex flex-wrap gap-2">
-                                            <button type="button" className="rounded bg-green-700 px-2 py-1 text-white disabled:opacity-50" disabled={gravandoGozo || !!f.erros?.length || encerrado} title={encerrado ? MSG_ENCERRADO(competencia) : undefined} onClick={gravarGozo}>{gravandoGozo ? 'Gravando…' : 'Gravar em Afastamentos'}</button>
-                                            <button type="button" className="rounded border border-slate-300 px-2 py-1 dark:border-slate-600" onClick={() => { setFeriasSimuladas(xs => xs.filter(x => x.id !== simulado.id)); setAberto(''); }}>Remover simulação</button>
+                                            <button type="button" className="rounded-sm bg-green-700 px-2 py-1 text-white disabled:opacity-50" disabled={gravandoGozo || !!f.erros?.length || encerrado} title={encerrado ? MSG_ENCERRADO(competencia) : undefined} onClick={gravarGozo}>{gravandoGozo ? 'Gravando…' : 'Gravar em Afastamentos'}</button>
+                                            <button type="button" className="rounded-sm border border-slate-300 px-2 py-1 dark:border-slate-600" onClick={() => { setFeriasSimuladas(xs => xs.filter(x => x.id !== simulado.id)); setAberto(''); }}>Remover simulação</button>
                                         </div>
                                     </div>
                                 );
@@ -1261,7 +1261,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                                         <input aria-label="Dias de abono" className={`mt-0.5 block w-20 ${inp}`} defaultValue={String(abonos[f.gozoId] ?? (gravado || ''))}
                                             onChange={e => { const t = e.target.value.trim(); const n = Number(t || 0); setAbonos(x => { const y = { ...x }; if (t && Number.isInteger(n) && n >= 0) y[f.gozoId] = n; else if (!t) y[f.gozoId] = 0; else delete y[f.gozoId]; return y; }); }} />
                                         <span className="text-slate-500">Até 1/3 dos dias de direito. {gravado ? `Gravado no afastamento: ${gravado} dia(s).` : 'Nada gravado no afastamento.'} O abono gravado desconta do saldo do período nas próximas férias.</span>
-                                        {mudou && gozo && <button type="button" className="mt-1 block rounded border border-slate-300 px-2 py-1 dark:border-slate-600" disabled={gravandoAbono || encerrado} title={encerrado ? MSG_ENCERRADO(competencia) : undefined} onClick={gravarAbono}>{gravandoAbono ? 'Gravando…' : 'Gravar abono no afastamento'}</button>}
+                                        {mudou && gozo && <button type="button" className="mt-1 block rounded-sm border border-slate-300 px-2 py-1 dark:border-slate-600" disabled={gravandoAbono || encerrado} title={encerrado ? MSG_ENCERRADO(competencia) : undefined} onClick={gravarAbono}>{gravandoAbono ? 'Gravando…' : 'Gravar abono no afastamento'}</button>}
                                     </label>
                                 );
                             })()}
@@ -1284,7 +1284,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                                         <input aria-label="Pensão sobre as férias" className={`mt-0.5 block w-28 ${inp}`} defaultValue={pensoesFerias[f.gozoId] !== undefined ? (pensoesFerias[f.gozoId] / 100).toFixed(2).replace('.', ',') : gravado ? (gravado / 100).toFixed(2).replace('.', ',') : ''}
                                             onChange={e => { const v = centavosDeTexto(e.target.value); setPensoesFerias(x => ({ ...x, [f.gozoId]: v ?? 0 })); }} />
                                         <span className="text-slate-500">Desconto no recibo, deduzido no IRRF das férias e informado no S-1210 por alimentando. {gravado ? `Gravado no afastamento: ${reais(gravado)}.` : 'Nada gravado no afastamento.'}</span>
-                                        {mudou && gozo && <button type="button" className="mt-1 block rounded border border-slate-300 px-2 py-1 dark:border-slate-600" disabled={gravandoPensaoFer || encerrado} title={encerrado ? MSG_ENCERRADO(competencia) : undefined} onClick={gravarPensao}>{gravandoPensaoFer ? 'Gravando…' : 'Gravar pensão no afastamento'}</button>}
+                                        {mudou && gozo && <button type="button" className="mt-1 block rounded-sm border border-slate-300 px-2 py-1 dark:border-slate-600" disabled={gravandoPensaoFer || encerrado} title={encerrado ? MSG_ENCERRADO(competencia) : undefined} onClick={gravarPensao}>{gravandoPensaoFer ? 'Gravando…' : 'Gravar pensão no afastamento'}</button>}
                                     </label>
                                 );
                             })()}
@@ -1370,7 +1370,7 @@ const LancarEvento: React.FC<{ mov: Movimento; salario: SalarioDoMes | null; lan
                 <label>Evento<input aria-label="Código do evento" className={`mt-0.5 block w-20 ${inp}`} value={codigo} inputMode="numeric" placeholder="0810"
                     onFocus={carregar} onChange={e => { setCodigo(e.target.value); setErro(''); }} /></label>
                 <label>{tipo ? rotulo[tipo] : 'Referência'}<input aria-label="Referência do evento" className={`mt-0.5 block w-24 ${inp}`} value={ref} onChange={e => { setRef(e.target.value); setErro(''); }} /></label>
-                <button type="submit" className="rounded border border-slate-300 px-2 py-1 dark:border-slate-600 dark:text-white">Lançar</button>
+                <button type="submit" className="rounded-sm border border-slate-300 px-2 py-1 dark:border-slate-600 dark:text-white">Lançar</button>
                 {ev && <span className="pb-1 text-slate-500 dark:text-slate-400">{ev.descricao} · {ev.tipo === 'V' ? 'provento' : ev.tipo === 'D' ? 'desconto' : 'informativo'}{formula ? ` · fórmula da empresa: ${formula.expressao}` : ''}</span>}
             </form>
             {erro && <p role="alert" className="mt-1 text-xs text-red-700 dark:text-red-300">{erro}</p>}
@@ -1398,8 +1398,8 @@ const Holerite: React.FC<{ r: ResultadoCalculo; mov?: Movimento; gravado?: Movim
         <section aria-label={`Holerite de ${r.nome}`} className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 lg:grid-cols-2 dark:border-slate-700 dark:bg-slate-800">
             <div>
                 <h3 className="font-semibold text-slate-800 dark:text-white">{r.nome} · {r.competencia.endsWith('-13') ? `13º salário ${r.competencia.slice(0, 4)}` : r.competencia.split('-').reverse().join('/')} <span className="text-xs font-normal text-slate-500">(IRRF pelo pagamento em {r.pagamento.split('-').reverse().join('/')})</span></h3>
-                {pdf && r.situacao !== 'erro' && <button className="mt-1 rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:text-white" onClick={() => pdf(r)}>PDF deste holerite</button>}
-                {r.erros.length > 0 && <ul role="alert" className="mt-2 list-disc rounded bg-red-50 p-2 pl-6 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{r.erros.map(e => <li key={e}>{e}</li>)}</ul>}
+                {pdf && r.situacao !== 'erro' && <button className="mt-1 rounded-sm border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:text-white" onClick={() => pdf(r)}>PDF deste holerite</button>}
+                {r.erros.length > 0 && <ul role="alert" className="mt-2 list-disc rounded-sm bg-red-50 p-2 pl-6 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{r.erros.map(e => <li key={e}>{e}</li>)}</ul>}
                 <table className="mt-2 w-full text-sm dark:text-slate-100">
                     <thead className="text-left text-xs text-slate-500"><tr><th className="py-1">Verba</th><th className="py-1">Ref.</th><th className="py-1 text-right">Proventos</th><th className="py-1 text-right">Descontos</th></tr></thead>
                     <tbody>{r.verbas.map(x => (
@@ -1438,11 +1438,11 @@ const Holerite: React.FC<{ r: ResultadoCalculo; mov?: Movimento; gravado?: Movim
                             <button className="pb-1 text-red-700 dark:text-red-300" aria-label={`Remover hora extra ${i + 1}`} onClick={() => setOutras(outras.filter((_, j) => j !== i))}>✕</button>
                         </span>
                     ))}
-                    <button className="self-end rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:text-white" title="Hora extra com adicional da convenção diferente de 50% e 100% (60%, 75%…)"
+                    <button className="self-end rounded-sm border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:text-white" title="Hora extra com adicional da convenção diferente de 50% e 100% (60%, 75%…)"
                         onClick={() => setOutras([...outras, [String(outras.length ? '' : '60'), 0]])}>+ Hora extra com outro adicional</button>
                     {campo('faltasDias', 'Faltas (dias)')}
                     {lotacoes.length > 0 && (
-                        <fieldset className="w-full rounded border border-slate-200 p-2 text-xs dark:border-slate-700 dark:text-slate-200">
+                        <fieldset className="w-full rounded-sm border border-slate-200 p-2 text-xs dark:border-slate-700 dark:text-slate-200">
                             <legend className="px-1">Rateio por obra (dias trabalhados em cada uma; em branco, a obra da ficha)</legend>
                             <div className="flex flex-wrap gap-2">{lotacoes.map(l => (
                                 <label key={l.codigo}><span className="font-mono">{l.codigo}</span> {l.descricao.slice(0, 24)}
@@ -1489,7 +1489,7 @@ const Holerite: React.FC<{ r: ResultadoCalculo; mov?: Movimento; gravado?: Movim
                             <button aria-label={`Remover lançamento ${i + 1}`} className="text-red-700 dark:text-red-300" onClick={() => onMov({ ...mov, lancamentos: lancs.filter((_, j) => j !== i) })}>remover</button>
                         </div>
                     ))}
-                    <button className="mt-1 rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:text-white" onClick={() => onMov({ ...mov, lancamentos: [...lancs, { descricao: '', tipo: 'provento', valor: 0, inss: true, fgts: true, irrf: true }] })}>Adicionar lançamento</button>
+                    <button className="mt-1 rounded-sm border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:text-white" onClick={() => onMov({ ...mov, lancamentos: [...lancs, { descricao: '', tipo: 'provento', valor: 0, inss: true, fgts: true, irrf: true }] })}>Adicionar lançamento</button>
                     <p className="mt-1 text-xs text-slate-500">Marque onde o lançamento incide (confira com a incidência da rubrica em Cadastros › Incidências) e se entra na média de férias, 13º e rescisão.</p>
                 </div>
             </div>}

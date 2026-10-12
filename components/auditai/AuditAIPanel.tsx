@@ -19,7 +19,7 @@ interface AuditAIPanelProps {
 }
 
 const AuditLoadingOverlay = ({ current, total }: { current?: number; total?: number }) => (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex flex-col items-center justify-center z-50">
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex flex-col items-center justify-center z-50">
         <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-md">
             <div className="relative flex items-center justify-center mb-6">
                 <div className="animate-ping absolute inline-flex h-12 w-12 rounded-full bg-blue-500/20 opacity-75"></div>
@@ -261,7 +261,7 @@ const AuditAIPanel: React.FC<AuditAIPanelProps> = ({ currentUser }) => {
         <div className="relative">
             {isLoading && <AuditLoadingOverlay current={progress.current} total={progress.total} />}
 
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow p-6 mb-6">
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-6 mb-6">
                 <div className="flex justify-between items-start mb-4 flex-wrap gap-2">
                     <div>
                         <h2 className="text-2xl font-bold text-slate-800 dark:text-white">
@@ -313,7 +313,7 @@ const AuditAIPanel: React.FC<AuditAIPanelProps> = ({ currentUser }) => {
                     <button
                         onClick={handleAnalyze}
                         disabled={isLoading || selectedFiles.length === 0}
-                        className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold rounded-lg shadow transition-colors">
+                        className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold rounded-lg shadow-sm transition-colors">
                         {isLoading ? 'Analisando...' : 'Analisar Documento'}
                     </button>
                     {(result || comparisonResult || consolidationResult) && (

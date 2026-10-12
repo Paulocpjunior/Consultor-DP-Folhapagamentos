@@ -16,7 +16,7 @@ import { foraDoAdiantamento, valorDoAdiantamento } from '../../services/bancario
 import { reais } from '../../services/cadastros/documentos';
 
 const br = (d: string) => (d ? d.split('-').reverse().join('/') : '');
-const btn = 'rounded border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50 dark:border-slate-600 dark:text-white';
+const btn = 'rounded-sm border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-50 dark:border-slate-600 dark:text-white';
 
 interface Props {
     empresaNome: string;
@@ -84,7 +84,7 @@ const CalculoAdiantamentosModal: React.FC<Props> = ({ empresaNome, competencia, 
                     <button className="text-slate-500" aria-label="Fechar" onClick={onFechar}>✕</button>
                 </div>
 
-                {!linhas.length ? <p className="rounded border border-dashed border-slate-300 p-6 text-center text-slate-500 dark:border-slate-600">Ninguém com adiantamento em {mes}: informe o percentual na ficha (aba "Adiant. e VT") ou o valor no movimento.</p> : (
+                {!linhas.length ? <p className="rounded-sm border border-dashed border-slate-300 p-6 text-center text-slate-500 dark:border-slate-600">Ninguém com adiantamento em {mes}: informe o percentual na ficha (aba "Adiant. e VT") ou o valor no movimento.</p> : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead className="text-left text-xs text-slate-500"><tr>
@@ -111,7 +111,7 @@ const CalculoAdiantamentosModal: React.FC<Props> = ({ empresaNome, competencia, 
                     </div>
                 )}
 
-                <div className="space-y-1 rounded border border-slate-200 p-2 text-xs dark:border-slate-700">
+                <div className="space-y-1 rounded-sm border border-slate-200 p-2 text-xs dark:border-slate-700">
                     <p><strong>Fixar o valor pago:</strong> grava o adiantamento de cada um como "Adiantamento pago" no movimento do mês. Depois disso, desligamento, afastamento ou reajuste lançados após o dia {br(dataAdiantamento).slice(0, 5)} não mudam o desconto na folha.{pendentes ? ` Há ${pendentes} funcionário(s) com movimento por salvar.` : ''}</p>
                     <div className="flex flex-wrap gap-2">
                         <button className={btn} disabled={!aFixar.length} onClick={() => onFixar(Object.fromEntries(aFixar.map(l => [l.fichaId, l.adiantamento])))}>Fixar os valores no movimento ({aFixar.length})</button>

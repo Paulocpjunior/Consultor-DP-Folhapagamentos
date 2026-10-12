@@ -125,19 +125,19 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser, embutido = false }) => {
                 </div>
                 <div className="flex gap-2">
                     <button onClick={reload}
-                        className="px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded">
+                        className="px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-sm">
                         ↻ Atualizar
                     </button>
                     {!showForm && (
                         <button onClick={() => setShowForm(true)}
-                            className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded font-medium">
+                            className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-sm font-medium">
                             + Nova empresa
                         </button>
                     )}
                 </div>
             </header>
 
-            {erro && <div className="mb-3 p-2 text-sm text-red-700 bg-red-50 dark:bg-red-900/20 border border-red-200 rounded">{erro}</div>}
+            {erro && <div className="mb-3 p-2 text-sm text-red-700 bg-red-50 dark:bg-red-900/20 border border-red-200 rounded-sm">{erro}</div>}
 
             {dup.length > 0 && (
                 <div role="alert" className="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/20 dark:text-red-200">
@@ -149,7 +149,7 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser, embutido = false }) => {
             )}
             {isGestor && (
                 <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
-                    <button onClick={proteger} disabled={!!protegendo || !empresas.length} className="rounded border border-slate-300 px-2 py-1 disabled:opacity-50 dark:border-slate-600">🔒 Proteger códigos e CNPJs das empresas existentes</button>
+                    <button onClick={proteger} disabled={!!protegendo || !empresas.length} className="rounded-sm border border-slate-300 px-2 py-1 disabled:opacity-50 dark:border-slate-600">🔒 Proteger códigos e CNPJs das empresas existentes</button>
                     <span>{protegendo || msgProtecao || 'Empresa nova já nasce protegida; as cadastradas antes da trava precisam disto uma vez.'}</span>
                     {falhasProtecao.length > 0 && (
                         <ul className="w-full list-disc pl-5 text-red-700 dark:text-red-300">{falhasProtecao.map(f => <li key={f}>{f}</li>)}</ul>
@@ -161,7 +161,7 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser, embutido = false }) => {
                 <div className="mb-3 flex items-center gap-2">
                     <input type="search" aria-label="Buscar empresa" value={busca} onChange={ev => setBusca(ev.target.value)}
                         placeholder="Buscar por nome, razão social, CNPJ ou código SAGE"
-                        className="w-full max-w-md rounded border border-slate-300 bg-white px-3 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100" />
+                        className="w-full max-w-md rounded-sm border border-slate-300 bg-white px-3 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100" />
                     {busca && <span className="text-xs text-slate-500 dark:text-slate-400">{visiveis.length} de {empresas.length}</span>}
                 </div>
             )}
@@ -206,7 +206,7 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser, embutido = false }) => {
                                         <td className="px-3 py-2 font-medium text-slate-800 dark:text-slate-200">{e.nomeFantasia}</td>
                                         <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{e.razaoSocial}</td>
                                         <td className={`px-3 py-2 font-mono text-xs ${chavesRepetidas.has(chaveCnpj(e.cnpj)) ? 'font-bold text-red-700 dark:text-red-300' : 'text-slate-600 dark:text-slate-400'}`} title={chavesRepetidas.has(chaveCnpj(e.cnpj)) ? 'CNPJ repetido em outra empresa' : undefined}>{formatCnpj(e.cnpj)}</td>
-                                        <td className="px-3 py-2 text-center"><code className={`px-1.5 py-0.5 rounded text-xs ${chavesRepetidas.has(chaveSage(e.codigoSage)) ? 'bg-red-100 font-bold text-red-800 dark:bg-red-900/40 dark:text-red-200' : 'bg-slate-100 dark:bg-slate-700'}`} title={chavesRepetidas.has(chaveSage(e.codigoSage)) ? 'Código SAGE repetido em outra empresa' : undefined}>{e.codigoSage}</code></td>
+                                        <td className="px-3 py-2 text-center"><code className={`px-1.5 py-0.5 rounded-sm text-xs ${chavesRepetidas.has(chaveSage(e.codigoSage)) ? 'bg-red-100 font-bold text-red-800 dark:bg-red-900/40 dark:text-red-200' : 'bg-slate-100 dark:bg-slate-700'}`} title={chavesRepetidas.has(chaveSage(e.codigoSage)) ? 'Código SAGE repetido em outra empresa' : undefined}>{e.codigoSage}</code></td>
                                         <td className="px-3 py-2 text-center">
                                             {(() => {
                                                 // Situação no cofre único (CFI + Legal); só leitura.
@@ -226,12 +226,12 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser, embutido = false }) => {
                                         </td>
                                         <td className="px-3 py-2 text-right space-x-1">
                                             {podeEditar(e) && <button onClick={() => { setEmpresaEditando(e); setShowForm(true); }}
-                                                className="px-2 py-1 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 dark:text-blue-300 rounded">
+                                                className="px-2 py-1 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 dark:text-blue-300 rounded-sm">
                                                 Editar
                                             </button>}
                                             {isGestor && (
                                                 <button onClick={() => apagar(e.id, e.nomeFantasia)}
-                                                    className="px-2 py-1 text-xs bg-red-50 hover:bg-red-100 text-red-700 dark:bg-red-900/20 dark:hover:bg-red-900/40 dark:text-red-300 rounded">
+                                                    className="px-2 py-1 text-xs bg-red-50 hover:bg-red-100 text-red-700 dark:bg-red-900/20 dark:hover:bg-red-900/40 dark:text-red-300 rounded-sm">
                                                     🗑 Excluir
                                                 </button>
                                             )}

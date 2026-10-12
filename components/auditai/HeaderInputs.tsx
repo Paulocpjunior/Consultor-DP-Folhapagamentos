@@ -130,7 +130,7 @@ const HeaderInputs: React.FC<Props> = ({ data, onChange, onSave, disabled }) => 
   };
 
   return (
-    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 mb-6 transition-colors relative">
+    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-xs border border-slate-200 dark:border-slate-700 mb-6 transition-colors relative">
       <h2 className="text-lg font-semibold text-slate-800 dark:text-white mb-4 flex items-center justify-between">
         <span className="flex items-center">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 mr-2 text-accent">
@@ -146,7 +146,7 @@ const HeaderInputs: React.FC<Props> = ({ data, onChange, onSave, disabled }) => 
           type="button"
           onClick={() => onChange({ ...data, isGroupAnalysis: false })}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${!data.isGroupAnalysis
-              ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
+              ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs'
               : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
             }`}
         >
@@ -156,7 +156,7 @@ const HeaderInputs: React.FC<Props> = ({ data, onChange, onSave, disabled }) => 
           type="button"
           onClick={() => onChange({ ...data, isGroupAnalysis: true })}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${data.isGroupAnalysis
-              ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
+              ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs'
               : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
             }`}
         >

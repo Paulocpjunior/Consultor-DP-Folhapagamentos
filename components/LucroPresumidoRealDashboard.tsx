@@ -85,7 +85,7 @@ const CurrencyInput: React.FC<{ label?: string; value: number; onChange: (val: n
                     placeholder={placeholder || '0,00'}
                     onChange={handleChange} 
                     disabled={disabled}
-                    className={`w-full pl-8 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-sky-500 outline-none font-mono text-sm font-bold text-right transition-colors 
+                    className={`w-full pl-8 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-sky-500 outline-hidden font-mono text-sm font-bold text-right transition-colors 
                         ${disabled ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700' : 
                           highlight ? 'bg-sky-50 dark:bg-sky-900/20 text-sky-800 dark:text-sky-200 border-sky-200 dark:border-sky-800' : 
                           'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border-slate-300 dark:border-slate-600'}`}
@@ -97,9 +97,9 @@ const CurrencyInput: React.FC<{ label?: string; value: number; onChange: (val: n
 };
 
 const ToggleSwitch: React.FC<{ label: string; checked: boolean; onChange: (val: boolean) => void; description?: string; colorClass?: string }> = ({ label, checked, onChange, description, colorClass = "bg-sky-600" }) => (
-    <div className={`p-4 rounded-lg border transition-all cursor-pointer ${checked ? 'bg-white dark:bg-slate-800 border-l-4 border-l-' + colorClass.replace('bg-', '') + ' border-y-slate-200 border-r-slate-200 dark:border-y-slate-700 dark:border-r-slate-700 shadow-sm' : 'bg-slate-50 dark:bg-slate-800/50 border-transparent opacity-70 hover:opacity-100'}`} onClick={() => onChange(!checked)}>
+    <div className={`p-4 rounded-lg border transition-all cursor-pointer ${checked ? 'bg-white dark:bg-slate-800 border-l-4 border-l-' + colorClass.replace('bg-', '') + ' border-y-slate-200 border-r-slate-200 dark:border-y-slate-700 dark:border-r-slate-700 shadow-xs' : 'bg-slate-50 dark:bg-slate-800/50 border-transparent opacity-70 hover:opacity-100'}`} onClick={() => onChange(!checked)}>
         <div className="flex items-start gap-3">
-            <div className={`mt-1 w-5 h-5 rounded border flex items-center justify-center transition-colors ${checked ? colorClass + ' border-transparent' : 'bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-500'}`}>
+            <div className={`mt-1 w-5 h-5 rounded-sm border flex items-center justify-center transition-colors ${checked ? colorClass + ' border-transparent' : 'bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-500'}`}>
                 {checked && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
             </div>
             <div>
@@ -652,7 +652,7 @@ const LucroPresumidoRealDashboard: React.FC<LucroPresumidoRealDashboardProps> = 
                 </button>
             </div>
 
-            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm overflow-hidden">
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xs overflow-hidden">
                 <table className="w-full text-sm text-left text-slate-500 dark:text-slate-400">
                     <thead className="text-xs text-slate-700 uppercase bg-slate-50 dark:bg-slate-700 dark:text-slate-300">
                         <tr>
@@ -690,7 +690,7 @@ const LucroPresumidoRealDashboard: React.FC<LucroPresumidoRealDashboardProps> = 
     );
 
     const renderNewCompany = () => (
-        <div className="max-w-xl mx-auto bg-white dark:bg-slate-800 p-8 rounded-lg shadow-sm animate-fade-in">
+        <div className="max-w-xl mx-auto bg-white dark:bg-slate-800 p-8 rounded-lg shadow-xs animate-fade-in">
             <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-6">Nova Empresa</h2>
             <form onSubmit={handleSaveNewCompany} className="space-y-4">
                 <div>
@@ -702,13 +702,13 @@ const LucroPresumidoRealDashboard: React.FC<LucroPresumidoRealDashboardProps> = 
                             onChange={e => setNewCnpj(e.target.value)} 
                             placeholder="00.000.000/0001-00"
                             required 
-                            className="flex-grow p-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-sky-500 font-mono" 
+                            className="grow p-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-sky-500 font-mono" 
                         />
                         <button
                             type="button"
                             onClick={handleCnpjVerification}
                             disabled={isCnpjLoading}
-                            className="btn-press flex-shrink-0 px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-wait"
+                            className="btn-press shrink-0 px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-wait"
                         >
                             {isCnpjLoading ? '...' : 'Verificar Receita'}
                         </button>
@@ -790,7 +790,7 @@ const LucroPresumidoRealDashboard: React.FC<LucroPresumidoRealDashboardProps> = 
                                     <span className="text-sm font-bold text-slate-700 dark:text-slate-300">ISS Fixo (SUP)</span>
                                 </label>
                             </div>
-                            <div className="flex-grow w-full md:w-auto">
+                            <div className="grow w-full md:w-auto">
                                 {issTipo === 'aliquota_municipal' ? (
                                     <div className="flex flex-col">
                                         <label className="text-[10px] uppercase font-bold text-slate-500 mb-1">Alíquota do ISS (%)</label>
@@ -798,7 +798,7 @@ const LucroPresumidoRealDashboard: React.FC<LucroPresumidoRealDashboardProps> = 
                                             type="number" 
                                             value={issAliquota} 
                                             onChange={e => setIssAliquota(parseFloat(e.target.value) || 0)}
-                                            className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded text-slate-900 dark:text-white font-bold outline-none focus:ring-2 focus:ring-sky-500"
+                                            className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-sm text-slate-900 dark:text-white font-bold outline-hidden focus:ring-2 focus:ring-sky-500"
                                         />
                                     </div>
                                 ) : (
@@ -817,11 +817,11 @@ const LucroPresumidoRealDashboard: React.FC<LucroPresumidoRealDashboardProps> = 
                             Insira o faturamento das filiais para cálculo unificado dos impostos federais (PIS/COFINS/IRPJ/CSLL).
                         </p>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <CurrencyInput label="Faturamento Filiais (Comércio)" value={fichaFilialComercio} onChange={setFichaFilialComercio} className="bg-slate-50 dark:bg-slate-800 p-2 rounded border border-slate-200 dark:border-slate-700" />
-                            <CurrencyInput label="Faturamento Filiais (Indústria)" value={fichaFilialIndustria} onChange={setFichaFilialIndustria} className="bg-slate-50 dark:bg-slate-800 p-2 rounded border border-slate-200 dark:border-slate-700" />
-                            <CurrencyInput label="Faturamento Filiais (Serviço)" value={fichaFilialServico} onChange={setFichaFilialServico} className="bg-slate-50 dark:bg-slate-800 p-2 rounded border border-slate-200 dark:border-slate-700" />
+                            <CurrencyInput label="Faturamento Filiais (Comércio)" value={fichaFilialComercio} onChange={setFichaFilialComercio} className="bg-slate-50 dark:bg-slate-800 p-2 rounded-sm border border-slate-200 dark:border-slate-700" />
+                            <CurrencyInput label="Faturamento Filiais (Indústria)" value={fichaFilialIndustria} onChange={setFichaFilialIndustria} className="bg-slate-50 dark:bg-slate-800 p-2 rounded-sm border border-slate-200 dark:border-slate-700" />
+                            <CurrencyInput label="Faturamento Filiais (Serviço)" value={fichaFilialServico} onChange={setFichaFilialServico} className="bg-slate-50 dark:bg-slate-800 p-2 rounded-sm border border-slate-200 dark:border-slate-700" />
                             {isEquiparacaoHospitalar && (
-                                <CurrencyInput label="Filiais (Hospitalar 8%)" value={fichaFilialServicoHospitalar} onChange={setFichaFilialServicoHospitalar} className="bg-purple-50 dark:bg-purple-900/10 p-2 rounded border border-purple-200 dark:border-purple-800 animate-fade-in" highlight />
+                                <CurrencyInput label="Filiais (Hospitalar 8%)" value={fichaFilialServicoHospitalar} onChange={setFichaFilialServicoHospitalar} className="bg-purple-50 dark:bg-purple-900/10 p-2 rounded-sm border border-purple-200 dark:border-purple-800 animate-fade-in" highlight />
                             )}
                         </div>
                     </div>
@@ -833,20 +833,20 @@ const LucroPresumidoRealDashboard: React.FC<LucroPresumidoRealDashboardProps> = 
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="col-span-1 md:col-span-2 flex gap-4 items-end">
-                                <div className="flex-grow">
+                                <div className="grow">
                                     <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">Mês de Referência</label>
-                                    <input type="month" value={fichaMes} onChange={e => setFichaMes(e.target.value)} className="w-full p-2 rounded border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-white" />
+                                    <input type="month" value={fichaMes} onChange={e => setFichaMes(e.target.value)} className="w-full p-2 rounded-sm border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-white" />
                                 </div>
                                 <div className="bg-slate-100 dark:bg-slate-700 p-1 rounded-lg flex items-center h-[42px]">
                                     <button 
                                         onClick={() => setPeriodoApuracao('Mensal')}
-                                        className={`px-3 h-full text-xs font-bold rounded transition-all ${periodoApuracao === 'Mensal' ? 'bg-white dark:bg-slate-600 text-sky-700 dark:text-sky-300 shadow-sm' : 'text-slate-500 dark:text-slate-400'}`}
+                                        className={`px-3 h-full text-xs font-bold rounded-sm transition-all ${periodoApuracao === 'Mensal' ? 'bg-white dark:bg-slate-600 text-sky-700 dark:text-sky-300 shadow-xs' : 'text-slate-500 dark:text-slate-400'}`}
                                     >
                                         Estimativa Mensal
                                     </button>
                                     <button 
                                         onClick={() => setPeriodoApuracao('Trimestral')}
-                                        className={`px-3 h-full text-xs font-bold rounded transition-all ${periodoApuracao === 'Trimestral' ? 'bg-white dark:bg-slate-600 text-sky-700 dark:text-sky-300 shadow-sm' : 'text-slate-500 dark:text-slate-400'}`}
+                                        className={`px-3 h-full text-xs font-bold rounded-sm transition-all ${periodoApuracao === 'Trimestral' ? 'bg-white dark:bg-slate-600 text-sky-700 dark:text-sky-300 shadow-xs' : 'text-slate-500 dark:text-slate-400'}`}
                                     >
                                         Encerramento Trimestral
                                     </button>
@@ -863,13 +863,13 @@ const LucroPresumidoRealDashboard: React.FC<LucroPresumidoRealDashboardProps> = 
                                         Informe a soma da receita bruta dos meses anteriores deste trimestre para o cálculo correto do Adicional do IRPJ (10% sobre o excedente de R$ 60.000,00 no trimestre).
                                     </p>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                        <CurrencyInput label="Acumulado Comércio" value={acumuladoComercio} onChange={setAcumuladoComercio} className="bg-white dark:bg-slate-800 p-2 rounded border border-sky-100 dark:border-sky-900" />
-                                        <CurrencyInput label="Acumulado Indústria" value={acumuladoIndustria} onChange={setAcumuladoIndustria} className="bg-white dark:bg-slate-800 p-2 rounded border border-sky-100 dark:border-sky-900" />
-                                        <CurrencyInput label="Acumulado Serviços" value={acumuladoServico} onChange={setAcumuladoServico} className="bg-white dark:bg-slate-800 p-2 rounded border border-sky-100 dark:border-sky-900" />
+                                        <CurrencyInput label="Acumulado Comércio" value={acumuladoComercio} onChange={setAcumuladoComercio} className="bg-white dark:bg-slate-800 p-2 rounded-sm border border-sky-100 dark:border-sky-900" />
+                                        <CurrencyInput label="Acumulado Indústria" value={acumuladoIndustria} onChange={setAcumuladoIndustria} className="bg-white dark:bg-slate-800 p-2 rounded-sm border border-sky-100 dark:border-sky-900" />
+                                        <CurrencyInput label="Acumulado Serviços" value={acumuladoServico} onChange={setAcumuladoServico} className="bg-white dark:bg-slate-800 p-2 rounded-sm border border-sky-100 dark:border-sky-900" />
                                         {isEquiparacaoHospitalar && (
-                                            <CurrencyInput label="Acumulado Hosp. (8%)" value={acumuladoServicoHospitalar} onChange={setAcumuladoServicoHospitalar} className="bg-purple-50 dark:bg-purple-900/10 p-2 rounded border border-purple-200 dark:border-purple-800" />
+                                            <CurrencyInput label="Acumulado Hosp. (8%)" value={acumuladoServicoHospitalar} onChange={setAcumuladoServicoHospitalar} className="bg-purple-50 dark:bg-purple-900/10 p-2 rounded-sm border border-purple-200 dark:border-purple-800" />
                                         )}
-                                        <CurrencyInput label="Acumulado Financeira" value={acumuladoFinanceira} onChange={setAcumuladoFinanceira} className="bg-white dark:bg-slate-800 p-2 rounded border border-sky-100 dark:border-sky-900" />
+                                        <CurrencyInput label="Acumulado Financeira" value={acumuladoFinanceira} onChange={setAcumuladoFinanceira} className="bg-white dark:bg-slate-800 p-2 rounded-sm border border-sky-100 dark:border-sky-900" />
                                     </div>
                                 </div>
                             )}
@@ -940,7 +940,7 @@ const LucroPresumidoRealDashboard: React.FC<LucroPresumidoRealDashboardProps> = 
                                         type="checkbox" 
                                         checked={isMonofasicoOption} 
                                         onChange={e => setIsMonofasicoOption(e.target.checked)} 
-                                        className="w-4 h-4 text-sky-600 rounded"
+                                        className="w-4 h-4 text-sky-600 rounded-sm"
                                     />
                                     Opção Monofásico?
                                 </label>
@@ -971,19 +971,19 @@ const LucroPresumidoRealDashboard: React.FC<LucroPresumidoRealDashboardProps> = 
                                 label="ICMS Próprio (A Recolher)" 
                                 value={fichaIcmsProprio} 
                                 onChange={setFichaIcmsProprio} 
-                                className="bg-indigo-50 dark:bg-indigo-900/10 p-2 rounded border border-indigo-100 dark:border-indigo-800"
+                                className="bg-indigo-50 dark:bg-indigo-900/10 p-2 rounded-sm border border-indigo-100 dark:border-indigo-800"
                             />
                             <CurrencyInput 
                                 label="ICMS ST (A Recolher)" 
                                 value={fichaIcmsSt} 
                                 onChange={setFichaIcmsSt} 
-                                className="bg-indigo-50 dark:bg-indigo-900/10 p-2 rounded border border-indigo-100 dark:border-indigo-800"
+                                className="bg-indigo-50 dark:bg-indigo-900/10 p-2 rounded-sm border border-indigo-100 dark:border-indigo-800"
                             />
                             <CurrencyInput 
                                 label="IPI (A Recolher)" 
                                 value={fichaIpiRecolher} 
                                 onChange={setFichaIpiRecolher} 
-                                className="bg-indigo-50 dark:bg-indigo-900/10 p-2 rounded border border-indigo-100 dark:border-indigo-800"
+                                className="bg-indigo-50 dark:bg-indigo-900/10 p-2 rounded-sm border border-indigo-100 dark:border-indigo-800"
                             />
                         </div>
                     </div>
@@ -1000,19 +1000,19 @@ const LucroPresumidoRealDashboard: React.FC<LucroPresumidoRealDashboardProps> = 
                                     label="Adições (LALUR/LACS)" 
                                     value={ajustesLucroRealAdicoes} 
                                     onChange={setAjustesLucroRealAdicoes} 
-                                    className="bg-emerald-50 dark:bg-emerald-900/10 p-2 rounded border border-emerald-100 dark:border-emerald-800"
+                                    className="bg-emerald-50 dark:bg-emerald-900/10 p-2 rounded-sm border border-emerald-100 dark:border-emerald-800"
                                 />
                                 <CurrencyInput 
                                     label="Exclusões (LALUR/LACS)" 
                                     value={ajustesLucroRealExclusoes} 
                                     onChange={setAjustesLucroRealExclusoes} 
-                                    className="bg-emerald-50 dark:bg-emerald-900/10 p-2 rounded border border-emerald-100 dark:border-emerald-800"
+                                    className="bg-emerald-50 dark:bg-emerald-900/10 p-2 rounded-sm border border-emerald-100 dark:border-emerald-800"
                                 />
                                 <CurrencyInput 
                                     label="Itens Adicionais (Extra Operacionais)" 
                                     value={itensAdicionaisExtra} 
                                     onChange={setItensAdicionaisExtra} 
-                                    className="bg-emerald-50 dark:bg-emerald-900/10 p-2 rounded border border-emerald-100 dark:border-emerald-800"
+                                    className="bg-emerald-50 dark:bg-emerald-900/10 p-2 rounded-sm border border-emerald-100 dark:border-emerald-800"
                                 />
                             </div>
                         )}
@@ -1022,13 +1022,13 @@ const LucroPresumidoRealDashboard: React.FC<LucroPresumidoRealDashboardProps> = 
                                 label="Saldo Credor ICMS (Mês Anterior)" 
                                 value={saldoCredorIcms} 
                                 onChange={setSaldoCredorIcms} 
-                                className="bg-slate-50 dark:bg-slate-700 p-2 rounded border border-slate-200 dark:border-slate-600"
+                                className="bg-slate-50 dark:bg-slate-700 p-2 rounded-sm border border-slate-200 dark:border-slate-600"
                             />
                             <CurrencyInput 
                                 label="Saldo Credor IPI (Mês Anterior)" 
                                 value={saldoCredorIpi} 
                                 onChange={setSaldoCredorIpi} 
-                                className="bg-slate-50 dark:bg-slate-700 p-2 rounded border border-slate-200 dark:border-slate-600"
+                                className="bg-slate-50 dark:bg-slate-700 p-2 rounded-sm border border-slate-200 dark:border-slate-600"
                             />
                         </div>
                     </div>
@@ -1061,13 +1061,13 @@ const LucroPresumidoRealDashboard: React.FC<LucroPresumidoRealDashboardProps> = 
                                             {item.observacao && <div className="text-[10px] text-slate-600 italic mt-1">{item.observacao}</div>}
                                             
                                             {item.cotaInfo?.disponivel && (
-                                                <div className="mt-2 bg-slate-700/30 p-2 rounded border border-slate-700">
+                                                <div className="mt-2 bg-slate-700/30 p-2 rounded-sm border border-slate-700">
                                                     <label className="flex items-center gap-2 cursor-pointer">
                                                         <input 
                                                             type="checkbox" 
                                                             checked={pagarCotas} 
                                                             onChange={e => setPagarCotas(e.target.checked)}
-                                                            className="rounded border-slate-500 bg-slate-800 text-sky-500 focus:ring-offset-slate-900" 
+                                                            className="rounded-sm border-slate-500 bg-slate-800 text-sky-500 focus:ring-offset-slate-900" 
                                                         />
                                                         <span className="text-xs font-bold text-sky-400">PAGAR EM COTAS (3X)</span>
                                                     </label>
@@ -1109,7 +1109,7 @@ const LucroPresumidoRealDashboard: React.FC<LucroPresumidoRealDashboardProps> = 
                                         <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Despesas Itemizadas</h4>
                                         <button 
                                             onClick={handleAddDespesa}
-                                            className="text-[10px] flex items-center gap-1 bg-sky-50 text-sky-600 hover:bg-sky-100 px-2 py-1 rounded font-bold transition-colors"
+                                            className="text-[10px] flex items-center gap-1 bg-sky-50 text-sky-600 hover:bg-sky-100 px-2 py-1 rounded-sm font-bold transition-colors"
                                         >
                                             <PlusIcon className="w-3 h-3" /> Adicionar Despesa
                                         </button>
@@ -1191,7 +1191,7 @@ const LucroPresumidoRealDashboard: React.FC<LucroPresumidoRealDashboardProps> = 
                     </div>
                 </div>
 
-                <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm p-6">
+                <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xs p-6">
                     <div className="flex justify-between items-center mb-6">
                         <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
                             <CalculatorIcon className="w-5 h-5 text-sky-600" />
@@ -1290,7 +1290,7 @@ const LucroPresumidoRealDashboard: React.FC<LucroPresumidoRealDashboardProps> = 
                         <div>
                             <p className="text-[10px] text-slate-400 uppercase font-bold mb-1">Empresa / Contribuinte</p>
                             <h2 className="text-xl font-black text-slate-800">{selectedEmpresa.nome}</h2>
-                            <span className="inline-block bg-sky-100 text-sky-800 text-xs font-mono font-bold px-2 py-1 rounded mt-1">{selectedEmpresa.cnpj}</span>
+                            <span className="inline-block bg-sky-100 text-sky-800 text-xs font-mono font-bold px-2 py-1 rounded-sm mt-1">{selectedEmpresa.cnpj}</span>
                         </div>
                         <div className="bg-sky-600 text-white px-6 py-4 rounded-xl text-center shadow-lg transform -rotate-1">
                             <p className="text-[10px] font-bold opacity-80 uppercase">Carga Tributária Efetiva</p>
@@ -1308,7 +1308,7 @@ const LucroPresumidoRealDashboard: React.FC<LucroPresumidoRealDashboardProps> = 
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         {/* Receitas */}
-                        <div className="bg-white border-2 border-slate-100 rounded-[2rem] p-8 shadow-sm">
+                        <div className="bg-white border-2 border-slate-100 rounded-4xl p-8 shadow-xs">
                             <h4 className="text-xs font-black text-slate-400 uppercase mb-6 border-b pb-2">Receitas Operacionais Brutas</h4>
                             <div className="space-y-2">
                                 {selectedFicha.faturamentoMesComercio > 0 && <div className="flex justify-between text-sm font-bold text-slate-600"><span>Comércio (Matriz+Filial):</span><span>{selectedFicha.faturamentoMesComercio.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}</span></div>}
@@ -1369,7 +1369,7 @@ const LucroPresumidoRealDashboard: React.FC<LucroPresumidoRealDashboardProps> = 
                         </div>
 
                         {/* Custos, Gastos e IMPOSTOS */}
-                        <div className="bg-white border-2 border-slate-100 rounded-[2rem] p-8 shadow-sm">
+                        <div className="bg-white border-2 border-slate-100 rounded-4xl p-8 shadow-xs">
                             <h4 className="text-xs font-black text-slate-400 uppercase mb-6 border-b pb-2">Custos, Gastos e Impostos</h4>
                             <div className="space-y-4">
                                 <div className="flex justify-between text-sm font-bold text-slate-600"><span>Custo de Mercadoria (CMV):</span><span>{financeiro.cmv.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}</span></div>
@@ -1425,7 +1425,7 @@ const LucroPresumidoRealDashboard: React.FC<LucroPresumidoRealDashboardProps> = 
 
                         {/* SEÇÃO EXTRA: DADOS TRIMESTRAIS ACUMULADOS (Se houver) */}
                         {selectedFicha.dadosTrimestrais && selectedFicha.periodoApuracao === 'Trimestral' && (
-                            <div className="bg-sky-50/50 border-2 border-sky-100 rounded-[2rem] p-8 shadow-sm col-span-1 lg:col-span-2">
+                            <div className="bg-sky-50/50 border-2 border-sky-100 rounded-4xl p-8 shadow-xs col-span-1 lg:col-span-2">
                                 <h4 className="text-xs font-black text-sky-600 uppercase mb-4 border-b border-sky-100 pb-2 flex items-center gap-2">
                                     <InfoIcon className="w-4 h-4" /> Memória de Cálculo - Acumulado Trimestral (Meses Anteriores)
                                 </h4>

@@ -35,7 +35,7 @@ const ParticularidadesEmpresa: React.FC<{ cnpj: string }> = ({ cnpj }) => {
                 <span aria-hidden>ⓘ</span><span className="hidden sm:inline">Particularidades</span>
             </button>
             {aberto && (
-                <div role="dialog" aria-label="Particularidades da empresa" className="absolute right-0 top-full z-50 mt-2 w-[22rem] max-w-[calc(100vw-2rem)] rounded-xl bg-white p-4 text-xs text-slate-800 shadow-2xl ring-1 ring-slate-900/10 dark:bg-slate-800 dark:text-slate-100 dark:ring-white/10">
+                <div role="dialog" aria-label="Particularidades da empresa" className="absolute right-0 top-full z-50 mt-2 w-88 max-w-[calc(100vw-2rem)] rounded-xl bg-white p-4 text-xs text-slate-800 shadow-2xl ring-1 ring-slate-900/10 dark:bg-slate-800 dark:text-slate-100 dark:ring-white/10">
                     <p className="mb-2 text-sm font-semibold">{crm.nome}</p>
                     <dl>
                         <Linha rotulo="Responsável" valor={crm.colaborador?.nome} />

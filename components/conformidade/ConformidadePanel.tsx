@@ -67,30 +67,30 @@ const ConformidadePanel: React.FC<{ empresa: Empresa; usuario: Usuario; competen
         <div className="space-y-3 text-sm">
             <p className="text-slate-600 dark:text-slate-300">A folha conferida com o salário mínimo federal e estadual ({empresa.uf || 'UF não informada'}) e com a convenção coletiva dos sindicatos da empresa: vigência, data-base, pisos, reajuste, horas extras e as obrigações da convenção.</p>
             <div className="flex flex-wrap items-center gap-3">
-                <label className="dark:text-white">Competência <input type="month" aria-label="Competência da conformidade" className="ml-1 rounded border border-slate-300 px-2 py-1.5 dark:border-slate-600 dark:bg-slate-900" value={competencia} onChange={e => setCompetencia(e.target.value)} /></label>
+                <label className="dark:text-white">Competência <input type="month" aria-label="Competência da conformidade" className="ml-1 rounded-sm border border-slate-300 px-2 py-1.5 dark:border-slate-600 dark:bg-slate-900" value={competencia} onChange={e => setCompetencia(e.target.value)} /></label>
                 {r && <span className={`rounded-full px-2.5 py-1 text-xs ${erros ? COR.erro : 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200'}`}>{erros} erro(s)</span>}
                 {r && <span className={`rounded-full px-2.5 py-1 text-xs ${avisos ? COR.aviso : 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200'}`}>{avisos} aviso(s)</span>}
             </div>
-            {erro && <p role="alert" className="rounded bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+            {erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
             {!dados && !erro && <p className="text-slate-500">Carregando…</p>}
             {r && r.gerais.length > 0 && (
                 <section aria-label="Empresa" className="space-y-1">
                     <p className="font-medium dark:text-white">Empresa</p>
-                    {r.gerais.map((a, i) => <p key={i} className={`rounded p-2 ${COR[a.nivel]}`}>{a.mensagem}</p>)}
+                    {r.gerais.map((a, i) => <p key={i} className={`rounded-sm p-2 ${COR[a.nivel]}`}>{a.mensagem}</p>)}
                 </section>
             )}
             {r && (
                 <section aria-label="Funcionários" className="space-y-1">
                     <p className="font-medium dark:text-white">Funcionários</p>
-                    {!r.alertas.length ? <p className="rounded bg-green-50 p-2 text-green-800 dark:bg-green-900/30 dark:text-green-200">Nenhum funcionário fora do mínimo ou da convenção em {competencia.split('-').reverse().join('/')}.</p>
-                        : <ul className="space-y-1">{r.alertas.map((a, i) => <li key={i} className={`rounded p-2 ${COR[a.nivel]}`}><strong>{a.nome}:</strong> {a.mensagem}</li>)}</ul>}
+                    {!r.alertas.length ? <p className="rounded-sm bg-green-50 p-2 text-green-800 dark:bg-green-900/30 dark:text-green-200">Nenhum funcionário fora do mínimo ou da convenção em {competencia.split('-').reverse().join('/')}.</p>
+                        : <ul className="space-y-1">{r.alertas.map((a, i) => <li key={i} className={`rounded-sm p-2 ${COR[a.nivel]}`}><strong>{a.nome}:</strong> {a.mensagem}</li>)}</ul>}
                 </section>
             )}
             {r && r.vigentes.length > 0 && (
                 <section aria-label="Obrigações da convenção" className="space-y-2">
                     <p className="font-medium dark:text-white">Obrigações da convenção</p>
                     {r.vigentes.map(({ cnpj, nome, c }) => (
-                        <div key={cnpj} className="rounded border border-slate-200 p-2 dark:border-slate-700">
+                        <div key={cnpj} className="rounded-sm border border-slate-200 p-2 dark:border-slate-700">
                             <p className="text-xs text-slate-500">{nome} · {c!.tipo} até {c!.vigenciaFim.split('-').reverse().join('/')}</p>
                             <ul className="mt-1 space-y-1">{c!.obrigacoes.map(o => {
                                 const m = dados!.checklists[c!.id]?.[o.id];
@@ -98,7 +98,7 @@ const ConformidadePanel: React.FC<{ empresa: Empresa; usuario: Usuario; competen
                                 return (
                                     <li key={o.id} className="flex flex-wrap items-center gap-2 dark:text-slate-100">
                                         <label className="flex items-center gap-2"><input type="checkbox" checked={!!m?.cumprido} onChange={e => marcar(c!, o.id, e.target.checked)} aria-label={`Cumprida: ${o.descricao}`} />{o.descricao}</label>
-                                        <input className="min-w-40 flex-1 rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900" placeholder="como é cumprida (fornecedor, apólice…)" aria-label={`Observação: ${o.descricao}`}
+                                        <input className="min-w-40 flex-1 rounded-sm border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900" placeholder="como é cumprida (fornecedor, apólice…)" aria-label={`Observação: ${o.descricao}`}
                                             value={obs[k] ?? m?.obs ?? ''} onChange={e => setObs(x => ({ ...x, [k]: e.target.value }))} onBlur={() => obs[k] !== undefined && m && marcar(c!, o.id, m.cumprido)} />
                                         {m && <span className="text-xs text-slate-500">{m.cumprido ? 'cumprida' : 'pendente'} · {m.porEmail}</span>}
                                     </li>

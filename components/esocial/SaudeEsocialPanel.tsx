@@ -65,7 +65,7 @@ const SaudeEsocialPanel: React.FC<Props> = ({ usuario }) => {
 
     const alertas = useMemo(() => alertasDaFila(envios ?? [], agora), [envios, agora]);
     const resumo = useMemo(() => resumoDaFila(envios ?? [], agora), [envios, agora]);
-    if (!ativa) return <p className="rounded border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">Ative uma empresa para ver a saúde do eSocial.</p>;
+    if (!ativa) return <p className="rounded-sm border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">Ative uma empresa para ver a saúde do eSocial.</p>;
 
     const agir = async (rotulo: string, f: () => Promise<string>) => {
         setOcupado(rotulo); setErro(''); setMsg('');
@@ -117,7 +117,7 @@ const SaudeEsocialPanel: React.FC<Props> = ({ usuario }) => {
 
     return (
         <div className="space-y-4">
-            <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs dark:border-slate-700 dark:bg-slate-800">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                         <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Saúde do eSocial · {ativa.nome}</h2>
@@ -132,7 +132,7 @@ const SaudeEsocialPanel: React.FC<Props> = ({ usuario }) => {
                         <button key={c.etapa} onClick={() => setFiltro(f => (f === c.etapa ? 'todos' : c.etapa))} aria-pressed={filtro === c.etapa}
                             className={`rounded-lg border p-3 text-left transition-colors ${filtro === c.etapa ? 'border-teal-500 ring-2 ring-teal-500/30' : 'border-slate-200 dark:border-slate-700'} bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800`}>
                             <span className="block text-2xl font-bold text-slate-900 dark:text-white">{resumo.porEtapa[c.etapa]}</span>
-                            <span className={`mt-1 inline-block rounded px-1.5 py-0.5 text-[11px] font-medium ${COR[c.etapa]}`}>{ROTULO_ETAPA[c.etapa]}</span>
+                            <span className={`mt-1 inline-block rounded-sm px-1.5 py-0.5 text-[11px] font-medium ${COR[c.etapa]}`}>{ROTULO_ETAPA[c.etapa]}</span>
                             <span className="mt-1 block text-[11px] text-slate-500">{c.dica}</span>
                         </button>
                     ))}
@@ -167,14 +167,14 @@ const SaudeEsocialPanel: React.FC<Props> = ({ usuario }) => {
                     {filtro !== 'todos' && <button className="text-sm text-blue-700 underline dark:text-blue-300" onClick={() => setFiltro('todos')}>Ver todos</button>}
                 </div>
                 {!envios && <p className="text-sm text-slate-500">Carregando…</p>}
-                {envios?.length === 0 && <p className="rounded border border-dashed border-slate-300 p-4 text-center text-sm text-slate-500 dark:border-slate-600">Nenhum lote transmitido pelo Consultor nesta empresa.</p>}
+                {envios?.length === 0 && <p className="rounded-sm border border-dashed border-slate-300 p-4 text-center text-sm text-slate-500 dark:border-slate-600">Nenhum lote transmitido pelo Consultor nesta empresa.</p>}
                 {lista.map(e => {
                     const etapa = etapaDoEnvio(e, agora);
                     const prox = proximaConsulta(e);
                     return (
                         <div key={e.id} className="rounded-lg border border-slate-200 bg-white p-3 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
                             <div className="flex flex-wrap items-center gap-2">
-                                <span className={`rounded px-2 py-0.5 text-xs font-medium ${COR[etapa]}`}>{ROTULO_ETAPA[etapa]}</span>
+                                <span className={`rounded-sm px-2 py-0.5 text-xs font-medium ${COR[etapa]}`}>{ROTULO_ETAPA[etapa]}</span>
                                 <strong>{tipos(e)}</strong>
                                 <span className="text-xs text-slate-500">{e.eventos.length} evento(s) · {ROTULO_AMBIENTE[e.tpAmb]} · {br(e.enviadoEm)} · {e.enviadoPorEmail}</span>
                                 <button className={`${btn} ml-auto`} onClick={() => setAberto(aberto === e.id ? '' : e.id)}>{aberto === e.id ? 'Fechar' : 'Detalhes'}</button>
@@ -194,7 +194,7 @@ const SaudeEsocialPanel: React.FC<Props> = ({ usuario }) => {
                                         </li>
                                     ))}
                                     {e.eventos.map(x => (
-                                        <li key={x.id} className="rounded bg-slate-50 p-2 dark:bg-slate-900/40">
+                                        <li key={x.id} className="rounded-sm bg-slate-50 p-2 dark:bg-slate-900/40">
                                             <strong>{x.tipo}</strong> {x.perApur && `· ${x.perApur}`} · <span className="font-mono">{x.id}</span>
                                             {x.nrRecibo && aceito({ cdResposta: x.cdResposta ?? null, nrRecibo: x.nrRecibo }) && <span className="block text-green-700 dark:text-green-300">Recibo {x.nrRecibo}</span>}
                                             {x.cdResposta != null && !x.nrRecibo && <span className="block text-red-700 dark:text-red-300">{x.cdResposta} {x.descResposta}</span>}

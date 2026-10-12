@@ -1,3 +1,92 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+  Visual da casa no estilo dos sistemas da Apple (12/10/2026):
+  - fonte do sistema primeiro (no Mac, iPhone e iPad é a San Francisco, que já está no aparelho; nada é distribuído
+    pelo app), com a Inter de reserva nos outros sistemas;
+  - cinzas neutros e um só azul de destaque, nos tons da Apple; o azul 600 (#0071e3) mantém o contraste AA com texto
+    branco e o 500/400 é o do tema escuro;
+  - cantos mais arredondados.
+  As classes das telas não mudam: o tema redefine as cores slate, blue e indigo e a escala de cantos.
+*/
+@theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Inter Variable', Inter, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+
+  --color-slate-50: #fbfbfd;
+  --color-slate-100: #f5f5f7;
+  --color-slate-200: #e8e8ed;
+  --color-slate-300: #d2d2d7;
+  --color-slate-400: #a1a1a6;
+  --color-slate-500: #6e6e73;
+  --color-slate-600: #515154;
+  --color-slate-700: #3a3a3c;
+  --color-slate-800: #2c2c2e;
+  --color-slate-900: #1c1c1e;
+  --color-slate-950: #000000;
+
+  --color-blue-50: #f0f7ff;
+  --color-blue-100: #e0efff;
+  --color-blue-200: #b8dcff;
+  --color-blue-300: #84c1ff;
+  --color-blue-400: #47a1ff;
+  --color-blue-500: #0a84ff;
+  --color-blue-600: #0071e3;
+  --color-blue-700: #0066cc;
+  --color-blue-800: #00509f;
+  --color-blue-900: #003e7a;
+  --color-blue-950: #00264d;
+
+  /* Um só destaque: o índigo das telas antigas passa a ser o mesmo azul. */
+  --color-indigo-50: #f0f7ff;
+  --color-indigo-100: #e0efff;
+  --color-indigo-200: #b8dcff;
+  --color-indigo-300: #84c1ff;
+  --color-indigo-400: #47a1ff;
+  --color-indigo-500: #0a84ff;
+  --color-indigo-600: #0071e3;
+  --color-indigo-700: #0066cc;
+  --color-indigo-800: #00509f;
+  --color-indigo-900: #003e7a;
+  --color-indigo-950: #00264d;
+
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.625rem;
+  --radius-xl: 0.875rem;
+  --radius-2xl: 1.25rem;
+  --radius-3xl: 1.75rem;
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-slate-200, currentcolor);
+  }
+
+  /* No v4 o botão deixou de ter a mãozinha: volta, como era no v3. */
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+}

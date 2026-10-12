@@ -118,7 +118,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ result, error, onStartC
             transition={{ duration: 0.4 }}
             className="space-y-6"
         >
-            <div id={`result-content-${result.query}`} className="mt-6 p-8 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
+            <div id={`result-content-${result.query}`} className="mt-6 p-8 bg-white dark:bg-slate-800 rounded-2xl shadow-xs border border-slate-100 dark:border-slate-700">
                 {/* Header visible in PDF */}
                 <div className="mb-6 border-b border-slate-100 dark:border-slate-700 pb-6">
                      <div className="flex justify-between items-start">
@@ -156,7 +156,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ result, error, onStartC
                          <div className="p-2 bg-sky-100 dark:bg-sky-900/30 rounded-lg text-sky-600 dark:text-sky-400">
                             <CalculatorIcon className="w-5 h-5" />
                          </div>
-                         <div className="flex-grow">
+                         <div className="grow">
                              <p className="text-sm font-bold text-slate-900 dark:text-slate-200 uppercase tracking-wider">Contexto Tributário Considerado</p>
                              <div className="flex flex-wrap gap-x-6 gap-y-2 mt-2 text-sm font-bold text-slate-800 dark:text-slate-300">
                                  {result.context.aliquotaIss && <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-sky-500" /> ISS: <strong className="text-sky-700 dark:text-sky-400">{result.context.aliquotaIss}%</strong></span>}
@@ -194,7 +194,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ result, error, onStartC
                                     rel="noopener noreferrer"
                                     className="group flex items-center p-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 rounded-xl hover:border-sky-300 dark:hover:border-sky-700 transition-all"
                                 >
-                                    <div className="w-8 h-8 flex-shrink-0 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 group-hover:text-sky-500 transition-colors">
+                                    <div className="w-8 h-8 shrink-0 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 group-hover:text-sky-500 transition-colors">
                                         <ExternalLinkIcon className="w-4 h-4" />
                                     </div>
                                     <div className="ml-3 overflow-hidden">
@@ -234,7 +234,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ result, error, onStartC
             {searchType === SearchType.SERVICO && (
                 <div className="p-4 bg-sky-50 dark:bg-sky-900/10 rounded-xl border-l-4 border-sky-500">
                     <div className="flex items-start">
-                        <ExternalLinkIcon className="w-5 h-5 text-sky-600 dark:text-sky-400 mr-3 mt-0.5 flex-shrink-0" />
+                        <ExternalLinkIcon className="w-5 h-5 text-sky-600 dark:text-sky-400 mr-3 mt-0.5 shrink-0" />
                         <div>
                             <p className="text-sm font-bold text-slate-800 dark:text-slate-300 mb-1">
                                 Para mais detalhes e a lista completa, consulte a fonte oficial:

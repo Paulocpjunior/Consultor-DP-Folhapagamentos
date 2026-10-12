@@ -15,7 +15,7 @@ import { TIPOS_JORNADA } from '../../services/esocial/admissao';
 
 interface Props { empresa: Empresa; horarios: Horario[] | null; erroLista: string; usuario: Usuario; isAdmin: boolean; onRecarregar: () => void }
 
-const inp = 'w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const inp = 'w-full rounded-sm border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 
 const HorariosCadastro: React.FC<Props> = ({ empresa, horarios, erroLista, usuario, isAdmin, onRecarregar }) => {
     const [edicao, setEdicao] = useState<{ antes: Horario | null; h: Horario } | null>(null);
@@ -53,12 +53,12 @@ const HorariosCadastro: React.FC<Props> = ({ empresa, horarios, erroLista, usuar
     return (
         <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
-                <button className="rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white" onClick={() => abrir(null)}>Novo horário</button>
+                <button className="rounded-sm bg-blue-700 px-3 py-2 text-sm font-medium text-white" onClick={() => abrir(null)}>Novo horário</button>
                 <p className="text-sm text-slate-600 dark:text-slate-300">Horários desta empresa. Na ficha do funcionário (Ident. Adm.) escolha o horário; as horas semanais são conferidas com o S-2200.</p>
             </div>
-            {erroLista && <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erroLista}</p>}
+            {erroLista && <p role="alert" className="rounded-sm bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erroLista}</p>}
             {!horarios && !erroLista && <p className="text-sm text-slate-500">Carregando…</p>}
-            {horarios?.length === 0 && <p className="rounded border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-600">Nenhum horário cadastrado nesta empresa.</p>}
+            {horarios?.length === 0 && <p className="rounded-sm border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-600">Nenhum horário cadastrado nesta empresa.</p>}
             {!!horarios?.length && (
                 <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
                     <table className="w-full text-sm">
@@ -89,7 +89,7 @@ const HorariosCadastro: React.FC<Props> = ({ empresa, horarios, erroLista, usuar
                                 <p className="text-xs text-slate-500 dark:text-slate-400">Arquivos › Horários › Tabela de Horários · {empresa.nomeFantasia}</p>
                                 <h3 className="text-lg font-semibold text-slate-800 dark:text-white">{edicao.antes ? `${edicao.antes.codigo} · ${edicao.antes.descricao}` : 'Novo horário'}</h3>
                             </div>
-                            <button aria-label="Fechar" className="rounded px-2 text-xl text-slate-500" onClick={() => setEdicao(null)}>×</button>
+                            <button aria-label="Fechar" className="rounded-sm px-2 text-xl text-slate-500" onClick={() => setEdicao(null)}>×</button>
                         </div>
                         <div className="grid gap-3 sm:grid-cols-4">
                             <label className="block"><span className="text-xs font-medium text-slate-600 dark:text-slate-300">Código</span>
@@ -97,15 +97,15 @@ const HorariosCadastro: React.FC<Props> = ({ empresa, horarios, erroLista, usuar
                             <label className="block sm:col-span-3"><span className="text-xs font-medium text-slate-600 dark:text-slate-300">Descrição</span>
                                 <input className={inp} value={edicao.h.descricao} onChange={e => setEdicao({ ...edicao, h: { ...edicao.h, descricao: e.target.value } })} aria-label="Descrição do horário" /></label>
                         </div>
-                        <div className="flex flex-wrap items-center gap-3 rounded border border-slate-200 p-2 text-sm dark:border-slate-700 dark:text-slate-100">
+                        <div className="flex flex-wrap items-center gap-3 rounded-sm border border-slate-200 p-2 text-sm dark:border-slate-700 dark:text-slate-100">
                             <label className="flex items-center gap-2"><input type="checkbox" aria-label="Horário em escala" checked={!!edicao.h.escala} onChange={e => setEdicao({ ...edicao, h: { ...edicao.h, escala: e.target.checked ? escalaPronta('12x36', hoje) : null } })} />Escala em ciclo (12x36, 24x48, revezamento, folga variável)</label>
                             {edicao.h.escala && (
                                 <>
                                     <label>Tipo<select aria-label="Tipo de escala" className={`ml-1 ${inp} w-auto`} value={edicao.h.escala.tipo} onChange={e => { const t = e.target.value as TipoEscala; setEscala(x => escalaPronta(t, x.referencia)); }}>
                                         {(Object.keys(ROTULO_ESCALA) as TipoEscala[]).map(t => <option key={t} value={t}>{ROTULO_ESCALA[t]}</option>)}</select></label>
                                     <label>1º dia do ciclo<input aria-label="Referência da escala" type="date" className={`ml-1 ${inp} w-auto`} value={edicao.h.escala.referencia} onChange={e => { const v = e.target.value; setEscala(x => ({ ...x, referencia: v })); }} /></label>
-                                    <button type="button" className="rounded border border-slate-300 px-2 py-1 dark:border-slate-600" disabled={edicao.h.escala.ciclo.length >= 42} onClick={() => setEscala(x => ({ ...x, ciclo: [...x.ciclo, { tipo: 'folga', entrada: '', saidaIntervalo: '', retornoIntervalo: '', saida: '' }] }))}>+ dia no ciclo</button>
-                                    <button type="button" className="rounded border border-slate-300 px-2 py-1 dark:border-slate-600" disabled={edicao.h.escala.ciclo.length <= 2} onClick={() => setEscala(x => ({ ...x, ciclo: x.ciclo.slice(0, -1) }))}>− último dia</button>
+                                    <button type="button" className="rounded-sm border border-slate-300 px-2 py-1 dark:border-slate-600" disabled={edicao.h.escala.ciclo.length >= 42} onClick={() => setEscala(x => ({ ...x, ciclo: [...x.ciclo, { tipo: 'folga', entrada: '', saidaIntervalo: '', retornoIntervalo: '', saida: '' }] }))}>+ dia no ciclo</button>
+                                    <button type="button" className="rounded-sm border border-slate-300 px-2 py-1 dark:border-slate-600" disabled={edicao.h.escala.ciclo.length <= 2} onClick={() => setEscala(x => ({ ...x, ciclo: x.ciclo.slice(0, -1) }))}>− último dia</button>
                                 </>
                             )}
                         </div>
@@ -150,7 +150,7 @@ const HorariosCadastro: React.FC<Props> = ({ empresa, horarios, erroLista, usuar
                                 </tbody>
                             </table>
                         </div>}
-                        <div className="grid gap-2 rounded bg-slate-50 p-3 text-sm sm:grid-cols-3 dark:bg-slate-900 dark:text-slate-100">
+                        <div className="grid gap-2 rounded-sm bg-slate-50 p-3 text-sm sm:grid-cols-3 dark:bg-slate-900 dark:text-slate-100">
                             <p>{edicao.h.escala ? 'Média semanal' : 'Total semanal'}: <strong className="font-mono">{hhmm(r.semanal)}</strong></p>
                             <p>Noturnas (22h–5h): <strong className="font-mono">{hhmm(r.noturno)}</strong>{r.noturno > 0 && <span className="text-xs text-slate-500"> = {hhmm(noturnoReduzido(r.noturno))} em hora reduzida</span>}</p>
                             <p>Dias de trabalho: <strong>{r.diasTrabalho}</strong></p>
@@ -158,13 +158,13 @@ const HorariosCadastro: React.FC<Props> = ({ empresa, horarios, erroLista, usuar
                         </div>
                         <label className="block"><span className="text-xs font-medium text-slate-600 dark:text-slate-300">Observações (acordo de compensação, escala, norma coletiva)</span>
                             <textarea className={inp} rows={2} value={edicao.h.observacoes} onChange={e => setEdicao({ ...edicao, h: { ...edicao.h, observacoes: e.target.value } })} aria-label="Observações do horário" /></label>
-                        {v.avisos.length > 0 && <ul className="list-disc rounded bg-amber-50 p-2 pl-6 text-xs text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">{v.avisos.map(a => <li key={a}>{a}</li>)}</ul>}
-                        {erros.length > 0 && <ul role="alert" className="list-disc rounded bg-red-50 p-2 pl-6 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erros.map(e => <li key={e}>{e}</li>)}</ul>}
+                        {v.avisos.length > 0 && <ul className="list-disc rounded-sm bg-amber-50 p-2 pl-6 text-xs text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">{v.avisos.map(a => <li key={a}>{a}</li>)}</ul>}
+                        {erros.length > 0 && <ul role="alert" className="list-disc rounded-sm bg-red-50 p-2 pl-6 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erros.map(e => <li key={e}>{e}</li>)}</ul>}
                         <div className="flex justify-between gap-2">
-                            <div>{edicao.antes && isAdmin && <button className="rounded border border-red-300 px-3 py-2 text-sm text-red-700 dark:text-red-300" disabled={salvando} onClick={excluir}>Excluir</button>}</div>
+                            <div>{edicao.antes && isAdmin && <button className="rounded-sm border border-red-300 px-3 py-2 text-sm text-red-700 dark:text-red-300" disabled={salvando} onClick={excluir}>Excluir</button>}</div>
                             <div className="flex gap-2">
-                                <button className="rounded border border-slate-300 px-4 py-2 text-sm dark:border-slate-600 dark:text-white" onClick={() => setEdicao(null)}>Cancelar</button>
-                                <button className="rounded bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={salvando} onClick={salvar}>{salvando ? 'Gravando…' : 'Gravar'}</button>
+                                <button className="rounded-sm border border-slate-300 px-4 py-2 text-sm dark:border-slate-600 dark:text-white" onClick={() => setEdicao(null)}>Cancelar</button>
+                                <button className="rounded-sm bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={salvando} onClick={salvar}>{salvando ? 'Gravando…' : 'Gravar'}</button>
                             </div>
                         </div>
                     </div>

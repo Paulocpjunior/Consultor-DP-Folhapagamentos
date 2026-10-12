@@ -78,7 +78,7 @@ const IobSagePanel: React.FC<Props> = ({ onNavegar, usuario, ehGestor = false, e
                         Cada item dos menus da folha IOB/SAGE, com a situação real no Consultor DP. Fonte: ajuda online da IOB (títulos e resumos de busca) e prints do IOB Office.
                     </p>
                 </div>
-                <button className="rounded bg-blue-700 px-4 py-2 text-sm font-medium text-white" onClick={() => setRestaurar(true)}>Restaurar backup do IOB SAGE</button>
+                <button className="rounded-sm bg-blue-700 px-4 py-2 text-sm font-medium text-white" onClick={() => setRestaurar(true)}>Restaurar backup do IOB SAGE</button>
             </header>
 
             {/* O registro de guarda é só de admin e gestor (as regras não deixam o colaborador ler). */}
@@ -109,7 +109,7 @@ const IobSagePanel: React.FC<Props> = ({ onNavegar, usuario, ehGestor = false, e
                     <button key={i.id} onClick={() => setItem(i)} className="rounded-lg border border-slate-200 bg-white p-4 text-left hover:border-blue-400 dark:border-slate-700 dark:bg-slate-800">
                         <div className="flex items-start justify-between gap-2">
                             <p className="text-xs text-slate-500 dark:text-slate-400">{i.caminho.join(' › ')}</p>
-                            <span className={`shrink-0 rounded px-2 py-0.5 text-xs ${COR[i.situacao]}`}>{ROTULO_SITUACAO[i.situacao]}</span>
+                            <span className={`shrink-0 rounded-sm px-2 py-0.5 text-xs ${COR[i.situacao]}`}>{ROTULO_SITUACAO[i.situacao]}</span>
                         </div>
                         <p className="mt-1 text-sm font-medium text-slate-800 dark:text-white">{i.caminho[i.caminho.length - 1]}</p>
                         <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{i.noConsultor}</p>
@@ -126,17 +126,17 @@ const IobSagePanel: React.FC<Props> = ({ onNavegar, usuario, ehGestor = false, e
                                 <p className="text-xs text-slate-500 dark:text-slate-400">{item.caminho.join(' › ')} · IOB {item.produto}</p>
                                 <h3 className="mt-1 text-lg font-semibold text-slate-800 dark:text-white">{item.caminho[item.caminho.length - 1]}</h3>
                             </div>
-                            <button aria-label="Fechar" className="rounded px-2 text-xl text-slate-500 hover:text-slate-800 dark:hover:text-white" onClick={() => setItem(null)}>×</button>
+                            <button aria-label="Fechar" className="rounded-sm px-2 text-xl text-slate-500 hover:text-slate-800 dark:hover:text-white" onClick={() => setItem(null)}>×</button>
                         </div>
                         <dl className="mt-3 space-y-3 text-sm">
                             <div><dt className="text-xs font-medium text-slate-500 dark:text-slate-400">No IOB</dt><dd className="text-slate-800 dark:text-slate-100">{item.descricao}</dd></div>
                             <div><dt className="text-xs font-medium text-slate-500 dark:text-slate-400">No Consultor DP</dt>
-                                <dd className="text-slate-800 dark:text-slate-100"><span className={`mr-2 rounded px-2 py-0.5 text-xs ${COR[item.situacao]}`}>{ROTULO_SITUACAO[item.situacao]}</span>{item.noConsultor}</dd></div>
+                                <dd className="text-slate-800 dark:text-slate-100"><span className={`mr-2 rounded-sm px-2 py-0.5 text-xs ${COR[item.situacao]}`}>{ROTULO_SITUACAO[item.situacao]}</span>{item.noConsultor}</dd></div>
                             {item.fase && <div><dt className="text-xs font-medium text-slate-500 dark:text-slate-400">Quando</dt><dd className="text-slate-800 dark:text-slate-100">{item.fase}</dd></div>}
                             <div><dt className="text-xs font-medium text-slate-500 dark:text-slate-400">Fonte</dt><dd className="text-slate-600 dark:text-slate-300">{item.fonte}</dd></div>
                         </dl>
                         {item.destino && (onNavegar || item.destino === 'iobsage:restaurar') && (
-                            <button className="mt-4 rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white" onClick={() => ir(item.destino!)}>{ROTULO_DESTINO[item.destino]}</button>
+                            <button className="mt-4 rounded-sm bg-blue-700 px-3 py-2 text-sm font-medium text-white" onClick={() => ir(item.destino!)}>{ROTULO_DESTINO[item.destino]}</button>
                         )}
                     </div>
                 </div>

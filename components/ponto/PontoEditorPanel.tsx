@@ -184,7 +184,7 @@ const PontoEditorPanel: React.FC<Props> = ({ currentUser }) => {
                     const isActive = step === s;
                     const isPast = ['upload', 'mapping', 'review', 'done'].indexOf(step) > i;
                     return (
-                        <div key={s} className={`flex-1 text-center py-2 text-xs font-medium rounded ${isActive ? 'bg-blue-600 text-white' : isPast ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
+                        <div key={s} className={`flex-1 text-center py-2 text-xs font-medium rounded-sm ${isActive ? 'bg-blue-600 text-white' : isPast ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
                             {labels[i]}
                         </div>
                     );
@@ -192,7 +192,7 @@ const PontoEditorPanel: React.FC<Props> = ({ currentUser }) => {
             </div>
 
             {erro && (
-                <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded text-red-700 dark:text-red-300 text-sm">
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-sm text-red-700 dark:text-red-300 text-sm">
                     {erro}
                     <button onClick={() => setErro('')} className="ml-2 underline text-xs">fechar</button>
                 </div>
@@ -205,7 +205,7 @@ const PontoEditorPanel: React.FC<Props> = ({ currentUser }) => {
                         <div>
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Empresa</label>
                             <select value={empresaId} onChange={e => setEmpresaId(e.target.value)}
-                                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-800 dark:text-white text-sm">
+                                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-white text-sm">
                                 <option value="">Selecione...</option>
                                 {empresas.map(e => (
                                     <option key={e.id} value={e.id}>{(e as any).razaoSocial || e.nomeFantasia} — {(e as any).cnpj}</option>
@@ -215,11 +215,11 @@ const PontoEditorPanel: React.FC<Props> = ({ currentUser }) => {
                         <div>
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Arquivo ACJEF</label>
                             <input type="file" accept=".txt,.acjef,.dat,.AFD,.afd" onChange={handleFile}
-                                className="block w-full text-sm text-slate-600 dark:text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 dark:file:bg-blue-900/40 file:text-blue-700 dark:file:text-blue-300" />
+                                className="block w-full text-sm text-slate-600 dark:text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-sm file:border-0 file:text-sm file:font-medium file:bg-blue-50 dark:file:bg-blue-900/40 file:text-blue-700 dark:file:text-blue-300" />
                         </div>
                     </div>
                     <button onClick={handleProcessar} disabled={!arquivo || !empresaId || !modelo || processando}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded font-medium text-sm">
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-sm font-medium text-sm">
                         {processando ? 'Processando...' : 'Processar Arquivo'}
                     </button>
                 </div>
@@ -243,18 +243,18 @@ const PontoEditorPanel: React.FC<Props> = ({ currentUser }) => {
                                     value={mat}
                                     onChange={e => setPisMapping(prev => ({ ...prev, [pis]: e.target.value }))}
                                     placeholder="Matrícula SAGE"
-                                    className="flex-1 px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200"
+                                    className="flex-1 px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 rounded-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200"
                                 />
                             </div>
                         ))}
                     </div>
                     <div className="flex gap-2">
                         <button onClick={handleSalvarMapping} disabled={salvando}
-                            className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded font-medium text-sm">
+                            className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-sm font-medium text-sm">
                             {salvando ? 'Salvando...' : 'Salvar e Continuar'}
                         </button>
                         <button onClick={() => setStep('review')}
-                            className="px-4 py-2 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 rounded font-medium text-sm">
+                            className="px-4 py-2 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-sm font-medium text-sm">
                             Pular
                         </button>
                     </div>
@@ -292,13 +292,13 @@ const PontoEditorPanel: React.FC<Props> = ({ currentUser }) => {
                                         <td className="p-2 font-mono">{ev.pis || '—'}</td>
                                         <td className="p-2">
                                             <input type="text" value={ev.matricula || ''} onChange={e => handleEditEvent(i, 'matricula', e.target.value)}
-                                                className="w-16 px-1 py-0.5 text-xs border border-slate-200 dark:border-slate-600 rounded bg-transparent" />
+                                                className="w-16 px-1 py-0.5 text-xs border border-slate-200 dark:border-slate-600 rounded-sm bg-transparent" />
                                         </td>
                                         <td className="p-2 font-mono">{ev.evento}</td>
                                         <td className="p-2">{ev.descricao}</td>
                                         <td className="p-2 text-right">
                                             <input type="number" step="0.01" value={ev.valor} onChange={e => handleEditEvent(i, 'valor', parseFloat(e.target.value) || 0)}
-                                                className="w-20 px-1 py-0.5 text-xs border border-slate-200 dark:border-slate-600 rounded bg-transparent text-right" />
+                                                className="w-20 px-1 py-0.5 text-xs border border-slate-200 dark:border-slate-600 rounded-sm bg-transparent text-right" />
                                         </td>
                                         <td className="p-2 text-slate-500">{ev.unidade}</td>
                                         <td className="p-2 text-center">{ev.rv}</td>
@@ -315,11 +315,11 @@ const PontoEditorPanel: React.FC<Props> = ({ currentUser }) => {
 
                     <div className="flex gap-2">
                         <button onClick={handleExportCSV}
-                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-medium text-sm">
+                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-sm font-medium text-sm">
                             Exportar CSV
                         </button>
                         <button onClick={() => setStep('upload')}
-                            className="px-4 py-2 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 rounded font-medium text-sm">
+                            className="px-4 py-2 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-sm font-medium text-sm">
                             Recomeçar
                         </button>
                     </div>
@@ -334,7 +334,7 @@ const PontoEditorPanel: React.FC<Props> = ({ currentUser }) => {
                         {editedEvents.length} eventos exportados. Importe o arquivo no IOB SAGE.
                     </p>
                     <button onClick={() => { setStep('upload'); setArquivo(null); setResultado(null); }}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium text-sm">
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-sm font-medium text-sm">
                         Processar outro arquivo
                     </button>
                 </div>

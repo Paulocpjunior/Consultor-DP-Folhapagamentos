@@ -119,18 +119,18 @@ const ConferenciaEsocialIob: React.FC<Props> = ({ empresa, fichas, motor, comFer
                 <label className="text-sm dark:text-white">Arquivos (.zip ou .xml)
                     <input aria-label="Arquivos do eSocial do IOB" className="block text-sm" type="file" accept=".zip,.xml,application/zip,text/xml" multiple disabled={!!ocupado} onChange={e => setArquivos(Array.from(e.target.files ?? []))} />
                 </label>
-                <button className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50" disabled={!arquivos.length || !!ocupado || !gravadas} onClick={ler}>Conferir</button>
-                {conf && <button className="rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:text-white" onClick={exportar}>Exportar Excel</button>}
+                <button className="rounded-sm bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50" disabled={!arquivos.length || !!ocupado || !gravadas} onClick={ler}>Conferir</button>
+                {conf && <button className="rounded-sm border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:text-white" onClick={exportar}>Exportar Excel</button>}
             </div>
             {ocupado && <p role="status" className="text-sm text-blue-700 dark:text-blue-300">{ocupado}</p>}
-            {erro && <p role="alert" className="rounded bg-red-50 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+            {erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
             {conf && (
                 <>
-                    <p role="note" className={`rounded p-2 text-sm ${conf.r.criterioAtingido ? 'bg-green-50 text-green-900 dark:bg-green-900/30 dark:text-green-100' : 'bg-amber-50 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100'}`}>
+                    <p role="note" className={`rounded-sm p-2 text-sm ${conf.r.criterioAtingido ? 'bg-green-50 text-green-900 dark:bg-green-900/30 dark:text-green-100' : 'bg-amber-50 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100'}`}>
                         <strong>Critério da Fase 3 (3 competências seguidas sem diferença): {conf.r.criterioAtingido ? 'atingido' : 'ainda não'}.</strong>{' '}
                         {conf.r.sequencia.meses ? `Maior sequência sem diferença: ${conf.r.sequencia.meses} mês(es), de ${comp(conf.r.sequencia.inicio)} a ${comp(conf.r.sequencia.fim)}.` : 'Nenhuma competência sem diferença ainda.'}
                     </p>
-                    <div className="overflow-x-auto rounded border border-slate-200 dark:border-slate-700">
+                    <div className="overflow-x-auto rounded-sm border border-slate-200 dark:border-slate-700">
                         <table className="w-full text-sm dark:text-slate-100">
                             <thead className="bg-slate-50 text-left text-xs text-slate-500 dark:bg-slate-900"><tr><th className="p-2">Competência</th><th className="p-2 text-right">Conferem</th><th className="p-2 text-right">Divergem</th><th className="p-2 text-right">Pendentes</th><th className="p-2">Sem diferença</th></tr></thead>
                             <tbody>{conf.r.competencias.map(c => (
@@ -142,7 +142,7 @@ const ConferenciaEsocialIob: React.FC<Props> = ({ empresa, fichas, motor, comFer
                         </table>
                     </div>
                     {atual && (
-                        <div className="overflow-x-auto rounded border border-slate-200 dark:border-slate-700">
+                        <div className="overflow-x-auto rounded-sm border border-slate-200 dark:border-slate-700">
                             <table className="w-full text-sm dark:text-slate-100">
                                 <caption className="p-2 text-left text-xs font-semibold text-slate-600 dark:text-slate-300">Funcionários em {comp(atual.competencia)} (clique para ver o detalhe)</caption>
                                 <thead className="bg-slate-50 text-left text-xs text-slate-500 dark:bg-slate-900"><tr><th className="p-2">Funcionário</th><th className="p-2">Situação</th><th className="p-2">Diferenças</th></tr></thead>
@@ -152,7 +152,7 @@ const ConferenciaEsocialIob: React.FC<Props> = ({ empresa, fichas, motor, comFer
                                         <React.Fragment key={k}>
                                             <tr className="cursor-pointer border-t border-slate-100 align-top hover:bg-blue-50 dark:border-slate-700 dark:hover:bg-slate-700" onClick={() => setAberto(a => (a === k ? null : k))}>
                                                 <td className="p-2 font-medium">{l.nome}</td>
-                                                <td className="whitespace-nowrap p-2 text-xs"><span className={`rounded px-1.5 ${COR[l.situacao]}`}>{ROTULO_SITUACAO[l.situacao]}</span></td>
+                                                <td className="whitespace-nowrap p-2 text-xs"><span className={`rounded-sm px-1.5 ${COR[l.situacao]}`}>{ROTULO_SITUACAO[l.situacao]}</span></td>
                                                 <td className="p-2 text-xs">{l.itens.filter(i => !i.ok).map(i => `${i.item} ${dif(i.diferenca)}`).join('; ')}</td>
                                             </tr>
                                             {aberto === k && (

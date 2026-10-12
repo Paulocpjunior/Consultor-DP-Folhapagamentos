@@ -44,7 +44,7 @@ const CurrencyInput: React.FC<{ value: number; onChange: (val: number) => void; 
                     value={value === 0 && placeholder ? '' : formatted}
                     placeholder={placeholder}
                     onChange={handleChange} 
-                    className="w-full pl-8 pr-3 py-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none text-slate-900 font-bold dark:text-white dark:font-mono text-right text-sm"
+                    className="w-full pl-8 pr-3 py-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-sky-500 outline-hidden text-slate-900 font-bold dark:text-white dark:font-mono text-right text-sm"
                 />
             </div>
         </div>
@@ -356,7 +356,7 @@ if (filialServico > 0) {
                 <div className="lg:col-span-2 space-y-6 order-1 lg:order-2">
                     
                     {/* Month Selection & Summary */}
-                    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-xs border border-slate-200 dark:border-slate-700">
                         <div className="flex flex-col sm:flex-row justify-between items-center gap-6 mb-6">
                             <div className="w-full sm:w-auto">
                                 <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Competência (Mês/Ano)</label>
@@ -413,7 +413,7 @@ if (filialServico > 0) {
                                         {isExtra && (
                                             <button 
                                                 onClick={() => handleRemoveRevenueItem(key)}
-                                                className="absolute top-2 right-2 p-1.5 text-slate-400 hover:text-red-500 bg-white dark:bg-slate-800 rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                                                className="absolute top-2 right-2 p-1.5 text-slate-400 hover:text-red-500 bg-white dark:bg-slate-800 rounded-full shadow-xs opacity-0 group-hover:opacity-100 transition-opacity"
                                                 title="Remover este item"
                                             >
                                                 <TrashIcon className="w-4 h-4" />
@@ -422,13 +422,13 @@ if (filialServico > 0) {
 
                                         <div className="flex flex-col md:flex-row justify-between gap-4 mb-3">
                                             <div className="flex items-center gap-3">
-                                                <div className="p-2 bg-white dark:bg-slate-800 rounded text-sky-600 dark:text-sky-400 border border-slate-100 dark:border-slate-600">
+                                                <div className="p-2 bg-white dark:bg-slate-800 rounded-sm text-sky-600 dark:text-sky-400 border border-slate-100 dark:border-slate-600">
                                                     <DocumentTextIcon className="w-5 h-5" />
                                                 </div>
                                                 <div>
                                                     <div className="flex items-center gap-2">
                                                         <span className="font-bold text-slate-800 dark:text-slate-200">{cnaeCode}</span>
-                                                        <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${isExtra ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300'}`}>
+                                                        <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-sm ${isExtra ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300'}`}>
                                                             {label}
                                                         </span>
                                                     </div>
@@ -445,13 +445,13 @@ if (filialServico > 0) {
                                         </div>
 
                                         <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-slate-200 dark:border-slate-600">
-                                            <label className={`cursor-pointer px-3 py-1 rounded text-xs font-bold border transition-colors flex items-center gap-2 select-none ${state.isExterior ? 'bg-indigo-100 text-indigo-700 border-indigo-200' : 'bg-white dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-600'}`}>
+                                            <label className={`cursor-pointer px-3 py-1 rounded-sm text-xs font-bold border transition-colors flex items-center gap-2 select-none ${state.isExterior ? 'bg-indigo-100 text-indigo-700 border-indigo-200' : 'bg-white dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-600'}`}>
                                                 <input type="checkbox" checked={state.isExterior} onChange={() => handleOptionToggle(key, 'isExterior')} className="hidden" />
                                                 <GlobeIcon className="w-3 h-3" /> Serviço no Exterior
                                             </label>
                                             
                                             {['III', 'IV', 'V', 'III_V'].includes(anexoCode) && (
-                                                <label className={`cursor-pointer px-3 py-1 rounded text-xs font-bold border transition-colors flex items-center gap-2 select-none ${state.issRetido ? 'bg-teal-100 text-teal-700 border-teal-200' : 'bg-white dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-600'}`}>
+                                                <label className={`cursor-pointer px-3 py-1 rounded-sm text-xs font-bold border transition-colors flex items-center gap-2 select-none ${state.issRetido ? 'bg-teal-100 text-teal-700 border-teal-200' : 'bg-white dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-600'}`}>
                                                     <input type="checkbox" checked={state.issRetido} onChange={() => handleOptionToggle(key, 'issRetido')} className="hidden" />
                                                     ISS Retido
                                                 </label>
@@ -459,18 +459,18 @@ if (filialServico > 0) {
 
                                             {['I', 'II'].includes(anexoCode) && (
                                                 <>
-                                                    <label className={`cursor-pointer px-3 py-1 rounded text-xs font-bold border transition-colors flex items-center gap-2 select-none ${state.icmsSt ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-white dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-600'}`}>
+                                                    <label className={`cursor-pointer px-3 py-1 rounded-sm text-xs font-bold border transition-colors flex items-center gap-2 select-none ${state.icmsSt ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-white dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-600'}`}>
                                                         <input type="checkbox" checked={state.icmsSt} onChange={() => handleOptionToggle(key, 'icmsSt')} className="hidden" />
                                                         ICMS ST
                                                     </label>
-                                                    <label className={`cursor-pointer px-3 py-1 rounded text-xs font-bold border transition-colors flex items-center gap-2 select-none ${state.isMonofasico ? 'bg-green-100 text-green-700 border-green-200' : 'bg-white dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-600'}`}>
+                                                    <label className={`cursor-pointer px-3 py-1 rounded-sm text-xs font-bold border transition-colors flex items-center gap-2 select-none ${state.isMonofasico ? 'bg-green-100 text-green-700 border-green-200' : 'bg-white dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-600'}`}>
                                                         <input type="checkbox" checked={state.isMonofasico} onChange={() => handleOptionToggle(key, 'isMonofasico')} className="hidden" />
                                                         <TagIcon className="w-3 h-3" /> PIS/COFINS Monofásico
                                                     </label>
                                                 </>
                                             )}
                                             
-                                            <label className={`cursor-pointer px-3 py-1 rounded text-xs font-bold border transition-colors flex items-center gap-2 select-none ${state.isImune ? 'bg-purple-100 text-purple-700 border-purple-200' : 'bg-white dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-600'}`}>
+                                            <label className={`cursor-pointer px-3 py-1 rounded-sm text-xs font-bold border transition-colors flex items-center gap-2 select-none ${state.isImune ? 'bg-purple-100 text-purple-700 border-purple-200' : 'bg-white dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-600'}`}>
                                                 <input type="checkbox" checked={state.isImune} onChange={() => handleOptionToggle(key, 'isImune')} className="hidden" />
                                                 Imunidade
                                             </label>
@@ -546,7 +546,7 @@ if (filialServico > 0) {
                     </div>
 
                     {/* Alíquota Efetiva Info */}
-                    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-xs border border-slate-200 dark:border-slate-700">
                         <div className="flex items-center gap-3 mb-4">
                             <div className="p-2 bg-sky-100 dark:bg-sky-900/30 rounded-lg text-sky-600 dark:text-sky-400">
                                 <CalculatorIcon className="w-6 h-6" />
@@ -572,7 +572,7 @@ if (filialServico > 0) {
                 {/* Left Column (Sidebar): History & Setup */}
                 <div className="lg:col-span-1 space-y-6 order-2 lg:order-1">
                     {/* RBT12 Card */}
-                    <div className="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                    <div className="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-xs border border-slate-200 dark:border-slate-700">
                         <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
                             <HistoryIcon className="w-4 h-4 text-sky-600" /> RBT12 (Histórico 12m)
                         </h3>
@@ -597,7 +597,7 @@ if (filialServico > 0) {
                     </div>
 
                     {/* Folha Card */}
-                    <div className="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                    <div className="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-xs border border-slate-200 dark:border-slate-700">
                         <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
                             <UserIcon className="w-4 h-4 text-sky-600" /> Folha de Salários (12m)
                         </h3>
@@ -622,7 +622,7 @@ if (filialServico > 0) {
                     </div>
 
                     {/* Notas Recentes */}
-                    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                    <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-xs border border-slate-200 dark:border-slate-700">
                         <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4">Notas Importadas</h3>
                         {notas.length > 0 ? (
                             <div className="overflow-x-auto">
@@ -654,13 +654,13 @@ if (filialServico > 0) {
 
             {/* Modal de Histórico Manual */}
             {isHistoryModalOpen && (
-                <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[60] animate-fade-in" onClick={() => setIsHistoryModalOpen(false)}>
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-60 animate-fade-in" onClick={() => setIsHistoryModalOpen(false)}>
                     <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
                         <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
                             <h3 className="font-bold text-lg text-slate-800 dark:text-slate-100">Editor de Histórico RBT12</h3>
                             <button onClick={() => setIsHistoryModalOpen(false)} className="text-slate-400 hover:text-slate-600"><div className="rotate-45"><PlusIcon className="w-5 h-5" /></div></button>
                         </div>
-                        <div className="p-4 overflow-y-auto flex-grow space-y-3">
+                        <div className="p-4 overflow-y-auto grow space-y-3">
                             <p className="text-xs text-slate-500 mb-2">Informe o faturamento bruto mensal dos últimos 12 meses para cálculo correto da alíquota.</p>
                             {Array.from({length: 12}).map((_, i) => {
                                 const d = new Date(mesApuracao); // Baseado no mês selecionado
@@ -674,7 +674,7 @@ if (filialServico > 0) {
                                         <CurrencyInput 
                                             value={manualRbtHistory[key] || 0} 
                                             onChange={(val) => setManualRbtHistory(prev => ({...prev, [key]: val}))}
-                                            className="flex-grow"
+                                            className="grow"
                                         />
                                     </div>
                                 )

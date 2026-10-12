@@ -165,7 +165,7 @@ const ESocialEventos: React.FC<Props> = ({ currentUser, onIrParaTransmissao }) =
 
     return (
         <div className="space-y-4">
-            {erroLista && <p role="alert" className="rounded bg-amber-50 p-2 text-sm text-amber-800 dark:bg-amber-900/20 dark:text-amber-200">{erroLista}</p>}
+            {erroLista && <p role="alert" className="rounded-sm bg-amber-50 p-2 text-sm text-amber-800 dark:bg-amber-900/20 dark:text-amber-200">{erroLista}</p>}
             {/* Toolbar */}
             <div className="flex flex-wrap items-center gap-2">
                 <button
@@ -218,7 +218,7 @@ const ESocialEventos: React.FC<Props> = ({ currentUser, onIrParaTransmissao }) =
             </div>
 
             {/* Mensagem de transmissão */}
-            <p className="rounded bg-blue-50 p-2 text-xs text-blue-800 dark:bg-blue-900/20 dark:text-blue-200">
+            <p className="rounded-sm bg-blue-50 p-2 text-xs text-blue-800 dark:bg-blue-900/20 dark:text-blue-200">
                 Esta lista é o controle dos eventos da folha. A transmissão ao eSocial é feita em eSocial › Transmissão, pelo cofre de certificados do Consultor Fiscal (com a conferência da sua carteira).
             </p>
 
@@ -230,7 +230,7 @@ const ESocialEventos: React.FC<Props> = ({ currentUser, onIrParaTransmissao }) =
                         <div>
                             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Empresa *</label>
                             <select value={formEmpresaId} onChange={e => setFormEmpresaId(e.target.value)} required
-                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200">
+                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200">
                                 <option value="">Selecione...</option>
                                 {empresas.map(emp => <option key={emp.id} value={emp.id}>{emp.nomeFantasia}</option>)}
                             </select>
@@ -238,7 +238,7 @@ const ESocialEventos: React.FC<Props> = ({ currentUser, onIrParaTransmissao }) =
                         <div>
                             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Tipo de Evento *</label>
                             <select value={formTipo} onChange={e => setFormTipo(e.target.value as EventoTipo)}
-                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200">
+                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200">
                                 {(Object.keys(EVENTO_LABELS) as EventoTipo[]).map(k => (
                                     <option key={k} value={k}>{k} - {EVENTO_LABELS[k]}</option>
                                 ))}
@@ -247,25 +247,25 @@ const ESocialEventos: React.FC<Props> = ({ currentUser, onIrParaTransmissao }) =
                         <div>
                             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Competência *</label>
                             <input type="month" value={formCompetencia} onChange={e => setFormCompetencia(e.target.value)} required
-                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200" />
+                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200" />
                         </div>
                         <div>
                             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Funcionário</label>
                             <input type="text" value={formFuncionario} onChange={e => setFormFuncionario(e.target.value)} placeholder="Nome do funcionário"
-                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200" />
+                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200" />
                         </div>
                         <div>
                             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">CPF</label>
                             <input type="text" value={formCpf} onChange={e => setFormCpf(formatarCPF(e.target.value))} placeholder="000.000.000-00"
-                                className={`w-full px-2 py-1.5 text-sm border rounded bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 ${formCpf && !validarCPF(formCpf) ? 'border-red-400 dark:border-red-600' : 'border-slate-300 dark:border-slate-600'}`} />
+                                className={`w-full px-2 py-1.5 text-sm border rounded-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 ${formCpf && !validarCPF(formCpf) ? 'border-red-400 dark:border-red-600' : 'border-slate-300 dark:border-slate-600'}`} />
                             {formCpf && !validarCPF(formCpf) && (
                                 <span className="text-xs text-red-500 mt-0.5 block">CPF inválido</span>
                             )}
                         </div>
                     </div>
                     <div className="flex gap-2">
-                        <button type="submit" className="px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 text-white rounded font-medium">Salvar</button>
-                        <button type="button" onClick={() => setShowForm(false)} className="px-3 py-1.5 text-sm bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-200 rounded font-medium">Cancelar</button>
+                        <button type="submit" className="px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 text-white rounded-sm font-medium">Salvar</button>
+                        <button type="button" onClick={() => setShowForm(false)} className="px-3 py-1.5 text-sm bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-200 rounded-sm font-medium">Cancelar</button>
                     </div>
                 </form>
             )}
@@ -285,7 +285,7 @@ const ESocialEventos: React.FC<Props> = ({ currentUser, onIrParaTransmissao }) =
                                 const ev = processados.find(x => x.id === e.target.value);
                                 if (ev?.protocolo) setRetifNrRecibo(ev.protocolo);
                             }} required
-                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200">
+                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200">
                                 <option value="">Selecione evento processado...</option>
                                 {processados.map(ev => (
                                     <option key={ev.id} value={ev.id}>
@@ -298,12 +298,12 @@ const ESocialEventos: React.FC<Props> = ({ currentUser, onIrParaTransmissao }) =
                             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Nº Recibo Original *</label>
                             <input type="text" value={retifNrRecibo} onChange={e => setRetifNrRecibo(e.target.value)} required
                                 placeholder="Número do recibo do evento original"
-                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200" />
+                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200" />
                         </div>
                     </div>
                     <div className="flex gap-2">
-                        <button type="submit" className="px-3 py-1.5 text-sm bg-orange-600 hover:bg-orange-700 text-white rounded font-medium">Criar Retificação</button>
-                        <button type="button" onClick={() => setShowRetifForm(false)} className="px-3 py-1.5 text-sm bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-200 rounded font-medium">Cancelar</button>
+                        <button type="submit" className="px-3 py-1.5 text-sm bg-orange-600 hover:bg-orange-700 text-white rounded-sm font-medium">Criar Retificação</button>
+                        <button type="button" onClick={() => setShowRetifForm(false)} className="px-3 py-1.5 text-sm bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-200 rounded-sm font-medium">Cancelar</button>
                     </div>
                 </form>
             )}
@@ -333,7 +333,7 @@ const ESocialEventos: React.FC<Props> = ({ currentUser, onIrParaTransmissao }) =
                                     return (
                                         <tr key={ev.id} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50">
                                             <td className="py-2 px-2">
-                                                <span className={`font-mono text-xs px-1.5 py-0.5 rounded ${isRetif ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' : 'bg-slate-100 dark:bg-slate-700'}`}>
+                                                <span className={`font-mono text-xs px-1.5 py-0.5 rounded-sm ${isRetif ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300' : 'bg-slate-100 dark:bg-slate-700'}`}>
                                                     {ev.tipo}{isRetif ? 'R' : ''}
                                                 </span>
                                             </td>
@@ -354,7 +354,7 @@ const ESocialEventos: React.FC<Props> = ({ currentUser, onIrParaTransmissao }) =
                                                 <div className="flex gap-1">
                                                     {ev.status === 'pendente' && onIrParaTransmissao && (
                                                         <button onClick={onIrParaTransmissao}
-                                                            className="px-2 py-0.5 text-xs bg-green-600 hover:bg-green-700 text-white rounded font-medium">
+                                                            className="px-2 py-0.5 text-xs bg-green-600 hover:bg-green-700 text-white rounded-sm font-medium">
                                                             Transmitir
                                                         </button>
                                                     )}
@@ -364,7 +364,7 @@ const ESocialEventos: React.FC<Props> = ({ currentUser, onIrParaTransmissao }) =
                                                             registrarAudit({ acao: 'alterar_status', ...auditUser, usuarioEmail: auditUser.email, usuarioUid: auditUser.uid, eventoId: ev.id, detalhes: 'Re-enfileirado para retransmissão', sucesso: true });
                                                             reload();
                                                         }}
-                                                            className="px-2 py-0.5 text-xs bg-amber-600 hover:bg-amber-700 text-white rounded font-medium">
+                                                            className="px-2 py-0.5 text-xs bg-amber-600 hover:bg-amber-700 text-white rounded-sm font-medium">
                                                             Retransmitir
                                                         </button>
                                                     )}
@@ -376,7 +376,7 @@ const ESocialEventos: React.FC<Props> = ({ currentUser, onIrParaTransmissao }) =
                                                     <select
                                                         value={ev.status}
                                                         onChange={e => handleStatusChange(ev.id, e.target.value as EventoStatus)}
-                                                        className="px-1 py-0.5 text-xs border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200"
+                                                        className="px-1 py-0.5 text-xs border border-slate-300 dark:border-slate-600 rounded-sm bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200"
                                                     >
                                                         <option value="pendente">Pendente</option>
                                                         <option value="transmitido">Transmitido</option>
@@ -384,7 +384,7 @@ const ESocialEventos: React.FC<Props> = ({ currentUser, onIrParaTransmissao }) =
                                                         <option value="processado">Processado</option>
                                                     </select>
                                                     <button onClick={() => handleExcluir(ev.id)}
-                                                        className="px-1.5 py-0.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded">
+                                                        className="px-1.5 py-0.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-sm">
                                                         Excluir
                                                     </button>
                                                 </div>
@@ -406,14 +406,14 @@ const ESocialEventos: React.FC<Props> = ({ currentUser, onIrParaTransmissao }) =
                                 <button
                                     onClick={goPrevPage}
                                     disabled={currentPage === 0}
-                                    className="px-3 py-1 text-xs border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 disabled:opacity-40"
+                                    className="px-3 py-1 text-xs border border-slate-300 dark:border-slate-600 rounded-sm bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 disabled:opacity-40"
                                 >
                                     Anterior
                                 </button>
                                 <button
                                     onClick={goNextPage}
                                     disabled={!page?.hasMore}
-                                    className="px-3 py-1 text-xs border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 disabled:opacity-40"
+                                    className="px-3 py-1 text-xs border border-slate-300 dark:border-slate-600 rounded-sm bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 disabled:opacity-40"
                                 >
                                     Proxima
                                 </button>

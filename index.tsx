@@ -1,3 +1,5 @@
+// Inter embutida no app (sem Google Fonts): a reserva para quem não tem a fonte do sistema da Apple.
+import '@fontsource-variable/inter';
 import './styles/index.css';
 
 import React from 'react';

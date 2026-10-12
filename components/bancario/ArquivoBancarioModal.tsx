@@ -18,7 +18,7 @@ import { remessaParaBaixar } from '../../services/bancario/download';
 import { baixarBytes } from '../../services/implantacao/zip';
 import { reais } from '../../services/cadastros/documentos';
 
-const inp = 'w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const inp = 'w-full rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const br = (d: string) => (d ? d.split('-').reverse().join('/') : '');
 
 interface Props {
@@ -114,16 +114,16 @@ const ArquivoBancarioModal: React.FC<Props> = ({ empresa, resultados, fichas, ti
                     <button className="text-slate-500" aria-label="Fechar" onClick={onFechar}>✕</button>
                 </div>
 
-                <section className="space-y-2 rounded border border-slate-200 p-2 dark:border-slate-700">
+                <section className="space-y-2 rounded-sm border border-slate-200 p-2 dark:border-slate-700">
                     <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium">Conta da empresa</span>
                         {contas.length > 0 && (
-                            <select aria-label="Conta da empresa" className="rounded border border-slate-300 px-2 py-1 dark:border-slate-600 dark:bg-slate-900" value={contaId} onChange={e => setContaId(e.target.value)}>
+                            <select aria-label="Conta da empresa" className="rounded-sm border border-slate-300 px-2 py-1 dark:border-slate-600 dark:bg-slate-900" value={contaId} onChange={e => setContaId(e.target.value)}>
                                 {contas.map(c => <option key={c.id} value={c.id}>{c.banco} · {PERFIS_BANCO[c.banco]?.nome ?? ''} · ag. {c.agencia} · c/c {c.conta}</option>)}
                             </select>
                         )}
-                        {conta && !edicao && <button className="rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-600" onClick={() => setEdicao({ ...conta })}>Editar conta</button>}
-                        {!edicao && <button className="rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-600" onClick={() => setEdicao({ ...contaPagamentoVazia(), id: `c${Date.now()}` })}>Nova conta</button>}
+                        {conta && !edicao && <button className="rounded-sm border border-slate-300 px-2 py-1 text-xs dark:border-slate-600" onClick={() => setEdicao({ ...conta })}>Editar conta</button>}
+                        {!edicao && <button className="rounded-sm border border-slate-300 px-2 py-1 text-xs dark:border-slate-600" onClick={() => setEdicao({ ...contaPagamentoVazia(), id: `c${Date.now()}` })}>Nova conta</button>}
                     </div>
                     {edicao && (
                         <div className="grid gap-2 sm:grid-cols-4">
@@ -140,13 +140,13 @@ const ArquivoBancarioModal: React.FC<Props> = ({ empresa, resultados, fichas, ti
                             <label className="text-xs">UF<input aria-label="UF da empresa" className={inp} maxLength={2} value={edicao.uf ?? ''} onChange={e => setE('uf', e.target.value.toUpperCase())} /></label>
                             {PERFIS_BANCO[edicao.banco] && <p className="text-xs text-slate-500 sm:col-span-4">{PERFIS_BANCO[edicao.banco].observacao}</p>}
                             <div className="flex gap-2 sm:col-span-4">
-                                <button className="rounded bg-blue-700 px-3 py-1 text-white disabled:opacity-50" disabled={salvando} onClick={salvarConta}>{salvando ? 'Gravando…' : 'Gravar conta'}</button>
-                                {contas.length > 0 && <button className="rounded border border-slate-300 px-3 py-1 dark:border-slate-600" onClick={() => setEdicao(null)}>Cancelar</button>}
+                                <button className="rounded-sm bg-blue-700 px-3 py-1 text-white disabled:opacity-50" disabled={salvando} onClick={salvarConta}>{salvando ? 'Gravando…' : 'Gravar conta'}</button>
+                                {contas.length > 0 && <button className="rounded-sm border border-slate-300 px-3 py-1 dark:border-slate-600" onClick={() => setEdicao(null)}>Cancelar</button>}
                             </div>
                         </div>
                     )}
                     {perfil && !edicao && (
-                        <p role="note" className={`rounded p-2 text-xs ${perfil.formasConferidas.length ? 'bg-slate-50 text-slate-700 dark:bg-slate-900 dark:text-slate-300' : 'bg-amber-50 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100'}`}>
+                        <p role="note" className={`rounded-sm p-2 text-xs ${perfil.formasConferidas.length ? 'bg-slate-50 text-slate-700 dark:bg-slate-900 dark:text-slate-300' : 'bg-amber-50 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100'}`}>
                             {perfil.formasConferidas.length
                                 ? `Layout ${perfil.layout === 'sispag' ? 'SISPAG' : 'FEBRABAN 240'} do ${perfil.nome}. ${perfil.observacao}`
                                 : `Layout do ${perfil.nome} no padrão FEBRABAN 240, ainda não conferido com o arquivo gerado pela SAGE. ${perfil.observacao}`}
@@ -161,14 +161,14 @@ const ArquivoBancarioModal: React.FC<Props> = ({ empresa, resultados, fichas, ti
                             {dataPorResultado && <label className="flex items-center gap-1"><input type="checkbox" checked={usarDataDoRecibo} onChange={e => setUsarDataDoRecibo(e.target.checked)} />Data de cada recibo (até 2 dias antes do gozo)</label>}
                             <label className="flex items-center gap-1"><input type="checkbox" checked={preferirPix} onChange={e => setPreferirPix(e.target.checked)} />Pagar por PIX quando a ficha tiver chave</label>
                         </div>
-                        {previa?.erro && <p role="alert" className="rounded bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{previa.erro}</p>}
+                        {previa?.erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{previa.erro}</p>}
                         {previa?.r && (
                             <>
                                 {previa.r.naoConferidas.length > 0 && previa.r.perfil.formasConferidas.length > 0 && (
-                                    <p role="note" className="rounded bg-amber-50 p-2 text-xs text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">{avisoConferencia(previa.r.perfil, previa.r.naoConferidas)}</p>
+                                    <p role="note" className="rounded-sm bg-amber-50 p-2 text-xs text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">{avisoConferencia(previa.r.perfil, previa.r.naoConferidas)}</p>
                                 )}
                                 <p>{previa.r.lotes.map(l => `${ROTULO_FORMA[l.forma]}: ${l.quantidade} · ${reais(l.total)}`).join(' | ') || 'Nenhum pagamento no arquivo.'} · <strong>Total {reais(previa.r.total)}</strong> · arquivo nº {previa.r.nsa}</p>
-                                <div className="max-h-72 overflow-auto rounded border border-slate-200 dark:border-slate-700">
+                                <div className="max-h-72 overflow-auto rounded-sm border border-slate-200 dark:border-slate-700">
                                     <table className="w-full text-xs">
                                         <thead className="bg-slate-50 text-left dark:bg-slate-900"><tr><th className="p-1">Funcionário</th><th className="p-1">Forma</th><th className="p-1">Destino</th><th className="p-1">Data</th><th className="p-1 text-right">{rotuloValor}</th></tr></thead>
                                         <tbody>
@@ -183,7 +183,7 @@ const ArquivoBancarioModal: React.FC<Props> = ({ empresa, resultados, fichas, ti
                                     </table>
                                 </div>
                                 {(previa.r.excluidos.length > 0 || foraDoCalculo.length > 0) && (
-                                    <div className="rounded border border-red-200 p-2 text-xs text-red-800 dark:border-red-800 dark:text-red-200">
+                                    <div className="rounded-sm border border-red-200 p-2 text-xs text-red-800 dark:border-red-800 dark:text-red-200">
                                         <p className="font-medium">Fora do arquivo ({previa.r.excluidos.length + foraDoCalculo.length}): acerte a ficha e gere de novo, ou pague por fora.</p>
                                         <ul className="list-disc pl-5">
                                             {[...foraDoCalculo, ...previa.r.excluidos.map(e => ({ nome: e.favorecido.nome, motivo: e.motivo }))].map((e, i) => <li key={i}>{e.nome}: {e.motivo}</li>)}
@@ -191,15 +191,15 @@ const ArquivoBancarioModal: React.FC<Props> = ({ empresa, resultados, fichas, ti
                                     </div>
                                 )}
                                 <div className="flex flex-wrap items-center gap-2">
-                                    <button className="rounded bg-green-700 px-3 py-2 font-medium text-white disabled:opacity-50" disabled={!previa.r.incluidos.length || salvando} onClick={baixar}>Gerar arquivo (.REM)</button>
+                                    <button className="rounded-sm bg-green-700 px-3 py-2 font-medium text-white disabled:opacity-50" disabled={!previa.r.incluidos.length || salvando} onClick={baixar}>Gerar arquivo (.REM)</button>
                                     <span className="text-xs text-slate-500">Envie ao banco pelo internet banking da empresa (ou junto com os arquivos do cliente).</span>
                                 </div>
                             </>
                         )}
                     </section>
                 )}
-                {erro && <p role="alert" className="rounded bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
-                {msg && <p role="status" className="rounded bg-green-50 p-2 text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
+                {erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+                {msg && <p role="status" className="rounded-sm bg-green-50 p-2 text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
             </div>
         </div>
     );

@@ -24,8 +24,8 @@ import {
     type Instrumento, type LancamentoComplementar, type ResultadoComplementar, type TpAcConv,
 } from '../../services/calculo/complementar';
 
-const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
-const btn = 'rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
+const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const btn = 'rounded-sm border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
 const br = (c: string) => (c ? `${c.slice(5, 7)}/${c.slice(0, 4)}` : '');
 const anterior = (c: string) => { const [a, m] = c.split('-').map(Number); return m === 1 ? `${a - 1}-12` : `${a}-${String(m - 1).padStart(2, '0')}`; };
 const SITUACAO: Record<ResultadoCalculo['situacao'], string> = {
@@ -201,11 +201,11 @@ const FolhaComplementarModal: React.FC<Props> = ({ empresa, competencia, pagamen
                         <h3 className="text-lg font-semibold text-slate-800 dark:text-white">Folha complementar — {br(competencia)} — {empresa.razaoSocial}</h3>
                         <p className="text-slate-600 dark:text-slate-300">Diferenças de meses já fechados, pagas com a folha de {br(competencia)} (a competência em que o instrumento foi celebrado). INSS refeito mês a mês pela tabela de cada um, FGTS de 8% e IRRF no mês do pagamento, somado à folha. No eSocial, vai no S-1200 de {br(competencia)} com as diferenças por mês de referência.</p>
                     </div>
-                    <button aria-label="Fechar" className="rounded px-2 text-xl text-slate-500" onClick={onFechar}>×</button>
+                    <button aria-label="Fechar" className="rounded-sm px-2 text-xl text-slate-500" onClick={onFechar}>×</button>
                 </div>
 
                 {existentes.length > 0 && (
-                    <ul aria-label="Complementares gravadas" className="space-y-1 rounded border border-slate-200 p-2 text-xs dark:border-slate-700">
+                    <ul aria-label="Complementares gravadas" className="space-y-1 rounded-sm border border-slate-200 p-2 text-xs dark:border-slate-700">
                         {existentes.map(c => (
                             <li key={c.id} className="flex flex-wrap items-center gap-2">
                                 <span>📁 <strong>{c.instrumento.tpAcConv} – {rotuloTpAcConv(c.instrumento.tpAcConv)}</strong>: {c.instrumento.dsc} · {c.resultados.length} funcionário(s), líquido {reais(c.totais?.liquido ?? 0)} · por {c.gravadoPorEmail}</span>
@@ -217,7 +217,7 @@ const FolhaComplementarModal: React.FC<Props> = ({ empresa, competencia, pagamen
                     </ul>
                 )}
                 {sugestao && (
-                    <p role="note" className="flex flex-wrap items-center gap-2 rounded bg-blue-50 p-2 text-xs text-blue-900 dark:bg-blue-900/30 dark:text-blue-100">
+                    <p role="note" className="flex flex-wrap items-center gap-2 rounded-sm bg-blue-50 p-2 text-xs text-blue-900 dark:bg-blue-900/30 dark:text-blue-100">
                         Convenção do sindicato com reajuste de {String(sugestao.reajuste.pct).replace('.', ',')}% a partir de {br(sugestao.reajuste.de)}.
                         <button className={btn} onClick={aplicarSugestao}>Usar a convenção</button>
                     </p>
@@ -232,9 +232,9 @@ const FolhaComplementarModal: React.FC<Props> = ({ empresa, competencia, pagamen
                 </section>
 
                 {tipo === 'E' && (
-                    <p className="rounded bg-blue-50 p-2 text-xs text-blue-900 dark:bg-blue-900/20 dark:text-blue-100">Conversão do auxílio-doença em acidentário: lance, para cada mês do afastamento anterior a {br(competencia)}, a remuneração que seria devida no mês (base do FGTS). Vai em rubrica informativa só com FGTS, sem INSS, IRRF ou pagamento; o FGTS de cada mês é da competência dele, com os encargos desde então (MOS, S-1200, itens 18.8 e 18.9).</p>
+                    <p className="rounded-sm bg-blue-50 p-2 text-xs text-blue-900 dark:bg-blue-900/20 dark:text-blue-100">Conversão do auxílio-doença em acidentário: lance, para cada mês do afastamento anterior a {br(competencia)}, a remuneração que seria devida no mês (base do FGTS). Vai em rubrica informativa só com FGTS, sem INSS, IRRF ou pagamento; o FGTS de cada mês é da competência dele, com os encargos desde então (MOS, S-1200, itens 18.8 e 18.9).</p>
                 )}
-                <section hidden={tipo === 'E'} className="space-y-2 rounded border border-slate-200 p-2 dark:border-slate-700">
+                <section hidden={tipo === 'E'} className="space-y-2 rounded-sm border border-slate-200 p-2 dark:border-slate-700">
                     <label className="flex items-center gap-2 font-medium"><input type="checkbox" checked={comReajuste} onChange={e => setComReajuste(e.target.checked)} />Reajuste retroativo sobre as folhas gravadas</label>
                     {comReajuste && (
                         <div className="grid gap-2 sm:grid-cols-4">
@@ -250,7 +250,7 @@ const FolhaComplementarModal: React.FC<Props> = ({ empresa, competencia, pagamen
                     )}
                 </section>
 
-                <section className="space-y-1 rounded border border-slate-200 p-2 dark:border-slate-700">
+                <section className="space-y-1 rounded-sm border border-slate-200 p-2 dark:border-slate-700">
                     <label className="flex items-center gap-2 font-medium">
                         <input type="checkbox" disabled={!janeiro} checked={comComplemento13 && janeiro} onChange={e => {
                             setComComplemento13(e.target.checked);
@@ -261,7 +261,7 @@ const FolhaComplementarModal: React.FC<Props> = ({ empresa, competencia, pagamen
                         : 'Disponível na competência de janeiro: o complemento do 13º do ano anterior vai no S-1200 de janeiro.'}</p>
                 </section>
 
-                <section className="space-y-2 rounded border border-slate-200 p-2 dark:border-slate-700">
+                <section className="space-y-2 rounded-sm border border-slate-200 p-2 dark:border-slate-700">
                     <div className="flex items-center justify-between gap-2"><p className="font-medium">Lançamentos (diferenças avulsas, 13º, comissões…)</p>
                         <button className={btn} onClick={() => setLinhas(l => [...l, tipo === 'E' ? linhaDoTipoE(linhaVazia(anterior(competencia))) : linhaVazia(anterior(competencia))])}>+ Lançamento</button></div>
                     {linhas.map((l, i) => (
@@ -282,10 +282,10 @@ const FolhaComplementarModal: React.FC<Props> = ({ empresa, competencia, pagamen
                 </section>
 
                 {(lendo || (precisaMotores && !movimentos)) && <p className="text-slate-500">Lendo as folhas gravadas e os movimentos…</p>}
-                {calculo && calculo.erros.length > 0 && <ul role="alert" className="list-disc rounded bg-red-50 p-2 pl-6 text-red-800 dark:bg-red-900/30 dark:text-red-200">{calculo.erros.map(x => <li key={x}>{x}</li>)}</ul>}
-                {calculo && calculo.avisos.length > 0 && <ul className="list-disc rounded bg-amber-50 p-2 pl-6 text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">{calculo.avisos.map(x => <li key={x}>{x}</li>)}</ul>}
+                {calculo && calculo.erros.length > 0 && <ul role="alert" className="list-disc rounded-sm bg-red-50 p-2 pl-6 text-red-800 dark:bg-red-900/30 dark:text-red-200">{calculo.erros.map(x => <li key={x}>{x}</li>)}</ul>}
+                {calculo && calculo.avisos.length > 0 && <ul className="list-disc rounded-sm bg-amber-50 p-2 pl-6 text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">{calculo.avisos.map(x => <li key={x}>{x}</li>)}</ul>}
                 {resultados.length > 0 && (
-                    <div className="max-h-96 overflow-auto rounded border border-slate-200 dark:border-slate-700">
+                    <div className="max-h-96 overflow-auto rounded-sm border border-slate-200 dark:border-slate-700">
                         <table className="w-full">
                             <thead className="sticky top-0 bg-slate-50 text-left text-xs text-slate-500 dark:bg-slate-900"><tr><th className="p-2">Funcionário</th><th className="p-2">Meses</th><th className="p-2 text-right">Diferenças</th><th className="p-2 text-right">INSS</th><th className="p-2 text-right">IRRF</th><th className="p-2 text-right">Líquido</th><th className="p-2 text-right">FGTS</th><th className="p-2">Situação</th></tr></thead>
                             <tbody>{resultados.map(r => (
@@ -318,11 +318,11 @@ const FolhaComplementarModal: React.FC<Props> = ({ empresa, competencia, pagamen
                     </div>
                 )}
 
-                {erro && <p role="alert" className="rounded bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
-                {msg && <p role="status" className="rounded bg-green-50 p-2 text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
+                {erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+                {msg && <p role="status" className="rounded-sm bg-green-50 p-2 text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
                 <div className="flex flex-wrap justify-end gap-2">
                     <button className={btn} disabled={!resultados.some(r => r.situacao !== 'erro')} onClick={() => onPdf(resultados, instrumento)}>Holerites (PDF)</button>
-                    <button className="rounded bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={encerrado || !!ocupado || !calculo || calculo.erros.length > 0 || !resultados.some(r => r.situacao !== 'erro')}
+                    <button className="rounded-sm bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={encerrado || !!ocupado || !calculo || calculo.erros.length > 0 || !resultados.some(r => r.situacao !== 'erro')}
                         title={encerrado ? 'Competência encerrada no Fim de mês.' : undefined} onClick={gravar}>{ocupado || (doMesmoTipo ? 'Regravar a complementar' : 'Gravar a complementar')}</button>
                     <button className={btn} onClick={onFechar}>Fechar</button>
                 </div>

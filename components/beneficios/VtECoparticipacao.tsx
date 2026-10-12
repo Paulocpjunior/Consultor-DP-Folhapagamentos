@@ -19,9 +19,9 @@ import {
 import { listarItinerarios, salvarItinerario } from '../../services/beneficios/vtService';
 import { listarMovimentos, salvarMovimentos } from '../../services/calculo/movimentosService';
 
-const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
-const btn = 'rounded border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-40 dark:border-slate-600';
-const btnP = 'rounded bg-blue-700 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40';
+const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const btn = 'rounded-sm border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-40 dark:border-slate-600';
+const btnP = 'rounded-sm bg-blue-700 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40';
 const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const br = (c: string) => c.split('-').reverse().join('/');
 
@@ -98,10 +98,10 @@ const VtECoparticipacao: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
     return (
         <div className="mt-6 space-y-4 text-sm dark:text-slate-100">
             {ocupado && <p className="text-blue-700 dark:text-blue-300">{ocupado}</p>}
-            {erro && <p role="alert" className="rounded bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
-            {msg && <p role="status" className="rounded bg-green-50 p-2 text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
+            {erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+            {msg && <p role="status" className="rounded-sm bg-green-50 p-2 text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
 
-            <section aria-label="Pedido de vale-transporte" className="space-y-2 rounded border border-slate-200 p-3 dark:border-slate-700">
+            <section aria-label="Pedido de vale-transporte" className="space-y-2 rounded-sm border border-slate-200 p-3 dark:border-slate-700">
                 <div className="flex flex-wrap items-end gap-3">
                     <h3 className="font-semibold">Pedido de vale-transporte</h3>
                     <label>Mês de uso<input aria-label="Mês de uso do VT" type="month" className={`block ${inp}`} value={mesUso} onChange={e => setMesUso(e.target.value)} /></label>
@@ -114,7 +114,7 @@ const VtECoparticipacao: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
                     {!comVt.length && <span className="text-slate-500">Ninguém com vale-transporte na ficha.</span>}
                 </div>
                 {edicao && (
-                    <div className="space-y-2 rounded bg-slate-50 p-2 dark:bg-slate-800">
+                    <div className="space-y-2 rounded-sm bg-slate-50 p-2 dark:bg-slate-800">
                         <p className="font-medium">{nomeDa(edicao.fichaId)}</p>
                         <div className="flex flex-wrap gap-2">{DIAS.map((d, k) => (
                             <label key={d} className="flex items-center gap-1"><input type="checkbox" checked={edicao.diasSemana.includes(k)} onChange={e => setEdicao({ ...edicao, diasSemana: e.target.checked ? [...edicao.diasSemana, k].sort() : edicao.diasSemana.filter(x => x !== k) })} />{d}</label>
@@ -158,7 +158,7 @@ const VtECoparticipacao: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
                 {pedido && pedido.semItinerario.length > 0 && <p className="text-xs text-amber-700 dark:text-amber-300">Com VT na ficha e sem itinerário: {pedido.semItinerario.join(', ')}.</p>}
             </section>
 
-            <section aria-label="Coparticipação do plano de saúde" className="space-y-2 rounded border border-slate-200 p-3 dark:border-slate-700">
+            <section aria-label="Coparticipação do plano de saúde" className="space-y-2 rounded-sm border border-slate-200 p-3 dark:border-slate-700">
                 <h3 className="font-semibold">Coparticipação do plano de saúde · folha de {br(ativa.competencia)}</h3>
                 <p className="text-xs text-slate-600 dark:text-slate-300">A planilha da operadora (Excel ou CSV) com o CPF do titular e o valor da coparticipação. Vira um desconto do mês na folha, sem INSS, FGTS e IRRF. Lançar de novo substitui o lançado antes por aqui.</p>
                 <div className="flex flex-wrap items-end gap-3 text-xs">

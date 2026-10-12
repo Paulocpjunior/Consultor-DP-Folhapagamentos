@@ -12,8 +12,8 @@ import {
     type ContratoNovo, type ContratoUnificado, type MudancaCategoria, type TpContrProc, type TrabalhadorProcesso,
 } from '../../services/processoTrabalhista/processoTrabalhista';
 
-const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
-const btn = 'rounded border border-slate-300 px-2 py-1 text-xs dark:border-slate-600';
+const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const btn = 'rounded-sm border border-slate-300 px-2 py-1 text-xs dark:border-slate-600';
 
 const Opcoes: React.FC<{ mapa: Record<string, string>; vazio?: boolean }> = ({ mapa, vazio }) => (
     <>{vazio && <option value="">—</option>}{Object.entries(mapa).map(([k, r]) => <option key={k} value={k}>{k} · {r}</option>)}</>
@@ -94,7 +94,7 @@ const ContratoDoProcesso: React.FC<{ t: TrabalhadorProcesso; muda: (x: Partial<T
             )}
 
             {ind === 'N' && (
-                <div className="space-y-2 rounded border border-dashed border-slate-300 p-2 dark:border-slate-600">
+                <div className="space-y-2 rounded-sm border border-dashed border-slate-300 p-2 dark:border-slate-600">
                     <p className="text-xs text-slate-600 dark:text-slate-300">O contrato não está no eSocial: os dados do vínculo vão no próprio S-2500. A matrícula é nova (não pode começar com "eSocial").</p>
                     <div className="flex flex-wrap items-end gap-3">
                         <label>Nome<input aria-label={`Nome de ${t.cpf || 'trabalhador'}`} className={`block w-56 ${inp}`} value={t.nome} onChange={e => muda({ nome: e.target.value.toUpperCase() })} /></label>

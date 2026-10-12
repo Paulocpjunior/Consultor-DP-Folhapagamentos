@@ -19,8 +19,8 @@ import { atualizarParametrosFolha } from '../../services/empresas/empresasServic
 
 interface Props { empresa: Empresa; usuario: Usuario; existentes: FichaFuncionario[]; onFechar: () => void; onGravado: () => void }
 
-const btn = 'rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
-const sel = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-white';
+const btn = 'rounded-sm border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
+const sel = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-white';
 const nomeTabela = (t: TabelaRestauracao) => `${t.grupo ? `${t.grupo}.` : ''}${t.tabela}`;
 const semZeros = (v: string) => v.trim().replace(/^0+(?=.)/, '').toUpperCase();
 
@@ -140,7 +140,7 @@ const CompletarPeloIobModal: React.FC<Props> = ({ empresa, usuario, existentes, 
                         <h3 className="text-lg font-semibold text-slate-800 dark:text-white">Completar pelo backup do IOB — {empresa.nomeFantasia}</h3>
                         <p className="text-sm text-slate-600 dark:text-slate-300">Backup SQL do IOB Office (.zip com DBF e/ou .backup do PostgreSQL). O backup é lido no seu computador. Só campos <b>vazios</b> da ficha são preenchidos; valor diferente aparece como divergência e não é trocado. Nada é gravado antes de você confirmar.</p>
                     </div>
-                    <button aria-label="Fechar" className="rounded px-2 text-xl text-slate-500" onClick={onFechar}>×</button>
+                    <button aria-label="Fechar" className="rounded-sm px-2 text-xl text-slate-500" onClick={onFechar}>×</button>
                 </div>
 
                 <div className="flex flex-wrap items-end gap-3">
@@ -159,10 +159,10 @@ const CompletarPeloIobModal: React.FC<Props> = ({ empresa, usuario, existentes, 
                 </div>
 
                 {ocupado && <p className="text-sm text-blue-700 dark:text-blue-300">{ocupado}</p>}
-                {erro && <p role="alert" className="rounded bg-red-50 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+                {erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
 
                 {rest && rest.tabelas.length > 0 && (
-                    <div className="space-y-3 rounded border border-slate-200 p-3 dark:border-slate-700">
+                    <div className="space-y-3 rounded-sm border border-slate-200 p-3 dark:border-slate-700">
                         <label className="block text-sm dark:text-white">Tabela de funcionários
                             <select aria-label="Tabela de funcionários" className={`ml-2 max-w-full ${sel}`} value={tabelaId} onChange={e => escolherTabela(e.target.value)}>
                                 <option value="">— escolha —</option>
@@ -198,7 +198,7 @@ const CompletarPeloIobModal: React.FC<Props> = ({ empresa, usuario, existentes, 
                                             Trazer {complementares.map(t => Object.fromEntries(TABELAS_COMPLEMENTARES)[t.tabela.toLowerCase()]).join(', ')} pelo código do funcionário{!mapa.codigoIob && ' (indique a coluna do código IOB)'}</label>
                                     )}
                                     <label className="flex items-center gap-1"><input type="checkbox" checked={criarNovas} onChange={e => { setCriarNovas(e.target.checked); setComp(null); }} />Criar ficha para quem não tem (com CPF válido e matrícula do eSocial)</label>
-                                    <button className="ml-auto rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50" disabled={!temChave || !!ocupado} onClick={comparar}>Comparar com as fichas</button>
+                                    <button className="ml-auto rounded-sm bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50" disabled={!temChave || !!ocupado} onClick={comparar}>Comparar com as fichas</button>
                                 </div>
                                 {!temChave && <p role="status" className="text-xs text-amber-700 dark:text-amber-300">Indique a coluna do CPF ou da matrícula do eSocial.</p>}
                             </>
@@ -209,14 +209,14 @@ const CompletarPeloIobModal: React.FC<Props> = ({ empresa, usuario, existentes, 
                 {comp && (
                     <>
                         <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-5">
-                            <div className="rounded bg-slate-50 p-2 dark:bg-slate-700 dark:text-slate-100"><strong>{lidas}</strong> linha(s) lida(s)</div>
-                            <div className="rounded bg-blue-50 p-2 dark:bg-blue-900/30 dark:text-blue-100"><strong>{comp.completar.length}</strong> ficha(s) a completar</div>
-                            <div className="rounded bg-green-50 p-2 dark:bg-green-900/30 dark:text-green-100"><strong>{comp.novas.length}</strong> ficha(s) nova(s)</div>
-                            <div className="rounded bg-amber-50 p-2 dark:bg-amber-900/30 dark:text-amber-100"><strong>{divergencias.length}</strong> com divergência</div>
-                            <div className="rounded bg-red-50 p-2 dark:bg-red-900/30 dark:text-red-100"><strong>{comp.semFicha.length + comp.ignoradas}</strong> sem ficha / sem chave</div>
+                            <div className="rounded-sm bg-slate-50 p-2 dark:bg-slate-700 dark:text-slate-100"><strong>{lidas}</strong> linha(s) lida(s)</div>
+                            <div className="rounded-sm bg-blue-50 p-2 dark:bg-blue-900/30 dark:text-blue-100"><strong>{comp.completar.length}</strong> ficha(s) a completar</div>
+                            <div className="rounded-sm bg-green-50 p-2 dark:bg-green-900/30 dark:text-green-100"><strong>{comp.novas.length}</strong> ficha(s) nova(s)</div>
+                            <div className="rounded-sm bg-amber-50 p-2 dark:bg-amber-900/30 dark:text-amber-100"><strong>{divergencias.length}</strong> com divergência</div>
+                            <div className="rounded-sm bg-red-50 p-2 dark:bg-red-900/30 dark:text-red-100"><strong>{comp.semFicha.length + comp.ignoradas}</strong> sem ficha / sem chave</div>
                         </div>
 
-                        <div className="max-h-80 overflow-auto rounded border border-slate-200 dark:border-slate-700">
+                        <div className="max-h-80 overflow-auto rounded-sm border border-slate-200 dark:border-slate-700">
                             <table className="w-full text-sm">
                                 <thead className="sticky top-0 bg-slate-50 text-left text-xs text-slate-500 dark:bg-slate-900"><tr><th className="p-2" /><th className="p-2">Nome</th><th className="p-2">Matrícula</th><th className="p-2">O que entra</th></tr></thead>
                                 <tbody>
@@ -235,13 +235,13 @@ const CompletarPeloIobModal: React.FC<Props> = ({ empresa, usuario, existentes, 
                         </div>
 
                         {divergencias.length > 0 && (
-                            <details className="rounded border border-amber-300 p-2 text-xs dark:border-amber-700 dark:text-amber-100">
+                            <details className="rounded-sm border border-amber-300 p-2 text-xs dark:border-amber-700 dark:text-amber-100">
                                 <summary className="cursor-pointer font-medium">Divergências entre o Consultor e o IOB (o valor do Consultor fica; confira) — {divergencias.length}</summary>
                                 <ul className="mt-1 space-y-0.5">{divergencias.flatMap(d => d.divergencias.map(x => <li key={`${d.ficha.id}-${x.campo}`}>{d.ficha.dados.nome || d.ficha.cpf} · {rotulo(x.campo)}: Consultor “{x.consultor}” × IOB “{x.iob}”</li>))}</ul>
                             </details>
                         )}
                         {(comp.semFicha.length > 0 || comp.ignoradas > 0 || comp.avisos.length > 0) && (
-                            <details className="rounded border border-slate-200 p-2 text-xs text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                            <details className="rounded-sm border border-slate-200 p-2 text-xs text-slate-700 dark:border-slate-700 dark:text-slate-200">
                                 <summary className="cursor-pointer font-medium">Sem ficha e avisos ({comp.semFicha.length + comp.avisos.length + (comp.ignoradas ? 1 : 0)})</summary>
                                 <ul className="mt-1 list-disc space-y-0.5 pl-5">
                                     {comp.semFicha.map(s => <li key={`s${s.linha}`}>Linha {s.linha}: {s.nome || '(sem nome)'} {s.cpf && `· CPF ${s.cpf}`} — {s.motivo}</li>)}
@@ -251,14 +251,14 @@ const CompletarPeloIobModal: React.FC<Props> = ({ empresa, usuario, existentes, 
                             </details>
                         )}
                         {mensagem && (
-                            <label className="flex items-start gap-2 rounded border border-slate-200 p-2 text-sm dark:border-slate-700 dark:text-slate-100">
+                            <label className="flex items-start gap-2 rounded-sm border border-slate-200 p-2 text-sm dark:border-slate-700 dark:text-slate-100">
                                 <input type="checkbox" className="mt-1" aria-label="Gravar a mensagem do holerite" checked={gravarMensagem} onChange={e => setGravarMensagem(e.target.checked)} />
                                 <span>Gravar a mensagem geral do holerite da empresa (tabela <code>mensa</code>): “{mensagem}”. Ela sai em todos os holerites em PDF; dá para mudar em Cadastros › Enquadramento.</span>
                             </label>
                         )}
                         <div className="flex justify-end gap-2">
                             <button className={btn} onClick={onFechar}>Cancelar</button>
-                            <button className="rounded bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={(!marcados.size && !(mensagem && gravarMensagem)) || !!ocupado} onClick={gravar}>{marcados.size ? `Gravar ${marcados.size} ficha(s)` : 'Gravar a mensagem do holerite'}</button>
+                            <button className="rounded-sm bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={(!marcados.size && !(mensagem && gravarMensagem)) || !!ocupado} onClick={gravar}>{marcados.size ? `Gravar ${marcados.size} ficha(s)` : 'Gravar a mensagem do holerite'}</button>
                         </div>
                     </>
                 )}

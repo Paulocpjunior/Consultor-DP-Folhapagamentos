@@ -82,7 +82,7 @@ const DiagnosticoOcorrencia: React.FC<Props> = ({ ocorrencia, tipoEvento, perApu
             {msg && <p role="status" className="whitespace-pre-line text-emerald-800 dark:text-emerald-300">{msg}</p>}
             {erro && <p role="alert" className="whitespace-pre-line text-red-700 dark:text-red-300">{erro}</p>}
             {mia && (
-                <div className="rounded border border-violet-200 bg-white p-2 text-slate-800 dark:border-violet-900 dark:bg-slate-900 dark:text-slate-100">
+                <div className="rounded-sm border border-violet-200 bg-white p-2 text-slate-800 dark:border-violet-900 dark:bg-slate-900 dark:text-slate-100">
                     <p className="mb-1 font-medium text-violet-800 dark:text-violet-300">MIA (Gemini) — sugestão para conferir; nada foi aplicado</p>
                     <p className="whitespace-pre-line">{mia.texto}</p>
                     {!!mia.fontes?.length && <p className="mt-1 opacity-80">Fontes: {mia.fontes.map(f => <a key={f.uri} href={f.uri} target="_blank" rel="noopener noreferrer" className="underline">{f.titulo}</a>).reduce<React.ReactNode[]>((l, a, i) => (i ? [...l, ' · ', a] : [a]), [])}</p>}

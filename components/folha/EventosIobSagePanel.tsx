@@ -193,8 +193,8 @@ const EventosIobSagePanel: React.FC<Props> = ({ currentUser }) => {
                     Catálogo ainda não importado
                 </h3>
                 <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-                    Gere o arquivo <code className="bg-slate-100 dark:bg-slate-900 px-1 rounded">eventos-iob-sage.json</code>{' '}
-                    com o script Python (<code className="bg-slate-100 dark:bg-slate-900 px-1 rounded">scripts/extract_eventos_iob.py eventos.pdf</code>){' '}
+                    Gere o arquivo <code className="bg-slate-100 dark:bg-slate-900 px-1 rounded-sm">eventos-iob-sage.json</code>{' '}
+                    com o script Python (<code className="bg-slate-100 dark:bg-slate-900 px-1 rounded-sm">scripts/extract_eventos_iob.py eventos.pdf</code>){' '}
                     e faça o upload abaixo. Esta operação é necessária apenas uma vez.
                 </p>
                 {isAdmin ? (
@@ -240,12 +240,12 @@ const EventosIobSagePanel: React.FC<Props> = ({ currentUser }) => {
                     placeholder="Buscar por código ou descrição (ex: 0800, HORA EXTRA)…"
                     value={busca}
                     onChange={(e) => setBusca(e.target.value)}
-                    className="flex-1 min-w-[240px] px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded"
+                    className="flex-1 min-w-[240px] px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-sm"
                 />
                 <select
                     value={filtroTipo}
                     onChange={(e) => setFiltroTipo(e.target.value as '' | 'V' | 'D')}
-                    className="px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded"
+                    className="px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-sm"
                 >
                     <option value="">Tipo: todos</option>
                     <option value="V">Vencimentos (V)</option>
@@ -254,7 +254,7 @@ const EventosIobSagePanel: React.FC<Props> = ({ currentUser }) => {
                 <select
                     value={filtroRO}
                     onChange={(e) => setFiltroRO(e.target.value)}
-                    className="px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded"
+                    className="px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-sm"
                 >
                     <option value="">Rotina: todas</option>
                     {rotinasUsadas.map((ro) => (
@@ -266,7 +266,7 @@ const EventosIobSagePanel: React.FC<Props> = ({ currentUser }) => {
                 <select
                     value={filtroSel}
                     onChange={(e) => setFiltroSel(e.target.value as '' | 'sel' | 'nao')}
-                    className="px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded"
+                    className="px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-sm"
                 >
                     <option value="">Exibir: todos</option>
                     <option value="sel">Somente selecionados</option>
@@ -275,20 +275,20 @@ const EventosIobSagePanel: React.FC<Props> = ({ currentUser }) => {
 
                 <button
                     onClick={abrirNovo}
-                    className="px-3 py-1.5 text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded"
+                    className="px-3 py-1.5 text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-sm"
                 >
                     + Novo evento
                 </button>
                 <button
                     onClick={() => setHistAberto(true)}
-                    className="px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
+                    className="px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-sm"
                     title="Histórico de alterações no catálogo"
                 >
                     🕒 Histórico
                 </button>
                 <button
                     onClick={handleExportarSelecao}
-                    className="px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
+                    className="px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-sm"
                 >
                     ⭳ Exportar seleção
                 </button>
@@ -296,7 +296,7 @@ const EventosIobSagePanel: React.FC<Props> = ({ currentUser }) => {
                 <button
                     onClick={handleSalvar}
                     disabled={salvando || !dirty}
-                    className="px-4 py-1.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded"
+                    className="px-4 py-1.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-sm"
                 >
                     {salvando ? 'Salvando…' : '💾 Salvar seleção'}
                 </button>
@@ -454,11 +454,11 @@ const LinhaEvento: React.FC<{
             <td className="px-2 py-1.5 text-slate-700 dark:text-slate-300">{ev.descricao}</td>
             <td className="px-2 py-1.5">
                 {ev.tipo === 'V' ? (
-                    <span className="px-2 py-0.5 text-xs font-semibold bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300 rounded">
+                    <span className="px-2 py-0.5 text-xs font-semibold bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300 rounded-sm">
                         V
                     </span>
                 ) : (
-                    <span className="px-2 py-0.5 text-xs font-semibold bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300 rounded">
+                    <span className="px-2 py-0.5 text-xs font-semibold bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300 rounded-sm">
                         D
                     </span>
                 )}

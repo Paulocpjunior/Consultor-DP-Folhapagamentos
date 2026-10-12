@@ -27,7 +27,7 @@ const MonitorLeiaute: React.FC = () => {
                         <li key={n.url} className="rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-700">
                             <a href={n.url} target="_blank" rel="noopener noreferrer" className="font-medium text-blue-700 underline dark:text-blue-300">{n.titulo}</a>
                             <span className="ml-2 text-xs text-slate-500">detectado em {new Date(n.detectadoEm).toLocaleDateString('pt-BR')}</span>
-                            {n.resumo && <div className="mt-1 rounded bg-violet-50 p-2 text-slate-800 dark:bg-violet-950/30 dark:text-slate-100"><p className="text-xs font-medium text-violet-800 dark:text-violet-300">Resumo de IA ({n.resumoModelo}) — confira no documento</p><p className="whitespace-pre-line">{n.resumo}</p></div>}
+                            {n.resumo && <div className="mt-1 rounded-sm bg-violet-50 p-2 text-slate-800 dark:bg-violet-950/30 dark:text-slate-100"><p className="text-xs font-medium text-violet-800 dark:text-violet-300">Resumo de IA ({n.resumoModelo}) — confira no documento</p><p className="whitespace-pre-line">{n.resumo}</p></div>}
                         </li>
                     ))}
                 </ul>
