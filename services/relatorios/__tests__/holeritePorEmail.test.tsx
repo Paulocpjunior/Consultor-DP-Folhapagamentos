@@ -83,3 +83,36 @@ describe('tela', () => {
         expect(lista).toMatch(/CAIO: ✗ número sem WhatsApp/);
     });
 });
+
+describe('histórico dos envios', () => {
+    const recebido = { ok: true, destino: 'a***@ex.com', em: '2026-10-05T13:30:00Z', porEmail: 'col@escritorio' };
+    it('quem já recebeu fica de fora; "incluir" reenvia; cada envio é gravado (falha também)', async () => {
+        vi.spyOn(window, 'confirm').mockReturnValue(true);
+        srv.falhar = 'bruno@ex.com';
+        const registrar = vi.fn(async () => {});
+        const listar = vi.fn(async () => new Map([['2', { email: recebido }]]));
+        const historico = { listar, registrar };
+        render(<HoleritePorEmail empresa={{ id: 'E1', cnpj: '11222333000181', nome: 'ALFA' }} competencia="2026-09" folha={FOLHA} fichas={FICHAS} gerarPdf={async () => new Uint8Array([1])} historico={historico} />);
+        expect(await screen.findByText(/2 com e-mail na ficha · 1 já recebeu\(ram\)/)).toBeTruthy();
+        expect(screen.getByText(/1 já recebeu\(ram\) o holerite de 09\/2026 · ficam de fora/)).toBeTruthy();
+        expect(screen.getByLabelText('Já enviados').textContent).toMatch(/ANA LIMA: e-mail em \d{2}\/10\/2026 \d{2}:\d{2} \(a\*\*\*@ex\.com, por col@escritorio\)/);
+        fireEvent.click(screen.getByText('Enviar 1 holerite(s) por e-mail'));
+        await waitFor(() => expect(screen.getByText('0 de 1 enviado(s).')).toBeTruthy());
+        expect(srv.enviados).toEqual([]);
+        expect(registrar).toHaveBeenCalledWith('1', 'email', 'bruno@ex.com', 'caixa cheia');
+        expect(listar).toHaveBeenCalledTimes(2); // relê depois do lote
+        srv.falhar = '';
+        fireEvent.click(screen.getByLabelText(/Incluir quem já recebeu/));
+        fireEvent.click(screen.getByText('Enviar 2 holerite(s) por e-mail'));
+        await waitFor(() => expect(srv.enviados).toHaveLength(2));
+        await waitFor(() => expect(registrar).toHaveBeenCalledWith('2', 'email', 'ana@ex.com', undefined));
+    });
+    it('falha ao gravar o histórico não desfaz o envio: avisa', async () => {
+        vi.spyOn(window, 'confirm').mockReturnValue(true);
+        const historico = { listar: async () => new Map(), registrar: async () => { throw new Error('sem permissão'); } };
+        render(<HoleritePorEmail empresa={{ id: 'E1', cnpj: '11222333000181', nome: 'ALFA' }} competencia="2026-09" folha={FOLHA} fichas={FICHAS} gerarPdf={async () => new Uint8Array([1])} historico={historico} />);
+        fireEvent.click(await screen.findByText('Enviar 2 holerite(s) por e-mail'));
+        await waitFor(() => expect(screen.getByText('2 de 2 enviado(s).')).toBeTruthy());
+        expect(screen.getByText(/Envio feito, mas não gravado no histórico: sem permissão/)).toBeTruthy();
+    });
+});

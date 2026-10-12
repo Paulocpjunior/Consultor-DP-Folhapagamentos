@@ -5046,3 +5046,26 @@ Paulo: *"QUERO QUE IMPLEMENTE O ENVIO DE HOLERITE POR WHATSAPP E E-MAIL, CRIAR M
   - destinatários do WhatsApp, variáveis, envio pela tela (sucesso e falha) e o e-mail do holerite com a mensagem de aniversário;
   - texto, aniversariantes, holerite do mês, cartão em PDF e a tela do cartão (e-mail, sem modelo e mensagem desligada).
 
+## 12/10/2026 — Lote C: planilhas com o xlsx corrigido, histórico dos envios e lembrete dos aniversariantes
+
+Paulo: *"pode seguir do item 1 ao 3 o item 4 nao é necessario p nos"* (12/10). O item 4 era enviar os holerites no processamento de várias empresas.
+
+- **Item 1, `xlsx` corrigido:**
+  - o `xlsx` 0.18.5 do npm tem as falhas de *prototype pollution* e ReDoS, e a versão corrigida da SheetJS só sai no CDN dela (`cdn.sheetjs.com`, bloqueado nesta rede);
+  - troquei pelo `@e965/xlsx` 0.20.3, a republicação da SheetJS no npm, com o apelido `"xlsx": "npm:@e965/xlsx@0.20.3"`. Os `import ... from 'xlsx'` não mudam;
+  - conferido no pacote: sem scripts de instalação, sem dependências, `XLSX.version = '0.20.3'`, e sem `fetch`, `XMLHttpRequest`, `eval` ou `child_process`. A comparação byte a byte com o tarball oficial não foi possível, porque o CDN e o git da SheetJS estão bloqueados aqui;
+  - saíram do lock as dependências do 0.18.5 (adler-32, cfb, codepage, crc-32, frac, ssf, wmf, word), que nada mais usava;
+  - o `npm audit` não acusa mais o xlsx (de 55 para 54 avisos; os outros são de firebase, jest, vite e tailwind, fora deste lote).
+- **Item 2, histórico dos envios ao funcionário** (`services/relatorios/enviosFuncionario.ts` e `enviosFuncionarioService.ts`):
+  - coleção `envios_funcionario/{empresa}_{AAAA-MM}_{holerite|aniversario}_{ficha}`, um registro por canal (e-mail e WhatsApp) com o último envio: deu certo ou o erro, quando, quem enviou e o destino mascarado (`b***@x.com`, `(**) *****-7777`);
+  - nas telas do holerite e do cartão: quem já recebeu pelo canal na competência fica de fora do próximo envio, com a lista "já receberam" (quando e por quem); "Incluir quem já recebeu (reenviar)" manda a todos;
+  - falha ao gravar o histórico não desfaz o envio: a tela avisa "Envio feito, mas não gravado no histórico";
+  - regras: lê e grava quem pode na empresa; id, tipo, canais e campos conferidos; o autor é quem grava; nada se apaga.
+- **Item 3, lembrete dos aniversariantes** (Prazos do DP, `components/prazos/LembreteAniversariantes.tsx`):
+  - os aniversariantes do mês corrente da empresa ativa, pelo dia, com o de hoje marcado e quantos já receberam o cartão;
+  - "Enviar os cartões" abre Relatórios › Central já em Aniversariantes do mês (`relatorioInicial`);
+  - se a competência ativa não é o mês corrente, avisa para trocar o período, porque a tela dos cartões usa a competência ativa.
+- **Testes:**
+  - histórico: id, máscara, registro, texto e separação; telas do holerite e do cartão com o histórico (fica de fora, reenviar, grava a falha, falha ao gravar);
+  - lembrete: só a empresa, o de hoje, quem recebeu, o aviso da competência e o atalho;
+  - regras: `testes-regras/enviosFuncionario.test.mjs`.

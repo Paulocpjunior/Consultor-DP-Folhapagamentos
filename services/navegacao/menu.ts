@@ -17,7 +17,7 @@ export type Destino =
     | { aba: 'esocial'; sub: SubEsocial }
     | { aba: 'calculo'; folha: FolhaCalculo }
     | { aba: 'fimdemes'; sub: 'fechamento' | 'pedidos' }
-    | { aba: 'relatorios'; sub: 'central' | 'modelos' }
+    | { aba: 'relatorios'; sub: 'central' | 'modelos'; /** Relatório já escolhido na central (id do catálogo). */ relatorio?: string }
     | { aba: 'empresas' | 'certificados' | 'prazos' | 'iobsage' | 'admin' | 'servicos' | 'demissoes' | 'beneficios' | 'contribuintes' | 'dctfweb' | 'processos' | 'intermitentes' | 'obras' | 'departamentos' | 'agrupado' | 'transferencia' | 'contabil' | 'processosjud' | 'sindicalpatronal' | 'importacao' }
     | { aba: 'trocar' };
 

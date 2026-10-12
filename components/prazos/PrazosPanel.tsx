@@ -18,6 +18,8 @@ import { listarConvencoes } from '../../services/sindicatos/convencoesService';
 import { br, diasEntre, somarDias } from '../../services/prazos/calendario';
 import { vencimentosNoPeriodo } from '../../services/prazos/obrigacoes';
 import CalendarioEmpresa from './CalendarioEmpresa';
+import LembreteAniversariantes from './LembreteAniversariantes';
+import { historicoDeEnvios } from '../../services/relatorios/enviosFuncionarioService';
 import { ROTULO_TIPO, prazosFuncionarios, prazosSindicatos, type Prazo, type TipoPrazo } from '../../services/prazos/prazosFuncionarios';
 
 const COR: Record<Prazo['gravidade'], string> = {
@@ -30,9 +32,9 @@ const quando = (data: string, hoje: string) => {
     return d === 0 ? 'hoje' : d === 1 ? 'amanhã' : d > 0 ? `em ${d} dias` : d === -1 ? 'ontem' : `há ${-d} dias`;
 };
 
-interface Props { onAbrirCadastros?: () => void; onAbrirConferencia?: () => void; usuario?: Usuario; /** Aberto pelo menu do app: o título vem do cabeçalho da página. */ embutido?: boolean }
+interface Props { onAbrirCadastros?: () => void; onAbrirConferencia?: () => void; /** Relatórios › Aniversariantes do mês (os cartões). */ onAbrirAniversariantes?: () => void; usuario?: Usuario; /** Aberto pelo menu do app: o título vem do cabeçalho da página. */ embutido?: boolean }
 
-const PrazosPanel: React.FC<Props> = ({ onAbrirCadastros, onAbrirConferencia, usuario, embutido = false }) => {
+const PrazosPanel: React.FC<Props> = ({ onAbrirCadastros, onAbrirConferencia, onAbrirAniversariantes, usuario, embutido = false }) => {
     const hoje = new Date().toLocaleDateString('sv-SE'); // data local, AAAA-MM-DD
     const [horizonte, setHorizonte] = useState(60);
     // Abre na empresa ativa; dá para ver a carteira inteira escolhendo "todas".
@@ -49,6 +51,7 @@ const PrazosPanel: React.FC<Props> = ({ onAbrirCadastros, onAbrirConferencia, us
     }, []);
 
     const ate = somarDias(hoje, horizonte);
+    const histCartoes = useMemo(() => ativa && usuario ? historicoDeEnvios(ativa.id, hoje.slice(0, 7), 'aniversario', usuario) : undefined, [ativa?.id, usuario?.id, usuario?.email, hoje]);
     const vencimentos = useMemo(() => vencimentosNoPeriodo(somarDias(hoje, -5), ate), [hoje, ate]);
     const nomeEmpresa = useMemo(() => new Map((dados?.empresas ?? []).map(e => [e.id, `${e.codigoSage} · ${e.nomeFantasia || e.razaoSocial}`])), [dados]);
     const prazos = useMemo(() => {
@@ -84,6 +87,10 @@ const PrazosPanel: React.FC<Props> = ({ onAbrirCadastros, onAbrirConferencia, us
             {ativa && dados && (
                 <CalendarioEmpresa empresa={{ id: ativa.id, nome: ativa.nome, competencia: ativa.competencia, cnpj: ativa.cnpj }} fichas={dados.fichas} sindicatos={dados.sindicatos}
                     usuario={usuario} hoje={hoje} onTrocar={trocar} onAbrirCadastros={onAbrirCadastros} />
+            )}
+            {ativa && dados && (
+                <LembreteAniversariantes empresa={{ id: ativa.id, nome: ativa.nome, competencia: ativa.competencia }} fichas={dados.fichas} hoje={hoje}
+                    historico={histCartoes} onAbrir={onAbrirAniversariantes} />
             )}
 
             <section className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">

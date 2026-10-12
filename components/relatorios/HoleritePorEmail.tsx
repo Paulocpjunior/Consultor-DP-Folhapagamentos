@@ -4,9 +4,10 @@
 // escritório, CFI, para o e-mail da ficha) ou pelo WhatsApp do escritório (SP Connect, template do DP com documento,
 // para o celular da ficha) (services/relatorios/holeritePorEmail.ts). Envia um por vez e mostra o resultado de cada
 // um; quem está sem e-mail ou sem celular na ficha fica de fora. No mês do aniversário, o e-mail leva a mensagem de
-// aniversário da empresa.
+// aniversário da empresa. Com o histórico, quem já recebeu pelo canal na competência fica de fora (a não ser que se
+// marque "incluir quem já recebeu") e cada envio fica gravado (services/relatorios/enviosFuncionario.ts).
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import type { ResultadoCalculo } from '../../services/calculo/motorMensal';
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
 import { enviarEmailPeloEscritorio, enviarPeloSpConnect, templatesDoDp, type TemplateWhatsApp } from '../../services/pacoteCliente/spConnect';
@@ -14,6 +15,7 @@ import {
     arquivoHolerite, assuntoHolerite, destinatariosHolerite, destinatariosWhatsApp, mensagemHolerite, variaveisDoFuncionario,
 } from '../../services/relatorios/holeritePorEmail';
 import { aniversarioNoHolerite } from '../../services/relatorios/aniversarios';
+import { separarPorHistorico, textoDoEnvio, type CanalEnvio, type HistoricoDeEnvios, type HistoricoEnvios } from '../../services/relatorios/enviosFuncionario';
 
 interface Props {
     empresa: { id: string; cnpj: string; nome: string };
@@ -24,13 +26,29 @@ interface Props {
     gerarPdf: (r: ResultadoCalculo) => Promise<Uint8Array>;
     /** Texto da mensagem de aniversário da empresa (parâmetros da folha): undefined = o padrão; vazio = desligada. */
     mensagemAniversario?: string;
+    /** Histórico dos envios da competência (holerite); sem ele, não grava nem filtra. */
+    historico?: HistoricoDeEnvios;
 }
 
 const btn = 'rounded-lg px-3 py-1.5 text-white disabled:opacity-50';
 
-const HoleritePorEmail: React.FC<Props> = ({ empresa, competencia, folha, fichas, gerarPdf, mensagemAniversario }) => {
-    const { comEmail, semEmail } = useMemo(() => destinatariosHolerite(folha, fichas), [folha, fichas]);
-    const { comWhatsApp, semWhatsApp } = useMemo(() => destinatariosWhatsApp(folha, fichas), [folha, fichas]);
+const HoleritePorEmail: React.FC<Props> = ({ empresa, competencia, folha, fichas, gerarPdf, mensagemAniversario, historico }) => {
+    const todosEmail = useMemo(() => destinatariosHolerite(folha, fichas), [folha, fichas]);
+    const todosWhats = useMemo(() => destinatariosWhatsApp(folha, fichas), [folha, fichas]);
+    const [hist, setHist] = useState<HistoricoEnvios | null>(null);
+    const [erroHist, setErroHist] = useState('');
+    const [incluir, setIncluir] = useState(false);
+    useEffect(() => {
+        let vivo = true;
+        setHist(null); setErroHist('');
+        historico?.listar().then(h => { if (vivo) setHist(h); }).catch(e => { if (vivo) setErroHist(`Histórico dos envios: ${(e as Error).message}`); });
+        return () => { vivo = false; };
+    }, [historico]);
+    const email = separarPorHistorico(todosEmail.comEmail, d => d.ficha.id, hist, 'email', incluir);
+    const whats = separarPorHistorico(todosWhats.comWhatsApp, d => d.ficha.id, hist, 'whatsapp', incluir);
+    const comEmail = email.enviar; const semEmail = todosEmail.semEmail;
+    const comWhatsApp = whats.enviar; const semWhatsApp = todosWhats.semWhatsApp;
+    const jaEnviados = [...new Set([...email.jaEnviados, ...whats.jaEnviados].map(d => d.ficha.id))];
     const [resultado, setResultado] = useState<Record<string, string>>({});
     const [andamento, setAndamento] = useState('');
     const [templates, setTemplates] = useState<TemplateWhatsApp[] | null>(null);
@@ -39,6 +57,20 @@ const HoleritePorEmail: React.FC<Props> = ({ empresa, competencia, folha, fichas
     const comp = `${competencia.slice(5, 7)}/${competencia.slice(0, 4)}`;
     const t = templates?.find(x => x.nome === template);
     const faltando = t ? variaveisDoFuncionario(t, { nome: 'X', empresa: empresa.nome, titulo: 'Holerite', competencia }).faltando : [];
+
+    /** Grava o envio no histórico; se a gravação falhar, o envio vale e a tela avisa. */
+    async function gravar(fichaId: string, canal: CanalEnvio, destino: string, erro?: string) {
+        if (!historico) return;
+        try {
+            await historico.registrar(fichaId, canal, destino, erro);
+        } catch (e) { setErroHist(`Envio feito, mas não gravado no histórico: ${(e as Error).message}`); }
+    }
+
+    /** Depois do lote, relê o histórico: quem recebeu sai da próxima rodada. */
+    async function recarregar() {
+        if (!historico) return;
+        try { setHist(await historico.listar()); } catch (e) { setErroHist(`Histórico dos envios: ${(e as Error).message}`); }
+    }
 
     async function enviar() {
         if (!comEmail.length || !window.confirm(`Enviar ${comEmail.length} holerite(s) de ${comp}, cada um para o e-mail da ficha do funcionário?\n\nCada e-mail leva só o holerite da pessoa.`)) return;
@@ -54,11 +86,14 @@ const HoleritePorEmail: React.FC<Props> = ({ empresa, competencia, folha, fichas
                     anexos: [{ nome: arquivoHolerite(d, competencia), bytes, mime: 'application/pdf' }],
                 });
                 setResultado(x => ({ ...x, [d.ficha.id]: `✓ e-mail para ${d.email}` }));
+                await gravar(d.ficha.id, 'email', d.email);
             } catch (e) {
                 setResultado(x => ({ ...x, [d.ficha.id]: `✗ ${(e as Error).message}` }));
+                await gravar(d.ficha.id, 'email', d.email, (e as Error).message);
             }
         }
         setAndamento('');
+        await recarregar();
     }
 
     async function carregarTemplates() {
@@ -78,24 +113,27 @@ const HoleritePorEmail: React.FC<Props> = ({ empresa, competencia, folha, fichas
                 const { variaveis } = variaveisDoFuncionario(t, { nome: d.nome, empresa: empresa.nome, titulo: 'Holerite', competencia });
                 const r = await enviarPeloSpConnect({ para: d.numero, template: t.nome, variaveis, pdf: { nome: arquivoHolerite(d, competencia), bytes }, referencia: `holerite:${empresa.id}:${competencia}:${d.ficha.id}` });
                 setResultado(x => ({ ...x, [d.ficha.id]: `✓ WhatsApp para ${r.numeroEnviado || d.numero}` }));
+                await gravar(d.ficha.id, 'whatsapp', d.numero);
             } catch (e) {
                 setResultado(x => ({ ...x, [d.ficha.id]: `✗ ${(e as Error).message}` }));
+                await gravar(d.ficha.id, 'whatsapp', d.numero, (e as Error).message);
             }
         }
         setAndamento('');
+        await recarregar();
     }
 
-    const nomes = new Map([...comEmail, ...comWhatsApp].map(d => [d.ficha.id, d.nome]));
+    const nomes = new Map([...todosEmail.comEmail, ...todosWhats.comWhatsApp].map(d => [d.ficha.id, d.nome]));
     const enviados = Object.values(resultado).filter(v => v.startsWith('✓')).length;
     return (
         <section aria-label="Holerite por e-mail" className="space-y-2 rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-700">
             <p><strong>Enviar a cada funcionário</strong> · só o holerite da pessoa, para o contato da própria ficha</p>
             <div className="flex flex-wrap items-center justify-between gap-2">
-                <p>E-mail: {comEmail.length} com e-mail na ficha{semEmail.length ? ` · ${semEmail.length} sem e-mail` : ''}</p>
+                <p>E-mail: {todosEmail.comEmail.length} com e-mail na ficha{email.jaEnviados.length ? ` · ${email.jaEnviados.length} já recebeu(ram)` : ''}{semEmail.length ? ` · ${semEmail.length} sem e-mail` : ''}</p>
                 <button className={`${btn} bg-teal-600`} disabled={!comEmail.length || !!andamento} onClick={enviar}>Enviar {comEmail.length} holerite(s) por e-mail</button>
             </div>
             <div className="flex flex-wrap items-center justify-between gap-2">
-                <p>WhatsApp: {comWhatsApp.length} com celular na ficha{semWhatsApp.length ? ` · ${semWhatsApp.length} sem celular` : ''}</p>
+                <p>WhatsApp: {todosWhats.comWhatsApp.length} com celular na ficha{whats.jaEnviados.length ? ` · ${whats.jaEnviados.length} já recebeu(ram)` : ''}{semWhatsApp.length ? ` · ${semWhatsApp.length} sem celular` : ''}</p>
                 {templates === null
                     ? <button className={`${btn} bg-green-700`} disabled={!comWhatsApp.length || !!andamento} onClick={carregarTemplates}>Enviar pelo WhatsApp…</button>
                     : (
@@ -108,6 +146,22 @@ const HoleritePorEmail: React.FC<Props> = ({ empresa, competencia, folha, fichas
                         </span>
                     )}
             </div>
+            {historico && jaEnviados.length > 0 && (
+                <details className="text-xs">
+                    <summary className="cursor-pointer">
+                        {jaEnviados.length} já recebeu(ram) o holerite de {comp} · {incluir ? 'vão de novo' : 'ficam de fora deste envio'}
+                    </summary>
+                    <ul aria-label="Já enviados" className="mt-1 space-y-0.5">
+                        {jaEnviados.map(id => (
+                            <li key={id}>{nomes.get(id)}: {(['email', 'whatsapp'] as const).filter(c => hist?.get(id)?.[c]?.ok).map(c => textoDoEnvio(c, hist!.get(id)![c]!)).join(' · ')}</li>
+                        ))}
+                    </ul>
+                </details>
+            )}
+            {historico && jaEnviados.length > 0 && (
+                <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={incluir} onChange={e => setIncluir(e.target.checked)} /> Incluir quem já recebeu (reenviar)</label>
+            )}
+            {erroHist && <p role="alert" className="text-xs text-amber-800 dark:text-amber-200">{erroHist}</p>}
             <p className="text-xs text-slate-500">E-mail do escritório para o e-mail da ficha; WhatsApp do escritório (SP Connect) para o Telefone ou o Telefone 2 da ficha, com um modelo do Departamento Pessoal aprovado na Meta com cabeçalho de documento. No mês do aniversário, o e-mail leva a mensagem de aniversário da empresa.</p>
             {templates !== null && !templates.length && !erroWa && <p role="alert" className="text-xs text-red-700 dark:text-red-300">Nenhum modelo do Departamento Pessoal com documento no SP Connect: cadastre um no CFI (WhatsApp › Templates, departamento dp-folha) com o cabeçalho de documento aprovado na Meta.</p>}
             {faltando.length > 0 && <p role="alert" className="text-xs text-red-700 dark:text-red-300">O modelo {t?.nome} tem variáveis que o Consultor não preenche ({faltando.join(', ')}): escolha outro ou ajuste o cadastro do modelo (nome, empresa, competência ou título).</p>}
