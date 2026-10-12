@@ -5105,3 +5105,20 @@ Paulo liberou o `www.gov.br` na rede (*"pode testar"*, 12/10). A Tabela 19 foi l
   - 11 a 13, 36, 43 e 44: transferência, mudança de CPF e agrupamento, sem verbas.
 - **Regra do eSocial para registrar:** desligamento de afastado só com os motivos [01, 07, 09, 10, 11, 12, 13, 14, 16, 17, 21, 22, 23, 24, 25, 26, 29, 30, 32, 34, 36, 37, 38, 39, 40, 43, 44, 47, 48, 49] (REGRA_DESLIG_TRABALHADOR_AFASTADO). Ainda não é conferida antes do envio.
 - **Testes:** `rescisaoTabela19.test.ts`.
+
+## 12/10/2026 — Desligamento de afastado: a regra do eSocial antes do envio
+
+Paulo: *"pode seguir com regra do afastado"* (12/10).
+
+- **Regra oficial** (REGRA_DESLIG_TRABALHADOR_AFASTADO, leiaute S-1.3, NT 07/2026 rev. 24/09/2026):
+  - o S-2299 de trabalhador afastado temporariamente ou cedido só é aceito com os motivos 01, 07, 09, 10, 11, 12, 13, 14, 16, 17, 21, 22, 23, 24, 25, 26, 29, 30, 32, 34, 36, 37, 38, 39, 40, 43, 44, 47, 48 e 49;
+  - a data considerada é a maior entre o desligamento e o fim projetado do aviso indenizado (dtProjFimAPI).
+- **`afastamentoQueImpede`** (`services/esocial/desligamento.ts`):
+  - procura afastamento em aberto na data da regra, inclusive férias (S-2230, motivo 15);
+  - devolve o texto com o motivo, as datas e onde corrigir: desligar depois do fim, ou informar o fim em Cadastros › Afastamentos e enviar o S-2230 de término.
+- **S-2299 (Cálculo › Rescisão):** a tela passa os afastamentos da ficha, e o evento não é gerado quando a regra impede. Antes, o eSocial é que recusava.
+- **Demissões (prévia):**
+  - o alerta segue a regra: afastado ou em férias com motivo não aceito → o texto da regra;
+  - motivo aceito (ex.: 07) → "o eSocial aceita o motivo com o afastamento" e a estabilidade a conferir;
+  - antes, o alerta tratava todo afastado como recusado e ignorava as férias.
+- **Testes:** `desligamento.test.ts` (férias, afastamento sem fim, motivo aceito, data do fim projetado, outra ficha) e `previa.test.ts`.

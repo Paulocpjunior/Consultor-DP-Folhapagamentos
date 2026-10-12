@@ -46,7 +46,11 @@ describe('prévia de rescisão', () => {
     it('alertas: afastado, contrato a termo, data-base', () => {
         const afast = [{ id: 'a1', fichaId: 'f1', empresaId: 'E1', dtInicio: '2026-09-01', dtFim: '', motivo: '03' } as never];
         const [x] = calcularPrevia({ ficha: FICHA, afastamentos: afast, tabelas: TAB, movimentos: {}, cenarios: [{ id: 'c', tipo: '02', aviso: 'indenizado', data: '2026-10-05' }] });
-        expect(x.alertas.join(' ')).toContain('Afastado em 05/10/2026');
+        expect(x.alertas.join(' ')).toMatch(/Em 07\/11\/2026 \(fim projetado do aviso\) o trabalhador está afastado \(03 - .*REGRA_DESLIG_TRABALHADOR_AFASTADO.*Informe o fim do afastamento/);
+        expect(x.alertas.join(' ')).toContain('Confira estabilidade');
+        // Pedido de demissão (07) é aceito com o afastado: só a estabilidade.
+        const [pd] = calcularPrevia({ ficha: FICHA, afastamentos: afast, tabelas: TAB, movimentos: {}, cenarios: [{ id: 'c', tipo: '07', aviso: 'trabalhado', data: '2026-10-05' }] });
+        expect(pd.alertas.join(' ')).toContain('o eSocial aceita o motivo 07 com o afastamento');
         const termo = { ...FICHA, dados: { ...FICHA.dados, tipoContrato: '2', fimContrato: '2026-11-30' } };
         const [t] = calcularPrevia({ ficha: termo, afastamentos: [], tabelas: TAB, movimentos: {}, cenarios: [{ id: 'c', tipo: '02', aviso: 'indenizado', data: '2026-10-05' }] });
         expect(t.alertas.join(' ')).toContain('motivo 03');

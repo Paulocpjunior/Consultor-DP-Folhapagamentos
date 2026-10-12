@@ -19,6 +19,7 @@ import type { Verba } from '../calculo/motorMensal';
 import type { ResultadoRescisao } from '../calculo/motorRescisao';
 import { AVISO_PELA_METADE, PERMITE_SAQUE_FGTS } from '../calculo/motorRescisao';
 import { cpfValido } from '../cadastros/documentos';
+import { emAberto, rotuloMotivo, type Afastamento } from '../cadastros/afastamentos';
 import { vigenciaEm, type Rubrica } from '../cadastros/rubricas';
 import { diaUtilAnterior, somarDias } from '../prazos/calendario';
 import { chaveVerba, descFolhaXml, erroDescFolha, estabelecimentoDoVinculo, lotacaoDoEstabelecimento, normalizar, quantidade, type ItemDePara, type ParametrosEsocialFolha, type RubricaEsocial } from './eventosFolha';
@@ -100,6 +101,29 @@ export const prazoS2299 = (dtDeslig: string) => (DATA.test(dtDeslig) ? diaUtilAn
 /** Demonstrativo das verbas rescisórias (o mesmo ideDmDev vai no S-1210 do pagamento). */
 export const ideDmDevRescisao = (dtDeslig: string, matricula: string) => `RESC${dtDeslig.replace(/-/g, '')}-${matricula}`.slice(0, 30);
 
+/**
+ * Motivos (Tabela 19) aceitos com o trabalhador afastado temporariamente ou cedido na data do desligamento
+ * (REGRA_DESLIG_TRABALHADOR_AFASTADO, leiaute S-1.3, NT 07/2026). Para a regra, a data é a maior entre o desligamento e o
+ * fim projetado do aviso indenizado (dtProjFimAPI).
+ */
+export const MOTIVOS_COM_AFASTADO: readonly string[] = ['01', '07', '09', '10', '11', '12', '13', '14', '16', '17', '21', '22', '23', '24', '25', '26', '29', '30', '32', '34', '36', '37', '38', '39', '40', '43', '44', '47', '48', '49'];
+
+/** Afastamento (S-2230, inclusive férias) em aberto na data da regra que impede o motivo; null se o envio passa. */
+export function afastamentoQueImpede(afastamentos: Afastamento[], fichaId: string, motivo: string, dtDeslig: string, dtProjFimAPI?: string): { afastamento: Afastamento; data: string; texto: string } | null {
+    if (!motivo || MOTIVOS_COM_AFASTADO.includes(motivo) || !DATA.test(dtDeslig)) return null;
+    const data = dtProjFimAPI && DATA.test(dtProjFimAPI) && dtProjFimAPI > dtDeslig ? dtProjFimAPI : dtDeslig;
+    const a = afastamentos.filter(x => x.fichaId === fichaId && emAberto(x, data)).sort((x, y) => x.dtInicio.localeCompare(y.dtInicio))[0];
+    if (!a) return null;
+    const ate = a.dtFim ? `até ${br(a.dtFim)}` : 'sem data de fim';
+    const ferias = a.motivo === '15';
+    return {
+        afastamento: a, data,
+        texto: `Em ${br(data)}${data !== dtDeslig ? ' (fim projetado do aviso)' : ''} o trabalhador está ${ferias ? 'em férias' : 'afastado'} (${rotuloMotivo(a.motivo)}, desde ${br(a.dtInicio)}, ${ate}): o eSocial só aceita o desligamento de afastado com os motivos ${MOTIVOS_COM_AFASTADO.join(', ')} (REGRA_DESLIG_TRABALHADOR_AFASTADO). `
+            + (ferias ? 'Desligue depois do fim das férias, ou ajuste o fim delas em Cadastros › Afastamentos e envie o S-2230 de término.'
+                : a.dtFim ? 'Desligue depois do fim do afastamento.' : 'Informe o fim do afastamento em Cadastros › Afastamentos (e o S-2230 de término) antes do desligamento.'),
+    };
+}
+
 export type PensaoFgts = { tipo: '0' } | { tipo: '1'; percentual: number } | { tipo: '2'; valor: number } | { tipo: '3'; percentual: number; valor: number };
 
 export interface EntradaS2299 {
@@ -118,6 +142,8 @@ export interface EntradaS2299 {
     retificaRecibo?: string;
     /** Data de hoje (AAAA-MM-DD), para o limite do leiaute (desligamento até hoje + 10 dias). */
     hoje?: string;
+    /** Afastamentos da ficha (S-2230, inclusive férias): o eSocial recusa o desligamento de afastado fora de alguns motivos. */
+    afastamentos?: Afastamento[];
     agora?: Date;
 }
 
@@ -159,6 +185,8 @@ export function gerarS2299(e: EntradaS2299): ResultadoS2299 {
     if (e.hoje && DATA.test(r.data) && r.data > somarDias(e.hoje, 10)) erros.push(`Desligamento em ${br(r.data)}: o eSocial só aceita até 10 dias depois de hoje.`);
     if (d.dataDesligamento && d.dataDesligamento !== r.data) avisos.push(`A ficha tem desligamento em ${br(d.dataDesligamento)}; o S-2299 vai com ${br(r.data)}.`);
     if (d.motivoDesligamento && r.tipo && d.motivoDesligamento !== r.tipo) avisos.push(`A ficha tem o motivo ${d.motivoDesligamento}; o S-2299 vai com ${r.tipo}.`);
+    const impede = e.afastamentos ? afastamentoQueImpede(e.afastamentos, f.id, r.tipo, r.data, r.dataProjetada) : null;
+    if (impede) erros.push(impede.texto);
 
     // Aviso prévio: indenizado (inteiro ou parte) = indPagtoAPI S, com o fim projetado.
     const indenizado = r.verbas.some(v => v.codigo === 'AVISO' && v.valor > 0);

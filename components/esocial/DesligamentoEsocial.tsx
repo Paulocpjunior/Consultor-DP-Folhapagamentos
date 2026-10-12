@@ -7,6 +7,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { Empresa } from '../../services/empresas/empresasTypes';
+import type { Afastamento } from '../../services/cadastros/afastamentos';
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
 import type { ResultadoRescisao } from '../../services/calculo/motorRescisao';
 import { vigenciaEm, type Rubrica } from '../../services/cadastros/rubricas';
@@ -43,9 +44,11 @@ interface Props {
     envios: Envio[] | null;
     onAtualizado: () => void;
     onParametrosSalvos?: (p: ParametrosEsocialFolha) => void;
+    /** Afastamentos da ficha: desligamento de afastado só com alguns motivos (regra do eSocial). */
+    afastamentos?: Afastamento[];
 }
 
-const DesligamentoEsocial: React.FC<Props> = ({ empresa, ficha, rescisao: r, usuario, envios, onAtualizado, onParametrosSalvos }) => {
+const DesligamentoEsocial: React.FC<Props> = ({ empresa, ficha, rescisao: r, usuario, envios, onAtualizado, onParametrosSalvos, afastamentos }) => {
     const [aberto, setAberto] = useState(false);
     const lido = useRef(empresa.esocialFolha);
     const [gravados, setGravados] = useState<ParametrosEsocialFolha>(() => empresa.esocialFolha ?? parametrosVazios(empresa.cnpj));
@@ -88,7 +91,7 @@ const DesligamentoEsocial: React.FC<Props> = ({ empresa, ficha, rescisao: r, usu
         : pensTipo === '1' ? { tipo: '1', percentual: Number(pensPerc.replace(',', '.')) || 0 }
             : pensTipo === '2' ? { tipo: '2', valor: centavosDeTexto(pensValor) ?? 0 }
                 : { tipo: '3', percentual: Number(pensPerc.replace(',', '.')) || 0, valor: centavosDeTexto(pensValor) ?? 0 };
-    const geracao = useMemo(() => (rubricas ? gerarS2299({ cnpj: empresa.cnpj, tpAmb, ficha, rescisao: r, rubricas, parametros: efetivos, dtAvisoPrevio: dtAviso, pensaoFgts: pensao, observacao, hoje: hojeSp() }) : null),
+    const geracao = useMemo(() => (rubricas ? gerarS2299({ cnpj: empresa.cnpj, tpAmb, ficha, rescisao: r, rubricas, parametros: efetivos, dtAvisoPrevio: dtAviso, pensaoFgts: pensao, observacao, hoje: hojeSp(), afastamentos }) : null),
         [rubricas, empresa.cnpj, tpAmb, ficha, r, efetivos, dtAviso, pensTipo, pensPerc, pensValor, observacao]); // eslint-disable-line react-hooks/exhaustive-deps
     const podeTransmitir = !!geracao?.evento && !naoGravado && !ocupado && (s?.situacao === 'nao-enviado' || s?.situacao === 'recusado');
 

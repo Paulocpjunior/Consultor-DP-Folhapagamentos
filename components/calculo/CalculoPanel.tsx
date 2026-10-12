@@ -1104,7 +1104,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                             {!p.simulada && empresa && (() => {
                                 const ficha = dados?.fichas.find(x => x.id === t.fichaId);
                                 return ficha ? <>
-                                    <DesligamentoEsocial key={`${t.fichaId}-${t.data}`} empresa={empresa} ficha={ficha} rescisao={t} usuario={usuario} envios={enviosEsocial} onAtualizado={() => setRecargaEnvios(n => n + 1)}
+                                    <DesligamentoEsocial key={`${t.fichaId}-${t.data}`} empresa={empresa} ficha={ficha} rescisao={t} usuario={usuario} envios={enviosEsocial} onAtualizado={() => setRecargaEnvios(n => n + 1)} afastamentos={dados?.afastamentos.filter(a => a.fichaId === ficha.id)}
                                         onParametrosSalvos={pe => setEmpresas(l => l?.map(e => (e.id === empresa.id ? { ...e, esocialFolha: pe } : e)) ?? l)} />
                                     <PagamentoRescisaoEsocial key={`p-${t.fichaId}-${t.data}`} empresa={empresa} ficha={ficha} rescisao={t} usuario={usuario} envios={enviosEsocial} onAtualizado={() => setRecargaEnvios(n => n + 1)} />
                                     <EfetivacaoRescisao key={`e-${t.fichaId}-${t.data}`} empresa={empresa} ficha={ficha} rescisao={t} usuario={usuario} envios={enviosEsocial} />
