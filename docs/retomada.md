@@ -11,8 +11,9 @@ Ponto de partida da próxima sessão. Atualizado em **12/10/2026, à noite**. O 
 
 | App | Entrega | PR |
 |---|---|---|
-| DP | Regras oficiais com as rubricas (S-1010) no pré-voo | #233 e anteriores do dia |
-| DP | Licença-paternidade (Lei 15.371/2026): motivos 46–52, naturezas 4052/4053/9928/9929 | idem |
+| DP | Plataforma P2 (IA) e esteiras em Node 24 | #230, #231 |
+| DP | Regras oficiais com as rubricas (S-1010) no pré-voo | #232 |
+| DP | Licença-paternidade (Lei 15.371/2026): motivos 46–52, naturezas 4052/4053/9928/9929 | #233 |
 | DP | Tailwind 4, visual no estilo Apple, logo oficial | #234 |
 | DP | NT 07/2026 rev. aplicada por data (XSD por pacote), licenças na conferência, logo nos PDFs | #235, #236 |
 | DP | Pré-voo: lotação (S-1020) e estabelecimento (S-1005) vigentes | #237 |
