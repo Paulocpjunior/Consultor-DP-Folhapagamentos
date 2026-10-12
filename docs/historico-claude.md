@@ -5167,3 +5167,20 @@ Paulo: *"pode seguir com os itens 1,2,3"* (12/10). Item 1: conferir as tabelas u
   - o que o Consultor gera está vigente;
   - o que só lê o histórico existe na tabela oficial;
   - a vigência embutida é igual à oficial.
+
+## 12/10/2026 — Pré-voo com regras oficiais de validação do eSocial
+
+Item 2 da lista de 12/10. Fonte: "Regras de validação" do leiaute S-1.3 (NT 07/2026 rev. 24/09/2026), na documentação técnica no gov.br. São 119 regras; entram as que dá para conferir só com o XML do lote. As que dependem do que já está no eSocial (vínculo, S-1010 vigente, fechamento) ficam com as regras de ordem e com o governo.
+
+- **`services/esocial/regrasOficiais.ts`**, chamado pelo `envioSeguro` em todo envio. Cada achado leva o nome da regra oficial:
+  - **REGRA_CARACTERE_ESPECIAL:**
+    - só os caracteres da lista oficial (ASCII visível e o Latin-1 listado; travessão "–", aspas curvas, tab, enter e espaço não separável são recusados);
+    - sem espaço no início ou no fim do campo;
+    - a assinatura fica fora da conferência;
+  - **REGRA_VALIDA_PERIODO_APURACAO e REGRA_REMUN_ANUAL_DEZEMBRO:** remuneração mensal até o mês corrente; 13º (anual) só a partir de 1º/12 do ano;
+  - **REGRA_VALIDA_PER_APUR_PGTO e REGRA_VALIDA_DT_PGTO:** no S-1210, o período vai até o mês corrente (procEmi 2, 4 e 22: até 2 meses depois); nos tpPgto 1, 4 e 5, o pagamento não pode ser anterior ao perRef (anual = dezembro);
+  - **REGRA_ADMISSAO_VALIDA_DT_ADM e REGRA_ADMISSAO_VALIDA_DURACAO_CONTRATO:** admissão até 30 dias depois de hoje; limites das categorias 103, 105, 107 e 108; contrato rural de pequeno prazo (102) com até 60 dias;
+  - **REGRA_AFASTAMENTO:** o lote não leva dois S-2230 do mesmo vínculo com a mesma data de início ou de fim;
+  - **REGRA_VALIDA_DT_FUTURA:** nos eventos de tabela, início e fim da validade não podem passar do mês do envio.
+- **S-1010:** início da validade no futuro passa de aviso a erro. O texto antigo dizia "até a competência seguinte", e a regra oficial não aceita nenhum mês depois do envio.
+- **Testes:** `regrasOficiais.test.ts`.
