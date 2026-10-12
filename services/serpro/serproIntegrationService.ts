@@ -156,3 +156,11 @@ export async function transmitirDctfweb(empresaId: string, cnpj: string, compete
 export async function consultarPagamentosReceita(empresaId: string, cnpj: string, numerosDocumento: string[]): Promise<ConsultaPagamentosReceita> {
     return callFiscal<ConsultaPagamentosReceita>('/pagamentos/consultar', { empresaId, cnpj, numerosDocumento });
 }
+
+export interface ComprovanteReceitaResult { ok: boolean; fonte?: string; pdfBase64?: string; error?: string; mensagens?: unknown[] }
+
+/** Comprovante de arrecadação em PDF (PAGTOWEB/COMPARRECADACAO72 no CFI), pelo número do documento. */
+export async function emitirComprovanteReceita(empresaId: string, cnpj: string, numeroDocumento: string): Promise<ComprovanteReceitaResult> {
+    return callFiscal<ComprovanteReceitaResult>('/pagamentos/comprovante', { empresaId, cnpj, numeroDocumento });
+}
+

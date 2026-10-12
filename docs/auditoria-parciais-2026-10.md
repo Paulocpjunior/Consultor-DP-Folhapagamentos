@@ -56,7 +56,7 @@ necessários: o inventário do backup (06/10/2026) traz as colunas da `func`, a 
 | 10 | ~~Parâmetros da empresa (`arq-empresas`)~~ **entregue em 11/10** | Início da DCTFWeb e do FGTS Digital da empresa. | nada |
 | 11 | ~~Eventos (`arq-eventos`)~~ **entregue em 11/10** | Fórmula própria por evento. | nada |
 | 12 | ~~Processo trabalhista (`es-processo-trab`)~~ **entregue em 11/10** | Unicidade contratual, responsabilidade indireta e Justiça Comum no S-2500. | nada |
-| 13 | ~~Pagamento de guias (`trib-pagamento`)~~ **entregue em 11/10** (baixa pelo comprovante) e **12/10** ("Conferir na Receita": DARF pago pelo PAGTOWEB, rota do CFI) | Baixa do DARF pago (consulta do pagamento no SERPRO pelo CFI, ou baixa manual). | rota do CFI, se for pela consulta |
+| 13 | ~~Pagamento de guias (`trib-pagamento`)~~ **entregue em 11/10** (baixa pelo comprovante) e **12/10** ("Conferir na Receita": DARF pago pelo PAGTOWEB, rota do CFI; conferência de todos os DARF da competência e comprovante de arrecadação em PDF) | Baixa do DARF pago (consulta do pagamento no SERPRO pelo CFI, ou baixa manual). | rota do CFI, se for pela consulta |
 | 14 | ~~Folha complementar (`proc-complementar`)~~ **entregue em 11/10** (com o 13º de ano anterior desde o PR do RRA com 13º) | RRA (diferenças de anos anteriores, IRRF pela tabela acumulada). | nada (fica por último, como combinado) |
 | 15 | Integração contábil (`div-contabil`) | Importação direta no Consultor Contábil. | acesso ao `plano-contas-iob` ou o layout do CCI |
 | 16 | ~~Cadastro do funcionário (`arq-funcionarios`)~~ **entregue em 11/10** | Abas Complementos, Lanç. Automático e Holerite. | ~~prints do IOB Office~~ pelo inventário do backup (Paulo: "você tem os backups com os dados necessários") |

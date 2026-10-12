@@ -141,6 +141,69 @@ export function baixaPelaReceita(r: ConsultaPagamentosReceita, numeroDocumento: 
     };
 }
 
+/** Nome do PDF do comprovante: comprovante-arrecadacao-<obrigação>-<documento>.pdf (sem dado pessoal). */
+export const nomeArquivoComprovante = (obrigacao: string, numeroDocumento: string) =>
+    `comprovante-arrecadacao-${obrigacao}-${numeroDoDocumento(numeroDocumento) ?? 'sem-numero'}.pdf`;
+
+export type EstadoNaReceita = 'confere' | 'baixar' | 'diverge' | 'nao-localizado' | 'incompleto' | 'sem-numero';
+export interface LinhaConferenciaReceita {
+    obrigacao: string;
+    nome: string;
+    numeroDocumento: string;
+    estado: EstadoNaReceita;
+    /** O que a Receita registrou (quando localizado e completo). */
+    receita: { data: string; valorPago: number; detalhe: string } | null;
+    /** Baixa pronta para gravar (estado 'baixar'). */
+    baixa: BaixaGuia | null;
+    motivo: string;
+}
+export const ROTULO_NA_RECEITA: Record<EstadoNaReceita, string> = {
+    confere: 'confere com a baixa', baixar: 'paga na Receita, sem baixa no DP', diverge: 'baixa diferente da Receita',
+    'nao-localizado': 'não localizado (ainda)', incompleto: 'Receita sem data ou valor', 'sem-numero': 'sem número do documento',
+};
+
+/** DARF da competência que entram na conferência em lote: os que têm guia registrada com número válido. */
+export function numerosParaConferir(itens: { obrigacao: string; guia?: GuiaRegistrada }[]): string[] {
+    const out: string[] = [];
+    for (const i of itens) {
+        if (!i.obrigacao.startsWith('darf-')) continue;
+        const n = numeroDoDocumento(i.guia?.numeroDocumento ?? '');
+        if (n && !out.includes(n)) out.push(n);
+    }
+    return out;
+}
+
+/**
+ * Conferência em lote dos DARF da competência com o que a Receita registrou (uma consulta, vários documentos).
+ * Guia sem baixa e localizada vira baixa pronta (fonte 'receita'); com baixa, compara data e valor pago.
+ * Não localizado continua "não localizado" (nunca "não pago"); sem data ou valor, não propõe nada.
+ */
+export function conferenciaNaReceita(
+    itens: { obrigacao: string; nome: string; guia?: GuiaRegistrada }[], r: ConsultaPagamentosReceita,
+): LinhaConferenciaReceita[] {
+    return itens.filter(i => i.obrigacao.startsWith('darf-')).map(i => {
+        const numero = i.guia?.numeroDocumento ?? '';
+        const base = { obrigacao: i.obrigacao, nome: i.nome, numeroDocumento: numero, receita: null, baixa: null };
+        if (!numeroDoDocumento(numero)) return { ...base, estado: 'sem-numero' as const, motivo: 'Sem número do documento: emita o DARF pela DCTFWeb da folha ou informe o número na baixa.' };
+        const res = baixaPelaReceita(r, numero);
+        if ('erro' in res) {
+            const s = r.situacoes?.find(x => x.numeroDocumento === numeroDoDocumento(numero));
+            const estado = s && !s.localizado ? 'nao-localizado' as const : 'incompleto' as const;
+            return { ...base, estado, motivo: res.erro };
+        }
+        const pg = i.guia?.pagamento;
+        if (!pg) {
+            return { ...base, estado: 'baixar' as const, receita: res, baixa: { data: res.data, valorPago: res.valorPago, autenticacao: '', fonte: 'receita' as const }, motivo: res.detalhe };
+        }
+        const dif: string[] = [];
+        if (pg.data !== res.data) dif.push(`data: baixa ${br(pg.data)}, Receita ${br(res.data)}`);
+        if (pg.valorPago !== res.valorPago) dif.push(`valor: baixa ${reais(pg.valorPago)}, Receita ${reais(res.valorPago)}`);
+        return dif.length
+            ? { ...base, estado: 'diverge' as const, receita: res, motivo: `Confira a baixa (${dif.join('; ')}).` }
+            : { ...base, estado: 'confere' as const, receita: res, motivo: res.detalhe };
+    });
+}
+
 /** Totais da competência: devido, pago, guias em aberto e vencidas. */
 export function resumoGuias(itens: { vencimento: string; guia?: GuiaRegistrada }[], hoje: string) {
     let devido = 0, pago = 0, abertas = 0, vencidas = 0;

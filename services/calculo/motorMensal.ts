@@ -38,6 +38,8 @@ export interface Incidencias { inss: boolean; fgts: boolean; irrf: boolean }
 export interface PlanoSaudeRef { cnpjOper: string; regANS: string }
 export interface Verba extends Incidencias {
     codigo: string; descricao: string; referencia: string; tipo: TipoVerba; valor: number; planoSaude?: PlanoSaudeRef;
+    /** Rubrica informativa (tpRubr 3): não é paga nem descontada (fora do líquido); só as incidências marcadas. Hoje só a complementar tipo E. */
+    informativa?: boolean;
     /** Desconto do Crédito do Trabalhador: o grupo descFolha do eSocial (instituição e contrato), rubrica de natureza 9253. */
     descFolha?: { instFinanc: string; nrDoc: string; observacao?: string };
 }

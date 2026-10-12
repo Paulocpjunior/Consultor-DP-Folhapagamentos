@@ -17,11 +17,13 @@ import {
 import { desmarcarObrigacao, listarMarcacoes, marcarObrigacao } from '../../services/prazos/obrigacoesStatusService';
 import { centavosDeTexto } from '../../services/cadastros/documentos';
 import {
-    baixaPelaReceita, ehGuia, observacaoDaBaixa, resumoGuias, ROTULO_GUIA, situacaoDaGuia, validarBaixa, valorPagoNoFgts,
-    type BaixaGuia, type GuiaRegistrada,
+    baixaPelaReceita, conferenciaNaReceita, ehGuia, nomeArquivoComprovante, numerosParaConferir, observacaoDaBaixa, resumoGuias, ROTULO_GUIA, ROTULO_NA_RECEITA, situacaoDaGuia, validarBaixa, valorPagoNoFgts,
+    type BaixaGuia, type GuiaRegistrada, type LinhaConferenciaReceita,
 } from '../../services/guias/pagamentoGuias';
 import { darBaixa, desfazerBaixa, listarGuias } from '../../services/guias/pagamentoGuiasService';
-import { consultarFgtsRecolhimento, consultarPagamentosReceita } from '../../services/serpro/serproIntegrationService';
+import { consultarFgtsRecolhimento, consultarPagamentosReceita, emitirComprovanteReceita } from '../../services/serpro/serproIntegrationService';
+import { bytesDoBase64 } from '../../services/dctfweb/dctfwebFolha';
+import { baixarBytes } from '../../services/implantacao/zip';
 
 interface Props {
     empresa: { id: string; nome: string; competencia: string; cnpj?: string };
@@ -47,6 +49,8 @@ const CalendarioEmpresa: React.FC<Props> = ({ empresa, fichas, sindicatos, usuar
     const [guias, setGuias] = useState<Map<string, GuiaRegistrada>>(new Map());
     const [baixa, setBaixa] = useState<{ id: string; f: FormBaixa } | null>(null);
     const [aviso, setAviso] = useState('');
+    const [naReceita, setNaReceita] = useState<LinhaConferenciaReceita[] | null>(null);
+    const [conferindo, setConferindo] = useState(false);
 
     const carregar = useCallback(() => {
         setErro('');
@@ -54,6 +58,7 @@ const CalendarioEmpresa: React.FC<Props> = ({ empresa, fichas, sindicatos, usuar
         listarGuias(empresa.id, empresa.competencia).then(setGuias).catch(e => setErro(mensagemErro(e)));
     }, [empresa.id, empresa.competencia]);
     useEffect(() => { carregar(); }, [carregar]);
+    useEffect(() => { setNaReceita(null); }, [empresa.id, empresa.competencia]);
 
     const { obrigacoes, semGuia, foraDoCadastro } = useMemo(() => {
         const cnpjs = cnpjsSindicatosDaEmpresa(fichas, empresa.id);
@@ -120,6 +125,59 @@ const CalendarioEmpresa: React.FC<Props> = ({ empresa, fichas, sindicatos, usuar
         } catch (e) { setAviso(''); setErro(mensagemErro(e)); }
     }
 
+    /** Todos os DARF da competência numa consulta só à Receita (PAGTOWEB pelo CFI). */
+    async function conferirTodasNaReceita() {
+        if (!empresa.cnpj) return;
+        const itens = obrigacoes.filter(o => o.id.startsWith('darf-')).map(o => ({ obrigacao: o.id, nome: o.nome, guia: guias.get(o.id) }));
+        const numeros = numerosParaConferir(itens);
+        setErro(''); setAviso('');
+        if (!numeros.length) { setNaReceita(conferenciaNaReceita(itens, { ok: true, fonte: 'serpro', situacoes: [] })); return; }
+        setConferindo(true);
+        try {
+            const r = await consultarPagamentosReceita(empresa.id, empresa.cnpj.replace(/\D/g, ''), numeros);
+            if (!r.ok) { setErro(r.error || 'A Receita não respondeu.'); setNaReceita(null); return; }
+            setNaReceita(conferenciaNaReceita(itens, r));
+        } catch (e) { setErro(mensagemErro(e)); }
+        finally { setConferindo(false); }
+    }
+
+    async function baixarPelaReceita(linhas: LinhaConferenciaReceita[]) {
+        if (!usuario) return;
+        const prontas = linhas.filter(l => l.estado === 'baixar' && l.baixa);
+        const avisos: string[] = [];
+        for (const l of prontas) {
+            const o = obrigacoes.find(x => x.id === l.obrigacao)!;
+            const v = validarBaixa(l.baixa!, { obrigacao: o.id, vencimento: o.data, valorDevido: guias.get(o.id)?.valorDevido ?? 0 }, hoje);
+            if (v.erros.length) { setErro(`${o.nome}: ${v.erros.join(' ')}`); return; }
+            avisos.push(...v.avisos.map(a => `${o.nome}: ${a}`));
+        }
+        const pergunta = `Dar baixa em ${prontas.length} guia(s) com a data e o valor registrados na Receita?${avisos.length ? `\n\n${avisos.join('\n')}` : ''}`;
+        if (!prontas.length || !window.confirm(pergunta)) return;
+        setGravando('receita'); setErro('');
+        try {
+            for (const l of prontas) {
+                const o = obrigacoes.find(x => x.id === l.obrigacao)!;
+                const g = guias.get(o.id);
+                await darBaixa(empresa.id, empresa.competencia, o, { valorDevido: g?.valorDevido ?? 0, numeroDocumento: g?.numeroDocumento ?? l.numeroDocumento }, l.baixa!, usuario);
+            }
+            setNaReceita(ls => ls && ls.map(l => (prontas.includes(l) ? { ...l, estado: 'confere' as const, baixa: null } : l)));
+            setAviso(`${prontas.length} baixa(s) gravada(s) pela Receita.`);
+            carregar();
+        } catch (e) { setErro(mensagemErro(e)); }
+        finally { setGravando(''); }
+    }
+
+    async function baixarComprovante(o: ObrigacaoEmpresa, g: GuiaRegistrada) {
+        if (!empresa.cnpj) return;
+        setGravando(`comprovante-${o.id}`); setErro(''); setAviso('');
+        try {
+            const r = await emitirComprovanteReceita(empresa.id, empresa.cnpj.replace(/\D/g, ''), g.numeroDocumento);
+            if (!r.ok || r.fonte !== 'serpro' || !r.pdfBase64) { setErro(r.error || 'A Receita não devolveu o comprovante.'); return; }
+            baixarBytes(nomeArquivoComprovante(o.id, g.numeroDocumento), bytesDoBase64(r.pdfBase64), 'application/pdf');
+        } catch (e) { setErro(mensagemErro(e)); }
+        finally { setGravando(''); }
+    }
+
     async function gravarBaixa(o: ObrigacaoEmpresa) {
         if (!usuario || !baixa) return;
         const b = lerBaixa(baixa.f);
@@ -171,6 +229,27 @@ const CalendarioEmpresa: React.FC<Props> = ({ empresa, fichas, sindicatos, usuar
                 {daGuia.length > 0 && <span aria-label="Resumo das guias" className="rounded-full bg-blue-50 px-2.5 py-1 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">Guias: {daGuia.length - rg.abertas} de {daGuia.length} com baixa{rg.pago > 0 ? ` · ${reais(rg.pago)} pagos` : ''}{rg.vencidas > 0 ? ` · ${rg.vencidas} vencida(s) sem baixa` : ''}</span>}
             </div>
 
+            {usuario && empresa.cnpj && daGuia.some(o => o.id.startsWith('darf-')) && (
+                <div className="mt-2">
+                    <button className={`${btn} border-blue-600 text-blue-700 dark:text-blue-300`} disabled={conferindo || !!gravando} onClick={conferirTodasNaReceita}>{conferindo ? 'Consultando a Receita…' : 'Conferir os DARF na Receita'}</button>
+                    {naReceita && (
+                        <div role="region" aria-label="DARF na Receita" className="mt-2 rounded border border-blue-100 p-2 text-xs dark:border-blue-900 dark:text-slate-100">
+                            <table className="w-full">
+                                <thead className="text-left text-slate-500"><tr><th className="p-1">Guia</th><th className="p-1">Documento</th><th className="p-1">Situação</th><th className="p-1">Detalhe</th></tr></thead>
+                                <tbody>{naReceita.map(l => (
+                                    <tr key={l.obrigacao} className="border-t border-slate-100 align-top dark:border-slate-700">
+                                        <td className="p-1">{l.nome}</td><td className="p-1">{l.numeroDocumento || '—'}</td>
+                                        <td className={`p-1 font-medium ${l.estado === 'confere' ? 'text-green-700 dark:text-green-300' : l.estado === 'baixar' ? 'text-blue-700 dark:text-blue-300' : 'text-amber-700 dark:text-amber-300'}`}>{ROTULO_NA_RECEITA[l.estado]}</td>
+                                        <td className="p-1">{l.motivo}</td>
+                                    </tr>
+                                ))}</tbody>
+                            </table>
+                            {naReceita.some(l => l.estado === 'baixar') && <button className={`${btn} mt-2 border-green-700 bg-green-700 text-white`} disabled={!!gravando} onClick={() => baixarPelaReceita(naReceita)}>{gravando === 'receita' ? 'Gravando…' : `Dar baixa nas ${naReceita.filter(l => l.estado === 'baixar').length} localizada(s)`}</button>}
+                            <p className="mt-1 text-slate-500">Não localizado não quer dizer não pago: a arrecadação leva alguns dias para aparecer na Receita.</p>
+                        </div>
+                    )}
+                </div>
+            )}
             {erro && <p role="alert" className="mt-2 rounded bg-red-50 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
             {aviso && <p role="status" className="mt-2 rounded bg-blue-50 p-2 text-sm text-blue-800 dark:bg-blue-900/30 dark:text-blue-200">{aviso}</p>}
             {!usuario && <p className="mt-2 text-xs text-slate-500">Entre com seu usuário para marcar as entregas.</p>}
@@ -202,6 +281,7 @@ const CalendarioEmpresa: React.FC<Props> = ({ empresa, fichas, sindicatos, usuar
                                                 <span className="mt-0.5 block text-slate-500">{observacaoDaBaixa(g.pagamento)}</span>
                                                 <span className="block text-slate-500">{[g.atualizadoPorEmail, g.atualizadoEm && br(g.atualizadoEm.slice(0, 10))].filter(Boolean).join(' · ')}</span>
                                                 {usuario && <button className={`${btn} mt-1 border-slate-300 dark:border-slate-600`} disabled={!!gravando} onClick={() => desfazerPagamento(o, g)}>Desfazer a baixa</button>}
+                                                {usuario && o.id.startsWith('darf-') && empresa.cnpj && g.numeroDocumento.trim() && <button className={`${btn} ml-1 mt-1 border-blue-600 text-blue-700 dark:text-blue-300`} disabled={!!gravando} onClick={() => baixarComprovante(o, g)}>{gravando === `comprovante-${o.id}` ? 'Baixando…' : 'Comprovante da Receita'}</button>}
                                             </>
                                         ) : m ? (
                                             <>

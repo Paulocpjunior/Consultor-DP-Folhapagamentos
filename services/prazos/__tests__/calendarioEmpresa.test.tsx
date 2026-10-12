@@ -6,9 +6,10 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 const st = vi.hoisted(() => ({ listar: vi.fn(), marcar: vi.fn(), desmarcar: vi.fn() }));
 vi.mock('../obrigacoesStatusService', () => ({ listarMarcacoes: st.listar, marcarObrigacao: st.marcar, desmarcarObrigacao: st.desmarcar }));
 vi.mock('../../cadastros/cadastrosService', () => ({ mensagemErro: (e: Error) => e.message }));
-const gu = vi.hoisted(() => ({ listar: vi.fn(), baixa: vi.fn(), desfazer: vi.fn(), fgts: vi.fn(), receita: vi.fn() }));
+const gu = vi.hoisted(() => ({ listar: vi.fn(), baixa: vi.fn(), desfazer: vi.fn(), fgts: vi.fn(), receita: vi.fn(), comprovante: vi.fn(), baixar: vi.fn() }));
 vi.mock('../../guias/pagamentoGuiasService', () => ({ listarGuias: gu.listar, darBaixa: gu.baixa, desfazerBaixa: gu.desfazer }));
-vi.mock('../../serpro/serproIntegrationService', () => ({ consultarFgtsRecolhimento: gu.fgts, consultarPagamentosReceita: gu.receita }));
+vi.mock('../../serpro/serproIntegrationService', () => ({ consultarFgtsRecolhimento: gu.fgts, consultarPagamentosReceita: gu.receita, emitirComprovanteReceita: gu.comprovante }));
+vi.mock('../../implantacao/zip', () => ({ baixarBytes: gu.baixar }));
 import CalendarioEmpresa from '../../../components/prazos/CalendarioEmpresa';
 import { sindicatoVazio } from '../../cadastros/sindicatos';
 
@@ -130,6 +131,43 @@ describe('calendário da empresa ativa', () => {
         fireEvent.click(within(grupo).getByText('Conferir na Receita'));
         expect((await screen.findByRole('alert')).textContent).toMatch(/não quer dizer que não foi pago/);
         expect((screen.getByLabelText('Valor pago') as HTMLInputElement).value).toBe('');
+    });
+
+    it('confere todos os DARF na Receita numa consulta e dá baixa nos localizados', async () => {
+        const g = (obrigacao: string, numeroDocumento: string) => ({ obrigacao, competencia: '2026-09', nome: 'DARF', vencimento: '2026-10-20', valorDevido: 100000, numeroDocumento, pagamento: null });
+        gu.listar.mockResolvedValue(new Map([['darf-2026-09', g('darf-2026-09', '07.20.26252.7312345-6')]]));
+        st.listar.mockResolvedValue(new Map());
+        gu.receita.mockResolvedValue({ ok: true, fonte: 'serpro', situacoes: [{ numeroDocumento: '07202625273123456', localizado: true,
+            pagamento: { numeroDocumento: '07202625273123456', dataArrecadacao: '2026-10-20', valorTotal: 1000, valorPrincipal: 1000, valorMulta: null, valorJuros: null } }] });
+        gu.baixa.mockResolvedValue(undefined);
+        render(<CalendarioEmpresa {...props} empresa={{ ...props.empresa, cnpj: '44.388.152/0001-89' }} />);
+        await waitFor(() => expect(gu.listar).toHaveBeenCalled());
+        await screen.findByText(/documento 07.20.26252.7312345-6/);
+        fireEvent.click(screen.getByText('Conferir os DARF na Receita'));
+        const painel = await screen.findByRole('region', { name: 'DARF na Receita' });
+        expect(gu.receita).toHaveBeenCalledWith('E1', '44388152000189', ['07202625273123456']);
+        expect(within(painel).getByText('paga na Receita, sem baixa no DP')).toBeTruthy();
+        expect(within(painel).getAllByRole('row')).toHaveLength(2); // cabeçalho + o DARF da competência
+        vi.spyOn(window, 'confirm').mockReturnValue(true);
+        fireEvent.click(within(painel).getByText('Dar baixa nas 1 localizada(s)'));
+        await waitFor(() => expect(gu.baixa).toHaveBeenCalledWith('E1', '2026-09', expect.objectContaining({ id: 'darf-2026-09' }),
+            { valorDevido: 100000, numeroDocumento: '07.20.26252.7312345-6' }, { data: '2026-10-20', valorPago: 100000, autenticacao: '', fonte: 'receita' }, usuario));
+        expect(await within(painel).findByText('confere com a baixa')).toBeTruthy();
+    });
+
+    it('guia DARF paga baixa o comprovante de arrecadação da Receita em PDF', async () => {
+        const paga = { obrigacao: 'darf-2026-09', competencia: '2026-09', nome: 'DARF', vencimento: '2026-10-20', valorDevido: 50000, numeroDocumento: '07.20.26252.7312345-6', pagamento: { data: '2026-10-19', valorPago: 50000, autenticacao: '', fonte: 'receita' } };
+        gu.listar.mockResolvedValue(new Map([['darf-2026-09', paga]]));
+        st.listar.mockResolvedValue(new Map([['darf-2026-09', { status: 'entregue' }]]));
+        gu.comprovante.mockResolvedValueOnce({ ok: true, fonte: 'serpro', pdfBase64: 'JVBERi0x' }).mockResolvedValueOnce({ ok: false, fonte: 'serpro', error: 'O SERPRO não devolveu o PDF do comprovante: Documento não encontrado.' });
+        render(<CalendarioEmpresa {...props} empresa={{ ...props.empresa, cnpj: '44.388.152/0001-89' }} />);
+        const darf = (await screen.findByText('DARF da DCTFWeb (INSS e IRRF)')).closest('tr')!;
+        fireEvent.click(await within(darf).findByText('Comprovante da Receita'));
+        await waitFor(() => expect(gu.baixar).toHaveBeenCalledWith('comprovante-arrecadacao-darf-2026-09-07202625273123456.pdf', expect.any(Uint8Array), 'application/pdf'));
+        expect(gu.comprovante).toHaveBeenCalledWith('E1', '44388152000189', '07.20.26252.7312345-6');
+        fireEvent.click(within(darf).getByText('Comprovante da Receita'));
+        expect((await screen.findByRole('alert')).textContent).toMatch(/Documento não encontrado/);
+        expect(gu.baixar).toHaveBeenCalledTimes(1);
     });
 
     it('guia paga mostra a baixa e o resumo; data futura é recusada', async () => {

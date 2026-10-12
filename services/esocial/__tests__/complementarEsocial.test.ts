@@ -175,3 +175,46 @@ describe('folha complementar no eSocial', () => {
         expect(await validarPeloXsd(t.s1200!.xml, lerXsd)).toEqual({ valido: true, erros: [] });
     });
 });
+
+describe('complementar tipo E no eSocial (conversão em acidentário)', () => {
+    const E: Instrumento = { tpAcConv: 'E', dtAcConv: '2026-04-30', dsc: 'Conversão B31 em B91 notificada pelo INSS' };
+    const fgtsac = (tpRubr: '1' | '3'): Rubrica => ({ id: 'AUXAC', empresaId: 'E1', codRubr: 'AUXAC', ideTabRubr: 'T1', eventoIob: '', origem: '',
+        vigencias: [{ iniValid: '2020-01', fimValid: '', recibo: '', dados: { dscRubr: 'AUXILIO DOENCA ACIDENTARIO', natRubr: '1099', tpRubr, codIncCP: '00', codIncIRRF: '09', codIncFGTS: '11', codIncCPRP: '', observacao: '' } }] });
+    const comp = () => calcularComplementar({ perApur: '2026-04', pagamento: '2026-04', instrumento: E, fichas: [FICHA], gravadas: {}, folhaDoMes: [], tabelas: TAB,
+        lancamentos: ['2026-02', '2026-03'].map(perRef => ({ fichaId: 'f1', perRef, codigo: 'FGTSAC', descricao: '', tipo: 'provento' as const, valor: 900000, inss: false, fgts: true, irrf: false })) });
+
+    it('rubrica informativa em infoPerAnt com tpAcConv E; nada vai ao S-1210; passa no XSD', async () => {
+        const folha = mes('2026-04');
+        const c = comp();
+        expect(c.resultados[0].situacao).toBe('calculado');
+        const rubricas = [...RUBRICAS, fgtsac('3')];
+        const p: ParametrosEsocialFolha = { nrInscEstab: CNPJ, codLotacao: 'LOT01',
+            rubricas: Object.fromEntries(sugerirDePara([folha, ...c.resultados], rubricas, '2026-04').filter(i => i.sugestao).map(i => [i.chave, i.sugestao!])) };
+        expect(sugerirDePara(c.resultados, rubricas, '2026-04')).toEqual([expect.objectContaining({ chave: 'FGTSAC', tipo: 'informativa' })]);
+        expect(p.rubricas.FGTSAC).toEqual({ codRubr: 'AUXAC', ideTabRubr: 'T1' }); // sugerida pela descrição, entre as informativas
+        const g = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-04', dataPagamento: '2026-04-30', fichas: [FICHA], resultados: [folha], rubricas,
+            parametros: p, complementares: [{ instrumento: E, resultados: c.resultados }], agora: new Date('2026-04-30T12:00:00Z') });
+        const t = g.trabalhadores[0];
+        expect(t.erros).toEqual([]);
+        const xml = t.s1200!.xml;
+        expect(await validarPeloXsd(xml, lerXsd)).toEqual({ valido: true, erros: [] });
+        expect(txt(xml, 'ideDmDev')).toEqual(['FOLHA202604-M1', 'COMP202604E-M1']);
+        expect(xml).toContain('<ideADC><dtAcConv>2026-04-30</dtAcConv><tpAcConv>E</tpAcConv>');
+        expect(txt(xml, 'perRef')).toEqual(['2026-02', '2026-03']);
+        const periodo = doc(xml).getElementsByTagName('idePeriodo')[0];
+        expect(Array.from(periodo.getElementsByTagName('codRubr')).map(e => e.textContent)).toEqual(['AUXAC']);
+        expect(periodo.getElementsByTagName('vrRubr')[0].textContent).toBe('9000.00');
+        expect(txt(t.s1210!.xml, 'ideDmDev')).toEqual(['FOLHA202604-M1']);
+    });
+
+    it('a base do FGTS em rubrica que não é informativa é recusada', () => {
+        const folha = mes('2026-04');
+        const c = comp();
+        const p = params([folha], '2026-04');
+        p.rubricas.FGTSAC = { codRubr: 'AUXAC', ideTabRubr: 'T1' };
+        const g = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-04', dataPagamento: '2026-04-30', fichas: [FICHA], resultados: [folha], rubricas: [...RUBRICAS, fgtsac('1')],
+            parametros: p, complementares: [{ instrumento: E, resultados: c.resultados }], agora: new Date('2026-04-30T12:00:00Z') });
+        expect(g.trabalhadores[0].erros.join(' ')).toMatch(/Rubrica AUXAC é provento no S-1010, e "Base do FGTS do afastamento por acidente \(informativa\)" é informativa/);
+    });
+});
+

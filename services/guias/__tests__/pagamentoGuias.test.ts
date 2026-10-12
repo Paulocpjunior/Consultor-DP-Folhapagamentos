@@ -1,7 +1,7 @@
 // Pagamento de guias: quais obrigações são guias, a baixa, a situação e o FGTS Digital (dados fictícios).
 import { describe, expect, it } from 'vitest';
 import {
-    baixaPelaReceita, ehGuia, guiasDasObrigacoes, numeroDoDocumento, observacaoDaBaixa, resumoGuias, situacaoDaGuia, validarBaixa, valorPagoNoFgts,
+    baixaPelaReceita, conferenciaNaReceita, ehGuia, guiasDasObrigacoes, numeroDoDocumento, numerosParaConferir, observacaoDaBaixa, resumoGuias, situacaoDaGuia, validarBaixa, valorPagoNoFgts,
     type BaixaGuia, type ConsultaPagamentosReceita,
 } from '../pagamentoGuias';
 import { obrigacoesDaEmpresa } from '../../prazos/obrigacoesEmpresa';
@@ -101,6 +101,44 @@ describe('DARF pago conferido na Receita (PAGTOWEB pelo CFI)', () => {
 
     it('a baixa conferida na Receita diz de onde veio', () => {
         expect(observacaoDaBaixa(b({ fonte: 'receita', autenticacao: '' }))).toMatch(/^paga em 19\/10\/2026 · R\$\s1\.000,00 · pagamento conferido na Receita$/);
+    });
+});
+
+describe('conferência em lote dos DARF na Receita', () => {
+    const guia = (obrigacao: string, numeroDocumento: string, pagamento: BaixaGuia | null = null) =>
+        ({ obrigacao, competencia: '2026-09', nome: obrigacao, vencimento: '2026-10-20', valorDevido: 100000, numeroDocumento, pagamento });
+    const pag = (n: string, data: string, valor: number) => ({ numeroDocumento: n, localizado: true, pagamento: { numeroDocumento: n, dataArrecadacao: data, valorTotal: valor, valorPrincipal: valor, valorMulta: null, valorJuros: null } });
+    const itens = [
+        { obrigacao: 'darf-2026-09', nome: 'DARF da folha', guia: guia('darf-2026-09', '07.0001') },
+        { obrigacao: 'darf-13-2026', nome: 'DARF do 13º', guia: guia('darf-13-2026', '070002', b({ data: '2026-10-19', valorPago: 100000 })) },
+        { obrigacao: 'darf-x-2026', nome: 'DARF com baixa diferente', guia: guia('darf-x-2026', '070003', b({ data: '2026-10-18', valorPago: 90000 })) },
+        { obrigacao: 'darf-y-2026', nome: 'DARF não localizado', guia: guia('darf-y-2026', '070004') },
+        { obrigacao: 'darf-z-2026', nome: 'DARF sem número', guia: guia('darf-z-2026', '') },
+        { obrigacao: 'fgts-2026-09', nome: 'FGTS', guia: guia('fgts-2026-09', '999') },
+    ];
+    const r: ConsultaPagamentosReceita = { ok: true, fonte: 'serpro', situacoes: [
+        pag('070001', '2026-10-20', 1000), pag('070002', '2026-10-19', 1000), pag('070003', '2026-10-19', 1000),
+        { numeroDocumento: '070004', localizado: false, pagamento: null, observacao: 'Não localizado no PAGTOWEB.' },
+    ] };
+
+    it('só os DARF com número entram na consulta, sem repetir; FGTS fica de fora', () => {
+        expect(numerosParaConferir(itens)).toEqual(['070001', '070002', '070003', '070004']);
+    });
+
+    it('baixa pronta, confere, diverge, não localizado e sem número', () => {
+        const l = conferenciaNaReceita(itens, r);
+        expect(l.map(x => [x.obrigacao, x.estado])).toEqual([
+            ['darf-2026-09', 'baixar'], ['darf-13-2026', 'confere'], ['darf-x-2026', 'diverge'], ['darf-y-2026', 'nao-localizado'], ['darf-z-2026', 'sem-numero'],
+        ]);
+        expect(l[0].baixa).toEqual({ data: '2026-10-20', valorPago: 100000, autenticacao: '', fonte: 'receita' });
+        expect(l[2].motivo).toMatch(/data: baixa 18\/10\/2026, Receita 19\/10\/2026; valor: baixa R\$\s900,00, Receita R\$\s1\.000,00/);
+        expect(l[3].baixa).toBeNull();
+    });
+
+    it('localizado sem data ou valor não propõe baixa', () => {
+        const semValor: ConsultaPagamentosReceita = { ok: true, fonte: 'serpro', situacoes: [{ ...pag('070001', '2026-10-20', 1000), pagamento: { ...pag('070001', '2026-10-20', 1000).pagamento, valorTotal: null } }] };
+        const [l] = conferenciaNaReceita([itens[0]], semValor);
+        expect(l).toMatchObject({ estado: 'incompleto', baixa: null });
     });
 });
 

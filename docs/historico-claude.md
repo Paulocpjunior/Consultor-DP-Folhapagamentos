@@ -4948,3 +4948,30 @@ Paulo: *"senão pode trabalhar no CFI"* (11/10). A rota que faltava para a baixa
 - **Pré-requisito no SERPRO:** produto PAGTOWEB contratado e procuração do cliente cobrindo o serviço; sem isso a tela mostra a mensagem do SERPRO e a baixa continua manual.
 - **Testes:** `baixaPelaReceita`, a observação da baixa, a tela (preenche e grava com fonte `receita`; não localizado mostra o motivo) e a regra da fonte.
 
+## 12/10/2026 — Itens 1, 2 e 3: DARF em lote na Receita, comprovante de arrecadação e complementar tipo E
+
+Paulo: *"segue com , 1,2,3"* (12/10).
+
+- **Item 1 — Conferir os DARF na Receita (lote):** no calendário da empresa, um botão consulta numa vez só (PAGTOWEB/PAGAMENTOS71 pelo CFI) todos os DARF da competência com número do documento. `conferenciaNaReceita` (pura) classifica cada guia:
+  - `baixar`: paga na Receita e sem baixa no DP; a baixa vem pronta, com fonte `receita`;
+  - `confere` ou `diverge`: compara a data e o valor da baixa com os da Receita;
+  - `nao-localizado`: nunca vira "não pago";
+  - `incompleto`: a Receita não informou a data ou o valor;
+  - `sem-numero`.
+
+  "Dar baixa nas N localizadas" valida cada uma (atraso, valor a menor) e pede uma confirmação só.
+- **Item 2 — Comprovante de arrecadação:**
+  - **CFI** (PR #1401, publicado): `POST /pagamentos/comprovante` (PAGTOWEB/COMPARRECADACAO72). A documentação oficial se contradiz sobre o formato da saída; as duas formas são aceitas, e só passa conteúdo que é PDF.
+  - **DP:** na guia DARF paga, "Comprovante da Receita" baixa o PDF `comprovante-arrecadacao-<obrigação>-<documento>.pdf` (sem dado pessoal). O PDF não é gravado.
+- **Item 3 — Complementar tipo E (conversão do auxílio-doença em acidentário):**
+  - **Regra do MOS** (S-1200, itens 18.8 e 18.9, e o exemplo 5 do item 18.10): rubrica informativa com incidência só de FGTS, com a base de cada mês do afastamento no seu {perRef}. O FGTS é recolhido na competência do {perRef}, com encargos.
+  - **Verba nova `FGTSAC`** ("Base do FGTS do afastamento por acidente (informativa)"), só no tipo E e só ela no tipo E. Ela ignora as marcações de INSS/IRRF da tela e fica fora do líquido.
+  - **`Verba.informativa`** (opcional; hoje só a complementar usa):
+    - o S-1200 exige rubrica `tpRubr` 3 no S-1010;
+    - o de/para sugere entre as informativas pela descrição. O MOS não fixa a natureza, então nenhuma é chutada;
+    - o demonstrativo só com informativas não vai ao S-1210;
+    - o holerite em PDF mostra a base como informação, não como vencimento.
+  - **Tela:** escolher E esconde o reajuste, troca as linhas para a base do FGTS e pede a data da notificação da decisão.
+  - **Achado, não corrigido nesta entrega:** a folha mensal soma à base do FGTS os dias de afastamento por acidente (motivo 01, Lei 8.036/1990, art. 15, § 5º), mas o S-1200 mensal ainda não leva essa base em rubrica informativa. Por isso o S-5003 não vê esse FGTS. A complementar tipo E avisa disso. A correção mexe no motor mensal (as verbas informativas entrariam em holerite, médias, provisões e contábil) e fica como próximo item.
+- **Testes:** conferência em lote (pura e tela), comprovante (tela), tipo E (cálculo, validação, tela, S-1200 com XSD, rubrica não informativa recusada e sem S-1210).
+
