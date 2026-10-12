@@ -10,6 +10,7 @@
 // qualquer outro código de 2 dígitos é aceito e aparece como "conferir na
 // Tabela 18", nunca com descrição inventada.
 
+import { foraDaVigencia } from '../esocial/vigenciaTabelas';
 import { dataValida } from './documentos';
 import { idFuncionario, type FichaFuncionario } from './funcionarios';
 import { NS_2X, NS_S1 } from '../implantacao/implantacao';
@@ -52,6 +53,7 @@ export const MOTIVOS: Record<string, string> = {
     '06': 'Aposentadoria por invalidez',
     '07': 'Licença para acompanhamento de membro da família enfermo',
     '11': 'Cárcere',
+    '12': 'Candidato a cargo eletivo (Lei 7.664/1988, art. 25, parágrafo único)',
     '14': 'Cessão/requisição',
     '15': 'Gozo de férias ou recesso',
     '16': 'Licença remunerada (lei, liberalidade da empresa ou acordo/convenção coletiva)',
@@ -59,6 +61,8 @@ export const MOTIVOS: Record<string, string> = {
     '18': 'Licença-maternidade: prorrogação por 60 dias, Lei 11.770/2008 (Empresa Cidadã)',
     '19': 'Licença-maternidade: aborto não criminoso',
     '20': 'Licença-maternidade: adoção ou guarda judicial de criança',
+    '22': 'Mandato eleitoral',
+    '27': 'Qualificação: suspensão do contrato (CLT, art. 476-A)',
     '21': 'Licença não remunerada ou suspensão contratual decorrente de obrigação legal incompatível com a continuação do serviço',
     '24': 'Mandato sindical',
     '25': 'Mulher vítima de violência, Lei 11.340/2006 (Maria da Penha)',
@@ -69,6 +73,16 @@ export const MOTIVOS: Record<string, string> = {
     '43': 'Licença-maternidade: prorrogação por 60 dias, Lei 15.156/2025',
     '44': 'Suspensão contratual por reclamação trabalhista pedindo rescisão indireta',
     '45': 'Suspensão contratual para inquérito de apuração de falta grave',
+    '41': 'Qualificação: suspensão do contrato (Lei 14.457/2022, art. 15)',
+    '42': 'Qualificação: suspensão do contrato (Lei 14.457/2022, art. 17)',
+    '46': 'Licença-paternidade (a partir de 01/01/2027)',
+    '47': 'Licença-paternidade: prorrogação da Empresa Cidadã, Lei 11.770/2008 (a partir de 01/01/2027)',
+    '48': 'Licença-paternidade: responsável parental sobrevivente, adoção ou guarda judicial (a partir de 01/01/2027)',
+    '49': 'Licença-paternidade: antecipação e/ou prorrogação mediante atestado médico (a partir de 01/01/2027)',
+    '50': 'Licença-paternidade: prorrogação de 1/3, criança ou adolescente com deficiência, Lei 15.371/2026 (a partir de 01/01/2027)',
+    '51': 'Licença-paternidade: equiparação à licença-maternidade por ausência materna no registro (a partir de 01/01/2027)',
+    '52': 'Licença-paternidade: equiparação à licença-maternidade por adoção apenas pelo pai (a partir de 01/01/2027)',
+    '53': 'Licença-maternidade: afastamento de atividade insalubre sem local salubre (CLT, art. 394-A, § 3º)',
 };
 
 export const rotuloMotivo = (c: string) => (MOTIVOS[c] ? `${c} - ${MOTIVOS[c]}` : c ? `${c} - conferir na Tabela 18 do eSocial` : '');
@@ -115,6 +129,9 @@ export function validarAfastamento(a: Afastamento, ficha: FichaFuncionario | und
     if (dataValida(a.dtInicio) && a.dtFim && dataValida(a.dtFim) && a.dtFim < a.dtInicio) erros.push('Término anterior ao início.');
     if (!/^\d{2}$/.test(a.motivo)) erros.push('Informe o motivo (código de 2 dígitos da Tabela 18).');
     else if (!MOTIVOS[a.motivo]) avisos.push(`Motivo ${a.motivo} sem descrição neste cadastro: conferir na Tabela 18 do eSocial.`);
+    // Vigência do motivo na tabela oficial na data de início (o eSocial recusa fora dela).
+    const fora = /^\d{2}$/.test(a.motivo) && dataValida(a.dtInicio) ? foraDaVigencia('18', a.motivo, a.dtInicio) : null;
+    if (fora) erros.push(fora);
     if (a.tpAcidTransito && !['01', '03'].includes(a.motivo)) erros.push('Acidente de trânsito só com motivo 01 ou 03.');
     if (a.infoMesmoMtv && !['01', '03'].includes(a.motivo)) erros.push('"Mesmo motivo em 60 dias" só com motivo 01 ou 03.');
     if ((a.perAquisInicio || a.perAquisFim) && a.motivo !== '15') erros.push('Período aquisitivo só para férias (motivo 15).');

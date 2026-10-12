@@ -1,0 +1,3333 @@
+{
+"fonte": "https://www.gov.br/esocial/pt-br/documentacao-tecnica/leiautes-esocial-v-s-1-3-nt-07-2026-rev-24-09-2026/tabelas.html",
+"lidoEm": "2026-10-12",
+"tabelas": {
+"01": {
+"titulo": "Categorias de Trabalhadores",
+"itens": [
+{
+"codigo": "101",
+"descricao": "Empregado - Geral, inclusive o empregado público da administração direta ou indireta contratado pela CLT",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "102",
+"descricao": "Empregado - Trabalhador rural por pequeno prazo da Lei 11.718/2008",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "103",
+"descricao": "Empregado - Aprendiz",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "104",
+"descricao": "Empregado - Doméstico",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "105",
+"descricao": "Empregado - Contrato a termo firmado nos termos da Lei 9.601/1998",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "106",
+"descricao": "Trabalhador temporário - Contrato nos termos da Lei 6.019/1974",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "107",
+"descricao": "Empregado - Contrato de trabalho Verde e Amarelo - sem acordo para antecipação mensal da multa rescisória do FGTS",
+"inicio": "2020-01-01",
+"termino": "2022-12-31"
+},
+{
+"codigo": "108",
+"descricao": "Empregado - Contrato de trabalho Verde e Amarelo - com acordo para antecipação mensal da multa rescisória do FGTS",
+"inicio": "2020-01-01",
+"termino": "2022-12-31"
+},
+{
+"codigo": "111",
+"descricao": "Empregado - Contrato de trabalho intermitente",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "201",
+"descricao": "Trabalhador avulso portuário",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "202",
+"descricao": "Trabalhador avulso não portuário",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "301",
+"descricao": "Servidor público titular de cargo efetivo, magistrado, ministro de Tribunal de Contas, conselheiro de Tribunal de Contas e membro do Ministério Público",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "302",
+"descricao": "Servidor público ocupante de cargo exclusivo em comissão",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "303",
+"descricao": "Exercente de mandato eletivo",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "304",
+"descricao": "Servidor público exercente de mandato eletivo, inclusive com exercício de cargo em comissão",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "305",
+"descricao": "Servidor público indicado para conselho ou órgão deliberativo, na condição de representante do governo, órgão ou entidade da administração pública",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "306",
+"descricao": "Servidor público contratado por tempo determinado, sujeito a regime administrativo especial definido em lei própria",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "307",
+"descricao": "Militar dos Estados e Distrito Federal",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "308",
+"descricao": "Conscrito",
+"inicio": "2014-01-01",
+"termino": "2023-04-25"
+},
+{
+"codigo": "309",
+"descricao": "Agente público - Outros",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "310",
+"descricao": "Servidor público eventual",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "311",
+"descricao": "Ministros, juízes, procuradores, promotores ou oficiais de justiça à disposição da Justiça Eleitoral",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "312",
+"descricao": "Auxiliar local",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "313",
+"descricao": "Servidor público exercente de atividade de instrutoria, curso ou concurso, convocado para pareceres técnicos, depoimentos, aditância no exterior ou demais atividades vinculadas ao regime próprio",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "314",
+"descricao": "Militar das Forças Armadas",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "401",
+"descricao": "Dirigente sindical - Informação prestada pelo sindicato",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "410",
+"descricao": "Trabalhador cedido/exercício em outro órgão/juiz auxiliar - Informação prestada pelo cessionário/destino",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "501",
+"descricao": "Dirigente sindical - Segurado especial",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "701",
+"descricao": "Contribuinte individual - Autônomo em geral, exceto se enquadrado em uma das demais categorias de contribuinte individual",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "711",
+"descricao": "Contribuinte individual - Transportador autônomo de passageiros",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "712",
+"descricao": "Contribuinte individual - Transportador autônomo de carga",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "721",
+"descricao": "Contribuinte individual - Diretor não empregado, com FGTS",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "722",
+"descricao": "Contribuinte individual - Diretor não empregado, sem FGTS",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "723",
+"descricao": "Contribuinte individual - Empresário, sócio e membro de conselho de administração ou fiscal",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "731",
+"descricao": "Contribuinte individual - Cooperado que presta serviços por intermédio de cooperativa de trabalho",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "734",
+"descricao": "Contribuinte individual - Transportador cooperado que presta serviços por intermédio de cooperativa de trabalho",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "738",
+"descricao": "Contribuinte individual - Cooperado filiado a cooperativa de produção",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "741",
+"descricao": "Contribuinte individual - Microempreendedor individual",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "751",
+"descricao": "Contribuinte individual - Magistrado classista temporário da Justiça do Trabalho ou da Justiça Eleitoral que seja aposentado de qualquer regime previdenciário",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "761",
+"descricao": "Contribuinte individual - Associado eleito para direção de cooperativa, associação ou entidade de classe de qualquer natureza ou finalidade, bem como o síndico ou administrador eleito para exercer atividade de direção condominial, desde que recebam remuneração",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "771",
+"descricao": "Contribuinte individual - Membro de conselho tutelar, nos termos da Lei 8.069/1990",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "781",
+"descricao": "Ministro de confissão religiosa ou membro de vida consagrada, de congregação ou de ordem religiosa",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "901",
+"descricao": "Estagiário",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "902",
+"descricao": "Médico residente, residente em área profissional de saúde ou médico em curso de formação",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "903",
+"descricao": "Bolsista",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "904",
+"descricao": "Participante de curso de formação, como etapa de concurso público, sem vínculo de emprego/estatutário",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "906",
+"descricao": "Beneficiário do Programa Nacional de Prestação de Serviço Civil Voluntário",
+"inicio": "2022-01-28",
+"termino": null
+}
+]
+},
+"03": {
+"titulo": "Natureza das Rubricas da Folha de Pagamento",
+"itens": [
+{
+"codigo": "1000",
+"descricao": "Salário, vencimento, soldo",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1001",
+"descricao": "Subsídio",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1002",
+"descricao": "Descanso semanal remunerado - DSR",
+"inicio": "2014-01-01",
+"termino": "2024-04-30"
+},
+{
+"codigo": "1003",
+"descricao": "Horas extraordinárias",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1004",
+"descricao": "Horas extraordinárias - Banco de horas",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1005",
+"descricao": "Direito de arena",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1006",
+"descricao": "Intervalos intra e inter jornadas não concedidos",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1007",
+"descricao": "Luvas e premiações",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1009",
+"descricao": "Salário-família - Complemento",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1010",
+"descricao": "Salário in natura - Pagos em bens ou serviços",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1011",
+"descricao": "Sobreaviso e prontidão",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1012",
+"descricao": "Descanso semanal remunerado - DSR e feriado",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1015",
+"descricao": "Adiantamento de férias",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1016",
+"descricao": "Férias",
+"inicio": "2014-01-01",
+"termino": "2025-12-31"
+},
+{
+"codigo": "1016",
+"descricao": "Férias",
+"inicio": "2026-01-01",
+"termino": null
+},
+{
+"codigo": "1017",
+"descricao": "Terço constitucional de férias",
+"inicio": "2014-01-01",
+"termino": "2025-12-31"
+},
+{
+"codigo": "1017",
+"descricao": "Terço constitucional de férias",
+"inicio": "2026-01-01",
+"termino": null
+},
+{
+"codigo": "1018",
+"descricao": "Férias - Abono ou gratificação de férias superior a 20 dias",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1019",
+"descricao": "Terço constitucional de férias - Abono ou gratificação de férias superior a 20 dias",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1020",
+"descricao": "Férias",
+"inicio": "2014-01-01",
+"termino": "2023-04-30"
+},
+{
+"codigo": "1021",
+"descricao": "Férias - Abono ou gratificação de férias superior a 20 dias",
+"inicio": "2014-01-01",
+"termino": "2023-04-30"
+},
+{
+"codigo": "1022",
+"descricao": "Férias - Abono ou gratificação de férias não excedente a 20 dias",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1023",
+"descricao": "Férias - Abono pecuniário",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1024",
+"descricao": "Férias - Dobro na vigência do contrato",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1040",
+"descricao": "Licença-prêmio",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1041",
+"descricao": "Licença-prêmio indenizada",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1050",
+"descricao": "Remuneração de dias de afastamento",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1080",
+"descricao": "Stock option",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1099",
+"descricao": "Outras verbas salariais",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1201",
+"descricao": "Adicional de função / cargo confiança",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1202",
+"descricao": "Adicional de insalubridade",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1203",
+"descricao": "Adicional de periculosidade",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1204",
+"descricao": "Adicional de transferência",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1205",
+"descricao": "Adicional noturno",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1206",
+"descricao": "Adicional por tempo de serviço",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1207",
+"descricao": "Comissões, porcentagens, produção",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1208",
+"descricao": "Gueltas ou gorjetas - Repassadas por fornecedores ou clientes",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1209",
+"descricao": "Gueltas ou gorjetas - Repassadas pelo empregador",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1210",
+"descricao": "Gratificação por acordo ou convenção coletiva",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1211",
+"descricao": "Gratificações",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1212",
+"descricao": "Gratificações ou outras verbas de natureza permanente",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1213",
+"descricao": "Gratificações ou outras verbas de natureza transitória",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1214",
+"descricao": "Adicional de penosidade",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1215",
+"descricao": "Adicional de unidocência",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1216",
+"descricao": "Adicional de localidade",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1217",
+"descricao": "Gratificação de curso/concurso",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1225",
+"descricao": "Quebra de caixa",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1230",
+"descricao": "Remuneração do dirigente sindical",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1299",
+"descricao": "Outros adicionais",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1300",
+"descricao": "PLR - Participação em Lucros ou Resultados",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1350",
+"descricao": "Bolsa de estudo - Estagiário",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1351",
+"descricao": "Bolsa de estudo - Médico residente",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1352",
+"descricao": "Bolsa de estudo ou pesquisa",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1401",
+"descricao": "Abono",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1402",
+"descricao": "Abono PIS/PASEP",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1403",
+"descricao": "Abono legal",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1404",
+"descricao": "Auxílio babá",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1405",
+"descricao": "Assistência médica",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1406",
+"descricao": "Auxílio-creche",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1407",
+"descricao": "Auxílio-educação",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1409",
+"descricao": "Salário-família",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1410",
+"descricao": "Auxílio - Locais de difícil acesso",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1411",
+"descricao": "Auxílio-natalidade",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1412",
+"descricao": "Abono permanência",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1601",
+"descricao": "Ajuda de custo - Aeronauta",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1602",
+"descricao": "Ajuda de custo de transferência",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1603",
+"descricao": "Ajuda de custo",
+"inicio": "2018-05-01",
+"termino": null
+},
+{
+"codigo": "1604",
+"descricao": "Ajuda de custo - Acima de 50% da remuneração mensal",
+"inicio": "2018-05-01",
+"termino": "2019-03-31"
+},
+{
+"codigo": "1619",
+"descricao": "Ajuda compensatória - Programa Emergencial de Manutenção do Emprego e da Renda",
+"inicio": "2020-04-01",
+"termino": null
+},
+{
+"codigo": "1620",
+"descricao": "Ressarcimento de despesas pelo uso de veículo próprio",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1621",
+"descricao": "Ressarcimento de despesas de viagem, exceto despesas com veículos",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1623",
+"descricao": "Ressarcimento de provisão",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1629",
+"descricao": "Ressarcimento de outras despesas",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1650",
+"descricao": "Diárias de viagem",
+"inicio": "2018-05-01",
+"termino": null
+},
+{
+"codigo": "1651",
+"descricao": "Diárias de viagem - Até 50% do salário",
+"inicio": "2014-01-01",
+"termino": "2018-04-30"
+},
+{
+"codigo": "1652",
+"descricao": "Diárias de viagem - Acima de 50% do salário",
+"inicio": "2014-01-01",
+"termino": "2018-04-30"
+},
+{
+"codigo": "1799",
+"descricao": "Alimentação concedida em pecúnia com caráter indenizatório",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1800",
+"descricao": "Alimentação concedida em pecúnia",
+"inicio": "2014-01-01",
+"termino": "2025-12-31"
+},
+{
+"codigo": "1800",
+"descricao": "Alimentação concedida em pecúnia com caráter salarial",
+"inicio": "2026-01-01",
+"termino": null
+},
+{
+"codigo": "1801",
+"descricao": "Alimentação",
+"inicio": "2014-01-01",
+"termino": "2021-06-30"
+},
+{
+"codigo": "1802",
+"descricao": "Etapas (marítimos)",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1805",
+"descricao": "Moradia",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1806",
+"descricao": "Alimentação em ticket ou cartão, vinculada ao PAT",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1807",
+"descricao": "Alimentação em ticket ou cartão, não vinculada ao PAT",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1808",
+"descricao": "Cesta básica ou refeição, vinculada ao PAT",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1809",
+"descricao": "Cesta básica ou refeição, não vinculada ao PAT",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1810",
+"descricao": "Transporte",
+"inicio": "2014-01-01",
+"termino": "2025-12-31"
+},
+{
+"codigo": "1810",
+"descricao": "Vale-transporte ou auxílio-transporte com caráter indenizatório",
+"inicio": "2026-01-01",
+"termino": null
+},
+{
+"codigo": "1811",
+"descricao": "Auxílio-transporte ou auxílio-combustível com caráter salarial",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1899",
+"descricao": "Outros auxílios",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "1901",
+"descricao": "Juros e/ou atualização monetária",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "2501",
+"descricao": "Prêmios",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "2502",
+"descricao": "Liberalidades concedidas em mais de duas parcelas anuais",
+"inicio": "2018-05-01",
+"termino": "2019-03-31"
+},
+{
+"codigo": "2510",
+"descricao": "Direitos autorais e intelectuais",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "2801",
+"descricao": "Quarentena remunerada",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "2901",
+"descricao": "Empréstimos",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "2902",
+"descricao": "Vestuário e equipamentos",
+"inicio": "2014-01-01",
+"termino": "2021-07-31"
+},
+{
+"codigo": "2903",
+"descricao": "Vestuário e equipamentos",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "2920",
+"descricao": "Reembolsos diversos",
+"inicio": "2014-01-01",
+"termino": "2021-07-31"
+},
+{
+"codigo": "2930",
+"descricao": "Insuficiência de saldo",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "2999",
+"descricao": "Arredondamentos",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "3501",
+"descricao": "Remuneração por prestação de serviços",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "3505",
+"descricao": "Retiradas (pró-labore) de diretores empregados",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "3506",
+"descricao": "Retiradas (pró-labore) de diretores não empregados",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "3508",
+"descricao": "Retiradas (pró-labore) de proprietários ou sócios",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "3509",
+"descricao": "Honorários a conselheiros",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "3510",
+"descricao": "Gratificação ( jeton )",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "3511",
+"descricao": "Gratificação eleitoral",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "3520",
+"descricao": "Remuneração de cooperado",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "3525",
+"descricao": "Côngruas, prebendas e afins",
+"inicio": "2018-05-01",
+"termino": null
+},
+{
+"codigo": "4010",
+"descricao": "Complementação salarial de auxílio-doença",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "4011",
+"descricao": "Complemento de salário-mínimo - RPPS",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "4050",
+"descricao": "Salário-maternidade",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "4051",
+"descricao": "Salário-maternidade - 13° salário",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "4052",
+"descricao": "Salário-paternidade",
+"inicio": "2026-12-01",
+"termino": null
+},
+{
+"codigo": "4053",
+"descricao": "Salário-paternidade - 13° salário",
+"inicio": "2026-12-01",
+"termino": null
+},
+{
+"codigo": "5001",
+"descricao": "13º salário",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "5005",
+"descricao": "13° salário complementar",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "5501",
+"descricao": "Adiantamento de salário",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "5504",
+"descricao": "13º salário - Adiantamento",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "5510",
+"descricao": "Adiantamento de benefícios previdenciários",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "6000",
+"descricao": "Saldo de salários na rescisão contratual",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "6001",
+"descricao": "13º salário relativo ao aviso prévio indenizado",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "6002",
+"descricao": "13° salário proporcional na rescisão",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "6003",
+"descricao": "Indenização compensatória do aviso prévio",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "6004",
+"descricao": "Férias - Dobro na rescisão",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "6006",
+"descricao": "Férias proporcionais",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "6007",
+"descricao": "Férias vencidas na rescisão",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "6101",
+"descricao": "Indenização compensatória - Multa rescisória 20 ou 40% (CF/88)",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "6102",
+"descricao": "Indenização do art. 9º da Lei 7.238/1984",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "6103",
+"descricao": "Indenização do art. 14 da Lei 5.889/1973",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "6104",
+"descricao": "Indenização do art. 479 da CLT",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "6105",
+"descricao": "Indenização recebida a título de incentivo a demissão",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "6106",
+"descricao": "Multa do art. 477 da CLT",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "6107",
+"descricao": "Indenização por quebra de estabilidade",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "6108",
+"descricao": "Tempo de espera do motorista profissional",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "6119",
+"descricao": "Indenização rescisória - Programa Emergencial de Manutenção do Emprego e da Renda",
+"inicio": "2020-04-01",
+"termino": null
+},
+{
+"codigo": "6129",
+"descricao": "Outras verbas não remuneratórias (indenizatórias ou multas)",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "6901",
+"descricao": "Desconto do aviso prévio",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "6904",
+"descricao": "Multa prevista no art. 480 da CLT",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "7001",
+"descricao": "Proventos",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "7002",
+"descricao": "Proventos - Pensão por morte Civil",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "7003",
+"descricao": "Proventos - Reserva",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "7004",
+"descricao": "Proventos - Reforma",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "7005",
+"descricao": "Pensão Militar",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "7006",
+"descricao": "Auxílio-reclusão",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "7007",
+"descricao": "Pensões especiais",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "7008",
+"descricao": "Complementação de aposentadoria/ pensão",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9200",
+"descricao": "Desconto de adiantamentos",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9201",
+"descricao": "Contribuição previdenciária",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9202",
+"descricao": "Contribuição militar",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9203",
+"descricao": "Imposto de Renda Retido na Fonte",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9205",
+"descricao": "Provisão de contribuição previdenciária",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9207",
+"descricao": "Faltas",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9208",
+"descricao": "Atrasos",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9209",
+"descricao": "Faltas ou atrasos",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9210",
+"descricao": "DSR s/faltas e atrasos",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9211",
+"descricao": "DSR sobre faltas",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9212",
+"descricao": "DSR sobre atrasos",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9213",
+"descricao": "Pensão alimentícia",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9214",
+"descricao": "13° salário - Desconto de adiantamento",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9216",
+"descricao": "Desconto de vale-transporte",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9217",
+"descricao": "Contribuição a Outras Entidades e Fundos",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9218",
+"descricao": "Retenções judiciais",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9219",
+"descricao": "Desconto de assistência médica ou odontológica - Plano coletivo empresarial",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9220",
+"descricao": "Alimentação - Desconto",
+"inicio": "2014-01-01",
+"termino": "2021-06-30"
+},
+{
+"codigo": "9221",
+"descricao": "Desconto de férias",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9222",
+"descricao": "Desconto de outros impostos e contribuições",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9223",
+"descricao": "Previdência complementar - Parte do empregado",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9224",
+"descricao": "FAPI - Parte do empregado",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9225",
+"descricao": "Previdência complementar - Parte do servidor",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9226",
+"descricao": "Desconto de férias - Abono",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9230",
+"descricao": "Contribuição sindical laboral",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9231",
+"descricao": "Mensalidade sindical ou associativa",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9232",
+"descricao": "Contribuição sindical - Assistencial",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9233",
+"descricao": "Contribuição sindical - Confederativa",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9240",
+"descricao": "Alimentação concedida em pecúnia - Desconto",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9241",
+"descricao": "Alimentação em ticket ou cartão, vinculada ao PAT - Desconto",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9242",
+"descricao": "Alimentação em ticket ou cartão, não vinculada ao PAT - Desconto",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9243",
+"descricao": "Cesta básica ou refeição, vinculada ao PAT - Desconto",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9244",
+"descricao": "Cesta básica ou refeição, não vinculada ao PAT - Desconto",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9250",
+"descricao": "Seguro de vida - Desconto",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9253",
+"descricao": "Empréstimos eConsignado - Desconto",
+"inicio": "2024-07-01",
+"termino": null
+},
+{
+"codigo": "9254",
+"descricao": "Empréstimos consignados - Desconto",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9255",
+"descricao": "Empréstimos do empregador - Desconto",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9258",
+"descricao": "Convênios",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9260",
+"descricao": "FIES - Desconto",
+"inicio": "2018-05-01",
+"termino": null
+},
+{
+"codigo": "9270",
+"descricao": "Danos e prejuízos causados pelo trabalhador",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9290",
+"descricao": "Desconto de pagamento indevido em meses anteriores",
+"inicio": "2014-01-01",
+"termino": "2021-07-31"
+},
+{
+"codigo": "9291",
+"descricao": "Abate-teto",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9292",
+"descricao": "Ressarcimento ao erário",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9293",
+"descricao": "Honorários advocatícios",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9294",
+"descricao": "Redutor EC 41/03",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9299",
+"descricao": "Outros descontos",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9901",
+"descricao": "Base de cálculo da contribuição previdenciária",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9902",
+"descricao": "Total da base de cálculo do FGTS",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9903",
+"descricao": "Total da base de cálculo do IRRF",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9904",
+"descricao": "Total da base de cálculo do FGTS rescisório",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9905",
+"descricao": "Serviço militar",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9906",
+"descricao": "Remuneração no exterior",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9907",
+"descricao": "Total da contribuição da previdenciária patronal - RPPS",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9908",
+"descricao": "FGTS - Depósito",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9910",
+"descricao": "Seguros",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9911",
+"descricao": "Assistência Médica",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9912",
+"descricao": "Desconto de assistência médica ou odontológica - Plano diferente de coletivo empresarial",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9928",
+"descricao": "Salário-paternidade pago pela Previdência Social",
+"inicio": "2026-12-01",
+"termino": null
+},
+{
+"codigo": "9929",
+"descricao": "Salário-paternidade pago pela Previdência Social - 13° salário",
+"inicio": "2026-12-01",
+"termino": null
+},
+{
+"codigo": "9930",
+"descricao": "Salário-maternidade pago pela Previdência Social",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9931",
+"descricao": "Salário-maternidade pago pela Previdência Social - 13° salário",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9932",
+"descricao": "Auxílio-doença acidentário",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9933",
+"descricao": "Auxílio-doença",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9938",
+"descricao": "Isenção IRRF - 65 anos",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9939",
+"descricao": "Outros valores tributáveis",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "9950",
+"descricao": "Horas extraordinárias - Banco de horas",
+"inicio": "2014-01-01",
+"termino": "2019-10-31"
+},
+{
+"codigo": "9951",
+"descricao": "Horas compensadas - Banco de horas",
+"inicio": "2014-01-01",
+"termino": "2019-10-31"
+},
+{
+"codigo": "9989",
+"descricao": "Outros valores informativos",
+"inicio": "2014-01-01",
+"termino": null
+}
+]
+},
+"07": {
+"titulo": "Tipos de Dependente",
+"itens": [
+{
+"codigo": "01",
+"descricao": "Cônjuge",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "02",
+"descricao": "Companheiro(a) com o(a) qual tenha filho ou viva há mais de 5 (cinco) anos ou possua declaração de união estável",
+"inicio": "2018-01-08",
+"termino": null
+},
+{
+"codigo": "03",
+"descricao": "Filho(a) ou enteado(a)",
+"inicio": "2018-01-08",
+"termino": null
+},
+{
+"codigo": "04",
+"descricao": "Filho(a) ou enteado(a), universitário(a) ou cursando escola técnica de 2º grau",
+"inicio": "2018-01-08",
+"termino": "2023-04-25"
+},
+{
+"codigo": "06",
+"descricao": "Irmão(ã), neto(a) ou bisneto(a) sem arrimo dos pais, do(a) qual detenha a guarda judicial",
+"inicio": "2018-01-08",
+"termino": null
+},
+{
+"codigo": "07",
+"descricao": "Irmão(ã), neto(a) ou bisneto(a) sem arrimo dos pais, universitário(a) ou cursando escola técnica de 2° grau, do(a) qual detenha a guarda judicial",
+"inicio": "2018-01-08",
+"termino": "2023-04-25"
+},
+{
+"codigo": "09",
+"descricao": "Pais, avós e bisavós",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "10",
+"descricao": "Menor pobre do qual detenha a guarda judicial",
+"inicio": "2018-01-08",
+"termino": null
+},
+{
+"codigo": "11",
+"descricao": "A pessoa absolutamente incapaz, da qual seja tutor ou curador",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "12",
+"descricao": "Ex-cônjuge",
+"inicio": "2018-01-08",
+"termino": null
+},
+{
+"codigo": "99",
+"descricao": "Agregado/Outros",
+"inicio": "2014-01-01",
+"termino": null
+}
+]
+},
+"08": {
+"titulo": "Classificação Tributária",
+"itens": [
+{
+"codigo": "01",
+"descricao": "Empresa enquadrada no regime de tributação Simples Nacional com tributação previdenciária substituída",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "02",
+"descricao": "Empresa enquadrada no regime de tributação Simples Nacional com tributação previdenciária não substituída",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "03",
+"descricao": "Empresa enquadrada no regime de tributação Simples Nacional com tributação previdenciária substituída e não substituída",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "04",
+"descricao": "Microempreendedor Individual - MEI",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "06",
+"descricao": "Agroindústria",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "07",
+"descricao": "Produtor rural Pessoa Jurídica",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "09",
+"descricao": "Órgão Gestor de Mão de Obra - OGMO",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "10",
+"descricao": "Entidade sindical a que se refere a Lei 12.023/2009",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "11",
+"descricao": "Associação desportiva que mantém clube de futebol profissional",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "13",
+"descricao": "Banco, caixa econômica, sociedade de crédito, financiamento e investimento e demais empresas relacionadas no parágrafo 1º do art. 22 da Lei 8.212/1991",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "14",
+"descricao": "Sindicatos em geral, exceto aquele classificado no código [10]",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "21",
+"descricao": "Pessoa Física, exceto segurado especial",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "22",
+"descricao": "Segurado especial, inclusive quando for empregador doméstico",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "60",
+"descricao": "Missão diplomática ou repartição consular de carreira estrangeira",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "70",
+"descricao": "Empresa de que trata o Decreto 5.436/2005",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "80",
+"descricao": "Entidade beneficente de assistência social isenta de contribuições sociais",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "85",
+"descricao": "Administração direta da União, Estados, Distrito Federal e Municípios; autarquias e fundações públicas",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "99",
+"descricao": "Pessoas Jurídicas em geral",
+"inicio": null,
+"termino": null
+}
+]
+},
+"10": {
+"titulo": "Tipos de Lotação Tributária",
+"itens": [
+{
+"codigo": "01",
+"descricao": "Classificação da atividade econômica exercida pela Pessoa Jurídica para fins de atribuição de código FPAS, inclusive obras de construção civil própria, exceto: a) empreitada parcial ou sub-empreitada de obra de construção civil (utilizar opção 02); b) prestação de serviços em instalações de terceiros (utilizar opções 03 a 09); c) Embarcação inscrita no Registro Especial Brasileiro - REB (utilizar opção 10)",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "02",
+"descricao": "Obra de construção civil - Empreitada parcial ou subempreitada",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "03",
+"descricao": "Pessoa Física tomadora de serviços prestados mediante cessão de mão de obra, exceto contratante de cooperativa",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "04",
+"descricao": "Pessoa Jurídica tomadora de serviços prestados mediante cessão de mão de obra, exceto contratante de cooperativa, nos termos da Lei 8.212/1991",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "05",
+"descricao": "Pessoa Jurídica tomadora de serviços prestados por cooperados por intermédio de cooperativa de trabalho, exceto aqueles prestados a entidade beneficente/isenta",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "06",
+"descricao": "Entidade beneficente/isenta tomadora de serviços prestados por cooperados por intermédio de cooperativa de trabalho",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "07",
+"descricao": "Pessoa Física tomadora de serviços prestados por cooperados por intermédio de cooperativa de trabalho",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "08",
+"descricao": "Operador portuário tomador de serviços de trabalhadores avulsos",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "09",
+"descricao": "Contratante de trabalhadores avulsos não portuários por intermédio de sindicato",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "10",
+"descricao": "Embarcação inscrita no Registro Especial Brasileiro - REB",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "21",
+"descricao": "Classificação da atividade econômica ou obra própria de construção civil da Pessoa Física",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "24",
+"descricao": "Empregador doméstico",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "90",
+"descricao": "Atividades desenvolvidas no exterior por trabalhador vinculado ao Regime Geral de Previdência Social (expatriados)",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "91",
+"descricao": "Atividades desenvolvidas por trabalhador estrangeiro vinculado a Regime de Previdência Social no exterior",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "92",
+"descricao": "Bolsista contribuinte individual sem contribuição patronal",
+"inicio": null,
+"termino": null
+}
+]
+},
+"18": {
+"titulo": "Motivos de Afastamento",
+"itens": [
+{
+"codigo": "01",
+"descricao": "Acidente/doença do trabalho",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "03",
+"descricao": "Acidente/doença não relacionada ao trabalho",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "05",
+"descricao": "Afastamento/licença de servidor público ou militar prevista em estatuto, sem remuneração",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "06",
+"descricao": "Aposentadoria por invalidez",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "07",
+"descricao": "Acompanhamento - Licença para acompanhamento de membro da família enfermo",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "08",
+"descricao": "Afastamento do empregado para participar de atividade do Conselho Curador do FGTS - Art. 65, § 6º, do Decreto 99.684/1990 (Regulamento do FGTS)",
+"inicio": "2014-01-01",
+"termino": "2021-07-18"
+},
+{
+"codigo": "10",
+"descricao": "Afastamento/licença de servidor público ou militar prevista em estatuto, com remuneração",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "11",
+"descricao": "Cárcere",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "12",
+"descricao": "Cargo eletivo - Candidato a cargo eletivo - Art. 25, parágrafo único, da Lei 7.664/1988 - Celetistas em geral",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "13",
+"descricao": "Cargo eletivo - Candidato a cargo eletivo - Art. 1°, inciso II, alínea \"l\", da Lei Complementar 64/1990 - Servidor público, estatutário ou não, dos órgãos ou entidades da Administração Direta ou Indireta da União, dos Estados, do Distrito Federal, dos Municípios e dos Territórios, inclusive das fundações mantidas pelo Poder Público",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "14",
+"descricao": "Cessão/Requisição",
+"inicio": "2014-01-01",
+"termino": "2022-03-09"
+},
+{
+"codigo": "15",
+"descricao": "Gozo de férias ou recesso - Afastamento temporário para o gozo de férias ou recesso",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "16",
+"descricao": "Licença remunerada - Lei, liberalidade da empresa ou Acordo/Convenção Coletiva de Trabalho",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "17",
+"descricao": "Licença-maternidade - 120 dias e suas prorrogações/antecipações, inclusive para o cônjuge sobrevivente",
+"inicio": "2014-01-01",
+"termino": "2018-06-30"
+},
+{
+"codigo": "17",
+"descricao": "Licença-maternidade - 120 dias, inclusive para o cônjuge sobrevivente",
+"inicio": "2018-07-01",
+"termino": "2021-07-18"
+},
+{
+"codigo": "17",
+"descricao": "Licença-maternidade",
+"inicio": "2021-07-19",
+"termino": null
+},
+{
+"codigo": "18",
+"descricao": "Licença-maternidade - Prorrogação por 60 dias, Lei 11.770/2008 (Empresa Cidadã), inclusive para o cônjuge sobrevivente",
+"inicio": "2018-01-01",
+"termino": "2026-12-31"
+},
+{
+"codigo": "18",
+"descricao": "Licença-maternidade - Prorrogação por 60 dias, Lei 11.770/2008 (Empresa Cidadã), inclusive para o responsável parental sobrevivente",
+"inicio": "2027-01-01",
+"termino": null
+},
+{
+"codigo": "19",
+"descricao": "Licença-maternidade - Afastamento temporário por motivo de aborto não criminoso",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "20",
+"descricao": "Licença-maternidade - Afastamento temporário por motivo de licença-maternidade decorrente de adoção ou guarda judicial de criança, inclusive para o cônjuge sobrevivente",
+"inicio": "2014-01-01",
+"termino": "2021-07-18"
+},
+{
+"codigo": "20",
+"descricao": "Licença-maternidade - Afastamento temporário por motivo de licença-maternidade para o cônjuge sobrevivente ou decorrente de adoção ou de guarda judicial de criança",
+"inicio": "2021-07-19",
+"termino": "2026-12-31"
+},
+{
+"codigo": "20",
+"descricao": "Licença-maternidade - Afastamento temporário por motivo de licença-maternidade para o responsável parental sobrevivente ou decorrente de adoção ou de guarda judicial de criança ou adolescente",
+"inicio": "2027-01-01",
+"termino": null
+},
+{
+"codigo": "21",
+"descricao": "Licença não remunerada ou suspensão contratual decorrente de obrigação legal incompatível com a continuação do serviço",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "22",
+"descricao": "Mandato eleitoral - Afastamento temporário para o exercício de mandato eleitoral, sem remuneração",
+"inicio": "2014-01-01",
+"termino": "2021-07-18"
+},
+{
+"codigo": "22",
+"descricao": "Mandato eleitoral - Afastamento temporário para o exercício de mandato eleitoral",
+"inicio": "2021-07-19",
+"termino": null
+},
+{
+"codigo": "23",
+"descricao": "Mandato eleitoral - Afastamento temporário para o exercício de mandato eleitoral, com remuneração",
+"inicio": "2014-01-01",
+"termino": "2021-07-18"
+},
+{
+"codigo": "24",
+"descricao": "Mandato sindical - Afastamento temporário para exercício de mandato sindical",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "25",
+"descricao": "Mulher vítima de violência - Art. 9º, § 2º, inciso II, da Lei 11.340/2006 - Lei Maria da Penha",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "26",
+"descricao": "Participação de empregado no Conselho Nacional de Previdência Social - CNPS - Art. 3º da Lei 8.213/1991",
+"inicio": "2014-01-01",
+"termino": "2024-04-21"
+},
+{
+"codigo": "27",
+"descricao": "Qualificação - Afastamento por suspensão do contrato de acordo com o art. 476-A da CLT",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "28",
+"descricao": "Representante sindical - Afastamento pelo tempo que se fizer necessário, quando, na qualidade de representante de entidade sindical, estiver participando de reunião oficial de organismo internacional do qual o Brasil seja membro",
+"inicio": "2014-01-01",
+"termino": "2024-04-21"
+},
+{
+"codigo": "29",
+"descricao": "Serviço militar - Afastamento temporário para prestar serviço militar obrigatório",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "30",
+"descricao": "Suspensão disciplinar - Art. 474 da CLT",
+"inicio": "2014-01-01",
+"termino": "2021-07-18"
+},
+{
+"codigo": "31",
+"descricao": "Servidor público em disponibilidade",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "33",
+"descricao": "Licença-maternidade - 180 dias, Lei 13.301/2016",
+"inicio": "2016-06-01",
+"termino": "2021-07-18"
+},
+{
+"codigo": "34",
+"descricao": "Inatividade do trabalhador avulso (portuário ou não portuário) por período superior a 90 dias",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "35",
+"descricao": "Licença-maternidade - Antecipação e/ou prorrogação mediante atestado médico",
+"inicio": "2018-07-01",
+"termino": null
+},
+{
+"codigo": "36",
+"descricao": "Afastamento temporário de exercente de mandato eletivo para cargo em comissão",
+"inicio": "2021-05-10",
+"termino": null
+},
+{
+"codigo": "37",
+"descricao": "Suspensão temporária do contrato de trabalho nos termos da Lei 14.020/2020 (conversão da MP 936/2020)",
+"inicio": "2020-04-01",
+"termino": "2020-12-31"
+},
+{
+"codigo": "37",
+"descricao": "Suspensão temporária do contrato de trabalho nos termos do Programa Emergencial de Manutenção do Emprego e da Renda",
+"inicio": "2021-04-28",
+"termino": "2021-08-25"
+},
+{
+"codigo": "38",
+"descricao": "Impedimento de concorrência à escala para trabalho avulso",
+"inicio": "2020-04-04",
+"termino": null
+},
+{
+"codigo": "39",
+"descricao": "Suspensão de pagamento de servidor público por não recadastramento",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "40",
+"descricao": "Exercício em outro órgão de servidor ou empregado público cedido",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "41",
+"descricao": "Qualificação - Afastamento por suspensão do contrato de acordo com o art. 15 da Lei 14.457/2022",
+"inicio": "2022-05-05",
+"termino": null
+},
+{
+"codigo": "42",
+"descricao": "Qualificação - Afastamento por suspensão do contrato de acordo com o art. 17 da Lei 14.457/2022",
+"inicio": "2022-05-05",
+"termino": null
+},
+{
+"codigo": "43",
+"descricao": "Licença-maternidade - Prorrogação por 60 dias, Lei 15.156/2025 - Criança com deficiência permanente decorrente de síndrome congênita associada ao vírus Zika",
+"inicio": "2025-07-02",
+"termino": null
+},
+{
+"codigo": "44",
+"descricao": "Suspensão contratual decorrente de ajuizamento de reclamação trabalhista pleiteando rescisão indireta do contrato",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "45",
+"descricao": "Suspensão contratual para ajuizamento de inquérito para apuração de falta grave",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "46",
+"descricao": "Licença-paternidade",
+"inicio": "2027-01-01",
+"termino": null
+},
+{
+"codigo": "47",
+"descricao": "Licença-paternidade - Prorrogação prevista na Lei 11.770/2008 (Empresa Cidadã), inclusive para o responsável parental sobrevivente",
+"inicio": "2027-01-01",
+"termino": null
+},
+{
+"codigo": "48",
+"descricao": "Licença-paternidade - Afastamento temporário por motivo de licença-paternidade para o responsável parental sobrevivente ou decorrente de adoção ou de guarda judicial de criança ou adolescente",
+"inicio": "2027-01-01",
+"termino": null
+},
+{
+"codigo": "49",
+"descricao": "Licença-paternidade - Antecipação e/ou prorrogação mediante atestado médico",
+"inicio": "2027-01-01",
+"termino": null
+},
+{
+"codigo": "50",
+"descricao": "Licença-paternidade - Prorrogação de 1/3 do período em razão de nascimento ou adoção de criança ou adolescente com deficiência (art. 12 da Lei 15.371/2026)",
+"inicio": "2027-01-01",
+"termino": null
+},
+{
+"codigo": "51",
+"descricao": "Licença-paternidade - Equiparação à licença-maternidade por ausência materna no registro civil de nascimento",
+"inicio": "2027-01-01",
+"termino": null
+},
+{
+"codigo": "52",
+"descricao": "Licença-paternidade - Equiparação à licença-maternidade por adoção ou guarda judicial para fins de adoção apenas pelo pai",
+"inicio": "2027-01-01",
+"termino": null
+},
+{
+"codigo": "53",
+"descricao": "Licença-maternidade - Afastamento de atividade insalubre em caso de inexistência de atividade/local salubre, enquanto durar a gestação/lactação (art. 394-A, § 3º, da CLT)",
+"inicio": "2014-01-01",
+"termino": null
+}
+]
+},
+"19": {
+"titulo": "Motivos de Desligamento",
+"itens": [
+{
+"codigo": "01",
+"descricao": "Rescisão com justa causa, por iniciativa do empregador",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "02",
+"descricao": "Rescisão sem justa causa, por iniciativa do empregador",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "03",
+"descricao": "Rescisão antecipada do contrato a termo por iniciativa do empregador",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "04",
+"descricao": "Rescisão antecipada do contrato a termo por iniciativa do empregado",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "05",
+"descricao": "Rescisão por culpa recíproca",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "06",
+"descricao": "Rescisão por término do contrato a termo",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "07",
+"descricao": "Rescisão do contrato de trabalho por iniciativa do empregado",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "08",
+"descricao": "Rescisão do contrato de trabalho por interesse do(a) empregado(a), nas hipóteses previstas nos arts. 394 e 483, § 1º, da CLT",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "09",
+"descricao": "Rescisão por opção do empregado em virtude de falecimento do empregador individual ou empregador doméstico",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "10",
+"descricao": "Rescisão por falecimento do empregado",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "11",
+"descricao": "Transferência de empregado para empresa do mesmo grupo empresarial que tenha assumido os encargos trabalhistas, sem que tenha havido rescisão do contrato de trabalho",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "12",
+"descricao": "Transferência de empregado da empresa consorciada para o consórcio que tenha assumido os encargos trabalhistas, e vice-versa, sem que tenha havido rescisão do contrato de trabalho",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "13",
+"descricao": "Transferência de empregado de empresa ou consórcio, para outra empresa ou consórcio que tenha assumido os encargos trabalhistas por motivo de sucessão (fusão, cisão ou incorporação), sem que tenha havido rescisão do contrato de trabalho",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "14",
+"descricao": "Rescisão do contrato de trabalho por encerramento da empresa, de seus estabelecimentos ou supressão de parte de suas atividades ou falecimento do empregador individual ou empregador doméstico sem continuação da atividade",
+"inicio": "2014-01-01",
+"termino": "2024-01-21"
+},
+{
+"codigo": "15",
+"descricao": "Rescisão do contrato de aprendizagem por desempenho insuficiente, inadaptação ou ausência injustificada do aprendiz à escola que implique perda do ano letivo",
+"inicio": "2014-01-01",
+"termino": "2021-07-18"
+},
+{
+"codigo": "16",
+"descricao": "Declaração de nulidade do contrato de trabalho por infringência ao inciso II do art. 37 da Constituição Federal, quando mantido o direito ao salário",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "17",
+"descricao": "Rescisão indireta do contrato de trabalho",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "18",
+"descricao": "Aposentadoria compulsória",
+"inicio": "2014-01-01",
+"termino": "2021-07-18"
+},
+{
+"codigo": "19",
+"descricao": "Aposentadoria por idade",
+"inicio": "2014-01-01",
+"termino": "2021-07-18"
+},
+{
+"codigo": "20",
+"descricao": "Aposentadoria por idade e tempo de contribuição",
+"inicio": "2014-01-01",
+"termino": "2021-07-18"
+},
+{
+"codigo": "21",
+"descricao": "Reforma militar",
+"inicio": "2014-01-01",
+"termino": "2021-07-18"
+},
+{
+"codigo": "21",
+"descricao": "Reforma militar",
+"inicio": "2021-07-19",
+"termino": null
+},
+{
+"codigo": "22",
+"descricao": "Reserva militar",
+"inicio": "2014-01-01",
+"termino": "2021-07-18"
+},
+{
+"codigo": "22",
+"descricao": "Reserva militar",
+"inicio": "2021-07-19",
+"termino": null
+},
+{
+"codigo": "23",
+"descricao": "Exoneração",
+"inicio": "2014-01-01",
+"termino": "2021-07-18"
+},
+{
+"codigo": "23",
+"descricao": "Exoneração",
+"inicio": "2021-07-19",
+"termino": null
+},
+{
+"codigo": "24",
+"descricao": "Demissão",
+"inicio": "2014-01-01",
+"termino": "2021-07-18"
+},
+{
+"codigo": "24",
+"descricao": "Demissão",
+"inicio": "2021-07-19",
+"termino": null
+},
+{
+"codigo": "25",
+"descricao": "Vacância de cargo efetivo",
+"inicio": "2014-01-01",
+"termino": "2021-07-18"
+},
+{
+"codigo": "25",
+"descricao": "Vacância de cargo efetivo",
+"inicio": "2021-07-19",
+"termino": null
+},
+{
+"codigo": "26",
+"descricao": "Rescisão do contrato de trabalho por paralisação temporária ou definitiva da empresa, estabelecimento ou parte das atividades motivada por atos de autoridade municipal, estadual ou federal",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "27",
+"descricao": "Rescisão por motivo de força maior",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "28",
+"descricao": "Término da cessão/requisição",
+"inicio": "2014-01-01",
+"termino": "2021-07-18"
+},
+{
+"codigo": "29",
+"descricao": "Redistribuição",
+"inicio": "2014-01-01",
+"termino": "2021-07-18"
+},
+{
+"codigo": "29",
+"descricao": "Redistribuição ou Reforma Administrativa",
+"inicio": "2021-07-19",
+"termino": null
+},
+{
+"codigo": "30",
+"descricao": "Mudança de regime trabalhista",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "31",
+"descricao": "Reversão de reintegração",
+"inicio": "2014-01-01",
+"termino": "2024-09-17"
+},
+{
+"codigo": "32",
+"descricao": "Extravio de militar",
+"inicio": "2014-01-01",
+"termino": "2021-07-18"
+},
+{
+"codigo": "32",
+"descricao": "Extravio de militar",
+"inicio": "2021-07-19",
+"termino": null
+},
+{
+"codigo": "33",
+"descricao": "Rescisão por acordo entre as partes (art. 484-A da CLT)",
+"inicio": "2017-11-11",
+"termino": null
+},
+{
+"codigo": "34",
+"descricao": "Transferência de titularidade do empregado doméstico para outro representante da mesma unidade familiar",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "35",
+"descricao": "Extinção do contrato de trabalho intermitente",
+"inicio": "2018-01-08",
+"termino": "2018-06-30"
+},
+{
+"codigo": "36",
+"descricao": "Mudança de CPF",
+"inicio": "2019-01-21",
+"termino": null
+},
+{
+"codigo": "37",
+"descricao": "Remoção, em caso de alteração do órgão declarante",
+"inicio": "2021-05-10",
+"termino": null
+},
+{
+"codigo": "38",
+"descricao": "Aposentadoria, exceto por invalidez",
+"inicio": "2021-05-10",
+"termino": null
+},
+{
+"codigo": "39",
+"descricao": "Aposentadoria de servidor estatutário, por invalidez",
+"inicio": "2021-05-10",
+"termino": null
+},
+{
+"codigo": "40",
+"descricao": "Término de exercício de mandato",
+"inicio": "2021-05-10",
+"termino": null
+},
+{
+"codigo": "41",
+"descricao": "Rescisão do contrato de aprendizagem por desempenho insuficiente ou inadaptação do aprendiz",
+"inicio": "2021-05-10",
+"termino": null
+},
+{
+"codigo": "42",
+"descricao": "Rescisão do contrato de aprendizagem por ausência injustificada do aprendiz à escola que implique perda do ano letivo",
+"inicio": "2021-05-10",
+"termino": null
+},
+{
+"codigo": "43",
+"descricao": "Transferência de empregado de empresa considerada inapta por inexistência de fato",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "44",
+"descricao": "Agrupamento contratual",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "45",
+"descricao": "Exclusão de militar das Forças Armadas do serviço ativo, com efeitos financeiros",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "46",
+"descricao": "Exclusão de militar das Forças Armadas do serviço ativo, sem efeitos financeiros",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "47",
+"descricao": "Rescisão do contrato de trabalho por encerramento da empresa, de seus estabelecimentos ou supressão de parte de suas atividades",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "48",
+"descricao": "Falecimento do empregador individual sem continuação da atividade",
+"inicio": "2014-01-01",
+"termino": null
+},
+{
+"codigo": "49",
+"descricao": "Falecimento do empregador doméstico sem continuação da atividade",
+"inicio": "2014-01-01",
+"termino": null
+}
+]
+},
+"21": {
+"titulo": "Códigos de Incidência Tributária da Rubrica para o IRRF",
+"itens": [
+{
+"codigo": "0",
+"descricao": "Rendimento não tributável",
+"inicio": "2015-10-01",
+"termino": "2021-06-30"
+},
+{
+"codigo": "1",
+"descricao": "Rendimento não tributável em função de acordos internacionais de bitributação",
+"inicio": "2015-10-01",
+"termino": "2021-06-30"
+},
+{
+"codigo": "9",
+"descricao": "Verba transitada pela folha de pagamento de natureza diversa de rendimento ou retenção/isenção/dedução de IR (exemplo: desconto de convênio farmácia, desconto de consignações, etc.)",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "11",
+"descricao": "Remuneração mensal",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "12",
+"descricao": "13º salário",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "13",
+"descricao": "Férias",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "14",
+"descricao": "PLR",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "15",
+"descricao": "Rendimentos Recebidos Acumuladamente - RRA",
+"inicio": "2015-10-01",
+"termino": "2021-06-30"
+},
+{
+"codigo": "31",
+"descricao": "Remuneração mensal",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "32",
+"descricao": "13º salário",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "33",
+"descricao": "Férias",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "34",
+"descricao": "PLR",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "35",
+"descricao": "Rendimentos Recebidos Acumuladamente - RRA",
+"inicio": "2015-10-01",
+"termino": "2021-06-30"
+},
+{
+"codigo": "41",
+"descricao": "Previdência Social Oficial - PSO - Remuneração mensal",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "42",
+"descricao": "PSO - 13º salário",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "43",
+"descricao": "PSO - Férias",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "44",
+"descricao": "PSO - RRA",
+"inicio": "2015-10-01",
+"termino": "2021-06-30"
+},
+{
+"codigo": "46",
+"descricao": "Previdência complementar - Salário mensal",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "47",
+"descricao": "Previdência complementar - 13º salário",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "48",
+"descricao": "Previdência complementar - Férias",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "51",
+"descricao": "Pensão alimentícia - Remuneração mensal",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "52",
+"descricao": "Pensão alimentícia - 13º salário",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "53",
+"descricao": "Pensão alimentícia - Férias",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "54",
+"descricao": "Pensão alimentícia - PLR",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "55",
+"descricao": "Pensão alimentícia - RRA",
+"inicio": "2015-10-01",
+"termino": "2021-06-30"
+},
+{
+"codigo": "61",
+"descricao": "Fundo de Aposentadoria Programada Individual - FAPI - Remuneração mensal",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "62",
+"descricao": "Fundo de Aposentadoria Programada Individual - FAPI - 13º salário",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "63",
+"descricao": "Fundação de previdência complementar do servidor público - Remuneração mensal",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "64",
+"descricao": "Fundação de previdência complementar do servidor público - 13º salário",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "65",
+"descricao": "Fundação de previdência complementar do servidor público - Férias",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "66",
+"descricao": "Fundo de Aposentadoria Programada Individual - FAPI - Férias",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "68",
+"descricao": "Desconto simplificado mensal",
+"inicio": "2023-05-01",
+"termino": null
+},
+{
+"codigo": "67",
+"descricao": "Plano privado coletivo de assistência à saúde",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "70",
+"descricao": "Parcela isenta 65 anos - Remuneração mensal",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "71",
+"descricao": "Parcela isenta 65 anos - 13º salário",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "72",
+"descricao": "Diárias",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "73",
+"descricao": "Ajuda de custo",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "74",
+"descricao": "Indenização e rescisão de contrato, inclusive a título de PDV e acidentes de trabalho",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "75",
+"descricao": "Abono pecuniário",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "76",
+"descricao": "Rendimento de beneficiário com moléstia grave ou acidente em serviço - Remuneração mensal",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "77",
+"descricao": "Rendimento de beneficiário com moléstia grave ou acidente em serviço - 13º salário",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "78",
+"descricao": "Valores pagos a titular ou sócio de microempresa ou empresa de pequeno porte, exceto pró-labore e aluguéis",
+"inicio": "2015-10-01",
+"termino": "2021-06-30"
+},
+{
+"codigo": "700",
+"descricao": "Auxílio moradia",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "701",
+"descricao": "Parte não tributável do valor de serviço de transporte de passageiros ou cargas",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "702",
+"descricao": "Bolsa médico residente - remuneração mensal",
+"inicio": "2024-12-01",
+"termino": null
+},
+{
+"codigo": "703",
+"descricao": "Bolsa médico residente - 13º salário",
+"inicio": "2024-12-01",
+"termino": null
+},
+{
+"codigo": "704",
+"descricao": "Juros de mora recebidos, devidos pelo atraso no pagamento de remuneração por exercício de emprego, cargo ou função",
+"inicio": "2024-12-01",
+"termino": null
+},
+{
+"codigo": "79",
+"descricao": "Outras isenções (o nome da rubrica deve ser claro para identificação da natureza dos valores)",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "81",
+"descricao": "Depósito judicial",
+"inicio": "2015-10-01",
+"termino": "2021-06-30"
+},
+{
+"codigo": "82",
+"descricao": "Compensação judicial do ano-calendário",
+"inicio": "2015-10-01",
+"termino": "2021-06-30"
+},
+{
+"codigo": "83",
+"descricao": "Compensação judicial de anos anteriores",
+"inicio": "2015-10-01",
+"termino": "2021-06-30"
+},
+{
+"codigo": "91",
+"descricao": "Remuneração mensal",
+"inicio": "2015-10-01",
+"termino": "2021-06-30"
+},
+{
+"codigo": "92",
+"descricao": "13º salário",
+"inicio": "2015-10-01",
+"termino": "2021-06-30"
+},
+{
+"codigo": "93",
+"descricao": "Férias",
+"inicio": "2015-10-01",
+"termino": "2021-06-30"
+},
+{
+"codigo": "94",
+"descricao": "PLR",
+"inicio": "2015-10-01",
+"termino": "2021-06-30"
+},
+{
+"codigo": "95",
+"descricao": "RRA",
+"inicio": "2015-10-01",
+"termino": "2021-06-30"
+},
+{
+"codigo": "9011",
+"descricao": "Remuneração mensal",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "9012",
+"descricao": "13º salário",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "9013",
+"descricao": "Férias",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "9014",
+"descricao": "PLR",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "9031",
+"descricao": "Remuneração mensal",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "9032",
+"descricao": "13º salário",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "9033",
+"descricao": "Férias",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "9034",
+"descricao": "PLR",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "9831",
+"descricao": "Depósito judicial - Mensal",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "9832",
+"descricao": "Depósito judicial - 13º salário",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "9833",
+"descricao": "Depósito judicial - Férias",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "9834",
+"descricao": "Depósito judicial - PLR",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "9041",
+"descricao": "Previdência Social Oficial - PSO - Remuneração mensal",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "9042",
+"descricao": "PSO - 13º salário",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "9043",
+"descricao": "PSO - Férias",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "9046",
+"descricao": "Previdência complementar - Salário mensal",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "9047",
+"descricao": "Previdência complementar - 13º salário",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "9048",
+"descricao": "Previdência complementar - Férias",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "9051",
+"descricao": "Pensão alimentícia - Remuneração mensal",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "9052",
+"descricao": "Pensão alimentícia - 13º salário",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "9053",
+"descricao": "Pensão alimentícia - Férias",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "9054",
+"descricao": "Pensão alimentícia - PLR",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "9061",
+"descricao": "Fundo de Aposentadoria Programada Individual - FAPI - Remuneração mensal",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "9062",
+"descricao": "Fundo de Aposentadoria Programada Individual - FAPI - 13º salário",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "9063",
+"descricao": "Fundação de previdência complementar do servidor público - Remuneração mensal",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "9064",
+"descricao": "Fundação de previdência complementar do servidor público - 13º salário",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "9065",
+"descricao": "Fundação de previdência complementar do servidor público - Férias",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "9066",
+"descricao": "Fundo de Aposentadoria Programada Individual - FAPI - Férias",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "9067",
+"descricao": "Plano privado coletivo de assistência à saúde",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "9082",
+"descricao": "Compensação judicial do ano-calendário",
+"inicio": "2015-10-01",
+"termino": null
+},
+{
+"codigo": "9083",
+"descricao": "Compensação judicial de anos anteriores",
+"inicio": "2015-10-01",
+"termino": null
+}
+]
+},
+"29": {
+"titulo": "Códigos de Receita - Reclamatória Trabalhista",
+"itens": [
+{
+"codigo": "113851",
+"descricao": "CP patronal a cargo da empresa sobre a remuneração do segurado empregado ou trabalhador avulso",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "164651",
+"descricao": "CP GILRAT a cargo da empresa sobre a remuneração do segurado empregado ou trabalhador avulso",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "114151",
+"descricao": "CP para financiamento de aposentadoria especial a cargo da empresa sobre a remuneração do segurado empregado ou trabalhador avulso",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "113852",
+"descricao": "CP adicional a cargo das instituiçoes financeiras sobre a remuneração do segurado empregado ou trabalhador avulso",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "113854",
+"descricao": "CP patronal a cargo da empresa sobre a remuneração do segurado contribuinte individual",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "114155",
+"descricao": "CP para financiamento de aposentadoria especial a cargo da empresa sobre a remuneração do segurado contribuinte individual",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "113855",
+"descricao": "CP adicional a cargo das instituiçoes financeiras sobre a remuneração do segurado contribuinte individual",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "113858",
+"descricao": "CP patronal a cargo do empregador doméstico sobre a remuneração do segurado empregado doméstico",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "164659",
+"descricao": "CP GILRAT a cargo do empregador doméstico sobre a remuneração do segurado empregado doméstico",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "113857",
+"descricao": "CP patronal a cargo do Microempreendedor - MEI sobre a remuneração do segurado empregado",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "113853",
+"descricao": "CP patronal a cargo da empresa SIMPLES com atividade concomitante sobre a remuneração do segurado empregado ou trabalhador avulso",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "164652",
+"descricao": "CP GILRAT a cargo da empresa SIMPLES com atividade concomitante sobre a remuneração do segurado empregado ou trabalhador avulso",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "114152",
+"descricao": "CP adicional GILRAT a cargo da empresa SIMPLES com atividade concomitante sobre a remuneração do segurado empregado ou trabalhador avulso",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "113856",
+"descricao": "CP patronal a cargo da empresa SIMPLES com atividade concomitante sobre a remuneração do segurado contribuinte individual",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "117051",
+"descricao": "Salário-Educação a cargo da empresa sobre a remuneração do segurado empregado ou trabalhador avulso",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "117651",
+"descricao": "Incra a cargo da empresa sobre a remuneração do segurado empregado ou trabalhador avulso",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "117652",
+"descricao": "Incra (FPAS 531/795/825) a cargo da empresa sobre a remuneração do segurado empregado ou trabalhador avulso",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "118151",
+"descricao": "Senai a cargo da empresa sobre a remuneração do segurado empregado ou trabalhador avulso",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "118451",
+"descricao": "Sesi a cargo da empresa sobre a remuneração do segurado empregado ou trabalhador avulso",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "119151",
+"descricao": "Senac a cargo da empresa sobre a remuneração do segurado empregado ou trabalhador avulso",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "119651",
+"descricao": "Sesc a cargo da empresa sobre a remuneração do segurado empregado ou trabalhador avulso",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "120051",
+"descricao": "Sebrae a cargo da empresa sobre a remuneração do segurado empregado ou trabalhador avulso",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "120052",
+"descricao": "Sebrae (FPAS 566/574/647) a cargo da empresa sobre a remuneração do segurado empregado ou trabalhador avulso",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "120551",
+"descricao": "FDEPM a cargo da empresa sobre a remuneração do segurado empregado ou trabalhador avulso",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "120951",
+"descricao": "Fundo Aeroviário a cargo da empresa sobre a remuneração do segurado empregado ou trabalhador avulso",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "121353",
+"descricao": "Senar a cargo da empresa sobre a remuneração do segurado empregado ou trabalhador avulso",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "121851",
+"descricao": "Sest a cargo da empresa sobre a remuneração do segurado empregado ou trabalhador avulso",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "121852",
+"descricao": "Sest a cargo do trabalhador (descontado pela empresa) sobre a remuneração do segurado transportador autônomo",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "122151",
+"descricao": "Senat a cargo da empresa sobre a remuneração do segurado empregado ou trabalhador avulso",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "122152",
+"descricao": "Senat a cargo do trabalhador (descontado pela empresa) sobre a remuneração do segurado transportador autônomo",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "122551",
+"descricao": "Sescoop a cargo da empresa sobre a remuneração do segurado empregado ou trabalhador avulso",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "108251",
+"descricao": "CP do segurado empregado e trabalhador avulso",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "108252",
+"descricao": "CP do segurado empregado contratado por curto prazo - Lei 11.718/2009",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "108253",
+"descricao": "CP do segurado empregado doméstico",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "108254",
+"descricao": "CP do segurado empregado contratado por curto prazo por empregador segurado especial - Lei 11.718/2009",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "108255",
+"descricao": "CP do segurado empregado contratado por empregador segurado especial",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "108257",
+"descricao": "CP do segurado empregado contratado por empregador MEI",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "109951",
+"descricao": "CP do segurado contribuinte individual - 11%",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "109952",
+"descricao": "CP do segurado contribuinte individual - 20%",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "830104",
+"descricao": "PIS - Folha de salários reclamatória trabalhista",
+"inicio": null,
+"termino": null
+},
+{
+"codigo": "166451",
+"descricao": "Contribuição Adicional ao SENAI - Reclamatória Trabalhista",
+"inicio": null,
+"termino": null
+}
+]
+}
+}
+}

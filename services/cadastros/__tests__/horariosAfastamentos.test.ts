@@ -120,12 +120,12 @@ describe('afastamentos (S-2230)', () => {
         expect(validarAfastamento(base, ficha, [])).toEqual({ erros: [], avisos: [] });
         expect(validarAfastamento({ ...base, dtInicio: '2025-12-01', dtFim: '2025-11-01', motivo: '15', tpAcidTransito: '1' }, ficha, []).erros)
             .toEqual(['Término anterior ao início.', 'Acidente de trânsito só com motivo 01 ou 03.', 'Início anterior à admissão.']);
-        expect(validarAfastamento({ ...base, motivo: '27', perAquisInicio: '2025-01-05' }, ficha, []))
-            .toEqual({ erros: ['Período aquisitivo só para férias (motivo 15).'], avisos: ['Motivo 27 sem descrição neste cadastro: conferir na Tabela 18 do eSocial.'] });
+        expect(validarAfastamento({ ...base, motivo: '13', perAquisInicio: '2025-01-05' }, ficha, []))
+            .toEqual({ erros: ['Período aquisitivo só para férias (motivo 15).'], avisos: ['Motivo 13 sem descrição neste cadastro: conferir na Tabela 18 do eSocial.'] });
         const aberto = { ...base, id: 'a2', dtInicio: '2026-03-01', dtFim: '' };
         expect(validarAfastamento(base, ficha, [aberto]).erros).toEqual(['Sobrepõe o afastamento iniciado em 01/03/2026.']);
         expect(rotuloMotivo('17')).toBe('17 - Licença-maternidade (120 dias)');
-        expect(rotuloMotivo('27')).toBe('27 - conferir na Tabela 18 do eSocial');
+        expect(rotuloMotivo('13')).toBe('13 - conferir na Tabela 18 do eSocial');
     });
 
     it('importação não troca afastamento lançado à mão', () => {
