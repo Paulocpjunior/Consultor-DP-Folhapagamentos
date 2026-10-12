@@ -4975,3 +4975,26 @@ Paulo: *"segue com , 1,2,3"* (12/10).
   - **Achado, não corrigido nesta entrega:** a folha mensal soma à base do FGTS os dias de afastamento por acidente (motivo 01, Lei 8.036/1990, art. 15, § 5º), mas o S-1200 mensal ainda não leva essa base em rubrica informativa. Por isso o S-5003 não vê esse FGTS. A complementar tipo E avisa disso. A correção mexe no motor mensal (as verbas informativas entrariam em holerite, médias, provisões e contábil) e fica como próximo item.
 - **Testes:** conferência em lote (pura e tela), comprovante (tela), tipo E (cálculo, validação, tela, S-1200 com XSD, rubrica não informativa recusada e sem S-1210).
 
+## 12/10/2026 — FGTS do afastamento por acidente e do serviço militar no S-1200 mensal
+
+Paulo: *"pode seguir com a correcao"* (12/10). É o achado do tipo E.
+
+- **O problema:** o motor somava à base do FGTS os dias de afastamento por acidente do trabalho (motivo 01, do 16º dia em diante) e por serviço militar (motivo 29), conforme a Lei 8.036/1990, art. 15, § 5º. Mas o S-1200 do mês não levava essa base, então o S-5003 do eSocial não via esse FGTS.
+- **A regra:** MOS, S-1200, item 36.1. Nesses afastamentos o empregador não paga salário, mas informa o valor dos salários em rubrica informativa para a base do FGTS.
+- **Motor:** `ResultadoCalculo.verbasInformativas` (opcional):
+  - `FGTSAC`: base do FGTS do afastamento por acidente;
+  - `FGTSSM`: base do FGTS do serviço militar;
+  - as duas são `informativa: true`, só com FGTS, e a referência traz os dias;
+  - ficam **fora de `verbas`**, então holerite, líquido, médias, provisões, ficha financeira e contábil não mudam;
+  - `bases.fgts` continua igual (já somava).
+- **S-1200 mensal:** as informativas entram no mesmo demonstrativo (tpRubr 3 exigido), fora do líquido e do S-1210.
+  - **De/para:** `FGTSAC` é sugerida pela descrição, porque o MOS não fixa natureza para ela; `FGTSSM` pela natureza 9905, do exemplo do MOS.
+  - **Rubrica faltando:** sem rubrica no de/para, o S-1200 não sai, com o erro de sempre.
+- **S-1010:** modelo `FGTSSM` (9905, informativa, CP 00, IRRF 9, FGTS 11, como no exemplo do MOS). Para o acidente não há modelo, porque o MOS não dá a natureza.
+- **Correção do validador do S-1010:** a regra de "conferência de base" (CP 00, FGTS 00, IRRF 9) valia para toda a faixa 9901–9908. O MOS (S-1010, item 1.4) lista só 9901, 9902, 9903, 9904, 9907 e 9908. A 9905 (serviço militar) e a 9906 (remuneração no exterior) são bases e eram recusadas por engano.
+- **Complementar tipo E:** o aviso agora orienta a cadastrar o afastamento com o motivo 01 para a folha mensal levar a base.
+- **Testes:**
+  - motor: acidente com 6 dias de benefício e serviço militar com 15 dias;
+  - S-1200: rubrica informativa, líquido e S-1210 sem ela, XSD e erro sem de/para;
+  - validador: 9905 com FGTS 11 aceita, 9902 recusada.
+
