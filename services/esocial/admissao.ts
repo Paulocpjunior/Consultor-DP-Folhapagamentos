@@ -18,6 +18,7 @@
 // - tpContr 2 e 3: cláusula assecuratória (clauAssec) no S-2200; tpContr 3: o objeto determinante (objDet);
 // - 104 doméstico vai pelo eSocial Doméstico; 107 e 108 (contrato verde e amarelo) ficam com o IOB.
 
+import { foraDaVigencia } from './vigenciaTabelas';
 import { descricaoJornada, resumirHorario, tpJornadaDoHorario, type Horario } from '../cadastros/horarios';
 import { cnpjValido, cpfValido, dataValida } from '../cadastros/documentos';
 import type { FichaFuncionario } from '../cadastros/funcionarios';
@@ -126,6 +127,11 @@ export function validarContrato(f: FichaFuncionario, c: ContratoS2200, estabelec
     if (!/^\d{3}$/.test(d.categoria ?? '') || !/^1\d\d$/.test(d.categoria ?? '')) er.push('Categoria de empregado (1XX).');
     else if (d.categoria === '104') er.push('Categoria 104 (doméstico): o vínculo vai pelo eSocial Doméstico (módulo web).');
     else if (['107', '108'].includes(d.categoria!)) er.push(`Categoria ${d.categoria} (contrato verde e amarelo): o ${evento} dela fica com o IOB.`);
+    else if (evento === 'S-2200' && d.admissao) {
+        // Categoria vigente na tabela oficial na data da admissão.
+        const fora = foraDaVigencia('01', d.categoria!, d.admissao);
+        if (fora) er.push(fora);
+    }
     if ((d.regimeTrabalhista ?? '1') !== '1') er.push('Só empregado celetista (regime trabalhista 1).');
     if (!(d.cargo ?? '').trim()) er.push('Cargo.');
     if (!/^\d{6}$/.test(digitos(d.cbo))) er.push('CBO (6 dígitos).');

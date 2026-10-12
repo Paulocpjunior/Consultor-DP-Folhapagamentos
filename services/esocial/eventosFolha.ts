@@ -106,13 +106,13 @@ export function erroDescFolha(v: Pick<Verba, 'descricao' | 'descFolha'>, codRubr
 export const chaveVerba = (v: Pick<Verba, 'codigo' | 'descricao'>) => (/^LAN\d+$/.test(v.codigo) ? `LAN:${normalizar(v.descricao)}` : v.codigo);
 
 /** Natureza (Tabela 03) e tipo (1 = provento, 2 = desconto) que cada verba do motor deve ter no S-1010. */
-const SUGESTAO: Record<string, { naturezas: string[]; dica?: RegExp; evita?: RegExp; codigos?: string[] }> = {
+export const SUGESTAO: Record<string, { naturezas: string[]; dica?: RegExp; evita?: RegExp; codigos?: string[] }> = {
     SAL: { naturezas: ['1000'] },
     // Intermitente (CLT, art. 452-A, § 6º): horas, DSR, férias proporcionais com 1/3 e 13º proporcional da convocação.
     INTERM: { naturezas: ['1000'], dica: /INTERMIT/ },
-    DSRINT: { naturezas: ['1002'], dica: /INTERMIT/ },
-    FERINT: { naturezas: ['1016', '1020'], dica: /INTERMIT/, evita: /1\/3|TERCO/ },
-    FERINT13: { naturezas: ['1017', '1020'], dica: /INTERMIT|1\/3|TERCO/ },
+    DSRINT: { naturezas: ['1012'], dica: /INTERMIT/ },
+    FERINT: { naturezas: ['1016'], dica: /INTERMIT/, evita: /1\/3|TERCO/ },
+    FERINT13: { naturezas: ['1017'], dica: /INTERMIT|1\/3|TERCO/ },
     '13INT': { naturezas: ['5001'], dica: /INTERMIT|PROP/ },
     // Tabela 03: 1202 adicional de insalubridade, 1203 adicional de periculosidade (item 3b).
     INSALUB: { naturezas: ['1202'] },
@@ -120,7 +120,7 @@ const SUGESTAO: Record<string, { naturezas: string[]; dica?: RegExp; evita?: Reg
     MAT: { naturezas: ['4050'] },
     HE50: { naturezas: ['1003'], evita: /100/ },
     HE100: { naturezas: ['1003'], dica: /100/ },
-    DSRHE: { naturezas: ['1002'], dica: /EXTRA|\bHE\b/ },
+    DSRHE: { naturezas: ['1012'], dica: /EXTRA|\bHE\b/ },
     // Falta em dias: a rubrica de horas/atrasos (5850) fica para ATRASO, senão as duas empatam (Codex #120).
     FALTA: { naturezas: ['9207'], evita: /DSR|REPOUSO|ATRAS|\bT H\b|HORA/ },
     DSRF: { naturezas: ['9207'], dica: /DSR|REPOUSO/ },
@@ -201,7 +201,7 @@ const IRRF_FERIAS_DO_GOZO = new Set(['FERMES', 'FERMES13', 'FERPAGO']);
 const PARES_FERIAS: [string, string][] = [['INSSFERRET', 'INSSFER'], ['IRRFFERRET', 'IRRFFER']];
 
 /** Naturezas que o MOS (S-1010, item 23, opção 1) fixa para as verbas de férias. */
-const NATUREZA_MOS: Record<string, string> = { FERMES: '1016', FERMES13: '1017', FERPAGO: '9221', FERADI: '1015', FERADI13: '1015' };
+export const NATUREZA_MOS: Record<string, string> = { FERMES: '1016', FERMES13: '1017', FERPAGO: '9221', FERADI: '1015', FERADI13: '1015' };
 
 export interface ItemDePara { chave: string; descricao: string; tipo: 'provento' | 'desconto' | 'informativa'; sugestao: RubricaEsocial | null }
 

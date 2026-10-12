@@ -20,6 +20,7 @@
 // (a conferência do S-1200 avisa quando discordam). Os códigos da Tabela 21 sem rótulo conferido aparecem na tela
 // como "conferir na Tabela 21".
 
+import { foraDaVigencia } from './vigenciaTabelas';
 import { COD_INC_CP, COD_INC_FGTS, vigenciaEm, consolidarRubricas, idRubrica, type DadosRubrica, type EventoRubrica, type Rubrica } from '../cadastros/rubricas';
 import { PREFIXO_RESC } from './desligamento';
 import { idEvento, VER_PROC, type TpAmb } from './transmissao';
@@ -65,7 +66,7 @@ export const refPedidoS1010 = (pedidoId: string) => `s1010:${pedidoId}`;
 
 /** Rótulos das naturezas que os modelos usam. As demais são aceitas pelo código (4 dígitos). */
 export const NAT_RUBR: Record<string, string> = {
-    1000: 'Salário, vencimento, soldo', 1002: 'Descanso semanal remunerado (DSR) e feriados', 1003: 'Horas extraordinárias',
+    1000: 'Salário, vencimento, soldo', 1002: 'DSR (encerrada em 30/04/2024; use a 1012)', 1012: 'Descanso semanal remunerado (DSR) e feriado', 1003: 'Horas extraordinárias',
     1015: 'Adiantamento de férias', 1016: 'Férias', 1017: 'Terço constitucional de férias', 1023: 'Abono pecuniário', 1024: 'Férias em dobro',
     1202: 'Adicional de insalubridade', 1203: 'Adicional de periculosidade', 1409: 'Salário-família', 4050: 'Salário-maternidade',
     5001: '13º salário', 5504: '13º salário - adiantamento', 6000: 'Saldo de salários na rescisão', 6001: '13º salário relativo ao aviso prévio indenizado',
@@ -79,7 +80,7 @@ export const NAT_RUBR: Record<string, string> = {
 export interface ModeloRubrica { chave: string; dados: DadosRubrica; nota?: string }
 
 /** Naturezas só de conferência de base (MOS, S-1010, item 1.4). */
-const CONFERENCIA_DE_BASE = ['9901', '9902', '9903', '9904', '9907', '9908'];
+export const CONFERENCIA_DE_BASE = ['9901', '9902', '9903', '9904', '9907', '9908'];
 
 const m = (chave: string, dscRubr: string, natRubr: string, tpRubr: '1' | '2' | '3', codIncCP: string, codIncIRRF: string, codIncFGTS: string, nota?: string): ModeloRubrica =>
     ({ chave, dados: { dscRubr, natRubr, tpRubr, codIncCP, codIncIRRF, codIncFGTS, codIncCPRP: '', observacao: '' }, ...(nota ? { nota } : {}) });
@@ -93,7 +94,7 @@ export const MODELOS: ModeloRubrica[] = [
     // Intermitente (CLT, art. 452-A, § 6º): as parcelas pagas a cada convocação. Férias como gozadas (INSS e FGTS) e IRRF
     // em separado (13); o 13º com as incidências do 13º (12), no S-1200 mensal.
     m('INTERM', 'Remuneração do trabalho intermitente', '1000', '1', '11', '11', '11'),
-    m('DSRINT', 'DSR do trabalho intermitente', '1002', '1', '11', '11', '11'),
+    m('DSRINT', 'DSR do trabalho intermitente', '1012', '1', '11', '11', '11'),
     m('FERINT', 'Férias proporcionais do intermitente', '1016', '1', '11', '13', '11', 'Férias do intermitente pagas a cada convocação: tratadas como gozadas (INSS e FGTS). Confira com a contabilidade.'),
     m('FERINT13', '1/3 das férias do intermitente', '1017', '1', '11', '13', '11', 'Férias do intermitente pagas a cada convocação: tratadas como gozadas (INSS e FGTS). Confira com a contabilidade.'),
     m('13INT', '13º salário proporcional do intermitente', '5001', '1', '12', '12', '12'),
@@ -102,7 +103,7 @@ export const MODELOS: ModeloRubrica[] = [
     m('MAT', 'Salário-maternidade pago pelo empregador', '4050', '1', '21', '11', '11'),
     m('HE50', 'Horas extras 50%', '1003', '1', '11', '11', '11'),
     m('HE100', 'Horas extras 100%', '1003', '1', '11', '11', '11'),
-    m('DSRHE', 'DSR sobre horas extras', '1002', '1', '11', '11', '11'),
+    m('DSRHE', 'DSR sobre horas extras', '1012', '1', '11', '11', '11'),
     m('FALTA', 'Faltas', '9207', '2', '11', '11', '11'),
     m('DSRF', 'DSR sobre faltas', '9207', '2', '11', '11', '11'),
     m('ATRASO', 'Faltas e atrasos em horas', '9207', '2', '11', '11', '11'),
@@ -241,7 +242,14 @@ export function validarPedido(p: PedidoS1010, rubricas: Rubrica[], hojeComp?: st
     if (p.fimValid && (!COMP.test(p.fimValid) || p.fimValid < p.iniValid)) erros.push('Fim da validade em AAAA-MM, igual ou depois do início.');
     if (p.acao !== 'exclusao') {
         if (!p.dados) erros.push('Dados da rubrica em branco.');
-        else erros.push(...validarDados(p.dados));
+        else {
+            erros.push(...validarDados(p.dados));
+            // Natureza vigente na tabela oficial no início da validade (e no novo início, na alteração).
+            for (const ini of [p.iniValid, p.novaIniValid].filter((x): x is string => !!x && COMP.test(x))) {
+                const fora = /^\d{4}$/.test(p.dados.natRubr) ? foraDaVigencia('03', p.dados.natRubr, ini) : null;
+                if (fora && !erros.includes(fora)) erros.push(fora);
+            }
+        }
     }
     if (p.acao === 'alteracao') {
         if (p.novaIniValid && !COMP.test(p.novaIniValid)) erros.push('Novo início da validade em AAAA-MM.');

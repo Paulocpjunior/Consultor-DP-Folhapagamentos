@@ -5144,3 +5144,26 @@ Paulo: *"motivo de rescisão é algo que deve ser cadastrado de forma que o uso 
   - **26, fato do príncipe** (CLT, art. 486): verbas da dispensa, com aviso e multa de 40%, e saque. A indenização fica a cargo do governo responsável: a tela avisa que a guia sai pelo FGTS Digital e que o ressarcimento é pedido à parte (§ 1º), a conferir com o jurídico. Seguro-desemprego: sim;
   - **49, falecimento do empregador doméstico sem continuação:** sem aviso; os 3,2% vão para o empregado (LC 150/2015, art. 22, caput; o § 1º não inclui este caso); saque liberado. O S-2299 do doméstico continua pelo eSocial Doméstico.
 - **Testes:** `rescisaoTabela19.test.ts` (amparo, 09, 26 e 49).
+
+## 12/10/2026 — Tabelas do eSocial do Consultor conferidas com as oficiais
+
+Paulo: *"pode seguir com os itens 1,2,3"* (12/10). Item 1: conferir as tabelas usadas no Consultor com as oficiais.
+
+- **Fonte:** tabelas oficiais do leiaute S-1.3 (NT 07/2026 rev. 24/09/2026), na documentação técnica no gov.br, lidas em 12/10/2026. As que o Consultor usa (01, 03, 07, 08, 10, 18, 19, 21 e 29) ficam em `services/esocial/__tests__/fixtures/tabelasEsocialS13.json`, com código, descrição e vigência.
+- **Divergências corrigidas:**
+  - **natureza 1002 (DSR), encerrada em 30/04/2024:**
+    - os modelos do S-1010 "DSR do intermitente" e "DSR sobre horas extras" e as sugestões do de/para passam para a **1012** (DSR e feriado);
+    - o rótulo da 1002 dizia "DSR e feriados", que é a descrição da 1012;
+  - **natureza 1020 (férias), encerrada em 30/04/2023:** saiu das sugestões das férias do intermitente, que ficam só com a 1016 e a 1017.
+- **Vigência nas validações** (`services/esocial/vigenciaTabelas.ts`, a vigência de 01, 03, 18 e 19; o teste confere que é igual à oficial):
+  - **S-1010:** natureza fora da vigência no início da validade é recusada, com a substituta (1002 → 1012, 1020 → 1016 e 1017, 1801 → 1800);
+  - **afastamento:** motivo fora da vigência na data de início é recusado. Os motivos 14, 30 e 33 terminaram em 2021–2022; a suspensão disciplinar (30) saiu da Tabela 18 e é lançada como faltas;
+  - **S-2200:** categoria fora da vigência na admissão é recusada (107, 108 e 308 terminaram).
+- **Motivos de afastamento acrescentados com a descrição oficial:**
+  - 12, 22, 27, 41, 42 e 53;
+  - os da **licença-paternidade (46 a 52), que só valem a partir de 01/01/2027**: antes disso a validação recusa e diz a data.
+- **A acompanhar:** naturezas novas do salário-paternidade (4052, 4053, 9928 e 9929) a partir de 01/12/2026, e os motivos 18 e 20 com descrição nova a partir de 2027.
+- **Trava:** `tabelasOficiais.test.ts`:
+  - o que o Consultor gera está vigente;
+  - o que só lê o histórico existe na tabela oficial;
+  - a vigência embutida é igual à oficial.
