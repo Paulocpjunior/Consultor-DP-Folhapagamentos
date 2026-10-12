@@ -6,6 +6,7 @@
 
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { LOGO_SP_JPEG } from './logoPdf';
 
 export interface CabecalhoEmpresa { razaoSocial: string; cnpj: string; codigoSage?: string }
 export interface OpcoesPdf {
@@ -36,10 +37,13 @@ export function novoDocumento(o: Pick<OpcoesPdf, 'orientacao'>): jsPDF {
 /** Cabeçalho padrão (até y ≈ 28): marca do escritório, empresa à esquerda, título e subtítulo à direita. */
 export function cabecalhoPadrao(doc: jsPDF, o: OpcoesPdf, subtitulo: string) {
     const largura = doc.internal.pageSize.getWidth();
-    // Marca: monograma SP em azul.
-    doc.setFillColor(...AZUL); doc.roundedRect(14, 9, 10, 10, 1.6, 1.6, 'F');
-    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5);
-    doc.text('SP', 19, 15.4, { align: 'center' });
+    // Marca: o logo oficial da SP Contábil (logoPdf.ts). Se o PDF não aceitar a imagem, fica o monograma em texto.
+    try { doc.addImage(LOGO_SP_JPEG, 'JPEG', 14, 8.5, 11, 11); }
+    catch {
+        doc.setFillColor(...AZUL); doc.roundedRect(14, 9, 10, 10, 1.6, 1.6, 'F');
+        doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5);
+        doc.text('SP', 19, 15.4, { align: 'center' });
+    }
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(11.5); doc.setFont('helvetica', 'bold');
     doc.text(textoPdf(o.empresa.razaoSocial), 27, 13.5);
