@@ -335,7 +335,7 @@ const AnalysisViewer: React.FC<Props> = ({ result, headerData, previousAccounts,
                             {account.account_name}
                         </span>
                         {correction && (
-                            <span className="text-[10px] text-amber-600 bg-amber-50 px-1 border border-amber-200 rounded">
+                            <span className="text-[10px] text-amber-600 bg-amber-50 px-1 border border-amber-200 rounded-sm">
                                 {correction.suggested_correction}
                             </span>
                         )}
@@ -360,7 +360,7 @@ const AnalysisViewer: React.FC<Props> = ({ result, headerData, previousAccounts,
     <div className="space-y-6 animate-fadeIn pb-20">
       
       {/* HEADER ACTIONS (Global for All Tabs) */}
-      <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col md:flex-row justify-between items-center gap-4">
+      <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-xs border border-slate-200 dark:border-slate-700 flex flex-col md:flex-row justify-between items-center gap-4">
           <div>
               <h2 className="text-2xl font-black text-slate-800 dark:text-white">{headerData.companyName}</h2>
               <div className="flex gap-3 text-sm text-slate-500 flex-wrap">
@@ -415,20 +415,20 @@ const AnalysisViewer: React.FC<Props> = ({ result, headerData, previousAccounts,
       {viewTab === 'dashboard' && (
           <div className="space-y-6 animate-fadeIn">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="p-5 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
+                    <div className="p-5 bg-white dark:bg-slate-800 rounded-2xl shadow-xs border border-slate-100 dark:border-slate-700">
                         <p className="text-xs font-bold text-slate-400 uppercase">Receita Bruta Est.</p>
                         <p className="text-xl font-black text-blue-600 mt-1">{formatCurrency(financialStructure.dreTotals.receitaBruta)}</p>
                     </div>
-                    <div className="p-5 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
+                    <div className="p-5 bg-white dark:bg-slate-800 rounded-2xl shadow-xs border border-slate-100 dark:border-slate-700">
                         <p className="text-xs font-bold text-slate-400 uppercase">Total Ativo</p>
                         <p className="text-xl font-black text-slate-800 dark:text-white mt-1">{formatCurrency(financialStructure.bpTotals.ac + financialStructure.bpTotals.anc)}</p>
                     </div>
-                    <div className="p-5 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
+                    <div className="p-5 bg-white dark:bg-slate-800 rounded-2xl shadow-xs border border-slate-100 dark:border-slate-700">
                         <p className="text-xs font-bold text-slate-400 uppercase">Patrimônio Líquido</p>
                         <p className="text-xl font-black text-emerald-600 mt-1">{formatCurrency(financialStructure.bpTotals.pl)}</p>
                     </div>
                     {/* RESULTADO EVIDENCIADO */}
-                    <div className={`p-5 rounded-2xl shadow-md border-2 transform transition-transform hover:scale-105 ${financialStructure.calculatedResult >= 0 ? 'bg-gradient-to-br from-green-50 to-white border-green-200 dark:from-green-900/40 dark:to-slate-800 dark:border-green-800' : 'bg-gradient-to-br from-red-50 to-white border-red-200 dark:from-red-900/40 dark:to-slate-800 dark:border-red-800'}`}>
+                    <div className={`p-5 rounded-2xl shadow-md border-2 transform transition-transform hover:scale-105 ${financialStructure.calculatedResult >= 0 ? 'bg-linear-to-br from-green-50 to-white border-green-200 dark:from-green-900/40 dark:to-slate-800 dark:border-green-800' : 'bg-linear-to-br from-red-50 to-white border-red-200 dark:from-red-900/40 dark:to-slate-800 dark:border-red-800'}`}>
                         <p className={`text-xs font-bold uppercase flex items-center gap-1 ${financialStructure.calculatedResult >= 0 ? 'text-green-700' : 'text-red-600'}`}>
                             {financialStructure.calculatedResult >= 0 ? '📈 Lucro do Período' : '📉 Prejuízo do Período'}
                         </p>
@@ -440,7 +440,7 @@ const AnalysisViewer: React.FC<Props> = ({ result, headerData, previousAccounts,
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                      {/* OPINION SECTION */}
-                     <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col">
+                     <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl shadow-xs border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col">
                         <div className="flex flex-col md:flex-row border-b dark:border-slate-700">
                             <div className="flex-1 flex">
                                 <button onClick={() => setActiveOpinionTab('financial')} className={`flex-1 p-4 text-xs font-bold uppercase ${activeOpinionTab === 'financial' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'text-slate-400'}`}>Saúde Financeira</button>
@@ -450,7 +450,7 @@ const AnalysisViewer: React.FC<Props> = ({ result, headerData, previousAccounts,
                             <div className="p-2 flex items-center justify-end border-l border-slate-100 dark:border-slate-700">
                                 <button 
                                     onClick={handleExportOpinionPDF}
-                                    className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded text-[10px] font-bold hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                                    className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-sm text-[10px] font-bold hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
                                     title="Baixar este parecer em PDF para enviar ao cliente"
                                 >
                                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
@@ -473,7 +473,7 @@ const AnalysisViewer: React.FC<Props> = ({ result, headerData, previousAccounts,
                      </div>
 
                      {/* CHART */}
-                     <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
+                     <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xs border border-slate-200 dark:border-slate-700 p-4">
                          <h3 className="text-xs font-bold text-slate-500 uppercase mb-4 text-center">Estrutura Patrimonial</h3>
                          <div className="h-[250px]">
                             <ResponsiveContainer width="100%" height="100%">
@@ -498,7 +498,7 @@ const AnalysisViewer: React.FC<Props> = ({ result, headerData, previousAccounts,
 
       {/* === DRE TAB (UPDATED LAYOUT WITH 4 COLUMNS) === */}
       {viewTab === 'dre' && (
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden animate-fadeIn">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xs border border-slate-200 dark:border-slate-700 overflow-hidden animate-fadeIn">
              
              {/* DRE Specific Toolbar */}
              <div className="bg-slate-50 dark:bg-slate-900/50 p-4 border-b dark:border-slate-700 flex flex-col md:flex-row justify-between items-center gap-4">
@@ -584,7 +584,7 @@ const AnalysisViewer: React.FC<Props> = ({ result, headerData, previousAccounts,
       {viewTab === 'bp' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fadeIn">
               {/* ATIVO */}
-              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xs border border-slate-200 dark:border-slate-700 overflow-hidden">
                   <div className="bg-blue-600 p-4 text-white font-bold flex justify-between">
                       <span>ATIVO</span>
                       <span>{formatCurrency(financialStructure.bpTotals.ac + financialStructure.bpTotals.anc)}</span>
@@ -622,7 +622,7 @@ const AnalysisViewer: React.FC<Props> = ({ result, headerData, previousAccounts,
               </div>
 
               {/* PASSIVO */}
-              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xs border border-slate-200 dark:border-slate-700 overflow-hidden">
                   <div className="bg-red-600 p-4 text-white font-bold flex justify-between">
                       <span>PASSIVO + PL</span>
                       <span>{formatCurrency(financialStructure.bpTotals.pc + financialStructure.bpTotals.pnc + financialStructure.bpTotals.pl)}</span>
@@ -691,7 +691,7 @@ const AnalysisViewer: React.FC<Props> = ({ result, headerData, previousAccounts,
                     placeholder="Filtrar..." 
                     value={searchTerm}
                     onChange={e => setSearchTerm(e.target.value)}
-                    className="p-2 text-xs rounded border dark:bg-slate-700 dark:text-white"
+                    className="p-2 text-xs rounded-sm border dark:bg-slate-700 dark:text-white"
                 />
             </div>
             <div className="overflow-auto max-h-[600px]">

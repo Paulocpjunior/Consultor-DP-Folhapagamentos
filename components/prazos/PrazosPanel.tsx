@@ -76,7 +76,7 @@ const PrazosPanel: React.FC<Props> = ({ onAbrirCadastros, onAbrirConferencia, on
         XLSX.writeFile(wb, `prazos-dp-${hoje}.xlsx`);
     }
 
-    const sel = 'rounded border border-slate-300 px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-white';
+    const sel = 'rounded-sm border border-slate-300 px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-white';
     return (
         <div className="space-y-5">
             <header>
@@ -130,17 +130,17 @@ const PrazosPanel: React.FC<Props> = ({ onAbrirCadastros, onAbrirConferencia, on
                     <select className={sel} value={horizonte} onChange={e => setHorizonte(Number(e.target.value))} aria-label="Horizonte">
                         {[30, 60, 90, 180].map(n => <option key={n} value={n}>Próximos {n} dias</option>)}
                     </select>
-                    <button className="rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:text-white" onClick={exportar}>Exportar Excel</button>
+                    <button className="rounded-sm border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:text-white" onClick={exportar}>Exportar Excel</button>
                 </div>
                 {prazos.length > 0 && (
                     <div className="flex flex-wrap gap-2 text-xs">
                         {(['vencido', 'urgente', 'normal'] as const).filter(g => contagem[g]).map(g => <span key={g} className={`rounded-full px-2.5 py-1 ${COR[g]}`}>{g === 'vencido' ? 'Vencidos' : g === 'urgente' ? 'Urgentes' : 'No prazo'}: {contagem[g]}</span>)}
                     </div>
                 )}
-                {erro && <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+                {erro && <p role="alert" className="rounded-sm bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
                 {!dados && <p className="text-sm text-slate-500">Carregando…</p>}
                 {dados && !prazos.length && !erro && (
-                    <p className="rounded border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-600">
+                    <p className="rounded-sm border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-600">
                         Nenhum prazo neste filtro. Os prazos saem dos cadastros: contratos, férias e afastamentos dos funcionários e convenções dos sindicatos.
                         {onAbrirCadastros && <button className="ml-1 text-blue-700 underline dark:text-blue-300" onClick={onAbrirCadastros}>Abrir Cadastros</button>}
                     </p>
@@ -152,7 +152,7 @@ const PrazosPanel: React.FC<Props> = ({ onAbrirCadastros, onAbrirConferencia, on
                             <tbody>
                                 {prazos.map(p => (
                                     <tr key={p.id} className="border-t border-slate-100 align-top dark:border-slate-700 dark:text-slate-100">
-                                        <td className="p-2 whitespace-nowrap"><strong>{br(p.data)}</strong><span className={`mt-0.5 block w-fit rounded px-1.5 text-xs ${COR[p.gravidade]}`}>{p.gravidade === 'vencido' ? 'vencido' : quando(p.data, hoje)}</span></td>
+                                        <td className="p-2 whitespace-nowrap"><strong>{br(p.data)}</strong><span className={`mt-0.5 block w-fit rounded-sm px-1.5 text-xs ${COR[p.gravidade]}`}>{p.gravidade === 'vencido' ? 'vencido' : quando(p.data, hoje)}</span></td>
                                         <td className="p-2"><span className="text-xs text-slate-500">{ROTULO_TIPO[p.tipo]}</span><span className="block font-medium">{p.titulo}</span><span className="block text-xs text-slate-600 dark:text-slate-300">{p.detalhe}</span></td>
                                         <td className="p-2">{p.nome}</td>
                                         <td className="p-2 text-xs">{p.empresaId ? nomeEmpresa.get(p.empresaId) ?? '' : '—'}</td>

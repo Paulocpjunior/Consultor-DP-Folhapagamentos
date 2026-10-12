@@ -12,7 +12,7 @@ const AlertCard: React.FC<{ alert: NewsAlert }> = ({ alert }) => {
                 <h3 className="font-bold text-md text-sky-700 dark:text-sky-400 mb-2">
                     {alert.title}
                 </h3>
-                <p className="text-sm text-slate-600 dark:text-slate-300 flex-grow">
+                <p className="text-sm text-slate-600 dark:text-slate-300 grow">
                     {alert.summary}
                 </p>
                 <span className="text-sm text-slate-400 mt-4 self-start">
@@ -32,7 +32,7 @@ const AlertCard: React.FC<{ alert: NewsAlert }> = ({ alert }) => {
             <h3 className="font-bold text-md text-sky-700 dark:text-sky-400 mb-2">
                 {alert.title}
             </h3>
-            <p className="text-sm text-slate-600 dark:text-slate-300 flex-grow">
+            <p className="text-sm text-slate-600 dark:text-slate-300 grow">
                 {alert.summary}
             </p>
             <span className="text-sm font-semibold text-sky-600 dark:text-sky-400 mt-4 self-start">
@@ -44,10 +44,10 @@ const AlertCard: React.FC<{ alert: NewsAlert }> = ({ alert }) => {
 
 const SkeletonCard: React.FC = () => (
     <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-lg animate-pulse">
-        <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-3/4 mb-3"></div>
-        <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded w-full mb-2"></div>
-        <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded w-5/6 mb-4"></div>
-        <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded w-1/4"></div>
+        <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded-sm w-3/4 mb-3"></div>
+        <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded-sm w-full mb-2"></div>
+        <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded-sm w-5/6 mb-4"></div>
+        <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded-sm w-1/4"></div>
     </div>
 );
 
@@ -85,7 +85,7 @@ const NewsAlerts: React.FC = () => {
     }
 
     return (
-        <section className="mt-8 p-6 bg-white dark:bg-slate-800 rounded-lg shadow-sm animate-fade-in">
+        <section className="mt-8 p-6 bg-white dark:bg-slate-800 rounded-lg shadow-xs animate-fade-in">
             <div className="flex items-center mb-4">
                 <NewspaperIcon className="w-7 h-7 text-sky-600 dark:text-sky-400" />
                 <h2 className="ml-3 text-2xl font-bold text-slate-800 dark:text-slate-100">

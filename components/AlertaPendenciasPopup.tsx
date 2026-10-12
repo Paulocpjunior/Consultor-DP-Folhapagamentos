@@ -94,10 +94,10 @@ const AlertaPendenciasPopup: React.FC<Props> = ({ currentUser, onNavigateEsocial
     if (!visible || !resumo) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-xs p-4">
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-lg w-full border border-slate-200 dark:border-slate-700 overflow-hidden max-h-[90vh] flex flex-col">
                 {/* Header */}
-                <div className={`px-6 pt-6 pb-4 border-b border-slate-200 dark:border-slate-700 shrink-0 bg-gradient-to-br ${resumo.temPendencias ? 'from-amber-500/10 to-red-500/10 dark:from-amber-500/20 dark:to-red-500/20' : 'from-green-500/10 to-blue-500/10 dark:from-green-500/20 dark:to-blue-500/20'}`}>
+                <div className={`px-6 pt-6 pb-4 border-b border-slate-200 dark:border-slate-700 shrink-0 bg-linear-to-br ${resumo.temPendencias ? 'from-amber-500/10 to-red-500/10 dark:from-amber-500/20 dark:to-red-500/20' : 'from-green-500/10 to-blue-500/10 dark:from-green-500/20 dark:to-blue-500/20'}`}>
                     <div className="flex items-center gap-3">
                         <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl shrink-0 ${resumo.temPendencias ? 'bg-amber-100 dark:bg-amber-900/40' : 'bg-green-100 dark:bg-green-900/40'}`}>
                             <span role="img" aria-label="status">{resumo.temPendencias ? '⚠️' : '✅'}</span>

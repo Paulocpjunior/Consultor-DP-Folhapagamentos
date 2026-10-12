@@ -44,7 +44,7 @@ const HistoryListItem = React.memo(({
     return (
         <div 
             onClick={onClick}
-            className={`group relative p-4 rounded-xl border transition-all duration-200 cursor-pointer shadow-sm ${
+            className={`group relative p-4 rounded-xl border transition-all duration-200 cursor-pointer shadow-xs ${
                 isSelected 
                 ? 'border-blue-500 ring-2 ring-blue-500/20 bg-blue-50/30 dark:bg-blue-900/10' 
                 : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-blue-300 dark:hover:border-slate-500'
@@ -183,7 +183,7 @@ const AnalysisHistory: React.FC<Props> = ({
   return (
     <div className={`fixed inset-0 z-50 transition-all duration-300 ${isOpen ? 'visible' : 'invisible'}`}>
       <div 
-        className={`absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`}
+        className={`absolute inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`}
         onClick={onClose}
       />
 
@@ -220,14 +220,14 @@ const AnalysisHistory: React.FC<Props> = ({
                 <div className="flex bg-slate-100 dark:bg-slate-900 rounded-lg p-1 flex-1">
                     <button 
                         onClick={() => setViewMode('all')} 
-                        className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${viewMode === 'all' ? 'bg-white dark:bg-slate-800 text-blue-600 shadow-sm' : 'text-slate-500'}`}
+                        className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${viewMode === 'all' ? 'bg-white dark:bg-slate-800 text-blue-600 shadow-xs' : 'text-slate-500'}`}
                     >
                         Todas
                     </button>
                     <button 
                         onClick={() => setViewMode('mine')} 
                         disabled={!currentUser}
-                        className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${viewMode === 'mine' ? 'bg-white dark:bg-slate-800 text-blue-600 shadow-sm' : 'text-slate-500 disabled:opacity-40'}`}
+                        className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${viewMode === 'mine' ? 'bg-white dark:bg-slate-800 text-blue-600 shadow-xs' : 'text-slate-500 disabled:opacity-40'}`}
                     >
                         Minhas
                     </button>

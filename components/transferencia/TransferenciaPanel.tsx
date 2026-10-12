@@ -27,8 +27,8 @@ import { baixarBytes } from '../../services/implantacao/zip';
 import { fichaNoDestino, gerarS2299Transferencia, refTransferenciaEntrada, refTransferenciaSaida, ultimoDiaNaOrigem, validarTransferencia, type Transferencia } from '../../services/transferencia/transferencia';
 import { efetivarTransferencia, listarTransferencias, type RegistroTransferencia } from '../../services/transferencia/transferenciaService';
 
-const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
-const btn = 'rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
+const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const btn = 'rounded-sm border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
 const br = (d: string) => d.split('-').reverse().join('/');
 const nomeDe = (e: Empresa) => e.nomeFantasia || e.razaoSocial;
 const raiz = (c: string) => c.replace(/\D/g, '').slice(0, 8);
@@ -188,10 +188,10 @@ const TransferenciaPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
         finally { setOcupado(''); }
     }
 
-    if (!ativa) return <p className="rounded border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">Ative a empresa de origem.</p>;
+    if (!ativa) return <p className="rounded-sm border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">Ative a empresa de origem.</p>;
     const mc = (x: Partial<ContratoS2200>) => setContrato(c => ({ ...c, ...x }));
     const contratoCampos = (
-        <fieldset className="grid gap-2 rounded border border-slate-200 p-2 sm:grid-cols-4 dark:border-slate-700">
+        <fieldset className="grid gap-2 rounded-sm border border-slate-200 p-2 sm:grid-cols-4 dark:border-slate-700">
                     <legend className="px-1 text-xs font-medium">Contrato no {modo === 'estab' ? 'S-2206' : 'S-2200'} (o que a ficha não guarda)</legend>
                     <label>Regime de jornada<select aria-label="Regime de jornada" className={`block w-full ${inp}`} value={contrato.tpRegJor} onChange={e => mc({ tpRegJor: e.target.value as ContratoS2200['tpRegJor'] })}>
                         <option value="1">Submetido a horário</option><option value="2">Atividade externa (art. 62, I)</option><option value="3">Cargo de gestão (art. 62, II)</option><option value="4">Teletrabalho (art. 62, III)</option></select></label>
@@ -248,7 +248,7 @@ const TransferenciaPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
             </div>
 
             {modo === 'estab' && (
-                <section aria-label="Troca de estabelecimento" className="space-y-2 rounded border border-slate-200 p-3 dark:border-slate-700">
+                <section aria-label="Troca de estabelecimento" className="space-y-2 rounded-sm border border-slate-200 p-3 dark:border-slate-700">
                     <p className="font-medium">Troca de estabelecimento em {origem ? nomeDe(origem) : ativa.nome}</p>
                     <div className="grid gap-2 sm:grid-cols-4">
                         <label className="sm:col-span-2">Funcionário<select aria-label="Funcionário da troca" className={`block w-full ${inp}`} value={fichaId} onChange={e => escolherFicha(e.target.value)}>
@@ -259,13 +259,13 @@ const TransferenciaPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
                     </div>
                     {ficha && <p className="text-xs text-slate-500">Hoje no estabelecimento {estabelecimentoNoDia(ficha, data) || '—'}. No mês da troca, o S-1200 sai nos dois estabelecimentos, com os proventos pelos dias em cada um.</p>}
                     {ficha && contratoCampos}
-                    {ficha && errosTroca.length > 0 && <ul role="alert" className="list-disc rounded bg-amber-50 p-2 pl-6 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">{errosTroca.map(x => <li key={x}>{x}</li>)}</ul>}
-                    <div className="flex justify-end"><button className="rounded bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={!ficha || errosTroca.length > 0 || !!ocupado} onClick={gravarTroca}>Gravar a troca</button></div>
+                    {ficha && errosTroca.length > 0 && <ul role="alert" className="list-disc rounded-sm bg-amber-50 p-2 pl-6 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">{errosTroca.map(x => <li key={x}>{x}</li>)}</ul>}
+                    <div className="flex justify-end"><button className="rounded-sm bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={!ficha || errosTroca.length > 0 || !!ocupado} onClick={gravarTroca}>Gravar a troca</button></div>
                 </section>
             )}
 
             {modo === 'estab' && trocas.length > 0 && (
-                <section aria-label="Trocas de estabelecimento" className="space-y-2 rounded border border-slate-200 p-3 dark:border-slate-700">
+                <section aria-label="Trocas de estabelecimento" className="space-y-2 rounded-sm border border-slate-200 p-3 dark:border-slate-700">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="font-medium">Trocas de estabelecimento e o S-2206</p>
                         <select aria-label="Ambiente do S-2206" className={inp} value={tpAmb} onChange={e => setTpAmb(Number(e.target.value) as TpAmb)}><option value={2}>Produção restrita</option><option value={1}>Produção</option></select>
@@ -286,7 +286,7 @@ const TransferenciaPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
                 </section>
             )}
 
-            {modo === 'empresa' && <section aria-label="Nova transferência" className="space-y-2 rounded border border-slate-200 p-3 dark:border-slate-700">
+            {modo === 'empresa' && <section aria-label="Nova transferência" className="space-y-2 rounded-sm border border-slate-200 p-3 dark:border-slate-700">
                 <p className="font-medium">Nova transferência a partir de {origem ? nomeDe(origem) : ativa.nome}</p>
                 <div className="grid gap-2 sm:grid-cols-4">
                     <label className="sm:col-span-2">Funcionário<select aria-label="Funcionário a transferir" className={`block w-full ${inp}`} value={fichaId} onChange={e => escolherFicha(e.target.value)}>
@@ -298,13 +298,13 @@ const TransferenciaPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
                     <label className="sm:col-span-2">Estabelecimento de destino (CNPJ)<input aria-label="Estabelecimento de destino" className={`block w-full ${inp}`} value={estab} onChange={e => setEstab(e.target.value.replace(/\D/g, '').slice(0, 14))} /></label>
                 </div>
                 {ficha && contratoCampos}
-                {t && erros.length > 0 && <ul role="alert" className="list-disc rounded bg-amber-50 p-2 pl-6 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">{erros.map(x => <li key={x}>{x}</li>)}</ul>}
+                {t && erros.length > 0 && <ul role="alert" className="list-disc rounded-sm bg-amber-50 p-2 pl-6 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">{erros.map(x => <li key={x}>{x}</li>)}</ul>}
                 {t && !erros.length && <p className="text-xs text-slate-500">Último dia na origem: {br(ultimoDiaNaOrigem(data))}. Vão para o destino: a ficha (sem horário, lotação, departamento e código do IOB, que são da empresa), os dependentes, o histórico de salário, as férias e os afastamentos terminados e os movimentos dos meses anteriores.</p>}
-                <div className="flex justify-end"><button className="rounded bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={!t || erros.length > 0 || !!ocupado} onClick={efetivar}>Gravar a transferência</button></div>
+                <div className="flex justify-end"><button className="rounded-sm bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={!t || erros.length > 0 || !!ocupado} onClick={efetivar}>Gravar a transferência</button></div>
             </section>}
 
             {modo === 'empresa' && registros.length > 0 && (
-                <section aria-label="Transferências" className="space-y-2 rounded border border-slate-200 p-3 dark:border-slate-700">
+                <section aria-label="Transferências" className="space-y-2 rounded-sm border border-slate-200 p-3 dark:border-slate-700">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="font-medium">Transferências desta empresa (saídas e entradas)</p>
                         <select aria-label="Ambiente do eSocial" className={inp} value={tpAmb} onChange={e => setTpAmb(Number(e.target.value) as TpAmb)}><option value={2}>Produção restrita</option><option value={1}>Produção</option></select>
@@ -333,8 +333,8 @@ const TransferenciaPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
             )}
 
             {ocupado && <p role="status" className="text-blue-700 dark:text-blue-300">{ocupado}</p>}
-            {msg && <p role="status" className="rounded bg-green-50 p-2 text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
-            {erro && <p role="alert" className="rounded bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+            {msg && <p role="status" className="rounded-sm bg-green-50 p-2 text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
+            {erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
         </div>
     );
 };

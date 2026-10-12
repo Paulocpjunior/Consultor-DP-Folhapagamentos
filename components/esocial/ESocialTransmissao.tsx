@@ -20,8 +20,8 @@ import AchadosPreVoo from './AchadosPreVoo';
 
 interface Props { usuario?: Usuario }
 
-const btn = 'rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
-const btnP = 'rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-50';
+const btn = 'rounded-sm border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
+const btnP = 'rounded-sm bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-50';
 const br = (d?: string | null) => (d ? new Date(d).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '—');
 const compBr = (c: string) => (c.length === 7 ? `${c.slice(5)}/${c.slice(0, 4)}` : c);
 const COR = {
@@ -73,7 +73,7 @@ const ESocialTransmissao: React.FC<Props> = ({ usuario }) => {
     // Trocar o ambiente invalida a leitura dos XMLs e a confirmação.
     useEffect(() => { setConfirmo(false); setArquivos(a => (ativa ? a.map(x => lerEventoXml(x.nome, x.xml, ativa, tpAmb)) : a)); }, [tpAmb, ativa]);
 
-    if (!ativa) return <p className="rounded border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">Ative uma empresa e a competência para transmitir.</p>;
+    if (!ativa) return <p className="rounded-sm border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">Ative uma empresa e a competência para transmitir.</p>;
 
     const perApur = anual ? ativa.competencia.slice(0, 4) : ativa.competencia;
     const podeEnviar = !!usuario && !ocupado && (tpAmb === 2 || confirmo);
@@ -144,7 +144,7 @@ const ESocialTransmissao: React.FC<Props> = ({ usuario }) => {
                         </select></label>
                 </div>
                 {tpAmb === 1 && (
-                    <label className="mt-2 flex items-start gap-2 rounded bg-red-50 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">
+                    <label className="mt-2 flex items-start gap-2 rounded-sm bg-red-50 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">
                         <input type="checkbox" checked={confirmo} onChange={e => setConfirmo(e.target.checked)} aria-label="Confirmo a transmissão em produção" />
                         <span>Confirmo: a entrega em <strong>produção</strong> vale para a empresa no eSocial e não se desfaz (só com retificação ou exclusão).</span>
                     </label>
@@ -152,8 +152,8 @@ const ESocialTransmissao: React.FC<Props> = ({ usuario }) => {
                 {!usuario && <p className="mt-2 text-xs text-slate-500">Entre com seu usuário para transmitir.</p>}
             </section>
 
-            {erro && <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
-            {msg && <p role="status" className="rounded bg-green-50 p-3 text-sm text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
+            {erro && <p role="alert" className="rounded-sm bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+            {msg && <p role="status" className="rounded-sm bg-green-50 p-3 text-sm text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
             {ocupado && <p className="text-sm text-slate-500">{ocupado}</p>}
             <AchadosPreVoo achados={achados} />
 
@@ -186,7 +186,7 @@ const ESocialTransmissao: React.FC<Props> = ({ usuario }) => {
                 <p className="text-xs text-slate-500 dark:text-slate-400">Eventos gerados pelo IOB ou por outro sistema (S-1200, S-2200, S-2299…). Assinados ou não: o CFI assina de novo com o A1 do cofre. Até 50 por lote, todos do mesmo grupo (tabelas, não periódicos ou periódicos).</p>
                 <input aria-label="Arquivos XML" type="file" accept=".xml,text/xml" multiple className="mt-2 text-sm dark:text-slate-200" onChange={e => lerArquivos(e.target.files)} />
                 {arquivos.length > 0 && (
-                    <ul className="mt-2 divide-y divide-slate-100 rounded border border-slate-200 text-sm dark:divide-slate-700 dark:border-slate-700">
+                    <ul className="mt-2 divide-y divide-slate-100 rounded-sm border border-slate-200 text-sm dark:divide-slate-700 dark:border-slate-700">
                         {arquivos.map(a => (
                             <li key={a.nome} className="px-3 py-1.5 dark:text-slate-100">
                                 <strong>{a.tipo || '?'}</strong> {a.perApur && <span className="text-xs">· {a.perApur}</span>} {a.cpf && <span className="text-xs">· CPF {a.cpf}</span>}
@@ -204,13 +204,13 @@ const ESocialTransmissao: React.FC<Props> = ({ usuario }) => {
             <section className="space-y-2">
                 <h3 className="font-semibold text-slate-800 dark:text-white">Lotes transmitidos desta empresa</h3>
                 {!envios && <p className="text-sm text-slate-500">Carregando…</p>}
-                {envios?.length === 0 && <p className="rounded border border-dashed border-slate-300 p-4 text-center text-sm text-slate-500 dark:border-slate-600">Nenhum lote transmitido por aqui.</p>}
+                {envios?.length === 0 && <p className="rounded-sm border border-dashed border-slate-300 p-4 text-center text-sm text-slate-500 dark:border-slate-600">Nenhum lote transmitido por aqui.</p>}
                 {envios?.map(e => {
                     const r = resumoEnvio(e);
                     return (
                         <div key={e.id} className="rounded-lg border border-slate-200 bg-white p-3 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
                             <div className="flex flex-wrap items-center gap-2">
-                                <span className={`rounded px-2 py-0.5 text-xs font-medium ${COR[e.situacao]}`}>{ROTULO_SITUACAO[e.situacao]}</span>
+                                <span className={`rounded-sm px-2 py-0.5 text-xs font-medium ${COR[e.situacao]}`}>{ROTULO_SITUACAO[e.situacao]}</span>
                                 <strong>{[...new Set(e.eventos.map(x => x.tipo))].join(', ')}</strong>
                                 <span className="text-xs text-slate-500">{e.eventos.length} evento(s) · {ROTULO_AMBIENTE[e.tpAmb]} · {br(e.enviadoEm)} · {e.enviadoPorEmail}</span>
                                 <span className="ml-auto flex gap-2">
@@ -226,7 +226,7 @@ const ESocialTransmissao: React.FC<Props> = ({ usuario }) => {
                                 <ul className="mt-2 space-y-1 text-xs">
                                     {e.ocorrencias.map(o => <li key={`${o.codigo}${o.descricao}`} className="text-red-700 dark:text-red-300">Lote: {o.codigo} {o.descricao}</li>)}
                                     {e.eventos.map(x => (
-                                        <li key={x.id} className="rounded bg-slate-50 p-2 dark:bg-slate-900/40">
+                                        <li key={x.id} className="rounded-sm bg-slate-50 p-2 dark:bg-slate-900/40">
                                             <strong>{x.tipo}</strong> {x.perApur && `· ${x.perApur}`} · <span className="font-mono">{x.id}</span>
                                             {x.nrRecibo && aceito({ cdResposta: x.cdResposta ?? null, nrRecibo: x.nrRecibo }) && <span className="block text-green-700 dark:text-green-300">Recibo {x.nrRecibo}{x.totalizadores?.length ? ` · totalizadores: ${x.totalizadores.join(', ')}` : ''}</span>}
                                             {x.cdResposta != null && !x.nrRecibo && <span className="block text-red-700 dark:text-red-300">{x.cdResposta} {x.descResposta}</span>}

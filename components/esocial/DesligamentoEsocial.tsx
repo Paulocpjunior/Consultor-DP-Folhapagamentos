@@ -24,7 +24,7 @@ import { baixarBytes } from '../../services/implantacao/zip';
 import { centavosDeTexto } from '../../services/cadastros/documentos';
 import AchadosPreVoo from './AchadosPreVoo';
 
-const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const COR: Record<SituacaoEvento, string> = {
     'nao-enviado': 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200',
     iob: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200',
@@ -147,7 +147,7 @@ const DesligamentoEsocial: React.FC<Props> = ({ empresa, ficha, rescisao: r, usu
     }
 
     return (
-        <section aria-label="eSocial · S-2299" className="space-y-2 rounded border border-slate-200 p-2 text-xs dark:border-slate-700">
+        <section aria-label="eSocial · S-2299" className="space-y-2 rounded-sm border border-slate-200 p-2 text-xs dark:border-slate-700">
             <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium">eSocial · S-2299 (desligamento)</span>
                 {s ? <span className={`rounded-full px-2 py-0.5 font-medium ${COR[s.situacao]}`}>{s.rotulo}</span> : <span className="text-slate-400">carregando…</span>}
@@ -156,7 +156,7 @@ const DesligamentoEsocial: React.FC<Props> = ({ empresa, ficha, rescisao: r, usu
                 )}
             </div>
             {s && <p className={s.situacao === 'recusado' ? 'text-red-700 dark:text-red-300' : 'text-slate-600 dark:text-slate-300'}>{s.detalhe}</p>}
-            {s?.situacao === 'aguardando' && s.envio?.protocolo && <button type="button" className="rounded border border-slate-300 px-2 py-1 disabled:opacity-50 dark:border-slate-600" disabled={!!ocupado} onClick={() => consultar(s.envio!)}>Consultar retorno</button>}
+            {s?.situacao === 'aguardando' && s.envio?.protocolo && <button type="button" className="rounded-sm border border-slate-300 px-2 py-1 disabled:opacity-50 dark:border-slate-600" disabled={!!ocupado} onClick={() => consultar(s.envio!)}>Consultar retorno</button>}
             {s?.teste && <p className="text-slate-500">Teste na produção restrita: {s.teste.rotulo.toLowerCase()} · {s.teste.detalhe}</p>}
 
             {s && (s.situacao === 'nao-enviado' || s.situacao === 'recusado') && (
@@ -177,11 +177,11 @@ const DesligamentoEsocial: React.FC<Props> = ({ empresa, ficha, rescisao: r, usu
                     <div className="space-y-1">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                             <p className="font-medium">De/para das verbas da rescisão com as rubricas do S-1010</p>
-                            <button className="rounded bg-blue-700 px-2 py-1 text-white disabled:opacity-50" disabled={!naoGravado || !!ocupado} onClick={gravar}>{naoGravado ? 'Gravar de/para' : 'Gravado'}</button>
+                            <button className="rounded-sm bg-blue-700 px-2 py-1 text-white disabled:opacity-50" disabled={!naoGravado || !!ocupado} onClick={gravar}>{naoGravado ? 'Gravar de/para' : 'Gravado'}</button>
                         </div>
                         <p className="text-slate-500">CNPJ do estabelecimento e lotação: o local de trabalho da ficha na data do desligamento e a lotação dele (sem local na ficha, os da folha: {params.nrInscEstab || '—'} · {params.codLotacao || '—'}). Verba sem rubrica própria aqui usa a da folha.</p>
-                        {rubricas && !rubricas.length && <p role="note" className="rounded bg-amber-50 p-2 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">A empresa não tem rubricas do S-1010 no Consultor. Importe em Cadastros › Incidências antes de gerar.</p>}
-                        <div className="max-h-56 overflow-auto rounded border border-slate-200 dark:border-slate-700">
+                        {rubricas && !rubricas.length && <p role="note" className="rounded-sm bg-amber-50 p-2 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">A empresa não tem rubricas do S-1010 no Consultor. Importe em Cadastros › Incidências antes de gerar.</p>}
+                        <div className="max-h-56 overflow-auto rounded-sm border border-slate-200 dark:border-slate-700">
                             <table className="w-full">
                                 <thead className="bg-slate-50 text-left text-slate-500 dark:bg-slate-900"><tr><th className="p-1">Verba da rescisão</th><th className="p-1">Tipo</th><th className="p-1">Rubrica do S-1010</th></tr></thead>
                                 <tbody>{dePara.map(i => {
@@ -205,7 +205,7 @@ const DesligamentoEsocial: React.FC<Props> = ({ empresa, ficha, rescisao: r, usu
                         </div>
                     </div>
 
-                    {geracao && geracao.erros.length > 0 && <ul role="alert" className="list-disc rounded bg-red-50 p-2 pl-6 text-red-800 dark:bg-red-900/30 dark:text-red-200">{geracao.erros.map(x => <li key={x}>{x}</li>)}</ul>}
+                    {geracao && geracao.erros.length > 0 && <ul role="alert" className="list-disc rounded-sm bg-red-50 p-2 pl-6 text-red-800 dark:bg-red-900/30 dark:text-red-200">{geracao.erros.map(x => <li key={x}>{x}</li>)}</ul>}
                     {geracao && geracao.avisos.length > 0 && <ul className="list-disc pl-6 text-amber-900 dark:text-amber-100">{geracao.avisos.map(x => <li key={x}>{x}</li>)}</ul>}
 
                     <div className="flex flex-wrap items-end gap-2 border-t border-slate-200 pt-2 dark:border-slate-700">
@@ -213,8 +213,8 @@ const DesligamentoEsocial: React.FC<Props> = ({ empresa, ficha, rescisao: r, usu
                             <option value={2}>{ROTULO_AMBIENTE[2]}</option><option value={1}>{ROTULO_AMBIENTE[1]}</option></select></label>
                         <label>Certificado<select aria-label="Certificado do S-2299" className={`block ${inp}`} value={certificado} onChange={e => setCertificado(e.target.value as Certificado)}>
                             <option value="escritorio">Certificado do escritório (procurador)</option><option value="empresa">Certificado da empresa</option></select></label>
-                        <button className="rounded border border-slate-300 px-2 py-1 disabled:opacity-50 dark:border-slate-600" disabled={!geracao?.evento} onClick={baixar}>Baixar XML</button>
-                        <button className="rounded bg-green-700 px-2 py-1 text-white disabled:opacity-50" disabled={!podeTransmitir} onClick={transmitir}>Transmitir S-2299</button>
+                        <button className="rounded-sm border border-slate-300 px-2 py-1 disabled:opacity-50 dark:border-slate-600" disabled={!geracao?.evento} onClick={baixar}>Baixar XML</button>
+                        <button className="rounded-sm bg-green-700 px-2 py-1 text-white disabled:opacity-50" disabled={!podeTransmitir} onClick={transmitir}>Transmitir S-2299</button>
                         {naoGravado && geracao?.evento && <span className="text-amber-700 dark:text-amber-300">Grave o de/para antes de transmitir.</span>}
                     </div>
                 </div>

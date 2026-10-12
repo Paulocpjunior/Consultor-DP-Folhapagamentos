@@ -147,7 +147,7 @@ const AniversariantesEnvio: React.FC<Props> = ({ empresa, competencia, fichas, m
                         {templates === null
                             ? <button className={`${btn} bg-green-700`} disabled={!comWhats.length || !!andamento} onClick={carregarTemplates}>Enviar pelo WhatsApp…</button>
                             : (<>
-                                <select aria-label="Modelo do WhatsApp do aniversário" className="rounded border border-slate-300 px-2 py-1 dark:border-slate-600 dark:bg-slate-900" value={template} onChange={e => setTemplate(e.target.value)}>
+                                <select aria-label="Modelo do WhatsApp do aniversário" className="rounded-sm border border-slate-300 px-2 py-1 dark:border-slate-600 dark:bg-slate-900" value={template} onChange={e => setTemplate(e.target.value)}>
                                     <option value="">— modelo do DP com documento —</option>
                                     {templates.map(x => <option key={x.nome} value={x.nome}>{x.nome}</option>)}
                                 </select>

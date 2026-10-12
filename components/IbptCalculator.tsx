@@ -155,7 +155,7 @@ const IbptCalculator: React.FC<IbptCalculatorProps> = ({ initialRates, queryCode
     }
 
     return (
-        <div className="bg-white dark:bg-slate-800/50 p-6 rounded-xl border border-slate-200 dark:border-slate-700 animate-fade-in mt-8 shadow-sm">
+        <div className="bg-white dark:bg-slate-800/50 p-6 rounded-xl border border-slate-200 dark:border-slate-700 animate-fade-in mt-8 shadow-xs">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-slate-100 dark:border-slate-700">
                 <div className="flex items-center gap-3">
                     <div className="p-2 bg-sky-100 dark:bg-sky-900/30 rounded-lg text-sky-600 dark:text-sky-400">
@@ -172,19 +172,19 @@ const IbptCalculator: React.FC<IbptCalculatorProps> = ({ initialRates, queryCode
                 <div className="flex bg-slate-100 dark:bg-slate-700 p-1 rounded-lg">
                     <button 
                         onClick={() => setCalcMode('ibpt')}
-                        className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${calcMode === 'ibpt' ? 'bg-white dark:bg-slate-600 shadow text-sky-700 dark:text-white' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'}`}
+                        className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${calcMode === 'ibpt' ? 'bg-white dark:bg-slate-600 shadow-sm text-sky-700 dark:text-white' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'}`}
                     >
                         Padrão IBPT
                     </button>
                     <button 
                         onClick={() => setCalcMode('detailed')}
-                        className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${calcMode === 'detailed' ? 'bg-white dark:bg-slate-600 shadow text-sky-700 dark:text-white' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'}`}
+                        className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${calcMode === 'detailed' ? 'bg-white dark:bg-slate-600 shadow-sm text-sky-700 dark:text-white' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'}`}
                     >
                         Detalhado
                     </button>
                     <button 
                         onClick={() => setCalcMode('reforma')}
-                        className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${calcMode === 'reforma' ? 'bg-white dark:bg-slate-600 shadow text-emerald-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'}`}
+                        className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${calcMode === 'reforma' ? 'bg-white dark:bg-slate-600 shadow-sm text-emerald-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'}`}
                     >
                         Reforma
                     </button>
@@ -202,7 +202,7 @@ const IbptCalculator: React.FC<IbptCalculatorProps> = ({ initialRates, queryCode
                                 type="text"
                                 value={new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(productValue)}
                                 onChange={handleValueChange}
-                                className="w-full pl-9 pr-3 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none text-xl font-bold text-slate-900 dark:text-white text-right transition-colors"
+                                className="w-full pl-9 pr-3 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-sky-500 outline-hidden text-xl font-bold text-slate-900 dark:text-white text-right transition-colors"
                             />
                         </div>
                     </div>
@@ -234,7 +234,7 @@ const IbptCalculator: React.FC<IbptCalculatorProps> = ({ initialRates, queryCode
                                         type="number" 
                                         value={origin === 'nacional' ? rates.nacional : rates.importado} 
                                         onChange={(e) => handleRateChange(origin === 'nacional' ? 'nacional' : 'importado', e.target.value)}
-                                        className="w-full p-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded text-center font-bold text-slate-900 dark:text-white outline-none focus:border-sky-500"
+                                        className="w-full p-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-sm text-center font-bold text-slate-900 dark:text-white outline-hidden focus:border-sky-500"
                                     />
                                 </div>
                                 <div>
@@ -243,7 +243,7 @@ const IbptCalculator: React.FC<IbptCalculatorProps> = ({ initialRates, queryCode
                                         type="number" 
                                         value={rates.estadual} 
                                         onChange={(e) => handleRateChange('estadual', e.target.value)}
-                                        className="w-full p-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded text-center font-bold text-slate-900 dark:text-white outline-none focus:border-sky-500"
+                                        className="w-full p-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-sm text-center font-bold text-slate-900 dark:text-white outline-hidden focus:border-sky-500"
                                     />
                                 </div>
                                 <div>
@@ -252,7 +252,7 @@ const IbptCalculator: React.FC<IbptCalculatorProps> = ({ initialRates, queryCode
                                         type="number" 
                                         value={rates.municipal} 
                                         onChange={(e) => handleRateChange('municipal', e.target.value)}
-                                        className="w-full p-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded text-center font-bold text-slate-900 dark:text-white outline-none focus:border-sky-500"
+                                        className="w-full p-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-sm text-center font-bold text-slate-900 dark:text-white outline-hidden focus:border-sky-500"
                                     />
                                 </div>
                             </div>
@@ -265,23 +265,23 @@ const IbptCalculator: React.FC<IbptCalculatorProps> = ({ initialRates, queryCode
                             <div className="grid grid-cols-3 gap-3">
                                 <div>
                                     <label className="text-[10px] block text-slate-500 mb-1 font-bold">PIS</label>
-                                    <input type="number" value={detailedRates.pis} onChange={e => handleDetailedRateChange('pis', e.target.value)} className="w-full p-2 text-sm bg-slate-50 dark:bg-slate-900 border rounded text-center font-bold text-slate-900 dark:text-white outline-none focus:border-sky-500" />
+                                    <input type="number" value={detailedRates.pis} onChange={e => handleDetailedRateChange('pis', e.target.value)} className="w-full p-2 text-sm bg-slate-50 dark:bg-slate-900 border rounded-sm text-center font-bold text-slate-900 dark:text-white outline-hidden focus:border-sky-500" />
                                 </div>
                                 <div>
                                     <label className="text-[10px] block text-slate-500 mb-1 font-bold">COFINS</label>
-                                    <input type="number" value={detailedRates.cofins} onChange={e => handleDetailedRateChange('cofins', e.target.value)} className="w-full p-2 text-sm bg-slate-50 dark:bg-slate-900 border rounded text-center font-bold text-slate-900 dark:text-white outline-none focus:border-sky-500" />
+                                    <input type="number" value={detailedRates.cofins} onChange={e => handleDetailedRateChange('cofins', e.target.value)} className="w-full p-2 text-sm bg-slate-50 dark:bg-slate-900 border rounded-sm text-center font-bold text-slate-900 dark:text-white outline-hidden focus:border-sky-500" />
                                 </div>
                                 <div>
                                     <label className="text-[10px] block text-slate-500 mb-1 font-bold">IPI</label>
-                                    <input type="number" value={detailedRates.ipi} onChange={e => handleDetailedRateChange('ipi', e.target.value)} className="w-full p-2 text-sm bg-slate-50 dark:bg-slate-900 border rounded text-center font-bold text-slate-900 dark:text-white outline-none focus:border-sky-500" />
+                                    <input type="number" value={detailedRates.ipi} onChange={e => handleDetailedRateChange('ipi', e.target.value)} className="w-full p-2 text-sm bg-slate-50 dark:bg-slate-900 border rounded-sm text-center font-bold text-slate-900 dark:text-white outline-hidden focus:border-sky-500" />
                                 </div>
                                 <div>
                                     <label className="text-[10px] block text-slate-500 mb-1 font-bold">ICMS</label>
-                                    <input type="number" value={detailedRates.icms} onChange={e => handleDetailedRateChange('icms', e.target.value)} className="w-full p-2 text-sm bg-slate-50 dark:bg-slate-900 border rounded text-center font-bold text-slate-900 dark:text-white outline-none focus:border-sky-500" />
+                                    <input type="number" value={detailedRates.icms} onChange={e => handleDetailedRateChange('icms', e.target.value)} className="w-full p-2 text-sm bg-slate-50 dark:bg-slate-900 border rounded-sm text-center font-bold text-slate-900 dark:text-white outline-hidden focus:border-sky-500" />
                                 </div>
                                 <div>
                                     <label className="text-[10px] block text-slate-500 mb-1 font-bold">ISS</label>
-                                    <input type="number" value={detailedRates.iss} onChange={e => handleDetailedRateChange('iss', e.target.value)} className="w-full p-2 text-sm bg-slate-50 dark:bg-slate-900 border rounded text-center font-bold text-slate-900 dark:text-white outline-none focus:border-sky-500" />
+                                    <input type="number" value={detailedRates.iss} onChange={e => handleDetailedRateChange('iss', e.target.value)} className="w-full p-2 text-sm bg-slate-50 dark:bg-slate-900 border rounded-sm text-center font-bold text-slate-900 dark:text-white outline-hidden focus:border-sky-500" />
                                 </div>
                             </div>
                         </div>
@@ -298,15 +298,15 @@ const IbptCalculator: React.FC<IbptCalculatorProps> = ({ initialRates, queryCode
                             <div className="grid grid-cols-3 gap-3">
                                 <div>
                                     <label className="text-[10px] block text-slate-500 mb-1 font-bold">CBS (Federal)</label>
-                                    <input type="number" value={reformaRates.cbs} onChange={e => handleReformaRateChange('cbs', e.target.value)} className="w-full p-2 text-sm bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded text-center font-bold text-slate-900 dark:text-white outline-none focus:border-emerald-500" />
+                                    <input type="number" value={reformaRates.cbs} onChange={e => handleReformaRateChange('cbs', e.target.value)} className="w-full p-2 text-sm bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-sm text-center font-bold text-slate-900 dark:text-white outline-hidden focus:border-emerald-500" />
                                 </div>
                                 <div>
                                     <label className="text-[10px] block text-slate-500 mb-1 font-bold">IBS (Est/Mun)</label>
-                                    <input type="number" value={reformaRates.ibs} onChange={e => handleReformaRateChange('ibs', e.target.value)} className="w-full p-2 text-sm bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded text-center font-bold text-slate-900 dark:text-white outline-none focus:border-emerald-500" />
+                                    <input type="number" value={reformaRates.ibs} onChange={e => handleReformaRateChange('ibs', e.target.value)} className="w-full p-2 text-sm bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-sm text-center font-bold text-slate-900 dark:text-white outline-hidden focus:border-emerald-500" />
                                 </div>
                                 <div>
                                     <label className="text-[10px] block text-slate-500 mb-1 font-bold">IS (Seletivo)</label>
-                                    <input type="number" value={reformaRates.is} onChange={e => handleReformaRateChange('is', e.target.value)} className="w-full p-2 text-sm bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded text-center font-bold text-slate-900 dark:text-white outline-none focus:border-emerald-500" />
+                                    <input type="number" value={reformaRates.is} onChange={e => handleReformaRateChange('is', e.target.value)} className="w-full p-2 text-sm bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-sm text-center font-bold text-slate-900 dark:text-white outline-hidden focus:border-emerald-500" />
                                 </div>
                             </div>
                         </div>
@@ -374,7 +374,7 @@ const IbptCalculator: React.FC<IbptCalculatorProps> = ({ initialRates, queryCode
                         
                         {/* Total */}
                         <div className="pt-2">
-                            <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm border border-slate-100 dark:border-slate-700">
+                            <div className="flex justify-between items-center bg-white dark:bg-slate-800 p-4 rounded-lg shadow-xs border border-slate-100 dark:border-slate-700">
                                 <p className="text-sm font-bold text-slate-600 dark:text-slate-300 uppercase">Total Tributos (Est.)</p>
                                 <div className="text-right">
                                     <p className="text-2xl font-extrabold text-slate-900 dark:text-white">

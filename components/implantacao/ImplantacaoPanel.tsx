@@ -12,8 +12,8 @@ import type { FichaExtraida } from '../../services/implantacao/fichaPdf';
 
 import { guardarSessao, lerSessao } from '../../services/implantacao/sessao';
 
-const input = 'w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 p-2 text-sm';
-const button = 'rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-40';
+const input = 'w-full rounded-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 p-2 text-sm';
+const button = 'rounded-sm bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-40';
 
 export default function ImplantacaoPanel({ usuario, onModo }: { usuario: string; onModo?: (modo: ModoExportacao) => void }) {
     const [dossie, setDossie] = useState<Dossie>(() => lerSessao(usuario)?.dossie || novoDossie());
@@ -125,23 +125,23 @@ export default function ImplantacaoPanel({ usuario, onModo }: { usuario: string;
                 <button className={button} disabled={!dossie.fontes.length} onClick={() => { downloadFile('dossie-implantacao.json', JSON.stringify(dossie, null, 2), 'application/json'); setAlterado(false); }}>Baixar dossiê{alterado ? ' *' : ''}</button>
                 <button className={button} disabled={!resultado.cadastros.length} onClick={() => downloadFile('conferencia-implantacao.csv', csvConferencia(resultado.cadastros, avisos), 'text/csv;charset=utf-8')}>Baixar conferência CSV</button>
                 <button className={button} disabled={!resultado.cadastros.length} onClick={() => setExportacao(true)}>Exportar para IOB SAGE</button>
-                <button className={button + ' !bg-emerald-700'} onClick={() => setCadastroIob(true)}>Unificar XML + PDF e gerar cadastro IOB</button>
+                <button className={button + ' bg-emerald-700!'} onClick={() => setCadastroIob(true)}>Unificar XML + PDF e gerar cadastro IOB</button>
             </div>
-            <div className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+            <div className="rounded-sm border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
                 <strong>Exportação cadastral IOB pendente de homologação em base de teste.</strong> Use <em>Unificar XML + PDF e gerar cadastro IOB</em> para receber os XMLs e as fichas de uma vez e gerar o TXT da rotina Importação de Funcionários (layout ajustável), o Excel de cadastro e os XMLs S-2200. O CSV é só conferência; o TXT de apontamentos mensais não cadastra funcionários.
             </div>
-            {!!erros.length && <div role="alert" className="rounded bg-red-50 p-3 text-sm text-red-800">{erros.map((e, i) => <p key={i}>{e}</p>)}</div>}
-            {!!avisos.length && <details open className="rounded border border-amber-300 p-3 text-sm"><summary className="font-semibold">{avisos.length} aviso(s) sobre o conjunto de arquivos</summary><ul className="list-disc pl-5">{avisos.map((a, i) => <li key={i}>{a}</li>)}</ul></details>}
-            <details className="rounded border border-slate-300 p-3 text-sm"><summary>Fontes: {dossie.fontes.length} XML(s) e {dossie.documentos.length} documento(s) de referência</summary>
+            {!!erros.length && <div role="alert" className="rounded-sm bg-red-50 p-3 text-sm text-red-800">{erros.map((e, i) => <p key={i}>{e}</p>)}</div>}
+            {!!avisos.length && <details open className="rounded-sm border border-amber-300 p-3 text-sm"><summary className="font-semibold">{avisos.length} aviso(s) sobre o conjunto de arquivos</summary><ul className="list-disc pl-5">{avisos.map((a, i) => <li key={i}>{a}</li>)}</ul></details>}
+            <details className="rounded-sm border border-slate-300 p-3 text-sm"><summary>Fontes: {dossie.fontes.length} XML(s) e {dossie.documentos.length} documento(s) de referência</summary>
                 <ul className="mt-2 space-y-1">{dossie.fontes.map(f => <li key={f.hash} className="flex justify-between gap-2"><span className="break-all">{f.nome} · SHA-256 {f.hash.slice(0, 12)}</span><button className="text-red-600 underline" onClick={() => { if (window.confirm(`Remover ${f.nome} deste dossiê?`)) atualizar({ ...dossie, fontes: dossie.fontes.filter(x => x.hash !== f.hash) }); }}>Remover</button></li>)}</ul>
                 {dossie.documentos.map(p => <p key={p.hash} className="break-all">PDF: {p.nome} · SHA-256 {p.hash.slice(0, 12)}</p>)}
             </details>
-            <div className="flex flex-wrap items-center justify-between gap-3"><h4 className="font-bold">{resultado.cadastros.length} vínculo(s) identificado(s)</h4><input aria-label="Buscar funcionário" className={input + ' sm:!w-72'} value={busca} placeholder="Buscar nome, CPF ou matrícula" onChange={e => setBusca(e.target.value)} /></div>
-            {!resultado.cadastros.length && <p className="rounded border border-dashed p-6 text-center text-sm text-slate-500">Informe o CNPJ e importe os XMLs. Para montar o cadastro completo, inclua o S-2200 e suas alterações.</p>}
+            <div className="flex flex-wrap items-center justify-between gap-3"><h4 className="font-bold">{resultado.cadastros.length} vínculo(s) identificado(s)</h4><input aria-label="Buscar funcionário" className={input + ' sm:w-72!'} value={busca} placeholder="Buscar nome, CPF ou matrícula" onChange={e => setBusca(e.target.value)} /></div>
+            {!resultado.cadastros.length && <p className="rounded-sm border border-dashed p-6 text-center text-sm text-slate-500">Informe o CNPJ e importe os XMLs. Para montar o cadastro completo, inclua o S-2200 e suas alterações.</p>}
             {!!filtrados.length && <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b"><th className="p-2">Funcionário / CPF</th><th className="p-2">Matrícula eSocial</th><th className="p-2">Cargo</th><th className="p-2">Pendências</th><th className="p-2">Conferência</th></tr></thead><tbody>{filtrados.map(c => <tr key={c.chave} className="border-b"><td className="p-2">{c.dados.nome || 'Nome não informado'}<br /><span className="text-xs text-slate-500">{c.cpf}</span></td><td className="p-2 font-mono">{c.matricula}</td><td className="p-2">{c.dados.cargo || '—'}</td><td className="p-2">{c.pendencias.length || 'Revisar cadastro'}</td><td className="p-2"><button className="text-blue-600 underline" onClick={() => setSelecionado(c.chave)}>Conferir ficha</button></td></tr>)}</tbody></table></div>}
             {atual && fichaPdf && pdf && <ConferenciaPdf key={`${atual.chave}|${dossie.cnpj}|${pdf.url}|${dossie.complementos.length}`} ficha={fichaPdf} cadastro={atual} cnpj={dossie.cnpj} nome={pdf.nome} onAplicar={(campos, justificativa) => atualizar({ ...dossie, complementos: [...dossie.complementos, ...campos.map(({ campo, valor }) => ({ empregador: atual.empregador, cpf: atual.cpf, matricula: atual.matricula, campo, valor, fonte: `${pdf.nome} · SHA-256 ${pdf.hash}`, justificativa, registradoEm: new Date().toISOString() }))] })} />}
             {atual && <Ficha key={atual.chave} cadastro={atual} fontePdf={pdf?.nome || ''} onSalvar={(campo, valor, fonte, justificativa) => atualizar({ ...dossie, complementos: [...dossie.complementos, { empregador: atual.empregador, cpf: atual.cpf, matricula: atual.matricula, campo, valor, fonte, justificativa, registradoEm: new Date().toISOString() }] })} />}
-            <div className="rounded border border-slate-300 p-4">
+            <div className="rounded-sm border border-slate-300 p-4">
                 <h4 className="font-semibold">Documento complementar do cliente</h4>
                 <p className="my-2 text-sm">Abra a ficha PDF e confira empregador e CPF antes de registrar um complemento. Fichas do modelo Registro de Empregado com texto selecionável são extraídas para revisão. PDFs digitalizados exigem conferência visual; não há OCR.</p>
                 <label className="text-sm">Abrir ficha PDF<input aria-label="Abrir ficha PDF" className="mt-2 block" type="file" accept=".pdf" onChange={e => { void anexarPdf(e.target.files?.[0]); e.target.value = ''; }} /></label>
@@ -168,7 +168,7 @@ function Ficha({ cadastro: c, fontePdf, onSalvar }: { cadastro: Cadastro; fonteP
     return <div className="space-y-3 rounded-xl border border-blue-300 p-4">
         <h4 className="font-bold">Ficha em conferência · {c.dados.nome || c.cpf} · matrícula {c.matricula}</h4>
         {!!c.pendencias.length && <ul className="list-disc pl-5 text-sm text-amber-700 dark:text-amber-300">{c.pendencias.map((p, i) => <li key={i}>{p}</li>)}</ul>}
-        <div className="max-h-96 overflow-auto"><table className="w-full text-left text-sm"><thead><tr><th className="p-2">Campo</th><th className="p-2">Valor</th><th className="p-2">Origem</th></tr></thead><tbody>{(Object.keys(CAMPOS) as Campo[]).map(k => <tr key={k} className="border-t"><td className="p-2">{CAMPOS[k]}</td><td className="p-2 break-words">{c.dados[k] || 'Não informado'}</td><td className="p-2 text-xs text-slate-500">{c.origens[k] || '—'}</td></tr>)}</tbody></table></div>
+        <div className="max-h-96 overflow-auto"><table className="w-full text-left text-sm"><thead><tr><th className="p-2">Campo</th><th className="p-2">Valor</th><th className="p-2">Origem</th></tr></thead><tbody>{(Object.keys(CAMPOS) as Campo[]).map(k => <tr key={k} className="border-t"><td className="p-2">{CAMPOS[k]}</td><td className="p-2 wrap-break-word">{c.dados[k] || 'Não informado'}</td><td className="p-2 text-xs text-slate-500">{c.origens[k] || '—'}</td></tr>)}</tbody></table></div>
         <details><summary className="cursor-pointer text-sm">Eventos que compõem esta ficha ({c.eventos.length})</summary>{c.eventos.map(e => <p key={e.id} className="break-all text-xs">{e.tipo} · {e.data || 'sem data'} · {e.fonte} · recibo {e.recibo || 'não disponível'}</p>)}</details>
         <p className="text-sm">A matrícula para IOB é a original do eSocial e não pode ser renumerada nesta ficha.</p>
         <h5 className="font-semibold">Registrar informação conferida</h5>

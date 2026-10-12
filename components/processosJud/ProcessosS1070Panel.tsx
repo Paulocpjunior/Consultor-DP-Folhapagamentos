@@ -18,8 +18,8 @@ import { baixarBytes } from '../../services/implantacao/zip';
 import { INDICATIVOS_SUSPENSAO, SUSPENSAO_POR_TIPO, TIPOS_PROCESSO, gerarS1070, idProcesso, processoVazio, refProcesso, validarProcesso, type AcaoS1070, type ProcessoJudAdm, type TpProc } from '../../services/processosJud/processosJud';
 import { listarProcessos, salvarProcesso } from '../../services/processosJud/processosJudService';
 
-const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
-const btn = 'rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
+const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const btn = 'rounded-sm border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
 const ROTULO_ACAO: Record<AcaoS1070, string> = { inclusao: 'inclusão', alteracao: 'alteração', exclusao: 'exclusão' };
 
 const ProcessosS1070Panel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
@@ -79,7 +79,7 @@ const ProcessosS1070Panel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
         finally { setOcupado(''); }
     }
 
-    if (!ativa) return <p className="rounded border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">Ative uma empresa para cadastrar os processos.</p>;
+    if (!ativa) return <p className="rounded-sm border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">Ative uma empresa para cadastrar os processos.</p>;
     const muda = (x: Partial<ProcessoJudAdm>) => setEdicao(e => e && ({ ...e, ...x }));
     const errosEdicao = edicao ? validarProcesso(edicao) : [];
     return (
@@ -89,7 +89,7 @@ const ProcessosS1070Panel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
                 <p className="text-slate-600 dark:text-slate-300">Os processos que suspendem a contribuição previdenciária, o IRRF ou o FGTS, ou que permitem o RAT e o FAP diferentes. O S-1070 vai antes do S-1010 (incidência suspensa), do S-1005 e do S-1020 que citam o processo; o código da suspensão cadastrado aqui é o que esses eventos usam.</p>
             </div>
 
-            <section className="space-y-2 rounded border border-slate-200 p-3 dark:border-slate-700">
+            <section className="space-y-2 rounded-sm border border-slate-200 p-3 dark:border-slate-700">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="font-medium">Processos de {ativa.nome}</p>
                     <div className="flex items-center gap-2">
@@ -125,7 +125,7 @@ const ProcessosS1070Panel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
             </section>
 
             {edicao && (
-                <section aria-label="Cadastro do processo" className="space-y-2 rounded border border-slate-200 p-3 dark:border-slate-700">
+                <section aria-label="Cadastro do processo" className="space-y-2 rounded-sm border border-slate-200 p-3 dark:border-slate-700">
                     <div className="grid gap-2 sm:grid-cols-4">
                         <label>Tipo<select aria-label="Tipo do processo" className={`block w-full ${inp}`} value={edicao.tpProc} disabled={!!edicao.id} onChange={e => muda({ tpProc: e.target.value as TpProc, indMatProc: e.target.value === '4' ? '1' : edicao.indMatProc })}>
                             {(Object.keys(TIPOS_PROCESSO) as TpProc[]).map(k => <option key={k} value={k}>{TIPOS_PROCESSO[k]}</option>)}</select></label>
@@ -159,17 +159,17 @@ const ProcessosS1070Panel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
                         })}
                         <button className="text-xs text-blue-700 underline dark:text-blue-300" onClick={() => muda({ suspensoes: [...edicao.suspensoes, { codSusp: String(edicao.suspensoes.length + 1), indSusp: '', dtDecisao: '', indDeposito: 'N' }] })}>+ Suspensão</button>
                     </div>}
-                    {errosEdicao.length > 0 && <ul role="alert" className="list-disc rounded bg-amber-50 p-2 pl-6 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">{errosEdicao.map(x => <li key={x}>{x}</li>)}</ul>}
+                    {errosEdicao.length > 0 && <ul role="alert" className="list-disc rounded-sm bg-amber-50 p-2 pl-6 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">{errosEdicao.map(x => <li key={x}>{x}</li>)}</ul>}
                     <div className="flex justify-end gap-2">
                         <button className={btn} onClick={() => setEdicao(null)}>Cancelar</button>
-                        <button className="rounded bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={!!ocupado || errosEdicao.length > 0} onClick={gravar}>Gravar processo</button>
+                        <button className="rounded-sm bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={!!ocupado || errosEdicao.length > 0} onClick={gravar}>Gravar processo</button>
                     </div>
                 </section>
             )}
 
             {ocupado && <p role="status" className="text-blue-700 dark:text-blue-300">{ocupado}</p>}
-            {msg && <p role="status" className="rounded bg-green-50 p-2 text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
-            {erro && <p role="alert" className="rounded bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+            {msg && <p role="status" className="rounded-sm bg-green-50 p-2 text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
+            {erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
         </div>
     );
 };

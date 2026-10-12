@@ -83,7 +83,7 @@ const StatusEsocialAfastamento: React.FC<Props> = ({ afastamento, empresa, usuar
     }
 
     return (
-        <div aria-label="Situação no eSocial" className="space-y-1 rounded border border-slate-200 p-2 text-xs dark:border-slate-700">
+        <div aria-label="Situação no eSocial" className="space-y-1 rounded-sm border border-slate-200 p-2 text-xs dark:border-slate-700">
             <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium">eSocial · S-2230</span>
                 <span className={`rounded-full px-2 py-0.5 font-medium ${COR[s.situacao]}`}>{ICONE[s.situacao]} {s.rotulo}</span>
@@ -91,7 +91,7 @@ const StatusEsocialAfastamento: React.FC<Props> = ({ afastamento, empresa, usuar
             </div>
             <p className={s.situacao === 'recusado' ? 'text-red-700 dark:text-red-300' : 'text-slate-600 dark:text-slate-300'}>{s.detalhe}</p>
             {s.situacao === 'aguardando' && s.envio?.protocolo && (
-                <button type="button" className="rounded border border-slate-300 px-2 py-1 disabled:opacity-50 dark:border-slate-600" disabled={!!ocupado || !usuario} onClick={() => consultar(s.envio!)}>Consultar retorno</button>
+                <button type="button" className="rounded-sm border border-slate-300 px-2 py-1 disabled:opacity-50 dark:border-slate-600" disabled={!!ocupado || !usuario} onClick={() => consultar(s.envio!)}>Consultar retorno</button>
             )}
             {s.teste && (
                 <p className="text-slate-500 dark:text-slate-400">Teste na produção restrita: {s.teste.rotulo.toLowerCase()} · {s.teste.detalhe}
@@ -100,13 +100,13 @@ const StatusEsocialAfastamento: React.FC<Props> = ({ afastamento, empresa, usuar
             )}
             {(s.situacao === 'nao-enviado' || s.situacao === 'recusado') && (
                 <div className="flex flex-wrap items-center gap-2">
-                    <select aria-label="Ambiente do eSocial" className="rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={tpAmb} onChange={e => setTpAmb(Number(e.target.value) as TpAmb)}>
+                    <select aria-label="Ambiente do eSocial" className="rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={tpAmb} onChange={e => setTpAmb(Number(e.target.value) as TpAmb)}>
                         <option value={1}>{ROTULO_AMBIENTE[1]}</option><option value={2}>{ROTULO_AMBIENTE[2]}</option>
                     </select>
-                    <select aria-label="Certificado" className="rounded border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={certificado} onChange={e => setCertificado(e.target.value as Certificado)}>
+                    <select aria-label="Certificado" className="rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={certificado} onChange={e => setCertificado(e.target.value as Certificado)}>
                         <option value="escritorio">Certificado do escritório (procurador)</option><option value="empresa">Certificado da empresa</option>
                     </select>
-                    <button type="button" className="rounded bg-blue-700 px-2 py-1 text-white disabled:opacity-50" disabled={!podeTransmitir} onClick={transmitir}>{s.situacao === 'recusado' ? 'Corrigir e transmitir de novo' : 'Transmitir S-2230'}</button>
+                    <button type="button" className="rounded-sm bg-blue-700 px-2 py-1 text-white disabled:opacity-50" disabled={!podeTransmitir} onClick={transmitir}>{s.situacao === 'recusado' ? 'Corrigir e transmitir de novo' : 'Transmitir S-2230'}</button>
                 </div>
             )}
             {ocupado && <p className="text-blue-700 dark:text-blue-300">{ocupado}</p>}

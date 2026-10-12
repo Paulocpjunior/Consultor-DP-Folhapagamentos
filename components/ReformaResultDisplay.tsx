@@ -48,7 +48,7 @@ interface ReformaResultDisplayProps {
 const Section: React.FC<{ title: string; children: React.ReactNode; variant?: 'default' | 'card' }> = ({ title, children, variant = 'default' }) => {
     const containerClasses = variant === 'card' 
         ? "bg-slate-50 dark:bg-slate-800/50 p-4 rounded-lg h-full"
-        : "p-6 bg-white dark:bg-slate-800 rounded-lg shadow-sm";
+        : "p-6 bg-white dark:bg-slate-800 rounded-lg shadow-xs";
 
     return (
         <div className={containerClasses}>
@@ -121,17 +121,17 @@ const ReformaResultDisplay: React.FC<ReformaResultDisplayProps> = ({ result, isF
     return (
         <div id={`result-content-${result.query}`} className="space-y-6 animate-fade-in">
             {/* Header */}
-            <div className="p-6 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
+            <div className="p-6 bg-white dark:bg-slate-800 rounded-lg shadow-xs">
                 <div className="flex justify-between items-start gap-4">
                     <div>
                         <p className="text-sm font-semibold text-sky-600 dark:text-sky-400">Análise de Impacto da Reforma Tributária</p>
                         <h1 className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-slate-100 mt-1">{result.query}</h1>
                     </div>
-                    <div className="flex-shrink-0 flex gap-2">
+                    <div className="shrink-0 flex gap-2">
                         <button
                             onClick={handleToggleFavoriteClick}
                             title={isFavorite ? 'Remover dos Favoritos' : 'Adicionar aos Favoritos'}
-                            className={`btn-press flex items-center justify-center gap-2 px-3 py-2 font-semibold rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 dark:focus:ring-offset-slate-800 transition-colors ${
+                            className={`btn-press flex items-center justify-center gap-2 px-3 py-2 font-semibold rounded-lg focus:outline-hidden focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 dark:focus:ring-offset-slate-800 transition-colors ${
                                 isFavorite 
                                 ? 'bg-amber-100 dark:bg-amber-800/50 text-amber-600 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-800' 
                                 : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600'
@@ -143,7 +143,7 @@ const ReformaResultDisplay: React.FC<ReformaResultDisplayProps> = ({ result, isF
                         <button
                             onClick={handleExportPDF}
                             disabled={isExporting}
-                            className="btn-press flex items-center justify-center gap-2 px-3 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 dark:focus:ring-offset-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="btn-press flex items-center justify-center gap-2 px-3 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 focus:outline-hidden focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 dark:focus:ring-offset-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <DownloadIcon className="w-5 h-5" />
                             <span className="hidden sm:inline">{isExporting ? 'Exportando...' : 'PDF'}</span>
@@ -154,7 +154,7 @@ const ReformaResultDisplay: React.FC<ReformaResultDisplayProps> = ({ result, isF
 
             {/* Detalhamento do CNAE */}
             {parsedText.detalhamentoCnae && (
-                <div className="p-6 bg-sky-50 dark:bg-sky-900/30 rounded-lg shadow-sm border-l-4 border-sky-500 dark:border-sky-400">
+                <div className="p-6 bg-sky-50 dark:bg-sky-900/30 rounded-lg shadow-xs border-l-4 border-sky-500 dark:border-sky-400">
                     <div className="flex items-center mb-3">
                         <InfoIcon className="w-6 h-6 text-sky-600 dark:text-sky-400" />
                         <h2 className="ml-3 text-xl font-bold text-sky-800 dark:text-sky-200">
@@ -205,7 +205,7 @@ const ReformaResultDisplay: React.FC<ReformaResultDisplayProps> = ({ result, isF
 
             {/* Oportunidades - STYLED SECTION */}
             {parsedText.oportunidades && (
-                 <div className="p-6 bg-green-50 dark:bg-green-900/30 rounded-lg shadow-sm border-l-4 border-green-500 dark:border-green-400">
+                 <div className="p-6 bg-green-50 dark:bg-green-900/30 rounded-lg shadow-xs border-l-4 border-green-500 dark:border-green-400">
                     <div className="flex items-center mb-3">
                         <RocketIcon className="w-6 h-6 text-green-600 dark:text-green-400" />
                         <h2 className="ml-3 text-xl font-bold text-green-800 dark:text-green-200">Incentivos Fiscais e Oportunidades</h2>

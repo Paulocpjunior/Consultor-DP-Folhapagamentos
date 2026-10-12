@@ -113,13 +113,13 @@ const UpdateBanner: React.FC = () => {
     // Adiado: faixa fixa no topo, sem opção de esconder de vez.
     if (remote && !aberto) {
         return (
-            <div role="status" className="fixed inset-x-0 top-0 z-[60] bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-lg">
+            <div role="status" className="fixed inset-x-0 top-0 z-60 bg-linear-to-r from-amber-500 to-orange-600 text-white shadow-lg">
                 <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-2 px-4 py-2">
                     <span className="inline-block h-2 w-2 animate-ping rounded-full bg-white" aria-hidden />
                     <strong className="text-sm">Nova versão esperando para ser instalada</strong>
                     <div className="ml-auto flex gap-2">
-                        <button className="rounded bg-white/20 px-3 py-1 text-xs font-semibold hover:bg-white/30" onClick={() => setAberto(true)}>Ver o que mudou</button>
-                        <button className="rounded bg-white px-3 py-1 text-xs font-bold text-orange-700 hover:bg-orange-50 disabled:opacity-50" disabled={reloading} onClick={atualizar}>{reloading ? 'Atualizando…' : 'Atualizar agora'}</button>
+                        <button className="rounded-sm bg-white/20 px-3 py-1 text-xs font-semibold hover:bg-white/30" onClick={() => setAberto(true)}>Ver o que mudou</button>
+                        <button className="rounded-sm bg-white px-3 py-1 text-xs font-bold text-orange-700 hover:bg-orange-50 disabled:opacity-50" disabled={reloading} onClick={atualizar}>{reloading ? 'Atualizando…' : 'Atualizar agora'}</button>
                     </div>
                 </div>
             </div>
@@ -129,11 +129,11 @@ const UpdateBanner: React.FC = () => {
     const nova = !!remote;
     const lista = nova ? novidadesDesde(remote!.novidades, APP_INFO.build) : atualizado!;
     return (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/70 p-4 backdrop-blur-sm"
+        <div className="fixed inset-0 z-80 flex items-center justify-center bg-slate-900/70 p-4 backdrop-blur-xs"
             onKeyDown={e => { if (e.key === 'Escape') (nova ? adiar() : fecharAtualizado()); }}>
             <div role="alertdialog" aria-modal="true" aria-labelledby="update-titulo" aria-describedby="update-desc"
                 className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-4 ring-amber-400 dark:bg-slate-800">
-                <div className={`flex items-center gap-3 px-5 py-4 text-white ${nova ? 'bg-gradient-to-r from-indigo-600 to-blue-700' : 'bg-gradient-to-r from-emerald-600 to-teal-600'}`}>
+                <div className={`flex items-center gap-3 px-5 py-4 text-white ${nova ? 'bg-linear-to-r from-indigo-600 to-blue-700' : 'bg-linear-to-r from-emerald-600 to-teal-600'}`}>
                     <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/20">
                         {nova && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-300 opacity-60" aria-hidden />}
                         <svg className="relative h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -157,12 +157,12 @@ const UpdateBanner: React.FC = () => {
                     {nova ? (
                         <>
                             <button className="rounded-lg px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700" onClick={adiar}>Depois (lembrar em 10 min)</button>
-                            <button ref={botao} className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-bold text-white shadow hover:bg-indigo-700 disabled:opacity-50" disabled={reloading} onClick={atualizar}>
+                            <button ref={botao} className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50" disabled={reloading} onClick={atualizar}>
                                 {reloading ? <><span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />Atualizando…</> : 'Atualizar agora'}
                             </button>
                         </>
                     ) : (
-                        <button ref={botao} className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white shadow hover:bg-emerald-700" onClick={fecharAtualizado}>Entendi</button>
+                        <button ref={botao} className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-emerald-700" onClick={fecharAtualizado}>Entendi</button>
                     )}
                 </div>
             </div>

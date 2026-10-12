@@ -16,8 +16,8 @@ import {
 } from '../../services/esocial/downloadEventos';
 import { baixarBytes } from '../../services/implantacao/zip';
 
-const inp = 'rounded border border-slate-300 bg-white px-2 py-2 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
-const btn = 'rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
+const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-2 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const btn = 'rounded-sm border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
 const hoje = () => new Date().toLocaleDateString('sv-SE');
 const menos = (dias: number) => new Date(Date.now() - dias * 86400000).toLocaleDateString('sv-SE');
 const somarUmDia = (d: string) => new Date(Date.parse(`${d}T00:00:00Z`) + 86400000).toISOString().slice(0, 10);
@@ -97,7 +97,7 @@ const ESocialDownload: React.FC = () => {
                 <p className="text-sm text-slate-600 dark:text-slate-300">
                     O CFI consulta o eSocial com o certificado do escritório (procuração) e devolve os XMLs oficiais. O .zip gerado entra direto em Cadastros (Funcionários, Afastamentos, Incidências) e na Conferência pós-folha.
                 </p>
-                <p className="mt-1 rounded bg-amber-50 p-2 text-xs text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">
+                <p className="mt-1 rounded-sm bg-amber-50 p-2 text-xs text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">
                     O eSocial limita os pedidos por dia para cada empregador e devolve no máximo 50 eventos por resposta. Cada consulta e cada download contam: monte o filtro antes de clicar.
                     {pedidosHoje !== null && <strong> Pedidos hoje para esta empresa: {pedidosHoje}.</strong>}
                 </p>
@@ -149,7 +149,7 @@ const ESocialDownload: React.FC = () => {
                         </>
                     )}
                 <div className="flex items-end sm:col-span-2 lg:col-span-4">
-                    <button className="rounded bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={!podeConsultar} onClick={() => consultar()}>Consultar no eSocial</button>
+                    <button className="rounded-sm bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={!podeConsultar} onClick={() => consultar()}>Consultar no eSocial</button>
                     {tipo === 'empregador' && <span className="ml-3 text-xs text-slate-500 dark:text-slate-400">A consulta por competência não tem continuação: se houver mais de 50 eventos, use a consulta por trabalhador.</span>}
                     {problemaPeriodo && <span role="status" className="ml-3 text-xs text-amber-700 dark:text-amber-300">{problemaPeriodo}</span>}
                     {tipo !== 'empregador' && !problemaPeriodo && <span className="ml-3 text-xs text-slate-500 dark:text-slate-400">Até {MAX_DIAS_PERIODO} dias por consulta; a data de hoje vai até uma hora atrás.</span>}
@@ -157,7 +157,7 @@ const ESocialDownload: React.FC = () => {
             </div>
 
             {ocupado && <p className="text-sm text-blue-700 dark:text-blue-300">{ocupado}</p>}
-            {erro && <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+            {erro && <p role="alert" className="rounded-sm bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
 
             {retorno && (
                 <section className="space-y-2 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
@@ -172,7 +172,7 @@ const ESocialDownload: React.FC = () => {
                     )}
                     {retorno.identificadores.length > 0 && (
                         <>
-                            <div className="max-h-64 overflow-auto rounded border border-slate-200 dark:border-slate-700">
+                            <div className="max-h-64 overflow-auto rounded-sm border border-slate-200 dark:border-slate-700">
                                 <table className="w-full text-sm">
                                     <thead className="sticky top-0 bg-slate-50 text-left text-xs text-slate-500 dark:bg-slate-900"><tr><th className="p-2"><input type="checkbox" aria-label="Marcar todos" checked={marcados.size === retorno.identificadores.length} onChange={e => setMarcados(e.target.checked ? new Set(retorno.identificadores.map(i => i.id)) : new Set())} /></th><th className="p-2">Id do evento</th><th className="p-2">Recibo</th><th className="p-2"></th></tr></thead>
                                     <tbody>{retorno.identificadores.map((i: Identificador) => (
@@ -185,7 +185,7 @@ const ESocialDownload: React.FC = () => {
                                     ))}</tbody>
                                 </table>
                             </div>
-                            <button className="rounded bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={!marcados.size || !!ocupado} onClick={baixar}>Baixar {Math.min(marcados.size, 50)} evento(s)</button>
+                            <button className="rounded-sm bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={!marcados.size || !!ocupado} onClick={baixar}>Baixar {Math.min(marcados.size, 50)} evento(s)</button>
                         </>
                     )}
                 </section>
@@ -195,7 +195,7 @@ const ESocialDownload: React.FC = () => {
                 <section className="space-y-2 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                         <h4 className="font-semibold text-slate-800 dark:text-white">Eventos baixados nesta sessão ({baixados.size})</h4>
-                        <button className="rounded bg-green-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={!baixados.size} onClick={salvarZip}>Salvar .zip</button>
+                        <button className="rounded-sm bg-green-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={!baixados.size} onClick={salvarZip}>Salvar .zip</button>
                     </div>
                     <div className="max-h-72 overflow-auto">
                         <table className="w-full text-sm">

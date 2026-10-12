@@ -22,7 +22,7 @@ import HistoricoFolhaIobModal from './HistoricoFolhaIobModal';
 
 interface Props { empresa: Empresa; usuario: Usuario; isAdmin: boolean; sindicatos: Sindicato[]; horarios: Horario[]; afastamentos: Afastamento[] }
 
-const btn = 'rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
+const btn = 'rounded-sm border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
 const fmtCpf = (c: string) => (c.length === 11 ? `${c.slice(0, 3)}.${c.slice(3, 6)}.${c.slice(6, 9)}-${c.slice(9)}` : c);
 const fmtData = (d?: string) => (d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d.split('-').reverse().join('/') : d ?? '');
 
@@ -58,20 +58,20 @@ const FuncionariosCadastro: React.FC<Props> = ({ empresa, usuario, isAdmin, sind
     return (
         <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
-                <button className="rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white" onClick={() => setAberta({ ficha: fichaVazia(empresa), nova: true })}>Nova ficha</button>
+                <button className="rounded-sm bg-blue-700 px-3 py-2 text-sm font-medium text-white" onClick={() => setAberta({ ficha: fichaVazia(empresa), nova: true })}>Nova ficha</button>
                 <button className={btn} onClick={() => setImportar(true)}>Importar do eSocial (XML)</button>
                 <button className={btn} disabled={!fichas} onClick={() => setCompletarIob(true)}>Completar pelo backup do IOB</button>
                 <button className={btn} disabled={!fichas?.length} onClick={() => setHistoricoIob(true)} title="Horas extras, faltas e DSR de cada mês, para as médias">Histórico da folha (IOB)</button>
                 <button className={btn} disabled={!filtradas.length} onClick={exportar}>Exportar Excel</button>
-                <input className="ml-auto w-full rounded border border-slate-300 px-3 py-2 text-sm sm:w-64 dark:border-slate-600 dark:bg-slate-900 dark:text-white" placeholder="Buscar nome, CPF, matrícula, cargo" value={busca} onChange={e => setBusca(e.target.value)} aria-label="Buscar funcionário" />
-                <select className="rounded border border-slate-300 px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-white" value={situacao} onChange={e => setSituacao(e.target.value as typeof situacao)} aria-label="Situação">
+                <input className="ml-auto w-full rounded-sm border border-slate-300 px-3 py-2 text-sm sm:w-64 dark:border-slate-600 dark:bg-slate-900 dark:text-white" placeholder="Buscar nome, CPF, matrícula, cargo" value={busca} onChange={e => setBusca(e.target.value)} aria-label="Buscar funcionário" />
+                <select className="rounded-sm border border-slate-300 px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-white" value={situacao} onChange={e => setSituacao(e.target.value as typeof situacao)} aria-label="Situação">
                     <option value="ativo">Ativos ({contagem.ativo})</option><option value="desligado">Desligados ({contagem.desligado})</option><option value="">Todos ({fichas?.length ?? 0})</option>
                 </select>
             </div>
 
-            {erro && <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+            {erro && <p role="alert" className="rounded-sm bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
             {!fichas && <p className="text-sm text-slate-500">Carregando…</p>}
-            {fichas && !fichas.length && !erro && <p className="rounded border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-600">Nenhum funcionário cadastrado nesta empresa. Comece pela importação dos XMLs do eSocial (S-2200 e alterações) ou por uma nova ficha.</p>}
+            {fichas && !fichas.length && !erro && <p className="rounded-sm border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-600">Nenhum funcionário cadastrado nesta empresa. Comece pela importação dos XMLs do eSocial (S-2200 e alterações) ou por uma nova ficha.</p>}
 
             {filtradas.length > 0 && (
                 <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
@@ -92,8 +92,8 @@ const FuncionariosCadastro: React.FC<Props> = ({ empresa, usuario, isAdmin, sind
                                         <td className="p-2">{fmtData(f.dados.admissao)}</td>
                                         <td className="p-2">{f.situacao === 'ativo' ? (afastadoHoje.has(f.id) ? <span className="text-amber-700 dark:text-amber-300" title={`Motivo ${afastadoHoje.get(f.id)!.motivo}`}>Afastado desde {fmtData(afastadoHoje.get(f.id)!.dtInicio)}</span> : 'Ativo') : `Desligado ${fmtData(f.dados.dataDesligamento)}`}</td>
                                         <td className="p-2 text-xs" title={[...v.erros, ...v.avisos, ...f.pendenciasImportacao].join('\n')}>
-                                            {v.erros.length > 0 && <span className="mr-1 rounded bg-red-100 px-1.5 text-red-800 dark:bg-red-900/40 dark:text-red-200">{v.erros.length} erro(s)</span>}
-                                            {v.avisos.length + f.pendenciasImportacao.length > 0 && <span className="rounded bg-amber-100 px-1.5 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">{v.avisos.length + f.pendenciasImportacao.length}</span>}
+                                            {v.erros.length > 0 && <span className="mr-1 rounded-sm bg-red-100 px-1.5 text-red-800 dark:bg-red-900/40 dark:text-red-200">{v.erros.length} erro(s)</span>}
+                                            {v.avisos.length + f.pendenciasImportacao.length > 0 && <span className="rounded-sm bg-amber-100 px-1.5 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">{v.avisos.length + f.pendenciasImportacao.length}</span>}
                                             {!v.erros.length && !v.avisos.length && !f.pendenciasImportacao.length && <span className="text-green-700 dark:text-green-400">ok</span>}
                                         </td>
                                     </tr>
@@ -172,32 +172,32 @@ const ImportarEsocialModal: React.FC<{ empresa: Empresa; usuario: Usuario; exist
                         <h3 className="text-lg font-semibold text-slate-800 dark:text-white">Importar funcionários do eSocial — {empresa.nomeFantasia}</h3>
                         <p className="text-sm text-slate-600 dark:text-slate-300">XMLs baixados do eSocial (S-2200, S-2205, S-2206, S-2299, S-3000), soltos ou em .zip, ou o Backup SQL do IOB (.backup), de onde saem os XMLs que o IOB transmitiu, com os recibos. Nada é gravado antes de você confirmar.</p>
                     </div>
-                    <button aria-label="Fechar" className="rounded px-2 text-xl text-slate-500" onClick={onFechar}>×</button>
+                    <button aria-label="Fechar" className="rounded-sm px-2 text-xl text-slate-500" onClick={onFechar}>×</button>
                 </div>
                 <div className="flex flex-wrap items-end gap-3">
                     <label className="text-sm dark:text-white">Arquivos<input className="block text-sm" type="file" multiple accept=".xml,.zip,.backup,.sql,.gz,.tar" onChange={e => { setArquivos(Array.from(e.target.files ?? [])); setPrevia(null); }} aria-label="XMLs do eSocial" /></label>
-                    <label className="text-sm dark:text-white">Considerar eventos até<input className="block rounded border border-slate-300 px-2 py-1 dark:border-slate-600 dark:bg-slate-900" type="date" value={corte} onChange={e => { setCorte(e.target.value); setPrevia(null); }} /></label>
-                    <button className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50" disabled={!arquivos.length || !!ocupado} onClick={ler}>Ler arquivos</button>
+                    <label className="text-sm dark:text-white">Considerar eventos até<input className="block rounded-sm border border-slate-300 px-2 py-1 dark:border-slate-600 dark:bg-slate-900" type="date" value={corte} onChange={e => { setCorte(e.target.value); setPrevia(null); }} /></label>
+                    <button className="rounded-sm bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50" disabled={!arquivos.length || !!ocupado} onClick={ler}>Ler arquivos</button>
                 </div>
 
                 {ocupado && <p className="text-sm text-blue-700 dark:text-blue-300">{ocupado}</p>}
-                {erro && <p role="alert" className="rounded bg-red-50 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+                {erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
 
                 {previa && (
                     <>
                         <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-                            <div className="rounded bg-green-50 p-2 dark:bg-green-900/30 dark:text-green-100"><strong>{novos}</strong> novo(s)</div>
-                            <div className="rounded bg-blue-50 p-2 dark:bg-blue-900/30 dark:text-blue-100"><strong>{atualizados}</strong> com alteração</div>
-                            <div className="rounded bg-slate-50 p-2 dark:bg-slate-700 dark:text-slate-100"><strong>{iguais}</strong> sem mudança</div>
-                            <div className="rounded bg-amber-50 p-2 dark:bg-amber-900/30 dark:text-amber-100"><strong>{preservados.length}</strong> edição(ões) manual(is) mantida(s)</div>
+                            <div className="rounded-sm bg-green-50 p-2 dark:bg-green-900/30 dark:text-green-100"><strong>{novos}</strong> novo(s)</div>
+                            <div className="rounded-sm bg-blue-50 p-2 dark:bg-blue-900/30 dark:text-blue-100"><strong>{atualizados}</strong> com alteração</div>
+                            <div className="rounded-sm bg-slate-50 p-2 dark:bg-slate-700 dark:text-slate-100"><strong>{iguais}</strong> sem mudança</div>
+                            <div className="rounded-sm bg-amber-50 p-2 dark:bg-amber-900/30 dark:text-amber-100"><strong>{preservados.length}</strong> edição(ões) manual(is) mantida(s)</div>
                         </div>
                         {preservados.length > 0 && (
-                            <details open className="rounded border border-amber-300 p-2 text-xs dark:border-amber-700 dark:text-amber-100">
+                            <details open className="rounded-sm border border-amber-300 p-2 text-xs dark:border-amber-700 dark:text-amber-100">
                                 <summary className="cursor-pointer font-medium">Campos editados à mão que divergem do eSocial (o valor manual fica; confira)</summary>
                                 <ul className="mt-1 space-y-0.5">{preservados.map((p, i) => <li key={i}>{p.nome} · {ROTULO[p.campo as CampoFicha] ?? p.campo}: manual “{p.manual}” × eSocial “{p.esocial}”</li>)}</ul>
                             </details>
                         )}
-                        <div className="max-h-80 overflow-auto rounded border border-slate-200 dark:border-slate-700">
+                        <div className="max-h-80 overflow-auto rounded-sm border border-slate-200 dark:border-slate-700">
                             <table className="w-full text-sm">
                                 <thead className="sticky top-0 bg-slate-50 text-left text-xs text-slate-500 dark:bg-slate-900"><tr><th className="p-2" /><th className="p-2">Nome</th><th className="p-2">Matrícula</th><th className="p-2">O que muda</th><th className="p-2">Pendências</th></tr></thead>
                                 <tbody>
@@ -226,7 +226,7 @@ const ImportarEsocialModal: React.FC<{ empresa: Empresa; usuario: Usuario; exist
                         )}
                         <div className="flex justify-end gap-2">
                             <button className={btn} onClick={onFechar}>Cancelar</button>
-                            <button className="rounded bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={!marcados.size || !!ocupado} onClick={gravar}>Gravar {marcados.size} ficha(s)</button>
+                            <button className="rounded-sm bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={!marcados.size || !!ocupado} onClick={gravar}>Gravar {marcados.size} ficha(s)</button>
                         </div>
                     </>
                 )}

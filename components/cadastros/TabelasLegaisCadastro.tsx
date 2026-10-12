@@ -15,7 +15,7 @@ import { oficiaisQueFaltam } from '../../services/cadastros/tabelasOficiais';
 
 interface Props { tabelas: TabelaLegal[] | null; erroLista: string; usuario: Usuario; isAdmin: boolean; onRecarregar: () => void }
 
-const inp = 'w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const inp = 'w-full rounded-sm border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const txt = (c: number | null | undefined) => (c == null ? '' : (c / 100).toFixed(2).replace('.', ','));
 const ehCoef = (tipo: TipoTabela, k: string) => DEF_TABELAS[tipo].valores.some(v => v.chave === k && v.formato === 'coeficiente');
 const mostrarValor = (v: DefValor, n: number) => (v.formato === 'coeficiente' ? textoCoeficiente(n) : reais(n));
@@ -112,11 +112,11 @@ const TabelasLegaisCadastro: React.FC<Props> = ({ tabelas, erroLista, usuario, i
 
     return (
         <div className="space-y-4">
-            <div className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-100">
+            <div className="rounded-sm border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-100">
                 Nenhuma tabela vem pronta. Digite os valores da norma oficial (portaria, lei, decreto) e informe a norma. Toda atualização aplicada no SAGE tem de ser cadastrada aqui também.
             </div>
             {tabelas && faltam.length > 0 && (
-                <div className="rounded border border-blue-300 bg-blue-50 p-3 text-sm text-blue-900 dark:border-blue-700 dark:bg-blue-900/20 dark:text-blue-100">
+                <div className="rounded-sm border border-blue-300 bg-blue-50 p-3 text-sm text-blue-900 dark:border-blue-700 dark:bg-blue-900/20 dark:text-blue-100">
                     <p><strong>Tabelas oficiais de 2026</strong> (vigência 01/2026) ainda não cadastradas: {faltam.map(t => DEF_TABELAS[t.tipo].titulo).join(', ')}.</p>
                     <ul className="mt-1 list-disc pl-5 text-xs">
                         {faltam.map(t => (
@@ -126,11 +126,11 @@ const TabelasLegaisCadastro: React.FC<Props> = ({ tabelas, erroLista, usuario, i
                             </li>
                         ))}
                     </ul>
-                    <button className="mt-2 rounded bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={salvando} onClick={gravarOficiais}>Gravar as tabelas oficiais de 2026 ({faltam.length})</button>
+                    <button className="mt-2 rounded-sm bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={salvando} onClick={gravarOficiais}>Gravar as tabelas oficiais de 2026 ({faltam.length})</button>
                 </div>
             )}
-            {msgOficiais && <p role="status" className="rounded bg-green-50 p-2 text-sm text-green-800 dark:bg-green-900/30 dark:text-green-200">{msgOficiais}</p>}
-            {erroLista && <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erroLista}</p>}
+            {msgOficiais && <p role="status" className="rounded-sm bg-green-50 p-2 text-sm text-green-800 dark:bg-green-900/30 dark:text-green-200">{msgOficiais}</p>}
+            {erroLista && <p role="alert" className="rounded-sm bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erroLista}</p>}
             {!tabelas && !erroLista && <p className="text-sm text-slate-500">Carregando…</p>}
 
             {tabelas && TIPOS_TABELA.map(tipo => {
@@ -142,7 +142,7 @@ const TabelasLegaisCadastro: React.FC<Props> = ({ tabelas, erroLista, usuario, i
                     <section key={tipo} className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                             <h3 className="font-semibold text-slate-800 dark:text-white">{DEF_TABELAS[tipo].titulo}</h3>
-                            <button className="rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600 dark:text-white" onClick={() => { setErros([]); setEdicao(paraEdicao(null, tipo)); }}>Nova vigência</button>
+                            <button className="rounded-sm border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600 dark:text-white" onClick={() => { setErros([]); setEdicao(paraEdicao(null, tipo)); }}>Nova vigência</button>
                         </div>
                         {estadual ? (
                             <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
@@ -180,7 +180,7 @@ const TabelasLegaisCadastro: React.FC<Props> = ({ tabelas, erroLista, usuario, i
                     <div className="my-4 w-full max-w-2xl space-y-3 rounded-xl bg-white p-4 shadow-xl dark:bg-slate-800">
                         <div className="flex items-start justify-between">
                             <h3 className="text-lg font-semibold text-slate-800 dark:text-white">{def.titulo}{edicao.antes ? ` — ${rotuloCompetencia(edicao.antes.vigencia)}` : ' — nova vigência'}</h3>
-                            <button aria-label="Fechar" className="rounded px-2 text-xl text-slate-500" onClick={() => setEdicao(null)}>×</button>
+                            <button aria-label="Fechar" className="rounded-sm px-2 text-xl text-slate-500" onClick={() => setEdicao(null)}>×</button>
                         </div>
                         {somenteLeitura && <p className="text-xs text-amber-700 dark:text-amber-300">Só o administrador corrige uma tabela já gravada. Se houver erro, avise o administrador.</p>}
                         <fieldset disabled={somenteLeitura} className="space-y-3">
@@ -206,7 +206,7 @@ const TabelasLegaisCadastro: React.FC<Props> = ({ tabelas, erroLista, usuario, i
                                             ))}
                                         </tbody>
                                     </table>
-                                    <button className="rounded border border-slate-300 px-3 py-1 text-sm dark:border-slate-600 dark:text-white" onClick={() => setEdicao({ ...edicao, faixas: [...edicao.faixas, { ate: '', aliquota: '', deducao: '' }] })}>Adicionar faixa</button>
+                                    <button className="rounded-sm border border-slate-300 px-3 py-1 text-sm dark:border-slate-600 dark:text-white" onClick={() => setEdicao({ ...edicao, faixas: [...edicao.faixas, { ate: '', aliquota: '', deducao: '' }] })}>Adicionar faixa</button>
                                     {tetoPrevia !== null && previa && <p className="text-xs text-slate-600 dark:text-slate-300">Conferência: contribuição no teto de {reais(tetoPrevia)} = <strong>{reais(inssProgressivo(tetoPrevia, previa.t))}</strong>. Compare com o valor máximo publicado na norma.</p>}
                                 </div>
                             )}
@@ -226,7 +226,7 @@ const TabelasLegaisCadastro: React.FC<Props> = ({ tabelas, erroLista, usuario, i
                                             </tr>
                                         ))}</tbody>
                                     </table>
-                                    <button className="rounded border border-slate-300 px-3 py-1 text-sm dark:border-slate-600 dark:text-white" onClick={() => setEdicao({ ...edicao, pisos: [...edicao.pisos, { descricao: '', valor: '' }] })}>Adicionar piso</button>
+                                    <button className="rounded-sm border border-slate-300 px-3 py-1 text-sm dark:border-slate-600 dark:text-white" onClick={() => setEdicao({ ...edicao, pisos: [...edicao.pisos, { descricao: '', valor: '' }] })}>Adicionar piso</button>
                                     <p className="text-xs text-slate-600 dark:text-slate-300">São Paulo hoje tem um piso único; outras UFs (PR, RS, SC, RJ) têm faixas por categoria. A conferência da folha usa o menor piso e pede para conferir a categoria.</p>
                                 </div>
                             )}
@@ -242,12 +242,12 @@ const TabelasLegaisCadastro: React.FC<Props> = ({ tabelas, erroLista, usuario, i
                             <label className="block"><span className="text-xs font-medium text-slate-600 dark:text-slate-300">Observação</span>
                                 <textarea className={inp} rows={2} value={edicao.t.observacao} onChange={e => setEdicao({ ...edicao, t: { ...edicao.t, observacao: e.target.value } })} aria-label="Observação" /></label>
                         </fieldset>
-                        {erros.length > 0 && <ul role="alert" className="list-disc rounded bg-red-50 p-2 pl-6 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erros.map(e => <li key={e}>{e}</li>)}</ul>}
+                        {erros.length > 0 && <ul role="alert" className="list-disc rounded-sm bg-red-50 p-2 pl-6 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erros.map(e => <li key={e}>{e}</li>)}</ul>}
                         <div className="flex justify-between gap-2">
-                            <div>{edicao.antes && isAdmin && <button className="rounded border border-red-300 px-3 py-2 text-sm text-red-700 dark:text-red-300" disabled={salvando} onClick={excluir}>Excluir</button>}</div>
+                            <div>{edicao.antes && isAdmin && <button className="rounded-sm border border-red-300 px-3 py-2 text-sm text-red-700 dark:text-red-300" disabled={salvando} onClick={excluir}>Excluir</button>}</div>
                             <div className="flex gap-2">
-                                <button className="rounded border border-slate-300 px-4 py-2 text-sm dark:border-slate-600 dark:text-white" onClick={() => setEdicao(null)}>{somenteLeitura ? 'Fechar' : 'Cancelar'}</button>
-                                {!somenteLeitura && <button className="rounded bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={salvando} onClick={salvar}>{salvando ? 'Gravando…' : 'Gravar'}</button>}
+                                <button className="rounded-sm border border-slate-300 px-4 py-2 text-sm dark:border-slate-600 dark:text-white" onClick={() => setEdicao(null)}>{somenteLeitura ? 'Fechar' : 'Cancelar'}</button>
+                                {!somenteLeitura && <button className="rounded-sm bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={salvando} onClick={salvar}>{salvando ? 'Gravando…' : 'Gravar'}</button>}
                             </div>
                         </div>
                     </div>

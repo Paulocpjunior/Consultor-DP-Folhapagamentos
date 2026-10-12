@@ -26,8 +26,8 @@ import StatusEsocialAfastamento, { SeloEsocial } from '../esocial/StatusEsocialA
 
 interface Props { empresa: Empresa; afastamentos: Afastamento[] | null; erroLista: string; usuario: Usuario; isAdmin: boolean; onRecarregar: () => void }
 
-const inp = 'w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
-const btn = 'rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
+const inp = 'w-full rounded-sm border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const btn = 'rounded-sm border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
 const br = (d: string) => (d ? d.split('-').reverse().join('/') : '');
 const hoje = () => new Date().toISOString().slice(0, 10);
 
@@ -50,17 +50,17 @@ const AfastamentosCadastro: React.FC<Props> = ({ empresa, afastamentos, erroList
     return (
         <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
-                <button className="rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white" disabled={!fichas.length} onClick={() => setEdicao({ antes: null, a: { ...afastamentoVazio(), empresaId: empresa.id } })}>Novo afastamento</button>
+                <button className="rounded-sm bg-blue-700 px-3 py-2 text-sm font-medium text-white" disabled={!fichas.length} onClick={() => setEdicao({ antes: null, a: { ...afastamentoVazio(), empresaId: empresa.id } })}>Novo afastamento</button>
                 <button className={btn} disabled={!fichas.length || !afastamentos} onClick={() => setImportar(true)}>Importar S-2230 (XML) ou backup do IOB</button>
-                <select className="ml-auto rounded border border-slate-300 px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-white" value={filtro} onChange={e => setFiltro(e.target.value as typeof filtro)} aria-label="Filtro de afastamentos">
+                <select className="ml-auto rounded-sm border border-slate-300 px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-white" value={filtro} onChange={e => setFiltro(e.target.value as typeof filtro)} aria-label="Filtro de afastamentos">
                     <option value="abertos">Afastados hoje</option><option value="competencia">Na competência</option><option value="todos">Todos</option>
                 </select>
-                {filtro === 'competencia' && <input type="month" className="rounded border border-slate-300 px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-white" value={competencia} onChange={e => setCompetencia(e.target.value)} aria-label="Competência" />}
+                {filtro === 'competencia' && <input type="month" className="rounded-sm border border-slate-300 px-2 py-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-white" value={competencia} onChange={e => setCompetencia(e.target.value)} aria-label="Competência" />}
             </div>
             {!fichas.length && <p className="text-sm text-slate-500">Cadastre ou importe os funcionários desta empresa antes de lançar afastamentos.</p>}
-            {erroLista && <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erroLista}</p>}
+            {erroLista && <p role="alert" className="rounded-sm bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erroLista}</p>}
             {!afastamentos && !erroLista && <p className="text-sm text-slate-500">Carregando…</p>}
-            {afastamentos && !lista.length && <p className="rounded border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-600">Nenhum afastamento neste filtro.</p>}
+            {afastamentos && !lista.length && <p className="rounded-sm border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-600">Nenhum afastamento neste filtro.</p>}
             {lista.length > 0 && (
                 <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
                     <table className="w-full text-sm">
@@ -140,7 +140,7 @@ const AfastamentoModal: React.FC<{ antes: Afastamento | null; inicial: Afastamen
                         <p className="text-xs text-slate-500 dark:text-slate-400">Arquivos › Afastamentos/Retorno · S-2230</p>
                         <h3 className="text-lg font-semibold text-slate-800 dark:text-white">{antes ? (ficha?.dados.nome ?? antes.cpf) : 'Novo afastamento'}</h3>
                     </div>
-                    <button aria-label="Fechar" className="rounded px-2 text-xl text-slate-500" onClick={onFechar}>×</button>
+                    <button aria-label="Fechar" className="rounded-sm px-2 text-xl text-slate-500" onClick={onFechar}>×</button>
                 </div>
                 {antes && <p className="text-xs text-slate-500">{antes.origem}{antes.recibos.length ? ` · recibo(s) ${antes.recibos.join(', ')}` : ''}</p>}
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -197,12 +197,12 @@ const AfastamentoModal: React.FC<{ antes: Afastamento | null; inicial: Afastamen
                 {antes && empresa && envios !== undefined && (
                     <StatusEsocialAfastamento afastamento={antes} empresa={{ id: empresa.id, cnpj: empresa.cnpj, nome: empresa.nomeFantasia || empresa.razaoSocial }} usuario={usuario} envios={envios} onAtualizado={() => onEnviado?.()} />
                 )}
-                {erros.length > 0 && <ul role="alert" className="list-disc rounded bg-red-50 p-2 pl-6 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erros.map(e => <li key={e}>{e}</li>)}</ul>}
+                {erros.length > 0 && <ul role="alert" className="list-disc rounded-sm bg-red-50 p-2 pl-6 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erros.map(e => <li key={e}>{e}</li>)}</ul>}
                 <div className="flex justify-between gap-2">
-                    <div>{antes && isAdmin && <button className="rounded border border-red-300 px-3 py-2 text-sm text-red-700 dark:text-red-300" disabled={salvando} onClick={excluir}>Excluir</button>}</div>
+                    <div>{antes && isAdmin && <button className="rounded-sm border border-red-300 px-3 py-2 text-sm text-red-700 dark:text-red-300" disabled={salvando} onClick={excluir}>Excluir</button>}</div>
                     <div className="flex gap-2">
                         <button className={btn} onClick={onFechar}>Cancelar</button>
-                        <button className="rounded bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={salvando} onClick={salvar}>{salvando ? 'Gravando…' : 'Gravar'}</button>
+                        <button className="rounded-sm bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={salvando} onClick={salvar}>{salvando ? 'Gravando…' : 'Gravar'}</button>
                     </div>
                 </div>
             </div>
@@ -270,17 +270,17 @@ const ImportarS2230Modal: React.FC<{ empresa: Empresa; fichas: FichaFuncionario[
                         <h3 className="text-lg font-semibold text-slate-800 dark:text-white">Importar afastamentos (S-2230) — {empresa.nomeFantasia}</h3>
                         <p className="text-sm text-slate-600 dark:text-slate-300">XMLs do S-2230 e dos S-3000 que os excluem, soltos ou em .zip, ou o Backup SQL do IOB (.backup): dele vêm os S-2230 que o IOB transmitiu (com os recibos) e as férias já gozadas do histórico do IOB (com o período aquisitivo e o abono). Nada é gravado antes de você confirmar.</p>
                     </div>
-                    <button aria-label="Fechar" className="rounded px-2 text-xl text-slate-500" onClick={onFechar}>×</button>
+                    <button aria-label="Fechar" className="rounded-sm px-2 text-xl text-slate-500" onClick={onFechar}>×</button>
                 </div>
                 <div className="flex flex-wrap items-end gap-3">
                     <input className="text-sm dark:text-white" type="file" multiple accept=".xml,.zip,.backup,.sql,.gz,.tar" onChange={e => { setArquivos(Array.from(e.target.files ?? [])); setPrevia(null); }} aria-label="XMLs do S-2230" />
-                    <button className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50" disabled={!arquivos.length || !!ocupado} onClick={ler}>Ler arquivos</button>
+                    <button className="rounded-sm bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50" disabled={!arquivos.length || !!ocupado} onClick={ler}>Ler arquivos</button>
                 </div>
                 {ocupado && <p className="text-sm text-blue-700 dark:text-blue-300">{ocupado}</p>}
-                {erro && <p role="alert" className="rounded bg-red-50 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+                {erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
                 {previa && (
                     <>
-                        <div className="max-h-80 overflow-auto rounded border border-slate-200 dark:border-slate-700">
+                        <div className="max-h-80 overflow-auto rounded-sm border border-slate-200 dark:border-slate-700">
                             <table className="w-full text-sm">
                                 <thead className="sticky top-0 bg-slate-50 text-left text-xs text-slate-500 dark:bg-slate-900"><tr><th className="p-2">Funcionário</th><th className="p-2">Motivo</th><th className="p-2">Início</th><th className="p-2">Término</th><th className="p-2">Situação</th></tr></thead>
                                 <tbody>
@@ -313,7 +313,7 @@ const ImportarS2230Modal: React.FC<{ empresa: Empresa; fichas: FichaFuncionario[
                         )}
                         <div className="flex justify-end gap-2">
                             <button className={btn} onClick={onFechar}>Cancelar</button>
-                            <button className="rounded bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={!gravar.length || !!ocupado} onClick={confirmar}>Gravar {gravar.length} afastamento(s)</button>
+                            <button className="rounded-sm bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={!gravar.length || !!ocupado} onClick={confirmar}>Gravar {gravar.length} afastamento(s)</button>
                         </div>
                     </>
                 )}

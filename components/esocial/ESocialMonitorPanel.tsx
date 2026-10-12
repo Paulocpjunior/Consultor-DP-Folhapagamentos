@@ -62,7 +62,7 @@ const ESocialMonitorPanel: React.FC<Props> = ({ currentUser, subInicial, embutid
                         onClick={() => setSubTab(t.id)}
                         className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                             subTab === t.id
-                                ? 'bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-300 shadow-sm'
+                                ? 'bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-300 shadow-xs'
                                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                         }`}
                     >

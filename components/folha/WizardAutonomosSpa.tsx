@@ -187,25 +187,25 @@ export default function WizardAutonomosSpa({
                 </header>
 
                 <div className="grid grid-cols-4 gap-2 mb-3 text-sm">
-                    <div className="px-3 py-2 bg-slate-100 dark:bg-slate-900 rounded">
+                    <div className="px-3 py-2 bg-slate-100 dark:bg-slate-900 rounded-sm">
                         <div className="text-xs text-slate-500">Total</div>
                         <div className="font-bold text-slate-800 dark:text-white">{stats.total}</div>
                     </div>
-                    <div className="px-3 py-2 bg-green-50 dark:bg-green-900/20 rounded">
+                    <div className="px-3 py-2 bg-green-50 dark:bg-green-900/20 rounded-sm">
                         <div className="text-xs text-green-700 dark:text-green-300">Com matrícula</div>
                         <div className="font-bold text-green-800 dark:text-green-200">{stats.preenchidas}</div>
                     </div>
-                    <div className={`px-3 py-2 rounded ${stats.pendentes > 0 ? 'bg-yellow-50 dark:bg-yellow-900/20' : 'bg-slate-100 dark:bg-slate-900'}`}>
+                    <div className={`px-3 py-2 rounded-sm ${stats.pendentes > 0 ? 'bg-yellow-50 dark:bg-yellow-900/20' : 'bg-slate-100 dark:bg-slate-900'}`}>
                         <div className="text-xs text-yellow-700 dark:text-yellow-300">Pendentes</div>
                         <div className={`font-bold ${stats.pendentes > 0 ? 'text-yellow-800 dark:text-yellow-200' : 'text-slate-800 dark:text-white'}`}>{stats.pendentes}</div>
                     </div>
-                    <div className={`px-3 py-2 rounded ${stats.comAlerta > 0 ? 'bg-orange-50 dark:bg-orange-900/20' : 'bg-slate-100 dark:bg-slate-900'}`}>
+                    <div className={`px-3 py-2 rounded-sm ${stats.comAlerta > 0 ? 'bg-orange-50 dark:bg-orange-900/20' : 'bg-slate-100 dark:bg-slate-900'}`}>
                         <div className="text-xs text-orange-700 dark:text-orange-300">Com alerta</div>
                         <div className={`font-bold ${stats.comAlerta > 0 ? 'text-orange-800 dark:text-orange-200' : 'text-slate-800 dark:text-white'}`}>{stats.comAlerta}</div>
                     </div>
                 </div>
 
-                <div className="border border-slate-200 dark:border-slate-700 rounded overflow-auto">
+                <div className="border border-slate-200 dark:border-slate-700 rounded-sm overflow-auto">
                     <table className="w-full text-sm">
                         <thead className="bg-slate-100 dark:bg-slate-900 sticky top-0">
                             <tr>
@@ -225,7 +225,7 @@ export default function WizardAutonomosSpa({
                                         <td className="px-2 py-1.5 text-slate-800 dark:text-slate-200">{l.nome}</td>
                                         <td className="px-2 py-1.5 text-right font-mono">{l.vlrFat.toFixed(2)}</td>
                                         <td className="px-2 py-1.5 text-center">
-                                            <span className={`px-2 py-0.5 rounded text-xs font-mono ${l.codigoEvento === '4991' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200' : 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200'}`}>
+                                            <span className={`px-2 py-0.5 rounded-sm text-xs font-mono ${l.codigoEvento === '4991' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200' : 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200'}`}>
                                                 {l.codigoEvento}
                                             </span>
                                         </td>
@@ -239,7 +239,7 @@ export default function WizardAutonomosSpa({
                                                 placeholder="000000"
                                                 value={l.matricula}
                                                 onChange={(e) => update(i, e.target.value.replace(/\D/g, '').slice(0, 6))}
-                                                className={`w-24 px-2 py-1 text-sm font-mono border rounded ${pendente ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-400 dark:border-yellow-600' : 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600'} text-slate-800 dark:text-white`}
+                                                className={`w-24 px-2 py-1 text-sm font-mono border rounded-sm ${pendente ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-400 dark:border-yellow-600' : 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600'} text-slate-800 dark:text-white`}
                                             />
                                         </td>
                                         <td className="px-2 py-1.5 text-xs text-orange-700 dark:text-orange-300">
@@ -253,7 +253,7 @@ export default function WizardAutonomosSpa({
                 </div>
 
                 {erro && (
-                    <div className="mt-3 px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm rounded">
+                    <div className="mt-3 px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm rounded-sm">
                         {erro}
                     </div>
                 )}
@@ -266,14 +266,14 @@ export default function WizardAutonomosSpa({
                         <button
                             onClick={onCancel}
                             disabled={salvando}
-                            className="px-4 py-1.5 text-sm border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
+                            className="px-4 py-1.5 text-sm border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-sm"
                         >
                             Cancelar
                         </button>
                         <button
                             onClick={handleSalvar}
                             disabled={salvando || stats.pendentes > 0}
-                            className="px-4 py-1.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded"
+                            className="px-4 py-1.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-sm"
                             title={stats.pendentes > 0 ? `Preencha as ${stats.pendentes} matrícula(s) pendente(s) primeiro.` : ''}
                         >
                             {salvando ? 'Salvando…' : 'Salvar e gerar lançamentos'}

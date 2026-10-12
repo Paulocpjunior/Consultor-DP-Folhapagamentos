@@ -17,8 +17,8 @@ import { cnpjParaSerpro, consultarSerproConferencia, type ConsultaSerpro } from 
 import { extrairFuncionarios, lerPlanilhaResumo, ROTULO_CAMPO, type CampoResumo, type Mapeamento, type PlanilhaResumo } from '../../services/conferencia/resumoFolhaIob';
 import { consultarDctfWebDebitos, consultarDctfWebStatus, consultarESocialFechamento, consultarFgtsRecolhimento } from '../../services/serpro/serproIntegrationService';
 
-const botao = 'rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-40';
-const botaoSec = 'rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:text-slate-200 disabled:opacity-40';
+const botao = 'rounded-sm bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-40';
+const botaoSec = 'rounded-sm border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:text-slate-200 disabled:opacity-40';
 const cartao = 'rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800';
 const th = 'px-2 py-1 text-left font-medium text-slate-600 dark:text-slate-300';
 const td = 'px-2 py-1 text-slate-800 dark:text-slate-100';
@@ -167,7 +167,7 @@ const ConferenciaPosFolhaPanel: React.FC = () => {
             )}
 
             {resultado && grupo && ativa && grupo.empregador.replace(/\D/g, '').slice(0, 8) !== ativa.cnpj.replace(/\D/g, '').slice(0, 8) && (
-                <p role="alert" className="rounded bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">
+                <p role="alert" className="rounded-sm bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">
                     Estes totalizadores são de outra empresa (inscrição {grupo.empregador}), não da empresa ativa ({ativa.nome}, CNPJ {ativa.cnpj}). Confira os arquivos ou troque a empresa ativa.
                 </p>
             )}
@@ -175,17 +175,17 @@ const ConferenciaPosFolhaPanel: React.FC = () => {
                 <>
                     <div className={`${cartao} grid gap-3 md:grid-cols-3`}>
                         <label className="text-sm text-slate-700 dark:text-slate-200">Empresa e competência
-                            <select aria-label="Empresa e competência" className="mt-1 block w-full rounded border border-slate-300 bg-white px-2 py-1 dark:border-slate-600 dark:bg-slate-900"
+                            <select aria-label="Empresa e competência" className="mt-1 block w-full rounded-sm border border-slate-300 bg-white px-2 py-1 dark:border-slate-600 dark:bg-slate-900"
                                 value={grupo.chave} onChange={e => setGrupoChave(e.target.value)}>
                                 {grupos.map(g => <option key={g.chave} value={g.chave}>{nomeEmpresa(g.empregador) || g.empregador} · {competencia(g.perApur)} · {rotuloApuracao(g.indApuracao)}</option>)}
                             </select>
                         </label>
                         <label className="text-sm text-slate-700 dark:text-slate-200">Débitos previdenciários na DCTFWeb (sem IRRF, multa e juros)
-                            <input aria-label="Valor da DCTFWeb" inputMode="decimal" placeholder="0,00" className="mt-1 block w-full rounded border border-slate-300 bg-white px-2 py-1 dark:border-slate-600 dark:bg-slate-900"
+                            <input aria-label="Valor da DCTFWeb" inputMode="decimal" placeholder="0,00" className="mt-1 block w-full rounded-sm border border-slate-300 bg-white px-2 py-1 dark:border-slate-600 dark:bg-slate-900"
                                 value={dctf} onChange={e => setDctf(e.target.value)} />
                         </label>
                         <label className="text-sm text-slate-700 dark:text-slate-200">Guia do FGTS Digital (sem multa e juros)
-                            <input aria-label="Valor da guia do FGTS Digital" inputMode="decimal" placeholder="0,00" className="mt-1 block w-full rounded border border-slate-300 bg-white px-2 py-1 dark:border-slate-600 dark:bg-slate-900"
+                            <input aria-label="Valor da guia do FGTS Digital" inputMode="decimal" placeholder="0,00" className="mt-1 block w-full rounded-sm border border-slate-300 bg-white px-2 py-1 dark:border-slate-600 dark:bg-slate-900"
                                 value={fgts} onChange={e => setFgts(e.target.value)} />
                         </label>
                     </div>
@@ -238,7 +238,7 @@ const ConferenciaPosFolhaPanel: React.FC = () => {
                                 <p className="text-slate-700 dark:text-slate-200">{resumo.planilha.arquivo} · cabeçalho na linha {resumo.planilha.linhaCabecalho + 1} · <b>{funcionariosIob?.length ?? 0}</b> funcionário(s) lido(s){resultado?.resumoIob ? ` · ligação por ${resultado.resumoIob.chave === 'cpf' ? 'CPF' : resultado.resumoIob.chave === 'matricula' ? 'matrícula' : 'nenhuma (só totais)'}` : ''}</p>
                                 {resumo.planilha.abas.length > 1 && (
                                     <label className="block text-xs text-slate-600 dark:text-slate-300">Aba
-                                        <select aria-label="Aba do relatório" className="ml-2 rounded border border-slate-300 bg-white px-2 py-1 dark:border-slate-600 dark:bg-slate-900" value={resumo.planilha.aba} onChange={e => trocarAba(e.target.value)}>
+                                        <select aria-label="Aba do relatório" className="ml-2 rounded-sm border border-slate-300 bg-white px-2 py-1 dark:border-slate-600 dark:bg-slate-900" value={resumo.planilha.aba} onChange={e => trocarAba(e.target.value)}>
                                             {resumo.planilha.abas.map(a => <option key={a} value={a}>{a}</option>)}
                                         </select>
                                     </label>
@@ -246,7 +246,7 @@ const ConferenciaPosFolhaPanel: React.FC = () => {
                                 <div className="grid gap-2 md:grid-cols-5">
                                     {(Object.keys(ROTULO_CAMPO) as CampoResumo[]).map(c => (
                                         <label key={c} className="text-xs text-slate-600 dark:text-slate-300">{ROTULO_CAMPO[c]}
-                                            <select aria-label={`Coluna de ${ROTULO_CAMPO[c]}`} className="mt-0.5 block w-full rounded border border-slate-300 bg-white px-1 py-1 dark:border-slate-600 dark:bg-slate-900" value={resumo.mapa[c] ?? ''} onChange={e => mapear(c, e.target.value)}>
+                                            <select aria-label={`Coluna de ${ROTULO_CAMPO[c]}`} className="mt-0.5 block w-full rounded-sm border border-slate-300 bg-white px-1 py-1 dark:border-slate-600 dark:bg-slate-900" value={resumo.mapa[c] ?? ''} onChange={e => mapear(c, e.target.value)}>
                                                 <option value="">— não usar —</option>
                                                 {resumo.planilha.cabecalho.map((h, i) => <option key={i} value={i}>{h || `Coluna ${i + 1}`}</option>)}
                                             </select>
@@ -288,7 +288,7 @@ const ConferenciaPosFolhaPanel: React.FC = () => {
                                 <thead><tr><th className={th}>Gravidade</th><th className={th}>Regra</th><th className={th}>CPF</th><th className={th}>Matrícula</th><th className={th}>O que conferir</th></tr></thead>
                                 <tbody>{resultado.pendencias.map((p, i) => (
                                     <tr key={i} className="border-t border-slate-100 dark:border-slate-700">
-                                        <td className={td}><span className={`rounded px-2 py-0.5 text-xs ${ESTILO[p.gravidade].cls}`}>{ESTILO[p.gravidade].rotulo}</span></td>
+                                        <td className={td}><span className={`rounded-sm px-2 py-0.5 text-xs ${ESTILO[p.gravidade].cls}`}>{ESTILO[p.gravidade].rotulo}</span></td>
                                         <td className={td}>{p.regra}</td><td className={`${td} whitespace-nowrap`}>{p.cpf ? formatarCpf(p.cpf) : ''}</td><td className={td}>{p.matricula ?? ''}</td><td className={td}>{p.mensagem}</td>
                                     </tr>))}</tbody>
                             </table></div>}

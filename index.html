@@ -3,7 +3,9 @@
 <html lang="pt-br">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!-- Anti-cache do HTML: garante que o navegador sempre revalide o index e
          baixe o bundle JS mais recente apos um deploy. Sem isto, o index.html
@@ -12,15 +14,7 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>Consultor DP — Folha</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
     <style>
-      body {
-        font-feature-settings: 'cv11', 'ss01';
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
-      }
       
       /* --- Animações e Feedback Visual Otimizados --- */
 
@@ -67,7 +61,7 @@
       }
     </style>
 </head>
-  <body class="bg-slate-100/70 dark:bg-slate-950 text-slate-900 dark:text-slate-300 font-sans">
+  <body class="bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-300 font-sans">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>

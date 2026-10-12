@@ -110,7 +110,7 @@ const PontoPanel: React.FC<Props> = ({ currentUser }) => {
                         onClick={() => setTab(t.id)}
                         className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                             tab === t.id
-                                ? 'bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-300 shadow-sm'
+                                ? 'bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-300 shadow-xs'
                                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                         }`}
                     >
@@ -329,7 +329,7 @@ const TabImportar: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                         type="file"
                         accept=".txt,.acjef,.afdt,.dat,.AFD,.afd"
                         onChange={handleFileInput}
-                        className="block mx-auto text-sm text-slate-600 dark:text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 dark:file:bg-blue-900/40 file:text-blue-700 dark:file:text-blue-300"
+                        className="block mx-auto text-sm text-slate-600 dark:text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-sm file:border-0 file:text-sm file:font-medium file:bg-blue-50 dark:file:bg-blue-900/40 file:text-blue-700 dark:file:text-blue-300"
                     />
                     {arquivo && (
                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
@@ -675,7 +675,7 @@ const TabRegistros: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                                         {r.arquivo}
                                     </td>
                                     <td className="py-2 px-2 text-right">
-                                        <span className="px-1.5 py-0.5 text-xs bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 rounded">
+                                        <span className="px-1.5 py-0.5 text-xs bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-sm">
                                             {r.eventos?.length || 0}
                                         </span>
                                     </td>

@@ -19,7 +19,7 @@ import { listarEmpresasVisiveis } from '../../services/empresas/empresasService'
 import type { FormulaEvento } from '../../services/calculo/formulaEvento';
 import { aplicarValores, lerValoresIob, type LeituraValores } from '../../services/calculo/importacaoValores';
 
-const btn = 'rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
+const btn = 'rounded-sm border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
 const br = (c: string) => `${c.slice(5, 7)}/${c.slice(0, 4)}`;
 const num = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 6 });
 
@@ -72,24 +72,24 @@ const ImportacaoValoresPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => 
         finally { setOcupado(''); }
     }
 
-    if (!ativa) return <p className="rounded border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">Ative a empresa e a competência.</p>;
+    if (!ativa) return <p className="rounded-sm border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">Ative a empresa e a competência.</p>;
     return (
         <div className="space-y-4 text-sm">
             <div>
                 <h2 className="text-lg font-semibold text-slate-800 dark:text-white">Importação de valores · {competencia ? br(competencia) : '—'}</h2>
                 <p className="text-slate-600 dark:text-slate-300">O arquivo de lançamentos no layout de importação de ponto do IOB SAGE (Windows 3, de 40 posições, ou Windows 4, de 50, com a empresa e a competência) entra no movimento do mês: cada linha é um "Lançar evento" pelo cadastro do evento (horas, dias, % ou valor). O funcionário é achado pelo "Código no IOB" da ficha. O Apontamento gera esse arquivo a partir da planilha do cliente.</p>
             </div>
-            {encerrado && <p role="note" className="rounded bg-amber-50 p-2 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">Competência encerrada no Fim de mês: o movimento não recebe lançamentos. Peça a reabertura ao gestor do DP.</p>}
-            <section className="flex flex-wrap items-center gap-3 rounded border border-slate-200 p-3 dark:border-slate-700">
+            {encerrado && <p role="note" className="rounded-sm bg-amber-50 p-2 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">Competência encerrada no Fim de mês: o movimento não recebe lançamentos. Peça a reabertura ao gestor do DP.</p>}
+            <section className="flex flex-wrap items-center gap-3 rounded-sm border border-slate-200 p-3 dark:border-slate-700">
                 <label className={btn}>Escolher o arquivo (.txt)<input aria-label="Arquivo de valores" type="file" accept=".txt,text/plain" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) void abrir(f); e.target.value = ''; }} /></label>
                 {arquivo && <span className="text-slate-500">{arquivo}{leitura?.layout ? ` · ${leitura.layout === 'windows4' ? 'Windows 4 (50 posições)' : 'Windows 3 (40 posições)'}` : ''}</span>}
             </section>
-            {leitura && leitura.erros.length > 0 && <ul role="alert" className="list-disc rounded bg-red-50 p-2 pl-6 text-red-800 dark:bg-red-900/30 dark:text-red-200">{leitura.erros.map(x => <li key={x}>{x}</li>)}</ul>}
+            {leitura && leitura.erros.length > 0 && <ul role="alert" className="list-disc rounded-sm bg-red-50 p-2 pl-6 text-red-800 dark:bg-red-900/30 dark:text-red-200">{leitura.erros.map(x => <li key={x}>{x}</li>)}</ul>}
             {aplicacao && aplicacao.resultados.length > 0 && (
-                <section aria-label="Lançamentos importados" className="space-y-2 rounded border border-slate-200 p-3 dark:border-slate-700">
+                <section aria-label="Lançamentos importados" className="space-y-2 rounded-sm border border-slate-200 p-3 dark:border-slate-700">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="font-medium">{aplicacao.resultados.length - aplicacao.ignoradas} lançamento(s) prontos · {aplicacao.ignoradas} fora · {mudados.length} funcionário(s) com o movimento alterado</p>
-                        <button className="rounded bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={!mudados.length || encerrado || !!ocupado} onClick={gravar}>Gravar no movimento</button>
+                        <button className="rounded-sm bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={!mudados.length || encerrado || !!ocupado} onClick={gravar}>Gravar no movimento</button>
                     </div>
                     <div className="max-h-96 overflow-auto">
                         <table className="w-full text-xs"><thead className="sticky top-0 bg-white text-left text-slate-500 dark:bg-slate-800"><tr><th className="p-1">Linha</th><th className="p-1">Código</th><th className="p-1">Funcionário</th><th className="p-1">Evento</th><th className="p-1 text-right">Ref./valor</th><th className="p-1">Resultado</th></tr></thead>
@@ -103,8 +103,8 @@ const ImportacaoValoresPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => 
                 </section>
             )}
             {ocupado && <p role="status" className="text-blue-700 dark:text-blue-300">{ocupado}</p>}
-            {msg && <p role="status" className="rounded bg-green-50 p-2 text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
-            {erro && <p role="alert" className="rounded bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+            {msg && <p role="status" className="rounded-sm bg-green-50 p-2 text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
+            {erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
         </div>
     );
 };

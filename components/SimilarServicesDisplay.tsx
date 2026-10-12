@@ -16,7 +16,7 @@ const SimilarServicesDisplay: React.FC<SimilarServicesDisplayProps> = ({ service
     }
 
     return (
-        <div className="mt-6 p-6 bg-white dark:bg-slate-800 rounded-lg shadow-sm animate-fade-in">
+        <div className="mt-6 p-6 bg-white dark:bg-slate-800 rounded-lg shadow-xs animate-fade-in">
             <div className="flex items-center mb-4">
                 <LightBulbIcon className="w-6 h-6 text-sky-600 dark:text-sky-400" />
                 <h3 className="ml-3 text-xl font-bold text-slate-800 dark:text-slate-100">

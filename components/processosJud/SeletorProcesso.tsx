@@ -7,7 +7,7 @@ import React, { useEffect, useState } from 'react';
 import { listarProcessos } from '../../services/processosJud/processosJudService';
 import { rotuloProcesso, type ProcessoJudAdm } from '../../services/processosJud/processosJud';
 
-const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 
 /** Processos da empresa (lidos uma vez por empresa). */
 export function useProcessos(empresaId: string): ProcessoJudAdm[] {

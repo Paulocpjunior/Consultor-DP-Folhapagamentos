@@ -271,9 +271,9 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
     // Boas-vindas a cada login: vem ANTES do portão de empresa e período
     // (login → boas-vindas → ativar empresa e período → pendências).
     const boasVindas = showWelcome && currentUser ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-xs p-4">
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 dark:border-slate-700 overflow-hidden">
-                <div className="px-6 pt-6 pb-4 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 dark:from-blue-500/20 dark:to-indigo-500/20 border-b border-slate-200 dark:border-slate-700">
+                <div className="px-6 pt-6 pb-4 bg-linear-to-br from-blue-500/10 to-indigo-500/10 dark:from-blue-500/20 dark:to-indigo-500/20 border-b border-slate-200 dark:border-slate-700">
                     <div className="flex items-center gap-3">
                         <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-2xl shrink-0">
                             👋
@@ -425,7 +425,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                                 suas empresas em Usuários › Carteira, ou cadastre uma empresa nova.
                             </p>
                             <button onClick={() => setActiveTab('empresas')}
-                                className="mt-3 px-3 py-1.5 text-sm bg-amber-600 hover:bg-amber-700 text-white rounded font-medium">
+                                className="mt-3 px-3 py-1.5 text-sm bg-amber-600 hover:bg-amber-700 text-white rounded-sm font-medium">
                                 Ir para cadastro de empresas
                             </button>
                         </div>

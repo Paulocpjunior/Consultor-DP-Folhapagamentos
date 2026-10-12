@@ -13,7 +13,7 @@ const EmpresaAtivaFixa: React.FC<{ rotulo?: string }> = ({ rotulo = 'Empresa' })
         <span className="text-sm dark:text-white">
             {rotulo}{' '}
             <strong aria-label="Empresa ativa">{ativa.codigoSage} · {ativa.nome}</strong>{' '}
-            <button type="button" onClick={trocar} className="ml-1 rounded border border-slate-300 px-1.5 py-0.5 text-xs text-slate-600 dark:border-slate-600 dark:text-slate-300">⇄ trocar</button>
+            <button type="button" onClick={trocar} className="ml-1 rounded-sm border border-slate-300 px-1.5 py-0.5 text-xs text-slate-600 dark:border-slate-600 dark:text-slate-300">⇄ trocar</button>
         </span>
     );
 };

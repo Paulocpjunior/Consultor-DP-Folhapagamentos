@@ -33,8 +33,8 @@ import {
 } from '../../services/contribuintes/contribuinteIndividual';
 import { excluirPagamentosCI, gravarPagamentosCI, lerPagamentosCI, listarContribuintes, salvarContribuinte } from '../../services/contribuintes/contribuintesService';
 
-const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
-const btn = 'rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
+const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const btn = 'rounded-sm border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
 const br = (c: string) => `${c.slice(5, 7)}/${c.slice(0, 4)}`;
 const txt = (c: number) => (c ? (c / 100).toFixed(2).replace('.', ',') : '');
 const hojeLocal = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -220,7 +220,7 @@ const ContribuintesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
         finally { setOcupado(''); }
     }
 
-    if (!ativa) return <p className="rounded border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">Ative uma empresa para lançar pró-labore e RPA.</p>;
+    if (!ativa) return <p className="rounded-sm border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">Ative uma empresa para lançar pró-labore e RPA.</p>;
     const muda = (i: number, x: Partial<Linha>) => setLinhas(ls => ls.map((l, j) => (j === i ? { ...l, ...x } : l)));
     return (
         <div className="space-y-4 text-sm">
@@ -229,7 +229,7 @@ const ContribuintesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
                 <p className="text-slate-600 dark:text-slate-300">INSS de 11% até o teto (com outras fontes no mês, só até completar), 20% da empresa (no Simples fora do Anexo IV, no DAS), IRRF pela tabela do mês do pagamento e ISS retido do autônomo não inscrito no município. Sem férias e 13º; FGTS de 8% só do diretor equiparado (721). O S-2300 e o S-2399 do sócio e do diretor saem daqui.</p>
             </div>
 
-            <section className="space-y-2 rounded border border-slate-200 p-3 dark:border-slate-700">
+            <section className="space-y-2 rounded-sm border border-slate-200 p-3 dark:border-slate-700">
                 <div className="flex items-center justify-between"><p className="font-medium">Sócios, diretores e autônomos</p>
                     <button className={btn} onClick={() => setEdicao({ ...contribuinteVazio(ativa.id) })}>+ Cadastrar</button></div>
                 {contribuintes.length === 0 && <p className="text-slate-500">Ninguém cadastrado nesta empresa.</p>}
@@ -243,7 +243,7 @@ const ContribuintesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
                             </tr>))}</tbody></table>
                 )}
                 {edicao && (
-                    <div aria-label="Cadastro do contribuinte" className="grid gap-2 rounded bg-slate-50 p-2 sm:grid-cols-4 dark:bg-slate-900/40">
+                    <div aria-label="Cadastro do contribuinte" className="grid gap-2 rounded-sm bg-slate-50 p-2 sm:grid-cols-4 dark:bg-slate-900/40">
                         <label>CPF<input aria-label="CPF do contribuinte" className={`block w-full ${inp}`} value={edicao.cpf} disabled={!!edicao.id} onChange={e => setEdicao({ ...edicao, cpf: e.target.value })} /></label>
                         <label className="sm:col-span-2">Nome<input aria-label="Nome do contribuinte" className={`block w-full ${inp}`} value={edicao.nome} onChange={e => setEdicao({ ...edicao, nome: e.target.value })} /></label>
                         <label>Nascimento<input aria-label="Nascimento do contribuinte" type="date" className={`block w-full ${inp}`} value={edicao.nascimento} onChange={e => setEdicao({ ...edicao, nascimento: e.target.value })} /></label>
@@ -274,14 +274,14 @@ const ContribuintesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
                         </div>
                         <div className="flex justify-end gap-2 sm:col-span-4">
                             <button className={btn} onClick={() => setEdicao(null)}>Cancelar</button>
-                            <button className="rounded bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={!!ocupado} onClick={gravarCadastro}>Gravar cadastro</button>
+                            <button className="rounded-sm bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={!!ocupado} onClick={gravarCadastro}>Gravar cadastro</button>
                         </div>
                     </div>
                 )}
             </section>
 
             {comTSV.length > 0 && (
-                <section aria-label="S-2300 e S-2399" className="space-y-2 rounded border border-slate-200 p-3 dark:border-slate-700">
+                <section aria-label="S-2300 e S-2399" className="space-y-2 rounded-sm border border-slate-200 p-3 dark:border-slate-700">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="font-medium">eSocial do sócio e do diretor: S-2300 (início) e S-2399 (término)</p>
                         <select aria-label="Ambiente do S-2300 e S-2399" className={inp} value={tpAmb} onChange={e => setTpAmb(Number(e.target.value) as TpAmb)}><option value={2}>Produção restrita</option><option value={1}>Produção</option></select>
@@ -311,7 +311,7 @@ const ContribuintesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
                 </section>
             )}
 
-            <section className="space-y-2 rounded border border-slate-200 p-3 dark:border-slate-700">
+            <section className="space-y-2 rounded-sm border border-slate-200 p-3 dark:border-slate-700">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="font-medium">Pagamentos de {competencia ? br(competencia) : '—'}{gravadoPor ? ` · gravado por ${gravadoPor}` : ''}{encerrado ? ' · competência encerrada' : ''}</p>
                     <button className={btn} disabled={!ativos.length || encerrado} onClick={() => setLinhas(l => [...l, { contribuinteId: '', valor: '', descricao: '', dataPagamento: pagamentoPadrao(), iss: '', outras: [] }])}>+ Lançamento</button>
@@ -345,7 +345,7 @@ const ContribuintesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
                         </div>
                     );
                 })}
-                {linhas.length > 0 && errosLanc.length > 0 && <ul role="alert" className="list-disc rounded bg-red-50 p-2 pl-6 text-red-800 dark:bg-red-900/30 dark:text-red-200">{errosLanc.map(x => <li key={x}>{x}</li>)}</ul>}
+                {linhas.length > 0 && errosLanc.length > 0 && <ul role="alert" className="list-disc rounded-sm bg-red-50 p-2 pl-6 text-red-800 dark:bg-red-900/30 dark:text-red-200">{errosLanc.map(x => <li key={x}>{x}</li>)}</ul>}
                 {resultados.length > 0 && (
                     <table className="w-full text-xs">
                         <thead className="text-left text-slate-500"><tr><th className="p-1">Nome</th><th className="p-1 text-right">Bruto</th><th className="p-1 text-right">INSS</th><th className="p-1 text-right">IRRF</th><th className="p-1 text-right">ISS</th><th className="p-1 text-right">Líquido</th><th className="p-1 text-right">Empresa (20%)</th></tr></thead>
@@ -372,12 +372,12 @@ const ContribuintesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
                 <div className="flex flex-wrap justify-end gap-2">
                     {gravadoPor && !encerrado && <button className={btn} disabled={!!ocupado} onClick={excluirMes}>Excluir a gravação</button>}
                     <button className={btn} disabled={!resultados.some(r => r.situacao !== 'erro')} onClick={recibos}>Recibos (PDF)</button>
-                    <button className="rounded bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={encerrado || !!ocupado || !resultados.length || errosLanc.length > 0} onClick={gravarMes}>{gravadoPor ? 'Regravar o mês' : 'Gravar o mês'}</button>
+                    <button className="rounded-sm bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={encerrado || !!ocupado || !resultados.length || errosLanc.length > 0} onClick={gravarMes}>{gravadoPor ? 'Regravar o mês' : 'Gravar o mês'}</button>
                 </div>
             </section>
 
             {resultados.length > 0 && efetivos && (
-                <section aria-label="eSocial do pró-labore e RPA" className="space-y-2 rounded border border-slate-200 p-3 dark:border-slate-700">
+                <section aria-label="eSocial do pró-labore e RPA" className="space-y-2 rounded-sm border border-slate-200 p-3 dark:border-slate-700">
                     <p className="font-medium">eSocial: S-1200 e S-1210</p>
                     <div className="grid gap-2 sm:grid-cols-3">
                         {CHAVES_CI.map(k => (
@@ -404,8 +404,8 @@ const ContribuintesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
             )}
 
             {ocupado && <p role="status" className="text-blue-700 dark:text-blue-300">{ocupado}</p>}
-            {msg && <p role="status" className="rounded bg-green-50 p-2 text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
-            {erro && <p role="alert" className="rounded bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+            {msg && <p role="status" className="rounded-sm bg-green-50 p-2 text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
+            {erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
         </div>
     );
 };
@@ -417,7 +417,7 @@ const DadosS2300: React.FC<{ edicao: ContribuinteIndividual; muda: (x: Partial<D
     const end = (x: Partial<DadosTSV['endereco']>) => muda({ endereco: { ...en, ...x } });
     const fgts = !!CATEGORIAS_CI[edicao.categoria]?.fgts;
     return (
-        <fieldset aria-label="Dados do S-2300" className="grid gap-2 rounded border border-slate-200 p-2 sm:col-span-4 sm:grid-cols-4 dark:border-slate-700">
+        <fieldset aria-label="Dados do S-2300" className="grid gap-2 rounded-sm border border-slate-200 p-2 sm:col-span-4 sm:grid-cols-4 dark:border-slate-700">
             <legend className="px-1 text-xs font-medium">S-2300 e S-2399 (gerados pelo Consultor)</legend>
             <label>Sexo<select aria-label="Sexo" className={`block w-full ${inp}`} value={t.sexo} onChange={e => muda({ sexo: e.target.value as DadosTSV['sexo'] })}><option value="">—</option><option value="F">Feminino</option><option value="M">Masculino</option></select></label>
             <label>Raça/cor<select aria-label="Raça/cor" className={`block w-full ${inp}`} value={t.racaCor} onChange={e => muda({ racaCor: e.target.value })}><option value="">—</option>{RACA_COR.map(([k, r]) => <option key={k} value={k}>{r}</option>)}</select></label>

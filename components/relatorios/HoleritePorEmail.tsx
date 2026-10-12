@@ -138,7 +138,7 @@ const HoleritePorEmail: React.FC<Props> = ({ empresa, competencia, folha, fichas
                     ? <button className={`${btn} bg-green-700`} disabled={!comWhatsApp.length || !!andamento} onClick={carregarTemplates}>Enviar pelo WhatsApp…</button>
                     : (
                         <span className="flex flex-wrap items-center gap-2">
-                            <select aria-label="Modelo do WhatsApp" className="rounded border border-slate-300 px-2 py-1 dark:border-slate-600 dark:bg-slate-900" value={template} onChange={e => setTemplate(e.target.value)}>
+                            <select aria-label="Modelo do WhatsApp" className="rounded-sm border border-slate-300 px-2 py-1 dark:border-slate-600 dark:bg-slate-900" value={template} onChange={e => setTemplate(e.target.value)}>
                                 <option value="">— modelo do DP com documento —</option>
                                 {templates.map(x => <option key={x.nome} value={x.nome}>{x.nome}{x.descricao ? ` · ${x.descricao}` : ''}</option>)}
                             </select>

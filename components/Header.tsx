@@ -86,7 +86,7 @@ const Header: React.FC<HeaderProps> = ({ theme, toggleTheme, onMenuClick, descri
 
           <button
               onClick={onMenuClick}
-              className="btn-press md:hidden p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 dark:focus:ring-offset-slate-900 transition-colors"
+              className="btn-press md:hidden p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 dark:focus:ring-offset-slate-900 transition-colors"
               aria-label="Abrir menu"
           >
               <MenuIcon className="w-6 h-6" />

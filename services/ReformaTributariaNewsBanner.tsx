@@ -119,7 +119,7 @@ const ReformaTributariaNewsBanner: React.FC = () => {
                     </button>
                     <button
                         onClick={() => setVisible(false)}
-                        className="p-1 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                        className="p-1 rounded-sm text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                         title="Fechar"
                     >
                         <CloseIcon />
@@ -129,18 +129,18 @@ const ReformaTributariaNewsBanner: React.FC = () => {
 
             {!expanded ? (
                 /* Compact carousel */
-                <div className="relative bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm">
+                <div className="relative bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden shadow-xs">
                     {/* Accent stripe */}
-                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 to-orange-500" />
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-linear-to-b from-amber-400 to-orange-500" />
 
                     <div className="pl-5 pr-4 py-4 flex items-center gap-4">
                         {/* Icon */}
-                        <div className="text-2xl flex-shrink-0 w-10 h-10 flex items-center justify-center bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-slate-100 dark:border-slate-600">
+                        <div className="text-2xl shrink-0 w-10 h-10 flex items-center justify-center bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-slate-100 dark:border-slate-600">
                             {current.icon}
                         </div>
 
                         {/* Content */}
-                        <div className="flex-grow min-w-0">
+                        <div className="grow min-w-0">
                             <div className="flex items-center gap-2 mb-1 flex-wrap">
                                 <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${current.tagColor}`}>
                                     {current.tag}
@@ -156,7 +156,7 @@ const ReformaTributariaNewsBanner: React.FC = () => {
                         </div>
 
                         {/* Navigation */}
-                        <div className="flex flex-col items-center gap-2 flex-shrink-0">
+                        <div className="flex flex-col items-center gap-2 shrink-0">
                             <button onClick={prev} className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-sky-100 dark:hover:bg-sky-900/30 hover:text-sky-600 transition-colors">
                                 <ChevronLeftIcon />
                             </button>
@@ -189,9 +189,9 @@ const ReformaTributariaNewsBanner: React.FC = () => {
                         <div
                             key={item.id}
                             onClick={() => { setActiveIndex(i); setExpanded(false); }}
-                            className="group relative bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-sm hover:shadow-md hover:border-sky-300 dark:hover:border-sky-700 transition-all cursor-pointer"
+                            className="group relative bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-xs hover:shadow-md hover:border-sky-300 dark:hover:border-sky-700 transition-all cursor-pointer"
                         >
-                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 to-orange-500 rounded-l-xl" />
+                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-linear-to-b from-amber-400 to-orange-500 rounded-l-xl" />
                             <div className="pl-3">
                                 <div className="flex items-start justify-between gap-2 mb-2">
                                     <div className="flex items-center gap-2 flex-wrap">
@@ -200,7 +200,7 @@ const ReformaTributariaNewsBanner: React.FC = () => {
                                         </span>
                                         <span className="text-[10px] font-mono text-slate-400">{item.date}</span>
                                     </div>
-                                    <span className="text-lg flex-shrink-0">{item.icon}</span>
+                                    <span className="text-lg shrink-0">{item.icon}</span>
                                 </div>
                                 <p className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-1 group-hover:text-sky-700 dark:group-hover:text-sky-400 transition-colors">
                                     {item.title}

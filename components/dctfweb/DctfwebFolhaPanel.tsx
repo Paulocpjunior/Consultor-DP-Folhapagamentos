@@ -128,13 +128,13 @@ const DctfwebFolhaPanel: React.FC<{ usuario?: Usuario }> = ({ usuario }) => {
                     A DCTFWeb junta a folha (eSocial, S-1299), a EFD-Reinf (Contábil) e o MIT (Fiscal). O DP emite o DARF a qualquer momento e transmite quando os três insumos estão confirmados;
                     com pendência, a transmissão é do Fiscal. Se o S-1299 saiu com "Transmitir a DCTFWeb logo após o fechamento", a Receita pode já ter transmitido: a situação abaixo mostra.
                 </p>
-                {sistemaDaCompetencia(inicios, comp).avisos.filter(a => /DCTFWeb/.test(a)).map(a => <p key={a} role="note" className="mt-2 rounded bg-amber-50 p-2 text-xs text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">{a}</p>)}
+                {sistemaDaCompetencia(inicios, comp).avisos.filter(a => /DCTFWeb/.test(a)).map(a => <p key={a} role="note" className="mt-2 rounded-sm bg-amber-50 p-2 text-xs text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">{a}</p>)}
                 <button className={`${btn} mt-3 bg-blue-700 text-white`} disabled={!!ocupado} onClick={consultar}>{leitura ? 'Consultar de novo' : 'Consultar a DCTFWeb'}</button>
             </div>
 
             {ocupado && <p className="text-sm text-blue-700 dark:text-blue-300">{ocupado}</p>}
-            {erro && <p role="alert" className="rounded bg-red-50 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
-            {feito && <p role="status" className="rounded bg-green-50 p-2 text-sm text-green-800 dark:bg-green-900/30 dark:text-green-200">{feito}</p>}
+            {erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+            {feito && <p role="status" className="rounded-sm bg-green-50 p-2 text-sm text-green-800 dark:bg-green-900/30 dark:text-green-200">{feito}</p>}
 
             {leitura && acoes && (
                 <>
@@ -151,7 +151,7 @@ const DctfwebFolhaPanel: React.FC<{ usuario?: Usuario }> = ({ usuario }) => {
                             <ul className="mt-2 space-y-2">
                                 {leitura.semaforo.selos.map(s => (
                                     <li key={s.rotulo} className="flex flex-wrap items-start gap-2">
-                                        <span className={`rounded px-2 py-0.5 text-xs font-medium ${COR[s.estado]}`}>{ROTULO_ESTADO[s.estado]}</span>
+                                        <span className={`rounded-sm px-2 py-0.5 text-xs font-medium ${COR[s.estado]}`}>{ROTULO_ESTADO[s.estado]}</span>
                                         <span><strong>{s.rotulo}</strong> — {s.detalhe}</span>
                                     </li>
                                 ))}
@@ -193,14 +193,14 @@ const DctfwebFolhaPanel: React.FC<{ usuario?: Usuario }> = ({ usuario }) => {
                             <h3 className="font-semibold">{acoes.retificadora ? 'Retificadora' : 'Transmissão'}</h3>
                             {acoes.retificadora && (
                                 <label className="block text-xs">Motivo da retificadora
-                                    <textarea aria-label="Motivo da retificadora" className="mt-1 block w-full rounded border border-slate-300 p-2 dark:border-slate-600 dark:bg-slate-900" rows={2} value={motivo} onChange={e => setMotivo(e.target.value)} placeholder="Ex.: S-1200 retificado depois da transmissão de 12/10" />
+                                    <textarea aria-label="Motivo da retificadora" className="mt-1 block w-full rounded-sm border border-slate-300 p-2 dark:border-slate-600 dark:bg-slate-900" rows={2} value={motivo} onChange={e => setMotivo(e.target.value)} placeholder="Ex.: S-1200 retificado depois da transmissão de 12/10" />
                                 </label>
                             )}
                             {!acoes.podeTransmitir && (
                                 <details className="text-xs">
                                     <summary className="cursor-pointer">Sou do Fiscal (ou admin) e vou transmitir com insumo pendente</summary>
                                     <label className="mt-1 flex items-center gap-1"><input type="checkbox" checked={comPendencia} onChange={e => setComPendencia(e.target.checked)} />Confirmo: transmitir sem o insumo pendente</label>
-                                    <textarea aria-label="Justificativa" className="mt-1 block w-full rounded border border-slate-300 p-2 dark:border-slate-600 dark:bg-slate-900" rows={2} value={justificativa} onChange={e => setJustificativa(e.target.value)} placeholder="Por que transmitir agora, sem o insumo do outro departamento?" />
+                                    <textarea aria-label="Justificativa" className="mt-1 block w-full rounded-sm border border-slate-300 p-2 dark:border-slate-600 dark:bg-slate-900" rows={2} value={justificativa} onChange={e => setJustificativa(e.target.value)} placeholder="Por que transmitir agora, sem o insumo do outro departamento?" />
                                 </details>
                             )}
                             <button className={`${btn} bg-green-700 text-white`} disabled={!!ocupado || !leitura.situacao.ok || (!acoes.podeTransmitir && !comPendencia)} onClick={transmitir}>

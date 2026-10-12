@@ -96,9 +96,9 @@ const EmpresaForm: React.FC<Props> = ({ currentUser, empresaParaEditar, onSalvo,
                         onBlur={(e) => { const f = formatCnpj(e.target.value); if (f) setCnpj(f); }}
                         placeholder="00.000.000/0000-00"
                         disabled={editando}
-                        className="flex-1 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 disabled:bg-slate-100 dark:disabled:bg-slate-800 text-slate-800 dark:text-white rounded" />
+                        className="flex-1 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 disabled:bg-slate-100 dark:disabled:bg-slate-800 text-slate-800 dark:text-white rounded-sm" />
                     <button type="button" onClick={consultar} disabled={busy || editando}
-                        className="px-3 py-2 text-sm bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded disabled:opacity-50">
+                        className="px-3 py-2 text-sm bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-sm disabled:opacity-50">
                         Consultar
                     </button>
                 </div>
@@ -109,12 +109,12 @@ const EmpresaForm: React.FC<Props> = ({ currentUser, empresaParaEditar, onSalvo,
                 <div>
                     <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Razao social</label>
                     <input type="text" value={razaoSocial} onChange={(e) => setRazaoSocial(e.target.value)}
-                        className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded" />
+                        className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-sm" />
                 </div>
                 <div>
                     <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Nome fantasia</label>
                     <input type="text" value={nomeFantasia} onChange={(e) => setNomeFantasia(e.target.value)}
-                        className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded" />
+                        className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-sm" />
                 </div>
             </div>
 
@@ -123,14 +123,14 @@ const EmpresaForm: React.FC<Props> = ({ currentUser, empresaParaEditar, onSalvo,
                 <input type="text" value={codigoSage}
                     onChange={(e) => setCodigoSage(e.target.value.replace(/\D/g, '').slice(0, 4))}
                     placeholder="0229" maxLength={4}
-                    className="w-32 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded" />
+                    className="w-32 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-sm" />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-[8rem_1fr] gap-3">
                 <div>
                     <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1" htmlFor="empresa-uf">UF do local de trabalho</label>
                     <select id="empresa-uf" value={uf} onChange={(e) => setUf(e.target.value)}
-                        className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded">
+                        className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-sm">
                         <option value="">—</option>
                         {UFS.map(x => <option key={x} value={x}>{x}</option>)}
                     </select>
@@ -138,7 +138,7 @@ const EmpresaForm: React.FC<Props> = ({ currentUser, empresaParaEditar, onSalvo,
                 <div>
                     <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1" htmlFor="empresa-municipio">Município</label>
                     <input id="empresa-municipio" type="text" value={municipio} onChange={(e) => setMunicipio(e.target.value)}
-                        className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded" />
+                        className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-sm" />
                 </div>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">A UF decide o salário mínimo estadual (piso regional, como o de São Paulo) conferido na folha.</p>
@@ -163,11 +163,11 @@ const EmpresaForm: React.FC<Props> = ({ currentUser, empresaParaEditar, onSalvo,
 
             <div className="flex gap-2 pt-2">
                 <button type="submit" disabled={busy}
-                    className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded font-medium">
+                    className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-sm font-medium">
                     {busy ? 'Salvando...' : (editando ? 'Salvar alteracoes' : 'Salvar empresa')}
                 </button>
                 <button type="button" onClick={onCancelar}
-                    className="px-4 py-2 text-sm bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded">
+                    className="px-4 py-2 text-sm bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-sm">
                     Cancelar
                 </button>
             </div>

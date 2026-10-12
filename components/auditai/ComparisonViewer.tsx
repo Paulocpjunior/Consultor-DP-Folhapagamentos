@@ -73,26 +73,26 @@ const ComparisonViewer: React.FC<Props> = ({ data, onBack }) => {
 
     return (
         <div className="space-y-6 animate-fadeIn">
-            <div className="flex flex-col md:flex-row justify-between items-center bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border dark:border-slate-700">
+            <div className="flex flex-col md:flex-row justify-between items-center bg-white dark:bg-slate-800 p-4 rounded-xl shadow-xs border dark:border-slate-700">
                 <div>
                     <h2 className="text-xl font-bold text-slate-800 dark:text-white">Análise Comparativa (Horizontal)</h2>
                     <p className="text-sm text-slate-500">{data.period1Label} vs {data.period2Label}</p>
                 </div>
                 <div className="flex gap-2 mt-4 md:mt-0">
-                    <button onClick={onBack} className="px-4 py-2 border rounded hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300">Voltar</button>
-                    <button onClick={handleExportPDF} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Exportar PDF</button>
+                    <button onClick={onBack} className="px-4 py-2 border rounded-sm hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300">Voltar</button>
+                    <button onClick={handleExportPDF} className="px-4 py-2 bg-blue-600 text-white rounded-sm hover:bg-blue-700">Exportar PDF</button>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-xl shadow-sm border dark:border-slate-700 overflow-hidden">
+                <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-xl shadow-xs border dark:border-slate-700 overflow-hidden">
                     <div className="p-4 border-b dark:border-slate-700 flex justify-between items-center gap-4">
                         <input 
                             type="text" 
                             placeholder="Buscar conta..." 
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
-                            className="flex-1 p-2 border rounded text-sm dark:bg-slate-700 dark:text-white"
+                            className="flex-1 p-2 border rounded-sm text-sm dark:bg-slate-700 dark:text-white"
                         />
                         <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 cursor-pointer">
                             <input type="checkbox" checked={hideZero} onChange={e => setHideZero(e.target.checked)} />
@@ -132,7 +132,7 @@ const ComparisonViewer: React.FC<Props> = ({ data, onBack }) => {
                     </div>
                 </div>
 
-                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border dark:border-slate-700 p-6 flex flex-col">
+                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xs border dark:border-slate-700 p-6 flex flex-col">
                     <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
                         <span>🧠</span> Análise IA de Variações
                     </h3>

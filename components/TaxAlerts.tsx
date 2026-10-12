@@ -46,7 +46,7 @@ const TaxAlerts: React.FC<TaxAlertsProps> = ({ results, searchType }) => {
 
 
     return (
-        <section className="mt-8 p-6 bg-white dark:bg-slate-800 rounded-lg shadow-sm animate-fade-in">
+        <section className="mt-8 p-6 bg-white dark:bg-slate-800 rounded-lg shadow-xs animate-fade-in">
             <div className="flex items-center mb-4">
                 <ShieldIcon className="w-7 h-7 text-sky-600 dark:text-sky-400" />
                 <h2 className="ml-3 text-2xl font-bold text-slate-800 dark:text-slate-100">

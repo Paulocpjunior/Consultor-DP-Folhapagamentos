@@ -1024,7 +1024,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                             value={competencia}
                             onChange={(e) => setCompetencia(e.target.value)}
                             placeholder="03/2026"
-                            className="ml-2 px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded w-24"
+                            className="ml-2 px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-sm w-24"
                         />
                     </label>
                     <label className="text-sm text-slate-700 dark:text-slate-300">
@@ -1032,7 +1032,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                         <select
                             value={flag}
                             onChange={(e) => setFlag(e.target.value as FolhaFlag)}
-                            className="ml-2 px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded"
+                            className="ml-2 px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-sm"
                         >
                             {(Object.keys(FLAG_LABELS) as FolhaFlag[]).map((k) => (
                                 <option key={k} value={k}>{FLAG_LABELS[k]}</option>
@@ -1056,7 +1056,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                     <button
                         onClick={handleProcessar}
                         disabled={processando || !file}
-                        className="px-4 py-1.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded"
+                        className="px-4 py-1.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-sm"
                     >
                         {processando ? 'Processando…' : '⭱ Processar'}
                     </button>
@@ -1069,7 +1069,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                     {parsed.empresas.length > 1 && (
                         <div className="flex flex-col gap-2 mb-2">
                             {!competenciaCasaAlguma && (
-                                <div className="text-xs px-2 py-1 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 rounded">
+                                <div className="text-xs px-2 py-1 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 rounded-sm">
                                     ⚠ Nenhuma aba do arquivo casa com a competência <strong>{competencia}</strong>.{' '}
                                     {parsedParaExportacao && parsedParaExportacao.empresas.length === 0
                                         ? <>A exportação está <strong>bloqueada</strong>: renomeie a aba do mês atual (ex.: &quot;ABRIL 2026&quot;) ou ajuste a competência selecionada.</>
@@ -1078,7 +1078,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                                 </div>
                             )}
                             {competenciaCasaAlguma && empresasFiltradas.length < parsed.empresas.length && (
-                                <div className="text-xs px-2 py-1 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-200 rounded">
+                                <div className="text-xs px-2 py-1 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-200 rounded-sm">
                                     🔎 Filtro estrito ativo: mostrando {empresasFiltradas.length} aba(s) que casam com competência <strong>{competencia}</strong>. {parsed.empresas.length - empresasFiltradas.length} aba(s) histórica(s) ocultada(s).
                                 </div>
                             )}
@@ -1101,26 +1101,26 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                     )}
 
                     {/* Toolbar do perfil de colunas */}
-                    <div className="flex flex-wrap gap-2 items-center mb-3 p-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded">
+                    <div className="flex flex-wrap gap-2 items-center mb-3 p-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-sm">
                         <span className="text-xs text-emerald-800 dark:text-emerald-200 font-semibold">
                             🗂 Colunas selecionadas: {colunasAtivas[empresaObj.nome]?.size ?? 0} de {empresaObj.colunas.length}
                         </span>
                         <button
                             onClick={() => marcarTodasColunas(empresaObj.nome, true)}
-                            className="text-xs px-2 py-0.5 border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 rounded"
+                            className="text-xs px-2 py-0.5 border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 rounded-sm"
                         >
                             Marcar todas
                         </button>
                         <button
                             onClick={() => marcarTodasColunas(empresaObj.nome, false)}
-                            className="text-xs px-2 py-0.5 border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 rounded"
+                            className="text-xs px-2 py-0.5 border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 rounded-sm"
                         >
                             Desmarcar todas
                         </button>
                         <button
                             onClick={handleSalvarPerfil}
                             disabled={salvandoPerfil || !perfilDirty}
-                            className="ml-auto text-xs px-2 py-1 font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="ml-auto text-xs px-2 py-1 font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-sm disabled:opacity-50 disabled:cursor-not-allowed"
                             title="Salva a seleção atual como padrão para esse cliente. Próximos meses já vêm com esse padrão marcado."
                         >
                             {salvandoPerfil ? 'Salvando…' : '💾 Salvar como padrão deste cliente'}
@@ -1133,7 +1133,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                     {/* Colunas marcadas que o mapeamento não conhece — avisa ANTES
                         de exportar, em vez de deixar a exportação sair vazia. */}
                     {marcadasSemMapeamento.length > 0 && (
-                        <div className="mb-3 p-2 text-xs bg-rose-50 dark:bg-rose-900/20 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 rounded">
+                        <div className="mb-3 p-2 text-xs bg-rose-50 dark:bg-rose-900/20 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 rounded-sm">
                             <div className="font-semibold">
                                 ⚠ {marcadasSemMapeamento.length} coluna(s) marcada(s) não estão no mapeamento deste cliente
                                 e serão ignoradas na exportação:
@@ -1146,7 +1146,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                             </div>
                             <button
                                 onClick={handleAbrirWizardMapeamento}
-                                className="mt-2 px-2 py-1 text-xs font-medium bg-rose-600 hover:bg-rose-700 text-white rounded"
+                                className="mt-2 px-2 py-1 text-xs font-medium bg-rose-600 hover:bg-rose-700 text-white rounded-sm"
                             >
                                 🛠 Ajustar mapeamento de colunas
                             </button>
@@ -1189,12 +1189,12 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                                                         <span className="text-xs">{c}</span>
                                                     </span>
                                                     <span className="flex items-center gap-1">
-                                                        <span className={`text-[10px] px-1 rounded ${corBadge}`}>
+                                                        <span className={`text-[10px] px-1 rounded-sm ${corBadge}`}>
                                                             {preench}/{totalFunc}
                                                         </span>
                                                         {!mapeada && (
                                                             <span
-                                                                className="text-[10px] px-1 rounded bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
+                                                                className="text-[10px] px-1 rounded-sm bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300"
                                                                 title={`A coluna "${c}" não está no mapeamento deste cliente. Mesmo marcada, ela não vira lançamento no TXT. Use "Ajustar mapeamento de colunas".`}
                                                             >
                                                                 sem mapeamento
@@ -1272,14 +1272,14 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                         <button
                             onClick={handleSalvarMatriculas}
                             disabled={Object.keys(matriculasEdit).length === 0}
-                            className="px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 rounded"
+                            className="px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 rounded-sm"
                         >
                             💾 Salvar matrículas
                         </button>
                         {usaMapeamentoDeColunas && (
                             <button
                                 onClick={handleAbrirWizardMapeamento}
-                                className="ml-2 px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
+                                className="ml-2 px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-sm"
                                 title="Revisar/ajustar quais colunas da planilha viram quais eventos do IOB SAGE."
                             >
                                 🛠 Ajustar mapeamento de colunas
@@ -1299,7 +1299,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                         <button
                             onClick={() => setExportacaoAberta(true)}
                             disabled={processando}
-                            className="px-4 py-1.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded"
+                            className="px-4 py-1.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-sm"
                         >
                             ▶ Exportar TXTs por empresa
                         </button>
@@ -1309,7 +1309,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                                 value={layoutPonto}
                                 onChange={(e) => setLayoutPonto(e.target.value as LayoutPontoIob)}
                                 title="Precisa ser o mesmo layout selecionado na tela de importação da IOB."
-                                className="ml-1 px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded"
+                                className="ml-1 px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-sm"
                             >
                                 {(Object.keys(LAYOUT_PONTO_LABELS) as LayoutPontoIob[]).map((k) => (
                                     <option key={k} value={k}>{LAYOUT_PONTO_LABELS[k]}</option>
@@ -1322,7 +1322,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                     </div>
 
                     {resultado && resultado.lancamentos.length > 0 && (
-                        <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded">
+                        <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-sm">
                             <div className="font-semibold text-green-800 dark:text-green-200">
                                 ✓ {resultado.lancamentos.length} lançamento(s) gerados
                             </div>
@@ -1330,7 +1330,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                     )}
 
                     {resultado && resultado.lancamentos.length > 0 && (
-                        <details className="mt-2 border border-slate-200 dark:border-slate-700 rounded" open>
+                        <details className="mt-2 border border-slate-200 dark:border-slate-700 rounded-sm" open>
                             <summary className="px-3 py-2 cursor-pointer bg-slate-50 dark:bg-slate-800 text-sm font-medium text-slate-700 dark:text-slate-200">
                                 Pré-visualização dos lançamentos ({resultado.lancamentos.length})
                             </summary>
@@ -1418,12 +1418,12 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
             )}
 
             {msg && (
-                <div className="text-sm text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/20 px-3 py-2 rounded border border-green-200 dark:border-green-800">
+                <div className="text-sm text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/20 px-3 py-2 rounded-sm border border-green-200 dark:border-green-800">
                     {msg}
                 </div>
             )}
             {erro && (
-                <div className="text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded border border-red-200 dark:border-red-800 whitespace-pre-line">
+                <div className="text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-sm border border-red-200 dark:border-red-800 whitespace-pre-line">
                     {erro}
                 </div>
             )}
@@ -1496,16 +1496,16 @@ const ContextBar: React.FC<{ sessao: SessaoFolha; currentUser: User; onTrocar: (
     useEffect(() => { const id = setInterval(() => setAgora(new Date()), 60_000); return () => clearInterval(id); }, []);
     const ini = iniciaisDe(sessao.empresa.nomeFantasia || sessao.empresa.razaoSocial || '?');
     return (
-        <div className="p-4 sm:p-5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm">
+        <div className="p-4 sm:p-5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xs">
             <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-dashed border-slate-200 dark:border-slate-700">
                 <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-white grid place-items-center font-bold text-base shadow-md">{ini}</div>
+                    <div className="w-11 h-11 rounded-lg bg-linear-to-br from-blue-500 to-indigo-600 text-white grid place-items-center font-bold text-base shadow-md">{ini}</div>
                     <div>
                         <div className="font-bold text-slate-800 dark:text-white text-base leading-tight">{sessao.empresa.nomeFantasia || sessao.empresa.razaoSocial}</div>
                         <div className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5">{formatCnpjBr(sessao.empresa.cnpj)} · SAGE {sessao.empresa.codigoSage}</div>
                     </div>
                 </div>
-                <button onClick={onTrocar} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-800 hover:text-white dark:hover:bg-slate-600 rounded transition-colors">
+                <button onClick={onTrocar} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-800 hover:text-white dark:hover:bg-slate-600 rounded-sm transition-colors">
                     <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
                     Trocar empresa
                 </button>

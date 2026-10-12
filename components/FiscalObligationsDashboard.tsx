@@ -259,7 +259,7 @@ const FiscalObligationsDashboard: React.FC = () => {
       )}
 
       {/* Header */}
-      <div className="bg-gradient-to-r from-sky-600 to-indigo-600 rounded-2xl p-6 text-white">
+      <div className="bg-linear-to-r from-sky-600 to-indigo-600 rounded-2xl p-6 text-white">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-2xl font-black tracking-tight">📋 Obrigações Fiscais & Acessórias</h1>
@@ -279,7 +279,7 @@ const FiscalObligationsDashboard: React.FC = () => {
             { label: 'Vencendo (≤3 dias)', value: kpis.vencendoHoje, icon: '🔥', color: kpis.vencendoHoje > 0 ? 'bg-orange-500/40' : 'bg-white/15' },
             { label: 'Alertas Ativos', value: kpis.alertasAtivos, icon: '🔔', color: kpis.alertasAtivos > 0 ? 'bg-emerald-500/30' : 'bg-white/15' },
           ].map(kpi => (
-            <div key={kpi.label} className={`${kpi.color} rounded-xl p-3 text-center backdrop-blur-sm`}>
+            <div key={kpi.label} className={`${kpi.color} rounded-xl p-3 text-center backdrop-blur-xs`}>
               <div className="text-2xl">{kpi.icon}</div>
               <div className="text-2xl font-black">{kpi.value}</div>
               <div className="text-xs text-sky-100">{kpi.label}</div>
@@ -301,7 +301,7 @@ const FiscalObligationsDashboard: React.FC = () => {
       </div>
 
       {/* Filtros */}
-      <div className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm space-y-4">
+      <div className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-xs space-y-4">
         <div className="flex items-center gap-2 mb-2">
           <span className="text-sky-500">🔍</span>
           <h2 className="font-bold text-slate-700 dark:text-slate-200 text-sm uppercase tracking-wider">Filtros</h2>
@@ -313,7 +313,7 @@ const FiscalObligationsDashboard: React.FC = () => {
           value={busca}
           onChange={e => setBusca(e.target.value)}
           placeholder="Buscar por nome ou sigla (ex: DCTF, eSocial, SPED...)"
-          className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none"
+          className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-hidden"
         />
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -321,7 +321,7 @@ const FiscalObligationsDashboard: React.FC = () => {
           <div>
             <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Regime Tributário</label>
             <select value={regimeFiltro} onChange={e => setRegimeFiltro(e.target.value as Regime)}
-              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none">
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-hidden">
               {Object.entries(REGIME_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </div>
@@ -330,7 +330,7 @@ const FiscalObligationsDashboard: React.FC = () => {
           <div>
             <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Categoria</label>
             <select value={categoriaFiltro} onChange={e => setCategoriaFiltro(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none">
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-hidden">
               <option value="todos">Todas</option>
               <option value="federal">Federal</option>
               <option value="estadual">Estadual</option>
@@ -344,7 +344,7 @@ const FiscalObligationsDashboard: React.FC = () => {
           <div>
             <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Periodicidade</label>
             <select value={periodicidadeFiltro} onChange={e => setPeriodicidadeFiltro(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none">
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-hidden">
               <option value="todos">Todas</option>
               <option value="mensal">Mensal</option>
               <option value="trimestral">Trimestral</option>
@@ -362,7 +362,7 @@ const FiscalObligationsDashboard: React.FC = () => {
         const periodoLabel = { mensal: '🔄 Mensais', anual: '📅 Anuais', trimestral: '📆 Trimestrais', eventual: '⚡ Eventuais / Reforma' };
 
         return (
-          <div key={periodo} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden">
+          <div key={periodo} className="bg-white dark:bg-slate-800 rounded-xl shadow-xs overflow-hidden">
             <div className="px-5 py-3 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
               <h2 className="font-black text-slate-700 dark:text-slate-200">{periodoLabel[periodo]}</h2>
               <span className="text-xs bg-sky-100 dark:bg-sky-900/40 text-sky-600 dark:text-sky-400 px-2 py-0.5 rounded-full font-bold">{lista.length}</span>
@@ -382,12 +382,12 @@ const FiscalObligationsDashboard: React.FC = () => {
                     <div className="px-5 py-4 flex items-center gap-4 cursor-pointer" onClick={() => setExpandido(isExpanded ? null : obrigacao.id)}>
 
                       {/* Status indicator */}
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg flex-shrink-0 ${sc.bg} ${sc.text}`}>
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg shrink-0 ${sc.bg} ${sc.text}`}>
                         {sc.icon}
                       </div>
 
                       {/* Info */}
-                      <div className="flex-grow min-w-0">
+                      <div className="grow min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-black text-slate-800 dark:text-white text-sm">{obrigacao.sigla}</span>
                           <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${CATEGORIA_COLORS[obrigacao.categoria]}`}>
@@ -403,7 +403,7 @@ const FiscalObligationsDashboard: React.FC = () => {
                       </div>
 
                       {/* Vencimento */}
-                      <div className="text-right flex-shrink-0">
+                      <div className="text-right shrink-0">
                         <div className={`font-black text-sm ${sc.text}`}>
                           {typeof obrigacao.diaVencimento === 'number'
                             ? `Dia ${obrigacao.diaVencimento}`
@@ -491,7 +491,7 @@ const FiscalObligationsDashboard: React.FC = () => {
 
       {/* Modal Alerta */}
       {showAlertaModal && obrigacaoSelecionada && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md p-6">
             <h3 className="font-black text-slate-800 dark:text-white text-lg mb-1">🔔 Configurar Alerta</h3>
             <p className="text-sm text-slate-500 mb-5">
@@ -507,7 +507,7 @@ const FiscalObligationsDashboard: React.FC = () => {
                   value={novoAlerta.responsavel}
                   onChange={e => setNovoAlerta(p => ({ ...p, responsavel: e.target.value }))}
                   placeholder="Nome do responsável"
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-hidden"
                 />
               </div>
               <div>
@@ -517,7 +517,7 @@ const FiscalObligationsDashboard: React.FC = () => {
                   value={novoAlerta.email}
                   onChange={e => setNovoAlerta(p => ({ ...p, email: e.target.value }))}
                   placeholder="email@empresa.com.br"
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-hidden"
                 />
               </div>
               <div>
@@ -527,7 +527,7 @@ const FiscalObligationsDashboard: React.FC = () => {
                 <select
                   value={novoAlerta.diasAntecedencia}
                   onChange={e => setNovoAlerta(p => ({ ...p, diasAntecedencia: Number(e.target.value) }))}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-hidden"
                 >
                   <option value={1}>1 dia antes</option>
                   <option value={3}>3 dias antes</option>

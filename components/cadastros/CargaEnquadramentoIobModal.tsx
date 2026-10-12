@@ -20,8 +20,8 @@ import { gravarEnquadramentosEmLote, listarTodosEnquadramentos, mensagemErro, ty
 
 interface Props { usuario: Usuario; onFechar: () => void; onGravado: () => void }
 
-const btn = 'rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
-const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-white';
+const btn = 'rounded-sm border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
+const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-white';
 const num = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 4 });
 const comp = (c: string) => c.split('-').reverse().join('/');
 const chave = (p: PropostaEnquadramento) => p.enquadramento.id;
@@ -117,7 +117,7 @@ const CargaEnquadramentoIobModal: React.FC<Props> = ({ usuario, onFechar, onGrav
                             O FPAS e os terceiros ficam na folha de cada empresa e só vêm com o Backup SQL completo; sem ele, informe o FPAS padrão abaixo para quem você marcar. Enquadramento já cadastrado não é trocado.
                         </p>
                     </div>
-                    <button aria-label="Fechar" className="rounded px-2 text-xl text-slate-500" onClick={onFechar}>×</button>
+                    <button aria-label="Fechar" className="rounded-sm px-2 text-xl text-slate-500" onClick={onFechar}>×</button>
                 </div>
 
                 <div className="flex flex-wrap items-end gap-3 text-sm dark:text-white">
@@ -131,12 +131,12 @@ const CargaEnquadramentoIobModal: React.FC<Props> = ({ usuario, onFechar, onGrav
                 </div>
 
                 {ocupado && <p className="text-sm text-blue-700 dark:text-blue-300">{ocupado}</p>}
-                {erro && <p role="alert" className="rounded bg-red-50 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+                {erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
 
                 {res && (
                     <>
                         {semFpas > 0 && (
-                            <fieldset className="flex flex-wrap items-end gap-2 rounded border border-amber-300 p-2 text-sm dark:border-amber-700 dark:text-white">
+                            <fieldset className="flex flex-wrap items-end gap-2 rounded-sm border border-amber-300 p-2 text-sm dark:border-amber-700 dark:text-white">
                                 <legend className="px-1 text-xs font-medium">FPAS padrão para as {semFpas} proposta(s) do regime normal sem FPAS no backup</legend>
                                 {sugestoes.length > 0 && (
                                     <label>Da tabela TERC do IOB
@@ -164,7 +164,7 @@ const CargaEnquadramentoIobModal: React.FC<Props> = ({ usuario, onFechar, onGrav
                             </>}
                         </div>
 
-                        <div className="max-h-[50vh] overflow-auto rounded border border-slate-200 dark:border-slate-700">
+                        <div className="max-h-[50vh] overflow-auto rounded-sm border border-slate-200 dark:border-slate-700">
                             <table className="w-full text-sm">
                                 <thead className="sticky top-0 bg-slate-50 text-left text-xs text-slate-500 dark:bg-slate-900"><tr><th className="p-2" /><th className="p-2">Empresa</th><th className="p-2">Vigência</th><th className="p-2">Regime</th><th className="p-2">RAT × FAP</th><th className="p-2">FPAS · terceiros</th><th className="p-2">Conferir</th></tr></thead>
                                 <tbody>
@@ -194,7 +194,7 @@ const CargaEnquadramentoIobModal: React.FC<Props> = ({ usuario, onFechar, onGrav
                         </div>
 
                         {(res.semDados.length > 0 || res.semEmpresa.length > 0 || res.avisos.length > 0) && (
-                            <details className="rounded border border-slate-200 p-2 text-xs text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                            <details className="rounded-sm border border-slate-200 p-2 text-xs text-slate-700 dark:border-slate-700 dark:text-slate-200">
                                 <summary className="cursor-pointer font-medium">Sem correspondência e avisos</summary>
                                 {res.semDados.length > 0 && <p className="mt-1">Empresas da carteira sem dado no backup ({res.semDados.length}): {res.semDados.map(e => `${e.nome} (SAGE ${e.codigoSage || '—'})`).join('; ')}.</p>}
                                 {res.semEmpresa.length > 0 && <p className="mt-1">Códigos do IOB sem empresa no Consultor ou fora da sua carteira ({res.semEmpresa.length}): {res.semEmpresa.slice(0, 200).join(', ')}{res.semEmpresa.length > 200 ? '…' : ''}.</p>}
@@ -204,7 +204,7 @@ const CargaEnquadramentoIobModal: React.FC<Props> = ({ usuario, onFechar, onGrav
 
                         <div className="flex justify-end gap-2">
                             <button className={btn} onClick={onFechar}>Cancelar</button>
-                            <button className="rounded bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={!selecionadas.length || !!ocupado} onClick={gravar}>Gravar {selecionadas.length} enquadramento(s)</button>
+                            <button className="rounded-sm bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={!selecionadas.length || !!ocupado} onClick={gravar}>Gravar {selecionadas.length} enquadramento(s)</button>
                         </div>
                     </>
                 )}

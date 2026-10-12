@@ -15,9 +15,9 @@ import { verificarAntesDeEnviar, transmitirVerificado, mensagemDaTransmissao } f
 import type { TpAmb } from '../../services/esocial/transmissao';
 import SeletorProcesso, { useProcessos } from '../processosJud/SeletorProcesso';
 
-const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
-const btn = 'rounded border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-40 dark:border-slate-600';
-const btnP = 'rounded bg-blue-700 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40';
+const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const btn = 'rounded-sm border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-40 dark:border-slate-600';
+const btnP = 'rounded-sm bg-blue-700 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40';
 const digitos = (t: string) => t.replace(/\D/g, '');
 
 const CampoInscricao: React.FC<{ rotulo: string; valor: Inscricao; onChange: (i: Inscricao) => void }> = ({ rotulo, valor, onChange }) => (
@@ -89,16 +89,16 @@ const ObrasLotacoesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
                 </p>
             </div>
             {ocupado && <p className="text-blue-700 dark:text-blue-300">{ocupado}</p>}
-            {erro && <p role="alert" className="rounded bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
-            {msg && <p role="status" className="rounded bg-green-50 p-2 text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
+            {erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+            {msg && <p role="status" className="rounded-sm bg-green-50 p-2 text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
 
             {!l && (
-                <section className="space-y-2 rounded border border-slate-200 p-3 dark:border-slate-700">
+                <section className="space-y-2 rounded-sm border border-slate-200 p-3 dark:border-slate-700">
                     <div className="flex items-center justify-between"><p className="font-medium">Lotações da empresa</p>
                         <button className={btnP} onClick={() => { setErro(''); setMsg(''); setNova(true); setL({ ...lotacaoVazia(ativa.id), iniValid: ativa.competencia }); }}>+ Nova obra ou lotação</button></div>
                     {!lista.length && <p className="text-slate-500">Nenhuma lotação cadastrada: a folha usa a lotação única dos parâmetros do eSocial.</p>}
                     {lista.map(x => (
-                        <button key={x.codigo} className="block w-full rounded border border-slate-100 p-2 text-left hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800" onClick={() => { setErro(''); setMsg(''); setNova(false); setL(x); }}>
+                        <button key={x.codigo} className="block w-full rounded-sm border border-slate-100 p-2 text-left hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800" onClick={() => { setErro(''); setMsg(''); setNova(false); setL(x); }}>
                             <span className="font-mono">{x.codigo}</span> · {x.descricao} · lotação {x.tipo}{x.cno ? ` · CNO ${x.cno}` : ''}{x.tomador ? ` · tomador ${x.tomador}` : ''}
                             {' · '}{x.recibo1020 ? 'S-1020 aceito' : 'S-1020 a enviar'}{ehObraPropria(x) ? (x.recibo1005 ? ' · S-1005 aceito' : ' · S-1005 a enviar') : ''}
                         </button>
@@ -107,7 +107,7 @@ const ObrasLotacoesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
             )}
 
             {l && v && (
-                <section className="space-y-3 rounded border border-slate-200 p-3 dark:border-slate-700">
+                <section className="space-y-3 rounded-sm border border-slate-200 p-3 dark:border-slate-700">
                     <div className="flex flex-wrap items-end gap-3">
                         <label>Código<input aria-label="Código da lotação" disabled={!nova} className={`block w-32 font-mono ${inp}`} value={l.codigo} onChange={e => muda({ codigo: e.target.value.replace(/[^A-Za-z0-9._-]/g, '').slice(0, 30) })} /></label>
                         <label className="grow">Descrição<input aria-label="Descrição da lotação" className={`block w-full ${inp}`} value={l.descricao} onChange={e => muda({ descricao: e.target.value })} /></label>

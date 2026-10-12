@@ -23,8 +23,8 @@ import {
 
 interface Props { empresa: Empresa; usuario: Usuario; fichas: FichaFuncionario[]; onFechar: () => void; onGravado: () => void }
 
-const btn = 'rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
-const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const btn = 'rounded-sm border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
+const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const num = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
 const comp = (c: string) => `${c.slice(5)}/${c.slice(0, 4)}`;
 /** Padrão: os últimos 3 anos (cobre o período aquisitivo e o concessivo das férias em aberto). */
@@ -95,7 +95,7 @@ const HistoricoFolhaIobModal: React.FC<Props> = ({ empresa, usuario, fichas, onF
                             Só preenche o que o movimento do mês ainda não tem; nada é gravado antes de você confirmar.
                         </p>
                     </div>
-                    <button aria-label="Fechar" className="rounded px-2 text-xl text-slate-500" onClick={onFechar}>×</button>
+                    <button aria-label="Fechar" className="rounded-sm px-2 text-xl text-slate-500" onClick={onFechar}>×</button>
                 </div>
                 <div className="flex flex-wrap items-end gap-3 text-sm dark:text-white">
                     <label>Backup SQL do IOB<input className="block text-sm" type="file" multiple accept=".backup,.sql,.gz,.tar" aria-label="Backup do IOB" onChange={e => { setArquivos(Array.from(e.target.files ?? [])); setPrevia(null); }} /></label>
@@ -103,13 +103,13 @@ const HistoricoFolhaIobModal: React.FC<Props> = ({ empresa, usuario, fichas, onF
                     <label className="flex items-center gap-1" title="Marque se o IOB guarda as horas como 10,30 = 10h30.">
                         <input type="checkbox" checked={sexagesimal} onChange={e => { setSexagesimal(e.target.checked); setPrevia(null); }} />Horas no formato hh,mm
                     </label>
-                    <button className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50" disabled={!arquivos.length || !!ocupado || !/^\d{4}-\d{2}$/.test(desde)} onClick={ler}>Ler o backup</button>
+                    <button className="rounded-sm bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50" disabled={!arquivos.length || !!ocupado || !/^\d{4}-\d{2}$/.test(desde)} onClick={ler}>Ler o backup</button>
                 </div>
                 {ocupado && <p className="text-sm text-blue-700 dark:text-blue-300">{ocupado}</p>}
-                {erro && <p role="alert" className="rounded bg-red-50 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+                {erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
                 {previa && (
                     <>
-                        <details open className="rounded border border-slate-200 p-2 text-xs dark:border-slate-700 dark:text-slate-200">
+                        <details open className="rounded-sm border border-slate-200 p-2 text-xs dark:border-slate-700 dark:text-slate-200">
                             <summary className="cursor-pointer text-sm font-medium">Eventos reconhecidos ({previa.eventos.length}) em {num(previa.linhas)} lançamento(s) desde {comp(desde)} — confira com o IOB</summary>
                             <table className="mt-1 w-full">
                                 <thead className="text-left text-slate-500"><tr><th className="p-1">Evento</th><th className="p-1">Descrição</th><th className="p-1">Natureza</th><th className="p-1">Vai para</th><th className="p-1 text-right">Lançamentos</th><th className="p-1 text-right">Quantidade</th></tr></thead>
@@ -122,18 +122,18 @@ const HistoricoFolhaIobModal: React.FC<Props> = ({ empresa, usuario, fichas, onF
                             </table>
                         </details>
                         {comErro.length > 0 && (
-                            <details open className="rounded border border-red-300 p-2 text-xs text-red-800 dark:border-red-800 dark:text-red-200">
+                            <details open className="rounded-sm border border-red-300 p-2 text-xs text-red-800 dark:border-red-800 dark:text-red-200">
                                 <summary className="cursor-pointer font-medium">{comErro.length} mês(es) fora dos limites do movimento: não serão gravados (confira no IOB)</summary>
                                 <ul className="mt-1">{comErro.map(i => <li key={`${i.fichaId}_${i.competencia}`}>{nome.get(i.fichaId)} · {comp(i.competencia)} · {i.erros.join(' ')}</li>)}</ul>
                             </details>
                         )}
                         {preservados.length > 0 && (
-                            <details className="rounded border border-amber-300 p-2 text-xs dark:border-amber-700 dark:text-amber-100">
+                            <details className="rounded-sm border border-amber-300 p-2 text-xs dark:border-amber-700 dark:text-amber-100">
                                 <summary className="cursor-pointer font-medium">{preservados.length} mês(es) já lançado(s) com outro valor: mantido o lançado</summary>
                                 <ul className="mt-1">{preservados.map(i => <li key={`${i.fichaId}_${i.competencia}`}>{nome.get(i.fichaId)} · {comp(i.competencia)} · {i.preservados.map(k => ROTULO_MOVIMENTO[k]).join(', ')}</li>)}</ul>
                             </details>
                         )}
-                        <div className="max-h-72 overflow-auto rounded border border-slate-200 dark:border-slate-700">
+                        <div className="max-h-72 overflow-auto rounded-sm border border-slate-200 dark:border-slate-700">
                             <table className="w-full text-sm">
                                 <thead className="sticky top-0 bg-slate-50 text-left text-xs text-slate-500 dark:bg-slate-900">
                                     <tr><th className="p-2">Funcionário</th><th className="p-2">Mês</th>{CAMPOS_HISTORICO.map(k => <th key={k} className="p-2 text-right">{ROTULO_MOVIMENTO[k]}</th>)}</tr>
@@ -150,7 +150,7 @@ const HistoricoFolhaIobModal: React.FC<Props> = ({ empresa, usuario, fichas, onF
                         {previa.avisos.length > 0 && <ul className="list-disc pl-5 text-xs text-slate-600 dark:text-slate-300">{previa.avisos.map((a, k) => <li key={k}>{a}</li>)}</ul>}
                         <div className="flex justify-end gap-2">
                             <button className={btn} onClick={onFechar}>Cancelar</button>
-                            <button className="rounded bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={!gravar.length || !!ocupado} onClick={confirmar}>Gravar {gravar.length} mês(es)</button>
+                            <button className="rounded-sm bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={!gravar.length || !!ocupado} onClick={confirmar}>Gravar {gravar.length} mês(es)</button>
                         </div>
                     </>
                 )}

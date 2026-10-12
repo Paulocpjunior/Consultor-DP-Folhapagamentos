@@ -12,7 +12,7 @@ const AlertCard: React.FC<{ alert: NewsAlert }> = ({ alert }) => {
                 <h3 className="font-bold text-md text-emerald-800 dark:text-emerald-400 mb-2">
                     {alert.title}
                 </h3>
-                <p className="text-sm text-slate-600 dark:text-slate-300 flex-grow">
+                <p className="text-sm text-slate-600 dark:text-slate-300 grow">
                     {alert.summary}
                 </p>
                 <span className="text-sm text-emerald-400/70 mt-4 self-start">
@@ -32,7 +32,7 @@ const AlertCard: React.FC<{ alert: NewsAlert }> = ({ alert }) => {
             <h3 className="font-bold text-md text-emerald-800 dark:text-emerald-400 mb-2">
                 {alert.title}
             </h3>
-            <p className="text-sm text-slate-600 dark:text-slate-300 flex-grow">
+            <p className="text-sm text-slate-600 dark:text-slate-300 grow">
                 {alert.summary}
             </p>
             <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 mt-4 self-start">
@@ -44,10 +44,10 @@ const AlertCard: React.FC<{ alert: NewsAlert }> = ({ alert }) => {
 
 const SkeletonCard: React.FC = () => (
     <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-lg animate-pulse border border-emerald-100 dark:border-emerald-800/50">
-        <div className="h-4 bg-emerald-200 dark:bg-emerald-800/50 rounded w-3/4 mb-3"></div>
-        <div className="h-3 bg-emerald-200 dark:bg-emerald-800/50 rounded w-full mb-2"></div>
-        <div className="h-3 bg-emerald-200 dark:bg-emerald-800/50 rounded w-5/6 mb-4"></div>
-        <div className="h-3 bg-emerald-200 dark:bg-emerald-800/50 rounded w-1/4"></div>
+        <div className="h-4 bg-emerald-200 dark:bg-emerald-800/50 rounded-sm w-3/4 mb-3"></div>
+        <div className="h-3 bg-emerald-200 dark:bg-emerald-800/50 rounded-sm w-full mb-2"></div>
+        <div className="h-3 bg-emerald-200 dark:bg-emerald-800/50 rounded-sm w-5/6 mb-4"></div>
+        <div className="h-3 bg-emerald-200 dark:bg-emerald-800/50 rounded-sm w-1/4"></div>
     </div>
 );
 
@@ -81,7 +81,7 @@ const ReformaNews: React.FC = () => {
     }
 
     return (
-        <section className="mt-8 p-6 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-emerald-100 dark:border-emerald-900/50 animate-fade-in">
+        <section className="mt-8 p-6 bg-white dark:bg-slate-800 rounded-xl shadow-xs border border-emerald-100 dark:border-emerald-900/50 animate-fade-in">
             <div className="flex items-center mb-4">
                 <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg text-emerald-600 dark:text-emerald-400">
                     <NewspaperIcon className="w-6 h-6" />

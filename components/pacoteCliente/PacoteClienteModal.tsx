@@ -24,7 +24,7 @@ import { LIMITE_EMAIL_BYTES, LIMITE_EMAIL_TEXTO, emMb, enviarEmailPeloEscritorio
 import { reais } from '../../services/cadastros/documentos';
 import ConviteAgenda from '../agenda/ConviteAgenda';
 
-const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 
 /** PDF do pacote, gerado só na hora de baixar. */
 export interface DocumentoPacote { id: string; rotulo: string; nome: string; descricao: string; gerar: () => Uint8Array | ArrayBuffer | Promise<Uint8Array | ArrayBuffer> }
@@ -242,7 +242,7 @@ const PacoteClienteModal: React.FC<Props> = ({ empresa, resultados, fichas, titu
                 </div>
 
                 <fieldset disabled={!!pronto} className="space-y-3">
-                <section className="space-y-1 rounded border border-slate-200 p-2 dark:border-slate-700">
+                <section className="space-y-1 rounded-sm border border-slate-200 p-2 dark:border-slate-700">
                     <p className="font-medium">No pacote</p>
                     {documentos.map(d => <div key={d.id}>{marca(d.id, d.rotulo)}</div>)}
                     {marca('banco', 'Arquivo bancário (.REM) para importar no banco', !contas.length)}
@@ -262,13 +262,13 @@ const PacoteClienteModal: React.FC<Props> = ({ empresa, resultados, fichas, titu
                     </>}
                 </section>
 
-                {remessa?.erro && <p role="alert" className="rounded bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{remessa.erro}</p>}
+                {remessa?.erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{remessa.erro}</p>}
                 {remessa?.r && (
                     <section aria-label="Arquivo bancário do pacote" className="space-y-1 text-xs">
                         <p><span className="font-medium">Arquivo bancário nº {remessa.r.nsa}:</span> {remessa.r.lotes.map(l => `${ROTULO_FORMA[l.forma]}: ${l.quantidade} · ${reais(l.total)}`).join(' | ') || 'nenhum pagamento'} · <strong>Total {reais(remessa.r.total)}</strong></p>
-                        {remessa.r.naoConferidas.length > 0 && <p role="note" className="rounded bg-amber-50 p-2 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">{avisoConferencia(remessa.r.perfil, remessa.r.naoConferidas)}</p>}
+                        {remessa.r.naoConferidas.length > 0 && <p role="note" className="rounded-sm bg-amber-50 p-2 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">{avisoConferencia(remessa.r.perfil, remessa.r.naoConferidas)}</p>}
                         {foraDoArquivo.length > 0 && (
-                            <div className="rounded border border-red-200 p-2 text-red-800 dark:border-red-800 dark:text-red-200">
+                            <div className="rounded-sm border border-red-200 p-2 text-red-800 dark:border-red-800 dark:text-red-200">
                                 <p className="font-medium">Fora do arquivo ({foraDoArquivo.length}), vão no LEIA-ME para pagar por fora:</p>
                                 <ul className="list-disc pl-5">{foraDoArquivo.map((e, i) => <li key={i}>{e.nome}: {e.motivo}</li>)}</ul>
                             </div>
@@ -282,16 +282,16 @@ const PacoteClienteModal: React.FC<Props> = ({ empresa, resultados, fichas, titu
 
                 {!pronto ? (
                     <div className="flex flex-wrap items-center gap-2">
-                        <button className="rounded bg-green-700 px-3 py-2 font-medium text-white disabled:opacity-50" disabled={gerando || !marcados} onClick={montar}>{gerando ? 'Montando…' : 'Baixar pacote (.zip)'}</button>
+                        <button className="rounded-sm bg-green-700 px-3 py-2 font-medium text-white disabled:opacity-50" disabled={gerando || !marcados} onClick={montar}>{gerando ? 'Montando…' : 'Baixar pacote (.zip)'}</button>
                         <span className="text-xs text-slate-500">Os PDFs saem como prévia enquanto o motor não for conferido com o IOB.</span>
                     </div>
                 ) : (
-                    <section aria-label="Enviar ao cliente" className="space-y-2 rounded border border-green-200 p-2 dark:border-green-800">
+                    <section aria-label="Enviar ao cliente" className="space-y-2 rounded-sm border border-green-200 p-2 dark:border-green-800">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                             <p className="font-medium">Enviar ao cliente</p>
                             <div className="flex gap-2 text-xs">
-                                <button className="rounded border border-slate-300 px-2 py-1 dark:border-slate-600" onClick={() => baixarBytes(pronto.nomeZip, pronto.bytes, 'application/zip')}>Baixar o .zip de novo</button>
-                                <button className="rounded border border-slate-300 px-2 py-1 dark:border-slate-600" onClick={refazer}>Refazer pacote</button>
+                                <button className="rounded-sm border border-slate-300 px-2 py-1 dark:border-slate-600" onClick={() => baixarBytes(pronto.nomeZip, pronto.bytes, 'application/zip')}>Baixar o .zip de novo</button>
+                                <button className="rounded-sm border border-slate-300 px-2 py-1 dark:border-slate-600" onClick={refazer}>Refazer pacote</button>
                             </div>
                         </div>
                         <div className="grid gap-2 text-xs sm:grid-cols-3">
@@ -299,13 +299,13 @@ const PacoteClienteModal: React.FC<Props> = ({ empresa, resultados, fichas, titu
                             <label>E-mail<input aria-label="E-mail do contato" type="email" className={`block w-full ${inp}`} value={contato.email ?? ''} onChange={e => setContato(c => ({ ...c, email: e.target.value }))} /></label>
                             <label>WhatsApp<input aria-label="WhatsApp do contato" className={`block w-full ${inp}`} placeholder="(11) 98888-7777" value={contato.whatsapp ?? ''} onChange={e => setContato(c => ({ ...c, whatsapp: e.target.value }))} /></label>
                         </div>
-                        <button className="rounded border border-slate-300 px-2 py-1 text-xs disabled:opacity-50 dark:border-slate-600" disabled={gravandoContato} onClick={gravarContato}>{gravandoContato ? 'Gravando…' : 'Gravar contato na empresa'}</button>
-                        <section aria-label="SP Connect" className="space-y-1 rounded border border-emerald-300 p-2 text-xs dark:border-emerald-700">
+                        <button className="rounded-sm border border-slate-300 px-2 py-1 text-xs disabled:opacity-50 dark:border-slate-600" disabled={gravandoContato} onClick={gravarContato}>{gravandoContato ? 'Gravando…' : 'Gravar contato na empresa'}</button>
+                        <section aria-label="SP Connect" className="space-y-1 rounded-sm border border-emerald-300 p-2 text-xs dark:border-emerald-700">
                             <p className="font-medium">SP Connect: WhatsApp do escritório</p>
                             {templates === null && !erroTemplates && <p className="text-slate-500">Lendo os templates do Departamento Pessoal no SP Connect…</p>}
                             {erroTemplates && <p role="alert" className="text-red-700 dark:text-red-300">Templates do SP Connect não lidos: {erroTemplates}</p>}
                             {templates && !templates.length && !erroTemplates && (
-                                <p role="note" className="rounded bg-amber-50 p-2 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">Nenhum template do Departamento Pessoal (dp-folha) com documento no SP Connect. Um admin cria na Meta um modelo de utilidade com cabeçalho de DOCUMENTO e cadastra no CFI (⚙️ Config Admin › WhatsApp) no departamento dp-folha, marcando "tem documento". Até lá, use o e-mail ou o WhatsApp deste computador abaixo.</p>
+                                <p role="note" className="rounded-sm bg-amber-50 p-2 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">Nenhum template do Departamento Pessoal (dp-folha) com documento no SP Connect. Um admin cria na Meta um modelo de utilidade com cabeçalho de DOCUMENTO e cadastra no CFI (⚙️ Config Admin › WhatsApp) no departamento dp-folha, marcando "tem documento". Até lá, use o e-mail ou o WhatsApp deste computador abaixo.</p>
                             )}
                             {templates && templates.length > 0 && (
                                 <>
@@ -321,7 +321,7 @@ const PacoteClienteModal: React.FC<Props> = ({ empresa, resultados, fichas, titu
                                         ))}
                                     </div>
                                     <div className="flex flex-wrap items-center gap-2">
-                                        <button className="rounded bg-emerald-700 px-3 py-2 font-medium text-white disabled:opacity-50" disabled={!whats || !tplSp || !pronto.pdfs.length || faltandoSp.length > 0 || enviandoSp}
+                                        <button className="rounded-sm bg-emerald-700 px-3 py-2 font-medium text-white disabled:opacity-50" disabled={!whats || !tplSp || !pronto.pdfs.length || faltandoSp.length > 0 || enviandoSp}
                                             title={!whats ? 'Informe o WhatsApp do contato' : faltandoSp.length ? `Preencha: ${faltandoSp.join(', ')}` : ''} onClick={enviarSp}>{enviandoSp ? 'Enviando…' : 'Enviar pelo SP Connect'}</button>
                                         {!pronto.pdfs.length && <span className="text-amber-700 dark:text-amber-300">O pacote não tem PDF: marque os holerites ou o resumo.</span>}
                                         {enviadoSp && <span className="text-emerald-700 dark:text-emerald-300">Enviado para {enviadoSp.numeroEnviado} ({enviadoSp.template}).</span>}
@@ -332,23 +332,23 @@ const PacoteClienteModal: React.FC<Props> = ({ empresa, resultados, fichas, titu
                         </section>
                         <label className="block text-xs">Mensagem<textarea aria-label="Mensagem ao cliente" rows={8} className={`block w-full font-mono ${inp}`} value={texto} onChange={e => setTextoEditado(e.target.value)} /></label>
                         <div className="flex flex-wrap gap-2">
-                            {podeCompartilhar && <button className="rounded bg-green-700 px-3 py-2 font-medium text-white" onClick={compartilhar}>Compartilhar com o .zip (WhatsApp, e-mail…)</button>}
-                            <button className="rounded bg-emerald-600 px-3 py-2 text-white disabled:opacity-50" disabled={!whats} title={whats ? '' : 'Informe o WhatsApp do contato'}
+                            {podeCompartilhar && <button className="rounded-sm bg-green-700 px-3 py-2 font-medium text-white" onClick={compartilhar}>Compartilhar com o .zip (WhatsApp, e-mail…)</button>}
+                            <button className="rounded-sm bg-emerald-600 px-3 py-2 text-white disabled:opacity-50" disabled={!whats} title={whats ? '' : 'Informe o WhatsApp do contato'}
                                 onClick={() => whats && abrir(linkWhatsApp(whats, texto), `WhatsApp aberto com a mensagem: anexe ${pronto.nomeZip} (pasta Downloads) na conversa.`)}>WhatsApp deste computador</button>
-                            <button className="rounded bg-blue-800 px-3 py-2 font-medium text-white disabled:opacity-50" disabled={!emailValido(contato.email) || enviandoEmail || zipGrandeParaEmail}
+                            <button className="rounded-sm bg-blue-800 px-3 py-2 font-medium text-white disabled:opacity-50" disabled={!emailValido(contato.email) || enviandoEmail || zipGrandeParaEmail}
                                 title={zipGrandeParaEmail ? `O .zip tem ${emMb(pronto.bytes.length)}: o envio pelo escritório aceita até ${LIMITE_EMAIL_TEXTO}. Use "E-mail deste computador" e anexe o .zip.`
                                     : emailValido(contato.email) ? 'Sai da sua caixa do escritório (Microsoft 365), com o .zip em anexo' : 'Informe o e-mail do contato'}
                                 onClick={enviarEmail}>{enviandoEmail ? 'Enviando…' : enviadoEmail ? 'E-mail enviado ✓' : 'Enviar e-mail pelo escritório'}</button>
-                            <button className="rounded bg-blue-700 px-3 py-2 text-white disabled:opacity-50" disabled={!emailValido(contato.email)} title={emailValido(contato.email) ? '' : 'Informe o e-mail do contato'}
+                            <button className="rounded-sm bg-blue-700 px-3 py-2 text-white disabled:opacity-50" disabled={!emailValido(contato.email)} title={emailValido(contato.email) ? '' : 'Informe o e-mail do contato'}
                                 onClick={() => abrir(linkEmail(contato.email ?? '', assunto, texto), `E-mail aberto com a mensagem: anexe ${pronto.nomeZip} (pasta Downloads) antes de enviar.`)}>E-mail deste computador</button>
-                            <button className="rounded border border-slate-300 px-3 py-2 dark:border-slate-600" onClick={copiar}>Copiar mensagem</button>
+                            <button className="rounded-sm border border-slate-300 px-3 py-2 dark:border-slate-600" onClick={copiar}>Copiar mensagem</button>
                         </div>
                         <p className="text-xs text-slate-500">"Enviar e-mail pelo escritório" sai da sua caixa do Microsoft 365 com o .zip anexado (até {LIMITE_EMAIL_TEXTO}) e fica registrado no CFI.{zipGrandeParaEmail && <strong> Este .zip tem {emMb(pronto.bytes.length)}: use "E-mail deste computador".</strong>} Os botões "deste computador" usam o WhatsApp e o e-mail de quem está no computador, não o SP Connect. "Compartilhar" já leva o .zip (celular e navegadores que permitem); no WhatsApp e no e-mail, anexe o .zip baixado.</p>
                         {pronto.eventos.length > 0 && <ConviteAgenda eventos={pronto.eventos} titulo={`${nomeEmpresa}: ${titulo}`} nomeArquivo={`agenda-${prefixo}`} />}
                     </section>
                 )}
-                {erro && <p role="alert" className="rounded bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
-                {msg && <p role="status" className="rounded bg-green-50 p-2 text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
+                {erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+                {msg && <p role="status" className="rounded-sm bg-green-50 p-2 text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
             </div>
         </div>
     );

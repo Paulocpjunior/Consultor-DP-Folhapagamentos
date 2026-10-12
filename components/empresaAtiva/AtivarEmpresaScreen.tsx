@@ -56,8 +56,8 @@ const AtivarEmpresaScreen: React.FC<Props> = ({ empresas, erro, competenciaInici
                         )}
                     </div>
                     <div className="flex gap-2">
-                        {onCancelar && <button onClick={onCancelar} className="rounded border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600 dark:text-white">Voltar</button>}
-                        <button onClick={onSair} className="rounded bg-slate-100 px-3 py-1.5 text-sm text-slate-700 dark:bg-slate-700 dark:text-slate-200">Sair</button>
+                        {onCancelar && <button onClick={onCancelar} className="rounded-sm border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600 dark:text-white">Voltar</button>}
+                        <button onClick={onSair} className="rounded-sm bg-slate-100 px-3 py-1.5 text-sm text-slate-700 dark:bg-slate-700 dark:text-slate-200">Sair</button>
                     </div>
                 </div>
 
@@ -65,39 +65,39 @@ const AtivarEmpresaScreen: React.FC<Props> = ({ empresas, erro, competenciaInici
                     <label className="block">
                         <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Competência</span>
                         <input aria-label="Competência de trabalho" type="month" value={competencia} onChange={e => setCompetencia(e.target.value)}
-                            className="block rounded border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100" />
+                            className="block rounded-sm border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100" />
                     </label>
                     <label className="block min-w-0 flex-1">
                         <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Empresa</span>
                         <input aria-label="Buscar empresa" placeholder="Nome, CNPJ ou código SAGE" value={busca} onChange={e => setBusca(e.target.value)}
-                            className="block w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100" />
+                            className="block w-full rounded-sm border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100" />
                     </label>
                 </div>
                 {!compOk && <p role="alert" className="text-sm text-red-700">Informe a competência (mês e ano).</p>}
 
-                {erro && <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+                {erro && <p role="alert" className="rounded-sm bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
                 {!empresas && !erro && <p className="text-sm text-slate-500">Carregando a sua carteira…</p>}
                 {empresas && empresas.length === 0 && (
                     <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200">
                         <p className="font-semibold">Nenhuma empresa na sua carteira.</p>
                         <p className="mt-1">Peça ao gestor (ou ao admin) para incluir suas empresas em Usuários › Carteira, ou cadastre uma empresa nova.</p>
                         <div className="mt-2 flex gap-2">
-                            <button onClick={onIrParaEmpresas} className="rounded bg-amber-600 px-3 py-1.5 text-white">Cadastrar empresa</button>
-                            {onIrParaUsuarios && <button onClick={onIrParaUsuarios} className="rounded border border-amber-400 px-3 py-1.5">Usuários e carteiras</button>}
+                            <button onClick={onIrParaEmpresas} className="rounded-sm bg-amber-600 px-3 py-1.5 text-white">Cadastrar empresa</button>
+                            {onIrParaUsuarios && <button onClick={onIrParaUsuarios} className="rounded-sm border border-amber-400 px-3 py-1.5">Usuários e carteiras</button>}
                         </div>
                     </div>
                 )}
                 {empresas && empresas.length > 0 && (
-                    <ul className="max-h-[60vh] divide-y divide-slate-100 overflow-y-auto rounded border border-slate-200 dark:divide-slate-700 dark:border-slate-700">
+                    <ul className="max-h-[60vh] divide-y divide-slate-100 overflow-y-auto rounded-sm border border-slate-200 dark:divide-slate-700 dark:border-slate-700">
                         {lista.map(e => (
                             <li key={e.id} className="flex items-center justify-between gap-2 px-3 py-2">
                                 <span className="min-w-0 dark:text-slate-100">
                                     <strong>{e.nomeFantasia || e.razaoSocial}</strong>
-                                    {atual?.id === e.id && <span className="ml-2 rounded bg-green-100 px-1.5 text-xs text-green-800 dark:bg-green-900/40 dark:text-green-200">ativa</span>}
+                                    {atual?.id === e.id && <span className="ml-2 rounded-sm bg-green-100 px-1.5 text-xs text-green-800 dark:bg-green-900/40 dark:text-green-200">ativa</span>}
                                     <span className="block text-xs text-slate-500 dark:text-slate-400">{e.razaoSocial} · CNPJ {cnpjFmt(e.cnpj)} · SAGE {e.codigoSage}</span>
                                 </span>
                                 <button aria-label={`Ativar ${e.nomeFantasia || e.razaoSocial}`} disabled={!compOk} onClick={() => ativar(e)}
-                                    className="shrink-0 rounded bg-blue-700 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50">
+                                    className="shrink-0 rounded-sm bg-blue-700 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50">
                                     ⚡ Ativar {compOk ? competenciaBr(competencia) : ''}
                                 </button>
                             </li>

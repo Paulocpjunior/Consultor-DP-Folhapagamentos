@@ -29,7 +29,7 @@ import EntregaRelatorio from '../relatorios/EntregaRelatorio';
 import { listarConvencoes } from '../../services/sindicatos/convencoesService';
 import type { ConvencaoColetiva } from '../../services/sindicatos/convencao';
 
-const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const btn = 'rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700';
 const br = (d: string) => (d ? d.split('-').reverse().join('/') : '—');
 const hojeSp = () => new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Sao_Paulo' }).format(new Date());
@@ -89,7 +89,7 @@ const DemissoesPanel: React.FC<Props> = ({ usuario }) => {
         });
     }, [dados, selecionados, cenarios, saldos, adiant13]);
 
-    if (!ativa) return <p className="rounded border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">Ative uma empresa para simular demissões.</p>;
+    if (!ativa) return <p className="rounded-sm border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">Ative uma empresa para simular demissões.</p>;
     const nomeEmpresa = dados?.empresa?.nomeFantasia || dados?.empresa?.razaoSocial || ativa.nome;
     const opcoesPdf = () => ({ empresa: { razaoSocial: dados?.empresa?.razaoSocial || ativa.nome, cnpj: ativa.cnpj.replace(/\D/g, ''), codigoSage: ativa.codigoSage }, titulo: 'Prévia de rescisão', emitidoPor: usuario.email });
     const nomeArquivo = `previa-rescisao-${ativa.codigoSage || 'empresa'}-${hojeSp()}.pdf`;
@@ -142,7 +142,7 @@ const DemissoesPanel: React.FC<Props> = ({ usuario }) => {
                 Simule a demissão antes de o cliente decidir: o Consultor calcula cada cenário pela ficha e pelos movimentos gravados (o mesmo cálculo do TRCT),
                 com o custo para a empresa. Nada vai ao eSocial nem muda a ficha.
             </p>
-            {erro && <p role="alert" className="rounded bg-red-50 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+            {erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
             {!dados && !erro && <p className="text-sm text-slate-500">Carregando os funcionários…</p>}
 
             {dados && (
@@ -171,7 +171,7 @@ const DemissoesPanel: React.FC<Props> = ({ usuario }) => {
                         </div>
                         <div className="grid gap-2 sm:grid-cols-2">
                             {cenarios.map((c, i) => (
-                                <div key={c.id} className="space-y-1 rounded border border-slate-200 p-2 text-xs dark:border-slate-700">
+                                <div key={c.id} className="space-y-1 rounded-sm border border-slate-200 p-2 text-xs dark:border-slate-700">
                                     <div className="flex items-center justify-between"><span className="font-medium">Cenário {i + 1}</span>
                                         {cenarios.length > 1 && <button className="text-red-700 dark:text-red-300" aria-label={`Remover cenário ${i + 1}`} onClick={() => setCenarios(l => l.filter((_, j) => j !== i))}>remover</button>}</div>
                                     <label className="block">Motivo<select aria-label={`Motivo do cenário ${i + 1}`} className={`block w-full ${inp}`} value={c.tipo} onChange={e => mudarCenario(i, { tipo: e.target.value as TipoRescisao })}>
@@ -213,7 +213,7 @@ const DemissoesPanel: React.FC<Props> = ({ usuario }) => {
                 </section>
             )}
             {ocupado && <p role="status" className="text-sm text-blue-700 dark:text-blue-300">{ocupado}</p>}
-            {msg && <p role="status" className="rounded bg-green-50 p-2 text-sm text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
+            {msg && <p role="status" className="rounded-sm bg-green-50 p-2 text-sm text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
 
             <section className="space-y-2 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
                 <p className="font-medium text-slate-800 dark:text-slate-100">Histórico de prévias da empresa</p>

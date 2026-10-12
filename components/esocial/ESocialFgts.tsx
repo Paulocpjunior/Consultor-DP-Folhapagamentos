@@ -266,7 +266,7 @@ const ESocialFgts: React.FC = () => {
                             <select
                                 value={serproEmpresaId}
                                 onChange={e => setSerproEmpresaId(e.target.value)}
-                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200"
+                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200"
                             >
                                 <option value="">Selecione...</option>
                                 {empresas.map(emp => (
@@ -280,14 +280,14 @@ const ESocialFgts: React.FC = () => {
                                 type="month"
                                 value={serproCompetencia}
                                 onChange={e => setSerproCompetencia(e.target.value)}
-                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200"
+                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200"
                             />
                         </div>
                         <div className="flex items-end">
                             <button
                                 onClick={handleConsultarSerpro}
                                 disabled={serproLoading || !serproEmpresaId}
-                                className="px-3 py-1.5 text-sm bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded font-medium"
+                                className="px-3 py-1.5 text-sm bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-sm font-medium"
                             >
                                 {serproLoading ? 'Consultando...' : 'Consultar SERPRO'}
                             </button>
@@ -295,7 +295,7 @@ const ESocialFgts: React.FC = () => {
                     </div>
 
                     {serproError && (
-                        <div className="text-xs p-2 rounded bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300">
+                        <div className="text-xs p-2 rounded-sm bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300">
                             {serproError}
                         </div>
                     )}
@@ -356,7 +356,7 @@ const ESocialFgts: React.FC = () => {
                             {serproResult.recolhimento.ok && (
                                 <button
                                     onClick={handleImportarSerpro}
-                                    className="w-full px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded font-medium"
+                                    className="w-full px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-sm font-medium"
                                 >
                                     Importar como registro FGTS
                                 </button>
@@ -373,7 +373,7 @@ const ESocialFgts: React.FC = () => {
                         <div>
                             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Empresa *</label>
                             <select value={fEmpresaId} onChange={e => setFEmpresaId(e.target.value)} required
-                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200">
+                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200">
                                 <option value="">Selecione...</option>
                                 {empresas.map(emp => <option key={emp.id} value={emp.id}>{emp.nomeFantasia}</option>)}
                             </select>
@@ -381,37 +381,37 @@ const ESocialFgts: React.FC = () => {
                         <div>
                             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Competência *</label>
                             <input type="month" value={fCompetencia} onChange={e => setFCompetencia(e.target.value)} required
-                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200" />
+                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200" />
                         </div>
                         <div>
                             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Funcionário *</label>
                             <input type="text" value={fNome} onChange={e => setFNome(e.target.value)} required placeholder="Nome completo"
-                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200" />
+                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200" />
                         </div>
                         <div>
                             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">CPF</label>
                             <input type="text" value={fCpf} onChange={e => setFCpf(e.target.value)} placeholder="000.000.000-00"
-                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200" />
+                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200" />
                         </div>
                         <div>
                             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Valor Devido (R$) *</label>
                             <input type="number" step="0.01" value={fDevido} onChange={e => setFDevido(e.target.value)} required
-                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200" />
+                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200" />
                         </div>
                         <div>
                             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Valor Recolhido (R$)</label>
                             <input type="number" step="0.01" value={fRecolhido} onChange={e => setFRecolhido(e.target.value)}
-                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200" />
+                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200" />
                         </div>
                         <div>
                             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Vencimento *</label>
                             <input type="date" value={fVencimento} onChange={e => setFVencimento(e.target.value)} required
-                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200" />
+                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200" />
                         </div>
                     </div>
                     <div className="flex gap-2">
-                        <button type="submit" className="px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 text-white rounded font-medium">Salvar</button>
-                        <button type="button" onClick={() => setShowForm(false)} className="px-3 py-1.5 text-sm bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-200 rounded font-medium">Cancelar</button>
+                        <button type="submit" className="px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 text-white rounded-sm font-medium">Salvar</button>
+                        <button type="button" onClick={() => setShowForm(false)} className="px-3 py-1.5 text-sm bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-200 rounded-sm font-medium">Cancelar</button>
                     </div>
                 </form>
             )}
@@ -457,7 +457,7 @@ const ESocialFgts: React.FC = () => {
                                         {(r.status === 'atrasado' || r.status === 'parcial') && (
                                             <button
                                                 onClick={() => handleMarcarRecolhido(r.id, r.valorDevido)}
-                                                className="px-2 py-0.5 text-xs bg-green-600 hover:bg-green-700 text-white rounded"
+                                                className="px-2 py-0.5 text-xs bg-green-600 hover:bg-green-700 text-white rounded-sm"
                                             >
                                                 Marcar Recolhido
                                             </button>

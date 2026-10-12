@@ -42,7 +42,7 @@ import EntregaRelatorio, { type ArquivoRelatorio } from './EntregaRelatorio';
 const relatoriosPdf = () => import('../../services/relatorios/holeritePdf');
 const anuaisPdf = () => import('../../services/relatorios/relatoriosAnuaisPdf');
 const informePdfMod = () => import('../../services/relatorios/informePdf');
-const btn = 'rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700';
+const btn = 'rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 shadow-xs hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700';
 const ICONE_GRUPO: Record<string, string> = { Mensais: '🧾', 'Funcionários': '👥', 'Férias': '🌴', Anuais: '📅' };
 const brData = (d: string) => d.split('-').reverse().join('/');
 
@@ -215,7 +215,7 @@ const RelatoriosPanel: React.FC<{ currentUser: User; /** Abre com este relatóri
                             {RELATORIOS.filter(r => r.grupo === g).map(r => (
                                 <li key={r.id}>
                                     <button onClick={() => { setSelId(r.id); setEnviar(false); }} aria-current={r.id === selId}
-                                        className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${r.id === selId ? 'bg-teal-600 text-white shadow-sm' : 'bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800'}`}>
+                                        className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${r.id === selId ? 'bg-teal-600 text-white shadow-xs' : 'bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800'}`}>
                                         {r.titulo}
                                     </button>
                                 </li>
@@ -224,7 +224,7 @@ const RelatoriosPanel: React.FC<{ currentUser: User; /** Abre com este relatóri
                     </div>
                 ))}
             </nav>
-            <section aria-label={sel.titulo} className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <section aria-label={sel.titulo} className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-700 dark:bg-slate-900">
                 <div>
                     <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{sel.titulo}</h2>
                     <p className="text-sm text-slate-500 dark:text-slate-400">{sel.descricao} Competência {comp}.</p>
@@ -306,7 +306,7 @@ const RelatoriosPanel: React.FC<{ currentUser: User; /** Abre com este relatóri
                     <button className={btn} disabled={!dados || faltaFolha || gerando} onClick={() => abrir(true)}>Imprimir</button>
                     <button className={btn} disabled={!dados || faltaFolha || gerando} onClick={baixar}>Baixar PDF</button>
                     {(sel.tipo === 'tabela' || sel.tipo === 'ficha-financeira' || sel.tipo === 'informe' || sel.tipo === 'etiquetas') && <button className={btn} disabled={!dados || faltaFolha || gerando} onClick={excel}>Excel</button>}
-                    <button className="rounded-lg bg-teal-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-teal-500 disabled:opacity-50" disabled={!dados || faltaFolha} aria-pressed={enviar} onClick={() => setEnviar(x => !x)}>Enviar ao cliente</button>
+                    <button className="rounded-lg bg-teal-600 px-3 py-2 text-sm font-medium text-white shadow-xs hover:bg-teal-500 disabled:opacity-50" disabled={!dados || faltaFolha} aria-pressed={enviar} onClick={() => setEnviar(x => !x)}>Enviar ao cliente</button>
                 </div>
                 {enviar && dados && !faltaFolha && (
                     <EntregaRelatorio key={sel.id} empresa={{ id: ativa.id, cnpj: ativa.cnpj.replace(/\D/g, ''), nome: dados.empresa?.nomeFantasia || dados.empresa?.razaoSocial || ativa.nome, codigoSage: ativa.codigoSage, contatoEnvio: dados.empresa?.contatoEnvio }}

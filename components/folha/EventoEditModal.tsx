@@ -139,7 +139,7 @@ const EventoEditModal: React.FC<Props> = ({
                                 maxLength={4}
                                 onChange={(e) => setForm({ ...form, codigo: e.target.value })}
                                 placeholder="0000"
-                                className="w-full px-2 py-1.5 text-sm font-mono border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded"
+                                className="w-full px-2 py-1.5 text-sm font-mono border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-sm"
                             />
                         </div>
                         <div className="col-span-3">
@@ -147,7 +147,7 @@ const EventoEditModal: React.FC<Props> = ({
                             <select
                                 value={form.tipo}
                                 onChange={(e) => setForm({ ...form, tipo: e.target.value as 'V' | 'D' })}
-                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded"
+                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-sm"
                             >
                                 <option value="V">V — Vencimento</option>
                                 <option value="D">D — Desconto</option>
@@ -163,7 +163,7 @@ const EventoEditModal: React.FC<Props> = ({
                                     setForm({ ...form, descricao: e.target.value.toUpperCase() })
                                 }
                                 placeholder="Ex: SALÁRIO BASE"
-                                className="w-full px-2 py-1.5 text-sm uppercase border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded"
+                                className="w-full px-2 py-1.5 text-sm uppercase border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-sm"
                             />
                         </div>
                     </div>
@@ -190,7 +190,7 @@ const EventoEditModal: React.FC<Props> = ({
                             <select
                                 value={form.rv}
                                 onChange={(e) => setForm({ ...form, rv: e.target.value as 'R' | 'V' })}
-                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded"
+                                className="w-full px-2 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-sm"
                             >
                                 <option value="R">R — Referência</option>
                                 <option value="V">V — Valor</option>
@@ -205,7 +205,7 @@ const EventoEditModal: React.FC<Props> = ({
                                 onChange={(e) =>
                                     setForm({ ...form, coeficiente: parseFloat(e.target.value) || 0 })
                                 }
-                                className="w-full px-2 py-1.5 text-sm font-mono text-right border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded"
+                                className="w-full px-2 py-1.5 text-sm font-mono text-right border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-sm"
                             />
                         </div>
                         <div>
@@ -215,14 +215,14 @@ const EventoEditModal: React.FC<Props> = ({
                                 value={form.ro}
                                 maxLength={3}
                                 onChange={(e) => setForm({ ...form, ro: e.target.value })}
-                                className="w-full px-2 py-1.5 text-sm font-mono border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded"
+                                className="w-full px-2 py-1.5 text-sm font-mono border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white rounded-sm"
                             />
                         </div>
                     </div>
 
                     {/* Alerta de recode */}
                     {houveRecode && (
-                        <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-800 rounded text-sm text-amber-800 dark:text-amber-300">
+                        <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-800 rounded-sm text-sm text-amber-800 dark:text-amber-300">
                             <strong>Atenção:</strong> você está alterando o <strong>código</strong> de{' '}
                             <code>{codOriginal}</code> para <code>{form.codigo}</code>. Apontamentos e
                             exportações SAGE que referenciam o código antigo precisarão ser revisados manualmente.
@@ -231,7 +231,7 @@ const EventoEditModal: React.FC<Props> = ({
 
                     {/* Erro */}
                     {erro && (
-                        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-800 rounded text-sm text-red-700 dark:text-red-300">
+                        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-800 rounded-sm text-sm text-red-700 dark:text-red-300">
                             {erro}
                         </div>
                     )}
@@ -271,7 +271,7 @@ const EventoEditModal: React.FC<Props> = ({
                         <button
                             onClick={handleExcluir}
                             disabled={excluindo || salvando}
-                            className="px-3 py-1.5 text-sm border border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded disabled:opacity-50"
+                            className="px-3 py-1.5 text-sm border border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-sm disabled:opacity-50"
                         >
                             {excluindo ? 'Excluindo…' : 'Excluir'}
                         </button>
@@ -282,14 +282,14 @@ const EventoEditModal: React.FC<Props> = ({
                         <button
                             onClick={onFechar}
                             disabled={salvando || excluindo}
-                            className="px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded disabled:opacity-50"
+                            className="px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-sm disabled:opacity-50"
                         >
                             Cancelar
                         </button>
                         <button
                             onClick={handleSalvar}
                             disabled={salvando || excluindo}
-                            className="px-4 py-1.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded disabled:opacity-50"
+                            className="px-4 py-1.5 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-sm disabled:opacity-50"
                         >
                             {salvando ? 'Salvando…' : 'Salvar'}
                         </button>

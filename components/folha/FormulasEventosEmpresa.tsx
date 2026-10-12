@@ -12,7 +12,7 @@ import type { EventoIobSage } from '../../services/folha/folhaTypes';
 import { eventoPorCodigo } from '../../services/calculo/lancarEvento';
 import { avaliarFormula, validarFormula, VARIAVEIS_FORMULA, variaveisDaFormula, type FormulaEvento } from '../../services/calculo/formulaEvento';
 
-const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const ROTULO_REF: Record<FormulaEvento['referencia'], string> = { horas: 'Horas', dias: 'Dias', percentual: '%', valor: 'Valor (R$)', nenhuma: 'Sem referência' };
 
 const FormulasEventosEmpresa: React.FC<{ eventos: EventoIobSage[] }> = ({ eventos }) => {
@@ -71,7 +71,7 @@ const FormulasEventosEmpresa: React.FC<{ eventos: EventoIobSage[] }> = ({ evento
                         <label className="flex-1">Fórmula<input aria-label="Fórmula do evento" className={`mt-0.5 block w-full font-mono ${inp}`} value={expressao} placeholder="REF * SALARIO_HORA * 1,6" onChange={e => setExpressao(e.target.value)} /></label>
                         <label>Referência<select aria-label="Referência da fórmula" className={`mt-0.5 block ${inp}`} value={referencia} onChange={e => setReferencia(e.target.value as FormulaEvento['referencia'])}>
                             {(Object.keys(ROTULO_REF) as FormulaEvento['referencia'][]).map(k => <option key={k} value={k}>{ROTULO_REF[k]}</option>)}</select></label>
-                        <button className="rounded bg-indigo-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={ocupado || !ev || !nova.expressao || erros.length > 0} onClick={incluir}>{ev && formulas[ev.codigo] ? 'Substituir' : 'Incluir'}</button>
+                        <button className="rounded-sm bg-indigo-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={ocupado || !ev || !nova.expressao || erros.length > 0} onClick={incluir}>{ev && formulas[ev.codigo] ? 'Substituir' : 'Incluir'}</button>
                     </div>
                     {codigo.trim() && !ev && <p className="text-xs text-red-700 dark:text-red-300">Evento {codigo.trim()} não está no catálogo.</p>}
                     {ev && <p className="text-xs text-slate-500">{ev.codigo} {ev.descricao} · {ev.tipo === 'V' ? 'provento' : 'desconto'} · coeficiente {ev.coeficiente}</p>}

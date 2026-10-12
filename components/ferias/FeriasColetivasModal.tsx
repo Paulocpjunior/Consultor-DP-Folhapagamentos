@@ -12,8 +12,8 @@ import type { Movimento } from '../../services/calculo/motorMensal';
 import { gravarAfastamentosColetiva, mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
 import { afastamentosParaGravar, planejarColetiva, setoresDasFichas, type FiltroSetor, type Restante, type SituacaoItem } from '../../services/ferias/feriasColetivas';
 
-const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
-const btn = 'rounded border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
+const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const btn = 'rounded-sm border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
 const ROTULO: Record<SituacaoItem, string> = { ferias: 'Férias', proporcionais: 'Proporcionais (art. 140)', excluido: 'Fora', gravado: 'Gravado' };
 const COR: Record<SituacaoItem, string> = {
     ferias: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200',
@@ -82,7 +82,7 @@ const FeriasColetivasModal: React.FC<Props> = ({ empresa, fichas, afastamentos, 
                         <h3 className="text-lg font-semibold text-slate-800 dark:text-white">Férias coletivas — {empresa.razaoSocial}</h3>
                         <p className="text-slate-600 dark:text-slate-300">Para toda a empresa ou um setor (CLT, art. 139): até 2 períodos por ano, nenhum com menos de 10 dias, comunicados com 15 dias de antecedência. Quem tem menos de 12 meses goza as proporcionais e recomeça o período aquisitivo (art. 140).</p>
                     </div>
-                    <button aria-label="Fechar" className="rounded px-2 text-xl text-slate-500" onClick={onFechar}>×</button>
+                    <button aria-label="Fechar" className="rounded-sm px-2 text-xl text-slate-500" onClick={onFechar}>×</button>
                 </div>
                 <div className="grid gap-2 sm:grid-cols-4">
                     <label>Início<input aria-label="Início das férias coletivas" type="date" className={`block w-full ${inp}`} value={inicio} onChange={e => setInicio(e.target.value)} /></label>
@@ -96,10 +96,10 @@ const FeriasColetivasModal: React.FC<Props> = ({ empresa, fichas, afastamentos, 
                     <label className="flex items-center gap-2 sm:col-span-2"><input type="checkbox" checked={meEpp} onChange={e => setMeEpp(e.target.checked)} />Microempresa ou EPP (dispensa da comunicação ao Ministério do Trabalho)</label>
                 </div>
 
-                {r && r.erros.length > 0 && <ul role="alert" className="list-disc rounded bg-red-50 p-2 pl-6 text-red-800 dark:bg-red-900/30 dark:text-red-200">{r.erros.map(x => <li key={x}>{x}</li>)}</ul>}
-                {r && r.avisos.length > 0 && <ul className="list-disc rounded bg-amber-50 p-2 pl-6 text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">{r.avisos.map(x => <li key={x}>{x}</li>)}</ul>}
+                {r && r.erros.length > 0 && <ul role="alert" className="list-disc rounded-sm bg-red-50 p-2 pl-6 text-red-800 dark:bg-red-900/30 dark:text-red-200">{r.erros.map(x => <li key={x}>{x}</li>)}</ul>}
+                {r && r.avisos.length > 0 && <ul className="list-disc rounded-sm bg-amber-50 p-2 pl-6 text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">{r.avisos.map(x => <li key={x}>{x}</li>)}</ul>}
                 {r && r.itens.length > 0 && (
-                    <div className="max-h-80 overflow-auto rounded border border-slate-200 dark:border-slate-700">
+                    <div className="max-h-80 overflow-auto rounded-sm border border-slate-200 dark:border-slate-700">
                         <table className="w-full">
                             <thead className="sticky top-0 bg-slate-50 text-left text-xs text-slate-500 dark:bg-slate-900"><tr><th className="p-2">Empregado</th><th className="p-2">Situação</th><th className="p-2 text-right">Férias</th><th className="p-2 text-right">Antecipadas</th><th className="p-2 text-right">Licença</th><th className="p-2">Detalhe</th></tr></thead>
                             <tbody>{r.itens.map(i => (
@@ -125,7 +125,7 @@ const FeriasColetivasModal: React.FC<Props> = ({ empresa, fichas, afastamentos, 
                 <div className="flex flex-wrap justify-end gap-2">
                     <button className={btn} onClick={onFechar}>Fechar</button>
                     <button className={btn} disabled={!r || r.erros.length > 0 || !!ocupado} onClick={comunicacao}>Comunicação (PDF)</button>
-                    <button className="rounded bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={!gravar.length || !!ocupado} onClick={confirmar}>Gravar em Afastamentos ({new Set(gravar.map(a => a.fichaId)).size})</button>
+                    <button className="rounded-sm bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50" disabled={!gravar.length || !!ocupado} onClick={confirmar}>Gravar em Afastamentos ({new Set(gravar.map(a => a.fichaId)).size})</button>
                 </div>
                 {ocupado && <p role="status" className="text-blue-700 dark:text-blue-300">{ocupado}</p>}
                 {erro && <p role="alert" className="text-red-700 dark:text-red-300">{erro}</p>}

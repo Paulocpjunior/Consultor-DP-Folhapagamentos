@@ -5284,3 +5284,27 @@ Paulo: *"podemos fazer o P2 usando o terminal do meu mac"* (12/10).
   - a leitura do vrSalPat/tpValor 33 na conferência pós-folha (a partir de 01/2027);
   - o XSD de 14/12/2026;
   - a dedução na DCTFWeb, quando sair o regulamento.
+
+## 12/10/2026 — Tailwind 4 e visual no estilo da Apple
+
+- **Pedido do Paulo:** "quero usar algo parecido com o que a Apple usa: letra, tipografia, símbolos, logo".
+- **Limite:** a marca da Apple, a fonte SF e os SF Symbols não podem ser distribuídos.
+  - A SF aparece porque é a fonte do próprio sistema no Mac, iPhone e iPad (a pilha começa por `-apple-system`).
+  - Nos outros sistemas entra a Inter, agora embutida no app (`@fontsource-variable/inter`). O Google Fonts saiu: menos uma dependência externa no carregamento.
+- **Tailwind 3 → 4:**
+  - pela ferramenta oficial (`@tailwindcss/upgrade`): 136 telas com os nomes novos das classes (`shadow-sm` → `shadow-xs`, `rounded` → `rounded-sm`, `bg-gradient-to-*` → `bg-linear-to-*`, `outline-none` → `outline-hidden`, etc.);
+  - configuração em CSS (`styles/index.css`, `@theme`) e `@tailwindcss/postcss`; sai o `autoprefixer`;
+  - compatibilidade do v3: cor padrão da borda e a mãozinha nos botões.
+  - Alertas de segurança dos pacotes: de 7 para **0**.
+- **Tema** (`@theme`; as classes das telas não mudam):
+  - os cinzas `slate` viram os neutros da Apple (#f5f5f7, #e8e8ed, #d2d2d7, #6e6e73, #1d1d1f…; o escuro vai a #000);
+  - um só azul de destaque, com o `indigo` igual ao `blue`. O 600 é #0071e3, com contraste AA para texto branco (4,6:1);
+  - cantos mais arredondados.
+- **Logo:**
+  - o monograma da casa (PS com a caneta-tinteiro) ganhou a versão "ícone de app": quadrado arredondado com gradiente azul e o monograma em branco;
+  - o mesmo desenho virou `public/favicon.svg`. O `index.html` apontava para um `/vite.svg` que não existia.
+- **Cabeçalho:** barra escura e translúcida com desfoque, como a do site da Apple.
+- **Login:** cartão claro (ou escuro, com o tema), campos arredondados com foco azul, botão azul e um só tom de destaque.
+- **Ícones:** já eram SVG de traço fino (1,7), no espírito dos SF Symbols; ficaram como estão.
+- **Capturas antes/depois:** a tela de login, nos temas claro e escuro e no celular, com build de configuração fictícia (as telas internas exigem login). Mandadas pelo chat.
+- **Volta:** reverter o PR.

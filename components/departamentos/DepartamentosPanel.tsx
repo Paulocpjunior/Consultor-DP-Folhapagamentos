@@ -10,9 +10,9 @@ import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
 import { contarPorDepartamento, departamentosDasFichas, departamentoVazio, validarDepartamento, type Departamento } from '../../services/departamentos/departamentos';
 import { criarDepartamentos, excluirDepartamento, listarDepartamentos, salvarDepartamento } from '../../services/departamentos/departamentosService';
 
-const inp = 'rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
-const btn = 'rounded border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-40 dark:border-slate-600';
-const btnP = 'rounded bg-blue-700 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40';
+const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
+const btn = 'rounded-sm border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-40 dark:border-slate-600';
+const btnP = 'rounded-sm bg-blue-700 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40';
 
 const DepartamentosPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
     const { ativa } = useEmpresaAtiva();
@@ -59,14 +59,14 @@ const DepartamentosPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
                 <h2 className="text-lg font-semibold">Departamentos</h2>
                 <p className="text-slate-600 dark:text-slate-300">Departamentos e centros de custo da empresa. O departamento do funcionário é o da ficha (Ident. Adm.) ou, sem ele, o do IOB. No Cálculo mensal, a folha, os holerites e o resumo saem por departamento ou por obra.</p>
             </div>
-            {erro && <p role="alert" className="rounded bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
-            {msg && <p role="status" className="rounded bg-green-50 p-2 text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
+            {erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+            {msg && <p role="status" className="rounded-sm bg-green-50 p-2 text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
             <div className="flex flex-wrap gap-2">
                 <button className={btnP} onClick={() => { setErro(''); setMsg(''); setNova(true); setD(departamentoVazio(ativa.id)); }}>+ Novo departamento</button>
                 <button className={btn} disabled={!faltam.length} onClick={trazer}>Trazer das fichas ({faltam.length})</button>
             </div>
             {d && (
-                <section className="flex flex-wrap items-end gap-3 rounded border border-slate-200 p-3 dark:border-slate-700">
+                <section className="flex flex-wrap items-end gap-3 rounded-sm border border-slate-200 p-3 dark:border-slate-700">
                     <label>Código<input aria-label="Código do departamento" disabled={!nova} className={`block w-28 font-mono ${inp}`} value={d.codigo} onChange={e => setD({ ...d, codigo: e.target.value.replace(/[^A-Za-z0-9._-]/g, '').slice(0, 20) })} /></label>
                     <label className="grow">Nome<input aria-label="Nome do departamento" className={`block w-full ${inp}`} value={d.nome} onChange={e => setD({ ...d, nome: e.target.value })} /></label>
                     <label>Centro de custo<input aria-label="Centro de custo" className={`block w-32 ${inp}`} value={d.centroCusto} onChange={e => setD({ ...d, centroCusto: e.target.value.slice(0, 30) })} /></label>

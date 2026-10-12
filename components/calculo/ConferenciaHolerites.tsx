@@ -94,23 +94,23 @@ const ConferenciaHolerites: React.FC<Props> = ({ empresaId, competencia, fichas,
                 <label className="text-sm dark:text-white">PDF dos holerites
                     <input aria-label="PDF dos holerites" className="block text-sm" type="file" accept="application/pdf,.pdf" multiple disabled={!!ocupado} onChange={e => setArquivos(Array.from(e.target.files ?? []))} />
                 </label>
-                <button className="rounded bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50" disabled={!arquivos.length || !!ocupado} onClick={ler}>Ler holerites</button>
-                {leitura && <button className="rounded border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:text-white" onClick={() => onLeitura(null)}>Limpar leitura</button>}
+                <button className="rounded-sm bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50" disabled={!arquivos.length || !!ocupado} onClick={ler}>Ler holerites</button>
+                {leitura && <button className="rounded-sm border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:text-white" onClick={() => onLeitura(null)}>Limpar leitura</button>}
             </div>
             {ocupado && <p role="status" className="text-sm text-blue-700 dark:text-blue-300">{ocupado}</p>}
-            {erro && <p role="alert" className="rounded bg-red-50 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+            {erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
 
             {leitura && conf && (
                 <>
                     <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-5">
-                        <div className="rounded bg-slate-50 p-2 dark:bg-slate-700 dark:text-slate-100"><strong>{leitura.holerites.length}</strong> holerite(s) lido(s)</div>
-                        <div className="rounded bg-green-50 p-2 dark:bg-green-900/30 dark:text-green-100"><strong>{cont('confere')}</strong> conferem</div>
-                        <div className="rounded bg-red-50 p-2 dark:bg-red-900/30 dark:text-red-100"><strong>{cont('diverge')}</strong> divergem</div>
-                        <div className="rounded bg-amber-50 p-2 dark:bg-amber-900/30 dark:text-amber-100"><strong>{conf.linhas.filter(l => !l.conferencia || !['confere', 'diverge'].includes(l.conferencia.situacao)).length}</strong> sem ficha ou não comparados</div>
-                        <div className="rounded bg-amber-50 p-2 dark:bg-amber-900/30 dark:text-amber-100"><strong>{conf.semHolerite.length}</strong> sem holerite</div>
+                        <div className="rounded-sm bg-slate-50 p-2 dark:bg-slate-700 dark:text-slate-100"><strong>{leitura.holerites.length}</strong> holerite(s) lido(s)</div>
+                        <div className="rounded-sm bg-green-50 p-2 dark:bg-green-900/30 dark:text-green-100"><strong>{cont('confere')}</strong> conferem</div>
+                        <div className="rounded-sm bg-red-50 p-2 dark:bg-red-900/30 dark:text-red-100"><strong>{cont('diverge')}</strong> divergem</div>
+                        <div className="rounded-sm bg-amber-50 p-2 dark:bg-amber-900/30 dark:text-amber-100"><strong>{conf.linhas.filter(l => !l.conferencia || !['confere', 'diverge'].includes(l.conferencia.situacao)).length}</strong> sem ficha ou não comparados</div>
+                        <div className="rounded-sm bg-amber-50 p-2 dark:bg-amber-900/30 dark:text-amber-100"><strong>{conf.semHolerite.length}</strong> sem holerite</div>
                     </div>
                     <p className="text-xs text-slate-500">Lido por {leitura.modelo || 'Gemini'} · {leitura.arquivos.join(', ')}</p>
-                    <div className="overflow-x-auto rounded border border-slate-200 dark:border-slate-700">
+                    <div className="overflow-x-auto rounded-sm border border-slate-200 dark:border-slate-700">
                         <table className="w-full text-sm">
                             <thead className="bg-slate-50 text-left text-xs text-slate-500 dark:bg-slate-900"><tr><th className="p-2">Holerite</th><th className="p-2">Situação</th><th className="p-2">Divergências</th><th className="p-2">Movimento</th></tr></thead>
                             <tbody>
@@ -122,11 +122,11 @@ const ConferenciaHolerites: React.FC<Props> = ({ empresaId, competencia, fichas,
                                         <React.Fragment key={i}>
                                             <tr className="cursor-pointer border-t border-slate-100 align-top hover:bg-blue-50 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-700" onClick={() => setAberto(a => (a === i ? null : i))}>
                                                 <td className="p-2"><span className="font-medium">{h.nome || '(sem nome)'}</span>{h.pagina ? <span className="ml-1 text-xs text-slate-500">pág. {h.pagina}</span> : null}{c && c.ligadoPor !== 'cpf' && <span className="ml-1 text-xs text-amber-700 dark:text-amber-300">(ligado pelo {c.ligadoPor === 'codigo' ? 'código' : 'nome'})</span>}</td>
-                                                <td className="whitespace-nowrap p-2 text-xs">{c ? <span className={`rounded px-1.5 ${COR[c.situacao]}`}>{c.situacao}</span> : <span className="rounded bg-amber-100 px-1.5 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">sem ficha</span>}</td>
-                                                <td className="min-w-[14rem] p-2 text-xs">{divergentes.map(l => `${l.item} ${dif(l.diferenca)}`).join('; ')}{c && c.semCorrespondente.length > 0 && `${divergentes.length ? '; ' : ''}${c.semCorrespondente.length} verba(s) do IOB sem correspondente`}</td>
+                                                <td className="whitespace-nowrap p-2 text-xs">{c ? <span className={`rounded-sm px-1.5 ${COR[c.situacao]}`}>{c.situacao}</span> : <span className="rounded-sm bg-amber-100 px-1.5 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">sem ficha</span>}</td>
+                                                <td className="min-w-56 p-2 text-xs">{divergentes.map(l => `${l.item} ${dif(l.diferenca)}`).join('; ')}{c && c.semCorrespondente.length > 0 && `${divergentes.length ? '; ' : ''}${c.semCorrespondente.length} verba(s) do IOB sem correspondente`}</td>
                                                 <td className="p-2 text-xs" onClick={e => e.stopPropagation()}>
                                                     {c && podeAplicar(c) && temSugestao && (igual ? <span className="text-green-700 dark:text-green-300">já aplicado</span>
-                                                        : <button className="rounded border border-slate-300 px-2 py-1 dark:border-slate-600" onClick={() => aplicar(c.fichaId, sugestao.movimento, c.nome)}>Aplicar movimento do holerite</button>)}
+                                                        : <button className="rounded-sm border border-slate-300 px-2 py-1 dark:border-slate-600" onClick={() => aplicar(c.fichaId, sugestao.movimento, c.nome)}>Aplicar movimento do holerite</button>)}
                                                 </td>
                                             </tr>
                                             {aberto === i && (

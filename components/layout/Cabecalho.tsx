@@ -80,19 +80,20 @@ const Cabecalho: React.FC<Props> = ({ menu, destino, onNavegar, ativa, onTrocar,
     );
     const grupoAberto = menu.find(g => g.id === aberto);
 
+    // Barra no estilo das da Apple: escura e translúcida, com desfoque do que passa por baixo.
     return (
-        <header ref={ref} className="relative z-40 md:sticky md:top-0 border-b border-white/10 bg-gradient-to-r from-slate-950 via-slate-900 to-[#0b1f4d] text-slate-100 shadow-lg shadow-slate-900/20">
+        <header ref={ref} className="relative z-40 md:sticky md:top-0 border-b border-white/10 bg-[#161617]/85 text-slate-100 backdrop-blur-xl backdrop-saturate-150">
             <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5">
                 <div className="flex items-center gap-2.5">
-                    <span className="rounded-lg bg-white p-0.5 shadow-sm"><Logo iconOnly className="h-8 w-8" /></span>
+                    <Logo iconOnly className="h-8 w-8" />
                     <div className="leading-tight">
                         <div className="text-sm font-semibold tracking-tight text-white">Consultor DP</div>
-                        <div className="text-[10px] uppercase tracking-[0.18em] text-blue-300/80">SP Assessoria</div>
+                        <div className="text-[11px] text-slate-400">SP Assessoria</div>
                     </div>
                 </div>
 
                 {/* Empresa e período ativos: tudo o que se faz é nesta empresa e nesta competência. */}
-                <div aria-label="Empresa e período ativos" className="order-3 flex min-w-0 flex-1 basis-full items-center gap-3 rounded-xl bg-white/5 px-3 py-1.5 ring-1 ring-white/10 md:order-none md:basis-auto">
+                <div aria-label="Empresa e período ativos" className="order-3 flex min-w-0 flex-1 basis-full items-center gap-3 rounded-xl bg-white/5 px-3 py-1.5 ring-1 ring-white/10 md:order-0 md:basis-auto">
                     {ativa ? (
                         <>
                             <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg text-white ${corDoGrupo('empresas').solido}`}><Ico nome="empresa" className="h-4 w-4" /></span>
@@ -125,7 +126,7 @@ const Cabecalho: React.FC<Props> = ({ menu, destino, onNavegar, ativa, onTrocar,
                         <Ico nome={escuro ? 'sol' : 'lua'} />
                     </button>
                     <div className="hidden text-right leading-tight lg:block">
-                        <div className="max-w-[12rem] truncate text-xs text-slate-200">{usuario}</div>
+                        <div className="max-w-48 truncate text-xs text-slate-200">{usuario}</div>
                         {papel && <div className="text-[10px] uppercase tracking-wider text-amber-300/90">{papel}</div>}
                     </div>
                     <button onClick={onSair} aria-label="Sair" title="Sair" className="rounded-lg p-2 text-slate-300 hover:bg-white/10 hover:text-white"><Ico nome="sair" /></button>
@@ -133,14 +134,14 @@ const Cabecalho: React.FC<Props> = ({ menu, destino, onNavegar, ativa, onTrocar,
             </div>
 
             <nav aria-label="Menu principal" className="border-t border-white/5 bg-black/10">
-                <ul className="mx-auto flex max-w-7xl items-stretch gap-0.5 overflow-x-auto px-2 [scrollbar-width:none] sm:px-4 md:overflow-visible">
+                <ul className="mx-auto flex max-w-7xl items-stretch gap-0.5 overflow-x-auto px-2 scrollbar-none sm:px-4 md:overflow-visible">
                     {menu.map(g => {
                         const ativo = atual?.grupo.id === g.id;
                         return (
                             <li key={g.id} className={`relative ${g.direita ? 'ml-auto' : ''}`}>
                                 <button aria-haspopup="menu" aria-expanded={aberto === g.id} onClick={() => setAberto(a => (a === g.id ? null : g.id))}
                                     className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2 text-sm transition-colors ${ativo ? `${corDoGrupo(g.id).ativo} font-medium text-white` : 'border-transparent text-slate-300 hover:text-white'}`}>
-                                    <span className={`grid h-6 w-6 place-items-center rounded-md text-white shadow-sm ${corDoGrupo(g.id).solido} ${ativo ? 'ring-2 ring-white/40' : ''}`}><Ico nome={g.icone} className="h-3.5 w-3.5" /></span>
+                                    <span className={`grid h-6 w-6 place-items-center rounded-md text-white shadow-xs ${corDoGrupo(g.id).solido} ${ativo ? 'ring-2 ring-white/40' : ''}`}><Ico nome={g.icone} className="h-3.5 w-3.5" /></span>
                                     {g.rotulo}
                                     {!!contadores[g.id] && <span aria-label={`${contadores[g.id]} pendente(s)`} className="rounded-full bg-amber-400 px-1.5 text-[10px] font-bold leading-4 text-slate-900">{contadores[g.id]}</span>}
                                     <Ico nome="chevron" className={`h-3 w-3 opacity-60 transition-transform ${aberto === g.id ? 'rotate-180' : ''}`} />

@@ -20,8 +20,8 @@ import ImportarTextosSageModal from './ImportarTextosSageModal';
 
 const modeloPdf = () => import('../../services/modelos/modeloPdf');
 const inp = 'mt-0.5 block w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100';
-const btn = 'rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700';
-const primario = 'rounded-lg bg-teal-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-teal-500 disabled:opacity-50';
+const btn = 'rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 shadow-xs hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700';
+const primario = 'rounded-lg bg-teal-600 px-3 py-2 text-sm font-medium text-white shadow-xs hover:bg-teal-500 disabled:opacity-50';
 const CATEGORIAS = Object.keys(ROTULO_CATEGORIA) as CategoriaModelo[];
 const EXTRAS: { chave: string; campo: string; rotulo: string; tipo?: 'date' | 'number' }[] = [
     { chave: 'diasExperiencia', campo: 'contrato.diasExperiencia', rotulo: 'Dias de experiência', tipo: 'number' },
@@ -137,7 +137,7 @@ const ModelosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                             {modelos.filter(m => m.categoria === c).map(m => (
                                 <li key={m.id}>
                                     <button onClick={() => escolher(m)} aria-current={m.id === selId}
-                                        className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${m.id === selId ? 'bg-teal-600 text-white shadow-sm' : 'bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800'}`}>
+                                        className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${m.id === selId ? 'bg-teal-600 text-white shadow-xs' : 'bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800'}`}>
                                         <span className="block">{m.titulo}</span>
                                         <span className={`block text-[11px] ${m.id === selId ? 'text-teal-100' : 'text-slate-500'}`}>{dono(m)} · {ORIGEM[m.origem]}</span>
                                     </button>
@@ -147,7 +147,7 @@ const ModelosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                     </div>
                 ))}
             </nav>
-            <section aria-label={modo === 'editar' ? 'Editar modelo' : sel?.titulo ?? 'Modelo'} className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <section aria-label={modo === 'editar' ? 'Editar modelo' : sel?.titulo ?? 'Modelo'} className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-700 dark:bg-slate-900">
                 {erro && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
                 {msg && <p role="status" className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200">{msg}</p>}
 
@@ -231,7 +231,7 @@ const ModelosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                                 titulo={`${sel.titulo} – ${ficha?.dados.nome ?? ''}`} competencia={ativa.competencia} gerar={arquivo} />
                         )}
                         {preenchido && (
-                            <article aria-label="Prévia do documento" className="max-h-[32rem] space-y-2 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-5 text-sm leading-relaxed text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
+                            <article aria-label="Prévia do documento" className="max-h-128 space-y-2 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-5 text-sm leading-relaxed text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
                                 {blocosDoTexto(preenchido.texto).map((b, i) => (b.tipo === 'titulo' ? <h3 key={i} className="text-center font-bold">{b.texto}</h3>
                                     : b.tipo === 'subtitulo' ? <h4 key={i} className="font-semibold">{b.texto}</h4>
                                         : b.tipo === 'assinaturas' ? <p key={i} className="pt-4 text-center text-xs text-slate-500">— campos de assinatura: empregador e empregado{testemunhas ? ', testemunhas' : ''} —</p>

@@ -31,11 +31,11 @@ const ConviteAgenda: React.FC<Props> = ({ eventos, nomeArquivo, titulo }) => {
     }
 
     return (
-        <div aria-label="Convite de agenda" className="space-y-1 rounded border border-slate-200 p-2 text-xs dark:border-slate-700">
+        <div aria-label="Convite de agenda" className="space-y-1 rounded-sm border border-slate-200 p-2 text-xs dark:border-slate-700">
             <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium">Agenda do cliente</span>
-                <button type="button" className="rounded bg-blue-700 px-2 py-1 text-white" onClick={baixar}>Baixar convite de agenda (.ics)</button>
-                <button type="button" className="rounded border border-slate-300 px-2 py-1 dark:border-slate-600" onClick={copiar}>Copiar texto para WhatsApp</button>
+                <button type="button" className="rounded-sm bg-blue-700 px-2 py-1 text-white" onClick={baixar}>Baixar convite de agenda (.ics)</button>
+                <button type="button" className="rounded-sm border border-slate-300 px-2 py-1 dark:border-slate-600" onClick={copiar}>Copiar texto para WhatsApp</button>
             </div>
             <ul className="list-disc pl-5">
                 {eventos.map(e => (

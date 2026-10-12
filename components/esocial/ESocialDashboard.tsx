@@ -150,7 +150,7 @@ const ESocialDashboard: React.FC = () => {
                     <ul className="space-y-1">
                         {alertas.slice(0, 5).map(a => (
                             <li key={a.id} className="text-sm text-amber-700 dark:text-amber-300 flex items-center gap-2">
-                                <span className="font-mono text-xs bg-amber-100 dark:bg-amber-800 px-1.5 py-0.5 rounded">
+                                <span className="font-mono text-xs bg-amber-100 dark:bg-amber-800 px-1.5 py-0.5 rounded-sm">
                                     {a.tipo}
                                 </span>
                                 <span>{EVENTO_LABELS[a.tipo]}</span>

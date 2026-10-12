@@ -228,8 +228,8 @@ const CalendarioEmpresa: React.FC<Props> = ({ empresa, fichas, sindicatos, usuar
         finally { setGravando(''); }
     }
 
-    const btn = 'rounded border px-2 py-0.5 text-xs disabled:opacity-50';
-    const inp = 'mt-0.5 block rounded border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900';
+    const btn = 'rounded-sm border px-2 py-0.5 text-xs disabled:opacity-50';
+    const inp = 'mt-0.5 block rounded-sm border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900';
     const daGuia = obrigacoes.filter(o => ehGuia(o.id));
     const rg = resumoGuias(daGuia.map(o => ({ vencimento: o.data, guia: guias.get(o.id) })), hoje);
     return (
@@ -253,7 +253,7 @@ const CalendarioEmpresa: React.FC<Props> = ({ empresa, fichas, sindicatos, usuar
             {avisosDarf.length > 0 && (
                 <ul aria-label="DARF sem baixa conferidos na Receita" className="mt-2 space-y-1 text-sm">
                     {avisosDarf.map(a => (
-                        <li key={`${a.tipo}-${a.competencia}`} className={`rounded p-2 ${a.tipo === 'sem-pagamento' ? 'bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-200' : 'bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200'}`}>
+                        <li key={`${a.tipo}-${a.competencia}`} className={`rounded-sm p-2 ${a.tipo === 'sem-pagamento' ? 'bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-200' : 'bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200'}`}>
                             {a.tipo === 'sem-pagamento' ? '🚨 ' : '💸 '}{a.texto}
                             {a.competencia !== empresa.competencia && onTrocar && <> <button className="underline" onClick={onTrocar}>Trocar o período</button></>}
                         </li>
@@ -265,7 +265,7 @@ const CalendarioEmpresa: React.FC<Props> = ({ empresa, fichas, sindicatos, usuar
                 <div className="mt-2">
                     <button className={`${btn} border-blue-600 text-blue-700 dark:text-blue-300`} disabled={conferindo || !!gravando} onClick={conferirTodasNaReceita}>{conferindo ? 'Consultando a Receita…' : 'Conferir os DARF na Receita'}</button>
                     {naReceita && (
-                        <div role="region" aria-label="DARF na Receita" className="mt-2 rounded border border-blue-100 p-2 text-xs dark:border-blue-900 dark:text-slate-100">
+                        <div role="region" aria-label="DARF na Receita" className="mt-2 rounded-sm border border-blue-100 p-2 text-xs dark:border-blue-900 dark:text-slate-100">
                             <table className="w-full">
                                 <thead className="text-left text-slate-500"><tr><th className="p-1">Guia</th><th className="p-1">Documento</th><th className="p-1">Situação</th><th className="p-1">Detalhe</th></tr></thead>
                                 <tbody>{naReceita.map(l => (
@@ -282,8 +282,8 @@ const CalendarioEmpresa: React.FC<Props> = ({ empresa, fichas, sindicatos, usuar
                     )}
                 </div>
             )}
-            {erro && <p role="alert" className="mt-2 rounded bg-red-50 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
-            {aviso && <p role="status" className="mt-2 rounded bg-blue-50 p-2 text-sm text-blue-800 dark:bg-blue-900/30 dark:text-blue-200">{aviso}</p>}
+            {erro && <p role="alert" className="mt-2 rounded-sm bg-red-50 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
+            {aviso && <p role="status" className="mt-2 rounded-sm bg-blue-50 p-2 text-sm text-blue-800 dark:bg-blue-900/30 dark:text-blue-200">{aviso}</p>}
             {!usuario && <p className="mt-2 text-xs text-slate-500">Entre com seu usuário para marcar as entregas.</p>}
 
             <div className="mt-2 overflow-x-auto">
@@ -309,7 +309,7 @@ const CalendarioEmpresa: React.FC<Props> = ({ empresa, fichas, sindicatos, usuar
                                     <td className="p-2 text-xs">
                                         {marcacoes === null ? '…' : guia && g?.pagamento ? (
                                             <>
-                                                <span className={`rounded px-1.5 py-0.5 font-medium ${situacaoDaGuia(o.data, g, hoje) === 'paga' ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'}`}>{ROTULO_GUIA[situacaoDaGuia(o.data, g, hoje)]}</span>
+                                                <span className={`rounded-sm px-1.5 py-0.5 font-medium ${situacaoDaGuia(o.data, g, hoje) === 'paga' ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'}`}>{ROTULO_GUIA[situacaoDaGuia(o.data, g, hoje)]}</span>
                                                 <span className="mt-0.5 block text-slate-500">{observacaoDaBaixa(g.pagamento)}</span>
                                                 <span className="block text-slate-500">{[g.atualizadoPorEmail, g.atualizadoEm && br(g.atualizadoEm.slice(0, 10))].filter(Boolean).join(' · ')}</span>
                                                 {usuario && <button className={`${btn} mt-1 border-slate-300 dark:border-slate-600`} disabled={!!gravando} onClick={() => desfazerPagamento(o, g)}>Desfazer a baixa</button>}
@@ -317,7 +317,7 @@ const CalendarioEmpresa: React.FC<Props> = ({ empresa, fichas, sindicatos, usuar
                                             </>
                                         ) : m ? (
                                             <>
-                                                <span className={`rounded px-1.5 py-0.5 font-medium ${m.status === 'entregue' ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200' : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200'}`}>{ROTULO[m.status]}</span>
+                                                <span className={`rounded-sm px-1.5 py-0.5 font-medium ${m.status === 'entregue' ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200' : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200'}`}>{ROTULO[m.status]}</span>
                                                 <span className="mt-0.5 block text-slate-500">{[m.atualizadoPorEmail, m.atualizadoEm && br(m.atualizadoEm.slice(0, 10))].filter(Boolean).join(' · ')}</span>
                                                 {m.observacao && <span className="block text-slate-500">{m.observacao}</span>}
                                                 {usuario && <button className={`${btn} mt-1 border-slate-300 dark:border-slate-600`} disabled={!!gravando} onClick={() => desfazer(o, m)}>Desfazer</button>}
@@ -359,7 +359,7 @@ const CalendarioEmpresa: React.FC<Props> = ({ empresa, fichas, sindicatos, usuar
             </div>
 
             {(semGuia.length > 0 || foraDoCadastro.length > 0) && (
-                <p className="mt-2 rounded bg-amber-50 p-2 text-xs text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">
+                <p className="mt-2 rounded-sm bg-amber-50 p-2 text-xs text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">
                     {semGuia.length > 0 && <>Sindicato(s) dos empregados sem guia no cadastro: {semGuia.join('; ')}. Informe o dia da guia da convenção para ela entrar no calendário. </>}
                     {foraDoCadastro.length > 0 && <>CNPJ de sindicato nas fichas que não está cadastrado: {foraDoCadastro.map(cnpjFmt).join('; ')}. </>}
                     {onAbrirCadastros && <button className="text-blue-700 underline dark:text-blue-300" onClick={onAbrirCadastros}>Abrir Cadastros</button>}
