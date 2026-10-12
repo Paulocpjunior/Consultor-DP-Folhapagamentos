@@ -11,7 +11,7 @@ import { COD_INC_IRRF } from '../../cadastros/rubricas';
 import { MOTIVOS_DESLIGAMENTO } from '../../cadastros/funcionarios';
 import { TIPOS_RESCISAO } from '../../calculo/motorRescisao';
 import { MOTIVOS_COM_AFASTADO } from '../desligamento';
-import { CONFERENCIA_DE_BASE, MODELOS, NAT_RUBR, validarPedido } from '../tabelaRubricas';
+import { CONFERENCIA_DE_BASE, MODELOS, MODELOS_A_PARTIR, NAT_RUBR, validarPedido } from '../tabelaRubricas';
 import { NATUREZA_MOS, SUGESTAO } from '../eventosFolha';
 import { foraDaVigencia, VIGENCIAS, type TabelaVigencia } from '../vigenciaTabelas';
 
@@ -21,6 +21,8 @@ const HOJE = '2026-10-12';
 const vigentes = (n: string) => new Set(tab(n).filter(i => (i.inicio ?? '') <= HOJE && (!i.termino || i.termino >= HOJE)).map(i => i.codigo));
 const existem = (n: string) => new Set(tab(n).map(i => i.codigo));
 const naoVigentes = (cs: Iterable<string>, n: string) => [...new Set(cs)].filter(c => !vigentes(n).has(c)).sort();
+/** Nem vigente hoje nem já publicada com início futuro (as sugestões do de/para casam rubricas que o eSocial aceitou). */
+const naoVigentesNemProgramados = (cs: Iterable<string>, n: string) => [...new Set(cs)].filter(c => !vigentes(n).has(c) && !tab(n).some(i => i.codigo === c && (i.inicio ?? '') > HOJE)).sort();
 const inexistentes = (cs: Iterable<string>, n: string) => [...new Set(cs)].filter(c => !existem(n).has(c)).sort();
 
 describe('o que o Consultor gera está vigente na tabela oficial', () => {
@@ -30,7 +32,8 @@ describe('o que o Consultor gera está vigente na tabela oficial', () => {
     });
     it('Tabela 03: naturezas dos modelos do S-1010, das sugestões do de/para e do MOS', () => {
         expect(naoVigentes(MODELOS.map(m => m.dados.natRubr), '03')).toEqual([]);
-        expect(naoVigentes(Object.values(SUGESTAO).flatMap(s => s.naturezas), '03')).toEqual([]);
+        expect(naoVigentesNemProgramados(Object.values(SUGESTAO).flatMap(s => s.naturezas), '03')).toEqual([]);
+        expect(naoVigentes(MODELOS_A_PARTIR.map(m => m.modelo.dados.natRubr), '03')).toEqual(['4052']); // salário-paternidade, a partir de 12/2026
         expect(naoVigentes(Object.values(NATUREZA_MOS), '03')).toEqual([]);
         expect(naoVigentes(CONFERENCIA_DE_BASE, '03')).toEqual([]);
     });

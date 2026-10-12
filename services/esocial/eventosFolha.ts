@@ -36,7 +36,7 @@ import { depNoEsocial, ratearPensao, type FichaFuncionario } from '../cadastros/
 import type { Afastamento } from '../cadastros/afastamentos';
 import type { TabelaLegal } from '../cadastros/tabelasLegais';
 import type { Dependente } from '../implantacao/unificacao';
-import { BASE_CP, BASE_FGTS, COD_INC_CP, COD_INC_FGTS, classeIrrf, rotuloCodigo, rotuloIrrf, vigenciaEm, type Rubrica } from '../cadastros/rubricas';
+import { BASE_CP, BASE_FGTS, COD_INC_CP, PAGO_PELO_INSS, COD_INC_FGTS, classeIrrf, rotuloCodigo, rotuloIrrf, vigenciaEm, type Rubrica } from '../cadastros/rubricas';
 import { diaUtilAnterior } from '../prazos/calendario';
 import { cpfValido, reais } from '../cadastros/documentos';
 import { idEvento, VER_PROC, type TpAmb } from './transmissao';
@@ -118,6 +118,8 @@ export const SUGESTAO: Record<string, { naturezas: string[]; dica?: RegExp; evit
     INSALUB: { naturezas: ['1202'] },
     PERICUL: { naturezas: ['1203'] },
     MAT: { naturezas: ['4050'] },
+    // Salário-paternidade (Lei 15.371/2026; Tabela 03, natureza 4052 a partir de 12/2026).
+    PAT: { naturezas: ['4052'] },
     HE50: { naturezas: ['1003'], evita: /100/ },
     HE100: { naturezas: ['1003'], dica: /100/ },
     DSRHE: { naturezas: ['1012'], dica: /EXTRA|\bHE\b/ },
@@ -467,7 +469,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             avisosIncidencia.add(k);
             avisos.push(`Rubrica ${rub.codRubr} ("${v.descricao}"): o cálculo ${calculo ? 'soma' : 'não soma'} à base do ${tributo}, e no S-1010 ela está como ${rotulo}. Confira o de/para ou o S-1010.`);
         };
-        if (!/^9\d$/.test(d.codIncCP) && !['25', '26'].includes(d.codIncCP) && BASE_CP.includes(d.codIncCP) !== esperado.inss) avisar('INSS', esperado.inss, rotuloCodigo(COD_INC_CP, d.codIncCP, 'tabela'));
+        if (!/^9\d$/.test(d.codIncCP) && !PAGO_PELO_INSS.includes(d.codIncCP) && BASE_CP.includes(d.codIncCP) !== esperado.inss) avisar('INSS', esperado.inss, rotuloCodigo(COD_INC_CP, d.codIncCP, 'tabela'));
         if (!/^9\d$/.test(d.codIncFGTS) && BASE_FGTS.includes(d.codIncFGTS) !== esperado.fgts) avisar('FGTS', esperado.fgts, rotuloCodigo(COD_INC_FGTS, d.codIncFGTS, 'tabela'));
         const cls = classeIrrf(d.codIncIRRF);
         // Férias na folha do gozo: o MOS (S-1200, item 19) põe IRRF 13 nas férias, no 1/3 e no desconto do que foi

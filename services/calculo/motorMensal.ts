@@ -208,6 +208,13 @@ const IRRF_MINIMO = 1000;
 const MATERNIDADE = ['17', '18', '19', '20', '33', '35', '43'];
 /** Prorrogação da licença-maternidade (Empresa Cidadã, Lei 11.770/2008): a empresa paga e não compensa na DCTFWeb. */
 const PRORROGACAO = '18';
+/**
+ * Licença-paternidade com salário-paternidade (Lei 15.371/2026; Tabela 18, motivos 46 a 52, a partir de 01/01/2027):
+ * remuneração integral paga pela empresa, com reembolso pela Previdência nos termos do regulamento.
+ */
+const PATERNIDADE = ['46', '48', '49', '50', '51', '52'];
+/** Prorrogação da licença-paternidade (Empresa Cidadã, Lei 11.770/2008): a empresa paga, sem reembolso. */
+const PRORROGACAO_PAT = '47';
 /** Afastamentos com FGTS sobre a remuneração (Lei 8.036/1990, art. 15, § 5º): acidente do trabalho e serviço militar. */
 const FGTS_NO_AFASTAMENTO = ['01', '29'];
 const DOENCA = ['01', '03'];
@@ -262,7 +269,14 @@ export function salarioContratual(d: FichaFuncionario['dados']): SalarioContratu
     return { erro: `Unidade salarial ${unidade}: não calculada nesta versão (só mês, hora, dia e quinzena).`, avisos };
 }
 
-type Dia = 'pago' | 'maternidade' | 'prorrogacao' | 'ferias' | 'naoPago';
+type Dia = 'pago' | 'maternidade' | 'prorrogacao' | 'paternidade' | 'prorrogacaoPat' | 'ferias' | 'naoPago';
+
+/** Reparte os dias de licença do mês entre os tipos, na ordem; o último tipo presente fica com o resto. */
+function repartirDias(total: number, partes: number[]): number[] {
+    const ultimo = partes.reduce((u, p, i) => (p ? i : u), -1);
+    let resto = total;
+    return partes.map((p, i) => { if (!p) return 0; const v = i === ultimo ? resto : Math.min(resto, p); resto -= v; return v; });
+}
 
 /**
  * Dias de salário no mês comercial. Mês inteiro sem afastamento vale 30; com afastamento, os dias trabalhados (até 30).
@@ -376,6 +390,8 @@ function calcularMensalSemObras(e: EntradaCalculo): ResultadoCalculo {
     let diasServicoMilitar = 0;
     // Doméstica em licença-maternidade: o INSS paga direto; o empregador recolhe o FGTS sobre a remuneração desses dias.
     let diasMaternidadeDomestica = 0;
+    // Doméstico em licença-paternidade: o salário-paternidade é pago pelo INSS; o FGTS continua (Decreto 99.684/1990, art. 28, V).
+    let diasPaternidadeDomestica = 0;
     // Benefício do INSS (doença) que começou antes do mês: o salário-família é pago pelo INSS (Decreto 3.048/1999, art. 82).
     let beneficioDeMesAnterior = false;
     // Dias pagos sem deslocamento (afastamento remunerado, 15 primeiros dias de doença): sem vale-transporte (Codex #115).
@@ -396,17 +412,23 @@ function calcularMensalSemObras(e: EntradaCalculo): ResultadoCalculo {
         const beneficio = DOENCA.includes(a.motivo) ? (domestico || a.infoMesmoMtv === 'S' ? a.dtInicio : inicioBeneficio(a)) : null;
         for (let x = aIni; x <= aFim; x = somarDias(x, 1)) {
             if (domestico && MATERNIDADE.includes(a.motivo)) { dias.set(x, 'naoPago'); n++; diasMaternidadeDomestica++; }
+            else if (domestico && (PATERNIDADE.includes(a.motivo) || a.motivo === PRORROGACAO_PAT)) { dias.set(x, 'naoPago'); n++; diasPaternidadeDomestica++; }
             else if (DOENCA.includes(a.motivo)) {
                 if (beneficio && x >= beneficio) { dias.set(x, 'naoPago'); n++; if (FGTS_NO_AFASTAMENTO.includes(a.motivo)) diasAcidenteInss++; if (beneficio < ini) beneficioDeMesAnterior = true; }
                 else semTransporte.add(x);
             } else if (a.motivo === PRORROGACAO) { dias.set(x, 'prorrogacao'); n++; }
             else if (MATERNIDADE.includes(a.motivo)) { dias.set(x, 'maternidade'); n++; }
+            else if (a.motivo === PRORROGACAO_PAT) { dias.set(x, 'prorrogacaoPat'); n++; }
+            else if (PATERNIDADE.includes(a.motivo)) { dias.set(x, 'paternidade'); n++; }
             else if (FERIAS.includes(a.motivo)) { dias.set(x, 'ferias'); n++; }
             else { dias.set(x, 'naoPago'); n++; if (FGTS_NO_AFASTAMENTO.includes(a.motivo)) { diasAcidenteInss++; if (a.motivo === '29') diasServicoMilitar++; } }
         }
         if (domestico && MATERNIDADE.includes(a.motivo)) {
             r.memoria.push(`Afastamento ${rotulo}: ${n} dia(s) no mês. O salário-maternidade da doméstica é pago direto pelo INSS (Lei 8.213/1991, art. 73, I); o empregador recolhe o FGTS (8% + 3,2%) sobre a remuneração desses dias.`);
             if (a.motivo === PRORROGACAO) r.avisos.push('Prorrogação da licença-maternidade (Empresa Cidadã) não se aplica ao empregador doméstico: confira o afastamento.');
+        } else if (domestico && (PATERNIDADE.includes(a.motivo) || a.motivo === PRORROGACAO_PAT)) {
+            r.memoria.push(`Afastamento ${rotulo}: ${n} dia(s) no mês. O salário-paternidade do doméstico é pago pelo INSS (Lei 15.371/2026); o empregador recolhe o FGTS (8% + 3,2%) sobre a remuneração desses dias.`);
+            if (a.motivo === PRORROGACAO_PAT) r.avisos.push('Prorrogação da licença-paternidade (Empresa Cidadã) não se aplica ao empregador doméstico: confira o afastamento.');
         } else if (DOENCA.includes(a.motivo) && domestico) {
             r.memoria.push(`Afastamento ${rotulo} desde ${brData(a.dtInicio)}: empregado doméstico recebe o benefício do INSS desde o 1º dia (o empregador não paga os 15 primeiros dias); ${n} dia(s) sem salário no mês.`);
         } else if (DOENCA.includes(a.motivo)) {
@@ -417,6 +439,8 @@ function calcularMensalSemObras(e: EntradaCalculo): ResultadoCalculo {
             if (a.infoMesmoMtv === 'S') r.avisos.push(`Afastamento ${rotulo} com o mesmo motivo de outro nos últimos 60 dias: o motor põe o INSS desde o 1º dia. Se o anterior teve menos de 15 dias, a empresa completa os 15; confira e lance os dias no movimento.`);
         } else if (a.motivo === PRORROGACAO) r.memoria.push(`Afastamento ${rotulo}: ${n} dia(s) de prorrogação da licença-maternidade no mês, pagos pela empresa (sem compensação na DCTFWeb).`);
         else if (MATERNIDADE.includes(a.motivo)) r.memoria.push(`Afastamento ${rotulo}: ${n} dia(s) de salário-maternidade no mês.`);
+        else if (a.motivo === PRORROGACAO_PAT) r.memoria.push(`Afastamento ${rotulo}: ${n} dia(s) de prorrogação da licença-paternidade no mês, pagos pela empresa (Empresa Cidadã, sem reembolso).`);
+        else if (PATERNIDADE.includes(a.motivo)) r.memoria.push(`Afastamento ${rotulo}: ${n} dia(s) de salário-paternidade no mês.`);
         else if (FERIAS.includes(a.motivo)) {
             if (e.feriasDoMes) r.memoria.push(`Férias de ${brData(aIni)} a ${brData(aFim)} (${n} dia(s)): pagas no recibo de férias; esses dias saem do salário.`);
             else incompleto(`Férias de ${brData(aIni)} a ${brData(aFim)} (${n} dia(s)): o recibo de férias sai em Cálculo › Folha › Férias; sem ele, o INSS e o FGTS do mês não somam as férias.`);
@@ -431,14 +455,15 @@ function calcularMensalSemObras(e: EntradaCalculo): ResultadoCalculo {
     // pagam-se os dias trabalhados (até 30); em fevereiro, 30 menos os afastados.
     const L = Number(ult.slice(8));
     const base30 = mesInteiro ? 30 : Math.min(30, dias.size);
-    const realPago = contar('pago'); const realProrr = contar('prorrogacao'); const realMat = contar('maternidade') + realProrr;
+    const realPago = contar('pago'); const realProrr = contar('prorrogacao'); const realPatProrr = contar('prorrogacaoPat'); const realPat = contar('paternidade');
+    // Licenças pagas pela empresa (maternidade, paternidade e as prorrogações): completam o mês comercial juntas.
+    const realMat = contar('maternidade') + realProrr + realPat + realPatProrr;
     // Com férias no mês, salário + férias fecham 30 dias (o recibo paga os dias de férias): 30 − os dias fora.
     const comFerias = contar('ferias') > 0;
     const diasPagos = diasPagosNoMes(dias, mesInteiro, L);
     // Licença-maternidade até o fim do mês (ou o mês todo): completa o mês comercial (em fevereiro, os 2 dias que faltam).
     const diasMatTotal = realMat && mesInteiro && !comFerias && contar('naoPago') === 0 ? 30 - diasPagos : Math.min(30 - diasPagos, realMat === dias.size ? base30 : realMat);
-    const diasProrr = !realProrr ? 0 : realProrr === realMat ? diasMatTotal : Math.min(diasMatTotal, realProrr);
-    const diasMat = diasMatTotal - diasProrr;
+    const [diasProrr, diasPatProrr, diasPat, diasMat] = repartirDias(diasMatTotal, [realProrr, realPatProrr, realPat, realMat - realProrr - realPat - realPatProrr]);
     if (!mesInteiro || realPago < dias.size) r.memoria.push(`Dias a pagar: ${diasPagos} (dias trabalhados no mês; mês inteiro vale 30).`);
     if (!mesInteiro) r.avisos.push('Mês parcial: salário proporcional aos dias do vínculo (máximo 30). Confira a regra com o IOB.');
 
@@ -461,6 +486,17 @@ function calcularMensalSemObras(e: EntradaCalculo): ResultadoCalculo {
         const v = diasMat === 30 ? mensalIntegral : Math.round(diariaComAdicional * diasMat);
         verba({ codigo: 'MAT', descricao: 'Salário-maternidade', referencia: `${diasMat} dias`, tipo: 'provento', valor: v, inss: true, fgts: true, irrf: true });
         r.avisos.push('Salário-maternidade pelo salário fixo; média de variáveis não está no motor. A empresa compensa o valor na DCTFWeb.');
+    }
+    // Licença-paternidade (Lei 15.371/2026): remuneração integral, como a da maternidade.
+    if (diasPatProrr) {
+        const v = diasPatProrr === 30 ? mensalIntegral : Math.round(diariaComAdicional * diasPatProrr);
+        verba({ codigo: 'PATPRORR', descricao: 'Prorrogação da licença-paternidade (Empresa Cidadã)', referencia: `${diasPatProrr} dias`, tipo: 'provento', valor: v, inss: true, fgts: true, irrf: true });
+        r.avisos.push('Prorrogação da licença-paternidade (Lei 11.770/2008): paga pela empresa, sem reembolso da Previdência. Média de variáveis não está no motor.');
+    }
+    if (diasPat) {
+        const v = diasPat === 30 ? mensalIntegral : Math.round(diariaComAdicional * diasPat);
+        verba({ codigo: 'PAT', descricao: 'Salário-paternidade', referencia: `${diasPat} dias`, tipo: 'provento', valor: v, inss: true, fgts: true, irrf: true });
+        r.avisos.push('Salário-paternidade (Lei 15.371/2026) pelo salário fixo; média de variáveis não está no motor. O reembolso à empresa depende do regulamento: o Consultor ainda não deduz o valor na DCTFWeb, e a parte patronal incide sobre ele até haver definição (o STF afastou só a do salário-maternidade, Tema 72). Confira com a contabilidade.');
     }
     const he50 = mov.horasExtras50 ?? 0; const he100 = mov.horasExtras100 ?? 0;
     let totalHe = 0;
@@ -555,7 +591,7 @@ function calcularMensalSemObras(e: EntradaCalculo): ResultadoCalculo {
             const beneficio = DOENCA.includes(a.motivo) ? (a.infoMesmoMtv === 'S' ? a.dtInicio : inicioBeneficio(a)) : null;
             for (let x = a.dtInicio > de ? a.dtInicio : de; x <= (a.dtFim && a.dtFim < ult ? a.dtFim : ult); x = somarDias(x, 1)) {
                 if (DOENCA.includes(a.motivo)) { if (beneficio && x >= beneficio) m.set(x, 'naoPago'); }
-                else m.set(x, a.motivo === PRORROGACAO ? 'prorrogacao' : MATERNIDADE.includes(a.motivo) ? 'maternidade' : FERIAS.includes(a.motivo) ? 'ferias' : 'naoPago');
+                else m.set(x, a.motivo === PRORROGACAO ? 'prorrogacao' : MATERNIDADE.includes(a.motivo) ? 'maternidade' : a.motivo === PRORROGACAO_PAT ? 'prorrogacaoPat' : PATERNIDADE.includes(a.motivo) ? 'paternidade' : FERIAS.includes(a.motivo) ? 'ferias' : 'naoPago');
             }
         }
         const dp = diasPagosNoMes(m, de === ini, L);
@@ -614,6 +650,12 @@ function calcularMensalSemObras(e: EntradaCalculo): ResultadoCalculo {
         const v = mesInteiro && diasMaternidadeDomestica === dias.size ? mensalComAdicional : Math.min(mensalComAdicional, Math.round(diariaComAdicional * diasMaternidadeDomestica));
         r.bases.fgts += v;
         r.memoria.push(`FGTS sobre ${diasMaternidadeDomestica} dia(s) de licença-maternidade: ${reais(v)} somados à base (Decreto 99.684/1990, art. 28, IV).`);
+    }
+    if (diasPaternidadeDomestica) {
+        const mensalComAdicional = mensal + (adicional?.mensal ?? 0);
+        const v = mesInteiro && diasPaternidadeDomestica === dias.size ? mensalComAdicional : Math.min(mensalComAdicional, Math.round(diariaComAdicional * diasPaternidadeDomestica));
+        r.bases.fgts += v;
+        r.memoria.push(`FGTS sobre ${diasPaternidadeDomestica} dia(s) de licença-paternidade: ${reais(v)} somados à base (Decreto 99.684/1990, art. 28, V).`);
     }
     if (fgtsAcidente) r.memoria.push(`FGTS sobre ${diasFgtsAcidente} dia(s) de afastamento por acidente do trabalho ou serviço militar: ${reais(fgtsAcidente)} somados à base (Lei 8.036/1990, art. 15, § 5º).`);
 

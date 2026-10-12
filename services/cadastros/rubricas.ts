@@ -20,7 +20,9 @@ export const COD_INC_CP: Record<string, string> = {
     '13': 'Base exclusiva do empregador: mensal', '14': 'Base exclusiva do empregador: 13º',
     '15': 'Base exclusiva do segurado: mensal', '16': 'Base exclusiva do segurado: 13º',
     '21': 'Salário-maternidade mensal pago pelo empregador', '22': 'Salário-maternidade 13º pago pelo empregador',
+    '23': 'Salário-paternidade mensal pago pelo empregador', '24': 'Salário-paternidade 13º pago pelo empregador',
     '25': 'Salário-maternidade mensal pago pelo INSS', '26': 'Salário-maternidade 13º pago pelo INSS',
+    '27': 'Salário-paternidade mensal pago pelo INSS', '28': 'Salário-paternidade 13º pago pelo INSS',
     '31': 'Contribuição descontada do segurado: mensal', '32': 'Contribuição descontada do segurado: 13º',
     '34': 'SEST', '35': 'SENAT', '51': 'Outros: salário-família',
     '91': 'Suspensão judicial: mensal', '92': 'Suspensão judicial: 13º', '93': 'Suspensão judicial: salário-maternidade',
@@ -39,7 +41,11 @@ export const COD_INC_IRRF: Record<string, string> = {
 };
 export const TP_RUBR: Record<string, string> = { '1': 'Vencimento', '2': 'Desconto', '3': 'Informativa', '4': 'Informativa dedutora' };
 
-export const BASE_CP = ['11', '12', '13', '14', '15', '16', '21', '22', '25', '26'];
+export const BASE_CP = ['11', '12', '13', '14', '15', '16', '21', '22', '23', '24', '25', '26', '27', '28'];
+/** Salário-maternidade e salário-paternidade pagos pelo INSS: ficam para conferir. */
+export const PAGO_PELO_INSS = ['25', '26', '27', '28'];
+/** codIncCP do salário-paternidade (NT 07/2026 rev.): o eSocial só aceita a partir de 14/12/2026. */
+export const CP_PATERNIDADE = ['23', '24', '27', '28'];
 export const BASE_FGTS = ['11', '12', '21'];
 
 export type ClasseIrrf = 'tributavel' | 'retencao' | 'deducao' | 'pensao' | 'suspensa' | 'outra';
@@ -102,11 +108,11 @@ export interface ItemConferencia { tributo: 'Tipo' | 'INSS' | 'IRRF' | 'FGTS' | 
 /**
  * Regras (o IOB marca se o evento ENTRA na base; o eSocial diz COMO entra):
  * - Tipo: V ↔ tpRubr 1; D ↔ tpRubr 2 ou 4.
- * - INSS: IN ou INF = S ↔ codIncCP de base (11–16, 21, 22, 25, 26).
+ * - INSS: IN ou INF = S ↔ codIncCP de base (11–16, 21–28).
  * - FGTS: FG = S ↔ codIncFGTS 11, 12 ou 21.
  * - IRRF: IR ou IRF = S ↔ Tabela 21 tributável (11–15), dedução (4x) ou pensão (51–55).
  * - Suspensão judicial (9x) não é divergência: fica para conferir com o processo.
- * - Salário-maternidade pago pelo INSS (codIncCP 25/26) fica para conferir.
+ * - Salário-maternidade e salário-paternidade pagos pelo INSS (codIncCP 25 a 28) ficam para conferir.
  * - natRubr 9253 (eConsignado) exige tpRubr 2 e codIncFGTS 31 (validação do XSD).
  */
 export function conferirIncidencias(ev: EventoIobSage, v: VigenciaRubrica): ItemConferencia[] {
@@ -116,7 +122,7 @@ export function conferirIncidencias(ev: EventoIobSage, v: VigenciaRubrica): Item
 
     const iobInss = ev.incidencias.in === 'S' || ev.incidencias.inf === 'S';
     if (/^9\d$/.test(d.codIncCP)) r.push({ tributo: 'INSS', situacao: 'suspensa', mensagem: `${rotuloCodigo(COD_INC_CP, d.codIncCP, 'tabela')}: conferir o processo` });
-    else if (['25', '26'].includes(d.codIncCP)) r.push({ tributo: 'INSS', situacao: 'conferir', mensagem: `${rotuloCodigo(COD_INC_CP, d.codIncCP, 'tabela')}: conferir como o IOB trata o salário-maternidade pago pelo INSS` });
+    else if (PAGO_PELO_INSS.includes(d.codIncCP)) r.push({ tributo: 'INSS', situacao: 'conferir', mensagem: `${rotuloCodigo(COD_INC_CP, d.codIncCP, 'tabela')}: conferir como o IOB trata o benefício pago pelo INSS` });
     else {
         const esocial = BASE_CP.includes(d.codIncCP);
         r.push({ tributo: 'INSS', situacao: esocial === iobInss ? 'ok' : 'divergente', mensagem: esocial === iobInss ? '' : `IOB ${iobInss ? 'incide' : 'não incide'} × eSocial ${rotuloCodigo(COD_INC_CP, d.codIncCP, 'tabela')}` });
