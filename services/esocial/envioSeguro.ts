@@ -2,16 +2,17 @@
 //
 // Envio do eSocial com o pré-voo e a fila (Saúde do eSocial). Todas as telas que transmitem passam por aqui:
 //   1) verificarAntesDeEnviar: XSD oficial + regras de ordem e duplicidade pelo histórico da empresa + regras oficiais
-//      de validação que dependem só do XML (regrasOficiais.ts);
+//      de validação que dependem só do XML e as que precisam das rubricas (S-1010) da empresa (regrasOficiais.ts);
 //   2) transmitirVerificado: registra o lote ANTES de sair, envia pelo CFI e grava a resposta — ou, se ela não
 //      volta, deixa o lote "sem resposta" (nunca perdido) para conferir antes de qualquer reenvio.
 
-import type { Usuario } from '../cadastros/cadastrosService';
+import { listarRubricas, type Usuario } from '../cadastros/cadastrosService';
+import type { Rubrica } from '../cadastros/rubricas';
 import { enviarLote, type Certificado, type RetornoEnvio, type TpAmb } from './transmissao';
 import { concluirEnvio, listarEnvios, registrarFalhaEnvio, registrarIntencao, type Envio } from './transmissaoService';
 import { achadosDoXsd, bloqueios, lerEventoLote, regrasDoLote, type Achado, type EventoLote } from './preVoo';
 import { validarPeloXsd } from './validadorXsd';
-import { regrasOficiaisDoEvento, regrasOficiaisDoLote } from './regrasOficiais';
+import { EVENTOS_COM_RUBRICAS, regrasDasRubricas, regrasOficiaisDoEvento, regrasOficiaisDoLote } from './regrasOficiais';
 
 const hojeSp = () => new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Sao_Paulo' }).format(new Date());
 
@@ -20,7 +21,7 @@ export interface Empresa { id: string; cnpj: string }
 
 export interface ResultadoPreVoo { eventos: EventoLote[]; achados: Achado[]; ok: boolean; tpAmb: TpAmb; empresaId: string }
 
-export async function verificarAntesDeEnviar(p: { empresa: Empresa; eventos: EventoParaEnvio[]; tpAmb: TpAmb; historico?: Envio[]; hoje?: string }): Promise<ResultadoPreVoo> {
+export async function verificarAntesDeEnviar(p: { empresa: Empresa; eventos: EventoParaEnvio[]; tpAmb: TpAmb; historico?: Envio[]; hoje?: string; rubricas?: Rubrica[] }): Promise<ResultadoPreVoo> {
     const eventos = p.eventos.map((e, i) => lerEventoLote(e.nome ?? `evento ${i + 1}`, e.xml, p.empresa, p.tpAmb, e.ref));
     const historico = p.historico ?? await listarEnvios(p.empresa.id);
     const achados = regrasDoLote(eventos, historico, p.tpAmb);
@@ -28,6 +29,13 @@ export async function verificarAntesDeEnviar(p: { empresa: Empresa; eventos: Eve
     const hoje = p.hoje ?? hojeSp();
     for (const e of eventos) achados.push(...regrasOficiaisDoEvento(e, hoje));
     achados.push(...regrasOficiaisDoLote(eventos));
+    // As que precisam das rubricas: só lê o S-1010 da empresa se o lote tem demonstrativo de valores.
+    const comRubricas = eventos.filter(e => !e.erro && EVENTOS_COM_RUBRICAS.has(e.tipo));
+    if (comRubricas.length) {
+        const rubricas = p.rubricas ?? await listarRubricas(p.empresa.id).catch(() => null);
+        if (rubricas) for (const e of comRubricas) achados.push(...regrasDasRubricas(e, rubricas));
+        else achados.push({ nivel: 'aviso', regra: 'REGRA_DEMONSTRATIVO', mensagem: 'Não foi possível ler as rubricas (S-1010) da empresa: as regras oficiais que dependem delas não foram conferidas.' });
+    }
     for (const e of eventos.filter(x => !x.erro)) achados.push(...achadosDoXsd(e, await validarPeloXsd(e.xml)));
     return { eventos, achados, ok: bloqueios(achados).length === 0, tpAmb: p.tpAmb, empresaId: p.empresa.id };
 }

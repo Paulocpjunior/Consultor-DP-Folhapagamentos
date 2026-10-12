@@ -13,9 +13,16 @@
 //   REGRA_ADMISSAO_VALIDA_DURACAO_CONTRATO  S-2200: categoria 102 a prazo, até 60 dias;
 //   REGRA_AFASTAMENTO                S-2230: o lote não leva dois afastamentos do mesmo vínculo com a mesma data;
 //   REGRA_VALIDA_DT_FUTURA           tabelas: início e fim da validade não podem ser posteriores ao mês do envio.
+// E as que precisam das rubricas da empresa (S-1010 do Consultor), em regrasDasRubricas:
+//   REGRA_DEMONSTRATIVO              por demonstrativo: vencimentos >= descontos; contribuição do segurado (codIncCP 31,
+//                                    32, 34, 35; no RPPS codIncCPRP 31, 32) não fica negativa; rubrica no S-1010 vigente;
+//   REGRA_DESCONTO_IRRF_POSITIVO     IRRF retido (codIncIRRF 31 a 34) não fica negativo (o S-1210 do pagamento é recusado);
+//   REGRA_RUBRICA_COMPATIVEL_DECTERCEIRO  13º só com as incidências da lista oficial (o governo devolve alerta);
+//   REGRA_RUBRICA_COMPATIVEL_RESC    FGTS rescisório (codIncFGTS 21, 93) só no S-2299/S-2399 ou em períodos anteriores.
 // Puro: sem rede, sem Firebase.
 
 import type { Achado, EventoLote } from './preVoo';
+import { vigenciaEm, type DadosRubrica, type Rubrica } from '../cadastros/rubricas';
 
 const ENT: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
 const decodificar = (t: string) => t.replace(/&(#x[0-9a-f]+|#\d+|\w+);/gi, (m, c: string) =>
@@ -120,6 +127,115 @@ export function regrasOficiaisDoLote(eventos: EventoLote[]): Achado[] {
             const k = `${e.cpf ?? ''}|${mat}|${tag}|${d}`;
             if (vistos.has(k)) out.push({ nivel: 'bloqueio', regra: 'REGRA_AFASTAMENTO', mensagem: `S-2230: dois afastamentos do mesmo vínculo com a mesma data de ${rot} (${br(d)}) no lote (REGRA_AFASTAMENTO).`, eventoId: e.id });
             else vistos.set(k, e.id);
+        }
+    }
+    return out;
+}
+
+// ---------- Regras que dependem das rubricas da empresa (S-1010) ----------
+
+/** Eventos com demonstrativo de valores (dmDev) e a tag dos itens de cada um. */
+const TAG_DO_ITEM: Record<string, string> = { 'S-1200': 'itensRemun', 'S-1202': 'itensRemun', 'S-1207': 'itens', 'S-2299': 'detVerbas', 'S-2399': 'detVerbas' };
+export const EVENTOS_COM_RUBRICAS = new Set(Object.keys(TAG_DO_ITEM));
+const RGPS = new Set(['S-1200', 'S-2299', 'S-2399']);
+
+const CP_SEGURADO = [31, 32, 34, 35];
+const CPRP_SEGURADO = [31, 32];
+const IRRF_RETIDO = [31, 32, 33, 34];
+const DEC_CP = new Set([0, 1, 12, 14, 16, 22, 26, 32, 92, 94, 96, 98]);
+const DEC_CPRP = new Set([0, 12, 32, 91, 92]);
+const DEC_IRRF = new Set([0, 1, 9, 12, 14, 32, 34, 42, 47, 52, 54, 62, 64, 68, 71, 77, 79, 81, 82, 83, 92, 94, 9012, 9014, 9032, 9034, 9054, 9832, 9834, 9042, 9047, 9052, 9062, 9064]);
+const DEC_FGTS = new Set([0, 12, 92]);
+const FGTS_RESCISORIO = new Set([21, 93]);
+
+/** Código de incidência como número; vazio fica NaN (ausente não é zero). */
+const inc = (c: string | undefined) => (c && /^\d+$/.test(c.trim()) ? Number(c) : NaN);
+const centavos = (v: number) => Math.round(v * 100);
+const reais = (c: number) => (c / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const mesBr = (comp: string) => comp.split('-').reverse().join('/');
+
+interface ItemDoDemonstrativo { codRubr: string; ideTabRubr: string; centavos: number; competencia: string; anterior: boolean }
+
+/** Itens de um dmDev: os do período de apuração na competência do evento; os de infoPerAnt no seu perRef. */
+function itensDoDemonstrativo(dm: string, tag: string, competencia: string): ItemDoDemonstrativo[] {
+    const out: ItemDoDemonstrativo[] = [];
+    const ler = (bloco: string, comp: string, anterior: boolean) => {
+        for (const it of todos(bloco, tag)) out.push({ codRubr: pegar(it, 'codRubr'), ideTabRubr: pegar(it, 'ideTabRubr'), centavos: centavos(Number(pegar(it, 'vrRubr')) || 0), competencia: comp, anterior });
+    };
+    for (const b of todos(dm, 'infoPerApur')) ler(b, competencia, false);
+    for (const b of todos(dm, 'infoPerAnt')) {
+        for (const per of todos(b, 'idePeriodo')) { const ref = pegar(per, 'perRef'); ler(per, ref.length === 4 ? `${ref}-12` : ref, true); }
+    }
+    return out;
+}
+
+/** Competência do período de apuração: perApur (anual = dezembro); no S-2299 o mês do desligamento; no S-2399 o do término. */
+function competenciaDoEvento(e: EventoLote): string {
+    const d = e.tipo === 'S-2299' ? pegar(e.xml, 'dtDeslig') : e.tipo === 'S-2399' ? pegar(e.xml, 'dtTerm') : '';
+    if (d) return /^\d{4}-\d{2}/.test(d) ? d.slice(0, 7) : '';
+    return e.perApur.length === 4 ? `${e.perApur}-12` : /^\d{4}-\d{2}$/.test(e.perApur) ? e.perApur : '';
+}
+
+/**
+ * Regras oficiais que precisam das rubricas (S-1010) da empresa. Rubrica que o Consultor não tem (ou sem validade na
+ * competência) vira alerta e o demonstrativo não tem as somas conferidas: o S-1010 pode estar só no eSocial.
+ */
+export function regrasDasRubricas(e: EventoLote, rubricas: Rubrica[]): Achado[] {
+    const out: Achado[] = [];
+    const tag = TAG_DO_ITEM[e.tipo];
+    if (!tag || e.erro || !e.xml) return out;
+    const competencia = competenciaDoEvento(e);
+    if (!competencia) return out;
+    const rotulo = `${e.tipo}${e.perApur ? ` (${e.perApur})` : ''}`;
+    const achar = (nivel: Achado['nivel'], regra: string, mensagem: string) => out.push({ nivel, regra, mensagem: `${rotulo}: ${mensagem} (${regra}).`, eventoId: e.id });
+    if (!rubricas.length) {
+        achar('aviso', 'REGRA_DEMONSTRATIVO', 'a empresa não tem rubricas (S-1010) no Consultor; as regras oficiais que dependem delas não foram conferidas');
+        return out;
+    }
+    const porChave = new Map(rubricas.map(r => [`${r.codRubr}|${r.ideTabRubr}`, r]));
+    const decTerceiro = e.tipo !== 'S-2299' && e.tipo !== 'S-2399' && pegar(e.xml, 'indApuracao') === '2';
+    const avisados = new Set<string>();
+    const avisarUmaVez = (chave: string, regra: string, mensagem: string) => { if (!avisados.has(chave)) { avisados.add(chave); achar('aviso', regra, mensagem); } };
+
+    for (const dm of todos(e.xml, 'dmDev')) {
+        const nome = `demonstrativo ${pegar(dm, 'ideDmDev') || 'sem identificação'}`;
+        const itens = itensDoDemonstrativo(dm, tag, competencia);
+        const lidos: { item: ItemDoDemonstrativo; dados: DadosRubrica }[] = [];
+        const faltam: string[] = [];
+        for (const item of itens) {
+            const r = porChave.get(`${item.codRubr}|${item.ideTabRubr}`);
+            const v = r && vigenciaEm(r, item.competencia);
+            if (v) lidos.push({ item, dados: v.dados });
+            else faltam.push(`${item.codRubr} (tabela ${item.ideTabRubr}) ${r ? `sem validade em ${mesBr(item.competencia)}` : 'não cadastrada'}`);
+        }
+        if (faltam.length) {
+            achar('aviso', 'REGRA_DEMONSTRATIVO', `${nome}: rubrica ${[...new Set(faltam)].join(', ')} no S-1010 do Consultor; o eSocial recusa rubrica fora da tabela de rubricas dele, e as somas deste demonstrativo não foram conferidas`);
+        } else {
+            const soma = (filtro: (d: DadosRubrica) => boolean, tipos: string[]) => lidos.filter(x => filtro(x.dados) && tipos.includes(x.dados.tpRubr)).reduce((t, x) => t + x.item.centavos, 0);
+            const venc = soma(() => true, ['1']); const desc = soma(() => true, ['2']);
+            if (venc < desc) achar('bloqueio', 'REGRA_DEMONSTRATIVO', `${nome}: descontos (R$ ${reais(desc)}) maiores que os vencimentos (R$ ${reais(venc)})`);
+            const [campo, codigos] = RGPS.has(e.tipo) ? ['codIncCP', CP_SEGURADO] as const : ['codIncCPRP', CPRP_SEGURADO] as const;
+            for (const c of codigos) {
+                const devolve = soma(d => inc(d[campo]) === c, ['1', '3']); const retem = soma(d => inc(d[campo]) === c, ['2', '4']);
+                if (devolve > retem) achar('bloqueio', 'REGRA_DEMONSTRATIVO', `${nome}: rubricas com ${campo} ${c} devolvem R$ ${reais(devolve)} e descontam R$ ${reais(retem)}; a contribuição do segurado não pode ficar negativa`);
+            }
+            for (const c of IRRF_RETIDO) {
+                const devolve = soma(d => inc(d.codIncIRRF) === c, ['1', '3']); const retem = soma(d => inc(d.codIncIRRF) === c, ['2', '4']);
+                if (devolve > retem) achar('aviso', 'REGRA_DESCONTO_IRRF_POSITIVO', `${nome}: rubricas com codIncIRRF ${c} devolvem R$ ${reais(devolve)} e retêm R$ ${reais(retem)}; o IRRF retido fica negativo e o S-1210 que pagar este demonstrativo será recusado`);
+            }
+        }
+        for (const { item, dados } of lidos) {
+            const qual = `rubrica ${item.codRubr}`;
+            if (decTerceiro) {
+                const fora = e.tipo === 'S-1200'
+                    ? [!DEC_CP.has(inc(dados.codIncCP)) && `codIncCP ${dados.codIncCP || 'vazio'}`, !DEC_IRRF.has(inc(dados.codIncIRRF)) && `codIncIRRF ${dados.codIncIRRF || 'vazio'}`, !DEC_FGTS.has(inc(dados.codIncFGTS)) && `codIncFGTS ${dados.codIncFGTS || 'vazio'}`, dados.natRubr === '9253' && 'natureza 9253']
+                    : [!DEC_CPRP.has(inc(dados.codIncCPRP)) && `codIncCPRP ${dados.codIncCPRP || 'vazio'}`, !DEC_IRRF.has(inc(dados.codIncIRRF)) && `codIncIRRF ${dados.codIncIRRF || 'vazio'}`];
+                const motivos = fora.filter(Boolean);
+                if (motivos.length) avisarUmaVez(`13|${item.codRubr}|${item.ideTabRubr}`, 'REGRA_RUBRICA_COMPATIVEL_DECTERCEIRO', `${qual} no 13º com ${motivos.join(', ')}, fora das incidências aceitas no 13º; o eSocial devolve alerta`);
+            }
+            if (e.tipo === 'S-1200' && !item.anterior && FGTS_RESCISORIO.has(inc(dados.codIncFGTS))) {
+                avisarUmaVez(`resc|${item.codRubr}|${item.ideTabRubr}`, 'REGRA_RUBRICA_COMPATIVEL_RESC', `${qual} com codIncFGTS ${dados.codIncFGTS} (verba rescisória) no período de apuração; ela vai no S-2299/S-2399 ou em períodos anteriores; o eSocial devolve alerta`);
+            }
         }
     }
     return out;

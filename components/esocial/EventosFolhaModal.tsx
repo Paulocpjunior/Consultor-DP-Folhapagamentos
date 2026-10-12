@@ -170,7 +170,7 @@ const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resu
         const verificados: ResultadoPreVoo[] = [];
         try {
             const historico = await listarEnvios(empresa.id);
-            for (const lote of emLotes(eventos)) verificados.push(await verificarAntesDeEnviar({ empresa: emp, eventos: lote.map(x => ({ xml: x.ev.xml, ref: x.fichaId })), tpAmb, historico }));
+            for (const lote of emLotes(eventos)) verificados.push(await verificarAntesDeEnviar({ empresa: emp, eventos: lote.map(x => ({ xml: x.ev.xml, ref: x.fichaId })), tpAmb, historico, rubricas: rubricas ?? undefined }));
         } catch (e) { setErro(`Pré-voo: ${(e as Error).message}`); setOcupado(''); return; }
         const todos = verificados.flatMap(v => v.achados);
         setAchados(todos);
