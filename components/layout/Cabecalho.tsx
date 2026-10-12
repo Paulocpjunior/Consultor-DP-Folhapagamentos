@@ -41,9 +41,9 @@ const Cabecalho: React.FC<Props> = ({ menu, destino, onNavegar, ativa, onTrocar,
     const ref = useRef<HTMLElement>(null);
     const atual = ondeEsta(destino, menu);
     // Celular: o menu fica numa linha com rolagem e o painel abre em largura total, abaixo dela.
-    const [estreito, setEstreito] = useState(() => typeof window !== 'undefined' && !!window.matchMedia?.('(max-width: 767px)').matches);
+    const [estreito, setEstreito] = useState(() => typeof window !== 'undefined' && !!window.matchMedia?.('(max-width: 1023px)').matches);
     useEffect(() => {
-        const mq = typeof window !== 'undefined' ? window.matchMedia?.('(max-width: 767px)') : undefined;
+        const mq = typeof window !== 'undefined' ? window.matchMedia?.('(max-width: 1023px)') : undefined;
         if (!mq) return;
         const mudar = () => setEstreito(mq.matches);
         mq.addEventListener?.('change', mudar);
@@ -134,17 +134,17 @@ const Cabecalho: React.FC<Props> = ({ menu, destino, onNavegar, ativa, onTrocar,
             </div>
 
             <nav aria-label="Menu principal" className="border-t border-white/5 bg-black/10">
-                <ul className="mx-auto flex max-w-7xl items-stretch gap-0.5 overflow-x-auto px-2 scrollbar-none sm:px-4 md:overflow-visible">
+                <ul className="mx-auto flex max-w-7xl items-stretch gap-0.5 overflow-x-auto px-2 scrollbar-none sm:px-4 lg:overflow-visible">
                     {menu.map(g => {
                         const ativo = atual?.grupo.id === g.id;
                         return (
                             <li key={g.id} className={`relative ${g.direita ? 'ml-auto' : ''}`}>
                                 <button aria-haspopup="menu" aria-expanded={aberto === g.id} onClick={() => setAberto(a => (a === g.id ? null : g.id))}
-                                    className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2 text-sm transition-colors ${ativo ? `${corDoGrupo(g.id).ativo} font-medium text-white` : 'border-transparent text-slate-300 hover:text-white'}`}>
-                                    <span className={`grid h-6 w-6 place-items-center rounded-md text-white shadow-xs ${corDoGrupo(g.id).solido} ${ativo ? 'ring-2 ring-white/40' : ''}`}><Ico nome={g.icone} className="h-3.5 w-3.5" /></span>
+                                    className={`flex items-center gap-1.5 whitespace-nowrap border-b-2 px-2 py-2 text-sm transition-colors 2xl:gap-2 2xl:px-3 ${ativo ? `${corDoGrupo(g.id).ativo} font-medium text-white` : 'border-transparent text-slate-300 hover:text-white'}`}>
+                                    <span className={`hidden h-6 w-6 place-items-center rounded-md text-white shadow-xs xl:grid ${corDoGrupo(g.id).solido} ${ativo ? 'ring-2 ring-white/40' : ''}`}><Ico nome={g.icone} className="h-3.5 w-3.5" /></span>
                                     {g.rotulo}
                                     {!!contadores[g.id] && <span aria-label={`${contadores[g.id]} pendente(s)`} className="rounded-full bg-amber-400 px-1.5 text-[10px] font-bold leading-4 text-slate-900">{contadores[g.id]}</span>}
-                                    <Ico nome="chevron" className={`h-3 w-3 opacity-60 transition-transform ${aberto === g.id ? 'rotate-180' : ''}`} />
+                                    <Ico nome="chevron" className={`hidden h-3 w-3 opacity-60 transition-transform 2xl:block ${aberto === g.id ? 'rotate-180' : ''}`} />
                                 </button>
                                 {aberto === g.id && !estreito && painel(g, `absolute top-full mt-1 w-80 ${g.direita ? 'right-0' : 'left-0'}`)}
                             </li>

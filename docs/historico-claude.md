@@ -5333,3 +5333,18 @@ Paulo: *"podemos fazer o P2 usando o terminal do meu mac"* (12/10).
   - salário-maternidade (natureza 4050 e S-5001 tpValor 32) e salário-paternidade (natureza 4052 e tpValor 33);
   - os itens só aparecem quando há valor.
 - **Limpeza:** sai o `lucide-react`, que não era usado.
+## 12/10/2026 — Logo oficial nos PDFs e revisão visual das telas internas
+
+- **PDFs:**
+  - o cabeçalho comum (`layoutPdf.ts`, usado por holerites, recibos, resumo e a Central de relatórios) desenhava um "SP" num quadrado azul. Agora usa o logo oficial;
+  - o logo vai embutido em `logoPdf.ts` (JPEG de 192 px gerado de `public/logo-sp.png`), para o PDF sair igual sem rede e nos testes;
+  - se o PDF recusar a imagem, volta o monograma em texto.
+- **Revisão visual depois do Tailwind 4:**
+  - página de conferência montada fora do repositório, com o cabeçalho real e blocos típicos das telas (cartões, tabela, alerta, campos), nos temas claro e escuro e no celular;
+  - varredura das classes do v3 que o v4 não aceita: nenhuma sobrou;
+  - cores fixas em hex: só em 3 componentes antigos do fiscal.
+  - **Encontrado e corrigido:** o menu do cabeçalho passava da largura em 1280 px (o "Configurações" era cortado e havia rolagem horizontal). Agora:
+    - abaixo de 1536 px, menos espaçamento e sem a setinha;
+    - abaixo de 1280 px, sem o quadradinho colorido do grupo;
+    - abaixo de 1024 px, o menu rola na horizontal e o painel abre embaixo, como no celular.
+  - Conferido sem rolagem horizontal em 800, 1024, 1180, 1280 e 1440 px.
