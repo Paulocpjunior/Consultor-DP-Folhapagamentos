@@ -34,6 +34,8 @@ import { resumirFolha } from '../../services/relatorios/resumoFolha';
 import { GRUPOS_RELATORIO, RELATORIOS, type ContextoRelatorio, type DefRelatorio } from '../../services/relatorios/catalogoRelatorios';
 import { tabelaPdf, type OpcoesPdf } from '../../services/relatorios/layoutPdf';
 import HoleritePorEmail from './HoleritePorEmail';
+import AniversariantesEnvio from './AniversariantesEnvio';
+import { baixarBytes } from '../../services/implantacao/zip';
 import EntregaRelatorio, { type ArquivoRelatorio } from './EntregaRelatorio';
 
 const relatoriosPdf = () => import('../../services/relatorios/holeritePdf');
@@ -139,6 +141,7 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         titulo: d.titulo, previa: d.precisaFolha && !motorHomologadoNoMes(dados?.empresa?.parametrosFolha, ativa.competencia), emitidoPor: currentUser.email,
         orientacao: orientacao === 'auto' ? d.orientacao ?? 'retrato' : orientacao,
         mensagemHolerite: dados?.empresa?.parametrosFolha?.mensagemHolerite,
+        mensagemAniversario: dados?.empresa?.parametrosFolha?.mensagemAniversario,
     });
     const nomeArquivo = (d: DefRelatorio) => `${d.id}-${ativa.codigoSage || 'empresa'}-${d.tipo === 'ficha-financeira' || d.tipo === 'informe' ? ano : ativa.competencia}.pdf`;
 
@@ -305,9 +308,16 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                     <EntregaRelatorio key={sel.id} empresa={{ id: ativa.id, cnpj: ativa.cnpj.replace(/\D/g, ''), nome: dados.empresa?.nomeFantasia || dados.empresa?.razaoSocial || ativa.nome, codigoSage: ativa.codigoSage, contatoEnvio: dados.empresa?.contatoEnvio }}
                         titulo={sel.titulo} competencia={sel.tipo === 'ficha-financeira' || sel.tipo === 'informe' ? `${ano}-12` : ativa.competencia} gerar={arquivo} />
                 )}
+                {sel.id === 'aniversariantes' && dados && (
+                    <AniversariantesEnvio empresa={{ id: ativa.id, cnpj: ativa.cnpj.replace(/\D/g, ''), nome: dados.empresa?.nomeFantasia || dados.empresa?.razaoSocial || ativa.nome }}
+                        competencia={ativa.competencia} fichas={dados.fichas} mensagem={dados.empresa?.parametrosFolha?.mensagemAniversario}
+                        gerarCartao={async (nome, msg) => new Uint8Array((await relatoriosPdf()).cartaoAniversarioPdf(nome, msg, opcoes(sel)).output('arraybuffer'))}
+                        baixar={(nome, bytes) => baixarBytes(nome, bytes, 'application/pdf')} />
+                )}
                 {sel.tipo === 'holerites' && dados?.folha && (
                     <HoleritePorEmail empresa={{ id: ativa.id, cnpj: ativa.cnpj.replace(/\D/g, ''), nome: dados.empresa?.nomeFantasia || dados.empresa?.razaoSocial || ativa.nome }}
                         competencia={ativa.competencia} folha={dados.folha.holerites} fichas={dados.fichas}
+                        mensagemAniversario={dados.empresa?.parametrosFolha?.mensagemAniversario}
                         gerarPdf={async r => new Uint8Array((await relatoriosPdf()).holeritesPdf([r], dados.fichas, opcoes(sel)).output('arraybuffer'))} />
                 )}
             </section>

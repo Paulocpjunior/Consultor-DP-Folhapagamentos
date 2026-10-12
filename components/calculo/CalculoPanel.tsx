@@ -579,7 +579,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
             return ativar ? { ...resto, motorHomologado: { desde, por: currentUser.email ?? usuario.id, em: new Date().toISOString() } } : resto;
         });
     }
-    const opcoesPdf = () => ({ empresa: { razaoSocial: empresa?.razaoSocial ?? '', cnpj: empresa?.cnpj ?? '', codigoSage: empresa?.codigoSage }, titulo: tituloFolha, previa: !homologado, mensagemHolerite: parametrosFolha?.mensagemHolerite });
+    const opcoesPdf = () => ({ empresa: { razaoSocial: empresa?.razaoSocial ?? '', cnpj: empresa?.cnpj ?? '', codigoSage: empresa?.codigoSage }, titulo: tituloFolha, previa: !homologado, mensagemHolerite: parametrosFolha?.mensagemHolerite, mensagemAniversario: parametrosFolha?.mensagemAniversario });
     async function pdfHolerites(lista: ResultadoCalculo[], nome: string) {
         if (!dados) return;
         try { (await relatoriosPdf()).holeritesPdf(lista, dados.fichas, opcoesPdf()).save(nome); }

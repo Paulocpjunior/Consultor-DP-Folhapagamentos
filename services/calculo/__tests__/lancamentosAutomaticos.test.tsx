@@ -126,4 +126,19 @@ describe('mensagem geral do holerite (tela)', () => {
         fireEvent.click(screen.getByText('Gravar'));
         await waitFor(() => expect(srv.params).toEqual({}));
     });
+
+    it('mensagem de aniversário: padrão sem gravar, texto próprio, voltar ao padrão e desligar', async () => {
+        render(<MensagemHoleriteEmpresa empresa={{ id: 'E1', razaoSocial: 'ALFA', parametrosFolha: {} } as never} />);
+        expect((screen.getByRole('textbox', { name: 'Mensagem de aniversário' }) as HTMLTextAreaElement).value).toMatch(/^Feliz aniversário, \{nome\}!/);
+        expect(screen.getByText(/Exemplo: “Feliz aniversário, Maria! A ALFA deseja/)).toBeTruthy();
+        fireEvent.change(screen.getByRole('textbox', { name: 'Mensagem de aniversário' }), { target: { value: 'Parabéns, {nome}!' } });
+        fireEvent.click(screen.getByText('Gravar a mensagem de aniversário'));
+        await waitFor(() => expect(srv.params).toEqual({ mensagemAniversario: 'Parabéns, {nome}!' }));
+        fireEvent.click(screen.getByText('Voltar ao texto padrão'));
+        fireEvent.click(screen.getByText('Gravar a mensagem de aniversário'));
+        await waitFor(() => expect(srv.params).toEqual({}));
+        fireEvent.click(screen.getByLabelText('Mensagem de aniversário ligada'));
+        fireEvent.click(screen.getByText('Gravar a mensagem de aniversário'));
+        await waitFor(() => expect(srv.params).toEqual({ mensagemAniversario: '' }));
+    });
 });
