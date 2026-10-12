@@ -8,7 +8,8 @@
 
 import type { ObrigacaoEmpresa } from '../prazos/obrigacoesEmpresa';
 
-export type FontePagamento = 'manual' | 'fgts-digital';
+/** De onde veio o valor da baixa: digitado, o recolhimento do FGTS Digital ou o pagamento registrado na Receita (PAGTOWEB). */
+export type FontePagamento = 'manual' | 'fgts-digital' | 'receita';
 export interface BaixaGuia {
     /** Data do pagamento (AAAA-MM-DD). */
     data: string;
@@ -81,7 +82,7 @@ export function situacaoDaGuia(vencimento: string, g: Pick<GuiaRegistrada, 'valo
 
 /** O texto que vai na marcação do calendário (entregue) quando a guia é baixada. */
 export function observacaoDaBaixa(b: BaixaGuia): string {
-    return [`paga em ${br(b.data)}`, reais(b.valorPago), b.autenticacao.trim() && `aut. ${b.autenticacao.trim()}`, b.fonte === 'fgts-digital' && 'valor conferido no FGTS Digital'].filter(Boolean).join(' · ');
+    return [`paga em ${br(b.data)}`, reais(b.valorPago), b.autenticacao.trim() && `aut. ${b.autenticacao.trim()}`, b.fonte === 'fgts-digital' && 'valor conferido no FGTS Digital', b.fonte === 'receita' && 'pagamento conferido na Receita'].filter(Boolean).join(' · ');
 }
 
 /** Valor do FGTS Digital (consulta do recolhimento, em reais) que a baixa pode usar: só com o devido quitado. */
@@ -92,6 +93,52 @@ export function valorPagoNoFgts(r: { ok: boolean; depositoDevido: number; deposi
     if (pago <= 0) return { erro: 'O FGTS Digital não mostra recolhimento desta competência.' };
     if (devido > 0 && pago < devido) return { erro: `O FGTS Digital mostra ${reais(pago)} recolhidos de ${reais(devido)} devidos: confira antes de dar baixa.` };
     return { valorPago: pago, valorDevido: devido };
+}
+
+/** O que o CFI devolve da consulta de pagamentos (PAGTOWEB/PAGAMENTOS71), na parte que a baixa usa. */
+export interface PagamentoReceita {
+    numeroDocumento: string | null;
+    dataArrecadacao: string | null;
+    valorTotal: number | null;
+    valorPrincipal: number | null;
+    valorMulta: number | null;
+    valorJuros: number | null;
+}
+export interface ConsultaPagamentosReceita {
+    ok: boolean;
+    fonte?: string;
+    error?: string;
+    situacoes?: { numeroDocumento: string; localizado: boolean; pagamento: PagamentoReceita | null; observacao?: string }[];
+    avisos?: string[];
+}
+
+/** Número do documento como o CFI compara: sem pontuação, maiúsculo, até 17 posições. */
+export const numeroDoDocumento = (n: string) => {
+    const s = n.replace(/[\s.\-/]/g, '').toUpperCase();
+    return /^[0-9A-Z]{1,17}$/.test(s) ? s : null;
+};
+
+/**
+ * Pagamento registrado na Receita que a baixa do DARF pode usar: data de arrecadação e valor total pago.
+ * Ausente não vira zero: sem data ou sem valor, a baixa continua manual. Não localizado não é "não pago".
+ */
+export function baixaPelaReceita(r: ConsultaPagamentosReceita, numeroDocumento: string): { data: string; valorPago: number; detalhe: string } | { erro: string } {
+    const n = numeroDoDocumento(numeroDocumento);
+    if (!n) return { erro: 'Informe o número do documento do DARF (até 17 posições) para conferir na Receita.' };
+    if (!r.ok) return { erro: r.error || 'A Receita não respondeu.' };
+    if (r.fonte !== 'serpro') return { erro: `O Consultor Fiscal respondeu em modo ${r.fonte || 'desconhecido'}, não com o pagamento da Receita.` };
+    const s = r.situacoes?.find(x => x.numeroDocumento === n);
+    if (!s) return { erro: 'A resposta da Receita não traz este documento.' };
+    if (!s.localizado || !s.pagamento) return { erro: s.observacao || 'Documento não localizado na Receita; o pagamento leva alguns dias para aparecer.' };
+    const p = s.pagamento;
+    if (!p.dataArrecadacao || !data.test(p.dataArrecadacao)) return { erro: 'A Receita localizou o documento, mas não informou a data de arrecadação: confira no comprovante.' };
+    if (typeof p.valorTotal !== 'number' || p.valorTotal <= 0) return { erro: 'A Receita localizou o documento, mas não informou o valor pago: confira no comprovante.' };
+    const extra = [p.valorMulta ? `multa ${reais(Math.round(p.valorMulta * 100))}` : '', p.valorJuros ? `juros ${reais(Math.round(p.valorJuros * 100))}` : ''].filter(Boolean).join(', ');
+    return {
+        data: p.dataArrecadacao,
+        valorPago: Math.round(p.valorTotal * 100),
+        detalhe: `Receita: ${reais(Math.round(p.valorTotal * 100))} arrecadados em ${br(p.dataArrecadacao)}${extra ? ` (${extra})` : ''}.`,
+    };
 }
 
 /** Totais da competência: devido, pago, guias em aberto e vencidas. */

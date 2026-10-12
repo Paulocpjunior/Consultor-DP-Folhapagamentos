@@ -42,7 +42,7 @@ export const ROTULO_ORIGEM: Record<Origem, string> = { cfi: 'CFI', plataforma: '
  * Rota nova entra aqui — o teste confere que toda chamada do código tem dono.
  */
 export const SERVICO_DA_ROTA: Record<string, Servico> = {
-    esocial: 'governo', fgts: 'governo', dctfweb: 'governo', 'empresa-completo': 'governo',
+    esocial: 'governo', fgts: 'governo', dctfweb: 'governo', 'empresa-completo': 'governo', pagamentos: 'governo',
     email: 'email',
     assistente: 'ia', holerites: 'ia',
 };

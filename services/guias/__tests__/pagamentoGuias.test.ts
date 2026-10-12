@@ -1,6 +1,9 @@
 // Pagamento de guias: quais obrigações são guias, a baixa, a situação e o FGTS Digital (dados fictícios).
 import { describe, expect, it } from 'vitest';
-import { ehGuia, guiasDasObrigacoes, observacaoDaBaixa, resumoGuias, situacaoDaGuia, validarBaixa, valorPagoNoFgts, type BaixaGuia } from '../pagamentoGuias';
+import {
+    baixaPelaReceita, ehGuia, guiasDasObrigacoes, numeroDoDocumento, observacaoDaBaixa, resumoGuias, situacaoDaGuia, validarBaixa, valorPagoNoFgts,
+    type BaixaGuia, type ConsultaPagamentosReceita,
+} from '../pagamentoGuias';
 import { obrigacoesDaEmpresa } from '../../prazos/obrigacoesEmpresa';
 
 const b = (x: Partial<BaixaGuia> = {}): BaixaGuia => ({ data: '2026-10-19', valorPago: 100000, autenticacao: 'AB12', fonte: 'manual', ...x });
@@ -63,3 +66,41 @@ describe('FGTS Digital', () => {
         expect(valorPagoNoFgts({ ok: false, depositoDevido: 0, depositoRealizado: 0 })).toMatchObject({ erro: expect.stringMatching(/não respondeu/) });
     });
 });
+
+describe('DARF pago conferido na Receita (PAGTOWEB pelo CFI)', () => {
+    const pag = { numeroDocumento: '07202625273123456', dataArrecadacao: '2026-10-21', valorTotal: 1020.5, valorPrincipal: 1000, valorMulta: 6.6, valorJuros: 13.9 };
+    const r = (x: Partial<ConsultaPagamentosReceita> = {}): ConsultaPagamentosReceita => ({
+        ok: true, fonte: 'serpro', situacoes: [{ numeroDocumento: '07202625273123456', localizado: true, pagamento: pag }], ...x,
+    });
+
+    it('data de arrecadação e valor total pago viram a baixa, com multa e juros no detalhe', () => {
+        const b = baixaPelaReceita(r(), '07.20.26252.7312345-6');
+        expect(b).toMatchObject({ data: '2026-10-21', valorPago: 102050 });
+        expect('detalhe' in b && b.detalhe).toMatch(/R\$\s1\.020,50 arrecadados em 21\/10\/2026 \(multa R\$\s6,60, juros R\$\s13,90\)/);
+    });
+
+    it('não localizado não é "não pago": a baixa continua manual com o motivo do CFI', () => {
+        const nl = r({ situacoes: [{ numeroDocumento: '07202625273123456', localizado: false, pagamento: null, observacao: 'Não localizado no PAGTOWEB. A arrecadação leva alguns dias para aparecer; isto não quer dizer que não foi pago.' }] });
+        expect(baixaPelaReceita(nl, '07202625273123456')).toMatchObject({ erro: expect.stringMatching(/não quer dizer que não foi pago/) });
+    });
+
+    it('ausente não vira zero: sem data ou sem valor, não preenche', () => {
+        const semData = r({ situacoes: [{ numeroDocumento: '07202625273123456', localizado: true, pagamento: { ...pag, dataArrecadacao: null } }] });
+        expect(baixaPelaReceita(semData, '07202625273123456')).toMatchObject({ erro: expect.stringMatching(/data de arrecadação/) });
+        const semValor = r({ situacoes: [{ numeroDocumento: '07202625273123456', localizado: true, pagamento: { ...pag, valorTotal: null } }] });
+        expect(baixaPelaReceita(semValor, '07202625273123456')).toMatchObject({ erro: expect.stringMatching(/valor pago/) });
+    });
+
+    it('recusa resposta simulada, erro do CFI, documento que não veio e número inválido', () => {
+        expect(baixaPelaReceita(r({ ok: false, fonte: 'dry_run', error: 'modo simulado' }), '07202625273123456')).toMatchObject({ erro: 'modo simulado' });
+        expect(baixaPelaReceita(r({ fonte: 'mock' }), '07202625273123456')).toMatchObject({ erro: expect.stringMatching(/modo mock/) });
+        expect(baixaPelaReceita(r({ situacoes: [] }), '07202625273123456')).toMatchObject({ erro: expect.stringMatching(/não traz este documento/) });
+        expect(baixaPelaReceita(r(), '')).toMatchObject({ erro: expect.stringMatching(/número do documento/) });
+        expect(numeroDoDocumento('123456789012345678')).toBeNull();
+    });
+
+    it('a baixa conferida na Receita diz de onde veio', () => {
+        expect(observacaoDaBaixa(b({ fonte: 'receita', autenticacao: '' }))).toMatch(/^paga em 19\/10\/2026 · R\$\s1\.000,00 · pagamento conferido na Receita$/);
+    });
+});
+
