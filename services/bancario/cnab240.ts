@@ -46,9 +46,10 @@ export const PERFIS_BANCO: Record<string, PerfilBanco> = {
         observacao: 'Código do convênio de pagamentos do Santander nas posições 33-52.' },
     '237': { codigo: '237', nome: 'BANCO BRADESCO', layout: 'febraban', moeda: 'BRL', formasConferidas: [], versaoArquivo: '107', versaoLote: '046', densidade: '01600', finalidadeTedSalario: '00004',
         observacao: 'Código do convênio Multipag nas posições 33-52.' },
-    // SISPAG conferido posição a posição com o arquivo da SAGE (ITAU_10.TXT, crédito em conta Itaú, 10/2026).
+    // SISPAG conferido posição a posição com o arquivo da SAGE (ITAU_10.TXT, crédito em conta Itaú, 10/2026) e homologado
+    // nos testes do próprio Itaú com a remessa da empresa 1200 (Paulo, 12/10/2026).
     '341': { codigo: '341', nome: 'BANCO ITAU', layout: 'sispag', moeda: 'REA', formasConferidas: ['conta'], versaoArquivo: '080', versaoLote: '040', densidade: '00000', finalidadeTedSalario: '00004',
-        observacao: 'Itaú SISPAG: crédito em conta Itaú conferido com o arquivo da SAGE; poupança, TED e PIX ainda sem arquivo modelo. O convênio não vai no arquivo.' },
+        observacao: 'Itaú SISPAG: crédito em conta Itaú conferido com o arquivo da SAGE e homologado pelo Itaú nos testes da empresa 1200; poupança, TED e PIX ainda sem arquivo modelo. O convênio não vai no arquivo.' },
 };
 export const BANCOS_SUPORTADOS = Object.keys(PERFIS_BANCO);
 

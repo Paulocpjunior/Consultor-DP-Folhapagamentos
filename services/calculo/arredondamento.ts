@@ -43,6 +43,8 @@ export interface ParametrosFolha {
     sindicalPatronal?: import('../sindicatos/sindicalPatronal').ConfigSindicalPatronal;
     /** Mensagem geral impressa nos holerites da empresa (a tabela `mensa` do IOB). */
     mensagemHolerite?: string;
+    /** Mensagem de aniversário (com {nome} e {empresa}) no holerite e no cartão do mês do aniversário; sem gravar vale o padrão, vazia desliga. */
+    mensagemAniversario?: string;
     /** Fórmulas próprias da empresa por código de evento do IOB (services/calculo/formulaEvento.ts). */
     formulasEventos?: Record<string, import('./formulaEvento').FormulaEvento>;
     /** Anos em que a empresa paga o 13º em parcela única (sem a 1ª parcela de novembro). */

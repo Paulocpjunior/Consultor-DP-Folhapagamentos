@@ -16,7 +16,8 @@ import type { InfoIrrfFerias } from '../calculo/motorFerias';
 import { verbasDoAdiantamento } from '../esocial/eventosFolha';
 import { foraDoAdiantamento } from '../bancario/favorecidos';
 
-import { cabecalhoPadrao, finalizar, textoPdf, type OpcoesPdf } from './layoutPdf';
+import { cabecalhoPadrao, finalizar, novoDocumento, textoPdf, type OpcoesPdf } from './layoutPdf';
+import { aniversarioNoHolerite } from './aniversarios';
 export { textoPdf, type CabecalhoEmpresa, type OpcoesPdf } from './layoutPdf';
 
 const brl = (c: number) => (c / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -39,10 +40,28 @@ export function linhasIrrfFerias(r: ResultadoCalculo): string[] {
     ];
 }
 
-/** Mensagens do holerite: a geral da empresa e as da aba Holerite da ficha (mensa1 a mensa3 do IOB). */
-export function mensagensDoHolerite(f: FichaFuncionario | undefined, geral?: string): string[] {
+/**
+ * Mensagens do holerite: a de aniversário (no mês do aniversário), a geral da empresa e as da aba Holerite da ficha
+ * (mensa1 a mensa3 do IOB).
+ */
+export function mensagensDoHolerite(f: FichaFuncionario | undefined, geral?: string, aniversario?: string): string[] {
     const d = f?.dados ?? {};
-    return [geral, d.mensagemHolerite1, d.mensagemHolerite2, d.mensagemHolerite3].map(t => (t ?? '').trim()).filter(Boolean);
+    return [aniversario, geral, d.mensagemHolerite1, d.mensagemHolerite2, d.mensagemHolerite3].map(t => (t ?? '').trim()).filter(Boolean);
+}
+
+/** Cartão de aniversário em PDF (A4 paisagem, no layout dos relatórios): o nome e a mensagem da empresa. */
+export function cartaoAniversarioPdf(nome: string, mensagem: string, o: OpcoesPdf) {
+    const op: OpcoesPdf = { ...o, titulo: 'Feliz aniversário!', previa: false, orientacao: 'paisagem' };
+    const doc = novoDocumento(op);
+    cabecalhoPadrao(doc, op, nome);
+    const largura = doc.internal.pageSize.getWidth();
+    doc.setTextColor(29, 78, 216); doc.setFont('helvetica', 'bold'); doc.setFontSize(30);
+    doc.text(textoPdf('Feliz aniversário!'), largura / 2, 70, { align: 'center' });
+    doc.setTextColor(30, 30, 30); doc.setFont('helvetica', 'normal'); doc.setFontSize(15);
+    (doc.splitTextToSize(textoPdf(mensagem), largura - 70) as string[]).forEach((t, i) => doc.text(t, largura / 2, 95 + i * 8, { align: 'center' }));
+    doc.setFontSize(11); doc.setTextColor(90, 90, 90);
+    doc.text(textoPdf(o.empresa.razaoSocial), largura / 2, 150, { align: 'center' });
+    return finalizar(doc, op);
 }
 
 /** Declaração e campo de assinatura, abaixo de `y`. */
@@ -87,7 +106,7 @@ export function holeritesPdf(resultados: ResultadoCalculo[], fichas: FichaFuncio
         });
         let y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
         doc.setFontSize(8.5);
-        const irrf: string[] = [...linhasIrrfFerias(r), ...mensagensDoHolerite(f, o.mensagemHolerite)].flatMap(t => doc.splitTextToSize(textoPdf(t), 182) as string[]);
+        const irrf: string[] = [...linhasIrrfFerias(r), ...mensagensDoHolerite(f, o.mensagemHolerite, aniversarioNoHolerite(f, r.competencia, o.mensagemAniversario, o.empresa.razaoSocial))].flatMap(t => doc.splitTextToSize(textoPdf(t), 182) as string[]);
         const extra = irrf.length * 4;
         // Bases + IRRF + declaração + assinatura: se não couber, vão para a página seguinte.
         if (y + 40 + extra > doc.internal.pageSize.height - 10) { doc.addPage(); y = 20; }

@@ -17,6 +17,8 @@ export interface OpcoesPdf {
     orientacao?: 'retrato' | 'paisagem';
     /** Mensagem geral da empresa no holerite (parâmetros da folha). */
     mensagemHolerite?: string;
+    /** Texto da mensagem de aniversário (parâmetros da folha): undefined = o padrão; vazio = desligada. */
+    mensagemAniversario?: string;
 }
 
 export const ESCRITORIO = { nome: 'SP Assessoria Contábil', departamento: 'Departamento Pessoal' };

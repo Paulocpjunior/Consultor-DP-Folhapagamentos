@@ -5025,3 +5025,24 @@ Paulo: *"PODE SEGUIR DE 1 A 4"* (12/10).
   - S-2200 de 111, 103 (direta e indireta), 106 (com substituição) e tpContr 3, todos no XSD oficial, mais as recusas;
   - S-1210 com a pensão somada e com um alimentando novo, no XSD.
 
+## 12/10/2026 — Lote B: holerite por WhatsApp e e-mail, mensagem de aniversário e Itaú homologado
+
+Paulo: *"QUERO QUE IMPLEMENTE O ENVIO DE HOLERITE POR WHATSAPP E E-MAIL, CRIAR MENSAGEM DE ANIVERSARIO NO MES DE ANIVERSARIO DO COLABORADOR"* e *"O ARQUIVO BANCARIO JA FOI TRATADO COM OS TESTES FEITOS PELO BANCO ITAU DA EMPRESA 1200"* (12/10).
+
+- **Holerite a cada funcionário** (Relatórios › Central › Holerites › "Enviar a cada funcionário"):
+  - o e-mail já existia (#119);
+  - novo: o **WhatsApp do escritório** (SP Connect, `POST /api/admin/whatsapp/enviar` do CFI). Usa um modelo do DP com cabeçalho de documento e manda o PDF de cada um para o celular da ficha (Telefone ou Telefone 2);
+  - `destinatariosWhatsApp` e `variaveisDoFuncionario`: o nome é o primeiro nome da pessoa, e o modelo com variável que o Consultor não preenche é recusado antes do envio;
+  - um envio por vez, com o resultado de cada um.
+- **Mensagem de aniversário** (`services/relatorios/aniversarios.ts`):
+  - **texto:** é da empresa, com `{nome}` e `{empresa}`, em Cadastros › Enquadramento › Mensagem no holerite. Sem gravar, vale o padrão; desmarcada, fica desligada (`parametrosFolha.mensagemAniversario` = '');
+  - **no mês do aniversário**, ela sai:
+    - no holerite em PDF da pessoa, antes das outras mensagens;
+    - no e-mail do holerite;
+  - **Relatórios › Aniversariantes do mês:** o cartão de aniversário em PDF, com o nome e a mensagem (`cartaoAniversarioPdf`, no layout dos relatórios), para baixar ou enviar por e-mail ou WhatsApp;
+  - **sem mexer no CFI:** o cartão vai como anexo, então os modelos do DP com documento servem, e o e-mail não sai "sem anexos".
+- **Arquivo bancário:** o crédito em conta Itaú (SISPAG) já estava conferido com o arquivo da SAGE; agora fica registrado como homologado pelo Itaú nos testes da empresa 1200. Poupança, TED e PIX continuam sem arquivo modelo.
+- **Testes:**
+  - destinatários do WhatsApp, variáveis, envio pela tela (sucesso e falha) e o e-mail do holerite com a mensagem de aniversário;
+  - texto, aniversariantes, holerite do mês, cartão em PDF e a tela do cartão (e-mail, sem modelo e mensagem desligada).
+
