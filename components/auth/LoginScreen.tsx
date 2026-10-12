@@ -59,7 +59,7 @@ const LoginScreen: React.FC<Props> = () => {
             <div className="w-full max-w-[400px] rounded-3xl bg-white p-8 shadow-[0_8px_40px_rgba(0,0,0,0.08)] ring-1 ring-black/5 dark:bg-slate-900 dark:shadow-none dark:ring-white/10">
                 {/* Ícone do app + título */}
                 <div className="mb-7 flex flex-col items-center text-center">
-                    <Logo iconOnly className="mb-5 h-[72px] w-[72px] drop-shadow-[0_6px_16px_rgba(0,113,227,0.28)]" />
+                    <Logo iconOnly className="mb-5 h-[76px] w-[76px] shadow-[0_6px_20px_rgba(0,0,0,0.12)]" />
                     <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-slate-900 dark:text-white">SP Contábil</h1>
                     <p className="mt-1 text-[15px] text-slate-500 dark:text-slate-400">Consultor DP — Folha</p>
                     <p className="mt-4 text-[15px] text-slate-600 dark:text-slate-300">

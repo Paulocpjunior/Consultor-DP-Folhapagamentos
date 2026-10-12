@@ -5301,8 +5301,9 @@ Paulo: *"podemos fazer o P2 usando o terminal do meu mac"* (12/10).
   - um só azul de destaque, com o `indigo` igual ao `blue`. O 600 é #0071e3, com contraste AA para texto branco (4,6:1);
   - cantos mais arredondados.
 - **Logo:**
-  - o monograma da casa (PS com a caneta-tinteiro) ganhou a versão "ícone de app": quadrado arredondado com gradiente azul e o monograma em branco;
-  - o mesmo desenho virou `public/favicon.svg`. O `index.html` apontava para um `/vite.svg` que não existia.
+  - o desenho em SVG feito à mão punha uma letra em cima da outra. O Paulo mandou o **arquivo oficial**, e é ele que aparece agora (`public/logo-sp.png`, só com as margens recortadas e o fundo em branco puro);
+  - no modo ícone, o logo fica num quadrado branco de cantos arredondados, como os ícones de app;
+  - do mesmo arquivo saem o `favicon.png` e o `apple-touch-icon.png`. O `index.html` apontava para um `/vite.svg` que não existia.
 - **Cabeçalho:** barra escura e translúcida com desfoque, como a do site da Apple.
 - **Login:** cartão claro (ou escuro, com o tema), campos arredondados com foco azul, botão azul e um só tom de destaque.
 - **Ícones:** já eram SVG de traço fino (1,7), no espírito dos SF Symbols; ficaram como estão.
