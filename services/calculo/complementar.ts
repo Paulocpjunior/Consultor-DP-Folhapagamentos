@@ -126,8 +126,8 @@ export function apurarIrrfRra(t: TabelaLegal, rendimentos: number, deducoes: num
     return { base, aliquota: faixa.aliquota, deducaoFaixa, valor: Math.max(0, Math.round(base * faixa.aliquota / 100) - deducaoFaixa) };
 }
 
-/** Verbas que acompanham o salário no reajuste: salário, periculosidade, maternidade, horas extras e DSR, férias do mês, faltas. */
-const REAJUSTAVEIS = new Set(['SAL', 'PERICUL', 'MAT', 'MATPRORR', 'HE50', 'HE100', 'DSRHE', 'FERMES', 'FERMES13', 'FALTA', 'DSRF', 'ATRASO']);
+/** Verbas que acompanham o salário no reajuste: salário, periculosidade, maternidade, paternidade, horas extras e DSR, férias do mês, faltas. */
+const REAJUSTAVEIS = new Set(['SAL', 'PERICUL', 'MAT', 'MATPRORR', 'PAT', 'PATPRORR', 'HE50', 'HE100', 'DSRHE', 'FERMES', 'FERMES13', 'FALTA', 'DSRF', 'ATRASO']);
 export const reajustavel = (codigo: string) => REAJUSTAVEIS.has(codigo) || /^HE\d+(_\d+)?$/.test(codigo);
 
 /** Verbas de 13º: INSS e IRRF próprios (base do 13º e tributação exclusiva), não somam à remuneração do mês. */

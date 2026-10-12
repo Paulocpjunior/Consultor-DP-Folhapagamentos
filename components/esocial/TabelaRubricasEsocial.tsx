@@ -11,7 +11,7 @@ import { mensagemErro, type Usuario } from '../../services/cadastros/cadastrosSe
 import { salvarParametrosEsocialFolha } from '../../services/empresas/empresasService';
 import { parametrosVazios, type ParametrosEsocialFolha } from '../../services/esocial/eventosFolha';
 import {
-    MODELOS, NAT_RUBR, ROTULO_ACAO, aplicarPedido, dadosVigentes, gerarLoteS1010, modeloDaVerba, pedidoDaVerba, pedidoVazio, refPedidoS1010,
+    modelosEm, NAT_RUBR, ROTULO_ACAO, aplicarPedido, dadosVigentes, gerarLoteS1010, modeloDaVerba, pedidoDaVerba, pedidoVazio, refPedidoS1010,
     resumoPedido, validarLote, validarPedido, type AcaoS1010, type PedidoS1010,
 } from '../../services/esocial/tabelaRubricas';
 import { aplicarPedidoS1010, descartarPedidoS1010, listarPedidosS1010, salvarPedidoS1010 } from '../../services/esocial/pedidosS1010Service';
@@ -79,10 +79,10 @@ const TabelaRubricasEsocial: React.FC<Props> = ({ empresa, usuario, rubricas, in
     const comErro = ativos.filter(p => editavel(status.get(p.id)) && validarPedido(p, rubricas).erros.length);
     const aceitos = ativos.filter(p => status.get(p.id)?.situacao === 'aceito');
     const errosLote = paraEnviar.length ? validarLote(paraEnviar) : [];
-    const semDePara = useMemo(() => new Set(MODELOS.map(x => x.chave).filter(k => !params.rubricas[k])), [params]);
+    const semDePara = useMemo(() => new Set(modelosEm(comp).map(x => x.chave).filter(k => !params.rubricas[k])), [params, comp]);
 
     function novaDaVerba() {
-        const modelo = modeloDaVerba(verba);
+        const modelo = modeloDaVerba(verba, comp);
         if (!modelo) return;
         setEditando(pedidoDaVerba(empresa.id, { chave: verba, descricao: modelo.dados.dscRubr, tipo: modelo.dados.tpRubr === '2' ? 'desconto' : 'provento' }, rubricas, comp));
     }
@@ -174,7 +174,7 @@ const TabelaRubricasEsocial: React.FC<Props> = ({ empresa, usuario, rubricas, in
                         <label>Nova rubrica para uma verba do Consultor
                             <select aria-label="Verba do Consultor" className={`block ${inp}`} value={verba} onChange={e => setVerba(e.target.value)}>
                                 <option value="">— escolha a verba —</option>
-                                {MODELOS.map(x => <option key={x.chave} value={x.chave}>{x.chave.startsWith('RESC:') ? 'Rescisão: ' : ''}{x.dados.dscRubr}{semDePara.has(x.chave) ? ' (sem rubrica no de/para)' : ''}</option>)}
+                                {modelosEm(comp).map(x => <option key={x.chave} value={x.chave}>{x.chave.startsWith('RESC:') ? 'Rescisão: ' : ''}{x.dados.dscRubr}{semDePara.has(x.chave) ? ' (sem rubrica no de/para)' : ''}</option>)}
                             </select>
                         </label>
                         <button className={btn} disabled={!verba} onClick={novaDaVerba}>Montar pelo modelo</button>
@@ -254,7 +254,7 @@ const EditorPedido: React.FC<{ pedido: PedidoS1010; rubricas: Rubrica[]; compete
     const setD = (k: keyof DadosRubrica, v: string) => setP(x => ({ ...x, dados: { ...(x.dados ?? pedidoVazio(x.empresaId).dados!), [k]: v } }));
     const setDados = (d: Partial<DadosRubrica>) => setP(x => ({ ...x, dados: { ...(x.dados ?? pedidoVazio(x.empresaId).dados!), ...d } }));
     const processos = useProcessos(pedido.empresaId);
-    const modelo = p.chaveVerba ? modeloDaVerba(p.chaveVerba) : undefined;
+    const modelo = p.chaveVerba ? modeloDaVerba(p.chaveVerba, p.iniValid) : undefined;
 
     function escolherRubrica(chave: string) {
         const r = rubricas.find(x => `${x.ideTabRubr}|${x.codRubr}` === chave);

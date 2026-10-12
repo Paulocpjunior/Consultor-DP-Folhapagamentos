@@ -5247,3 +5247,40 @@ Paulo: *"podemos fazer o P2 usando o terminal do meu mac"* (12/10).
 - **Leitura do S-1010:** `verificarAntesDeEnviar` só lê as rubricas da empresa se o lote tem demonstrativo. A tela de eventos da folha passa as que já carregou. Se a leitura falha, sai um alerta dizendo que essas regras não foram conferidas.
 - Os modelos de rubrica do Consultor já seguem a lista do 13º (INSS 32, IRRF 32/42, pensão 52).
 - **Testes:** 7 casos novos em `regrasOficiais.test.ts`.
+
+## 12/10/2026 — Licença-paternidade da Lei 15.371/2026 (a partir de 01/01/2027)
+
+- **Fontes lidas:**
+  - NT S-1.3 nº 07/2026 (revisada, 24/09/2026), no gov.br;
+  - leiautes e tabelas S-1.3 consolidados até essa NT.
+- **O que as fontes oficiais trazem:**
+  - Tabela 18: motivos 46 a 52, desde 01/01/2027;
+  - Tabela 03: naturezas 4052, 4053, 9928 e 9929, desde 01/12/2026;
+  - S-1010: codIncCP 23 e 24 (pago pelo empregador) e 27 e 28 (pago pelo INSS), aceitos em produção a partir de 14/12/2026;
+  - S-5001: tpValor 33 soma as rubricas com codIncCP 23/24, ou com natureza 4052/4053 e codIncCP 9x;
+  - S-5011: novo campo vrSalPat.
+- **Texto da lei:** a página da lei no Planalto e a da Câmara estão fora da rede desta sessão, e a notícia do INSS pede login. A duração (10, 15 e 20 dias) e quem paga (empresa, com reembolso nos termos do regulamento; doméstico, avulso e empregado de MEI pelo INSS) vieram de resumos publicados. Por isso essas partes viraram **alerta**, nunca bloqueio.
+- **Motor mensal:**
+  - antes, os motivos 46 a 52 caíam em "afastamento sem salário". A partir de 2027, a licença sairia sem pagamento.
+  - Agora 46, 48, 49, 50, 51 e 52 viram **PAT (salário-paternidade)**, com remuneração integral e INSS, FGTS e IRRF;
+  - o 47 (Empresa Cidadã) vira **PATPRORR**, paga pela empresa, sem reembolso;
+  - o mês comercial é o mesmo da maternidade;
+  - **doméstico:** o INSS paga e o empregador recolhe o FGTS dos dias (Decreto 99.684/1990, art. 28, V).
+- **Alerta no holerite do PAT:**
+  - o reembolso depende do regulamento, então o Consultor ainda não deduz o valor na DCTFWeb;
+  - a parte patronal incide até haver definição (o Tema 72 do STF tratou só do salário-maternidade).
+- **Afastamento:** alerta quando o motivo 46 passa de 10 dias (início em 2027), 15 (2028) ou 20 (2029, com a condição fiscal da lei). As prorrogações vão nos motivos 47, 49 e 50.
+- **Rubricas:**
+  - codIncCP 23 a 28 no cadastro e na conferência com o IOB (25 a 28 pagos pelo INSS ficam para conferir);
+  - modelo PAT (4052, codIncCP 23) oferecido só quando a validade chega a 12/2026 (`MODELOS_A_PARTIR`);
+  - pedido com codIncCP 23, 24, 27 ou 28 enviado antes de 12/2026 dá erro; em 12/2026, alerta (14/12);
+  - alerta quando a natureza 4050/4051 ou 4052/4053 não casa com o codIncCP que o S-5001 soma;
+  - de/para PAT → natureza 4052.
+- **Testes:**
+  - `licencaPaternidade.test.ts` com 5 casos;
+  - o teste das tabelas oficiais aceita, nas sugestões do de/para, natureza já publicada com início futuro;
+  - os modelos oferecidos hoje continuam conferidos pelo XSD atual.
+- **Fica para depois:**
+  - a leitura do vrSalPat/tpValor 33 na conferência pós-folha (a partir de 01/2027);
+  - o XSD de 14/12/2026;
+  - a dedução na DCTFWeb, quando sair o regulamento.

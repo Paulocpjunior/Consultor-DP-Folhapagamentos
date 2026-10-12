@@ -21,7 +21,7 @@
 // como "conferir na Tabela 21".
 
 import { foraDaVigencia } from './vigenciaTabelas';
-import { COD_INC_CP, COD_INC_FGTS, vigenciaEm, consolidarRubricas, idRubrica, type DadosRubrica, type EventoRubrica, type Rubrica } from '../cadastros/rubricas';
+import { COD_INC_CP, COD_INC_FGTS, CP_PATERNIDADE, vigenciaEm, consolidarRubricas, idRubrica, type DadosRubrica, type EventoRubrica, type Rubrica } from '../cadastros/rubricas';
 import { PREFIXO_RESC } from './desligamento';
 import { idEvento, VER_PROC, type TpAmb } from './transmissao';
 
@@ -68,7 +68,7 @@ export const refPedidoS1010 = (pedidoId: string) => `s1010:${pedidoId}`;
 export const NAT_RUBR: Record<string, string> = {
     1000: 'Salário, vencimento, soldo', 1002: 'DSR (encerrada em 30/04/2024; use a 1012)', 1012: 'Descanso semanal remunerado (DSR) e feriado', 1003: 'Horas extraordinárias',
     1015: 'Adiantamento de férias', 1016: 'Férias', 1017: 'Terço constitucional de férias', 1023: 'Abono pecuniário', 1024: 'Férias em dobro',
-    1202: 'Adicional de insalubridade', 1203: 'Adicional de periculosidade', 1409: 'Salário-família', 4050: 'Salário-maternidade',
+    1202: 'Adicional de insalubridade', 1203: 'Adicional de periculosidade', 1409: 'Salário-família', 4050: 'Salário-maternidade', 4051: 'Salário-maternidade - 13º salário', 4052: 'Salário-paternidade', 4053: 'Salário-paternidade - 13º salário',
     5001: '13º salário', 5504: '13º salário - adiantamento', 6000: 'Saldo de salários na rescisão', 6001: '13º salário relativo ao aviso prévio indenizado',
     6002: '13º salário proporcional na rescisão', 6003: 'Indenização compensatória do aviso prévio', 6004: 'Férias em dobro na rescisão',
     6006: 'Férias proporcionais', 6007: 'Férias vencidas na rescisão', 6104: 'Indenização do art. 479 da CLT', 6901: 'Desconto do aviso prévio',
@@ -155,9 +155,18 @@ export const MODELOS: ModeloRubrica[] = [
 ];
 const MODELO_POR_CHAVE = new Map(MODELOS.map(x => [x.chave, x]));
 
-/** Modelo da verba: o próprio; hora extra com outro adicional (HE60, HE75…), como a HE50. */
-export function modeloDaVerba(chave: string): ModeloRubrica | undefined {
-    const x = MODELO_POR_CHAVE.get(chave);
+/** Modelos que só valem a partir de uma competência (natureza ou incidência nova): oferecidos quando a validade chega lá. */
+export const MODELOS_A_PARTIR: { desde: string; modelo: ModeloRubrica }[] = [
+    // Salário-paternidade (Lei 15.371/2026): natureza 4052 desde 12/2026; codIncCP 23 aceito pelo eSocial desde 14/12/2026.
+    { desde: '2026-12', modelo: m('PAT', 'Salário-paternidade pago pelo empregador', '4052', '1', '23', '11', '11', 'Natureza 4052 a partir de 12/2026 e codIncCP 23 aceito pelo eSocial a partir de 14/12/2026 (NT 07/2026 rev.).') },
+];
+
+/** Modelos oferecidos para a competência (AAAA-MM): os de sempre e os que já começaram. */
+export const modelosEm = (competencia: string): ModeloRubrica[] => [...MODELOS, ...MODELOS_A_PARTIR.filter(x => competencia >= x.desde).map(x => x.modelo)];
+
+/** Modelo da verba: o próprio; hora extra com outro adicional (HE60, HE75…), como a HE50. Com a competência, também os que já começaram. */
+export function modeloDaVerba(chave: string, competencia?: string): ModeloRubrica | undefined {
+    const x = MODELO_POR_CHAVE.get(chave) ?? (competencia ? MODELOS_A_PARTIR.find(f => f.modelo.chave === chave && competencia >= f.desde)?.modelo : undefined);
     if (x) return x;
     const he = chave.match(/^HE(\d+)(?:_(\d+))?$/);
     if (he) { const p = he[2] ? `${he[1]},${he[2]}` : he[1]; return { chave, dados: { ...MODELO_POR_CHAVE.get('HE50')!.dados, dscRubr: `Horas extras ${p}%` } }; }
@@ -176,7 +185,7 @@ export function tabelaSugerida(rubricas: Pick<Rubrica, 'ideTabRubr'>[]): string 
 
 /** Pedido de inclusão para uma verba do motor, pelo modelo (sem modelo: só a descrição e o tipo). */
 export function pedidoDaVerba(empresaId: string, item: { chave: string; descricao: string; tipo: 'provento' | 'desconto' }, rubricas: Rubrica[], iniValid: string): PedidoS1010 {
-    const modelo = modeloDaVerba(item.chave);
+    const modelo = modeloDaVerba(item.chave, iniValid);
     const dados = modelo ? { ...modelo.dados } : { ...dadosVazios(), dscRubr: item.descricao.slice(0, 100), tpRubr: item.tipo === 'provento' ? '1' : '2' };
     return { ...pedidoVazio(empresaId), codRubr: codigoSugerido(item.chave), ideTabRubr: tabelaSugerida(rubricas), iniValid, dados, chaveVerba: item.chave };
 }
@@ -225,6 +234,18 @@ export function validarDados(d: DadosRubrica): string[] {
     return e;
 }
 
+/**
+ * O S-5001 só soma no salário-maternidade (tpValor 32) e no salário-paternidade (tpValor 33) as rubricas com natureza e
+ * codIncCP casados (leiaute do S-5001, campo tpValor). Alerta: rubricas antigas podem ter sido cadastradas de outro jeito.
+ */
+export function avisosNaturezaLicenca(d: DadosRubrica): string[] {
+    const casa = (nats: string[], cps: string[]) => !nats.includes(d.natRubr) || cps.includes(d.codIncCP) || /^9\d$/.test(d.codIncCP);
+    const out: string[] = [];
+    if (!casa(['4050', '4051'], ['21', '22', '25', '26'])) out.push(`Natureza ${d.natRubr} (salário-maternidade) com codIncCP ${d.codIncCP}: com 21 ou 22 (pago pelo empregador) o eSocial soma no salário-maternidade (S-5001).`);
+    if (!casa(['4052', '4053'], ['23', '24', '27', '28'])) out.push(`Natureza ${d.natRubr} (salário-paternidade) com codIncCP ${d.codIncCP}: com 23 ou 24 (pago pelo empregador) o eSocial soma no salário-paternidade (S-5001).`);
+    return out;
+}
+
 const chaveRubrica = (p: Pick<PedidoS1010, 'ideTabRubr' | 'codRubr'>) => `${p.ideTabRubr}|${p.codRubr}`;
 
 /** Confere o pedido contra o leiaute, o MOS e as vigências que o Consultor conhece da rubrica. */
@@ -256,6 +277,9 @@ export function validarPedido(p: PedidoS1010, rubricas: Rubrica[], hojeComp?: st
         if (p.novaFimValid && (!COMP.test(p.novaFimValid) || p.novaFimValid < (p.novaIniValid || p.iniValid))) erros.push('Novo fim da validade em AAAA-MM, igual ou depois do início.');
         if (p.novaFimValid && !p.novaIniValid) erros.push('Para informar o fim da validade, repita o início em "novo início".');
     }
+    if (p.dados) avisos.push(...avisosNaturezaLicenca(p.dados));
+    if (hojeComp && p.dados && CP_PATERNIDADE.includes(p.dados.codIncCP) && hojeComp < '2026-12') erros.push(`codIncCP ${p.dados.codIncCP} (salário-paternidade): o eSocial só aceita a partir de 14/12/2026 (NT 07/2026 rev.).`);
+    else if (hojeComp === '2026-12' && p.dados && CP_PATERNIDADE.includes(p.dados.codIncCP)) avisos.push(`codIncCP ${p.dados.codIncCP} (salário-paternidade): o eSocial só aceita a partir de 14/12/2026 (NT 07/2026 rev.).`);
     if (hojeComp && COMP.test(p.iniValid) && p.iniValid > hojeComp && p.acao === 'inclusao') erros.push(`Início da validade no futuro (${p.iniValid}): o eSocial não aceita validade que comece depois do mês do envio (REGRA_VALIDA_DT_FUTURA).`);
 
     const r = rubricas.find(x => x.ideTabRubr === p.ideTabRubr && x.codRubr === p.codRubr);

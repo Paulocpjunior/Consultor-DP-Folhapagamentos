@@ -121,6 +121,21 @@ export function inicioBeneficio(a: Afastamento): string | null {
     return somarDias(a.dtInicio, 15);
 }
 
+/**
+ * Duração da licença-paternidade (motivo 46) pela Lei 15.371/2026: 10 dias a partir de 2027, 15 a partir de 2028 e 20 a
+ * partir de 2029 (esta última etapa depende da condição fiscal da própria lei). Alerta: as prorrogações vão nos motivos
+ * 47 (Empresa Cidadã), 49 (atestado médico) e 50 (deficiência).
+ */
+export function avisoDuracaoPaternidade(a: Pick<Afastamento, 'motivo' | 'dtInicio' | 'dtFim'>): string {
+    if (a.motivo !== '46' || !dataValida(a.dtInicio) || !a.dtFim || !dataValida(a.dtFim)) return '';
+    const ano = Number(a.dtInicio.slice(0, 4));
+    if (ano < 2027) return '';
+    const limite = ano === 2027 ? 10 : ano === 2028 ? 15 : 20;
+    const dias = Math.round((Date.parse(`${a.dtFim}T00:00:00Z`) - Date.parse(`${a.dtInicio}T00:00:00Z`)) / 86_400_000) + 1;
+    if (dias <= limite) return '';
+    return `Licença-paternidade de ${dias} dias: a Lei 15.371/2026 prevê ${limite} dias para quem começa em ${ano}${ano >= 2029 ? ' (os 20 dias dependem da condição fiscal da lei)' : ''}. Prorrogação vai em outro afastamento: motivo 47 (Empresa Cidadã), 49 (atestado médico) ou 50 (deficiência).`;
+}
+
 export function validarAfastamento(a: Afastamento, ficha: FichaFuncionario | undefined, outros: Afastamento[]): { erros: string[]; avisos: string[] } {
     const erros: string[] = []; const avisos: string[] = [];
     if (!a.fichaId) erros.push('Selecione o funcionário.');
@@ -154,6 +169,8 @@ export function validarAfastamento(a: Afastamento, ficha: FichaFuncionario | und
         if (o.fichaId !== a.fichaId || o.id === a.id) continue;
         if (a.dtInicio <= (o.dtFim || '9999-12-31') && o.dtInicio <= fimA) { erros.push(`Sobrepõe o afastamento iniciado em ${o.dtInicio.split('-').reverse().join('/')}.`); break; }
     }
+    const aviso = avisoDuracaoPaternidade(a);
+    if (aviso) avisos.push(aviso);
     if (!a.dtFim) avisos.push('Sem data de término: afastamento em aberto.');
     return { erros, avisos };
 }
