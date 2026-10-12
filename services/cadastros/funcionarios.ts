@@ -110,7 +110,11 @@ export const inicioNaEmpresa = (d: Partial<Record<CampoFicha, string>>) => (d.in
 export const MOTIVOS_DESLIGAMENTO: [string, string][] = [
     ['01', 'Com justa causa, por iniciativa do empregador'], ['02', 'Sem justa causa, por iniciativa do empregador'],
     ['03', 'Término antecipado do contrato a termo pelo empregador'], ['04', 'Término antecipado do contrato a termo pelo empregado'],
-    ['06', 'Término do contrato a termo'], ['07', 'Pedido de demissão'], ['33', 'Acordo entre as partes (art. 484-A)'],
+    ['05', 'Culpa recíproca'], ['06', 'Término do contrato a termo'], ['07', 'Pedido de demissão'],
+    ['08', 'Por interesse do empregado (arts. 394 e 483, § 1º)'], ['10', 'Falecimento do empregado'], ['17', 'Rescisão indireta'],
+    ['27', 'Força maior'], ['33', 'Acordo entre as partes (art. 484-A)'],
+    ['41', 'Aprendiz: desempenho insuficiente ou inadaptação'], ['42', 'Aprendiz: ausência à escola com perda do ano letivo'],
+    ['47', 'Encerramento da empresa, do estabelecimento ou de parte das atividades'], ['48', 'Falecimento do empregador individual sem continuação'],
 ];
 
 export type TipoCampo = 'texto' | 'data' | 'lista' | 'longo';

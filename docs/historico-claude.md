@@ -5086,3 +5086,22 @@ Paulo: *"podemos seguir com o P2 e o alerta de darf nao pago no CFI"* (12/10).
   - depois de uma baixa, os avisos são relidos.
 - **Pendente do Paulo:** rodar `scripts/setup-cloud-schedulers.sh` do CFI no Cloud Shell para criar o job `dp-darf-nao-pago-cron`. Até lá, o aviso não aparece.
 - **Testes:** `calendarioEmpresa.test.tsx` (avisos, cruzamento com a baixa, atalho, sem CFI e sem usuário).
+
+## 12/10/2026 — Rescisão: motivos novos da Tabela 19 (tabela oficial do eSocial)
+
+Paulo liberou o `www.gov.br` na rede (*"pode testar"*, 12/10). A Tabela 19 foi lida da documentação oficial: leiaute S-1.3, NT 07/2026 rev. 24/09/2026, `tabelas.html`, com códigos, vigência e categorias.
+
+- **No motor de rescisão**, além de 01–07, 10, 17 e 33:
+  - **47, encerramento da empresa, do estabelecimento ou de parte das atividades**, e **48, falecimento do empregador individual sem continuação** (art. 485): verbas da dispensa sem justa causa, aviso prévio (TST, Súmula 44), multa de 40% e saque (Lei 8.036/1990, art. 20, I e II). Não valem para o doméstico (o dele é o 49);
+  - **27, força maior** (arts. 501 e 502): sem aviso prévio, 13º e férias proporcionais integrais, multa de 20% (art. 18, § 2º) e saque (art. 20, I). A tela avisa sobre o art. 501 e o art. 479 pela metade no contrato a termo;
+  - **08, por interesse do empregado** (arts. 394 e 483, § 1º): sem aviso de nenhuma parte, sem multa e sem saque;
+  - **41 e 42, extinção antecipada da aprendizagem** (art. 433, I e III): só a categoria 103; sem aviso e sem as indenizações dos arts. 479 e 480 (§ 2º), sem multa.
+- **Categorias da Tabela 19:** motivo fora da categoria é recusado com a explicação (`CATEGORIAS_DO_MOTIVO`).
+- **Seguro-desemprego:** passa a valer também na rescisão indireta (Lei 7.998/1990, art. 3º: "inclusive a indireta"), no encerramento e no falecimento do empregador. Antes a tela dizia que a indireta não dava direito, e isso estava errado.
+- **Ficha:** a lista de motivos traz todos os do motor.
+- **Ficaram fora, de propósito:**
+  - 09 (opção do empregado pelo falecimento do empregador) e 26 (fato do príncipe, art. 486): o pagamento e a indenização dependem de quem assume;
+  - 49 (empregador doméstico): os 3,2% não têm regra na LC 150 para este motivo;
+  - 11 a 13, 36, 43 e 44: transferência, mudança de CPF e agrupamento, sem verbas.
+- **Regra do eSocial para registrar:** desligamento de afastado só com os motivos [01, 07, 09, 10, 11, 12, 13, 14, 16, 17, 21, 22, 23, 24, 25, 26, 29, 30, 32, 34, 36, 37, 38, 39, 40, 43, 44, 47, 48, 49] (REGRA_DESLIG_TRABALHADOR_AFASTADO). Ainda não é conferida antes do envio.
+- **Testes:** `rescisaoTabela19.test.ts`.

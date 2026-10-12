@@ -56,7 +56,9 @@ export function seguroDesemprego(ficha: FichaFuncionario, r: Pick<ResultadoResci
     const exigidos = solicitacao === 1 ? 12 : solicitacao === 2 ? 9 : 6;
     const media = mediaUltimosSalarios(ficha, r.data);
     const base = { meses, exigidos, mediaSalarios: media, observacoes: obs };
-    if (r.tipo !== '02' && r.tipo !== '03') {
+    // Lei 7.998/1990, art. 3º: dispensa sem justa causa, inclusive a indireta; o fim da atividade e o falecimento do
+    // empregador individual são dispensa pelo empregador.
+    if (!['02', '03', '17', '47', '48'].includes(r.tipo)) {
         const porque = r.tipo === '33' ? 'acordo (art. 484-A, § 4º): não dá direito ao seguro-desemprego' : `${(TIPOS_RESCISAO as Record<string, string>)[r.tipo] ?? 'este motivo'} não dá direito ao seguro-desemprego`;
         return { ...base, cabe: false, motivo: porque, parcelas: 0 };
     }
