@@ -5348,3 +5348,17 @@ Paulo: *"podemos fazer o P2 usando o terminal do meu mac"* (12/10).
     - abaixo de 1280 px, sem o quadradinho colorido do grupo;
     - abaixo de 1024 px, o menu rola na horizontal e o painel abre embaixo, como no celular.
   - Conferido sem rolagem horizontal em 800, 1024, 1180, 1280 e 1440 px.
+
+## 12/10/2026 — Pré-voo: estabelecimento e lotação vigentes (REGRA_DEMONSTRATIVO, item 2.3)
+
+- **Regra oficial:** no S-1200, S-2299 e S-2399, o estabelecimento (S-1005) e a lotação (S-1020) de cada `ideEstabLot` precisam estar vigentes:
+  - no período de apuração (no S-2299, o mês do desligamento; no S-2399, o do término);
+  - ou no `perRef`, nos períodos anteriores.
+- **O que o Consultor sabe:** só a vigência das lotações do cadastro de obras e lotações (início e fim, mais os recibos do S-1020/S-1005 aceitos). A lotação padrão vinda do IOB está só no eSocial.
+- **`conferirLotacoes` (regrasOficiais.ts):**
+  - lotação do cadastro com S-1020 aceito e fora da validade: **bloqueio**;
+  - sem recibo do S-1020, ou obra própria (CNO) sem o S-1005 aceito: **alerta**;
+  - empresa que usa o cadastro e um código fora dele: **um alerta por lote**;
+  - empresa sem lotação cadastrada: nada a conferir (ausente não é conferido).
+- **Leitura:** `verificarAntesDeEnviar` lê o cadastro de lotações quando o lote tem demonstrativo. A tela de eventos da folha passa as lotações que já carregou. Se a leitura falha, sai um alerta.
+- **Testes:** 3 casos novos em `regrasOficiais.test.ts`.

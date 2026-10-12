@@ -1,6 +1,6 @@
 // Regras oficiais de validação conferidas no pré-voo só com o XML (regrasOficiais.ts). Dados fictícios.
 import { describe, expect, it } from 'vitest';
-import { caractereAceito, regrasDasRubricas, regrasOficiaisDoEvento, regrasOficiaisDoLote } from '../regrasOficiais';
+import { caractereAceito, conferirLotacoes, regrasDasRubricas, regrasOficiaisDoEvento, regrasOficiaisDoLote } from '../regrasOficiais';
 import type { DadosRubrica, Rubrica } from '../../cadastros/rubricas';
 import type { EventoLote } from '../preVoo';
 
@@ -167,5 +167,23 @@ describe('pacote do XSD pela data do envio', () => {
         const { existsSync } = await import('node:fs');
         const { PACOTES_XSD } = await import('../validadorXsd');
         for (const p of PACOTES_XSD.slice(1)) for (const f of p.arquivos as string[]) expect(existsSync(new URL(`../../../public/esocial-xsd/${p.pasta}/${f}`, import.meta.url)), `${p.pasta}/${f}`).toBe(true);
+    });
+});
+
+describe('estabelecimento e lotação vigentes (REGRA_DEMONSTRATIVO 2.3)', () => {
+    const s1200 = (cod: string, perApur = '2026-09', ant = '') => ev('S-1200', `<indApuracao>1</indApuracao></ideEvento><dmDev><ideDmDev>D1</ideDmDev><infoPerApur><ideEstabLot><tpInsc>1</tpInsc><nrInsc>11222333000181</nrInsc><codLotacao>${cod}</codLotacao></ideEstabLot></infoPerApur>${ant}</dmDev><ideEvento>`, perApur);
+    const lot = (codigo: string, x: Partial<{ iniValid: string; fimValid: string; recibo1020: string; recibo1005: string; cno: string; tipo: string }> = {}) => ({ codigo, tipo: '01', cno: '', iniValid: '2026-01', fimValid: '', recibo1020: '1.1.1', ...x });
+    const r = (eventos: EventoLote[], ls: ReturnType<typeof lot>[]) => conferirLotacoes(eventos, ls).map(a => [a.nivel, a.mensagem.replace(/ \(REGRA_DEMONSTRATIVO\)\.$/, '')]);
+    it('sem lotação cadastrada: nada a conferir', () => expect(r([s1200('L1')], [])).toEqual([]));
+    it('vigente com S-1020 aceito: nada; fora da validade: bloqueio (com recibo) ou alerta (sem)', () => {
+        expect(r([s1200('L1')], [lot('L1')])).toEqual([]);
+        expect(r([s1200('L1')], [lot('L1', { fimValid: '2026-08' })])).toEqual([['bloqueio', 'S-1200 (2026-09): lotação L1 fora da validade do S-1020 (2026-01 a 2026-08) na competência 2026-09']]);
+        expect(r([s1200('L1')], [lot('L1', { fimValid: '2026-08', recibo1020: '' })])[0][0]).toBe('aviso');
+        expect(r([s1200('L1')], [lot('L1', { recibo1020: '' })])).toEqual([['aviso', 'S-1200 (2026-09): lotação L1 sem o S-1020 aceito pelo Consultor; confira se a tabela está no eSocial']]);
+    });
+    it('período anterior confere no perRef; código fora do cadastro: um alerta por lote', () => {
+        const ant = '<infoPerAnt><ideADC><idePeriodo><perRef>2025-12</perRef><ideEstabLot><tpInsc>1</tpInsc><nrInsc>11222333000181</nrInsc><codLotacao>L1</codLotacao></ideEstabLot></idePeriodo></ideADC></infoPerAnt>';
+        expect(r([s1200('L1', '2026-09', ant)], [lot('L1')])[0]).toEqual(['bloqueio', 'S-1200 (2026-09): lotação L1 fora da validade do S-1020 (2026-01 em diante) na competência 2025-12']);
+        expect(r([s1200('X9'), { ...s1200('X9'), id: 'outro' }], [lot('L1')])).toEqual([['aviso', 'Lotação X9 fora do cadastro de lotações do Consultor: a validade do S-1020 não foi conferida']]);
     });
 });

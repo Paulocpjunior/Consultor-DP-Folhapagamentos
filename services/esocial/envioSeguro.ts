@@ -8,11 +8,13 @@
 
 import { listarRubricas, type Usuario } from '../cadastros/cadastrosService';
 import type { Rubrica } from '../cadastros/rubricas';
+import { listarLotacoes } from '../obras/lotacoesService';
+import type { LotacaoConhecida } from './regrasOficiais';
 import { enviarLote, type Certificado, type RetornoEnvio, type TpAmb } from './transmissao';
 import { concluirEnvio, listarEnvios, registrarFalhaEnvio, registrarIntencao, type Envio } from './transmissaoService';
 import { achadosDoXsd, bloqueios, lerEventoLote, regrasDoLote, type Achado, type EventoLote } from './preVoo';
 import { validarPeloXsd } from './validadorXsd';
-import { EVENTOS_COM_RUBRICAS, regrasDasRubricas, regrasOficiaisDoEvento, regrasOficiaisDoLote } from './regrasOficiais';
+import { conferirLotacoes, EVENTOS_COM_RUBRICAS, regrasDasRubricas, regrasOficiaisDoEvento, regrasOficiaisDoLote } from './regrasOficiais';
 
 const hojeSp = () => new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Sao_Paulo' }).format(new Date());
 
@@ -21,7 +23,7 @@ export interface Empresa { id: string; cnpj: string }
 
 export interface ResultadoPreVoo { eventos: EventoLote[]; achados: Achado[]; ok: boolean; tpAmb: TpAmb; empresaId: string }
 
-export async function verificarAntesDeEnviar(p: { empresa: Empresa; eventos: EventoParaEnvio[]; tpAmb: TpAmb; historico?: Envio[]; hoje?: string; rubricas?: Rubrica[] }): Promise<ResultadoPreVoo> {
+export async function verificarAntesDeEnviar(p: { empresa: Empresa; eventos: EventoParaEnvio[]; tpAmb: TpAmb; historico?: Envio[]; hoje?: string; rubricas?: Rubrica[]; lotacoes?: LotacaoConhecida[] }): Promise<ResultadoPreVoo> {
     const eventos = p.eventos.map((e, i) => lerEventoLote(e.nome ?? `evento ${i + 1}`, e.xml, p.empresa, p.tpAmb, e.ref));
     const historico = p.historico ?? await listarEnvios(p.empresa.id);
     const achados = regrasDoLote(eventos, historico, p.tpAmb);
@@ -35,6 +37,10 @@ export async function verificarAntesDeEnviar(p: { empresa: Empresa; eventos: Eve
         const rubricas = p.rubricas ?? await listarRubricas(p.empresa.id).catch(() => null);
         if (rubricas) for (const e of comRubricas) achados.push(...regrasDasRubricas(e, rubricas, { hoje, tpAmb: p.tpAmb === 2 ? 2 : 1 }));
         else achados.push({ nivel: 'aviso', regra: 'REGRA_DEMONSTRATIVO', mensagem: 'Não foi possível ler as rubricas (S-1010) da empresa: as regras oficiais que dependem delas não foram conferidas.' });
+        // Estabelecimento e lotação vigentes (REGRA_DEMONSTRATIVO 2.3): pelo cadastro de obras e lotações da empresa.
+        const lotacoes = p.lotacoes ?? await listarLotacoes(p.empresa.id).catch(() => null);
+        if (lotacoes) achados.push(...conferirLotacoes(comRubricas, lotacoes));
+        else achados.push({ nivel: 'aviso', regra: 'REGRA_DEMONSTRATIVO', mensagem: 'Não foi possível ler o cadastro de lotações da empresa: a validade do S-1005/S-1020 não foi conferida.' });
     }
     // O XSD é o do pacote vigente na data do envio, no ambiente do lote (NT 07/2026: 26/10, 23/11, 14/12/2026).
     for (const e of eventos.filter(x => !x.erro)) achados.push(...achadosDoXsd(e, await validarPeloXsd(e.xml, undefined, { data: hoje, tpAmb: p.tpAmb === 2 ? 2 : 1 })));

@@ -337,3 +337,67 @@ export function regrasDasRubricas(e: EventoLote, rubricas: Rubrica[], quando: { 
     }
     return out;
 }
+
+// ---------- Estabelecimento e lotação vigentes (REGRA_DEMONSTRATIVO, item 2.3) ----------
+
+/** O mínimo da lotação do cadastro de obras/lotações (services/obras/lotacoes.ts) que a conferência usa. */
+export interface LotacaoConhecida { codigo: string; tipo: string; cno: string; iniValid: string; fimValid: string; recibo1005?: string; recibo1020?: string }
+
+const EVENTOS_COM_ESTAB_LOT = new Set(['S-1200', 'S-2299', 'S-2399']);
+
+/** As lotações (codLotacao, nrInsc) de cada evento e a competência em que devem estar vigentes. */
+function lotacoesDoEvento(e: EventoLote): { codLotacao: string; tpInsc: string; nrInsc: string; competencia: string }[] {
+    const out: { codLotacao: string; tpInsc: string; nrInsc: string; competencia: string }[] = [];
+    const comp = competenciaDoEvento(e);
+    const ler = (bloco: string, competencia: string) => {
+        for (const el of todos(bloco, 'ideEstabLot')) out.push({ codLotacao: pegar(el, 'codLotacao'), tpInsc: pegar(el, 'tpInsc'), nrInsc: pegar(el, 'nrInsc'), competencia });
+    };
+    for (const dm of todos(e.xml, 'dmDev')) {
+        if (comp) for (const b of todos(dm, 'infoPerApur')) ler(b, comp);
+        for (const b of todos(dm, 'infoPerAnt')) for (const per of todos(b, 'idePeriodo')) { const ref = pegar(per, 'perRef'); ler(per, ref.length === 4 ? `${ref}-12` : ref); }
+    }
+    // S-2399: ideEstabLot no infoTSVTermino/verbasResc, vigente no mês do término.
+    if (!out.length && e.tipo === 'S-2399' && comp) ler(e.xml, comp);
+    return out.filter(x => x.codLotacao && /^\d{4}-\d{2}$/.test(x.competencia));
+}
+
+/**
+ * REGRA_DEMONSTRATIVO, item 2.3: o estabelecimento (S-1005) e a lotação (S-1020) do S-1200/S-2299/S-2399 vigentes na
+ * competência (o perRef nos períodos anteriores). O Consultor só conhece a vigência das lotações do cadastro de obras e
+ * lotações; as demais estão só no eSocial. Por isso:
+ *   - lotação do cadastro com o S-1020 aceito (recibo) e fora da validade: bloqueio (o eSocial recusa);
+ *   - lotação do cadastro sem recibo do S-1020, ou obra própria (CNO) sem recibo do S-1005: alerta;
+ *   - empresa que usa o cadastro de lotações e um código que não está nele: alerta, uma vez por lote;
+ *   - empresa sem nenhuma lotação cadastrada: nada (a lotação dela está só no eSocial; ausente não é conferido).
+ */
+export function conferirLotacoes(eventos: EventoLote[], lotacoes: LotacaoConhecida[]): Achado[] {
+    const out: Achado[] = [];
+    if (!lotacoes.length) return out;
+    const porCodigo = new Map(lotacoes.map(l => [l.codigo.trim(), l]));
+    const fora = new Set<string>();
+    const vistos = new Set<string>();
+    for (const e of eventos.filter(x => !x.erro && x.xml && EVENTOS_COM_ESTAB_LOT.has(x.tipo))) {
+        const rotulo = `${e.tipo}${e.perApur ? ` (${e.perApur})` : ''}`;
+        for (const x of lotacoesDoEvento(e)) {
+            const l = porCodigo.get(x.codLotacao);
+            if (!l) { fora.add(x.codLotacao); continue; }
+            const chave = `${e.id}|${x.codLotacao}|${x.competencia}`;
+            if (vistos.has(chave)) continue;
+            vistos.add(chave);
+            const vigente = (!l.iniValid || l.iniValid <= x.competencia) && (!l.fimValid || l.fimValid >= x.competencia);
+            const msg = (m: string) => `${rotulo}: lotação ${x.codLotacao} ${m} (REGRA_DEMONSTRATIVO).`;
+            if (!vigente) {
+                const validade = `${l.iniValid || '?'}${l.fimValid ? ` a ${l.fimValid}` : ' em diante'}`;
+                if (l.recibo1020) out.push({ nivel: 'bloqueio', regra: 'REGRA_DEMONSTRATIVO', eventoId: e.id, mensagem: msg(`fora da validade do S-1020 (${validade}) na competência ${x.competencia}`) });
+                else out.push({ nivel: 'aviso', regra: 'REGRA_DEMONSTRATIVO', eventoId: e.id, mensagem: msg(`com validade ${validade} no cadastro, fora da competência ${x.competencia}; o S-1020 dela ainda não foi aceito pelo Consultor`) });
+            } else if (!l.recibo1020) {
+                out.push({ nivel: 'aviso', regra: 'REGRA_DEMONSTRATIVO', eventoId: e.id, mensagem: msg('sem o S-1020 aceito pelo Consultor; confira se a tabela está no eSocial') });
+            }
+            if (x.tpInsc === '4' && l.cno.replace(/\D/g, '') === x.nrInsc && !l.recibo1005) {
+                out.push({ nivel: 'aviso', regra: 'REGRA_DEMONSTRATIVO', eventoId: e.id, mensagem: msg(`na obra própria (CNO ${x.nrInsc}) sem o S-1005 aceito pelo Consultor; o estabelecimento da obra precisa estar no eSocial`) });
+            }
+        }
+    }
+    if (fora.size) out.push({ nivel: 'aviso', regra: 'REGRA_DEMONSTRATIVO', mensagem: `Lotação ${[...fora].sort().join(', ')} fora do cadastro de lotações do Consultor: a validade do S-1020 não foi conferida (REGRA_DEMONSTRATIVO).` });
+    return out;
+}
