@@ -36,6 +36,7 @@ import { tabelaPdf, type OpcoesPdf } from '../../services/relatorios/layoutPdf';
 import HoleritePorEmail from './HoleritePorEmail';
 import AniversariantesEnvio from './AniversariantesEnvio';
 import { baixarBytes } from '../../services/implantacao/zip';
+import { historicoDeEnvios } from '../../services/relatorios/enviosFuncionarioService';
 import EntregaRelatorio, { type ArquivoRelatorio } from './EntregaRelatorio';
 
 const relatoriosPdf = () => import('../../services/relatorios/holeritePdf');
@@ -47,11 +48,11 @@ const brData = (d: string) => d.split('-').reverse().join('/');
 
 interface Dados { empresa: Empresa | undefined; fichas: FichaFuncionario[]; afastamentos: Afastamento[]; enquadramentos: Enquadramento[]; folha: FolhaGravada | null }
 
-const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
+const RelatoriosPanel: React.FC<{ currentUser: User; /** Abre com este relatório escolhido (id do catálogo). */ relatorioInicial?: string }> = ({ currentUser, relatorioInicial }) => {
     const { ativa } = useEmpresaAtiva();
     const [dados, setDados] = useState<Dados | null>(null);
     const [erro, setErro] = useState('');
-    const [selId, setSelId] = useState(RELATORIOS[0].id);
+    const [selId, setSelId] = useState(() => RELATORIOS.find(r => r.id === relatorioInicial)?.id ?? RELATORIOS[0].id);
     const [orientacao, setOrientacao] = useState<'auto' | 'retrato' | 'paisagem'>('auto');
     const [conteudoEtiqueta, setConteudoEtiqueta] = useState<ConteudoEtiqueta>('funcionario');
     const [pularEtiquetas, setPularEtiquetas] = useState(0);
@@ -111,6 +112,9 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         ...(calc && calc.empresaId === ativa.id ? { calculo: { ...calc, enquadramentos: dados.enquadramentos } } : {}),
         sindicatos, sindicatosDaEmpresa: dados.empresa?.sindicatos,
     } : null), [ativa, dados, calc, sindicatos]);
+    const uid = currentUser.uid ?? currentUser.id; const emailUsuario = currentUser.email;
+    const histHolerite = useMemo(() => ativa ? historicoDeEnvios(ativa.id, ativa.competencia, 'holerite', { id: uid, email: emailUsuario }) : undefined, [ativa?.id, ativa?.competencia, uid, emailUsuario]);
+    const histAniversario = useMemo(() => ativa ? historicoDeEnvios(ativa.id, ativa.competencia, 'aniversario', { id: uid, email: emailUsuario }) : undefined, [ativa?.id, ativa?.competencia, uid, emailUsuario]);
     if (!ativa) return <p className="text-sm text-slate-500">Ative uma empresa e um período.</p>;
 
     const comp = ativa.competencia.split('-').reverse().join('/');
@@ -312,12 +316,13 @@ const RelatoriosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                     <AniversariantesEnvio empresa={{ id: ativa.id, cnpj: ativa.cnpj.replace(/\D/g, ''), nome: dados.empresa?.nomeFantasia || dados.empresa?.razaoSocial || ativa.nome }}
                         competencia={ativa.competencia} fichas={dados.fichas} mensagem={dados.empresa?.parametrosFolha?.mensagemAniversario}
                         gerarCartao={async (nome, msg) => new Uint8Array((await relatoriosPdf()).cartaoAniversarioPdf(nome, msg, opcoes(sel)).output('arraybuffer'))}
-                        baixar={(nome, bytes) => baixarBytes(nome, bytes, 'application/pdf')} />
+                        baixar={(nome, bytes) => baixarBytes(nome, bytes, 'application/pdf')} historico={histAniversario} />
                 )}
                 {sel.tipo === 'holerites' && dados?.folha && (
                     <HoleritePorEmail empresa={{ id: ativa.id, cnpj: ativa.cnpj.replace(/\D/g, ''), nome: dados.empresa?.nomeFantasia || dados.empresa?.razaoSocial || ativa.nome }}
                         competencia={ativa.competencia} folha={dados.folha.holerites} fichas={dados.fichas}
                         mensagemAniversario={dados.empresa?.parametrosFolha?.mensagemAniversario}
+                        historico={histHolerite}
                         gerarPdf={async r => new Uint8Array((await relatoriosPdf()).holeritesPdf([r], dados.fichas, opcoes(sel)).output('arraybuffer'))} />
                 )}
             </section>

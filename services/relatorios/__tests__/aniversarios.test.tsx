@@ -51,6 +51,7 @@ vi.mock('../../pacoteCliente/spConnect', async (orig) => ({
     templatesDoDp: async () => [],
 }));
 import AniversariantesEnvio from '../../../components/relatorios/AniversariantesEnvio';
+import LembreteAniversariantes from '../../../components/prazos/LembreteAniversariantes';
 afterEach(() => { cleanup(); srv.emails.length = 0; vi.restoreAllMocks(); });
 
 describe('tela do cartão', () => {
@@ -75,5 +76,42 @@ describe('tela do cartão', () => {
         render(<AniversariantesEnvio empresa={{ id: 'E1', cnpj: '11222333000181', nome: 'ALFA' }} competencia="2026-09" fichas={fs} mensagem="" gerarCartao={vi.fn()} baixar={vi.fn()} />);
         expect(screen.getByText(/A mensagem de aniversário está desligada nesta empresa/)).toBeTruthy();
         expect(screen.queryByText(/por e-mail/)).toBeNull();
+    });
+
+    it('histórico: mostra quem já recebeu, não reenvia e grava o envio', async () => {
+        vi.spyOn(window, 'confirm').mockReturnValue(true);
+        const fs2 = [...fs, ficha('4', 'DORA', '1991-09-15', { email: 'd@x.com' })];
+        const registrar = vi.fn(async () => {});
+        const recebido = { ok: true, destino: 'b***@x.com', em: '2026-09-20T12:00:00Z', porEmail: 'col@escritorio' };
+        render(<AniversariantesEnvio empresa={{ id: 'E1', cnpj: '11222333000181', nome: 'ALFA' }} competencia="2026-09" fichas={fs2} gerarCartao={async () => new Uint8Array([1])} baixar={vi.fn()}
+            historico={{ listar: async () => new Map([['1', { email: recebido }]]), registrar }} />);
+        expect(await screen.findByText(/✓ e-mail em 20\/09\/2026 \d{2}:\d{2} \(b\*\*\*@x\.com, por col@escritorio\)/)).toBeTruthy();
+        fireEvent.click(screen.getByText('Enviar 1 por e-mail'));
+        await waitFor(() => expect(srv.emails.map(e => e.para)).toEqual(['d@x.com']));
+        await waitFor(() => expect(registrar).toHaveBeenCalledWith('4', 'email', 'd@x.com', undefined));
+        fireEvent.click(screen.getByLabelText(/Incluir quem já recebeu/));
+        expect(screen.getByText('Enviar 2 por e-mail')).toBeTruthy();
+    });
+});
+
+describe('lembrete nos prazos', () => {
+    const fs = [ficha('1', 'BRUNO SOUZA', '1990-10-12'), ficha('2', 'ANA', '1985-10-03'), ficha('3', 'CAIO', '1985-11-28'), { ...ficha('9', 'OUTRA EMPRESA', '1985-10-20'), empresaId: 'E2' }];
+    it('aniversariantes do mês da empresa, o de hoje, quem já recebeu e o atalho', async () => {
+        const abrir = vi.fn();
+        const ok = { ok: true, destino: '', em: '', porEmail: '' };
+        render(<LembreteAniversariantes empresa={{ id: 'E1', nome: 'ALFA', competencia: '2026-09' }} fichas={fs} hoje="2026-10-12"
+            historico={{ listar: async () => new Map([['2', { whatsapp: ok }]]), registrar: vi.fn() }} onAbrir={abrir} />);
+        expect(screen.getByText('2 aniversariante(s) em outubro')).toBeTruthy();
+        expect(await screen.findByText(/1 de 2 já receberam o cartão/)).toBeTruthy();
+        const sec = screen.getByLabelText('Aniversariantes do mês').textContent ?? '';
+        expect(sec).toMatch(/03 ANA ✓.*12 BRUNO SOUZA · hoje/);
+        expect(sec).not.toMatch(/OUTRA EMPRESA|CAIO/);
+        expect(sec).toMatch(/usa a competência ativa \(09\/2026\): para os de outubro, troque o período para 10\/2026/);
+        fireEvent.click(screen.getByText('Enviar os cartões'));
+        expect(abrir).toHaveBeenCalled();
+    });
+    it('sem aniversariante no mês, não aparece', () => {
+        const { container } = render(<LembreteAniversariantes empresa={{ id: 'E1', nome: 'ALFA', competencia: '2026-12' }} fichas={fs} hoje="2026-12-01" />);
+        expect(container.innerHTML).toBe('');
     });
 });

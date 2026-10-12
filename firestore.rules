@@ -750,6 +750,33 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ===== Histórico dos envios ao funcionário (holerite e cartão de aniversário, por e-mail ou WhatsApp) =====
+    // Id = empresa_AAAA-MM_tipo_ficha. Um registro por canal (o último envio, com o destino mascarado). Quem pode na
+    // empresa grava; a empresa não muda; nada se apaga.
+    function envioCanalValido(c) {
+      return c is map && c.keys().hasOnly(['ok', 'destino', 'em', 'porEmail', 'erro'])
+        && c.ok is bool && c.destino is string && c.destino.size() <= 120
+        && c.em is string && c.em.size() <= 40 && c.porEmail is string && c.porEmail.size() <= 200
+        && c.get('erro', '') is string && c.get('erro', '').size() <= 300;
+    }
+    function envioFuncionarioValido(id) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['empresaId', 'fichaId', 'competencia', 'tipo', 'canais', 'atualizadoPor', 'atualizadoEm'])
+        && d.empresaId is string && d.fichaId is string && d.fichaId.size() > 0 && d.fichaId.size() <= 200
+        && d.competencia is string && d.competencia.matches('^[0-9]{4}-(0[1-9]|1[0-2])$')
+        && d.tipo in ['holerite', 'aniversario']
+        && id == d.empresaId + '_' + d.competencia + '_' + d.tipo + '_' + d.fichaId
+        && d.canais is map && d.canais.keys().hasOnly(['email', 'whatsapp'])
+        && (!('email' in d.canais) || envioCanalValido(d.canais.email))
+        && (!('whatsapp' in d.canais) || envioCanalValido(d.canais.whatsapp))
+        && d.atualizadoPor == request.auth.uid;
+    }
+    match /envios_funcionario/{id} {
+      allow read: if podeEmpresa(resource.data.empresaId);
+      allow create, update: if gravaNaEmpresa() && envioFuncionarioValido(id);
+      allow delete: if false;
+    }
+
     // ===== S-1010 pelo Consultor: pedidos de inclusão, alteração e exclusão de rubricas =====
     // Id = empresa_auto. Quem pode na empresa cria e edita o rascunho; aplicado (aceito no eSocial) e descartado
     // são finais; a empresa e o autor não mudam; nada se apaga.

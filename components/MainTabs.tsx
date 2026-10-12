@@ -453,7 +453,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                 {activeTab === 'prazos' && (
                     <Suspense fallback={<div className="py-12 text-center text-sm text-slate-500">Carregando…</div>}>
                         <PrazosPanel embutido onAbrirCadastros={() => setActiveTab('cadastros')} usuario={currentUser ? { id: uidAtual, email: currentUser.email } : undefined}
-                            onAbrirConferencia={() => irFolha('conferencia')} />
+                            onAbrirConferencia={() => irFolha('conferencia')} onAbrirAniversariantes={() => navegar({ aba: 'relatorios', sub: 'central', relatorio: 'aniversariantes' })} />
                     </Suspense>
                 )}
                 {activeTab === 'cadastros' && (
@@ -471,7 +471,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                     <Suspense fallback={<div className="py-12 text-center text-sm text-slate-500">Carregando…</div>}>
                         {nav.d.aba === 'relatorios' && nav.d.sub === 'modelos'
                             ? <ModelosPanel key={`mod-${nav.n}`} currentUser={currentUser} />
-                            : <RelatoriosPanel key={`rel-${nav.n}`} currentUser={currentUser} />}
+                            : <RelatoriosPanel key={`rel-${nav.n}`} currentUser={currentUser} relatorioInicial={nav.d.aba === 'relatorios' ? nav.d.relatorio : undefined} />}
                     </Suspense>
                 )}
                 {activeTab === 'certificados' && (

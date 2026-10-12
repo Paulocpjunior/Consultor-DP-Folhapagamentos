@@ -3,12 +3,15 @@
 // Relatórios › Central › Aniversariantes do mês: o cartão de aniversário de cada aniversariante (PDF com a mensagem da
 // empresa), para baixar ou enviar a ele, por e-mail (do escritório, para o e-mail da ficha) ou pelo WhatsApp do
 // escritório (SP Connect, modelo do DP com documento, para o celular da ficha). Um por vez, com o resultado de cada um.
+// Com o histórico, cada envio fica gravado e quem já recebeu pelo canal no mês fica de fora (a não ser que se marque
+// "incluir quem já recebeu").
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
 import { enviarEmailPeloEscritorio, enviarPeloSpConnect, templatesDoDp, type TemplateWhatsApp } from '../../services/pacoteCliente/spConnect';
 import { aniversariantesDoMes, arquivoCartao, mensagemAniversario, primeiroNome } from '../../services/relatorios/aniversarios';
 import { variaveisDoFuncionario } from '../../services/relatorios/holeritePorEmail';
+import { separarPorHistorico, textoDoEnvio, type CanalEnvio, type HistoricoDeEnvios, type HistoricoEnvios } from '../../services/relatorios/enviosFuncionario';
 import { ESCRITORIO } from '../../services/relatorios/layoutPdf';
 
 interface Props {
@@ -20,11 +23,13 @@ interface Props {
     /** O cartão em PDF (layout dos relatórios). */
     gerarCartao: (nome: string, mensagem: string) => Promise<Uint8Array>;
     baixar: (nome: string, bytes: Uint8Array) => void;
+    /** Histórico dos envios do mês (cartão de aniversário); sem ele, não grava nem filtra. */
+    historico?: HistoricoDeEnvios;
 }
 
 const btn = 'rounded-lg px-3 py-1.5 text-white disabled:opacity-50';
 
-const AniversariantesEnvio: React.FC<Props> = ({ empresa, competencia, fichas, mensagem, gerarCartao, baixar }) => {
+const AniversariantesEnvio: React.FC<Props> = ({ empresa, competencia, fichas, mensagem, gerarCartao, baixar, historico }) => {
     const lista = useMemo(() => aniversariantesDoMes(fichas, competencia), [fichas, competencia]);
     const [resultado, setResultado] = useState<Record<string, string>>({});
     const [andamento, setAndamento] = useState('');
@@ -33,9 +38,32 @@ const AniversariantesEnvio: React.FC<Props> = ({ empresa, competencia, fichas, m
     const [erro, setErro] = useState('');
     const desligada = mensagem !== undefined && !mensagem.trim();
     const texto = (nome: string) => mensagemAniversario(mensagem, nome, empresa.nome);
-    const comEmail = lista.filter(a => a.email); const comWhats = lista.filter(a => a.whatsapp);
+    const [hist, setHist] = useState<HistoricoEnvios | null>(null);
+    const [erroHist, setErroHist] = useState('');
+    const [incluir, setIncluir] = useState(false);
+    useEffect(() => {
+        let vivo = true;
+        setHist(null); setErroHist('');
+        historico?.listar().then(h => { if (vivo) setHist(h); }).catch(e => { if (vivo) setErroHist(`Histórico dos envios: ${(e as Error).message}`); });
+        return () => { vivo = false; };
+    }, [historico]);
+    const porCanalEmail = separarPorHistorico(lista.filter(a => a.email), a => a.ficha.id, hist, 'email', incluir);
+    const porCanalWhats = separarPorHistorico(lista.filter(a => a.whatsapp), a => a.ficha.id, hist, 'whatsapp', incluir);
+    const comEmail = porCanalEmail.enviar; const comWhats = porCanalWhats.enviar;
+    const algumJaEnviado = porCanalEmail.jaEnviados.length + porCanalWhats.jaEnviados.length > 0;
     const t = templates?.find(x => x.nome === template);
     const faltando = t ? variaveisDoFuncionario(t, { nome: 'X', empresa: empresa.nome, titulo: 'Feliz aniversário', competencia }).faltando : [];
+
+    async function gravar(fichaId: string, canal: CanalEnvio, destino: string, erro?: string) {
+        if (!historico) return;
+        try { await historico.registrar(fichaId, canal, destino, erro); }
+        catch (e) { setErroHist(`Envio feito, mas não gravado no histórico: ${(e as Error).message}`); }
+    }
+
+    async function recarregar() {
+        if (!historico) return;
+        try { setHist(await historico.listar()); } catch (e) { setErroHist(`Histórico dos envios: ${(e as Error).message}`); }
+    }
 
     async function cartao(nome: string, ficha: FichaFuncionario) {
         try { baixar(arquivoCartao(ficha, competencia), await gerarCartao(nome, texto(nome))); }
@@ -55,9 +83,14 @@ const AniversariantesEnvio: React.FC<Props> = ({ empresa, competencia, fichas, m
                     anexos: [{ nome: arquivoCartao(a.ficha, competencia), bytes: await gerarCartao(a.nome, texto(a.nome)), mime: 'application/pdf' }],
                 });
                 setResultado(x => ({ ...x, [a.ficha.id]: `✓ e-mail para ${a.email}` }));
-            } catch (e) { setResultado(x => ({ ...x, [a.ficha.id]: `✗ ${(e as Error).message}` })); }
+                await gravar(a.ficha.id, 'email', a.email!);
+            } catch (e) {
+                setResultado(x => ({ ...x, [a.ficha.id]: `✗ ${(e as Error).message}` }));
+                await gravar(a.ficha.id, 'email', a.email!, (e as Error).message);
+            }
         }
         setAndamento('');
+        await recarregar();
     }
 
     async function carregarTemplates() {
@@ -76,9 +109,14 @@ const AniversariantesEnvio: React.FC<Props> = ({ empresa, competencia, fichas, m
                 const { variaveis } = variaveisDoFuncionario(t, { nome: a.nome, empresa: empresa.nome, titulo: 'Feliz aniversário', competencia });
                 const r = await enviarPeloSpConnect({ para: a.whatsapp!, template: t.nome, variaveis, pdf: { nome: arquivoCartao(a.ficha, competencia), bytes: await gerarCartao(a.nome, texto(a.nome)) }, referencia: `aniversario:${empresa.id}:${competencia}:${a.ficha.id}` });
                 setResultado(x => ({ ...x, [a.ficha.id]: `✓ WhatsApp para ${r.numeroEnviado || a.whatsapp}` }));
-            } catch (e) { setResultado(x => ({ ...x, [a.ficha.id]: `✗ ${(e as Error).message}` })); }
+                await gravar(a.ficha.id, 'whatsapp', a.whatsapp!);
+            } catch (e) {
+                setResultado(x => ({ ...x, [a.ficha.id]: `✗ ${(e as Error).message}` }));
+                await gravar(a.ficha.id, 'whatsapp', a.whatsapp!, (e as Error).message);
+            }
         }
         setAndamento('');
+        await recarregar();
     }
 
     return (
@@ -94,10 +132,16 @@ const AniversariantesEnvio: React.FC<Props> = ({ empresa, competencia, fichas, m
                                 <span className="w-6 text-right font-mono">{a.dia}</span><span>{a.nome}</span>
                                 <span className="text-slate-500">{[a.email && 'e-mail', a.whatsapp && 'WhatsApp'].filter(Boolean).join(' e ') || 'sem e-mail nem celular na ficha'}</span>
                                 <button className="text-blue-700 underline dark:text-blue-300" onClick={() => cartao(a.nome, a.ficha)}>Cartão (PDF)</button>
+                                {!resultado[a.ficha.id] && (['email', 'whatsapp'] as const).filter(c => hist?.get(a.ficha.id)?.[c]?.ok).map(c => (
+                                    <span key={c} className="text-green-700 dark:text-green-300">✓ {textoDoEnvio(c, hist!.get(a.ficha.id)![c]!)}</span>
+                                ))}
                                 {resultado[a.ficha.id] && <span className={resultado[a.ficha.id].startsWith('✓') ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}>{resultado[a.ficha.id]}</span>}
                             </li>
                         ))}
                     </ul>
+                    {historico && algumJaEnviado && (
+                        <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={incluir} onChange={e => setIncluir(e.target.checked)} /> Incluir quem já recebeu (reenviar)</label>
+                    )}
                     <div className="flex flex-wrap items-center gap-2">
                         <button className={`${btn} bg-teal-600`} disabled={!comEmail.length || !!andamento} onClick={porEmail}>Enviar {comEmail.length} por e-mail</button>
                         {templates === null
@@ -113,6 +157,7 @@ const AniversariantesEnvio: React.FC<Props> = ({ empresa, competencia, fichas, m
                 </>)}
             {templates !== null && !templates.length && !erro && <p role="alert" className="text-xs text-red-700 dark:text-red-300">Nenhum modelo do Departamento Pessoal com documento no SP Connect.</p>}
             {faltando.length > 0 && <p role="alert" className="text-xs text-red-700 dark:text-red-300">O modelo {t?.nome} tem variáveis que o Consultor não preenche ({faltando.join(', ')}).</p>}
+            {erroHist && <p role="alert" className="text-xs text-amber-800 dark:text-amber-200">{erroHist}</p>}
             {erro && <p role="alert" className="text-xs text-red-700 dark:text-red-300">{erro}</p>}
             {andamento && <p role="status" className="text-blue-700 dark:text-blue-300">{andamento}</p>}
         </section>
