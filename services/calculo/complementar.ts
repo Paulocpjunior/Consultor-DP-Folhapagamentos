@@ -440,7 +440,7 @@ export function calcularComplementar(e: EntradaComplementar): { resultados: Resu
                 if (ir > 0) meses13[meses13.length - 1].verbas.push({ codigo: 'IRRF13', descricao: 'IRRF sobre a diferença do 13º', referencia: `${num(a.aliquota)}%`, tipo: 'desconto', valor: ir, inss: false, fgts: false, irrf: false });
             }
         }
-        if (e.instrumento.tpAcConv === 'E' && r.fgts > 0) r.avisos.push(`Tipo E: o FGTS de cada mês é da competência do mês de referência, com multa e juros desde ela (MOS, S-1200, item 18.9); na folha de ${rotuloCompetencia(e.perApur)} e nas seguintes, enquanto durar o afastamento, a base do FGTS também deve ir em rubrica informativa (MOS, S-1200, item 18.10, exemplo 5), e o S-1200 mensal do Consultor ainda não a leva: confira pelo IOB.`);
+        if (e.instrumento.tpAcConv === 'E' && r.fgts > 0) r.avisos.push(`Tipo E: o FGTS de cada mês é da competência do mês de referência, com multa e juros desde ela (MOS, S-1200, item 18.9); na folha de ${rotuloCompetencia(e.perApur)} e nas seguintes, enquanto durar o afastamento, a base do FGTS também vai em rubrica informativa (MOS, S-1200, item 18.10, exemplo 5): cadastre o afastamento com o motivo 01 (acidente do trabalho) para a folha do mês levá-la.`);
         if (r.erros.length) r.situacao = 'erro';
         r.avisos = [...new Set(r.avisos)];
         r.verbas = r.meses.flatMap(m => m.verbas.map(v => ({ ...v, referencia: v.referencia ? `${m.perRef.slice(5)}/${m.perRef.slice(0, 4)} · ${v.referencia}` : `${m.perRef.slice(5)}/${m.perRef.slice(0, 4)}` })));

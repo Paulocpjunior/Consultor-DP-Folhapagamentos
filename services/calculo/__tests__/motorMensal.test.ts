@@ -102,8 +102,20 @@ describe('motor do cálculo mensal', () => {
         expect(r.fgts).toBe(19200);
         const acid = calc({ ficha: ficha({}), afastamentos: [afast({ dtInicio: '2026-03-10', motivo: '01' })] });
         expect(acid.bases.fgts).toBe(300000); // acidente do trabalho: FGTS sobre os dias com o INSS
+        // No eSocial, a base desses dias vai em rubrica informativa, fora das verbas e do líquido (MOS, S-1200, item 36.1).
+        expect(acid.verbasInformativas).toEqual([{ codigo: 'FGTSAC', descricao: 'Base do FGTS do afastamento por acidente (informativa)', referencia: '6 dia(s)', tipo: 'provento', valor: 60000, inss: false, fgts: true, irrf: false, informativa: true }]);
+        expect(acid.verbas.some(v => v.codigo === 'FGTSAC')).toBe(false);
+        expect(acid.totais.liquido).toBe(calc({ ficha: ficha({}), afastamentos: [afast({ dtInicio: '2026-03-10', motivo: '03' })] }).totais.liquido);
+        expect(r.verbasInformativas).toBeUndefined(); // doença comum: sem FGTS no afastamento
         const mesmo = calc({ ficha: ficha({}), afastamentos: [afast({ dtInicio: '2026-03-10', motivo: '03', infoMesmoMtv: 'S' })] });
         expect(valor(mesmo, 'SAL')).toBe(90000); // 9 dias
+    });
+
+    it('serviço militar: FGTS dos dias afastados em rubrica informativa própria (natureza 9905 no MOS)', () => {
+        const r = calc({ ficha: ficha({}), afastamentos: [afast({ dtInicio: '2026-03-16', motivo: '29' })] });
+        expect(valor(r, 'SAL')).toBe(150000);
+        expect(r.bases.fgts).toBe(300000);
+        expect(r.verbasInformativas?.map(v => [v.codigo, v.valor, v.referencia])).toEqual([['FGTSSM', 150000, '15 dia(s)']]);
     });
 
     it('fevereiro: mês inteiro vale 30; afastados saem de 30', () => {

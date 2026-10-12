@@ -155,6 +155,11 @@ export interface ResultadoCalculo {
     pagamento: string;
     situacao: Situacao;
     verbas: Verba[];
+    /**
+     * Rubricas informativas do mês (tpRubr 3): a base do FGTS dos dias de afastamento por acidente do trabalho ou serviço
+     * militar (MOS, S-1200, item 36.1). Não são pagas: ficam fora das verbas, do holerite e do líquido; só vão ao eSocial.
+     */
+    verbasInformativas?: Verba[];
     bases: { inss: number; fgts: number; irrf: number };
     totais: { proventos: number; descontos: number; liquido: number };
     fgts: number;
@@ -367,6 +372,8 @@ function calcularMensalSemObras(e: EntradaCalculo): ResultadoCalculo {
     if (inicio !== d.admissao && inicio >= ini) r.memoria.push(`Transferido de outra empresa do grupo em ${brData(inicio)} (admissão em ${brData(d.admissao)}): o mês aqui conta desde a transferência.`);
 
     let diasAcidenteInss = 0;
+    // Dos dias acima, os de serviço militar (motivo 29): rubrica informativa própria (MOS, S-1200, item 36.1, natureza 9905).
+    let diasServicoMilitar = 0;
     // Doméstica em licença-maternidade: o INSS paga direto; o empregador recolhe o FGTS sobre a remuneração desses dias.
     let diasMaternidadeDomestica = 0;
     // Benefício do INSS (doença) que começou antes do mês: o salário-família é pago pelo INSS (Decreto 3.048/1999, art. 82).
@@ -395,7 +402,7 @@ function calcularMensalSemObras(e: EntradaCalculo): ResultadoCalculo {
             } else if (a.motivo === PRORROGACAO) { dias.set(x, 'prorrogacao'); n++; }
             else if (MATERNIDADE.includes(a.motivo)) { dias.set(x, 'maternidade'); n++; }
             else if (FERIAS.includes(a.motivo)) { dias.set(x, 'ferias'); n++; }
-            else { dias.set(x, 'naoPago'); n++; if (FGTS_NO_AFASTAMENTO.includes(a.motivo)) diasAcidenteInss++; }
+            else { dias.set(x, 'naoPago'); n++; if (FGTS_NO_AFASTAMENTO.includes(a.motivo)) { diasAcidenteInss++; if (a.motivo === '29') diasServicoMilitar++; } }
         }
         if (domestico && MATERNIDADE.includes(a.motivo)) {
             r.memoria.push(`Afastamento ${rotulo}: ${n} dia(s) no mês. O salário-maternidade da doméstica é pago direto pelo INSS (Lei 8.213/1991, art. 73, I); o empregador recolhe o FGTS (8% + 3,2%) sobre a remuneração desses dias.`);
@@ -589,6 +596,18 @@ function calcularMensalSemObras(e: EntradaCalculo): ResultadoCalculo {
     }
     const diasFgtsAcidente = Math.min(diasAcidenteInss, Math.max(0, 30 - diasPagos - diasMatTotal));
     const fgtsAcidente = Math.round(diaria * diasFgtsAcidente);
+    // No eSocial, a base do FGTS desses dias vai em rubrica informativa (MOS, S-1200, item 36.1): uma para o acidente do
+    // trabalho e outra para o serviço militar, que somam o mesmo valor da base.
+    if (fgtsAcidente > 0) {
+        const diasMil = Math.min(diasServicoMilitar, diasFgtsAcidente);
+        const militar = diasMil === diasFgtsAcidente ? fgtsAcidente : Math.round(diaria * diasMil);
+        const info = (codigo: string, descricao: string, n: number, v: number): Verba =>
+            ({ codigo, descricao, referencia: `${n} dia(s)`, tipo: 'provento', valor: v, inss: false, fgts: true, irrf: false, informativa: true });
+        r.verbasInformativas = [
+            ...(fgtsAcidente - militar > 0 ? [info('FGTSAC', 'Base do FGTS do afastamento por acidente (informativa)', diasFgtsAcidente - diasMil, fgtsAcidente - militar)] : []),
+            ...(militar > 0 ? [info('FGTSSM', 'Base do FGTS do serviço militar obrigatório (informativa)', diasMil, militar)] : []),
+        ];
+    }
     r.bases.fgts = Math.max(0, soma(v => v.fgts)) + fgtsAcidente;
     if (diasMaternidadeDomestica) {
         const mensalComAdicional = mensal + (adicional?.mensal ?? 0);

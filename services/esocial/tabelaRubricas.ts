@@ -12,7 +12,8 @@
 //   novaValidade; EXCLUSÃO só de vigência sem uso em eventos de remuneração;
 // - códigos de incidência suspensa (9x / 9xxx) levam o processo do S-1070 (ideProcessoCP, ideProcessoIRRF, ideProcessoFGTS;
 //   services/processosJud/processosJud.ts), que precisa estar aceito antes; a do RPPS (codIncCPRP 9x) fica com o IOB;
-// - rubricas de conferência (9901 a 9908): codIncCP 00, codIncFGTS 00 e codIncIRRF 9;
+// - rubricas de conferência (9901, 9902, 9903, 9904, 9907 e 9908; não 9905 e 9906, que são bases): codIncCP 00, codIncFGTS 00 e
+//   codIncIRRF 9;
 // - eConsignado (9253): desconto, codIncFGTS 31, codIncCP 00 e codIncIRRF 9.
 //
 // Os modelos das verbas do motor são SUGESTÃO, coerentes com as marcas de INSS, FGTS e IRRF do próprio cálculo
@@ -77,7 +78,10 @@ export const NAT_RUBR: Record<string, string> = {
 
 export interface ModeloRubrica { chave: string; dados: DadosRubrica; nota?: string }
 
-const m = (chave: string, dscRubr: string, natRubr: string, tpRubr: '1' | '2', codIncCP: string, codIncIRRF: string, codIncFGTS: string, nota?: string): ModeloRubrica =>
+/** Naturezas só de conferência de base (MOS, S-1010, item 1.4). */
+const CONFERENCIA_DE_BASE = ['9901', '9902', '9903', '9904', '9907', '9908'];
+
+const m = (chave: string, dscRubr: string, natRubr: string, tpRubr: '1' | '2' | '3', codIncCP: string, codIncIRRF: string, codIncFGTS: string, nota?: string): ModeloRubrica =>
     ({ chave, dados: { dscRubr, natRubr, tpRubr, codIncCP, codIncIRRF, codIncFGTS, codIncCPRP: '', observacao: '' }, ...(nota ? { nota } : {}) });
 
 /**
@@ -105,6 +109,9 @@ export const MODELOS: ModeloRubrica[] = [
     m('INSS', 'INSS', '9201', '2', '31', '41', '00'),
     m('IRRF', 'IRRF', '9203', '2', '00', '31', '00'),
     m('SF', 'Salário-família', '1409', '1', '51', '9', '00'),
+    // Afastamento para o serviço militar: a remuneração que seria devida, informativa, só base do FGTS (MOS, S-1200, item 36.1,
+    // exemplo com natureza 9905, CP 00, IRRF 9 e FGTS 11). O do acidente do trabalho não tem natureza fixada no MOS: sem modelo.
+    m('FGTSSM', 'Base do FGTS do serviço militar obrigatório', '9905', '3', '00', '9', '11'),
     m('PENSAO', 'Pensão alimentícia', '9213', '2', '00', '51', '00'),
     m('ADIANT', 'Desconto do adiantamento salarial', '9200', '2', '00', '9', '00'),
     m('VT', 'Desconto de vale-transporte', '9216', '2', '00', '9', '00'),
@@ -207,7 +214,8 @@ export function validarDados(d: DadosRubrica): string[] {
     if (!fgtsSuspensa(d) && d.processosFGTS?.length) e.push('Processo de FGTS só com codIncFGTS suspenso (9x).');
     (d.processosFGTS ?? []).forEach((p, i) => { if (!/^\d{20}$/.test(p.nrProc.replace(/\D/g, ''))) e.push(`Processo de FGTS ${i + 1}: número judicial (20 algarismos).`); });
     if (/^9\d$/.test(d.codIncCPRP)) e.push('Incidência suspensa do RPPS (codIncCPRP 9x): envie esta rubrica pelo IOB.');
-    if (/^990[1-8]$/.test(d.natRubr) && (d.codIncCP !== '00' || d.codIncFGTS !== '00' || d.codIncIRRF !== '9' || !['', '00'].includes(d.codIncCPRP)))
+    // Só as que o MOS lista (S-1010, item 1.4); 9905 (serviço militar) e 9906 (remuneração no exterior) são bases com incidência.
+    if (CONFERENCIA_DE_BASE.includes(d.natRubr) && (d.codIncCP !== '00' || d.codIncFGTS !== '00' || d.codIncIRRF !== '9' || !['', '00'].includes(d.codIncCPRP)))
         e.push(`Natureza ${d.natRubr} (conferência de base): codIncCP 00, codIncFGTS 00 e codIncIRRF 9 (MOS, S-1010, item 1.4).`);
     if (d.natRubr === '9253' && (d.tpRubr !== '2' || d.codIncFGTS !== '31' || d.codIncCP !== '00' || d.codIncIRRF !== '9'))
         e.push('Natureza 9253 (eConsignado): desconto, codIncFGTS 31, codIncCP 00 e codIncIRRF 9 (MOS, S-1200, item 20).');

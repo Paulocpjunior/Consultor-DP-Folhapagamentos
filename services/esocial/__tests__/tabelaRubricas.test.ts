@@ -60,6 +60,9 @@ describe('S-1010: validação', () => {
         expect(validarDados(dados({ codIncIRRF: '9011' })).join(' ')).toMatch(/codIncIRRF 9011 \(suspensa\): informe o processo judicial do S-1070/);
         expect(validarDados(dados({ natRubr: '9901', tpRubr: '3', codIncCP: '00', codIncFGTS: '00', codIncIRRF: '11' })).join(' ')).toMatch(/item 1.4/);
         expect(validarDados(dados({ natRubr: '9901', tpRubr: '3', codIncCP: '00', codIncFGTS: '00', codIncIRRF: '9' }))).toEqual([]);
+        // 9905 (serviço militar) não é de conferência: é base do FGTS (MOS, S-1200, item 36.1); 9902 é.
+        expect(validarDados(dados({ natRubr: '9905', tpRubr: '3', codIncCP: '00', codIncFGTS: '11', codIncIRRF: '9' }))).toEqual([]);
+        expect(validarDados(dados({ natRubr: '9902', tpRubr: '3', codIncCP: '00', codIncFGTS: '11', codIncIRRF: '9' })).join(' ')).toMatch(/item 1.4/);
         expect(validarDados(dados({ natRubr: '9253', tpRubr: '2', codIncCP: '00', codIncFGTS: '00', codIncIRRF: '9' })).join(' ')).toMatch(/eConsignado/);
         expect(validarDados(dados({ natRubr: '9253', tpRubr: '2', codIncCP: '00', codIncFGTS: '31', codIncIRRF: '9' }))).toEqual([]);
         expect(validarDados(dados({ codIncCP: '31' })).join(' ')).toMatch(/tem de ser de desconto/);

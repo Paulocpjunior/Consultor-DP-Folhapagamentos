@@ -181,6 +181,8 @@ const SUGESTAO: Record<string, { naturezas: string[]; dica?: RegExp; evita?: Reg
     '13DIF': { naturezas: ['5001', '5005'] },
     // Complementar tipo E: rubrica informativa só com FGTS (MOS, S-1200, item 18.8); o MOS não fixa a natureza, a descrição aponta.
     FGTSAC: { naturezas: [], dica: /ACIDENT|AUX.*DOEN|INCAPACIDADE/ },
+    // Serviço militar obrigatório: rubrica informativa, natureza 9905 no exemplo do MOS (S-1200, item 36.1).
+    FGTSSM: { naturezas: ['9905'] },
     AVISO: { naturezas: ['6003'], dica: /AVISO/, evita: /DESC|13|FERIAS/ },
     ART479: { naturezas: ['6104'] },
     '13PROP': { naturezas: ['6002'] },
@@ -207,7 +209,7 @@ export interface ItemDePara { chave: string; descricao: string; tipo: 'provento'
 export function sugerirDePara(resultados: ResultadoCalculo[], rubricas: Rubrica[], competencia: string): ItemDePara[] {
     const vigentes = rubricas.map(r => ({ r, v: vigenciaEm(r, competencia) })).filter(x => x.v);
     const itens = new Map<string, ItemDePara>();
-    for (const res of resultados) for (const v of res.verbas) {
+    for (const res of resultados) for (const v of [...res.verbas, ...(res.verbasInformativas ?? [])]) {
         const chave = chaveVerba(v);
         if (itens.has(chave) || v.valor <= 0) continue;
         const tp = v.informativa ? '3' : v.tipo === 'provento' ? '1' : '2';
@@ -668,7 +670,8 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             }
             const ferFolha = r.verbas.filter(v => v.codigo === 'FERMES' || v.codigo === 'FERMES13').reduce((s, v) => s + v.valor, 0);
             if (ferFolha !== ferRecibos) t.erros.push(`Férias do mês na folha (${reais(ferFolha)}) não batem com os recibos de férias com gozo em ${mes(e.competencia)} (${reais(ferRecibos)})${quem}: confira os gozos em Cadastros › Afastamentos e recalcule.`);
-            const itens = itensDe(r.verbas);
+            // As informativas (base do FGTS do afastamento) vão no mesmo demonstrativo, fora do líquido.
+            const itens = itensDe([...r.verbas, ...(r.verbasInformativas ?? [])]);
             const pagosNoMes = recibos.filter(x => x.r.situacao === 'calculado' && x.dataPagamento.slice(0, 7) === e.competencia);
 
             // Único por trabalhador: matrículas longas que coincidem nos primeiros caracteres ganham um sufixo.
