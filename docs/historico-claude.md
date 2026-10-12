@@ -5201,3 +5201,23 @@ Item 3 da lista de 12/10.
   - são ferramentas da montagem do CSS e não vão para o navegador;
   - a correção é o tailwind 4, uma migração da configuração e do CSS. Fica para um lote próprio, com conferência visual das telas.
 - **Conferido:** tsc, vitest 190/1389, build e `npm run test:regras` 35/122.
+
+## 12/10/2026 — Plataforma comum, P2: no ar e o DP usando a IA dela
+
+Paulo: *"podemos fazer o P2 usando o terminal do meu mac"* (12/10).
+
+- **No Mac do Paulo:**
+  - conta `sp-plataforma-deploy` com Cloud Run Admin, Artifact Registry Writer e Service Account User;
+  - chave gravada direto no GitHub (`gh secret set`, sem passar pela tela);
+  - `GEMINI_SECRET = gemini-api-key`;
+  - acesso da conta padrão do Cloud Run ao segredo do Gemini.
+- **Tropeços:**
+  - o terminal era o PowerShell, onde o `<` e o `for ... do` do bash não existem. A chave foi criada e nunca gravada, e as tentativas deixaram 4 chaves órfãs (o bloco final apagou todas);
+  - o primeiro deploy falhou porque o Cloud Run não aceita `--no-traffic` na criação do serviço. A esteira da plataforma foi corrigida (sp-plataforma #2).
+- **Resultado:**
+  - deploy completo (revisão candidata, `/ready` e rota);
+  - `/ready` com `ia.configurada: true`;
+  - endereço lido pelo `gcloud`, nunca digitado à mão;
+  - `VITE_SERVICO_IA_URL` gravada no GitHub do DP, e este deploy do DP passa a mandar a MIA e a leitura dos holerites para a plataforma.
+- **Volta:** apagar `VITE_SERVICO_IA_URL` e publicar.
+- **Não testado daqui:** a rede desta sessão não alcança `*.run.app`. A primeira pergunta à MIA no app publicado é a prova com usuário real.
