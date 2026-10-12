@@ -73,8 +73,8 @@ const arq = (nome: string, xml: string) => ({ nome, bytes: enc(xml) });
 
 describe('leitura dos totalizadores', () => {
     it('lê S-5001 em centavos, com cálculo, desconto e vínculo', () => {
-        const [t] = lerTotalizadoresXml(s5001('11583801278', { calc: [['108201', '296.41', '296.40']] }), 'a.xml');
-        expect(t).toMatchObject({ tipo: 'S-5001', cpf: '11583801278', empregador: '29463877', perApur: '2026-09', indApuracao: '1' });
+        const [t] = lerTotalizadoresXml(s5001('01787839516', { calc: [['108201', '296.41', '296.40']] }), 'a.xml');
+        expect(t).toMatchObject({ tipo: 'S-5001', cpf: '01787839516', empregador: '29463877', perApur: '2026-09', indApuracao: '1' });
         if (t.tipo !== 'S-5001') throw new Error();
         expect(t.calculos).toEqual([{ tpCR: '108201', calculado: 29641, descontado: 29640 }]);
         expect(t.vinculos[0]).toMatchObject({ matricula: '836292', codCateg: '101', estab: '29463877000109' });
@@ -314,12 +314,12 @@ function planilhaIob(linhas: (string | number)[][], cabecalho = ['Código', 'Nom
 
 describe('folha do IOB (relatório exportado) × eSocial', () => {
     it('acha a aba e o cabeçalho, mapeia as colunas por sinônimo e ignora a linha de total', () => {
-        const p = lerPlanilhaResumo(planilhaIob([['000001', 'JOSUE', '115.838.012-78', '3.243,65', '300,00', '3.243,65', '259,49', '2.700,00']]), 'resumo.xlsx');
+        const p = lerPlanilhaResumo(planilhaIob([['000001', 'ANDRE', '017.878.395-16', '3.243,65', '300,00', '3.243,65', '259,49', '2.700,00']]), 'resumo.xlsx');
         expect(p).toMatchObject({ aba: 'Folha', linhaCabecalho: 3 });
         expect(p.mapeamento).toMatchObject({ matricula: 0, nome: 1, cpf: 2, baseInss: 3, inss: 4, baseFgts: 5, fgts: 6, liquido: 7 });
         const f = extrairFuncionarios(p);
         expect(f).toHaveLength(1);
-        expect(f[0]).toMatchObject({ cpf: '11583801278', matricula: '000001', nome: 'JOSUE', valores: { baseInss: 324365, inss: 30000, fgts: 25949, liquido: 270000 } });
+        expect(f[0]).toMatchObject({ cpf: '01787839516', matricula: '000001', nome: 'ANDRE', valores: { baseInss: 324365, inss: 30000, fgts: 25949, liquido: 270000 } });
     });
 
     it('números em formatos de relatório', () => {
@@ -328,32 +328,32 @@ describe('folha do IOB (relatório exportado) × eSocial', () => {
     });
 
     it('calculado no IOB e não transmitido vira crítica; valor diferente do transmitido também', async () => {
-        const g = await grupo(s5001('11583801278', { calc: [['108201', '300.00', '300.00']] }), s5003('11583801278'), s5011('300.00', '300.00', []), s5013([['11', '3243.65', '259.49']]));
+        const g = await grupo(s5001('01787839516', { calc: [['108201', '300.00', '300.00']] }), s5003('01787839516'), s5011('300.00', '300.00', []), s5013([['11', '3243.65', '259.49']]));
         const p = lerPlanilhaResumo(planilhaIob([
-            ['000001', 'JOSUE', '11583801278', '3.243,65', '310,00', '3.243,65', '259,49', '2.700,00'],
-            ['000002', 'OTAVIO', '11122233396', '3.025,44', '280,00', '3.025,44', '242,04', '2.600,00'],
+            ['000001', 'ANDRE', '01787839516', '3.243,65', '310,00', '3.243,65', '259,49', '2.700,00'],
+            ['000002', 'OBEDI', '11122233396', '3.025,44', '280,00', '3.025,44', '242,04', '2.600,00'],
         ]), 'resumo.xlsx');
         const r = conferirPosFolha(g, { resumoIob: { arquivo: 'resumo.xlsx', funcionarios: extrairFuncionarios(p) } });
         const iob = r.pendencias.filter(x => x.regra === 'Folha do IOB');
         expect(iob.find(x => x.cpf === '11122233396')).toMatchObject({ gravidade: 'critica' });
         expect(iob.find(x => x.cpf === '11122233396')?.mensagem).toMatch(/não transmitida/);
-        expect(iob.find(x => x.cpf === '11583801278' && /INSS descontado/.test(x.mensagem))).toMatchObject({ gravidade: 'critica', diferenca: 1000 });
+        expect(iob.find(x => x.cpf === '01787839516' && /INSS descontado/.test(x.mensagem))).toMatchObject({ gravidade: 'critica', diferenca: 1000 });
         expect(r.resumoIob?.totais.find(t => t.campo.startsWith('INSS'))).toEqual({ campo: 'INSS descontado dos segurados', iob: 59000, eSocial: 30000 });
         expect(r.resumoIob?.chave).toBe('cpf');
     });
 
     it('sem CPF, liga pela matrícula do eSocial e avisa que o código sequencial do IOB não casa', async () => {
-        const g = await grupo(s5001('11583801278', { matricula: '836292' }), s5003('11583801278'));
-        const p = lerPlanilhaResumo(planilhaIob([['836292', 'JOSUE', '3.243,65', '300,00']], ['Matrícula', 'Nome', 'Base INSS', 'INSS']), 'r.xlsx');
+        const g = await grupo(s5001('01787839516', { matricula: '836292' }), s5003('01787839516'));
+        const p = lerPlanilhaResumo(planilhaIob([['836292', 'ANDRE', '3.243,65', '300,00']], ['Matrícula', 'Nome', 'Base INSS', 'INSS']), 'r.xlsx');
         const r = conferirPosFolha(g, { resumoIob: { arquivo: 'r.xlsx', funcionarios: extrairFuncionarios(p) } });
         expect(r.resumoIob?.chave).toBe('matricula');
-        expect(r.resumoIob?.linhas[0]).toMatchObject({ cpf: '11583801278', encontradoNoESocial: true, inssIob: 30000, inssESocial: 30000 });
+        expect(r.resumoIob?.linhas[0]).toMatchObject({ cpf: '01787839516', encontradoNoESocial: true, inssIob: 30000, inssESocial: 30000 });
         expect(r.pendencias.some(x => x.regra === 'Folha do IOB' && /código sequencial/.test(x.mensagem))).toBe(true);
     });
 
     it('trabalhador no eSocial que não está no relatório vira atenção', async () => {
-        const g = await grupo(s5001('11583801278'), s5003('11583801278'), s5001('22233344405'), s5003('22233344405'));
-        const p = lerPlanilhaResumo(planilhaIob([['000001', 'JOSUE', '11583801278', '3.243,65', '300,00', '3.243,65', '259,49', '2.700,00']]), 'r.xlsx');
+        const g = await grupo(s5001('01787839516'), s5003('01787839516'), s5001('22233344405'), s5003('22233344405'));
+        const p = lerPlanilhaResumo(planilhaIob([['000001', 'ANDRE', '01787839516', '3.243,65', '300,00', '3.243,65', '259,49', '2.700,00']]), 'r.xlsx');
         const r = conferirPosFolha(g, { resumoIob: { arquivo: 'r.xlsx', funcionarios: extrairFuncionarios(p) } });
         expect(r.pendencias.find(x => x.regra === 'Folha do IOB' && x.cpf === '22233344405')).toMatchObject({ gravidade: 'atencao' });
     });

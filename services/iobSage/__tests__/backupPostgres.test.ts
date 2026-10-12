@@ -48,7 +48,7 @@ describe.each(ARQUIVOS)('%s', arq => {
             ['2', '11222333000181', 'COMÉRCIO SÃO JOÃO "AÇÚCAR"'],
         ]);
         const f = await linhas(b, 'e0001.funcionarios');
-        expect(f[0]).toEqual(['1', 'JOSUE TESTE DE SOUZA DOS ANJOS', '11583801278', '2026-09-16', '3243.65', null, 'f', null]);
+        expect(f[0]).toEqual(['1', 'ANDRE LUIS DE JESUS DOS SANTOS', '01787839516', '2026-09-16', '3243.65', null, 'f', null]);
         expect(f[1]).toEqual(['2', "JOSÉ D'ÁVILA", '11122233396', '2020-01-02', '1518.00', 'linha1\nlinha2\tcom tab e barra \\ fim', 't', '\\x00ff10']);
         expect(f[2]).toEqual(['3', 'Ñandú ção', '22233344405', null, null, '', 'f', null]);
     });
