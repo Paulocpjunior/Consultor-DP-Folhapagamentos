@@ -102,6 +102,16 @@ O CORS libera as mesmas origens do CFI. Para os módulos, nada muda.
   (`VITE_SERVICO_CADASTRO_URL`, `VITE_SERVICO_COFRE_URL`, `VITE_SERVICO_EMAIL_URL`).
 - **Antes do e-mail:** as credenciais do Graph entram no Secret Manager com acesso
   da plataforma. O CFI continua com as dele até a P5.
+- **Situação (12/10/2026):**
+  - **Parte 1 (cadastro central): no ar** (sp-plataforma #4).
+    - Rotas: `empresas`, `usuarios/:email?modulo=`, `certificados[?cnpjs=]` e `certificados/:cnpj`, só leitura, com o mesmo caminho e resposta do CFI.
+    - O `/ready` mostra se a conta do serviço lê o Firestore (`cadastro.leitura`).
+  - **Para o DP usar** (é do Paulo):
+    1. Ver `"leitura":"ok"` no `/ready`.
+    2. Gravar a variável `HORARIO_ACESSO_ATIVO` da plataforma com o mesmo valor do CFI.
+    3. Criar no DP `VITE_SERVICO_CADASTRO_URL` e `VITE_SERVICO_COFRE_URL` com o endereço da plataforma.
+  - **Volta:** apagar as duas variáveis e publicar.
+  - **Parte 2 (e-mail):** espera o P-e.
 
 ### P4: governo
 - O maior e o mais sensível.
