@@ -91,6 +91,11 @@ O CORS libera as mesmas origens do CFI. Para os módulos, nada muda.
 - **Eu:** faço o deploy, confiro `/ready` e testo com o token de um usuário.
 - **Então:** criar `VITE_SERVICO_IA_URL` no DP, publicar e perguntar à MIA.
 - **Volta:** apagar a variável e publicar. Leva minutos.
+- **Situação (12/10/2026):** no ar.
+  - Serviço `sp-plataforma` no Cloud Run (us-west1, projeto consultorfiscalapp), `/ready` com a IA configurada (Gemini pro e flash).
+  - O deploy é feito pela conta `sp-plataforma-deploy`, com uma chave só (`GCP_SA_KEY`); o Gemini vem do segredo `gemini-api-key` (variável `GEMINI_SECRET`).
+  - O primeiro deploy cria o serviço; os seguintes sobem sem tráfego, passam pelo `/ready` e só então recebem a rota.
+  - `VITE_SERVICO_IA_URL` está gravada no GitHub do DP: a MIA e a leitura dos holerites passam a ir à plataforma.
 
 ### P3: cadastro central e e-mail
 - Portar com os testes. O DP passa a usar a plataforma serviço por serviço
