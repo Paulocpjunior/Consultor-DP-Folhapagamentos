@@ -42,6 +42,9 @@ export type QuemMovimenta = 'empregado' | 'empregador' | 'metade' | 'conferir';
  */
 export function destinoIndenizacao(tipo: string): { quem: QuemMovimenta; texto: string } {
     if (['02', '03'].includes(tipo)) return { quem: 'empregado', texto: 'Os 3,2% depositados no contrato vão para o empregado, que saca com o FGTS (LC 150/2015, art. 22).' };
+    // Falecimento do empregador sem continuação: não está entre as hipóteses do § 1º (movimentação pelo empregador);
+    // é extinção sem culpa do empregado, e a indenização compensatória é dele (caput).
+    if (tipo === '49') return { quem: 'empregado', texto: 'Falecimento do empregador doméstico: os 3,2% vão para o empregado, que saca com o FGTS (LC 150/2015, art. 22, caput; o § 1º não inclui este caso).' };
     if (['01', '07', '06', '04'].includes(tipo)) return { quem: 'empregador', texto: 'Os 3,2% depositados no contrato voltam para o empregador, que os movimenta (LC 150/2015, art. 22, § 1º).' };
     if (tipo === '05') return { quem: 'metade', texto: 'Culpa recíproca: metade dos 3,2% para cada parte (LC 150/2015, art. 22, § 2º).' };
     return { quem: 'conferir', texto: 'A LC 150/2015 não trata deste motivo para os 3,2%: confira o destino no eSocial Doméstico antes de pagar.' };

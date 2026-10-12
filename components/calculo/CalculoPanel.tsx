@@ -51,7 +51,7 @@ import type { ContaPagamento } from '../../services/bancario/cnab240';
 import { limparMovimento, mesmoMovimento, movimentoVazio, validarMovimento, type MovimentoGravado } from '../../services/calculo/movimento';
 import { listarMovimentos, listarMovimentosDaEmpresa, listarMovimentosDoAno, salvarMovimentos } from '../../services/calculo/movimentosService';
 import { calcularFerias, feriasDaCompetencia, gozosNoMes, OPCOES_FERIAS_PADRAO, type OpcoesFerias, type ResultadoFerias } from '../../services/calculo/motorFerias';
-import { calcularRescisao, ROTULO_AVISO, TIPOS_RESCISAO, type AvisoPrevio, type ResultadoRescisao, type TipoRescisao } from '../../services/calculo/motorRescisao';
+import { calcularRescisao, ROTULO_AVISO, TIPOS_RESCISAO, type AvisoPrevio, type ResultadoRescisao, type TipoRescisao, AMPARO_DO_MOTIVO, type AmparoMotivo } from '../../services/calculo/motorRescisao';
 import { calcular13, com13, OPCOES_13_PADRAO, ultimoDiaDoMes, type Opcoes13 } from '../../services/calculo/motor13';
 import ConferenciaHolerites, { conferirTodos, type LeituraHolerites } from './ConferenciaHolerites';
 import ConferenciaEsocialIob from './ConferenciaEsocialIob';
@@ -92,7 +92,7 @@ const v = (r: ResultadoCalculo, c: string) => r.verbas.find(x => x.codigo === c)
 const inssDe = (r: ResultadoCalculo) => v(r, 'INSS') + v(r, 'INSS13') + v(r, 'INSSFER') + v(r, 'INSSFERRET');
 const irrfDe = (r: ResultadoCalculo) => v(r, 'IRRF') + v(r, 'IRRF13') + v(r, 'IRRFFER') + v(r, 'IRRFFERRET');
 type Folha = 'mensal' | '13-1a' | '13-2a' | 'ferias' | 'rescisao';
-interface ParamRescisao { data: string; tipo: TipoRescisao | ''; aviso: AvisoPrevio; pagamento?: string; saldoFgts?: number; adiantamento13?: number; simulada: boolean }
+interface ParamRescisao { data: string; tipo: TipoRescisao | ''; aviso: AvisoPrevio; pagamento?: string; saldoFgts?: number; adiantamento13?: number; simulada: boolean; amparo?: AmparoMotivo }
 /** Chave da linha: o gozo nas férias (pode haver dois no mês), a ficha nas demais. */
 const chave = (r: ResultadoCalculo) => (r as Partial<ResultadoFerias>).gozoId || r.fichaId;
 const br = (d: string) => d.split('-').reverse().join('/');
@@ -349,7 +349,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
             return [...itens.entries()].flatMap(([id, p]) => {
                 const f = dados.fichas.find(x => x.id === id);
                 const conv = f ? convencaoDe(f, p.data) : undefined;
-                return f ? [calcularRescisao({ ficha: f, data: p.data, tipo: p.tipo, aviso: p.aviso, pagamento: p.pagamento, saldoFgts: p.saldoFgts, adiantamento13: p.adiantamento13, opcoes: opcoesFerias,
+                return f ? [calcularRescisao({ ficha: f, data: p.data, tipo: p.tipo, aviso: p.aviso, pagamento: p.pagamento, saldoFgts: p.saldoFgts, adiantamento13: p.adiantamento13, amparo: p.amparo, opcoes: opcoesFerias,
                     avisoConvencao: avisoDaConvencao(conv?.avisoPrevio, f, p.data), contribuicoesSindicais: conv?.contribuicoes,
                     afastamentos: dados.afastamentos.filter(a => a.fichaId === id), tabelas: dados.tabelas, movimentos: movsAno[id] ?? {},
                     // Paga no próprio mês: com a folha anterior paga nele (regime "mês seguinte"), o IRRF soma as duas.
@@ -1087,6 +1087,18 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                                     {Object.entries(TIPOS_RESCISAO).map(([c, x]) => <option key={c} value={c}>{c} — {x}</option>)}
                                 </select>
                             </label>
+                            {p.tipo && AMPARO_DO_MOTIVO[p.tipo] && (
+                                <fieldset className="space-y-1 rounded border border-amber-300 p-2 dark:border-amber-700">
+                                    <legend className="px-1 font-medium">Amparo do motivo {p.tipo} ({AMPARO_DO_MOTIVO[p.tipo]!.base})</legend>
+                                    <p className="text-slate-500">{AMPARO_DO_MOTIVO[p.tipo]!.pede}. Sem isso, a rescisão não fecha e o S-2299 não sai.</p>
+                                    <label className="block">Data do fato
+                                        <input aria-label="Data do fato do motivo" type="date" className={`mt-0.5 block ${inp}`} value={p.amparo?.data ?? ''} onChange={e => mudar({ amparo: { data: e.target.value, descricao: p.amparo?.descricao ?? '' } })} />
+                                    </label>
+                                    <label className="block">Fato e documento
+                                        <input aria-label="Fato e documento do motivo" className={`mt-0.5 block w-full ${inp}`} maxLength={200} value={p.amparo?.descricao ?? ''} onChange={e => mudar({ amparo: { data: p.amparo?.data ?? '', descricao: e.target.value } })} />
+                                    </label>
+                                </fieldset>
+                            )}
                             <label className="block">Aviso prévio
                                 <select aria-label="Aviso prévio" className={`mt-0.5 block ${inp}`} value={p.aviso} onChange={e => mudar({ aviso: e.target.value as AvisoPrevio })}>
                                     {Object.entries(ROTULO_AVISO).map(([c, x]) => <option key={c} value={c}>{x}</option>)}
