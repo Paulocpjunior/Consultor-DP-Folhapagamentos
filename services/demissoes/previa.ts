@@ -157,7 +157,7 @@ export function calcularPrevia(e: EntradaPrevia): ResultadoCenario[] {
     });
 }
 
-export const rotuloCenario = (c: Pick<CenarioDemissao, 'tipo' | 'aviso'>) => `${TIPOS_RESCISAO[c.tipo]}${['02', '33', '07', '05', '17'].includes(c.tipo) ? ` · aviso ${({ indenizado: 'indenizado', trabalhado: 'trabalhado', dispensado: 'dispensado', 'nao-cumprido': 'não cumprido' } as Record<AvisoPrevio, string>)[c.aviso]}` : ''}`;
+export const rotuloCenario = (c: Pick<CenarioDemissao, 'tipo' | 'aviso'>) => `${TIPOS_RESCISAO[c.tipo]}${['02', '33', '07', '05', '17', '47', '48'].includes(c.tipo) ? ` · aviso ${({ indenizado: 'indenizado', trabalhado: 'trabalhado', dispensado: 'dispensado', 'nao-cumprido': 'não cumprido' } as Record<AvisoPrevio, string>)[c.aviso]}` : ''}`;
 export const sacaFgts = (tipo: TipoRescisao) => (tipo === '33' ? 'Saca 80% do FGTS' : PERMITE_SAQUE_FGTS.includes(tipo) ? 'Saca o FGTS' : 'Não saca o FGTS');
 /** Seguro-desemprego só na dispensa sem justa causa e na rescisão indireta (motivos 02, 03 e 17). O direito depende dos meses trabalhados. */
 export const podeSeguroDesemprego = (tipo: TipoRescisao) => tipo === '02' || tipo === '03' || tipo === '17';

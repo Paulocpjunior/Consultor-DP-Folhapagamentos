@@ -59,14 +59,31 @@ export const TIPOS_RESCISAO = {
     '05': 'Culpa recíproca (art. 484)',
     '10': 'Falecimento do empregado',
     '17': 'Rescisão indireta (art. 483)',
+    '47': 'Encerramento da empresa, do estabelecimento ou de parte das atividades',
+    '48': 'Falecimento do empregador individual sem continuação da atividade',
+    '27': 'Força maior (art. 501)',
+    '08': 'Por interesse do empregado (arts. 394 e 483, § 1º, da CLT)',
+    '41': 'Aprendiz: desempenho insuficiente ou inadaptação (art. 433, I)',
+    '42': 'Aprendiz: ausência injustificada à escola com perda do ano letivo (art. 433, III)',
 } as const;
+/** Motivos que, na Tabela 19 (leiaute S-1.3), valem só para algumas categorias. */
+export const CATEGORIAS_DO_MOTIVO: Partial<Record<TipoRescisao, { so?: string[]; exceto?: string[]; texto: string }>> = {
+    '41': { so: ['103'], texto: 'só para o aprendiz (categoria 103)' },
+    '42': { so: ['103'], texto: 'só para o aprendiz (categoria 103)' },
+    '47': { exceto: ['104'], texto: 'não vale para o doméstico (categoria 104)' },
+    '48': { exceto: ['104'], texto: 'não vale para o doméstico (categoria 104; o dele é o 49)' },
+};
+/** Motivos com aviso prévio do empregador (indenizado ou trabalhado): dispensa, acordo, indireta, culpa recíproca e o fim da atividade. */
+const COM_AVISO: readonly string[] = ['02', '33', '17', '05', '47', '48'];
+/** Dispensa sem justa causa, para a convenção (dias a mais de aviso) e a multa de 40%. */
+const DISPENSA: readonly string[] = ['02', '17', '47', '48'];
 export type TipoRescisao = keyof typeof TIPOS_RESCISAO;
 /**
  * Motivos com saque do FGTS: só nestes há guia rescisória do FGTS Digital. Nos
  * demais (pedido de demissão, justa causa, término antecipado pelo empregado)
  * o FGTS do mês vai na guia mensal (FAQ do FGTS Digital 04.04).
  */
-export const PERMITE_SAQUE_FGTS: readonly string[] = ['02', '03', '05', '06', '10', '17', '33'];
+export const PERMITE_SAQUE_FGTS: readonly string[] = ['02', '03', '05', '06', '10', '17', '33', '27', '47', '48'];
 /** Motivos em que o aviso prévio e as proporcionais vão pela metade: acordo (art. 484-A) e culpa recíproca (Súmula 14 do TST). */
 export const AVISO_PELA_METADE: readonly string[] = ['33', '05'];
 export type AvisoPrevio = 'indenizado' | 'trabalhado' | 'dispensado' | 'nao-cumprido';
@@ -159,6 +176,10 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
     if (data < d.admissao) return erro('Desligamento antes da admissão.');
     const categoria = d.categoria || '';
     if (categoria && !/^1\d\d$/.test(categoria)) return erro(`Categoria ${categoria}: esta versão só calcula empregados (categorias 1xx).`);
+    const restricao = CATEGORIAS_DO_MOTIVO[tipo];
+    if (restricao && ((restricao.so && !restricao.so.includes(categoria)) || (restricao.exceto && restricao.exceto.includes(categoria)))) {
+        return erro(`Motivo ${tipo} (${TIPOS_RESCISAO[tipo]}): ${restricao.texto}, pela Tabela 19 do eSocial.`);
+    }
     // Doméstico (LC 150/2015): sem multa de 40% ou 20%; os 3,2% depositados no contrato substituem a multa (art. 22).
     const domestico = ehDomestico(categoria);
     const interm = categoria === '111';
@@ -240,10 +261,10 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
     let indenizados = 0;
     const metade = AVISO_PELA_METADE.includes(tipo);
     const rotuloMetade = tipo === '05' ? 'pela metade na culpa recíproca' : 'pela metade no acordo';
-    if (tipo === '02' || tipo === '33' || tipo === '17' || tipo === '05') {
+    if (COM_AVISO.includes(tipo)) {
         const legal = diasDeAviso(d.admissao, data);
         // Convenção: dias a mais na dispensa sem justa causa (no acordo do art. 484-A, a convenção não se aplica sozinha).
-        const extra = (tipo === '02' || tipo === '17') && e.avisoConvencao?.dias ? e.avisoConvencao.dias : 0;
+        const extra = DISPENSA.includes(tipo) && e.avisoConvencao?.dias ? e.avisoConvencao.dias : 0;
         if (tipo === '33' && e.avisoConvencao?.dias) r.avisos.push(`A convenção dá ${e.avisoConvencao.dias} dia(s) a mais de aviso na dispensa (${e.avisoConvencao.regra}); no acordo do art. 484-A, confira se ela se aplica.`);
         const dias = legal + extra;
         r.diasAviso = dias;
@@ -279,6 +300,12 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
             r.memoria.push(`Art. 479: metade da remuneração dos ${restantes} dias até o fim do contrato (${br(d.fimContrato)}) = ${reais(v)}.`);
         } else r.avisos.push('Término antecipado: informe o fim do contrato na ficha para calcular a indenização do art. 479.');
     } else if (tipo === '04') r.avisos.push('Término antecipado pelo empregado: a indenização do art. 480 (até o valor do art. 479) pode ser lançada como desconto no movimento do mês.');
+    else if (tipo === '27') {
+        r.memoria.push('Força maior (arts. 501 e 502): sem aviso prévio; 13º e férias proporcionais integrais; multa do FGTS de 20% (Lei 8.036/1990, art. 18, § 2º).');
+        r.avisos.push('Força maior: a extinção precisa ser do estabelecimento ou da empresa e o fato, imprevisível e alheio ao empregador (art. 501). Contrato a termo tem a indenização do art. 479 pela metade (art. 502, III): lance no movimento, se for o caso.');
+    } else if (tipo === '08') r.memoria.push('Rescisão por interesse do empregado (arts. 394 e 483, § 1º): sem aviso prévio de nenhuma das partes.');
+    else if (tipo === '41' || tipo === '42') r.memoria.push('Extinção antecipada da aprendizagem (art. 433): sem aviso prévio e sem as indenizações dos arts. 479 e 480 (art. 433, § 2º).');
+    if (tipo === '47' || tipo === '48') r.memoria.push(`${tipo === '47' ? 'Encerramento da atividade' : 'Falecimento do empregador individual sem continuação (art. 485)'}: verbas da dispensa sem justa causa, com o aviso prévio (TST, Súmula 44) e a multa de 40%.`);
 
     // 3. 13º proporcional e sobre o aviso indenizado.
     if (!justa) {
@@ -382,10 +409,12 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
     r.bases.irrf = mes.bases.irrf + r.verbas.filter(v => v.codigo === '13PROP' || v.codigo === '13IND').reduce((s, v) => s + v.valor, 0);
     r.fgts = Math.round(fgtsBase * aliqFgts / 100);
     r.memoria.push(`FGTS do mês e rescisório: ${reais(fgtsBase)} × ${aliqFgts}% = ${reais(r.fgts)}.`);
-    r.percentualMulta = domestico ? 0 : tipo === '02' || tipo === '03' || tipo === '17' ? 40 : tipo === '33' || tipo === '05' ? 20 : 0;
+    r.percentualMulta = domestico ? 0 : DISPENSA.includes(tipo) || tipo === '03' ? 40 : tipo === '33' || tipo === '05' || tipo === '27' ? 20 : 0;
     r.saqueFgts = tipo === '33' ? 'Saque de até 80% do saldo do FGTS (art. 484-A, § 1º); sem seguro-desemprego.'
         : tipo === '10' ? 'Saque do FGTS pelos dependentes habilitados na Previdência ou, sem eles, pelos sucessores (Lei 8.036/1990, art. 20, IV; Lei 6.858/1980).'
         : tipo === '05' ? 'Saque do saldo do FGTS liberado (Lei 8.036/1990, art. 20, I), com a multa de 20% (art. 18, § 2º); sem seguro-desemprego.'
+        : tipo === '27' ? 'Saque do saldo do FGTS liberado (Lei 8.036/1990, art. 20, I), com a multa de 20% (art. 18, § 2º).'
+        : tipo === '47' || tipo === '48' ? 'Saque do saldo do FGTS liberado (Lei 8.036/1990, art. 20, I e II), com a multa de 40%.'
         : PERMITE_SAQUE_FGTS.includes(tipo) ? 'Saque do saldo do FGTS liberado.' : 'Sem saque do FGTS por este motivo.';
     if (domestico) {
         // Fim do contrato a termo: o eSocial Doméstico gera o DAE do mês só com os 8%, sem os 3,2%.
