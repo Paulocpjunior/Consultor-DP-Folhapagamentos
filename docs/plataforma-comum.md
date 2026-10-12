@@ -120,6 +120,14 @@ O CORS libera as mesmas origens do CFI. Para os módulos, nada muda.
   - o download e a consulta batem com o que o CFI devolveria.
 - **Quando:** a troca do governo é feita fora do fechamento da folha (não do dia
   1 ao dia 15), com a volta escrita antes.
+- **Tamanho (levantado em 12/10/2026):** `dp-integration-routes.js` do CFI e as dependências dele: 56 arquivos e cerca
+  de 13 mil linhas (eSocial envio/consulta/download, SERPRO, DCTFWeb, DARF, pagamentos).
+- **Pré-requisitos do Paulo (P-f), antes do porte:** sem eles o código portado não funciona, e o porte ficaria pela metade.
+  - Dar à conta do serviço da plataforma acesso de leitura ("Secret Manager Secret Accessor") aos segredos do A1:
+    `cfi-empresa-cert-key`, `sefaz-cert-a1` e `sefaz-cert-password`.
+  - Dar acesso de leitura ao bucket dos certificados (`certs/*.pfx.enc`).
+  - Pôr as credenciais do SERPRO em segredos com acesso da plataforma (`SERPRO_CONSUMER_KEY` e `SERPRO_CONSUMER_SECRET`)
+    e informar as configurações sem segredo (`SERPRO_CONTRATANTE_CNPJ`, `SERPRO_AUTOR_CNPJ` e os endereços), as mesmas do CFI.
 
 ### P5: os outros módulos e a limpeza
 - Contábil, Legalização e Financeiro passam a usar a plataforma.
@@ -148,6 +156,7 @@ O CORS libera as mesmas origens do CFI. Para os módulos, nada muda.
 | P-c | Pôr a chave do Gemini no Secret Manager (`gemini-api-key`) e dar "Secret Manager Secret Accessor" à conta do serviço da plataforma | P2 |
 | P-d | Criar `VITE_SERVICO_IA_URL` no GitHub do DP com o endereço que eu passar | P2 |
 | P-e | Credenciais do Graph no Secret Manager, com acesso da plataforma | P3 |
+| P-f | Segredos do A1 (`cfi-empresa-cert-key`, `sefaz-cert-a1`, `sefaz-cert-password`), bucket dos certificados e credenciais do SERPRO com acesso da plataforma | P4 |
 | P-f | Acesso da plataforma a `cfi-empresa-cert-key`, `sefaz-cert-a1`, `sefaz-cert-password` e às credenciais SERPRO | P4 |
 
 | Fase | O que eu faço |
