@@ -179,6 +179,8 @@ const SUGESTAO: Record<string, { naturezas: string[]; dica?: RegExp; evita?: Reg
     MENSSIND: { naturezas: [], dica: /MENSAL.*SIND|SIND.*MENSAL|ASSOCIA/ },
     '13COMP': { naturezas: ['5005'] },
     '13DIF': { naturezas: ['5001', '5005'] },
+    // Complementar tipo E: rubrica informativa só com FGTS (MOS, S-1200, item 18.8); o MOS não fixa a natureza, a descrição aponta.
+    FGTSAC: { naturezas: [], dica: /ACIDENT|AUX.*DOEN|INCAPACIDADE/ },
     AVISO: { naturezas: ['6003'], dica: /AVISO/, evita: /DESC|13|FERIAS/ },
     ART479: { naturezas: ['6104'] },
     '13PROP': { naturezas: ['6002'] },
@@ -199,7 +201,7 @@ const PARES_FERIAS: [string, string][] = [['INSSFERRET', 'INSSFER'], ['IRRFFERRE
 /** Naturezas que o MOS (S-1010, item 23, opção 1) fixa para as verbas de férias. */
 const NATUREZA_MOS: Record<string, string> = { FERMES: '1016', FERMES13: '1017', FERPAGO: '9221', FERADI: '1015', FERADI13: '1015' };
 
-export interface ItemDePara { chave: string; descricao: string; tipo: 'provento' | 'desconto'; sugestao: RubricaEsocial | null }
+export interface ItemDePara { chave: string; descricao: string; tipo: 'provento' | 'desconto' | 'informativa'; sugestao: RubricaEsocial | null }
 
 /** Verbas dos resultados que precisam de rubrica, com a sugestão pela natureza, pelo tipo e pela descrição. */
 export function sugerirDePara(resultados: ResultadoCalculo[], rubricas: Rubrica[], competencia: string): ItemDePara[] {
@@ -208,7 +210,7 @@ export function sugerirDePara(resultados: ResultadoCalculo[], rubricas: Rubrica[
     for (const res of resultados) for (const v of res.verbas) {
         const chave = chaveVerba(v);
         if (itens.has(chave) || v.valor <= 0) continue;
-        const tp = v.tipo === 'provento' ? '1' : '2';
+        const tp = v.informativa ? '3' : v.tipo === 'provento' ? '1' : '2';
         const doTipo = vigentes.filter(x => x.v!.dados.tpRubr === tp);
         // Hora extra com outro adicional (HE60, HE75…): natureza 1003, pelo percentual na descrição.
         const outraHe = /^HE\d+(_\d+)?$/.test(v.codigo) && !SUGESTAO[v.codigo] ? v.codigo.slice(2).replace('_', '.') : '';
@@ -221,7 +223,7 @@ export function sugerirDePara(resultados: ResultadoCalculo[], rubricas: Rubrica[
         if (s?.dica && cand.some(x => s.dica!.test(normalizar(x.v!.dados.dscRubr)))) cand = cand.filter(x => s.dica!.test(normalizar(x.v!.dados.dscRubr)));
         if (s?.evita && cand.some(x => !s.evita!.test(normalizar(x.v!.dados.dscRubr)))) cand = cand.filter(x => !s.evita!.test(normalizar(x.v!.dados.dscRubr)));
         const r = cand.length === 1 ? cand[0].r : null;
-        itens.set(chave, { chave, descricao: v.descricao, tipo: v.tipo, sugestao: r ? { codRubr: r.codRubr, ideTabRubr: r.ideTabRubr } : null });
+        itens.set(chave, { chave, descricao: v.descricao, tipo: v.informativa ? 'informativa' : v.tipo, sugestao: r ? { codRubr: r.codRubr, ideTabRubr: r.ideTabRubr } : null });
     }
     // O retido no recibo de férias (na folha do gozo) e o do próprio recibo não podem cair na mesma rubrica: o INSS e o
     // IRRF iriam em dobro ao eSocial. Com a mesma sugestão, a da folha fica para a equipe escolher.
@@ -507,8 +509,8 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                     if (v.codigo === 'FERMES' && dados.natRubr === '1020') t.erros.push(`O de/para de "${v.descricao}" é anterior à separação de férias e 1/3: a rubrica ${rub.codRubr} tem natureza 1020. Refaça o de/para das férias do mês (férias em 1016, 1/3 em 1017) e grave.`);
                     else if (!avisoNatureza.has(v.codigo)) { avisoNatureza.add(v.codigo); t.avisos.push(`Rubrica ${rub.codRubr} (natureza ${dados.natRubr}) para "${v.descricao}": o MOS (S-1010, item 23) indica ${nat}. Confira o de/para.`); }
                 }
-                const esperado = v.tipo === 'provento' ? '1' : '2';
-                if (dados.tpRubr !== esperado) t.erros.push(`Rubrica ${rub.codRubr} é ${({ '1': 'provento', '2': 'desconto', '3': 'informativa', '4': 'informativa dedutora' } as Record<string, string>)[dados.tpRubr] ?? `tipo ${dados.tpRubr}`} no S-1010, e "${v.descricao}" é ${v.tipo}.`);
+                const esperado = v.informativa ? '3' : v.tipo === 'provento' ? '1' : '2';
+                if (dados.tpRubr !== esperado) t.erros.push(`Rubrica ${rub.codRubr} é ${({ '1': 'provento', '2': 'desconto', '3': 'informativa', '4': 'informativa dedutora' } as Record<string, string>)[dados.tpRubr] ?? `tipo ${dados.tpRubr}`} no S-1010, e "${v.descricao}" é ${v.informativa ? 'informativa' : v.tipo}.`);
                 // Crédito do Trabalhador: rubrica de natureza 9253 com o grupo descFolha, e só ela (XSD S-1.3, CONDICAO_GRUPO).
                 const erroConsig = erroDescFolha(v, rub.codRubr, dados.natRubr);
                 if (erroConsig) t.erros.push(erroConsig);
@@ -595,7 +597,10 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                     const periodos = meses.map(m => ({ perRef: m.perRef, itens: itensDe(m.verbas.map(v => ({ ...v, referencia: '' }))) }));
                     const ideC = unico(ideDmDevComplementar(e.competencia, c.instrumento.tpAcConv, mat, rra));
                     dmDevs.push(dmDevPerAnt(ideC, categ, f, c.instrumento, periodos, rra ? rc.rra : undefined));
-                    const liquido = meses.flatMap(m => m.verbas).reduce((x, v) => x + (v.tipo === 'provento' ? v.valor : -v.valor), 0);
+                    const pagas = meses.flatMap(m => m.verbas).filter(v => !v.informativa);
+                    // Só rubricas informativas (tipo E, a base do FGTS do afastamento): nada é pago, o demonstrativo não vai ao S-1210.
+                    if (!pagas.length) continue;
+                    const liquido = pagas.reduce((x, v) => x + (v.tipo === 'provento' ? v.valor : -v.valor), 0);
                     pagamentos.push({ mes: perPgto, xml: infoPgto(e.dataPagamento, ideC, liquido) });
                     t.liquido += liquido;
                 }

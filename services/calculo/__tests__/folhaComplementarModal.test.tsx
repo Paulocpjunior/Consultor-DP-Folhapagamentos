@@ -72,6 +72,29 @@ describe('Folha complementar (tela)', () => {
         await waitFor(() => expect(sv.excluir).toHaveBeenCalledWith('E1_2026-04_J'));
     });
 
+    it('tipo E: só a base do FGTS do afastamento (informativa), sem reajuste, e grava', async () => {
+        vi.spyOn(window, 'confirm').mockReturnValue(true);
+        render(<FolhaComplementarModal {...props} empresa={{ ...props.empresa, sindicatos: [] }} />);
+        fireEvent.click(await screen.findByText('+ Lançamento'));
+        fireEvent.change(screen.getByLabelText('Tipo do instrumento'), { target: { value: 'E' } });
+        expect(screen.getByText(/Conversão do auxílio-doença em acidentário: lance, para cada mês do afastamento/)).toBeTruthy();
+        expect(screen.getByText('Reajuste retroativo sobre as folhas gravadas').closest('section')!.hidden).toBe(true);
+        const verba = screen.getByLabelText('Verba do lançamento 1') as HTMLSelectElement;
+        expect([...verba.options].map(o => o.value)).toEqual(['FGTSAC']);
+        expect(verba.value).toBe('FGTSAC');
+        fireEvent.change(screen.getByLabelText('Data do instrumento'), { target: { value: '2026-04-30' } });
+        fireEvent.change(screen.getByLabelText('Descrição do instrumento'), { target: { value: 'Conversão B31 em B91' } });
+        fireEvent.change(screen.getByLabelText('Funcionário do lançamento 1'), { target: { value: 'f1' } });
+        fireEvent.change(screen.getByLabelText('Mês do lançamento 1'), { target: { value: '2026-03' } });
+        fireEvent.change(screen.getByLabelText('Valor do lançamento 1'), { target: { value: '3000,00' } });
+        await waitFor(() => expect(screen.getByText('ANA', { selector: 'td' })).toBeTruthy());
+        expect(screen.getByText('ANA', { selector: 'td' }).closest('tr')!.textContent).toMatch(/240,00/); // 8% de R$ 3.000
+        fireEvent.click(screen.getByText('Gravar a complementar'));
+        await waitFor(() => expect(sv.gravar).toHaveBeenCalled());
+        const p = sv.gravar.mock.calls[0][0] as { instrumento: { tpAcConv: string }; reajuste?: unknown; lancamentos: { codigo: string; inss: boolean; irrf: boolean }[] };
+        expect([p.instrumento.tpAcConv, p.reajuste, p.lancamentos[0].codigo, p.lancamentos[0].inss, p.lancamentos[0].irrf]).toEqual(['E', undefined, 'FGTSAC', false, false]);
+    });
+
     it('competência encerrada: não grava', async () => {
         render(<FolhaComplementarModal {...props} encerrado />);
         expect((screen.getByText('Gravar a complementar') as HTMLButtonElement).disabled).toBe(true);

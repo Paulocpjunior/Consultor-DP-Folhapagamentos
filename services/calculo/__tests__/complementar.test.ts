@@ -28,7 +28,7 @@ describe('validação da complementar', () => {
         expect(validarComplementar({ ...base, instrumento: { tpAcConv: 'J', dsc: 'x' } })).toEqual([]);
     });
     it('tipos ainda não gerados, descrição e reajuste fora do período', () => {
-        expect(validarComplementar({ ...base, instrumento: { tpAcConv: 'E', dtAcConv: '2026-04-01', dsc: 'x' } }).join(' ')).toMatch(/Tipo E .* rubrica informativa só com FGTS.* ainda não gera/);
+        expect(validarComplementar({ ...base, instrumento: { tpAcConv: 'E', dtAcConv: '2026-04-01', dsc: 'x' } }).join(' ')).toMatch(/Tipo E não tem reajuste/);
         expect(validarComplementar({ ...base, instrumento: { tpAcConv: 'H', dsc: 'x' } }).join(' ')).toMatch(/não usar até a regulamentação \(MOS, S-1200, item 18\.14\)/);
         expect(validarComplementar({ ...base, instrumento: { tpAcConv: 'I', dsc: 'x' } }).join(' ')).toMatch(/servidor público .* S-2500 e S-2501/);
         expect(validarComplementar({ ...base, instrumento: { tpAcConv: 'F', dsc: 'Participação nos lucros após o desligamento' } })).toEqual([]);
@@ -227,6 +227,40 @@ describe('sugestão pela convenção', () => {
         expect(depois.erros.join(' ')).toMatch(/03\/2026 é depois do desligamento/);
         const ativo = calcularComplementar(entrada([ficha('ana')], { instrumento: F, reajuste: undefined, lancamentos: [{ ...lan('2026-02'), fichaId: 'ana' }] })).resultados[0];
         expect(ativo.avisos.join(' ')).toMatch(/Tipo F é para verbas devidas depois do desligamento/);
+    });
+});
+
+describe('tipo E: conversão do auxílio-doença em acidentário (só FGTS, rubrica informativa)', () => {
+    const E = { tpAcConv: 'E' as const, dtAcConv: '2026-04-30', dsc: 'Conversão B31 em B91 notificada pelo INSS' };
+    const base = (fichaId: string, perRef: string, valor: number) => ({ fichaId, perRef, codigo: 'FGTSAC', descricao: '', tipo: 'provento' as const, valor, inss: true, fgts: true, irrf: true });
+
+    it('a base do FGTS de cada mês, FGTS na competência do mês, sem INSS, IRRF nem líquido', () => {
+        const ana = ficha('ana');
+        const c = calcularComplementar(entrada([ana], { instrumento: E, reajuste: undefined, lancamentos: [base('ana', '2026-02', 300000), base('ana', '2026-03', 300000)] }));
+        expect(c.erros).toEqual([]);
+        const [r] = c.resultados;
+        expect(r.situacao).toBe('calculado');
+        expect(r.meses.map(m => [m.perRef, m.bases, m.inss, m.fgts])).toEqual([
+            ['2026-02', { inss: 0, fgts: 300000, irrf: 0 }, 0, 24000],
+            ['2026-03', { inss: 0, fgts: 300000, irrf: 0 }, 0, 24000],
+        ]);
+        expect(r.verbas.every(v => v.informativa && v.fgts && !v.inss && !v.irrf)).toBe(true); // marcações da tela ignoradas
+        expect(r.totais).toEqual({ proventos: 0, descontos: 0, liquido: 0 });
+        expect(r.fgts).toBe(48000);
+        expect(r.verbas.some(v => v.codigo === 'IRRF' || v.codigo === 'INSS')).toBe(false);
+        expect(r.memoria.join(' ')).toMatch(/recolhido na competência 02\/2026, com os encargos desde ela até o pagamento; MOS, S-1200, item 18\.9/);
+        expect(r.avisos.join(' ')).toMatch(/Tipo E: o FGTS de cada mês é da competência do mês de referência/);
+        expect(totaisComplementar(c.resultados)).toMatchObject({ liquido: 0, inss: 0, irrf: 0, fgts: 48000 });
+    });
+
+    it('tipo E só com a base do FGTS; a base do FGTS só no tipo E', () => {
+        const semReaj = { perApur: '2026-04', pagamento: '2026-04', instrumento: E };
+        expect(validarComplementar({ ...semReaj })).toContain('Lance a base do FGTS de cada mês do afastamento.');
+        expect(validarComplementar({ ...semReaj, lancamentos: [{ ...base('ana', '2026-02', 100), codigo: 'SAL' }] }).join(' ')).toMatch(/só a base do FGTS do afastamento por acidente/);
+        expect(validarComplementar({ ...semReaj, lancamentos: [base('ana', '2026-02', 100)], diferencas: [{ fichaId: 'ana', perRef: '2025-12', verbas: [] }] }).join(' ')).toMatch(/não leva 13º nem rescisões/);
+        expect(validarComplementar({ ...semReaj, instrumento: { ...E, dtAcConv: '' }, lancamentos: [base('ana', '2026-02', 100)] })).toContain('Informe a data da celebração ou da publicação do instrumento.');
+        expect(validarComplementar({ perApur: '2026-04', pagamento: '2026-04', instrumento: CCT, lancamentos: [base('ana', '2026-02', 100)] }).join(' ')).toMatch(/só do tipo E/);
+        expect(validarComplementar({ ...semReaj, lancamentos: [base('ana', '2026-02', 100)] })).toEqual([]);
     });
 });
 

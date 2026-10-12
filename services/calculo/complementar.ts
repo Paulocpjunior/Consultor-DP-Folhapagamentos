@@ -11,6 +11,9 @@
 //   sobre a base nova (a da folha gravada + a diferença) e o INSS sobre a base da folha gravada.
 // - FGTS: 8% (aprendiz 2%) sobre a diferença; nos tipos A, B, C, D, F, G e J o recolhimento é na competência do
 //   S-1200 (item 18.9).
+// - Tipo E (conversão do auxílio-doença em acidentário): rubrica informativa só com FGTS (item 18.8), a base de cada
+//   mês do afastamento no {perRef}; o FGTS é recolhido na competência de cada {perRef}, com encargos desde então
+//   (item 18.9). Sem INSS, IRRF ou pagamento: o demonstrativo não vai ao S-1210.
 // - IRRF: regime de caixa, no mês do pagamento, somado à folha paga no mesmo mês (RIR/1999, art. 621). Diferenças de
 //   anos anteriores ao do pagamento são RRA (Lei 7.713/1988, art. 12-A): IRRF exclusivo na fonte, em separado dos
 //   demais rendimentos do mês, pela tabela progressiva do mês do pagamento com as faixas e a parcela a deduzir
@@ -38,7 +41,7 @@ export const TIPOS_AC_CONV: { codigo: TpAcConv; rotulo: string; suportado: boole
     { codigo: 'B', rotulo: 'Legislação federal, estadual, municipal ou distrital', suportado: true },
     { codigo: 'J', rotulo: 'Parcelas complementares conhecidas após o fechamento da folha', suportado: true },
     { codigo: 'F', rotulo: 'Outras verbas de natureza salarial ou não salarial devidas após o desligamento', suportado: true },
-    { codigo: 'E', rotulo: 'Conversão de licença saúde em acidente de trabalho', suportado: false, motivo: 'vai em rubrica informativa só com FGTS, recolhido na competência de cada mês com encargos (MOS, S-1200, itens 18.8 e 18.9); o Consultor ainda não gera, faça pelo IOB' },
+    { codigo: 'E', rotulo: 'Conversão de licença saúde em acidente de trabalho', suportado: true },
     { codigo: 'H', rotulo: 'Base de FGTS anterior ao FGTS Digital', suportado: false, motivo: 'o eSocial manda não usar até a regulamentação (MOS, S-1200, item 18.14)' },
     { codigo: 'I', rotulo: 'Sentença judicial (exceto reclamatória trabalhista)', suportado: false, motivo: 'é para servidor público vinculado ao RGPS com decisão da Justiça Comum (MOS, S-1200, item 18.15); decisão da Justiça do Trabalho vai pelo S-2500 e S-2501 (eSocial › Processos trabalhistas)' },
 ];
@@ -144,7 +147,11 @@ export const VERBAS_LANCAVEIS: { codigo: string; descricao: string; tipo: TipoVe
     { codigo: 'FALTA', descricao: 'Faltas', tipo: 'desconto' },
     { codigo: '13DIF', descricao: 'Diferença de 13º salário', tipo: 'provento' },
     { codigo: 'LAN', descricao: '', tipo: 'provento' },
+    { codigo: 'FGTSAC', descricao: 'Base do FGTS do afastamento por acidente (informativa)', tipo: 'provento' },
 ];
+
+/** Verba do tipo E: a base do FGTS de cada mês do afastamento convertido em acidentário (rubrica informativa só com FGTS). */
+export const FGTS_CONVERSAO = 'FGTSAC';
 
 const competenciaValida = (c: string) => /^\d{4}-(0[1-9]|1[0-2])$/.test(c);
 const mesSeguinte = (c: string) => somarMeses(`${c}-01`, 1).slice(0, 7);
@@ -178,7 +185,13 @@ export function validarComplementar(e: Pick<EntradaComplementar, 'perApur' | 'pa
     if (!d) erros.push('Descreva o instrumento (por exemplo, "Convenção coletiva dos comerciários de São Paulo 2026/2027").');
     else if (d.length > 255) erros.push('A descrição do instrumento tem mais de 255 caracteres.');
     const r = e.reajuste;
-    if (!r && !(e.lancamentos ?? []).length && !(e.diferencas ?? []).length) erros.push('Informe o reajuste retroativo ou lance as diferenças.');
+    if (!r && !(e.lancamentos ?? []).length && !(e.diferencas ?? []).length) erros.push(tpAcConv === 'E' ? 'Lance a base do FGTS de cada mês do afastamento.' : 'Informe o reajuste retroativo ou lance as diferenças.');
+    // Tipo E: só a base do FGTS do afastamento, em rubrica informativa (MOS, S-1200, item 18.8); a verba informativa não vale para os outros tipos.
+    if (tpAcConv === 'E') {
+        if (r) erros.push('Tipo E não tem reajuste: lance a base do FGTS de cada mês do afastamento.');
+        if ((e.diferencas ?? []).length) erros.push('Tipo E não leva 13º nem rescisões: só a base do FGTS do afastamento.');
+        if ((e.lancamentos ?? []).some(l => l.codigo !== FGTS_CONVERSAO)) erros.push('Tipo E: os lançamentos são só a base do FGTS do afastamento por acidente (rubrica informativa).');
+    } else if ((e.lancamentos ?? []).some(l => l.codigo === FGTS_CONVERSAO)) erros.push('A base do FGTS do afastamento por acidente é só do tipo E (conversão de licença saúde em acidente de trabalho).');
     if (r) {
         if (!(r.pct > 0 && r.pct <= 100)) erros.push('Percentual do reajuste inválido (entre 0 e 100).');
         if (!competenciaValida(r.de) || !competenciaValida(r.ate)) erros.push('Informe os meses do reajuste retroativo.');
@@ -258,7 +271,10 @@ export function calcularComplementar(e: EntradaComplementar): { resultados: Resu
     (e.lancamentos ?? []).forEach((l, i) => {
         const x = pegar(l.fichaId, l.perRef);
         const codigo = l.codigo === 'LAN' ? `LAN${900 + i}` : l.codigo;
-        x.verbas.push({ codigo, descricao: l.descricao.trim() || VERBAS_LANCAVEIS.find(v => v.codigo === l.codigo)?.descricao || l.codigo, referencia: 'lançado', tipo: l.tipo, valor: Math.round(l.valor), inss: l.inss, fgts: l.fgts, irrf: l.irrf });
+        const descricao = l.descricao.trim() || VERBAS_LANCAVEIS.find(v => v.codigo === l.codigo)?.descricao || l.codigo;
+        // A base do FGTS do afastamento é informativa e só tem FGTS, seja qual for a marcação da tela.
+        if (codigo === FGTS_CONVERSAO) x.verbas.push({ codigo, descricao, referencia: 'lançado', tipo: 'provento', valor: Math.round(l.valor), inss: false, fgts: true, irrf: false, informativa: true });
+        else x.verbas.push({ codigo, descricao, referencia: 'lançado', tipo: l.tipo, valor: Math.round(l.valor), inss: l.inss, fgts: l.fgts, irrf: l.irrf });
     });
 
     const fichas = new Map(e.fichas.map(f => [f.id, f]));
@@ -332,7 +348,9 @@ export function calcularComplementar(e: EntradaComplementar): { resultados: Resu
                 }
             }
             mes.fgts = Math.round(mes.bases.fgts * aliqFgts / 100);
-            if (mes.bases.fgts) r.memoria.push(`FGTS de ${rotuloCompetencia(perRef)}: ${reais(mes.bases.fgts)} × ${aliqFgts}%${aprendiz ? ' (aprendiz)' : ''} = ${reais(mes.fgts)} (recolhido na competência ${rotuloCompetencia(e.perApur)}).`);
+            if (mes.bases.fgts) r.memoria.push(`FGTS de ${rotuloCompetencia(perRef)}: ${reais(mes.bases.fgts)} × ${aliqFgts}%${aprendiz ? ' (aprendiz)' : ''} = ${reais(mes.fgts)} (${e.instrumento.tpAcConv === 'E'
+                ? `recolhido na competência ${rotuloCompetencia(perRef)}, com os encargos desde ela até o pagamento; MOS, S-1200, item 18.9`
+                : `recolhido na competência ${rotuloCompetencia(e.perApur)}`}).`);
             r.bases.inss += mes.bases.inss + mes.bases13.inss; r.bases.fgts += mes.bases.fgts; r.bases.irrf += mes.bases.irrf + mes.bases13.irrf; r.fgts += mes.fgts;
         }
         if (ehDomestico(f.dados.categoria) && r.bases.fgts > 0) {
@@ -422,11 +440,12 @@ export function calcularComplementar(e: EntradaComplementar): { resultados: Resu
                 if (ir > 0) meses13[meses13.length - 1].verbas.push({ codigo: 'IRRF13', descricao: 'IRRF sobre a diferença do 13º', referencia: `${num(a.aliquota)}%`, tipo: 'desconto', valor: ir, inss: false, fgts: false, irrf: false });
             }
         }
+        if (e.instrumento.tpAcConv === 'E' && r.fgts > 0) r.avisos.push(`Tipo E: o FGTS de cada mês é da competência do mês de referência, com multa e juros desde ela (MOS, S-1200, item 18.9); na folha de ${rotuloCompetencia(e.perApur)} e nas seguintes, enquanto durar o afastamento, a base do FGTS também deve ir em rubrica informativa (MOS, S-1200, item 18.10, exemplo 5), e o S-1200 mensal do Consultor ainda não a leva: confira pelo IOB.`);
         if (r.erros.length) r.situacao = 'erro';
         r.avisos = [...new Set(r.avisos)];
         r.verbas = r.meses.flatMap(m => m.verbas.map(v => ({ ...v, referencia: v.referencia ? `${m.perRef.slice(5)}/${m.perRef.slice(0, 4)} · ${v.referencia}` : `${m.perRef.slice(5)}/${m.perRef.slice(0, 4)}` })));
-        r.totais.proventos = r.verbas.filter(v => v.tipo === 'provento').reduce((s, v) => s + v.valor, 0);
-        r.totais.descontos = r.verbas.filter(v => v.tipo === 'desconto').reduce((s, v) => s + v.valor, 0);
+        r.totais.proventos = r.verbas.filter(v => v.tipo === 'provento' && !v.informativa).reduce((s, v) => s + v.valor, 0);
+        r.totais.descontos = r.verbas.filter(v => v.tipo === 'desconto' && !v.informativa).reduce((s, v) => s + v.valor, 0);
         r.totais.liquido = r.totais.proventos - r.totais.descontos;
         const rescisorias = r.verbas.some(v => /^(AVISO|ART479|13PROP|13IND|FV|FVD|FP)/.test(v.codigo));
         if (!rescisorias && f.dados.dataDesligamento && dataValida(f.dados.dataDesligamento) && f.dados.dataDesligamento < `${e.perApur}-01`)

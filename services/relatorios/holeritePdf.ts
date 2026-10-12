@@ -76,7 +76,8 @@ export function holeritesPdf(resultados: ResultadoCalculo[], fichas: FichaFuncio
         autoTable(doc, {
             startY: 50,
             head: [['Cód.', 'Descrição', 'Referência', 'Vencimentos', 'Descontos']],
-            body: r.verbas.map(v => [v.codigo, textoPdf(v.descricao), textoPdf(v.referencia), v.tipo === 'provento' ? brl(v.valor) : '', v.tipo === 'desconto' ? brl(v.valor) : '']),
+            // Rubrica informativa (base do FGTS da complementar tipo E): não é vencimento nem desconto, só a informação.
+            body: r.verbas.map(v => [v.codigo, textoPdf(v.informativa ? `${v.descricao}: ${brl(v.valor)}` : v.descricao), textoPdf(v.referencia), v.tipo === 'provento' && !v.informativa ? brl(v.valor) : '', v.tipo === 'desconto' && !v.informativa ? brl(v.valor) : '']),
             foot: [['', 'Totais', '', direita(brl(r.totais.proventos)), direita(brl(r.totais.descontos))], ['', 'Líquido a receber', '', '', direita(brl(r.totais.liquido))]],
             styles: { fontSize: 8.5, cellPadding: 1.5 },
             headStyles: { fillColor: [30, 64, 175] },

@@ -20,7 +20,7 @@ import { listarConvencoes } from '../../services/sindicatos/convencoesService';
 import { convencaoDoDia } from '../../services/sindicatos/convencao';
 import { excluirComplementar, gravarComplementar, listarComplementares, type FolhaComplementarGravada } from '../../services/calculo/folhaComplementarService';
 import {
-    calcularComplementar, DSC_TIPO_J, exigeDataAcConv, mesesEntre, rotuloTpAcConv, sugestaoDaConvencao, TIPOS_AC_CONV, totaisComplementar, VERBAS_LANCAVEIS,
+    calcularComplementar, DSC_TIPO_J, exigeDataAcConv, FGTS_CONVERSAO, mesesEntre, rotuloTpAcConv, sugestaoDaConvencao, TIPOS_AC_CONV, totaisComplementar, VERBAS_LANCAVEIS,
     type Instrumento, type LancamentoComplementar, type ResultadoComplementar, type TpAcConv,
 } from '../../services/calculo/complementar';
 
@@ -36,6 +36,8 @@ const SITUACAO: Record<ResultadoCalculo['situacao'], string> = {
 
 interface LinhaLancamento { fichaId: string; perRef: string; codigo: string; descricao: string; valor: string; inss: boolean; fgts: boolean; irrf: boolean }
 const linhaVazia = (perRef: string): LinhaLancamento => ({ fichaId: '', perRef, codigo: 'SAL', descricao: '', valor: '', inss: true, fgts: true, irrf: true });
+/** Tipo E: a linha é a base do FGTS do mês do afastamento (rubrica informativa, só FGTS). */
+const linhaDoTipoE = (l: LinhaLancamento): LinhaLancamento => ({ ...l, codigo: FGTS_CONVERSAO, inss: false, fgts: true, irrf: false });
 
 interface Props {
     empresa: { id: string; cnpj: string; razaoSocial: string; sindicatos?: string[] };
@@ -222,14 +224,17 @@ const FolhaComplementarModal: React.FC<Props> = ({ empresa, competencia, pagamen
                 )}
 
                 <section className="grid gap-2 sm:grid-cols-4">
-                    <label className="sm:col-span-2">Fato gerador (tpAcConv)<select aria-label="Tipo do instrumento" className={`block w-full ${inp}`} value={tipo} onChange={e => { const t = e.target.value as TpAcConv; setTipo(t); if (t === 'J' && !dsc.trim()) setDsc(DSC_TIPO_J); }}>
+                    <label className="sm:col-span-2">Fato gerador (tpAcConv)<select aria-label="Tipo do instrumento" className={`block w-full ${inp}`} value={tipo} onChange={e => { const t = e.target.value as TpAcConv; setTipo(t); if (t === 'J' && !dsc.trim()) setDsc(DSC_TIPO_J); if (t === 'E') { setComReajuste(false); setLinhas(ls => ls.map(linhaDoTipoE)); } else setLinhas(ls => ls.map(l => (l.codigo === FGTS_CONVERSAO ? linhaVazia(l.perRef) : l))); }}>
                         {TIPOS_AC_CONV.map(t => <option key={t.codigo} value={t.codigo} disabled={!t.suportado} title={t.motivo}>{t.codigo} – {t.rotulo}{t.suportado ? '' : t.codigo === 'H' ? ' (aguarda regulamentação)' : t.codigo === 'I' ? ' (servidor público; Justiça Comum)' : ' (pelo IOB)'}</option>)}</select></label>
-                    <label>{exigeDataAcConv(tipo) ? 'Data da celebração/publicação' : 'Data (opcional)'}<input aria-label="Data do instrumento" type="date" className={`block w-full ${inp}`} value={dtAcConv} onChange={e => setDtAcConv(e.target.value)} /></label>
+                    <label>{tipo === 'E' ? 'Data da notificação da decisão' : exigeDataAcConv(tipo) ? 'Data da celebração/publicação' : 'Data (opcional)'}<input aria-label="Data do instrumento" type="date" className={`block w-full ${inp}`} value={dtAcConv} onChange={e => setDtAcConv(e.target.value)} /></label>
                     <label>Pagamento em<input aria-label="Mês do pagamento" type="month" className={`block w-full ${inp}`} value={pag} onChange={e => setPag(e.target.value)} /></label>
                     <label className="sm:col-span-4">Descrição do instrumento<input aria-label="Descrição do instrumento" maxLength={255} className={`block w-full ${inp}`} value={dsc} placeholder="Convenção coletiva dos comerciários de São Paulo 2026/2027" onChange={e => setDsc(e.target.value)} /></label>
                 </section>
 
-                <section className="space-y-2 rounded border border-slate-200 p-2 dark:border-slate-700">
+                {tipo === 'E' && (
+                    <p className="rounded bg-blue-50 p-2 text-xs text-blue-900 dark:bg-blue-900/20 dark:text-blue-100">Conversão do auxílio-doença em acidentário: lance, para cada mês do afastamento anterior a {br(competencia)}, a remuneração que seria devida no mês (base do FGTS). Vai em rubrica informativa só com FGTS, sem INSS, IRRF ou pagamento; o FGTS de cada mês é da competência dele, com os encargos desde então (MOS, S-1200, itens 18.8 e 18.9).</p>
+                )}
+                <section hidden={tipo === 'E'} className="space-y-2 rounded border border-slate-200 p-2 dark:border-slate-700">
                     <label className="flex items-center gap-2 font-medium"><input type="checkbox" checked={comReajuste} onChange={e => setComReajuste(e.target.checked)} />Reajuste retroativo sobre as folhas gravadas</label>
                     {comReajuste && (
                         <div className="grid gap-2 sm:grid-cols-4">
@@ -258,18 +263,18 @@ const FolhaComplementarModal: React.FC<Props> = ({ empresa, competencia, pagamen
 
                 <section className="space-y-2 rounded border border-slate-200 p-2 dark:border-slate-700">
                     <div className="flex items-center justify-between gap-2"><p className="font-medium">Lançamentos (diferenças avulsas, 13º, comissões…)</p>
-                        <button className={btn} onClick={() => setLinhas(l => [...l, linhaVazia(anterior(competencia))])}>+ Lançamento</button></div>
+                        <button className={btn} onClick={() => setLinhas(l => [...l, tipo === 'E' ? linhaDoTipoE(linhaVazia(anterior(competencia))) : linhaVazia(anterior(competencia))])}>+ Lançamento</button></div>
                     {linhas.map((l, i) => (
                         <div key={i} className="grid items-end gap-2 sm:grid-cols-12">
                             <label className="sm:col-span-3">Funcionário<select aria-label={`Funcionário do lançamento ${i + 1}`} className={`block w-full ${inp}`} value={l.fichaId} onChange={e => mudarLinha(i, { fichaId: e.target.value })}>
                                 <option value="">— escolha —</option>{ativos.map(f => <option key={f.id} value={f.id}>{f.dados.nome || f.matriculaEsocial}</option>)}</select></label>
                             <label className="sm:col-span-2">Mês de referência<input aria-label={`Mês do lançamento ${i + 1}`} type="month" className={`block w-full ${inp}`} value={l.perRef} onChange={e => mudarLinha(i, { perRef: e.target.value })} /></label>
                             <label className="sm:col-span-2">Verba<select aria-label={`Verba do lançamento ${i + 1}`} className={`block w-full ${inp}`} value={l.codigo} onChange={e => mudarLinha(i, { codigo: e.target.value })}>
-                                {VERBAS_LANCAVEIS.map(v => <option key={v.codigo} value={v.codigo}>{v.codigo === 'LAN' ? 'Avulso (descreva)' : v.descricao}</option>)}</select></label>
+                                {VERBAS_LANCAVEIS.filter(v => (tipo === 'E') === (v.codigo === FGTS_CONVERSAO)).map(v => <option key={v.codigo} value={v.codigo}>{v.codigo === 'LAN' ? 'Avulso (descreva)' : v.descricao}</option>)}</select></label>
                             <label className="sm:col-span-2">Descrição<input aria-label={`Descrição do lançamento ${i + 1}`} className={`block w-full ${inp}`} value={l.descricao} placeholder={l.codigo === 'LAN' ? 'obrigatória' : 'opcional'} onChange={e => mudarLinha(i, { descricao: e.target.value })} /></label>
                             <label>Valor<input aria-label={`Valor do lançamento ${i + 1}`} inputMode="decimal" className={`block w-full ${inp}`} value={l.valor} onChange={e => mudarLinha(i, { valor: e.target.value })} /></label>
                             <div className="flex gap-2 text-xs sm:col-span-2">
-                                {(['inss', 'fgts', 'irrf'] as const).map(k => <label key={k} className="flex items-center gap-1"><input type="checkbox" checked={l[k]} onChange={e => mudarLinha(i, { [k]: e.target.checked })} />{k.toUpperCase()}</label>)}
+                                {(['inss', 'fgts', 'irrf'] as const).map(k => <label key={k} className="flex items-center gap-1"><input type="checkbox" disabled={l.codigo === FGTS_CONVERSAO} checked={l[k]} onChange={e => mudarLinha(i, { [k]: e.target.checked })} />{k.toUpperCase()}</label>)}
                                 <button aria-label={`Remover o lançamento ${i + 1}`} className="text-red-600" onClick={() => setLinhas(ls => ls.filter((_, j) => j !== i))}>×</button>
                             </div>
                         </div>
