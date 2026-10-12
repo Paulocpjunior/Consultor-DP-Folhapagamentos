@@ -30,7 +30,7 @@ describe('documentos', () => {
         expect(cnpjValido('11222333000182')).toBe(false);
         expect(cnpjValido('12.ABC.345/01DE-35')).toBe(true);
         expect(cnpjValido('00000000000000')).toBe(false);
-        expect(pisValido('120.98765.43-8')).toBe(true);
+        expect(pisValido('130.54012.04-1')).toBe(true);
         expect(pisValido('13054012042')).toBe(false);
         expect(centavosDeTexto('R$ 1.518,00')).toBe(151800);
         expect(centavosDeTexto('1518.5')).toBe(151850);
@@ -51,9 +51,9 @@ describe('ficha do funcionário', () => {
     });
 
     it('normaliza e valida: erros bloqueiam, avisos não', () => {
-        const f = normalizarFicha({ ...fichaBase(), cpf: '529.982.247-25', dados: { ...fichaBase().dados, salario: '2.500,50', cep: '01001-000', uf: 'sp', pis: '120.98765.43-8' } });
+        const f = normalizarFicha({ ...fichaBase(), cpf: '529.982.247-25', dados: { ...fichaBase().dados, salario: '2.500,50', cep: '01001-000', uf: 'sp', pis: '130.54012.04-1' } });
         expect(f.cpf).toBe(CPF);
-        expect(f.dados).toMatchObject({ salario: '2500.50', cep: '01001000', uf: 'SP', pis: '12098765438' });
+        expect(f.dados).toMatchObject({ salario: '2500.50', cep: '01001000', uf: 'SP', pis: '13054012041' });
         expect(validarFicha(f)).toEqual({ erros: [], avisos: [] });
 
         const ruim = normalizarFicha({ ...fichaBase(), cpf: '123', matriculaEsocial: '', dados: { nascimento: '2020-02-30', email: 'x@', cbo: '12', sindicato: '11222333000182', admissao: '2026-01-05', fimContrato: '2025-12-31' }, dependentes: [{ tipo: '03', nome: '', nascimento: 'x', cpf: '1', irrf: '', salarioFamilia: '' }] });

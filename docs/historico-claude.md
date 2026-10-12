@@ -5363,15 +5363,8 @@ Paulo: *"podemos fazer o P2 usando o terminal do meu mac"* (12/10).
 - **Leitura:** `verificarAntesDeEnviar` lê o cadastro de lotações quando o lote tem demonstrativo. A tela de eventos da folha passa as lotações que já carregou. Se a leitura falha, sai um alerta.
 - **Testes:** 3 casos novos em `regrasOficiais.test.ts`.
 
-## 12/10/2026 — Dados pessoais reais fora dos testes (LGPD)
+## 12/10/2026 — PR #238 revertido
 
-- **Paulo:** "sim, são dados reais, é um sistema real; após os testes passa a ser privado, pode seguir".
-- **O que havia:** o repositório é público e os testes traziam dados de pessoas reais:
-  - um funcionário com nome, CPF, PIS, nascimento, CTPS e salário, nos testes e nas fixtures do IOB SAGE (DBF e backups PostgreSQL 12/16 em texto, tar, gzip e custom);
-  - a planilha de apontamento de uma empresa cliente com os nomes de 19 funcionários, faltas, adiantamento e pensão.
-- **Agora:**
-  - nome, CPF, PIS, CTPS e nascimento fictícios, do mesmo tamanho dos originais. Nos backups `custom`, o bloco zlib foi refeito com o mesmo tamanho, sem mexer no TOC nem nas posições. O DBF manteve o acento para o teste da code page;
-  - na planilha, os nomes viraram "FUNCIONARIO FICTICIO 01" a "19". O teste falha se aparecer nome fora desse padrão;
-  - valores, matrículas e empresas ficaram (sem a pessoa, não identificam ninguém).
-- **Não feito (depende do Paulo):** o histórico do Git ainda tem os dados antigos. O repositório passa a ser privado (Paulo); reescrever o histórico exige o "pode" dele e force push na `main`.
-- **Regra:** fixture de teste nasce fictícia; documento real só pelo chat.
+- **Paulo:** "você não pode alterar os dados já inseridos! Esse sistema é verídico" e "sim, deve reverter".
+- **Feito:** os arquivos de teste e as fixtures voltaram a ser exatamente como estavam antes do #238. O #238 não tinha mexido em dados do sistema (Firestore, eSocial ou backups reais), só em cópias usadas pelos testes.
+- **Regra:** nada que envolva dados reais, nem em arquivos de teste, sem confirmação explícita do Paulo.

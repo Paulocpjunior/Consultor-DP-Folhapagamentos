@@ -11,10 +11,10 @@ import { gerarArquivoRais, VARIANTES_RAIS, type VarianteRais } from '../geradorR
 import type { FuncionarioUnificado } from '../unificacao';
 
 const func = (over: Partial<FuncionarioUnificado> = {}): FuncionarioUnificado => ({
-    chave: 'x', empregador: '29463877', cpf: '11583801278', matricula: '836292',
+    chave: 'x', empregador: '29463877', cpf: '01787839516', matricula: '836292',
     dados: {
-        nome: 'JOSUE TESTE DE SOUZA DOS ANJOS', nascimento: '1984-01-10', sexo: 'M',
-        admissao: '2026-09-16', pis: '12098765438', ctps: '1158380', serieCtps: '1278',
+        nome: 'ANDRE LUIS DE JESUS DOS SANTOS', nascimento: '1984-05-16', sexo: 'M',
+        admissao: '2026-09-16', pis: '13054012041', ctps: '0178783', serieCtps: '9516',
         salario: '3243.65', horasSemanais: '44.00', cbo: '715505', categoria: '101',
         municipio: '3550308', estabelecimento: '29463877000109', matriculaIob: '836292',
         nacionalidade: '105', escolaridade: '07', raca: '3',
@@ -97,13 +97,13 @@ describe('TIPO-2 do genérico — posições do manual (461)', () => {
 
     it.each([
         ['CNPJ do estabelecimento', 7, 20, '29463877000109'],
-        ['PIS', 24, 34, '12098765438'],
-        ['Nome', 35, 86, 'JOSUE TESTE DE SOUZA DOS ANJOS'.padEnd(52, ' ')],
-        ['Nascimento ddmmaaaa', 87, 94, '10011984'],
-        ['CPF', 95, 105, '11583801278'],
+        ['PIS', 24, 34, '13054012041'],
+        ['Nome', 35, 86, 'ANDRE LUIS DE JESUS DOS SANTOS'.padEnd(52, ' ')],
+        ['Nascimento ddmmaaaa', 87, 94, '16051984'],
+        ['CPF', 95, 105, '01787839516'],
         ['Constante 0', 106, 106, '0'],
-        ['CTPS', 107, 114, '01158380'],
-        ['Série CTPS com zeros à esquerda', 115, 119, '01278'],
+        ['CTPS', 107, 114, '00178783'],
+        ['Série CTPS com zeros à esquerda', 115, 119, '09516'],
         ['Admissão ddmmaaaa', 120, 127, '16092026'],
         ['Salário com centavos', 130, 141, '000000324365'],
         ['Horas semanais (inteiro)', 143, 144, '44'],
@@ -128,12 +128,12 @@ describe('TIPO-2 do anual 2022 — posições do manual (584)', () => {
     const campo = (ini: number, fim: number) => l.slice(ini - 1, fim);
 
     it.each([
-        ['PIS', 24, 34, '12098765438'],
-        ['Nascimento', 87, 94, '10011984'],
+        ['PIS', 24, 34, '13054012041'],
+        ['Nascimento', 87, 94, '16051984'],
         ['Nacionalidade: eSocial 105 → RAIS 10', 95, 96, '10'],
         ['Ano de chegada zerado (como a IOB)', 97, 100, '0000'],
         ['Instrução: mesma numeração do eSocial', 101, 102, '07'],
-        ['CPF em outra posição', 103, 113, '11583801278'],
+        ['CPF em outra posição', 103, 113, '01787839516'],
         ['Admissão', 127, 134, '16092026'],
         ['Tipo de admissão padrão', 135, 136, '01'],
         ['Salário em 9 posições', 137, 145, '000324365'],

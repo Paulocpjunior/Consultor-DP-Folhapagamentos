@@ -12,7 +12,7 @@ const itens = [item('REGISTRO DE EMPREGADO', 0, 900),
     item('Cédula de Identidade', 0, 660), item('1234567', 2, 650), item('Data de emissão', 150, 660), item('01/02/2020', 152, 650),
     item('CTPS', 0, 620), item('0001234', 2, 610), item('Série', 100, 620), item('0099', 102, 610),
     item('Data de Admissão', 0, 580), item('16/09/2026', 2, 570), item('Salário', 150, 580), item('R$', 152, 570), item('3.243,65', 200, 570), item('Por', 300, 580), item('Mês', 302, 570),
-    item('Sob nº', 0, 540), item('120.98765.43-8', 2, 530),
+    item('Sob nº', 0, 540), item('130.54012.04-1', 2, 530),
     item('Salário', 0, 500), item('1.000,00', 2, 490),
 ];
 const c: Cadastro = { chave: 'x', empregador: '11222333', cpf: '52998224725', matricula: '000123', dados: { nome: 'PESSOA TESTE', salario: '3000.00' }, origens: {}, eventos: [], pendencias: [], desligado: false };
@@ -22,7 +22,7 @@ describe('ficha PDF e união por identidade', () => {
         expect(f.matricula).toBe('000123'); expect(f.dados.matriculaIob).toBeUndefined();
         expect(f.dados.nome).toBe('PESSOA TESTE'); expect(f.dados.salario).toBe('3243.65');
         expect(f.dados.ctps).toBe('0001234'); expect(f.dados.serieCtps).toBe('0099');
-        expect(f.dados.admissao).toBe('2026-09-16'); expect(f.dados.pis).toBe('12098765438');
+        expect(f.dados.admissao).toBe('2026-09-16'); expect(f.dados.pis).toBe('13054012041');
         expect(conferirIdentidade(f, c, '11222333000181')).toEqual([]);
     });
     it('não une outra empresa, CPF ou matrícula, inclusive quando só difere o zero inicial', () => {
