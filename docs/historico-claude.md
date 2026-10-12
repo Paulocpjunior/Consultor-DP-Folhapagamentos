@@ -5184,3 +5184,20 @@ Item 2 da lista de 12/10. Fonte: "Regras de validação" do leiaute S-1.3 (NT 07
   - **REGRA_VALIDA_DT_FUTURA:** nos eventos de tabela, início e fim da validade não podem passar do mês do envio.
 - **S-1010:** início da validade no futuro passa de aviso a erro. O texto antigo dizia "até a competência seguinte", e a regra oficial não aceita nenhum mês depois do envio.
 - **Testes:** `regrasOficiais.test.ts`.
+
+## 12/10/2026 — Pacotes com alerta de segurança: de 54 para 7
+
+Item 3 da lista de 12/10.
+
+- **Saíram, sem uso:**
+  - jest, jest-environment-jsdom, ts-jest, @types/jest, @testing-library/jest-dom, identity-obj-proxy, dotenv-cli e o `jest.config.js` vazio;
+  - os testes são do vitest; nada importava o jest.
+- **Pego no meio do caminho:** o jsdom dos testes de tela vinha escondido no jest-environment-jsdom. Sem ele, o vitest dava "190 passed" contando só 106 arquivos (os outros 84 falhavam ao iniciar, como "unhandled errors"). Agora o jsdom 26 está declarado, e a suíte voltou a 190 arquivos e 1389 testes.
+- **Atualizados:**
+  - vite 5 → 7 (falhas do servidor de desenvolvimento e do esbuild; o @vitejs/plugin-react 4.7 e o vitest 4 aceitam o vite 7; Node 22 no CI);
+  - firebase-admin 13 → 14 (scripts do CRM e do monitor de leiaute; o `node --check` passa);
+  - @grpc/grpc-js fixado em ^1.14.6 por `overrides` (o @firebase/firestore trazia o 1.9.16, com duas falhas; o app no navegador não usa o grpc).
+- **Ficam 7, todos do tailwindcss 3** (braces, micromatch, chokidar, fast-glob e postcss-*):
+  - são ferramentas da montagem do CSS e não vão para o navegador;
+  - a correção é o tailwind 4, uma migração da configuração e do CSS. Fica para um lote próprio, com conferência visual das telas.
+- **Conferido:** tsc, vitest 190/1389, build e `npm run test:regras` 35/122.
