@@ -202,6 +202,37 @@ const TransferenciaPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
                     <label>Horário noturno<select aria-label="Horário noturno" className={`block w-full ${inp}`} value={contrato.horNoturno} onChange={e => mc({ horNoturno: e.target.value as 'S' | 'N' })}><option value="N">Não</option><option value="S">Sim</option></select></label>
                     <label>Data-base (mês)<input aria-label="Data-base" className={`block w-full ${inp}`} value={contrato.dtBase} placeholder="ex.: 05" onChange={e => mc({ dtBase: e.target.value.replace(/\D/g, '').slice(0, 2) })} /></label>
                     <label className="sm:col-span-2">Jornada (dias, entrada, saída e intervalos)<input aria-label="Descrição da jornada" className={`block w-full ${inp}`} value={contrato.dscJorn} onChange={e => mc({ dscJorn: e.target.value })} /></label>
+                    {modo !== 'estab' && ['2', '3'].includes(ficha?.dados.tipoContrato ?? '') && (
+                        <label>Cláusula assecuratória<select aria-label="Cláusula assecuratória" className={`block w-full ${inp}`} value={contrato.clauAssec ?? ''} onChange={e => mc({ clauAssec: (e.target.value || undefined) as ContratoS2200['clauAssec'] })}>
+                            <option value="">— escolha —</option><option value="S">Sim</option><option value="N">Não</option></select></label>
+                    )}
+                    {modo !== 'estab' && ficha?.dados.tipoContrato === '3' && (
+                        <label className="sm:col-span-3">Objeto determinante (obra, serviço, safra…)<input aria-label="Objeto determinante" maxLength={255} className={`block w-full ${inp}`} value={contrato.objDet ?? ''} onChange={e => mc({ objDet: e.target.value })} /></label>
+                    )}
+                    {ficha?.dados.categoria === '103' && (() => {
+                        const a = contrato.aprend ?? { indAprend: '1' as const };
+                        const ma = (x: Partial<NonNullable<ContratoS2200['aprend']>>) => mc({ aprend: { ...a, ...x } });
+                        return (<>
+                            <label>Aprendiz: contratação<select aria-label="Contratação do aprendiz" className={`block w-full ${inp}`} value={a.indAprend} onChange={e => ma({ indAprend: e.target.value as '1' | '2' })}>
+                                <option value="1">Direta (entidade qualificadora)</option><option value="2">Indireta (estabelecimento da cota)</option></select></label>
+                            {a.indAprend === '1'
+                                ? <label>CNPJ da entidade qualificadora<input aria-label="CNPJ da entidade qualificadora" className={`block w-full ${inp}`} value={a.cnpjEntQual ?? ''} onChange={e => ma({ cnpjEntQual: e.target.value })} /></label>
+                                : <><label>Tipo de inscrição<select aria-label="Inscrição do estabelecimento da cota" className={`block w-full ${inp}`} value={a.tpInsc ?? '1'} onChange={e => ma({ tpInsc: e.target.value as '1' | '2' })}><option value="1">CNPJ</option><option value="2">CPF</option></select></label>
+                                    <label>Estabelecimento cumpridor da cota<input aria-label="Estabelecimento cumpridor da cota" className={`block w-full ${inp}`} value={a.nrInsc ?? ''} onChange={e => ma({ nrInsc: e.target.value, tpInsc: a.tpInsc ?? '1' })} /></label></>}
+                            <label>CNPJ das atividades práticas (opcional)<input aria-label="CNPJ das atividades práticas" className={`block w-full ${inp}`} value={a.cnpjPrat ?? ''} onChange={e => ma({ cnpjPrat: e.target.value })} /></label>
+                        </>);
+                    })()}
+                    {modo !== 'estab' && ficha?.dados.categoria === '106' && (() => {
+                        const t = contrato.trabTemporario ?? { hipLeg: '2' as const, justContr: '', ideEstabVinc: { tpInsc: '1' as const, nrInsc: '' }, cpfSubstituidos: [] };
+                        const mt = (x: Partial<NonNullable<ContratoS2200['trabTemporario']>>) => mc({ trabTemporario: { ...t, ...x } });
+                        return (<>
+                            <label>Temporário: hipótese legal<select aria-label="Hipótese legal do temporário" className={`block w-full ${inp}`} value={t.hipLeg} onChange={e => mt({ hipLeg: e.target.value as '1' | '2' })}>
+                                <option value="1">Substituição de pessoal permanente</option><option value="2">Demanda complementar de serviços</option></select></label>
+                            <label className="sm:col-span-3">Fato que justifica a contratação<input aria-label="Justificativa do temporário" maxLength={999} className={`block w-full ${inp}`} value={t.justContr} onChange={e => mt({ justContr: e.target.value })} /></label>
+                            <label>Tomador: CNPJ ou CPF<input aria-label="Inscrição do tomador" className={`block w-full ${inp}`} value={t.ideEstabVinc.nrInsc} onChange={e => mt({ ideEstabVinc: { tpInsc: e.target.value.replace(/\D/g, '').length === 11 ? '2' : '1', nrInsc: e.target.value } })} /></label>
+                            {t.hipLeg === '1' && <label className="sm:col-span-3">CPF de quem é substituído (separe por vírgula)<input aria-label="CPF substituído" className={`block w-full ${inp}`} value={t.cpfSubstituidos.join(', ')} onChange={e => mt({ cpfSubstituidos: e.target.value.split(/[,;\s]+/).filter(Boolean) })} /></label>}
+                        </>);
+                    })()}
                 </fieldset>
     );
     return (
