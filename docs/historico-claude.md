@@ -5500,3 +5500,10 @@ Paulo: *"podemos fazer o P2 usando o terminal do meu mac"* (12/10).
 - **O que fica no CFI:** envio de lote em produção (`tpAmb` 1, ausente ou em texto), `dctfweb/transmitir`, `dctfweb/darf`, `dctfweb/insumos` (a trava da transmissão) e qualquer rota do governo fora da lista; cadastro, cofre, e-mail, WhatsApp e IA.
 - **Tela:** bloco "Testar o governo pela plataforma neste navegador" (só gestor/admin), com o campo pré-preenchido pelo endereço colado no comparador, Ligar/Desligar e as listas do que vai e do que não vai. Com o teste valendo, faixa azul no topo "Governo pela plataforma neste navegador — teste" com Desligar; a linha Governo da tabela ganha a nota do teste. Com o governo já no build, o bloco só avisa que o teste não se aplica.
 - **Testes:** `services/plataforma/__tests__/testeGovernoNavegador.test.tsx` (precedência, colaborador e outro usuário não aplicam, `tpAmb` 1 no CFI e 2 na plataforma, transmitir/DARF/insumos no CFI, leituras na plataforma, desligar volta tudo, endereço inválido/CFI/adulterado recusado, armazenamento bloqueado, tela e faixa).
+
+## 13/10/2026 — Serviços externos: "Testar" dava "Load failed" no Governo com o CFI no ar
+
+- **Sintoma (print do Paulo, iPad):** a linha Governo, atendida pelo host de integração do CFI, mostrava "sem resposta: Load failed", enquanto o comparador recebia HTTP 200 do mesmo host.
+- **Causa:** o `testarAlcance` fazia um GET opaco (`no-cors`). O CFI usa o helmet, que manda `Cross-Origin-Resource-Policy: same-origin`, e com esse cabeçalho o navegador derruba a resposta opaca como erro de rede. O servidor estava no ar; a plataforma passava porque não manda esse cabeçalho.
+- **Correção:** primeiro um GET com CORS (o CFI e a plataforma liberam o DP), e o GET opaco fica de reserva para endereço sem CORS. Qualquer resposta HTTP conta como alcançado, sem token e sem efeito. O tempo-limite continua 10 s no total.
+- **Testes:** `services/plataforma/__tests__/servicos.test.ts` (cors primeiro, reserva no-cors, falha nas duas).

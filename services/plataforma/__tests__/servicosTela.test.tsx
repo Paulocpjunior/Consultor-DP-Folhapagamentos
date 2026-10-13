@@ -19,6 +19,6 @@ describe('Configurações › Serviços externos', () => {
         expect(screen.queryByRole('alert')).toBeNull();
         fireEvent.click(screen.getByText('Testar todos'));
         await waitFor(() => expect(screen.getAllByText(/^responde/)).toHaveLength(6));
-        expect(f.mock.calls.every(([, init]) => init?.mode === 'no-cors' && !init?.headers)).toBe(true);
+        expect(f.mock.calls.every(([, init]) => init?.mode === 'cors' && !init?.headers)).toBe(true);
     });
 });
