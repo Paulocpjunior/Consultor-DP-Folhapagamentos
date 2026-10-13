@@ -1,6 +1,6 @@
 # Retomada do trabalho
 
-Ponto de partida da próxima sessão. Atualizado em **12/10/2026, à noite**. O detalhe de cada entrega está em `docs/historico-claude.md`.
+Ponto de partida da próxima sessão. Atualizado em **13/10/2026**. O detalhe de cada entrega está em `docs/historico-claude.md`.
 
 ## App
 
@@ -24,30 +24,37 @@ Ponto de partida da próxima sessão. Atualizado em **12/10/2026, à noite**. O 
 | Plataforma | P3 parte 1 (cadastro central) no ar; plano da P4 documentado | #4, #5 |
 | Financeiro | Site no ar no commit `463c716` (visual Apple, #85, #86, #87) | — |
 
+## Resolvido em 13/10/2026
+
+- **Financeiro:** publicação completa no commit `8791c66`, com o Jotform desligado (o passo do checklist passou).
+- **Cadastro central no DP:**
+  - as variáveis `VITE_SERVICO_CADASTRO_URL` e `VITE_SERVICO_COFRE_URL` foram criadas com o endereço da plataforma, obtido com o gcloud;
+  - o `/ready` da plataforma responde `cadastro.leitura: ok`;
+  - para voltar ao CFI, basta apagar as duas variáveis e publicar de novo.
+- **Trava de horário:** `HORARIO_ACESSO_ATIVO` não está definida no CFI (proxy e app) nem na plataforma. Está desligada nos dois lados, que portanto já estão iguais.
+- **Cloud Functions:** a API nunca esteve ativa no projeto, então não há funções antigas. Ela foi ligada só para a consulta; desligar com `gcloud services disable cloudfunctions.googleapis.com`.
+- **P-f:**
+  - a plataforma e o CFI rodam com a mesma conta, a padrão do Compute (`631239634290-compute@`);
+  - essa conta tem `roles/editor` e `roles/secretmanager.secretAccessor` no projeto;
+  - logo, a plataforma já lê `cfi-empresa-cert-key`, `sefaz-cert-a1`, `sefaz-cert-password`, `serpro-consumer-key`, `serpro-consumer-secret` e o bucket dos certificados, sem nenhuma concessão nova.
+  - Observação para depois: o ideal é uma conta própria só com o necessário. Isso é decisão do Paulo e não bloqueia nada.
+- **P-e:** `graph-client-secret` já existe e a conta da plataforma lê. Falta só confirmar o tenant e o client id (configuração, não segredo).
+- **Revisão visual das telas:** PR #242.
+
 ## Depende do Paulo
 
-1. **Financeiro: desligar o Jotform.** A publicação de `463c716` subiu o site, mas falhou no passo "Fixar a consulta do checklist". Esse passo exige antes o `scripts/retire-jotform.py`, que precisa do gcloud. No Mac:
-   ```bash
-   git checkout main && git pull
-   npm ci && npm run build
-   npm ci --prefix cloud-run/jotform-webhook
-   FINANCEIRO_APPROVED_COMMIT=<SHA atual da main> python3 scripts/retire-jotform.py
-   ```
-   Depois, rodar de novo "Validar Financeiro e publicar somente com autorização" com o mesmo SHA.
-2. **Repositório do DP privado** (Settings › General › Danger Zone). Os testes têm dados reais e ficaram como estavam, por decisão do Paulo.
-3. **P-f:** acesso da plataforma aos segredos (certificados A1, senhas, SERPRO) para começar a P4. A troca de endereço só depois do dia 15.
-4. **Cadastro central no DP:**
-   - `HORARIO_ACESSO_ATIVO` na plataforma igual ao do CFI;
-   - `/ready` da plataforma com `leitura: ok`;
-   - no DP, as variáveis `VITE_SERVICO_CADASTRO_URL` e `VITE_SERVICO_COFRE_URL` com o endereço da plataforma (tirado do Cloud Run), depois nova publicação.
-5. Testar a MIA no app (fecha a P2).
-6. Credenciais do Microsoft Graph no Secret Manager (P-e, e-mail pela plataforma).
-7. Motivo 26: confirmar o amparo legal.
-8. #61, divergências da 1200 em 09/2026, e o caso do IRRF do 13º: arquivos do IOB pelo chat.
-9. Integração com o CCI.
-10. Template do WhatsApp do dp-folha.
-11. E-mail verificado no login, CSP e App Check. Mudam o login de quem já usa: combinar antes.
-12. `gcloud functions list` (Cloud Functions antigas).
+1. Tornar privados os repositórios públicos: DP, CFI, Financeiro e `plano-contas-iob`. O DP tem dados reais nos testes, e eles ficaram como estavam por decisão do Paulo.
+2. Testar a MIA no app (fecha a P2).
+3. Motivo 26: confirmar o amparo legal.
+4. #61, divergências da 1200 em 09/2026, e o caso do IRRF do 13º: arquivos do IOB pelo chat.
+5. Integração com o CCI.
+6. Template do WhatsApp do dp-folha.
+7. E-mail verificado no login, CSP e App Check: mudam o login de quem já usa, combinar antes.
+
+## Liberado para mim
+
+- **P3, parte 2 (e-mail pela plataforma):** o segredo do Graph já está acessível.
+- **P4 (rotas de governo):** a P-f já está resolvida. Pode ser portada agora, mas o DP só troca de endereço depois do dia 15.
 
 ## Regras combinadas hoje
 
