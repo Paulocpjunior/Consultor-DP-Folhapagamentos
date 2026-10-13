@@ -13,7 +13,7 @@ function saudacaoPorHora(): string {
 }
 
 function extrairNomeAmigavel(user: any): string {
-    if (!user) return 'Usuario';
+    if (!user) return 'Usuário';
     const candidato = user.nome || user.displayName || user.name;
     if (candidato && typeof candidato === 'string' && candidato.trim()) {
         return candidato.trim().split(/\s+/)[0];
@@ -22,7 +22,7 @@ function extrairNomeAmigavel(user: any): string {
         const local = user.email.split('@')[0];
         if (local) return local.charAt(0).toUpperCase() + local.slice(1);
     }
-    return 'Usuario';
+    return 'Usuário';
 }
 
 function jaViuHoje(): boolean {
@@ -104,7 +104,7 @@ const AlertaPendenciasPopup: React.FC<Props> = ({ currentUser, onNavigateEsocial
                         </div>
                         <div className="min-w-0">
                             <div className={`text-[11px] font-semibold uppercase tracking-wider ${resumo.temPendencias ? 'text-amber-700 dark:text-amber-300' : 'text-green-700 dark:text-green-300'}`}>
-                                {resumo.temPendencias ? 'Pendencias Encontradas' : 'Resumo Diario'}
+                                {resumo.temPendencias ? 'Pendências encontradas' : 'Resumo diário'}
                             </div>
                             <div className="text-xl font-bold text-slate-900 dark:text-white truncate">
                                 {saudacaoPorHora()}, {extrairNomeAmigavel(currentUser)}!
@@ -127,11 +127,11 @@ const AlertaPendenciasPopup: React.FC<Props> = ({ currentUser, onNavigateEsocial
                     {!resumo.temPendencias && (
                         <div className="p-4 rounded-lg border border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-center">
                             <p className="text-green-700 dark:text-green-300 font-semibold">Tudo em dia!</p>
-                            <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                                Nenhuma pendencia de eSocial, FGTS ou certificados encontrada.
+                            <p className="text-xs text-green-700 dark:text-green-400 mt-1">
+                                Nenhuma pendência de eSocial, FGTS ou certificados encontrada.
                             </p>
                             <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                                Cadastre eventos e FGTS na aba eSocial para acompanhar pendencias automaticamente.
+                                Cadastre eventos e FGTS na aba eSocial para acompanhar pendências automaticamente.
                             </p>
                         </div>
                     )}
@@ -212,13 +212,13 @@ const AlertaPendenciasPopup: React.FC<Props> = ({ currentUser, onNavigateEsocial
                     {resumo.alertasVencimento > 0 && (
                         <div className="space-y-2">
                             <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                                <span>&#9889;</span> Obrigacoes a Vencer (proximos 5 dias)
+                                <span>&#9889;</span> Obrigações a vencer (próximos 5 dias)
                             </h3>
                             <div className="p-3 rounded-lg border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20">
                                 <p className="text-sm text-amber-700 dark:text-amber-300">
-                                    {resumo.alertasVencimento} evento(s) proximo(s) do vencimento ou ja vencido(s).
+                                    {resumo.alertasVencimento} evento(s) próximo(s) do vencimento ou já vencido(s).
                                 </p>
-                                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                                <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
                                     Acesse a aba eSocial para ver os detalhes de cada evento.
                                 </p>
                             </div>
@@ -238,7 +238,7 @@ const AlertaPendenciasPopup: React.FC<Props> = ({ currentUser, onNavigateEsocial
                                             {resumo.certsVencidos} vencido{resumo.certsVencidos > 1 ? 's' : ''}
                                         </span>
                                         <span className="text-xs text-red-600 dark:text-red-400">
-                                            certificado(s) expirado(s) - renovacao urgente
+                                            certificado(s) expirado(s) - renovação urgente
                                         </span>
                                     </div>
                                 )}
@@ -247,7 +247,7 @@ const AlertaPendenciasPopup: React.FC<Props> = ({ currentUser, onNavigateEsocial
                                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
                                             {resumo.certsVencendo} vencendo
                                         </span>
-                                        <span className="text-xs text-amber-600 dark:text-amber-400">
+                                        <span className="text-xs text-amber-700 dark:text-amber-400">
                                             certificado(s) vencem em menos de 30 dias
                                         </span>
                                     </div>

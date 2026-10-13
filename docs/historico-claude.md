@@ -5379,3 +5379,27 @@ Paulo: *"podemos fazer o P2 usando o terminal do meu mac"* (12/10).
   - o login mostra versão, release e data;
   - o popup automático não tinha sido retirado: ele aparece uma vez por navegador quando entra uma versão nova (conferido no build, com a lista do que mudou). O botão da versão é para revê-lo quando quiser.
 - **Testes:** 4 casos novos em `updateAviso.test.tsx`. Conferido no navegador em 390, 820, 1024, 1180, 1280 e 1440px: 9 ícones em todas as larguras, sem rolagem da página.
+
+## 13/10/2026 — Revisão visual das telas internas
+
+- **Paulo:** "revise as telas".
+- **Como:** o app rodou localmente contra os emuladores do Firebase (projeto `demo-dp`) com dados fictícios, sem tocar o banco real nem serviços externos. Foram capturadas as 57 telas do menu, mais telas de apoio e popups, em 1180 (iPad), tema escuro e 390 (celular). Medidos contraste, rolagem, cortes, paleta e erros. Nenhuma tela quebrou, nenhuma teve rolagem lateral, não faltou ícone e não sobrou cor antiga.
+- **Corrigido:**
+  - **Menu do cabeçalho:** no iPad os últimos itens de Cadastros, Folha do mês e eSocial ficavam fora da tela. O painel agora tem a altura da janela e rola sozinho.
+  - **Selo da competência ("Aberto"):** estava ilegível no cabeçalho escuro (1,16:1) e ganhou cores para fundo escuro (6,1:1).
+  - **Celular, menus "Conferir" e "Pagamento" do Cálculo:** abriam cortados à esquerda. Agora abrem como folha no pé da tela.
+  - **MiA:** o botão ficava por cima dos popups e cobria o fim das tabelas. Passou para baixo do fundo dos popups, e o conteúdo ganhou espaço no fim.
+  - **Cálculo de Adiantamentos:** o popup fecha com Esc.
+  - **Contraste:**
+    - cinza claro em fundo branco: Serviços externos, IOB SAGE, Novidades, Apontamento, Empresas e Usuários;
+    - texto escuro no tema escuro: Prazos e Fim de mês;
+    - verde e âmbar dos cartões;
+    - botões coloridos de Usuários e o botão do template do Apontamento: mesma cor, tom mais escuro;
+    - textos pequenos do cabeçalho.
+  - **Popup de pendências:** acentos corrigidos.
+  - **Cabeçalho:** CNPJ com máscara.
+  - **Boas-vindas:** primeiro nome com inicial maiúscula.
+- **Mantido de propósito:**
+  - o roxo da MiA;
+  - as cores por papel em Usuários (memorização);
+  - os emojis dos cartões do eSocial.

@@ -11,6 +11,7 @@ import { ondeEsta, type Destino, type GrupoMenu } from '../../services/navegacao
 import { ICONES, type NomeIcone } from './icones';
 import { competenciaBr, type EmpresaAtiva } from '../../services/empresaAtiva/empresaAtiva';
 import { APP_INFO, abrirNovidades, dataDaVersao } from '../../services/updateService';
+import { formatCnpj } from '../../services/brasilApiService';
 
 export const Ico: React.FC<{ nome: NomeIcone; className?: string }> = ({ nome, className = 'h-4 w-4' }) => (
     <svg aria-hidden viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" className={className}><path d={ICONES[nome]} /></svg>
@@ -80,7 +81,7 @@ const Cabecalho: React.FC<Props> = ({ menu, destino, onNavegar, ativa, onTrocar,
 
     const ir = (d: Destino) => { setAberto(null); if (d.aba === 'trocar') onTrocar(); else onNavegar(d); };
     const painel = (g: GrupoMenu, classe: string) => (
-        <div role="menu" aria-label={g.rotulo} className={`z-50 overflow-hidden rounded-xl bg-white p-1.5 text-slate-800 shadow-2xl ring-1 ring-slate-900/10 dark:bg-slate-800 dark:text-slate-100 dark:ring-white/10 ${classe}`}>
+        <div role="menu" aria-label={g.rotulo} className={`z-50 max-h-[calc(100dvh-8rem)] overflow-y-auto overscroll-contain rounded-xl bg-white p-1.5 text-slate-800 shadow-2xl ring-1 ring-slate-900/10 dark:bg-slate-800 dark:text-slate-100 dark:ring-white/10 ${classe}`}>
             {g.itens.map(i => {
                 const motivo = bloqueados[i.id];
                 const aqui = atual?.item.id === i.id && atual.grupo.id === g.id;
@@ -122,12 +123,12 @@ const Cabecalho: React.FC<Props> = ({ menu, destino, onNavegar, ativa, onTrocar,
                             <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg text-white ${corDoGrupo('empresas').solido}`}><Ico nome="empresa" className="h-4 w-4" /></span>
                             <div className="min-w-0 leading-tight">
                                 <div className="truncate text-sm font-medium text-white" title={ativa.nome}>{ativa.nome}</div>
-                                <div className="truncate text-[11px] text-slate-400">CNPJ {ativa.cnpj} · SAGE {ativa.codigoSage}</div>
+                                <div className="truncate text-[11px] text-slate-300">CNPJ {formatCnpj(ativa.cnpj)} · SAGE {ativa.codigoSage}</div>
                             </div>
                             <div className="ml-auto flex shrink-0 items-center gap-2">
                                 {extraEmpresa}
                                 <div className="text-right leading-tight">
-                                    <div className="text-[10px] uppercase tracking-wider text-slate-400">Competência</div>
+                                    <div className="text-[10px] uppercase tracking-wider text-slate-300">Competência</div>
                                     <div className="font-mono text-sm font-semibold text-white">{competenciaBr(ativa.competencia)}</div>
                                 </div>
                                 {situacaoPeriodo}

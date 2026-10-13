@@ -299,7 +299,7 @@ const CalendarioEmpresa: React.FC<Props> = ({ empresa, fichas, sindicatos, usuar
                                 <React.Fragment key={o.id}>
                                 <tr className={`border-t border-slate-100 align-top dark:border-slate-700 dark:text-slate-100 ${atrasada ? 'bg-red-50 dark:bg-red-900/20' : status !== 'pendente' ? 'opacity-70' : ''}`}>
                                     <td className="whitespace-nowrap p-2"><strong>{br(o.data)}</strong>
-                                        <span className={`block text-xs ${atrasada ? 'font-medium text-red-700 dark:text-red-300' : 'text-slate-500'}`}>{status !== 'pendente' ? '' : atrasada ? `atrasada há ${-d} dia(s)` : d === 0 ? 'vence hoje' : `em ${d} dia(s)`}</span></td>
+                                        <span className={`block text-xs ${atrasada ? 'font-medium text-red-700 dark:text-red-300' : 'text-slate-500 dark:text-slate-400'}`}>{status !== 'pendente' ? '' : atrasada ? `atrasada há ${-d} dia(s)` : d === 0 ? 'vence hoje' : `em ${d} dia(s)`}</span></td>
                                     <td className="p-2">{o.nome}
                                         {o.condicao && <span className="block text-xs text-slate-500 dark:text-slate-400">{o.condicao}</span>}
                                         {o.observacao && <span className="block text-xs text-amber-700 dark:text-amber-300">{o.observacao}</span>}

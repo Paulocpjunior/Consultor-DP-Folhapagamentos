@@ -56,12 +56,12 @@ const MiaAssistente: React.FC<{ aba: string }> = ({ aba }) => {
     return (
         <>
             <button type="button" aria-label={aberta ? 'Fechar a MiA' : 'Falar com a MiA'} onClick={() => setAberta(a => !a)}
-                className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full bg-linear-to-r from-fuchsia-600 to-violet-600 px-4 py-3 text-sm font-semibold text-white shadow-lg hover:scale-105 transition-transform print:hidden">
+                className="fixed bottom-5 right-5 z-40 flex items-center gap-2 rounded-full bg-linear-to-r from-fuchsia-600 to-violet-600 px-4 py-3 text-sm font-semibold text-white shadow-lg hover:scale-105 transition-transform print:hidden">
                 <span aria-hidden className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 text-base">{aberta ? '✕' : '👩🏻‍💼'}</span>
                 {!aberta && <span>MiA</span>}
             </button>
             {aberta && (
-                <section role="dialog" aria-label="MiA, agente de IA do DP" className="fixed bottom-20 right-5 z-50 flex h-128 max-h-[80vh] w-[24rem] max-w-[calc(100vw-2.5rem)] flex-col overflow-hidden rounded-2xl border border-violet-200 bg-white shadow-2xl dark:border-violet-800 dark:bg-slate-800 print:hidden">
+                <section role="dialog" aria-label="MiA, agente de IA do DP" className="fixed bottom-20 right-5 z-40 flex h-128 max-h-[80vh] w-[24rem] max-w-[calc(100vw-2.5rem)] flex-col overflow-hidden rounded-2xl border border-violet-200 bg-white shadow-2xl dark:border-violet-800 dark:bg-slate-800 print:hidden">
                     <header className="flex items-start justify-between gap-2 bg-linear-to-r from-fuchsia-600 to-violet-600 px-4 py-3 text-white">
                         <div>
                             <p className="font-semibold">MiA</p>

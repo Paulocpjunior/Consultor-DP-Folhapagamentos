@@ -294,7 +294,7 @@ const SeletorEmpresa: React.FC<SeletorProps> = ({ currentUser, onSelecionar, onN
                                 <path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1"/>
                             </svg>
                         </div>
-                        <span className="text-[11px] font-mono text-slate-400 dark:text-slate-500">01</span>
+                        <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">01</span>
                     </div>
                     <h4 className="font-bold text-slate-800 dark:text-white mb-1">Nova empresa</h4>
                     <p className="text-xs text-slate-600 dark:text-slate-400 mb-4">
@@ -317,7 +317,7 @@ const SeletorEmpresa: React.FC<SeletorProps> = ({ currentUser, onSelecionar, onN
                                 <path d="m21 21-4.3-4.3"/>
                             </svg>
                         </div>
-                        <span className="text-[11px] font-mono text-slate-400 dark:text-slate-500">02</span>
+                        <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">02</span>
                     </div>
                     <h4 className="font-bold text-slate-800 dark:text-white mb-1">Selecionar empresa</h4>
                     <p className="text-xs text-slate-600 dark:text-slate-400 mb-4">
@@ -343,7 +343,7 @@ const SeletorEmpresa: React.FC<SeletorProps> = ({ currentUser, onSelecionar, onN
                                 <path d="M12 7v5l3 2"/>
                             </svg>
                         </div>
-                        <span className="text-[11px] font-mono text-slate-400 dark:text-slate-500">03</span>
+                        <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">03</span>
                     </div>
                     <h4 className="font-bold text-slate-800 dark:text-white mb-1">Abrir empresa cadastrada</h4>
                     <p className="text-xs text-slate-600 dark:text-slate-400 mb-4">
@@ -377,7 +377,7 @@ const SeletorEmpresa: React.FC<SeletorProps> = ({ currentUser, onSelecionar, onN
                     </div>
                     <button
                         onClick={() => baixarTemplateApontamento({ competencia: competenciaAtual() })}
-                        className="px-4 py-2 text-sm font-semibold bg-amber-600 hover:bg-amber-700 text-white rounded-lg shadow-xs inline-flex items-center gap-2"
+                        className="px-4 py-2 text-sm font-semibold bg-amber-700 hover:bg-amber-800 text-white rounded-lg shadow-xs inline-flex items-center gap-2"
                     >
                         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -414,7 +414,7 @@ const SeletorEmpresa: React.FC<SeletorProps> = ({ currentUser, onSelecionar, onN
                                         {formatCnpj(e.cnpj)} · SAGE {e.codigoSage}
                                     </div>
                                 </div>
-                                <div className="text-slate-400">→</div>
+                                <div className="text-slate-500 dark:text-slate-400">→</div>
                             </button>
                         ))}
                     </div>

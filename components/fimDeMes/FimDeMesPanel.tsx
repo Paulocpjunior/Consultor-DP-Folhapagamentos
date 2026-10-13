@@ -74,7 +74,7 @@ const FimDeMesPanel: React.FC<Props> = ({ currentUser, sub = 'fechamento', onMud
         try { const m = await f(); if (m) setAviso(m); await carregar(); onMudou?.(); } catch (e) { setErro(mensagemErro(e)); } finally { setOcupado(false); }
     };
 
-    if (!ativa) return <p className="text-sm text-slate-500">Ative uma empresa e um período.</p>;
+    if (!ativa) return <p className="text-sm text-slate-500 dark:text-slate-400">Ative uma empresa e um período.</p>;
     const situacao = situacaoDe(fech);
     const pendentes = competenciasPendentes(desde, todos, hoje).filter(c => c !== ativa.competencia);
     const pedidoAberto = (pedidos ?? []).find(p => p.empresaId === ativa.id && p.competencia === ativa.competencia && p.situacao === 'pendente');
@@ -96,7 +96,7 @@ const FimDeMesPanel: React.FC<Props> = ({ currentUser, sub = 'fechamento', onMud
                 {mensagens}
                 <section className={card}>
                     <h2 className="text-base font-semibold text-slate-900 dark:text-white">{gestor ? 'Pedidos aguardando o gestor (todas as empresas)' : `Pedidos de reabertura — ${ativa.nome}`}</h2>
-                    {pedidos === null ? <p className="mt-2 text-sm text-slate-500">Carregando…</p> : pedidos.length === 0 ? <p className="mt-2 text-sm text-slate-500">Nenhum pedido.</p> : (
+                    {pedidos === null ? <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Carregando…</p> : pedidos.length === 0 ? <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Nenhum pedido.</p> : (
                         <ul className="mt-3 divide-y divide-slate-100 dark:divide-slate-800">
                             {pedidos.map(p => (
                                 <li key={p.id} className="py-3 text-sm">
@@ -104,10 +104,10 @@ const FimDeMesPanel: React.FC<Props> = ({ currentUser, sub = 'fechamento', onMud
                                         <strong className="text-slate-900 dark:text-white">{p.empresaNome || p.empresaId}</strong>
                                         <span className="font-mono">{br(p.competencia)}</span>
                                         <span className={`rounded-full px-2 py-0.5 text-xs ${p.situacao === 'pendente' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200' : p.situacao === 'aprovado' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'}`}>{p.situacao}</span>
-                                        <span className="text-xs text-slate-500">por {p.pedidoPorEmail}{p.pedidoEm ? ` em ${quando(p.pedidoEm)}` : ''}</span>
+                                        <span className="text-xs text-slate-500 dark:text-slate-400">por {p.pedidoPorEmail}{p.pedidoEm ? ` em ${quando(p.pedidoEm)}` : ''}</span>
                                     </div>
                                     <p className="mt-1 text-slate-700 dark:text-slate-300">Motivo: {p.motivo}</p>
-                                    {p.situacao !== 'pendente' && <p className="mt-1 text-xs text-slate-500">{p.situacao === 'aprovado' ? 'Aprovado' : 'Recusado'} por {p.decididoPorEmail}{p.resposta ? `: ${p.resposta}` : ''}</p>}
+                                    {p.situacao !== 'pendente' && <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{p.situacao === 'aprovado' ? 'Aprovado' : 'Recusado'} por {p.decididoPorEmail}{p.resposta ? `: ${p.resposta}` : ''}</p>}
                                     {gestor && p.situacao === 'pendente' && (
                                         <div className="mt-2 flex flex-wrap items-end gap-2">
                                             <button className={btnP} disabled={ocupado} onClick={() => agir(async () => { await reabrirPeriodo(p.empresaId, p.competencia, p.motivo, usuario, p.id); return `${br(p.competencia)} de ${p.empresaNome} reaberta.`; })}>Aprovar e reabrir</button>
@@ -136,14 +136,14 @@ const FimDeMesPanel: React.FC<Props> = ({ currentUser, sub = 'fechamento', onMud
                 <div className="flex flex-wrap items-center gap-3">
                     <h2 className="text-base font-semibold text-slate-900 dark:text-white">Competência {comp}</h2>
                     {fech !== undefined && <SeloSituacao situacao={situacao} />}
-                    {fech?.encerradoPorEmail && situacao === 'encerrado' && <span className="text-xs text-slate-500">Encerrada por {fech.encerradoPorEmail}{fech.encerradoEm ? ` em ${quando(fech.encerradoEm)}` : ''}</span>}
+                    {fech?.encerradoPorEmail && situacao === 'encerrado' && <span className="text-xs text-slate-500 dark:text-slate-400">Encerrada por {fech.encerradoPorEmail}{fech.encerradoEm ? ` em ${quando(fech.encerradoEm)}` : ''}</span>}
                 </div>
                 {situacao === 'reaberto' && fech && (
                     <p className="mt-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">
                         Reaberta por {fech.reabertoPorEmail}{fech.reabertoEm ? ` em ${quando(fech.reabertoEm)}` : ''}. Motivo: {fech.motivoReabertura}. Faça a alteração e encerre de novo.
                     </p>
                 )}
-                {fech === undefined ? <p className="mt-3 text-sm text-slate-500">Carregando…</p> : (
+                {fech === undefined ? <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Carregando…</p> : (
                     <>
                         <p className={`mt-3 rounded-lg p-3 text-sm ${gravada ? 'bg-emerald-50 text-emerald-900 dark:bg-emerald-900/20 dark:text-emerald-100' : exigeFolha ? 'bg-amber-50 text-amber-900 dark:bg-amber-900/20 dark:text-amber-100' : 'bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>
                             {gravada ? `📁 Folha gravada por ${gravada.gravadoPorEmail}${gravada.gravadoEm ? ` em ${quando(gravada.gravadoEm)}` : ''}: ${gravada.totais.funcionarios} holerite(s), líquido ${reais(gravada.totais.liquido)}. Encerrada a competência, valem estes valores.`
@@ -168,7 +168,7 @@ const FimDeMesPanel: React.FC<Props> = ({ currentUser, sub = 'fechamento', onMud
                                     onClick={() => { if (window.confirm(`Encerrar ${comp} de ${ativa.nome}? Movimentos e afastamentos do mês ficam somente leitura; alterar depois exige o gestor do DP.`)) void agir(async () => { await encerrarPeriodo(ativa.id, ativa.competencia, check, usuario); return `${comp} encerrada.`; }); }}>
                                     Encerrar {comp}
                                 </button>
-                                <span className="text-xs text-slate-500">Depois de encerrada, a competência fica somente leitura.</span>
+                                <span className="text-xs text-slate-500 dark:text-slate-400">Depois de encerrada, a competência fica somente leitura.</span>
                             </div>
                         ) : (
                             <div className="mt-5 border-t border-slate-100 pt-4 dark:border-slate-800">
@@ -200,16 +200,16 @@ const FimDeMesPanel: React.FC<Props> = ({ currentUser, sub = 'fechamento', onMud
 
             <section className={card}>
                 <h2 className="text-base font-semibold text-slate-900 dark:text-white">Histórico da empresa</h2>
-                {todos.length === 0 ? <p className="mt-2 text-sm text-slate-500">Nenhuma competência encerrada ainda.</p> : (
+                {todos.length === 0 ? <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Nenhuma competência encerrada ainda.</p> : (
                     <table className="mt-3 w-full text-sm">
-                        <thead className="text-left text-xs text-slate-500"><tr><th className="py-1">Competência</th><th className="py-1">Situação</th><th className="py-1">Último registro</th></tr></thead>
+                        <thead className="text-left text-xs text-slate-500 dark:text-slate-400"><tr><th className="py-1">Competência</th><th className="py-1">Situação</th><th className="py-1">Último registro</th></tr></thead>
                         <tbody>{todos.map(f => {
                             const ult = f.historico?.[f.historico.length - 1];
                             return (
                                 <tr key={f.id} className="border-t border-slate-100 dark:border-slate-800">
                                     <td className="py-1.5 font-mono">{br(f.competencia)}</td>
                                     <td className="py-1.5"><SeloSituacao situacao={f.situacao} /></td>
-                                    <td className="py-1.5 text-xs text-slate-500">{ult ? `${ult.acao === 'encerrado' ? 'Encerrada' : 'Reaberta'} por ${ult.porEmail} em ${new Date(ult.em).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}${ult.motivo ? ` — ${ult.motivo}` : ''}` : ''}</td>
+                                    <td className="py-1.5 text-xs text-slate-500 dark:text-slate-400">{ult ? `${ult.acao === 'encerrado' ? 'Encerrada' : 'Reaberta'} por ${ult.porEmail} em ${new Date(ult.em).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}${ult.motivo ? ` — ${ult.motivo}` : ''}` : ''}</td>
                                 </tr>
                             );
                         })}</tbody>

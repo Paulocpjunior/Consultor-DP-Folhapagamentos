@@ -104,7 +104,7 @@ const PrazosPanel: React.FC<Props> = ({ onAbrirCadastros, onAbrirConferencia, on
                         <tbody>
                             {vencimentos.map(v => (
                                 <tr key={v.id} className={`border-t border-slate-100 align-top dark:border-slate-700 dark:text-slate-100 ${v.data < hoje ? 'opacity-50' : ''}`}>
-                                    <td className="p-2 whitespace-nowrap"><strong>{br(v.data)}</strong><span className="block text-xs text-slate-500">{quando(v.data, hoje)}</span></td>
+                                    <td className="p-2 whitespace-nowrap"><strong>{br(v.data)}</strong><span className="block text-xs text-slate-500 dark:text-slate-400">{quando(v.data, hoje)}</span></td>
                                     <td className="p-2">{v.nome}{v.observacao && <span className="block text-xs text-amber-700 dark:text-amber-300">{v.observacao}</span>}</td>
                                     <td className="p-2 font-mono text-xs">{v.competencia.length === 7 ? `${v.competencia.slice(5)}/${v.competencia.slice(0, 4)}` : v.competencia}</td>
                                     <td className="p-2 text-xs text-slate-500 dark:text-slate-400">{v.ajuste === 'antecipa' ? 'dia não útil antecipa' : v.ajuste === 'posterga' ? 'dia não útil adia' : '5º dia útil'} · {v.base}</td>
@@ -138,9 +138,9 @@ const PrazosPanel: React.FC<Props> = ({ onAbrirCadastros, onAbrirConferencia, on
                     </div>
                 )}
                 {erro && <p role="alert" className="rounded-sm bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
-                {!dados && <p className="text-sm text-slate-500">Carregando…</p>}
+                {!dados && <p className="text-sm text-slate-500 dark:text-slate-400">Carregando…</p>}
                 {dados && !prazos.length && !erro && (
-                    <p className="rounded-sm border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-600">
+                    <p className="rounded-sm border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-600 dark:text-slate-400">
                         Nenhum prazo neste filtro. Os prazos saem dos cadastros: contratos, férias e afastamentos dos funcionários e convenções dos sindicatos.
                         {onAbrirCadastros && <button className="ml-1 text-blue-700 underline dark:text-blue-300" onClick={onAbrirCadastros}>Abrir Cadastros</button>}
                     </p>
@@ -153,7 +153,7 @@ const PrazosPanel: React.FC<Props> = ({ onAbrirCadastros, onAbrirConferencia, on
                                 {prazos.map(p => (
                                     <tr key={p.id} className="border-t border-slate-100 align-top dark:border-slate-700 dark:text-slate-100">
                                         <td className="p-2 whitespace-nowrap"><strong>{br(p.data)}</strong><span className={`mt-0.5 block w-fit rounded-sm px-1.5 text-xs ${COR[p.gravidade]}`}>{p.gravidade === 'vencido' ? 'vencido' : quando(p.data, hoje)}</span></td>
-                                        <td className="p-2"><span className="text-xs text-slate-500">{ROTULO_TIPO[p.tipo]}</span><span className="block font-medium">{p.titulo}</span><span className="block text-xs text-slate-600 dark:text-slate-300">{p.detalhe}</span></td>
+                                        <td className="p-2"><span className="text-xs text-slate-500 dark:text-slate-400">{ROTULO_TIPO[p.tipo]}</span><span className="block font-medium">{p.titulo}</span><span className="block text-xs text-slate-600 dark:text-slate-300">{p.detalhe}</span></td>
                                         <td className="p-2">{p.nome}</td>
                                         <td className="p-2 text-xs">{p.empresaId ? nomeEmpresa.get(p.empresaId) ?? '' : '—'}</td>
                                     </tr>

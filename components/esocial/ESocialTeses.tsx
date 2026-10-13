@@ -105,11 +105,11 @@ const ESocialTeses: React.FC = () => {
                     <div className="text-lg font-bold text-blue-800 dark:text-blue-200">{teses.length}</div>
                 </div>
                 <div className="p-3 rounded-lg border bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700">
-                    <div className="text-xs text-amber-600 dark:text-amber-400 uppercase tracking-wide">Potencial Estimado</div>
+                    <div className="text-xs text-amber-700 dark:text-amber-400 uppercase tracking-wide">Potencial Estimado</div>
                     <div className="text-lg font-bold text-amber-800 dark:text-amber-200">{fmt(totalEstimado)}</div>
                 </div>
                 <div className="p-3 rounded-lg border bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700">
-                    <div className="text-xs text-green-600 dark:text-green-400 uppercase tracking-wide">Já Recuperado</div>
+                    <div className="text-xs text-green-700 dark:text-green-400 uppercase tracking-wide">Já Recuperado</div>
                     <div className="text-lg font-bold text-green-800 dark:text-green-200">{fmt(totalRecuperado)}</div>
                 </div>
             </div>
