@@ -76,6 +76,11 @@ Precedência: a variável do serviço, depois `VITE_PLATAFORMA_URL`, depois o CF
 | `/api/dp-integration/dctfweb/debitos` | Débitos da DCTFWeb |
 | `/api/dp-integration/empresa-completo` | Dados da empresa (SERPRO) |
 
+Toda rota do governo leva o `empresaId` (a empresa do DP da tela) junto com o `cnpj`, inclusive as seis consultas
+por CNPJ (eSocial status, FGTS recolhimento e CRF, DCTFWeb status e débitos, empresa-completo). O CFI ignora o campo
+nessas seis; a plataforma comum confere a empresa na carteira do usuário no DP e que o CNPJ é da mesma raiz que o
+dela (400 sem `empresaId`, 403 fora da carteira ou CNPJ de outra empresa).
+
 ### E-mail (`email`)
 
 | Método | Rota | Uso |

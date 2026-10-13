@@ -5455,6 +5455,15 @@ Paulo: *"podemos fazer o P2 usando o terminal do meu mac"* (12/10).
   - `vigiaFechamento.test.ts` (novo): duas abas/dois usuários, homologação, falha de download e de consulta, cota, aba que fechou no meio;
   - caso novo em `anomalias.test.ts` com os três estados e o importado do governo.
 
+## 13/10/2026 — Governo: a empresa do DP vai junto nas consultas por CNPJ (trava da carteira na plataforma)
+
+- **Por quê:** preparar a troca do serviço "governo" do CFI para a plataforma comum (depois do dia 15). Na plataforma, as seis consultas por CNPJ (`/fgts/recolhimento`, `/fgts/crf`, `/esocial/status`, `/dctfweb/status`, `/dctfweb/debitos`, `/empresa-completo`) passam a conferir a carteira, como as rotas de DCTFWeb do DP e de pagamentos já conferiam. Para isso o DP precisa mandar o `empresaId`.
+- **O que mudou no DP (`services/serpro/serproIntegrationService.ts`):** as seis funções recebem o `empresaId` como primeiro parâmetro e o mandam no corpo, junto com o `cnpj`. O CFI ignora o campo (conferido em `sefaz-backend/dp-integration-routes.js`: só lê `cnpj` e `competencia` nessas rotas), então nada muda enquanto o governo for o CFI.
+- **Quem chama:** DCTFWeb da folha (empresa ativa), Consulta de FGTS (empresa ativa), eSocial › FGTS Digital (empresa escolhida na consulta), Prazos (empresa do calendário) e a conferência pós-folha.
+- **Conferência pós-folha:** o CNPJ vem dos totalizadores (raiz) e do cadastro. A empresa do DP é a do cadastro visível ao usuário com o mesmo CNPJ, senão a matriz da mesma raiz, senão a empresa ativa da mesma raiz (`empresaIdParaSerpro`). Sem nenhuma, o botão "Consultar SERPRO" fica desabilitado com o motivo (empresa fora da carteira). O cliente da conferência é preso a uma empresa (`clienteDaEmpresa`).
+- **Plataforma:** PR `governo-carteira` no sp-plataforma exige o `empresaId` nessas seis rotas (400 sem ele, 403 fora da carteira ou CNPJ de outra raiz). **Ordem de merge:** este PR do DP primeiro (ou junto) e republicado antes de ligar `VITE_SERVICO_GOVERNO_URL`.
+- **Testes:** `services/serpro/__tests__/empresaNasConsultas.test.ts` (novo: corpo de cada uma das seis com o `empresaId`); casos novos em `conferenciaPosFolha.test.ts`, `dctfwebTela.test.tsx`, `painelFgts.test.tsx` e `calendarioEmpresa.test.tsx`.
+
 ## 13/10/2026 — Comparador CFI × plataforma do governo (Configurações › Serviços externos)
 
 - **Por quê:** conferir a troca do serviço `governo` do CFI para a plataforma comum (depois do dia 15) com dados reais, antes e depois de ligar `VITE_SERVICO_GOVERNO_URL` (critério do roteiro P4 no sp-plataforma: débitos e situação dos DARF "batem com o CFI").

@@ -22,6 +22,11 @@ export async function callFiscal<T>(path: string, body: object): Promise<T> {
     return postarNoServico<T>(servicoDaRota(path) ?? 'governo', `${PREFIXO_INTEGRACAO}${path}`, body);
 }
 
+// Toda rota do túnel leva o `empresaId` (a empresa do DP da tela) junto com o CNPJ. As seis consultas por CNPJ (FGTS,
+// CRF, eSocial, DCTFWeb status/débitos e empresa-completo) também: o CFI ignora o campo; a plataforma comum
+// (VITE_SERVICO_GOVERNO_URL) confere a empresa na carteira do usuário no DP e que o CNPJ é da mesma raiz que o dela
+// (400 sem empresaId, 403 fora da carteira ou CNPJ de outra empresa).
+
 // ─── FGTS ────────────────────────────────────────────────────────────────
 
 export interface FgtsRecolhimentoResult {
@@ -34,10 +39,11 @@ export interface FgtsRecolhimentoResult {
 }
 
 export async function consultarFgtsRecolhimento(
+    empresaId: string,
     cnpj: string,
     competencia: string,
 ): Promise<FgtsRecolhimentoResult> {
-    return callFiscal<FgtsRecolhimentoResult>('/fgts/recolhimento', { cnpj, competencia });
+    return callFiscal<FgtsRecolhimentoResult>('/fgts/recolhimento', { empresaId, cnpj, competencia });
 }
 
 export interface CrfFgtsResult {
@@ -50,8 +56,8 @@ export interface CrfFgtsResult {
     pdfBase64?: string | null;
 }
 
-export async function consultarCrfFgts(cnpj: string): Promise<CrfFgtsResult> {
-    return callFiscal<CrfFgtsResult>('/fgts/crf', { cnpj });
+export async function consultarCrfFgts(empresaId: string, cnpj: string): Promise<CrfFgtsResult> {
+    return callFiscal<CrfFgtsResult>('/fgts/crf', { empresaId, cnpj });
 }
 
 // ─── eSocial ─────────────────────────────────────────────────────────────
@@ -65,10 +71,11 @@ export interface ESocialStatusResult {
 }
 
 export async function consultarESocialFechamento(
+    empresaId: string,
     cnpj: string,
     competencia: string,
 ): Promise<ESocialStatusResult> {
-    return callFiscal<ESocialStatusResult>('/esocial/status', { cnpj, competencia });
+    return callFiscal<ESocialStatusResult>('/esocial/status', { empresaId, cnpj, competencia });
 }
 
 // ─── DCTFWeb ─────────────────────────────────────────────────────────────
@@ -82,10 +89,11 @@ export interface DctfWebStatusResult {
 }
 
 export async function consultarDctfWebStatus(
+    empresaId: string,
     cnpj: string,
     competencia: string,
 ): Promise<DctfWebStatusResult> {
-    return callFiscal<DctfWebStatusResult>('/dctfweb/status', { cnpj, competencia });
+    return callFiscal<DctfWebStatusResult>('/dctfweb/status', { empresaId, cnpj, competencia });
 }
 
 // ─── Consulta completa em batch ──────────────────────────────────────────
@@ -101,10 +109,11 @@ export interface EmpresaCompletoResult {
 }
 
 export async function consultarEmpresaCompleto(
+    empresaId: string,
     cnpj: string,
     competencia?: string,
 ): Promise<EmpresaCompletoResult> {
-    const body: any = { cnpj };
+    const body: any = { empresaId, cnpj };
     if (competencia) body.competencia = competencia;
     return callFiscal<EmpresaCompletoResult>('/empresa-completo', body);
 }
@@ -122,8 +131,8 @@ export interface DctfWebDebitosResult {
     erro?: string;
 }
 
-export async function consultarDctfWebDebitos(cnpj: string, competencia: string): Promise<DctfWebDebitosResult> {
-    return callFiscal<DctfWebDebitosResult>('/dctfweb/debitos', { cnpj, competencia });
+export async function consultarDctfWebDebitos(empresaId: string, cnpj: string, competencia: string): Promise<DctfWebDebitosResult> {
+    return callFiscal<DctfWebDebitosResult>('/dctfweb/debitos', { empresaId, cnpj, competencia });
 }
 
 // ─── DCTFWeb da folha (parte do DP) ─────────────────────────────────────

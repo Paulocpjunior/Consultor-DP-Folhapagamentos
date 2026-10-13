@@ -217,7 +217,7 @@ describe('valor digitado', () => {
     });
 });
 
-import { cnpjParaSerpro, consultarSerproConferencia, type ClienteSerpro } from '../serproConferencia';
+import { clienteDaEmpresa, cnpjParaSerpro, consultarSerproConferencia, empresaIdParaSerpro, type ClienteSerpro } from '../serproConferencia';
 
 const ok = (entregue: boolean, situacao: string) => ({ ok: true, entregue, situacao, dataEntrega: '2026-10-15' });
 function cliente(o: Partial<{ fgts: unknown; esocial: unknown; dctf: unknown; debitos: unknown }> = {}): ClienteSerpro {
@@ -271,6 +271,32 @@ describe('SERPRO na conferência', () => {
         expect(cnpjParaSerpro(g, [emp('29.463.877/0002-90'), emp('29.463.877/0001-09'), emp('11.111.111/0001-11')])).toBe('29463877000109');
         expect(cnpjParaSerpro(g, null)).toBe('29463877000109');
         expect(cnpjParaSerpro(g, [emp('11.111.111/0001-11')])).toBe('29463877000109');
+    });
+
+    it('a empresa do DP vai junto em cada consulta (a plataforma confere a carteira por ela)', async () => {
+        const chamadas: unknown[][] = [];
+        const api = {
+            consultarFgtsRecolhimento: async (...a: unknown[]) => { chamadas.push(['fgts', ...a]); return { ok: true, depositoDevido: 1, depositoRealizado: 1 }; },
+            consultarESocialFechamento: async (...a: unknown[]) => { chamadas.push(['esocial', ...a]); return ok(true, 'FECHADO'); },
+            consultarDctfWebStatus: async (...a: unknown[]) => { chamadas.push(['dctf', ...a]); return ok(true, 'ATIVA'); },
+            consultarDctfWebDebitos: async (...a: unknown[]) => { chamadas.push(['debitos', ...a]); return { ok: true, fonte: 'serpro', debitos: [] }; },
+        };
+        await consultarSerproConferencia(clienteDaEmpresa('emp-1', api), '11222333000181', '2026-09');
+        expect(chamadas).toEqual([
+            ['fgts', 'emp-1', '11222333000181', '2026-09'], ['esocial', 'emp-1', '11222333000181', '2026-09'],
+            ['dctf', 'emp-1', '11222333000181', '2026-09'], ['debitos', 'emp-1', '11222333000181', '2026-09'],
+        ]);
+    });
+
+    it('escolhe a empresa do DP do CNPJ: a do próprio CNPJ, a matriz da raiz, a ativa da raiz; de fora, nenhuma', () => {
+        const emp = (id: string, cnpj: string) => ({ id, cnpj, razaoSocial: '', nomeFantasia: '', codigoSage: '', criadoPor: '' });
+        const lista = [emp('filial', '11.222.333/0002-62'), emp('matriz', '11.222.333/0001-81'), emp('outra', '11.444.777/0001-61')];
+        expect(empresaIdParaSerpro('11222333000181', lista)).toBe('matriz');
+        expect(empresaIdParaSerpro('11222333000262', lista)).toBe('filial');
+        expect(empresaIdParaSerpro('11222333000343', lista)).toBe('matriz');
+        expect(empresaIdParaSerpro('11222333000181', null, { id: 'ativa', cnpj: '11.222.333/0001-81' })).toBe('ativa');
+        expect(empresaIdParaSerpro('11222333000181', [emp('outra', '11.444.777/0001-61')], { id: 'ativa', cnpj: '11.444.777/0001-61' })).toBeNull();
+        expect(empresaIdParaSerpro(null, lista)).toBeNull();
     });
 });
 

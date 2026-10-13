@@ -46,19 +46,43 @@ Ponto de partida da próxima sessão. Atualizado em **13/10/2026**. O detalhe de
   - o DP passou a usar `VITE_SERVICO_EMAIL_URL` (criada pelo Paulo em 13/10);
   - falta o envio de teste do Paulo para ele mesmo. Para voltar ao CFI: apagar a variável e publicar de novo.
 
+## Também em 13/10/2026
+
+- **Governo na plataforma (P4):**
+  - sp-plataforma #7 (eSocial: envio, consulta e download) e #8 (SERPRO: FGTS, status, DCTFWeb, DARF e pagamentos), as 16 rotas que o DP usa;
+  - variáveis do SERPRO criadas pelo Paulo;
+  - o DP **ainda usa o CFI**. A troca (`VITE_SERVICO_GOVERNO_URL`) fica para depois do dia 15, com um lote de homologação acompanhado até o recibo, débitos e DARF batendo com o CFI e a volta escrita antes.
+- **SERPRO medido em produção:**
+  - `ESOCIAL/CONSULTARFECHAMENTO`, `FGTS/CONSULTARRECOLHIMENTO` e `FGTS/CONSULTARCRF` **não existem** no catálogo (ICGERENCIADOR-052);
+  - `CONSDECCOMPLETA33` exige ano, mês e categoria.
+  - Correção nos dois lados (CFI #1406 e plataforma #9):
+    - o status da DCTFWeb vem do recibo (CONSRECIBO32);
+    - eSocial e FGTS dizem "o SERPRO não oferece esta consulta";
+    - a CRF vai direto à consulta pública;
+    - o selo do eSocial no semáforo vem do S-1299 aceito no DP. Um S-1298 posterior derruba o selo.
+- **CFI #1410:** obrigação sem consulta aparece como "não verificada" e não conta como pendência.
+- **DP #245 e #246:**
+  - o S-1299/S-1298 feito fora do Consultor (IOB) é importado do governo em `esocial_envios/governo-<recibo>`. A importação acontece pelo clique em "Conciliar" e também pelo vigia, uma vez por dia por empresa ativa e competência, com marca em `esocial_vigia_fechamento`;
+  - o alerta de competência "reaberta (S-1298)" segue a mesma régua do servidor;
+  - a baixa do FGTS em Prazos mostra o motivo real e orienta a usar o comprovante da GFD.
+- **Limite de download estimado:** o vigia para em 10 pedidos por dia por empregador (`RESERVA_PEDIDOS_DIA`). Ajustar quando o limite oficial for conhecido.
+
 ## Depende do Paulo
 
-1. Tornar privados os repositórios públicos: DP, CFI, Financeiro e `plano-contas-iob`. O DP tem dados reais nos testes, e eles ficaram como estavam por decisão do Paulo.
-2. Testar a MIA no app (fecha a P2).
+1. Template do WhatsApp do dp-folha: mandar o texto e o motivo da recusa da Meta.
+2. Tornar privados os repositórios públicos: DP, CFI, Financeiro e `plano-contas-iob`.
 3. Motivo 26: confirmar o amparo legal.
-4. #61, divergências da 1200 em 09/2026, e o caso do IRRF do 13º: arquivos do IOB pelo chat.
-5. Integração com o CCI.
-6. Template do WhatsApp do dp-folha.
-7. E-mail verificado no login, CSP e App Check: mudam o login de quem já usa, combinar antes.
+4. Integração com o CCI: definir o que passa de um sistema para o outro.
+5. E-mail verificado no login, CSP e App Check: mudam o login de quem já usa, então combinar antes.
+6. Autorizar a data da troca do governo no DP, depois do dia 15.
+7. Colaboradora:
+   - testar a MIA;
+   - arquivos do IOB do #61 e do caso do 13º;
+   - lotações e obras com recibo antes de 26/10.
 
 ## Liberado para mim
 
-- **P4 (rotas de governo):** a P-f já está resolvida. Pode ser portada agora, mas o DP só troca de endereço depois do dia 15.
+- **Antes da troca do governo:** trava da carteira nas consultas por CNPJ e comparador CFI × plataforma (em andamento).
 
 ## Regras combinadas hoje
 
