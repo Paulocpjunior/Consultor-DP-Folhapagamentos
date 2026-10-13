@@ -53,7 +53,8 @@ import IntegracaoContabilPanel from './contabil/IntegracaoContabilPanel';
 import ProcessosS1070Panel from './processosJud/ProcessosS1070Panel';
 import SindicalPatronalPanel from './sindicatos/SindicalPatronalPanel';
 import ImportacaoValoresPanel from './calculo/ImportacaoValoresPanel';
-import { painelDeMensagens } from '../services/plataforma/servicos';
+import { definirSessaoDosServicos, painelDeMensagens } from '../services/plataforma/servicos';
+import { FaixaTesteGoverno } from './plataforma/TesteGovernoNavegador';
 import { EmpresaAtivaProvider } from '../services/empresaAtiva/empresaAtivaContext';
 import {
     ativacaoAindaValida, competenciaBr, competenciaPadrao, exigeEmpresaAtiva,
@@ -136,6 +137,11 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
 
     // Outro usuário na mesma aba: começa sem ativação (a dele é lida do navegador).
     useEffect(() => { setAtiva(null); setVisiveis(null); setTrocando(false); }, [uidAtual]);
+    // Quem está logado, para o teste do governo pela plataforma neste navegador (vale só para o gestor/admin que ligou).
+    const papelServicos = currentUser ? (ehMaster(currentUser.email) ? 'gestor' : currentUser.role) : undefined;
+    useEffect(() => {
+        definirSessaoDosServicos(uidAtual ? { uid: uidAtual, email: currentUser?.email ?? '', papel: papelServicos } : null);
+    }, [uidAtual, currentUser?.email, papelServicos]);
 
     useEffect(() => {
         if (!currentUser) return;
@@ -328,6 +334,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
     if (trocando || (!ativa && exigeEmpresaAtiva(activeTab))) {
         return (
             <><UpdateBanner />
+            <FaixaTesteGoverno />
             {boasVindas}
             <AtivarEmpresaScreen
                 empresas={visiveis} erro={erroVisiveis} competenciaInicial={competenciaPadrao()} atual={ativa}
@@ -367,6 +374,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
             )}
 
             <UpdateBanner />
+            <FaixaTesteGoverno />
             {/* Master ainda sem o papel de gestor: o e-mail precisa estar verificado. */}
             {ehMaster(currentUser.email) && papelEfetivo(currentUser.role) !== 'gestor' ? (
                 <div className="mx-auto max-w-7xl px-4 pt-3"><VerificarMaster email={currentUser.email} /></div>

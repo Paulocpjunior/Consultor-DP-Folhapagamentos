@@ -14,6 +14,7 @@
 // endereço inválido é ignorado com aviso — o DP nunca manda o token para um lugar que não seja https.
 
 import { comTokenCfi, erroCfi } from '../auth/tokenCfi';
+import { ehAdmin } from '../auth/papeis';
 
 export type Servico = 'cadastro' | 'cofre' | 'governo' | 'email' | 'whatsapp' | 'ia';
 export type Origem = 'cfi' | 'plataforma' | 'proprio';
@@ -83,10 +84,129 @@ export function configuracaoDoServico(servico: Servico, env: Env = envDoBuild())
 }
 export const configuracaoDosServicos = (env: Env = envDoBuild()) => ORDEM_SERVICOS.map(s => configuracaoDoServico(s, env));
 
-/** Endereço da rota no provedor do serviço. `caminho` é o caminho completo (/api/...), igual em qualquer provedor. */
-export function urlDoServico(servico: Servico, caminho: string, env: Env = envDoBuild()): string {
+// ─── Teste do governo pela plataforma, só neste navegador ──────────────────────────────────────────────────────
+// Antes da troca para todos (VITE_SERVICO_GOVERNO_URL no build), o gestor/admin liga, em Configurações › Serviços
+// externos, um endereço da plataforma que vale só no navegador dele e só para o usuário que ligou. A equipe segue no
+// CFI. Precedência: build (VITE_SERVICO_GOVERNO_URL / VITE_PLATAFORMA_URL) > teste no navegador > CFI.
+// Trava: no teste só vão à plataforma as LEITURAS (lista fechada abaixo) e o envio de lote em produção RESTRITA
+// (tpAmb 2). Envio em produção (tpAmb 1), transmissão da DCTFWeb, DARF, insumos e qualquer rota fora da lista
+// continuam no CFI.
+
+export const CHAVE_TESTE_GOVERNO = 'dp.servicos.governo.testeNavegador';
+/** O que fica guardado no navegador: o endereço e quem ligou. */
+export interface TesteGoverno { url: string; uid: string; email: string; ligadoEm: string }
+/** Usuário logado, como o app o conhece (o master entra como gestor). Sem sessão, o teste não vale. */
+export interface SessaoServicos { uid: string; email: string; papel?: string }
+
+/** Rotas do governo (sem o prefixo) que vão à plataforma durante o teste: só leituras. */
+export const ROTAS_TESTE_PLATAFORMA: readonly string[] = [
+    '/esocial/envio/consulta', '/esocial/download/identificadores', '/esocial/download/eventos', '/esocial/status',
+    '/fgts/recolhimento', '/fgts/crf', '/dctfweb/status', '/dctfweb/debitos', '/empresa-completo',
+    '/pagamentos/consultar', '/pagamentos/situacao-darf', '/pagamentos/comprovante',
+];
+/** Envio de lote: no teste só vai à plataforma com tpAmb 2 (produção restrita). */
+export const ROTA_ENVIO_LOTE = '/esocial/envio/lote';
+
+let sessaoAtual: SessaoServicos | null = null;
+const ouvintes = new Set<() => void>();
+const avisarOuvintes = () => ouvintes.forEach(f => { try { f(); } catch { /* um ouvinte com erro não derruba os outros */ } });
+
+/** O app informa quem está logado (e o papel) a cada login/saída. */
+export function definirSessaoDosServicos(s: SessaoServicos | null): void {
+    const nova = s && s.uid ? { uid: s.uid, email: (s.email ?? '').trim().toLowerCase(), papel: s.papel } : null;
+    if (JSON.stringify(nova) === JSON.stringify(sessaoAtual)) return;
+    sessaoAtual = nova;
+    avisarOuvintes();
+}
+export const sessaoDosServicos = () => sessaoAtual;
+
+/** Avisa quando o teste é ligado/desligado (nesta aba ou em outra) ou a sessão muda. */
+export function assinarTesteGoverno(f: () => void): () => void {
+    ouvintes.add(f);
+    const doStorage = (e: StorageEvent) => { if (e.key === null || e.key === CHAVE_TESTE_GOVERNO) f(); };
+    const w = typeof window !== 'undefined' ? window : null;
+    w?.addEventListener('storage', doStorage);
+    return () => { ouvintes.delete(f); w?.removeEventListener('storage', doStorage); };
+}
+
+const ehHostDoCfi = (url: string) => {
+    const h = new URL(url).hostname.toLowerCase();
+    return [HOST_CFI, HOST_CFI_INTEGRACAO].some(c => new URL(c).hostname === h) || h.includes('consultor-fiscal-inteligente');
+};
+
+/** Endereço aceito para o teste: o de enderecoValido, e nunca o próprio CFI. */
+export function enderecoDoTeste(valor: string | undefined): { url: string | null; aviso?: string } {
+    const v = enderecoValido(valor);
+    if (!v.url) return v.aviso ? { url: null, aviso: `${v.aviso}.` } : { url: null, aviso: 'Informe o endereço da plataforma.' };
+    if (ehHostDoCfi(v.url)) return { url: null, aviso: 'Este é o endereço do próprio CFI.' };
+    return { url: v.url };
+}
+
+const armazenamento = (): Storage | null => { try { return globalThis.localStorage ?? null; } catch { return null; } };
+
+/** O teste guardado neste navegador (inválido ou ilegível conta como desligado). */
+export function lerTesteGoverno(): TesteGoverno | null {
+    try {
+        const bruto = armazenamento()?.getItem(CHAVE_TESTE_GOVERNO);
+        if (!bruto) return null;
+        const t = JSON.parse(bruto) as Partial<TesteGoverno>;
+        const url = enderecoDoTeste(typeof t.url === 'string' ? t.url : '').url;
+        if (!url || typeof t.uid !== 'string' || !t.uid || typeof t.email !== 'string') return null;
+        return { url, uid: t.uid, email: t.email.trim().toLowerCase(), ligadoEm: typeof t.ligadoEm === 'string' ? t.ligadoEm : '' };
+    } catch { return null; }
+}
+
+/** Liga o teste para o usuário logado (só gestor/admin), com o endereço validado. */
+export function ligarTesteGoverno(valor: string, sessao: SessaoServicos | null = sessaoAtual, agora: () => Date = () => new Date()): { ok: true; teste: TesteGoverno } | { ok: false; aviso: string } {
+    if (!sessao || !ehAdmin(sessao.papel)) return { ok: false, aviso: 'Só gestor ou admin liga o teste.' };
+    const e = enderecoDoTeste(valor);
+    if (!e.url) return { ok: false, aviso: e.aviso ?? 'Endereço inválido.' };
+    const teste: TesteGoverno = { url: e.url, uid: sessao.uid, email: (sessao.email ?? '').trim().toLowerCase(), ligadoEm: agora().toISOString() };
+    try { armazenamento()?.setItem(CHAVE_TESTE_GOVERNO, JSON.stringify(teste)); }
+    catch { return { ok: false, aviso: 'Este navegador não deixa guardar o endereço (modo privado ou armazenamento bloqueado).' }; }
+    if (!lerTesteGoverno()) return { ok: false, aviso: 'Este navegador não deixa guardar o endereço (modo privado ou armazenamento bloqueado).' };
+    avisarOuvintes();
+    return { ok: true, teste };
+}
+
+/** Desliga o teste: tudo volta ao CFI (ou ao endereço do build). */
+export function desligarTesteGoverno(): void {
+    try { armazenamento()?.removeItem(CHAVE_TESTE_GOVERNO); } catch { /* sem armazenamento: não havia teste */ }
+    avisarOuvintes();
+}
+
+/**
+ * Endereço do teste que vale agora, ou null: o build não configurou o governo, há teste guardado, o usuário logado é
+ * gestor/admin e é o mesmo (uid e e-mail) que ligou.
+ */
+export function testeGovernoAplicado(env: Env = envDoBuild(), sessao: SessaoServicos | null = sessaoAtual, teste: TesteGoverno | null = lerTesteGoverno()): string | null {
+    if (configuracaoDoServico('governo', env).base) return null;
+    if (!teste || !sessao || !ehAdmin(sessao.papel)) return null;
+    if (teste.uid !== sessao.uid || teste.email !== (sessao.email ?? '').trim().toLowerCase()) return null;
+    return teste.url;
+}
+
+/** A chamada do governo vai à plataforma durante o teste? Só as leituras e o envio de lote em produção restrita. */
+export function rotaVaiAoTeste(caminho: string, corpo?: unknown): boolean {
+    if (!caminho.startsWith(`${PREFIXO_INTEGRACAO}/`)) return false;
+    const rota = caminho.slice(PREFIXO_INTEGRACAO.length).split(/[?#]/)[0].replace(/\/+$/, '');
+    if (rota === ROTA_ENVIO_LOTE) return (corpo as { tpAmb?: unknown } | undefined)?.tpAmb === 2;
+    return ROTAS_TESTE_PLATAFORMA.includes(rota);
+}
+
+export interface Chamada { corpo?: unknown; sessao?: SessaoServicos | null; teste?: TesteGoverno | null }
+
+/**
+ * Endereço da rota no provedor do serviço. `caminho` é o caminho completo (/api/...), igual em qualquer provedor.
+ * `chamada.corpo` decide o envio de lote durante o teste do governo no navegador (tpAmb).
+ */
+export function urlDoServico(servico: Servico, caminho: string, env: Env = envDoBuild(), chamada: Chamada = {}): string {
     const { base } = configuracaoDoServico(servico, env);
     if (base) return `${base}${caminho}`;
+    if (servico === 'governo' && rotaVaiAoTeste(caminho, chamada.corpo)) {
+        const teste = testeGovernoAplicado(env, chamada.sessao === undefined ? sessaoAtual : chamada.sessao, chamada.teste === undefined ? lerTesteGoverno() : chamada.teste);
+        if (teste) return `${teste}${caminho}`;
+    }
     return `${caminho.startsWith(`${PREFIXO_INTEGRACAO}/`) ? HOST_CFI_INTEGRACAO : HOST_CFI}${caminho}`;
 }
 
@@ -107,7 +227,7 @@ export function enderecoExibido(c: Configuracao): string {
  */
 export async function postarNoServico<T>(servico: Servico, caminho: string, corpo: object, fetchImpl: typeof fetch = fetch): Promise<T> {
     return comTokenCfi(async token => {
-        const resp = await fetchImpl(urlDoServico(servico, caminho), {
+        const resp = await fetchImpl(urlDoServico(servico, caminho, undefined, { corpo }), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
             body: JSON.stringify(corpo),

@@ -5485,3 +5485,18 @@ Paulo: *"podemos fazer o P2 usando o terminal do meu mac"* (12/10).
   - o comparador fica escondido para colaborador e pendente e aparece desabilitado sem endereço;
   - a rodada completa usa as três rotas × dois hosts com o mesmo token e não chama nenhuma rota de escrita nem grava no `localStorage`.
 
+
+## 13/10/2026 — Governo pela plataforma só no navegador do gestor (teste antes da troca para todos)
+
+- **Por quê:** o Paulo testar o serviço `governo` pela plataforma comum no navegador dele, com dados reais, antes da troca para todos (que continua sendo `VITE_SERVICO_GOVERNO_URL` no build). A equipe segue no CFI.
+- **Onde:** `services/plataforma/servicos.ts` (regra), `components/plataforma/TesteGovernoNavegador.tsx` (bloco e faixa), Configurações › Serviços externos e o topo do app (`MainTabs`).
+- **Guardado:** `localStorage['dp.servicos.governo.testeNavegador']` = { url, uid, email, ligadoEm }, sempre com try/catch. Armazenamento bloqueado ou conteúdo adulterado contam como desligado.
+- **Quando vale:** o `MainTabs` informa a sessão (`definirSessaoDosServicos`: uid, e-mail e papel; o master entra como gestor). O teste só se aplica com usuário gestor/admin e o mesmo uid e e-mail de quem ligou. Outro usuário no mesmo navegador, colaborador ou ninguém logado: CFI.
+- **Precedência:** build (`VITE_SERVICO_GOVERNO_URL` / `VITE_PLATAFORMA_URL`) > teste no navegador > CFI. `configuracaoDoServico` continua só do build (a tabela e o comparador não mudam).
+- **Endereço:** `enderecoValido` e nunca o CFI (os dois hosts e qualquer host com `consultor-fiscal-inteligente`).
+- **O que vai à plataforma no teste (lista fechada, `ROTAS_TESTE_PLATAFORMA`):**
+  - envio de lote do eSocial só com `tpAmb` 2 (produção restrita); o `tpAmb` vem no corpo do `enviarLote` (`envioSeguro.ts` → `transmissao.ts` → `callFiscal` → `postarNoServico`, que agora passa o corpo a `urlDoServico`);
+  - consulta do lote, identificadores e download do eSocial, situação do eSocial, FGTS (recolhimento e CRF), DCTFWeb situação e débitos, empresa-completo, pagamentos (consultar, situação dos DARF, comprovante).
+- **O que fica no CFI:** envio de lote em produção (`tpAmb` 1, ausente ou em texto), `dctfweb/transmitir`, `dctfweb/darf`, `dctfweb/insumos` (a trava da transmissão) e qualquer rota do governo fora da lista; cadastro, cofre, e-mail, WhatsApp e IA.
+- **Tela:** bloco "Testar o governo pela plataforma neste navegador" (só gestor/admin), com o campo pré-preenchido pelo endereço colado no comparador, Ligar/Desligar e as listas do que vai e do que não vai. Com o teste valendo, faixa azul no topo "Governo pela plataforma neste navegador — teste" com Desligar; a linha Governo da tabela ganha a nota do teste. Com o governo já no build, o bloco só avisa que o teste não se aplica.
+- **Testes:** `services/plataforma/__tests__/testeGovernoNavegador.test.tsx` (precedência, colaborador e outro usuário não aplicam, `tpAmb` 1 no CFI e 2 na plataforma, transmitir/DARF/insumos no CFI, leituras na plataforma, desligar volta tudo, endereço inválido/CFI/adulterado recusado, armazenamento bloqueado, tela e faixa).
