@@ -482,7 +482,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                     </Suspense>
                 )}
                 {activeTab === 'admin' && isAdmin && <AdminUsersPanel currentUser={currentUser as any} embutido />}
-                {activeTab === 'servicos' && <ServicosExternosPanel />}
+                {activeTab === 'servicos' && <ServicosExternosPanel papel={ehMaster(currentUser.email) ? 'gestor' : currentUser.role} />}
                 {activeTab === 'demissoes' && <DemissoesPanel usuario={{ id: uidAtual, email: currentUser?.email ?? '' }} />}
                 {activeTab === 'beneficios' && <><AdministracaoBeneficios /><VtECoparticipacao usuario={{ id: uidAtual, email: currentUser?.email ?? '' }} /></>}
                 {activeTab === 'contribuintes' && <ContribuintesPanel usuario={{ id: uidAtual, email: currentUser?.email ?? '' }} />}

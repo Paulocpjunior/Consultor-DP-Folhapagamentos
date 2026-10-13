@@ -3,9 +3,12 @@
 // Configurações › Serviços externos (autonomia, passo 3): quem atende cada serviço que o DP usa fora do
 // Firebase — CFI, plataforma comum ou próprio do DP — com o endereço e um teste de alcance. A troca é feita
 // no build (variáveis do repositório no GitHub); a tela mostra o que está valendo e os avisos de endereço inválido.
+// Admin e gestor veem também o comparador CFI × plataforma do governo (só leitura, ComparadorGoverno.tsx).
 
 import React, { useMemo, useState } from 'react';
 import { ROTULO_ORIGEM, SERVICOS, configuracaoDosServicos, enderecoExibido, testarAlcance, type Origem, type Servico } from '../../services/plataforma/servicos';
+import { ehAdmin } from '../../services/auth/papeis';
+import ComparadorGoverno from './ComparadorGoverno';
 
 const COR: Record<Origem, string> = {
     cfi: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200',
@@ -16,7 +19,8 @@ const btn = 'rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm tex
 
 type Teste = { ok: boolean; ms: number; erro?: string } | 'testando';
 
-const ServicosExternosPanel: React.FC = () => {
+/** papel: o do usuário logado (o master entra como gestor); só admin e gestor veem o comparador. */
+const ServicosExternosPanel: React.FC<{ papel?: string }> = ({ papel }) => {
     const config = useMemo(() => configuracaoDosServicos(), []);
     const [testes, setTestes] = useState<Partial<Record<Servico, Teste>>>({});
     const avisos = [...new Set(config.flatMap(c => c.avisos))];
@@ -72,6 +76,7 @@ const ServicosExternosPanel: React.FC = () => {
                     </tbody>
                 </table>
             </div>
+            {ehAdmin(papel) && <ComparadorGoverno />}
             <details className="rounded-lg border border-slate-200 p-3 text-sm text-slate-600 dark:border-slate-700 dark:text-slate-300">
                 <summary className="cursor-pointer font-medium text-slate-800 dark:text-slate-100">Como trocar o endereço</summary>
                 <ol className="mt-2 list-decimal space-y-1 pl-5">
