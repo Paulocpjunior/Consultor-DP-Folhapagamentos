@@ -364,7 +364,32 @@ service cloud.firestore {
                     && request.resource.data.eventos is list
                     && request.resource.data.eventos.size() <= 50
                     && request.resource.data.situacao in ['transmitindo', 'enviado', 'recusado']
-                    && (request.resource.data.situacao != 'transmitindo' || request.resource.data.protocolo == '');
+                    && (request.resource.data.situacao != 'transmitindo' || request.resource.data.protocolo == '')
+                    && !('origem' in request.resource.data);
+      // Fechamento (S-1299) ou reabertura (S-1298) transmitido FORA do Consultor (IOB/Folhamatic) e achado no
+      // eSocial pela conciliação (services/esocial/fechamentoGoverno.ts): um documento por recibo, id
+      // "governo-<nrRecibo>" (não duplica), só produção, já processado e aceito (201/202), sem protocolo. Não se
+      // altera nem se apaga depois (o update acima não aceita lote "processado").
+      allow create: if podeEmpresa(request.resource.data.empresaId)
+                    && request.resource.data.origem == 'governo'
+                    && request.resource.data.importadoPor == request.auth.uid
+                    && request.resource.data.importadoEm == request.time
+                    && request.resource.data.empresaId is string
+                    && request.resource.data.cnpj is string
+                    && request.resource.data.tpAmb == 1
+                    && request.resource.data.situacao == 'processado'
+                    && request.resource.data.protocolo == ''
+                    && request.resource.data.enviadoEm is timestamp
+                    && !('enviadoPor' in request.resource.data)
+                    && request.resource.data.eventos is list
+                    && request.resource.data.eventos.size() == 1
+                    && request.resource.data.eventos[0].tipo in ['S-1299', 'S-1298']
+                    && request.resource.data.eventos[0].perApur is string
+                    && request.resource.data.eventos[0].perApur.matches('^[0-9]{4}-(0[1-9]|1[0-2])$')
+                    && request.resource.data.eventos[0].cdResposta in [201, 202]
+                    && request.resource.data.eventos[0].nrRecibo is string
+                    && request.resource.data.eventos[0].nrRecibo.matches('^1[.][0-9][.][0-9]{19}$')
+                    && envioId == 'governo-' + request.resource.data.eventos[0].nrRecibo;
       // 1) Resposta do envio: só quem transmitiu, uma vez, sem tirar nem pôr eventos.
       // 2) Consulta: só completa o lote ainda sem resultado, sem tirar nem pôr eventos: o registro de uma entrega
       //    processada não muda (auditoria de 10/2026).

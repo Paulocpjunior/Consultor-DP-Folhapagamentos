@@ -71,11 +71,20 @@ const AnomaliasEsocial: React.FC<Props> = ({ empresa, envios, usuario, onMudou, 
         try { setMsg(await f()); } catch (e) { setErro(`${rotulo.replace(/…$/, '')}: ${(e as Error).message}`); } finally { setOcupado(''); }
     };
     const conciliarAgora = () => agir('Conciliando com o eSocial…', async () => {
-        const r = await conciliarComEsocial(empresa, empresa.competencia, envios);
+        const r = await conciliarComEsocial(empresa, empresa.competencia, envios, usuario);
         setConc(r.conciliacao); setPedidosHoje(r.pedidosHoje);
         const k = r.conciliacao;
-        return `Conciliado: ${k.confirmados} evento(s) do Consultor confirmados no eSocial, ${k.naoEncontrados.length} não encontrado(s), ${k.foraDoConsultor.length} de outro sistema.`;
+        const imp = r.importacao;
+        if (imp?.importados.length) onMudou();
+        return `Conciliado: ${k.confirmados} evento(s) do Consultor confirmados no eSocial, ${k.naoEncontrados.length} não encontrado(s), ${k.foraDoConsultor.length} de outro sistema.`
+            + (imp?.importados.length ? ` ${imp.importados.map(x => `${x.tipo} (recibo ${x.nrRecibo})`).join(', ')} transmitido(s) fora do Consultor: importado(s) do eSocial.` : '')
+            + (imp?.ignorados.length ? ` Não importado(s): ${imp.ignorados.map(x => `recibo ${x.nrRecibo} — ${x.motivo}`).join('; ')}.` : '')
+            + (imp?.erro ? ` (${imp.erro}.)` : '');
     });
+    // Fechamento e reabertura da competência transmitidos fora do Consultor, já importados do eSocial.
+    const importados = useMemo(() => envios.filter(e => e.origem === 'governo' && e.tpAmb === 1)
+        .flatMap(e => e.eventos.filter(ev => ev.perApur === empresa.competencia && (ev.tipo === 'S-1299' || ev.tipo === 'S-1298')).map(ev => ({ e, ev })))
+        .sort((a, b) => (a.e.enviadoEm ?? '').localeCompare(b.e.enviadoEm ?? '')), [envios, empresa.competencia]);
     const resolverSemResposta = () => agir('Gravando os recibos achados…', async () => {
         if (!usuario || !conc) throw new Error('entre com seu usuário e concilie de novo.');
         for (const x of conc.semRespostaAchados) await registrarVerificacao(x.envio, x.achados, usuario);
@@ -98,6 +107,13 @@ const AnomaliasEsocial: React.FC<Props> = ({ empresa, envios, usuario, onMudou, 
                 <button className={btn} disabled={!!ocupado || !usuario} onClick={conciliarAgora} title="Compara os S-1200, S-1210, S-1299 e S-1298 da competência no eSocial (produção) com os lotes do Consultor, pelos identificadores (sem baixar os XMLs).">Conciliar com o eSocial</button>
             </div>
             <p className="text-xs text-slate-500">Prazo dos periódicos desta competência: {prazoPeriodicos(empresa.competencia).split('-').reverse().join('/')} (antecipa para o dia útil anterior).{pedidosHoje !== null && ` Pedidos de download hoje nesta empresa: ${pedidosHoje}.`}</p>
+            {importados.map(({ e, ev }) => (
+                <p key={e.id} aria-label={`${ev.tipo} importado do eSocial`} className="rounded-lg border border-sky-200 bg-sky-50 p-2 text-sm text-sky-900 dark:border-sky-800 dark:bg-sky-900/20 dark:text-sky-100">
+                    🏛️ {ev.tipo === 'S-1299' ? 'Fechamento' : 'Reabertura'} ({ev.tipo}) de {empresa.competencia.split('-').reverse().join('/')} <strong>importado do eSocial</strong>: transmitido fora do Consultor (IOB/Folhamatic) · recibo {ev.nrRecibo}
+                    {e.enviadoEm && ` · ${e.dataFonte === 'id-do-evento' ? 'gerado em' : 'recebido no eSocial em'} ${new Date(e.enviadoEm).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' })}`}
+                    {e.importadoPorEmail && ` · importado por ${e.importadoPorEmail}`}
+                </p>
+            ))}
             {ocupado && <p className="text-sm text-slate-500">{ocupado}</p>}
             {erro && <p role="alert" className="rounded-lg bg-red-50 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
             {msg && <p role="status" className="rounded-lg bg-emerald-50 p-2 text-sm text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200">{msg}</p>}

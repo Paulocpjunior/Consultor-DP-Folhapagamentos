@@ -10,8 +10,12 @@
 // Saúde do eSocial (10/2026): o lote é registrado ANTES de sair ("transmitindo"). Se a resposta não volta
 // (rede, CFI ou governo fora do ar), ele fica "sem resposta" — nunca some — e não se reenvia às cegas:
 // confere-se no eSocial (download pelo Id) ou, passado o prazo, libera-se o reenvio ("não recebido").
+//
+// Fechamentos de fora (10/2026): o S-1299/S-1298 que o IOB/Folhamatic transmitiu, achado na conciliação, entra como
+// esocial_envios/governo-<nrRecibo> { origem: 'governo', situacao: 'processado', protocolo: '', importadoEm,
+// importadoPor, importadoPorEmail, dataFonte } — ver fechamentoGoverno.ts. Não é lote do Consultor.
 
-import { addDoc, collection, doc, getDocs, increment, orderBy, query, serverTimestamp, updateDoc, where, type Timestamp } from 'firebase/firestore';
+import { addDoc, collection, doc, getDocs, increment, orderBy, query, serverTimestamp, setDoc, Timestamp, updateDoc, where } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import type { Usuario } from '../cadastros/cadastrosService';
 import { aceito, type Certificado, type Ocorrencia, type RetornoConsulta, type RetornoEnvio, type TpAmb } from './transmissao';
@@ -34,25 +38,27 @@ export interface Envio {
     /** Resposta do envio gravada (sai de "transmitindo"). */ respondidoEm?: string | null;
     /** Falha do envio sem resposta do governo. */ erroEnvio?: string;
     verificadoEm?: string | null; verificadoPorEmail?: string;
+    /** 'governo': transmitido fora do Consultor e importado do eSocial (fechamentoGoverno.ts) — sem protocolo, nada a consultar. */
+    origem?: 'governo';
+    importadoEm?: string | null; importadoPorEmail?: string;
+    /** Data do enviadoEm do importado: a recepção no recibo do eSocial ou, sem o recibo, o Id do evento. */
+    dataFonte?: 'recibo' | 'id-do-evento';
 }
 
 const iso = (t: unknown) => (t as Timestamp | null)?.toDate?.()?.toISOString() ?? null;
+const ler = (id: string, x: Record<string, unknown>): Envio => ({ ...(x as unknown as Envio), id, enviadoEm: iso(x.enviadoEm), consultadoEm: iso(x.consultadoEm), respondidoEm: iso(x.respondidoEm), verificadoEm: iso(x.verificadoEm),
+    ...(x.importadoEm !== undefined ? { importadoEm: iso(x.importadoEm) } : {}) });
 
 export async function listarEnvios(empresaId: string): Promise<Envio[]> {
     const s = await getDocs(query(collection(db, COL), where('empresaId', '==', empresaId), orderBy('enviadoEm', 'desc')));
-    return s.docs.map(d => {
-        const x = d.data();
-        return { ...(x as Envio), id: d.id, enviadoEm: iso(x.enviadoEm), consultadoEm: iso(x.consultadoEm), respondidoEm: iso(x.respondidoEm), verificadoEm: iso(x.verificadoEm) };
-    });
+    return s.docs.map(d => ler(d.id, d.data()));
 }
 
 /** Lotes ainda sem resultado da empresa (para a consulta automática). */
 export async function listarPendentes(empresaId: string): Promise<Envio[]> {
     const s = await getDocs(query(collection(db, COL), where('empresaId', '==', empresaId), where('situacao', 'in', ['transmitindo', 'sem-resposta', 'enviado', 'em-processamento'])));
-    return s.docs.map(d => {
-        const x = d.data();
-        return { ...(x as Envio), id: d.id, enviadoEm: iso(x.enviadoEm), consultadoEm: iso(x.consultadoEm), respondidoEm: iso(x.respondidoEm), verificadoEm: iso(x.verificadoEm) };
-    });
+    // O importado do governo é sempre "processado" (não entra aqui); o filtro é só a garantia.
+    return s.docs.map(d => ler(d.id, d.data())).filter(e => e.origem !== 'governo');
 }
 
 /** 1º passo do envio: registra o lote antes de sair, com os eventos que vão nele. */
@@ -93,6 +99,17 @@ export async function registrarVerificacao(envio: Envio, achados: Record<string,
     const eventos = envio.eventos.map(e => (achados[e.id] ? { ...e, nrRecibo: achados[e.id], cdResposta: 201, descResposta: 'Confirmado no eSocial pelo download do evento.' } : e));
     const todos = eventos.every(e => !!e.nrRecibo);
     await updateDoc(doc(db, COL, envio.id), { eventos, ...(todos ? { situacao: 'processado' } : {}), verificadoEm: serverTimestamp(), verificadoPor: u.id, verificadoPorEmail: u.email });
+}
+
+/**
+ * Fechamento (S-1299/S-1298) transmitido fora do Consultor e achado no eSocial: um documento por recibo
+ * (governo-<nrRecibo>), já processado, com a data da recepção no governo. As regras só aceitam a criação.
+ */
+export async function registrarFechamentoDoGoverno(f: { docId: string; dados: Record<string, unknown>; enviadoEm: string }, u: Usuario): Promise<void> {
+    await setDoc(doc(db, COL, f.docId), {
+        ...f.dados, enviadoEm: Timestamp.fromDate(new Date(f.enviadoEm)),
+        importadoEm: serverTimestamp(), importadoPor: u.id, importadoPorEmail: u.email,
+    });
 }
 
 /** Sem resposta e não achado no eSocial depois do prazo: libera o reenvio. */

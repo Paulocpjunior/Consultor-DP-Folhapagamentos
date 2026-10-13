@@ -97,6 +97,25 @@ describe('calendário da empresa ativa', () => {
         expect(confirmar.mock.calls[0][0]).toMatch(/Lei 8.036\/1990/);
     });
 
+    it('baixa do FGTS: mostra o motivo real do servidor e, sem a consulta no SERPRO, pede o comprovante', async () => {
+        st.listar.mockResolvedValue(new Map());
+        gu.fgts.mockResolvedValueOnce({ ok: false, regular: false, depositoDevido: 0, depositoRealizado: 0, situacao: 'nao_oferecido_serpro', erro: 'O SERPRO (Integra Contador) não oferece esta consulta.' });
+        render(<CalendarioEmpresa {...props} empresa={{ ...props.empresa, cnpj: '11.222.333/0001-81' }} />);
+        fireEvent.click(await screen.findByRole('button', { name: 'Dar baixa: FGTS Digital: guia mensal' }));
+        const grupo = screen.getByRole('group', { name: 'Baixa de FGTS Digital: guia mensal' });
+        fireEvent.change(screen.getByLabelText('Valor pago'), { target: { value: '10,00' } });
+        fireEvent.click(within(grupo).getByText('Conferir no FGTS Digital'));
+        await waitFor(() => expect(screen.getByRole('status').textContent).toContain('O SERPRO (Integra Contador) não oferece esta consulta.'));
+        expect(screen.getByRole('status').textContent).toContain('comprovante da guia');
+        expect(screen.queryByText(/O FGTS Digital não respondeu/)).toBeNull();
+        expect(screen.queryByRole('alert')).toBeNull();
+        expect((screen.getByLabelText('Valor pago') as HTMLInputElement).value).toBe('10,00'); // nada preenchido como consultado
+
+        gu.fgts.mockResolvedValueOnce({ ok: false, regular: false, depositoDevido: 0, depositoRealizado: 0, situacao: 'indisponivel', erro: 'certificado do escritório vencido' });
+        fireEvent.click(within(grupo).getByText('Conferir no FGTS Digital'));
+        await waitFor(() => expect(screen.getByRole('alert').textContent).toBe('Consulta do FGTS Digital não feita: certificado do escritório vencido'));
+    });
+
     it('baixa do DARF: data e valor pagos pela Receita (PAGTOWEB), pelo número do documento', async () => {
         const guiaDarf = { obrigacao: 'darf-2026-09', competencia: '2026-09', nome: 'DARF', vencimento: '2026-10-20', valorDevido: 100000, numeroDocumento: '07.20.26252.7312345-6', pagamento: null };
         gu.listar.mockResolvedValue(new Map([['darf-2026-09', guiaDarf]]));
