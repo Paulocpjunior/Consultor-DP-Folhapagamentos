@@ -40,6 +40,11 @@ Ponto de partida da próxima sessão. Atualizado em **13/10/2026**. O detalhe de
   - Observação para depois: o ideal é uma conta própria só com o necessário. Isso é decisão do Paulo e não bloqueia nada.
 - **P-e:** `graph-client-secret` já existe e a conta da plataforma lê. Falta só confirmar o tenant e o client id (configuração, não segredo).
 - **Revisão visual das telas:** PR #242.
+- **E-mail pela plataforma (P3, parte 2):**
+  - sp-plataforma PR #6 publicado;
+  - variáveis do Graph na plataforma: `GRAPH_SECRET=graph-notificacoes-secret`, client id, tenant, remetente e `DP_EMAIL_BCC`;
+  - o DP passou a usar `VITE_SERVICO_EMAIL_URL` (criada pelo Paulo em 13/10);
+  - falta o envio de teste do Paulo para ele mesmo. Para voltar ao CFI: apagar a variável e publicar de novo.
 
 ## Depende do Paulo
 
@@ -53,7 +58,6 @@ Ponto de partida da próxima sessão. Atualizado em **13/10/2026**. O detalhe de
 
 ## Liberado para mim
 
-- **P3, parte 2 (e-mail pela plataforma):** o segredo do Graph já está acessível.
 - **P4 (rotas de governo):** a P-f já está resolvida. Pode ser portada agora, mas o DP só troca de endereço depois do dia 15.
 
 ## Regras combinadas hoje
