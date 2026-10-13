@@ -5423,3 +5423,34 @@ Paulo: *"podemos fazer o P2 usando o terminal do meu mac"* (12/10).
   - testes em `testes-regras/envios.test.mjs`.
 - **Prazos, baixa do FGTS (`valorPagoNoFgts`):** passa a mostrar o motivo que o servidor devolve (`erro`). Com `situacao` 'nao_oferecido_serpro', avisa que a baixa do FGTS é feita com o comprovante da guia, informado à mão, sem preencher nada como consultado.
 - **Testes:** `fechamentoGoverno.test.ts` (novo), casos novos em `saudeEsocialTela.test.tsx`, `calendarioEmpresa.test.tsx` e `pagamentoGuias.test.ts`.
+
+## 13/10/2026 — Vigia importa sozinho o S-1299/S-1298 de fora e a anomalia de fechamento vê a reabertura
+
+- **Paulo aprovou os 3 pontos do PR #245.**
+- **1. Data quando o download falha:** fica como está. O registro usa a data de geração do Id do evento, com `dataFonte` 'id-do-evento'.
+- **2. Importação automática (`services/esocial/vigiaFechamento.ts`):**
+  - **Onde roda:** o vigia da Saúde do eSocial (`useVigiaEsocial`), no navegador de cada colaborador logado, na empresa ativa, a cada 20 s com a aba visível.
+  - **O que faz:** importa sozinho os fechamentos do governo da competência aberta e da anterior.
+  - **Marca no Firestore** para não gerar tempestade de consultas: `esocial_vigia_fechamento/{empresaId}_{AAAA-MM}` { dia (Brasília), estado, tentativas, tentativaEm, por }.
+    - A marca é tomada numa transação antes de qualquer consulta: com duas abas ou dois usuários, só um consulta.
+    - 'feito': ninguém consulta de novo no dia.
+    - 'falhou' (identificadores, download ou gravação): nova tentativa depois de 1 h, até 3 por dia. A falha não marca como feito.
+    - 'rodando' há mais de 10 min (aba fechada no meio): outra aba pode assumir.
+    - Cada aba relê a marca no máximo a cada 15 min.
+  - **Custo por competência:** 2 consultas de identificadores (S-1299 e S-1298, `tpAmb` 1). O download só acontece quando há fechamento novo, com a mesma idempotência do clique.
+  - **Cota:** quando o CFI informa que o empregador já tem 10 pedidos de download no dia (`RESERVA_PEDIDOS_DIA`), o automático para sem gravar ('cota') e só volta no dia seguinte.
+  - **Só produção:** a homologação não importa nem consulta.
+  - **O clique "Conciliar com o eSocial"** continua igual.
+  - **Regra:** `esocial_vigia_fechamento`:
+    - get para a empresa da carteira, mesmo antes de o documento existir;
+    - tomar a marca só em dia novo, depois de falha ou com 'rodando' abandonado, com a hora do servidor e as tentativas +1;
+    - concluir só quem tomou, sem mexer no dia, nas tentativas nem na hora;
+    - sem apagar;
+    - testes em `testes-regras/vigiaFechamento.test.mjs`, inclusive duas transações ao mesmo tempo.
+- **3. Anomalia de fechamento:** `estadoDoFechamento` (`preVoo.ts`) usa a régua do servidor.
+  - Um S-1298 depois do último S-1299 aceito, aceito ou ainda sem resposta (fora de lote recusado), dá "Fechamento de MM/AAAA reaberto (S-1298): falta novo S-1299": atenção antes do prazo, crítico depois.
+  - Um S-1299 depois do S-1298 volta a fechar.
+  - Sem S-1299 aceito, a anomalia continua "sem S-1299 aceito" depois do prazo.
+- **Testes:**
+  - `vigiaFechamento.test.ts` (novo): duas abas/dois usuários, homologação, falha de download e de consulta, cota, aba que fechou no meio;
+  - caso novo em `anomalias.test.ts` com os três estados e o importado do governo.

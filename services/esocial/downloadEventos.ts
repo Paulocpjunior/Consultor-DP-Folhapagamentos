@@ -18,6 +18,8 @@ export type TipoConsulta = 'empregador' | 'tabela' | 'trabalhador';
 export interface PedidoIdentificadores {
     cnpj: string; tipo: TipoConsulta; tpEvt?: string; perApur?: string; cpfTrab?: string; dtIni?: string; dtFim?: string; chEvt?: string;
     certificado?: 'escritorio' | 'empresa';
+    /** Ambiente (o CFI usa produção sem ele). */
+    tpAmb?: 1 | 2;
 }
 export interface Identificador { id: string; nrRec: string }
 export interface RetornoIdentificadores {

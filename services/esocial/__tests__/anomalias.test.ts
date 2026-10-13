@@ -42,6 +42,30 @@ describe('anomalias', () => {
         expect(a).toEqual([expect.objectContaining({ id: 'sem-fechamento-2026-08', gravidade: 'critico', acao: 'fechamento' })]);
         expect(anomaliasDaEmpresa({ competencia: '2026-10', hoje: '2026-09-16', envios: [...envios, env({ id: 'F', eventos: [ok('ID5', 'S-1299', '2026-08')] })], folhaGravada: [] })).toEqual([]);
     });
+    it('fechamento com a régua do servidor: sem S-1299, reaberto pelo S-1298 e fechado de novo', () => {
+        const folha = env({ id: 'A', eventos: [ok('ID1', 'S-1200', '2026-08', '52998224725')] });
+        const s1299 = (id: string, em: string, extra: Partial<Envio> = {}) => env({ id, enviadoEm: em, eventos: [ok(id, 'S-1299', '2026-08', undefined, `1.1.000000000000000${id.slice(-4)}`)], ...extra });
+        const s1298 = (id: string, em: string, extra: Partial<Envio> = {}, ev: Partial<EventoEnviado> = {}) => env({ id, enviadoEm: em, eventos: [{ ...ok(id, 'S-1298', '2026-08', undefined, `1.1.000000000000000${id.slice(-4)}`), ...ev }], ...extra });
+        const ids = (envios: Envio[], hoje = '2026-09-20') => anomaliasDaEmpresa({ competencia: '2026-10', hoje, envios, folhaGravada: [] }).map(a => `${a.id}:${a.gravidade}`);
+        // 1) Sem S-1299 aceito depois do prazo.
+        expect(ids([folha])).toEqual(['sem-fechamento-2026-08:critico']);
+        // 2) S-1299 aceito e depois um S-1298 (aceito ou ainda sem resposta): reaberta, falta novo S-1299.
+        const fechou = s1299('F0001', '2026-09-10T10:00:00.000Z');
+        const reabriu = s1298('R0002', '2026-09-12T10:00:00.000Z');
+        expect(ids([folha, fechou, reabriu])).toEqual(['fechamento-reaberto-2026-08:critico']);
+        expect(ids([folha, fechou, reabriu], '2026-09-13')).toEqual(['fechamento-reaberto-2026-08:atencao']); // antes do prazo
+        const a = anomaliasDaEmpresa({ competencia: '2026-10', hoje: '2026-09-20', envios: [folha, fechou, reabriu], folhaGravada: [] })[0];
+        expect(a).toMatchObject({ acao: 'fechamento', titulo: 'Fechamento de 08/2026 reaberto (S-1298): falta novo S-1299' });
+        expect(a.detalhe).toContain('recibo 1.1.0000000000000000001');
+        expect(ids([folha, fechou, s1298('R0003', '2026-09-12T10:00:00.000Z', { situacao: 'enviado' }, { cdResposta: null, nrRecibo: undefined })])).toEqual(['fechamento-reaberto-2026-08:critico']);
+        // S-1298 recusado não reabre; S-1298 anterior ao S-1299 também não.
+        expect(ids([folha, fechou, s1298('R0004', '2026-09-12T10:00:00.000Z', {}, { cdResposta: 401, nrRecibo: undefined })])).toEqual([]);
+        expect(ids([folha, s1298('R0005', '2026-09-01T10:00:00.000Z'), fechou])).toEqual([]);
+        // 3) S-1299 de novo depois do S-1298: fechada.
+        expect(ids([folha, fechou, reabriu, s1299('F0006', '2026-09-14T10:00:00.000Z')])).toEqual([]);
+        // O importado do governo (origem 'governo') conta igual.
+        expect(ids([folha, fechou, s1298('R0007', '2026-09-12T10:00:00.000Z', { origem: 'governo', protocolo: '' })])).toEqual(['fechamento-reaberto-2026-08:critico']);
+    });
     it('recusa repetida, certificado e conciliação', () => {
         const rec = (id: string) => env({ id, situacao: 'processado', eventos: [{ ...pend(id, 'S-1210', '2026-09', '1'), cdResposta: 401, descResposta: 'erro', ocorrencias: [{ tipo: 1, codigo: '1801', descricao: 'Demonstrativo não encontrado', localizacao: '' }] }] });
         const envios = [rec('R1'), rec('R2')];
