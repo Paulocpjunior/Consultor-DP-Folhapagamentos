@@ -79,12 +79,12 @@ const PainelFgts: React.FC = () => {
         const r: MesFgts[] = [];
         try {
             setOcupado('Consultando o CRF do FGTS…');
-            setCrf(await consultarCrfFgts(cnpj).catch(() => null));
+            setCrf(await consultarCrfFgts(ativa!.id, cnpj).catch(() => null));
             for (const [i, c] of competencias.entries()) {
                 setOcupado(`Consultando o recolhimento de ${mes(c)} no SERPRO (${i + 1} de ${competencias.length})…`);
                 const folha = fgtsFolha.has(c) ? fgtsFolha.get(c)! : null;
                 try {
-                    const x = await consultarFgtsRecolhimento(cnpj, c);
+                    const x = await consultarFgtsRecolhimento(ativa!.id, cnpj, c);
                     if (!x.ok) { r.push({ competencia: c, vencimento: vencimentoFgts(c), devido: null, realizado: null, folha, situacao: 'sem_consulta', erro: x.erro || x.situacao || 'sem resposta' }); continue; }
                     const devido = Math.round((x.depositoDevido || 0) * 100); const realizado = Math.round((x.depositoRealizado || 0) * 100);
                     r.push({ competencia: c, vencimento: vencimentoFgts(c), devido, realizado, folha, situacao: situacaoDoMes(c, devido, realizado, folha, hoje) });

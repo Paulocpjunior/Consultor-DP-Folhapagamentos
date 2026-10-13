@@ -64,7 +64,7 @@ const DctfwebFolhaPanel: React.FC<{ usuario?: Usuario }> = ({ usuario }) => {
     async function consultar() {
         const meu = ++pedido.current;
         setOcupado('Consultando a DCTFWeb no SERPRO…'); setErro(''); setFeito('');
-        const [s, i, d] = await Promise.allSettled([consultarDctfWebStatus(cnpj, comp), consultarInsumosDctfweb(ativa!.id, cnpj, comp), consultarDctfWebDebitos(cnpj, comp)]);
+        const [s, i, d] = await Promise.allSettled([consultarDctfWebStatus(ativa!.id, cnpj, comp), consultarInsumosDctfweb(ativa!.id, cnpj, comp), consultarDctfWebDebitos(ativa!.id, cnpj, comp)]);
         if (meu !== pedido.current) return;
         const situacao: SituacaoDeclaracao = s.status === 'fulfilled'
             ? { ok: !!s.value.ok, entregue: !!s.value.ok && !!s.value.entregue, situacao: s.value.situacao || 'INDETERMINADA', dataEntrega: s.value.dataEntrega ?? null, erro: s.value.ok ? undefined : s.value.erro }
