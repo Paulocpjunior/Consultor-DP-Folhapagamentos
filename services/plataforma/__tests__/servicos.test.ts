@@ -122,11 +122,21 @@ describe('chamadas', () => {
         expect(f.mock.calls[0][0]).toBe(`${HOST_CFI_INTEGRACAO}/api/dp-integration/assistente/mia`);
     });
     it('testarAlcance: responde ou não, sem token', async () => {
-        const ok = vi.fn(async () => new Response(null, { status: 200 }));
+        const ok = vi.fn(async () => new Response(null, { status: 404 }));
         expect(await testarAlcance('https://p.com.br', ok as unknown as typeof fetch)).toMatchObject({ ok: true });
-        expect(ok).toHaveBeenCalledWith('https://p.com.br', expect.objectContaining({ mode: 'no-cors', method: 'GET' }));
+        expect(ok).toHaveBeenCalledTimes(1);
+        expect(ok).toHaveBeenCalledWith('https://p.com.br', expect.objectContaining({ mode: 'cors', method: 'GET' }));
         expect((ok.mock.calls[0] as unknown[])[1]).not.toHaveProperty('headers');
         const falha = vi.fn(async () => { throw new TypeError('Failed to fetch'); });
         expect(await testarAlcance('https://p.com.br', falha as unknown as typeof fetch)).toMatchObject({ ok: false, erro: 'Failed to fetch' });
+        expect(falha).toHaveBeenCalledTimes(2);
+    });
+    it('testarAlcance: sem CORS para o DP, o GET opaco ainda prova que o servidor responde', async () => {
+        const f = vi.fn(async (_url: string, init?: RequestInit) => {
+            if (init?.mode === 'cors') throw new TypeError('Load failed');
+            return new Response(null, { status: 200 });
+        });
+        expect(await testarAlcance('https://p.com.br', f as unknown as typeof fetch)).toMatchObject({ ok: true });
+        expect(f.mock.calls.map(c => (c[1] as RequestInit).mode)).toEqual(['cors', 'no-cors']);
     });
 });

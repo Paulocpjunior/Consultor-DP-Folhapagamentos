@@ -241,15 +241,23 @@ export async function postarNoServico<T>(servico: Servico, caminho: string, corp
 }
 
 /**
- * O endereço responde? Sem token e sem efeito: GET opaco (no-cors) só diz se há servidor do outro lado.
- * Para a tela de Serviços externos, não substitui a primeira chamada de verdade.
+ * O endereço responde? Sem token e sem efeito: qualquer resposta HTTP (até 404) prova que há servidor do outro lado.
+ * Primeiro um GET com CORS: o CFI manda Cross-Origin-Resource-Policy same-origin (helmet), e com ele o navegador derruba
+ * o GET opaco (no-cors) como se o servidor não existisse ("Load failed" no Safari). O GET opaco fica de reserva para
+ * endereço que não libera CORS para o DP. Para a tela de Serviços externos, não substitui a primeira chamada de verdade.
  */
 export async function testarAlcance(url: string, fetchImpl: typeof fetch = fetch, limiteMs = 10_000): Promise<{ ok: boolean; ms: number; erro?: string }> {
     const inicio = Date.now();
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), limiteMs);
+    const tentar = (mode: RequestMode) => fetchImpl(url, { method: 'GET', mode, cache: 'no-store', signal: ctrl.signal });
     try {
-        await fetchImpl(url, { method: 'GET', mode: 'no-cors', cache: 'no-store', signal: ctrl.signal });
+        try {
+            await tentar('cors');
+        } catch (e) {
+            if (ctrl.signal.aborted) throw e;
+            await tentar('no-cors');
+        }
         return { ok: true, ms: Date.now() - inicio };
     } catch (e) {
         return { ok: false, ms: Date.now() - inicio, erro: ctrl.signal.aborted ? `sem resposta em ${Math.round(limiteMs / 1000)} s` : (e as Error).message || 'sem conexão' };
