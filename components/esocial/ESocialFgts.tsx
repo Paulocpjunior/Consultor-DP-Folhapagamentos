@@ -109,8 +109,8 @@ const ESocialFgts: React.FC = () => {
         try {
             const cnpj = empresa.cnpj.replace(/\D/g, '');
             const [recolhimento, crf] = await Promise.all([
-                consultarFgtsRecolhimento(cnpj, serproCompetencia),
-                consultarCrfFgts(cnpj),
+                consultarFgtsRecolhimento(empresa.id, cnpj, serproCompetencia),
+                consultarCrfFgts(empresa.id, cnpj),
             ]);
             setSerproResult({ empresa, recolhimento, crf });
         } catch (err: any) {

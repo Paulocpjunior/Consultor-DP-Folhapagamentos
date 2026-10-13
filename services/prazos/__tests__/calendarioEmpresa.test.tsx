@@ -86,7 +86,7 @@ describe('calendário da empresa ativa', () => {
         const grupo = screen.getByRole('group', { name: 'Baixa de FGTS Digital: guia mensal' });
         fireEvent.click(within(grupo).getByText('Conferir no FGTS Digital'));
         await waitFor(() => expect((screen.getByLabelText('Valor pago') as HTMLInputElement).value).toBe('1234,56'));
-        expect(gu.fgts).toHaveBeenCalledWith('44388152000189', '2026-09');
+        expect(gu.fgts).toHaveBeenCalledWith('E1', '44388152000189', '2026-09');
         fireEvent.change(screen.getByLabelText('Data do pagamento'), { target: { value: '2026-10-21' } });
         fireEvent.change(screen.getByLabelText('Autenticação'), { target: { value: 'ABC123' } });
         expect(screen.getByText(/Pago 1 dia\(s\) depois do vencimento \(20\/10\/2026\)/)).toBeTruthy();

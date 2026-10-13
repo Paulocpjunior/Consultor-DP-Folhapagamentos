@@ -13,7 +13,7 @@ import { baixarBytes } from '../../services/implantacao/zip';
 import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
 import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
 import type { Empresa } from '../../services/empresas/empresasTypes';
-import { cnpjParaSerpro, consultarSerproConferencia, type ConsultaSerpro } from '../../services/conferencia/serproConferencia';
+import { clienteDaEmpresa, cnpjParaSerpro, consultarSerproConferencia, empresaIdParaSerpro, type ConsultaSerpro } from '../../services/conferencia/serproConferencia';
 import { extrairFuncionarios, lerPlanilhaResumo, ROTULO_CAMPO, type CampoResumo, type Mapeamento, type PlanilhaResumo } from '../../services/conferencia/resumoFolhaIob';
 import { consultarDctfWebDebitos, consultarDctfWebStatus, consultarESocialFechamento, consultarFgtsRecolhimento } from '../../services/serpro/serproIntegrationService';
 
@@ -61,6 +61,8 @@ const ConferenciaPosFolhaPanel: React.FC = () => {
     const fgtsValor = lerValorDigitado(fgts);
     const serproGrupo = grupo ? serpro[grupo.chave] ?? null : null;
     const cnpjSerpro = grupo ? cnpjParaSerpro(grupo, empresas) : null;
+    // A empresa do DP dona do CNPJ vai junto (a plataforma confere a carteira): sem ela, a consulta não sai.
+    const empresaIdSerpro = empresaIdParaSerpro(cnpjSerpro, empresas, ativa);
     const funcionariosIob = useMemo(() => (resumo ? extrairFuncionarios(resumo.planilha, resumo.mapa) : null), [resumo]);
     const resultado = useMemo(
         () => (grupo ? conferirPosFolha(grupo, { dctfwebInformado: dctfValor, fgtsDigitalInformado: fgtsValor, serpro: serproGrupo, resumoIob: resumo && funcionariosIob ? { arquivo: resumo.planilha.arquivo, funcionarios: funcionariosIob } : null }) : null),
@@ -68,10 +70,10 @@ const ConferenciaPosFolhaPanel: React.FC = () => {
     );
 
     async function consultarSerpro() {
-        if (!grupo || !cnpjSerpro) return;
+        if (!grupo || !cnpjSerpro || !empresaIdSerpro) return;
         setConsultando(true); setSerproErro('');
         try {
-            const r = await consultarSerproConferencia({ consultarFgtsRecolhimento, consultarESocialFechamento, consultarDctfWebStatus, consultarDctfWebDebitos }, cnpjSerpro, grupo.perApur);
+            const r = await consultarSerproConferencia(clienteDaEmpresa(empresaIdSerpro, { consultarFgtsRecolhimento, consultarESocialFechamento, consultarDctfWebStatus, consultarDctfWebDebitos }), cnpjSerpro, grupo.perApur);
             setSerpro(prev => ({ ...prev, [grupo.chave]: r }));
         } catch (e) {
             setSerproErro((e as Error).message);
@@ -196,11 +198,12 @@ const ConferenciaPosFolhaPanel: React.FC = () => {
                                 <h4 className="text-sm font-semibold text-slate-800 dark:text-white">SERPRO</h4>
                                 <p className="text-xs text-slate-500 dark:text-slate-400">
                                     {grupo.indApuracao === '2' ? 'A consulta ao SERPRO vale só para a folha mensal.'
-                                        : cnpjSerpro ? `Fechamento do eSocial, DCTFWeb e FGTS Digital do CNPJ ${cnpjSerpro.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')}, pelo Consultor Fiscal.`
-                                        : 'CNPJ completo não encontrado no cadastro de empresas nem nos totalizadores.'}
+                                        : !cnpjSerpro ? 'CNPJ completo não encontrado no cadastro de empresas nem nos totalizadores.'
+                                        : !empresaIdSerpro ? 'Esta empresa não está entre as suas empresas no Consultor DP: a consulta ao SERPRO é só de empresa da sua carteira.'
+                                        : `Fechamento do eSocial, DCTFWeb e FGTS Digital do CNPJ ${cnpjSerpro.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')}, pelo Consultor Fiscal.`}
                                 </p>
                             </div>
-                            <button className={botaoSec} disabled={consultando || !cnpjSerpro || grupo.indApuracao === '2'} onClick={() => void consultarSerpro()}>
+                            <button className={botaoSec} disabled={consultando || !cnpjSerpro || !empresaIdSerpro || grupo.indApuracao === '2'} onClick={() => void consultarSerpro()}>
                                 {consultando ? 'Consultando…' : serproGrupo ? 'Consultar de novo' : 'Consultar SERPRO'}
                             </button>
                         </div>

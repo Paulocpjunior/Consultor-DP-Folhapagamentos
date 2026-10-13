@@ -51,6 +51,19 @@ export interface ClienteSerpro {
     consultarDctfWebDebitos(cnpj: string, competencia: string): Promise<{ ok: boolean; fonte?: string | null; debitos: { codReceita: string; descricao: string; valor: number }[]; erro?: string }>;
 }
 
+/** As mesmas funções com a empresa do DP na frente (o túnel leva o `empresaId` para a plataforma conferir a carteira). */
+export type ApiSerproDaEmpresa = { [K in keyof ClienteSerpro]: (empresaId: string, ...args: Parameters<ClienteSerpro[K]>) => ReturnType<ClienteSerpro[K]> };
+
+/** Cliente da conferência preso a UMA empresa do DP: toda consulta leva o mesmo `empresaId`. */
+export function clienteDaEmpresa(empresaId: string, api: ApiSerproDaEmpresa): ClienteSerpro {
+    return {
+        consultarFgtsRecolhimento: (cnpj, competencia) => api.consultarFgtsRecolhimento(empresaId, cnpj, competencia),
+        consultarESocialFechamento: (cnpj, competencia) => api.consultarESocialFechamento(empresaId, cnpj, competencia),
+        consultarDctfWebStatus: (cnpj, competencia) => api.consultarDctfWebStatus(empresaId, cnpj, competencia),
+        consultarDctfWebDebitos: (cnpj, competencia) => api.consultarDctfWebDebitos(empresaId, cnpj, competencia),
+    };
+}
+
 const semPonto = (t: string) => t.trim().replace(/\.+$/, '');
 const msg = (e: unknown) => semPonto((e instanceof Error ? e.message : String(e)) || 'erro desconhecido');
 const paraCentavos = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? Math.round(v * 100) : 0);
@@ -113,4 +126,21 @@ export function cnpjParaSerpro(g: GrupoApuracao, empresas: Empresa[] | null): st
         ...g.s5003.flatMap(t => t.itens.map(i => i.estab)),
     ].map(digitos).filter(c => c.length === 14 && c.startsWith(raiz));
     return dosArquivos.find(c => c.slice(8, 12) === '0001') ?? dosArquivos[0] ?? null;
+}
+
+/**
+ * Empresa do DP dona do CNPJ consultado (mesma raiz): a do cadastro visível ao usuário com o próprio CNPJ, senão a
+ * matriz/primeira da mesma raiz, senão a empresa ativa se for da mesma raiz. Sem nenhuma: null, e a consulta não sai
+ * (a plataforma recusa consulta sem a empresa da carteira).
+ */
+export function empresaIdParaSerpro(cnpj: string | null, empresas: Empresa[] | null, ativa?: { id: string; cnpj: string } | null): string | null {
+    const alvo = digitos(cnpj ?? '');
+    if (alvo.length !== 14) return null;
+    const raiz = alvo.slice(0, 8);
+    const daRaiz = (empresas ?? []).filter(e => digitos(e.cnpj).length === 14 && digitos(e.cnpj).startsWith(raiz));
+    const exata = daRaiz.find(e => digitos(e.cnpj) === alvo);
+    const matriz = daRaiz.find(e => digitos(e.cnpj).slice(8, 12) === '0001');
+    const escolhida = exata ?? matriz ?? daRaiz[0];
+    if (escolhida) return escolhida.id;
+    return ativa && digitos(ativa.cnpj).slice(0, 8) === raiz ? ativa.id : null;
 }
