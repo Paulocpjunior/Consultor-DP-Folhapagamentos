@@ -12,7 +12,7 @@
 
 import { aceito, type TpAmb } from './transmissao';
 import { SITUACOES_PENDENTES, type Envio, type EventoEnviado } from './transmissaoService';
-import { chaveDoEvento } from './preVoo';
+import { chaveDoEvento, estadoDoFechamento } from './preVoo';
 
 export const EVENTOS_CONCILIADOS = ['S-1200', 'S-1210', 'S-1299', 'S-1298'] as const;
 export interface Identificador { id: string; nrRec: string }
@@ -100,12 +100,23 @@ export function anomaliasDaEmpresa(c: ContextoAnomalias): Anomalia[] {
         }
     }
 
-    // Competência anterior sem fechamento (S-1299) depois do prazo.
-    for (const per of [...new Set(eventosProd.filter(x => x.ev.tipo === 'S-1200' && x.ev.perApur && /^\d{4}-\d{2}$/.test(x.ev.perApur) && aceitoNo(x.env, x.ev)).map(x => x.ev.perApur!))]) {
-        if (c.hoje <= prazoPeriodicos(per)) continue;
-        const fechou = eventosProd.some(x => x.ev.tipo === 'S-1299' && x.ev.perApur === per && aceitoNo(x.env, x.ev))
-            || (c.conciliacao?.perApur === per && c.conciliacao.foraDoConsultor.some(x => x.tipo === 'S-1299'));
-        if (!fechou) out.push({ id: `sem-fechamento-${per}`, gravidade: 'critico', acao: 'fechamento', titulo: `Competência ${compBr(per)} sem S-1299 aceito`, detalhe: `O prazo dos periódicos venceu em ${prazoPeriodicos(per).split('-').reverse().join('/')}. Se o fechamento foi pelo IOB, concilie; senão, transmita o S-1299 (o DCTFWeb depende dele).` });
+    // Fechamento (S-1299) com a régua do servidor e do pré-voo: um S-1298 depois do último S-1299 aceito reabre a
+    // competência (falta um novo S-1299); um S-1299 depois do S-1298 fecha de novo.
+    const mensal = (p?: string | null): p is string => !!p && /^\d{4}-\d{2}$/.test(p);
+    const comFolha = new Set(eventosProd.filter(x => x.ev.tipo === 'S-1200' && mensal(x.ev.perApur) && aceitoNo(x.env, x.ev)).map(x => x.ev.perApur!));
+    const comFechamento = new Set(eventosProd.filter(x => (x.ev.tipo === 'S-1299' || x.ev.tipo === 'S-1298') && mensal(x.ev.perApur)).map(x => x.ev.perApur!));
+    for (const per of [...new Set([...comFolha, ...comFechamento])].sort()) {
+        const f = estadoDoFechamento(per, prod, 1);
+        const venceu = c.hoje > prazoPeriodicos(per);
+        const prazo = prazoPeriodicos(per).split('-').reverse().join('/');
+        if (f.estado === 'reaberta') {
+            out.push({ id: `fechamento-reaberto-${per}`, gravidade: venceu ? 'critico' : 'atencao', acao: 'fechamento', titulo: `Fechamento de ${compBr(per)} reaberto (S-1298): falta novo S-1299`,
+                detalhe: `O S-1299${f.recibo ? ` (recibo ${f.recibo})` : ''} foi reaberto por um S-1298 depois dele${f.reabertura ? ` (recibo ${f.reabertura})` : ''}. Transmita o S-1299 de novo depois das correções: sem ele a DCTFWeb não fecha.${venceu ? ` O prazo dos periódicos venceu em ${prazo}.` : ''}` });
+            continue;
+        }
+        if (f.estado === 'fechada' || !comFolha.has(per) || !venceu) continue;
+        const foraDoConsultor = c.conciliacao?.perApur === per && c.conciliacao.foraDoConsultor.some(x => x.tipo === 'S-1299');
+        if (!foraDoConsultor) out.push({ id: `sem-fechamento-${per}`, gravidade: 'critico', acao: 'fechamento', titulo: `Competência ${compBr(per)} sem S-1299 aceito`, detalhe: `O prazo dos periódicos venceu em ${prazo}. Se o fechamento foi pelo IOB, concilie; senão, transmita o S-1299 (o DCTFWeb depende dele).` });
     }
 
     // A mesma recusa repetida (mesmo evento do trabalhador recusado duas vezes ou mais em 30 dias).

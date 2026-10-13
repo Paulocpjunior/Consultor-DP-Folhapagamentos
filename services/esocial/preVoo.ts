@@ -56,6 +56,29 @@ export function competenciaFechada(perApur: string, historico: Envio[], tpAmb: T
     return marcos[0]?.ev.tipo === 'S-1299' ? { fechada: true, recibo: marcos[0].ev.nrRecibo ?? '' } : { fechada: false, recibo: '' };
 }
 
+/**
+ * Fechamento da competência com a régua do servidor (dp-fechamento-esocial.js, o selo do eSocial na DCTFWeb):
+ * S-1299 e S-1298 do perApur no ambiente, em ordem de envio (sem data conta como o mais recente). Fechada: há um
+ * S-1299 aceito (lote processado, 201/202 com recibo). Reaberta: depois do último S-1299 aceito veio um S-1298
+ * que não foi recusado (aceito, ou ainda sem resposta num lote que pode ter chegado). Sem S-1299 aceito: sem-s1299.
+ */
+export type EstadoFechamento = { estado: 'sem-s1299' } | { estado: 'fechada'; recibo: string } | { estado: 'reaberta'; recibo: string; reabertura: string };
+export function estadoDoFechamento(perApur: string, historico: Envio[], tpAmb: TpAmb = 1): EstadoFechamento {
+    const evs = historico.filter(e => e.tpAmb === tpAmb).flatMap(env => env.eventos.map((ev, i) => ({ env, ev, i })))
+        .filter(x => x.ev.perApur === perApur && (x.ev.tipo === 'S-1299' || x.ev.tipo === 'S-1298'))
+        .map(x => ({ ...x, t: x.env.enviadoEm ? Date.parse(x.env.enviadoEm) : Infinity }))
+        .map(x => ({ ...x, t: Number.isFinite(x.t) ? x.t : Infinity }))
+        .sort((a, b) => (a.t === b.t ? a.i - b.i : a.t < b.t ? -1 : 1));
+    let ultimo = -1;
+    evs.forEach((x, k) => { if (x.ev.tipo === 'S-1299' && aceitoNo(x.env, x.ev)) ultimo = k; });
+    if (ultimo < 0) return { estado: 'sem-s1299' };
+    const recibo = evs[ultimo].ev.nrRecibo ?? '';
+    const semResposta = (ev: EventoEnviado) => ev.cdResposta === undefined || ev.cdResposta === null;
+    const reabriu = evs.slice(ultimo + 1).find(x => x.ev.tipo === 'S-1298' && !['recusado', 'nao-recebido'].includes(x.env.situacao)
+        && (semResposta(x.ev) || aceito({ cdResposta: x.ev.cdResposta ?? null, nrRecibo: x.ev.nrRecibo ?? '' })));
+    return reabriu ? { estado: 'reaberta', recibo, reabertura: reabriu.ev.nrRecibo ?? '' } : { estado: 'fechada', recibo };
+}
+
 /** Regras de ordem e duplicidade do lote (sem o XSD). */
 export function regrasDoLote(eventos: EventoLote[], historico: Envio[], tpAmb: TpAmb): Achado[] {
     const out: Achado[] = [];

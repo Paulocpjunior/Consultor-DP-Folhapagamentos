@@ -229,7 +229,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
 
     // Saúde do eSocial: consulta sozinho os protocolos da empresa ativa; lote parado ou sem resposta vira alerta no menu.
     const usuarioVigia = useMemo(() => (uidAtual && currentUser?.email ? { id: uidAtual, email: currentUser.email } : null), [uidAtual, currentUser?.email]);
-    const empresaVigia = useMemo(() => (ativa ? { id: ativa.id, cnpj: ativa.cnpj } : null), [ativa]);
+    const empresaVigia = useMemo(() => (ativa ? { id: ativa.id, cnpj: ativa.cnpj, competencia: ativa.competencia } : null), [ativa]);
     const vigia = useVigiaEsocial(empresaVigia, usuarioVigia);
     const alertasEsocial = vigia?.alertas.length ?? 0;
 

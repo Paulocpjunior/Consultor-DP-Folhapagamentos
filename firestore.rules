@@ -419,6 +419,41 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Vigia da Saúde do eSocial: marca, por empresa e competência, da importação automática do S-1299/S-1298
+    // transmitido fora do Consultor (services/esocial/vigiaFechamento.ts). Uma consulta ao eSocial por dia,
+    // mesmo com vários colaboradores logados: a marca é tomada ("rodando") antes de consultar e concluída por
+    // quem a tomou. Só dados de controle (dia, estado, tentativas, quem); nada do eSocial.
+    match /esocial_vigia_fechamento/{marcaId} {
+      allow get: if podeEmpresa(resource == null ? marcaId.split('_')[0] : resource.data.empresaId);
+      allow create, update: if gravaNaEmpresa()
+                    && request.resource.data.keys().hasOnly(['empresaId', 'competencia', 'dia', 'estado', 'tentativas', 'tentativaEm', 'por', 'porEmail', 'importados', 'motivo', 'concluidoEm'])
+                    && request.resource.data.empresaId is string
+                    && request.resource.data.competencia is string
+                    && request.resource.data.competencia.matches('^[0-9]{4}-(0[1-9]|1[0-2])$')
+                    && marcaId == request.resource.data.empresaId + '_' + request.resource.data.competencia
+                    && request.resource.data.dia is string
+                    && request.resource.data.dia.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+                    && request.resource.data.por == request.auth.uid
+                    && request.resource.data.tentativas is int
+                    && request.resource.data.tentativas >= 1 && request.resource.data.tentativas <= 10
+                    && (request.resource.data.estado == 'rodando'
+                        // Tomar a marca: dia novo, ou o mesmo dia depois de falha, ou "rodando" abandonado (10 min).
+                        ? (request.resource.data.tentativaEm == request.time
+                           && (resource == null
+                               || resource.data.dia != request.resource.data.dia
+                               || ((resource.data.estado == 'falhou'
+                                    || (resource.data.estado == 'rodando' && request.time > resource.data.tentativaEm + duration.value(10, 'm')))
+                                   && request.resource.data.tentativas == resource.data.tentativas + 1)))
+                        // Concluir: só quem tomou, sem mexer no dia, nas tentativas nem na hora da tentativa.
+                        : (request.resource.data.estado in ['feito', 'falhou', 'cota']
+                           && resource != null && resource.data.estado == 'rodando'
+                           && resource.data.por == request.auth.uid
+                           && request.resource.data.dia == resource.data.dia
+                           && request.resource.data.tentativas == resource.data.tentativas
+                           && request.resource.data.tentativaEm == resource.data.tentativaEm));
+      allow delete: if false;
+    }
+
     // Calendário de obrigações: o que já foi entregue (ou não se aplica) na
     // empresa e competência. Id = empresa_obrigação-AAAA-MM. Desfazer a
     // marcação é de quem trabalha na empresa (fica na auditoria). "competencia"
