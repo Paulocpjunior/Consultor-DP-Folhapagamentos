@@ -41,8 +41,8 @@ export function etapaDoEnvio(e: Envio, agora: number): Etapa {
 }
 
 /** Quando consultar de novo o protocolo (só para lote enviado ou em processamento). */
-export function proximaConsulta(e: Pick<Envio, 'situacao' | 'protocolo' | 'enviadoEm' | 'consultadoEm' | 'consultas'>): number | null {
-    if (!(e.situacao === 'enviado' || e.situacao === 'em-processamento') || !e.protocolo) return null;
+export function proximaConsulta(e: Pick<Envio, 'situacao' | 'protocolo' | 'enviadoEm' | 'consultadoEm' | 'consultas' | 'origem'>): number | null {
+    if (e.origem === 'governo' || !(e.situacao === 'enviado' || e.situacao === 'em-processamento') || !e.protocolo) return null;
     const n = Math.max(0, e.consultas ?? (e.consultadoEm ? 1 : 0));
     const base = ms(e.consultadoEm) || ms(e.enviadoEm);
     if (Number.isNaN(base)) return 0;
@@ -59,7 +59,8 @@ const tipos = (e: Envio) => [...new Set(e.eventos.map(x => x.tipo))].join(', ');
 /** Alertas da fila: sem resposta, parado no governo, recusas recentes. */
 export function alertasDaFila(envios: Envio[], agora: number): Alerta[] {
     const out: Alerta[] = [];
-    for (const e of envios) {
+    // O importado do governo (transmitido fora do Consultor) não é lote: nada a consultar, conferir nem reenviar.
+    for (const e of envios.filter(x => x.origem !== 'governo')) {
         const etapa = etapaDoEnvio(e, agora);
         const idade = agora - (ms(e.respondidoEm) || ms(e.enviadoEm));
         if (etapa === 'sem-resposta') {
@@ -82,7 +83,7 @@ export interface ResumoFila { porEtapa: Record<Etapa, number>; eventos: number; 
 export function resumoDaFila(envios: Envio[], agora: number): ResumoFila {
     const porEtapa = Object.fromEntries((Object.keys(ROTULO_ETAPA) as Etapa[]).map(k => [k, 0])) as Record<Etapa, number>;
     let eventos = 0, aceitos = 0, recusados = 0, aguardando = 0;
-    for (const e of envios) {
+    for (const e of envios.filter(x => x.origem !== 'governo')) {
         const et = etapaDoEnvio(e, agora);
         porEtapa[et]++;
         for (const x of e.eventos) {
@@ -97,7 +98,7 @@ export function resumoDaFila(envios: Envio[], agora: number): ResumoFila {
 }
 
 /** Pode liberar o reenvio de um lote sem resposta (prazo de espera passado). */
-export const podeLiberar = (e: Envio, agora: number) => situacaoAtual(e, agora) === 'sem-resposta' && agora - (ms(e.respondidoEm) || ms(e.enviadoEm)) >= ESPERA_LIBERAR_MS;
+export const podeLiberar = (e: Envio, agora: number) => e.origem !== 'governo' && situacaoAtual(e, agora) === 'sem-resposta' && agora - (ms(e.respondidoEm) || ms(e.enviadoEm)) >= ESPERA_LIBERAR_MS;
 
 /** Recibos achados no download do eSocial pelo Id (lote sem resposta): Id → nrRecibo dos aceitos. */
 export function recibosDoDownload(arquivos: { id: string; rec: string }[]): Record<string, string> {

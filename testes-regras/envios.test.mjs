@@ -99,3 +99,37 @@ describe('esocial_monitor (monitor do leiaute)', () => {
     await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), 'esocial_monitor/documentacao')));
   });
 });
+
+describe('esocial_envios: S-1299/S-1298 transmitido fora do Consultor, importado do eSocial', () => {
+  const REC = '1.1.0000000000000000123';
+  const gov = (u, extra = {}, ev = {}) => ({
+    empresaId: 'A', cnpj: '11222333000181', tpAmb: 1, grupo: 3, protocolo: '', dhRecepcao: '2026-10-10T10:00:00', transmissor: '', situacao: 'processado',
+    cdResposta: 201, descResposta: 'importado', ocorrencias: [], consultas: 0, origem: 'governo', dataFonte: 'recibo',
+    eventos: [{ id: 'ID1112223330001812026101010000000001', tipo: 'S-1299', perApur: '2026-09', cdResposta: 201, descResposta: 'importado', nrRecibo: REC, ...ev }],
+    enviadoEm: Timestamp.fromDate(new Date('2026-10-10T13:00:00Z')), importadoEm: serverTimestamp(), importadoPor: u, importadoPorEmail: `${u}@x`, ...extra,
+  });
+  it('cria na empresa da carteira, um por recibo, só produção, aceito e sem protocolo', async () => {
+    await assertSucceeds(setDoc(doc(fs('col'), `esocial_envios/governo-${REC}`), gov('col')));
+    await assertSucceeds(setDoc(doc(fs('col'), 'esocial_envios/governo-1.1.0000000000000000124'), gov('col', {}, { tipo: 'S-1298', nrRecibo: '1.1.0000000000000000124', cdResposta: 202 })));
+    // Idempotente: o mesmo recibo de novo é alteração, que não passa (lote processado não muda).
+    await assertFails(setDoc(doc(fs('col'), `esocial_envios/governo-${REC}`), gov('col')));
+    await assertFails(setDoc(doc(fs('col'), 'esocial_envios/governo-x'), gov('col'))); // id não é o do recibo
+    await assertFails(setDoc(doc(fs('col'), 'esocial_envios/governo-9.9.9'), gov('col', {}, { nrRecibo: '9.9.9' }))); // recibo inválido
+    await assertFails(setDoc(doc(fs('col'), 'esocial_envios/governo-'), gov('col', {}, { nrRecibo: '' }))); // sem recibo
+    await assertFails(setDoc(doc(fs('col'), 'esocial_envios/governo-1.1.0000000000000000125'), gov('col', { tpAmb: 2 }, { nrRecibo: '1.1.0000000000000000125' }))); // homologação
+    await assertFails(setDoc(doc(fs('col'), 'esocial_envios/governo-1.1.0000000000000000126'), gov('col', {}, { nrRecibo: '1.1.0000000000000000126', cdResposta: 401 }))); // recusado
+    await assertFails(setDoc(doc(fs('col'), 'esocial_envios/governo-1.1.0000000000000000127'), gov('col', {}, { nrRecibo: '1.1.0000000000000000127', tipo: 'S-1200' }))); // só fechamento
+    await assertFails(setDoc(doc(fs('col'), 'esocial_envios/governo-1.1.0000000000000000128'), gov('col', { protocolo: '1.2.3' }, { nrRecibo: '1.1.0000000000000000128' }))); // sem protocolo
+    await assertFails(setDoc(doc(fs('col'), 'esocial_envios/governo-1.1.0000000000000000129'), gov('col', { situacao: 'enviado' }, { nrRecibo: '1.1.0000000000000000129' }))); // nada a consultar
+    await assertFails(setDoc(doc(fs('col'), 'esocial_envios/governo-1.1.0000000000000000130'), gov('outro', {}, { nrRecibo: '1.1.0000000000000000130' }))); // autor
+    await assertFails(setDoc(doc(fs('col'), 'esocial_envios/governo-1.1.0000000000000000131'), gov('col', { empresaId: 'B' }, { nrRecibo: '1.1.0000000000000000131' }))); // fora da carteira
+    await assertFails(setDoc(doc(fs('col2'), 'esocial_envios/governo-1.1.0000000000000000132'), gov('col2', {}, { nrRecibo: '1.1.0000000000000000132' }))); // sem carteira
+  });
+  it('não se altera nem se apaga; lote do Consultor não se passa por importado', async () => {
+    await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), `esocial_envios/governo-${REC}`), gov('col', { importadoEm: Timestamp.now() })));
+    await assertFails(updateDoc(doc(fs('col'), `esocial_envios/governo-${REC}`), { situacao: 'enviado', consultadoPor: 'col' }));
+    await assertFails(updateDoc(doc(fs('col'), `esocial_envios/governo-${REC}`), { eventos: [{ id: 'X', nrRecibo: REC }], verificadoPor: 'col' }));
+    await assertFails(deleteDoc(doc(fs('col'), `esocial_envios/governo-${REC}`)));
+    await assertFails(setDoc(doc(fs('col'), 'esocial_envios/n9'), novo('A', 'col', { origem: 'governo' })));
+  });
+});

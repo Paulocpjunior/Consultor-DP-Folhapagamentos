@@ -57,7 +57,8 @@ const DiagnosticoOcorrencia: React.FC<Props> = ({ ocorrencia, tipoEvento, perApu
     const conciliar = () => agir('Consultando o eSocial…', async () => {
         if (!perApur || !/^\d{4}-\d{2}$/.test(perApur)) throw new Error('A conciliação é por competência mensal; use eSocial › Download para este evento.');
         if (envio.tpAmb !== 1) throw new Error('A conciliação é só em produção.');
-        const { conciliacao } = await conciliarComEsocial(empresa, perApur, envios);
+        const { conciliacao, importacao } = await conciliarComEsocial(empresa, perApur, envios, usuario);
+        if (importacao?.importados.length) onMudou();
         const doTipo = conciliacao.foraDoConsultor.filter(x => x.tipo === tipoEvento);
         return `${tipoEvento} de ${perApur} no eSocial: ${conciliacao.confirmados} confirmado(s) do Consultor${doTipo.length ? `; de outro sistema: ${doTipo.slice(0, 8).map(x => `recibo ${x.nrRec}`).join(', ')}${doTipo.length > 8 ? '…' : ''}` : ''}. Use o recibo vigente na retificação.`;
     });

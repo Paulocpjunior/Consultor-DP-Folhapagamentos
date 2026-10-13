@@ -85,9 +85,23 @@ export function observacaoDaBaixa(b: BaixaGuia): string {
     return [`paga em ${br(b.data)}`, reais(b.valorPago), b.autenticacao.trim() && `aut. ${b.autenticacao.trim()}`, b.fonte === 'fgts-digital' && 'valor conferido no FGTS Digital', b.fonte === 'receita' && 'pagamento conferido na Receita'].filter(Boolean).join(' · ');
 }
 
-/** Valor do FGTS Digital (consulta do recolhimento, em reais) que a baixa pode usar: só com o devido quitado. */
-export function valorPagoNoFgts(r: { ok: boolean; depositoDevido: number; depositoRealizado: number }): { valorPago: number; valorDevido: number } | { erro: string } {
-    if (!r.ok) return { erro: 'O FGTS Digital não respondeu.' };
+/** O servidor não faz esta consulta pelo SERPRO (Integra Contador não oferece): a baixa é pelo comprovante. */
+export const FGTS_NAO_OFERECIDO = 'nao_oferecido_serpro';
+
+/**
+ * Valor do FGTS Digital (consulta do recolhimento, em reais) que a baixa pode usar: só com o devido quitado.
+ * Consulta não feita: o motivo real que o servidor devolveu (`erro`), nunca um "não respondeu" genérico; quando o
+ * SERPRO não oferece a consulta, `manual` — a baixa é feita com o comprovante da guia, informado à mão.
+ */
+export function valorPagoNoFgts(r: { ok: boolean; depositoDevido: number; depositoRealizado: number; erro?: string | null; situacao?: string | null }): { valorPago: number; valorDevido: number } | { erro: string; manual?: true } {
+    if (!r.ok) {
+        const motivo = String(r.erro ?? '').trim();
+        if (r.situacao === FGTS_NAO_OFERECIDO) return {
+            manual: true,
+            erro: `${motivo || 'O SERPRO (Integra Contador) não oferece esta consulta.'} A baixa do FGTS é feita com o comprovante da guia (GFD): informe a data e o valor pagos como estão no comprovante.`,
+        };
+        return { erro: motivo ? `Consulta do FGTS Digital não feita: ${motivo}` : 'O FGTS Digital não respondeu.' };
+    }
     const devido = Math.round((Number(r.depositoDevido) || 0) * 100);
     const pago = Math.round((Number(r.depositoRealizado) || 0) * 100);
     if (pago <= 0) return { erro: 'O FGTS Digital não mostra recolhimento desta competência.' };

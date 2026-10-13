@@ -171,21 +171,28 @@ const SaudeEsocialPanel: React.FC<Props> = ({ usuario }) => {
                 {lista.map(e => {
                     const etapa = etapaDoEnvio(e, agora);
                     const prox = proximaConsulta(e);
+                    const gov = e.origem === 'governo';
                     return (
                         <div key={e.id} className="rounded-lg border border-slate-200 bg-white p-3 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
                             <div className="flex flex-wrap items-center gap-2">
-                                <span className={`rounded-sm px-2 py-0.5 text-xs font-medium ${COR[etapa]}`}>{ROTULO_ETAPA[etapa]}</span>
+                                {gov
+                                    ? <span className="rounded-sm bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-800 dark:bg-sky-900/40 dark:text-sky-200">Importado do eSocial</span>
+                                    : <span className={`rounded-sm px-2 py-0.5 text-xs font-medium ${COR[etapa]}`}>{ROTULO_ETAPA[etapa]}</span>}
                                 <strong>{tipos(e)}</strong>
-                                <span className="text-xs text-slate-500">{e.eventos.length} evento(s) · {ROTULO_AMBIENTE[e.tpAmb]} · {br(e.enviadoEm)} · {e.enviadoPorEmail}</span>
+                                <span className="text-xs text-slate-500">{e.eventos.length} evento(s) · {ROTULO_AMBIENTE[e.tpAmb]} · {br(e.enviadoEm)}{gov ? '' : ` · ${e.enviadoPorEmail}`}</span>
                                 <button className={`${btn} ml-auto`} onClick={() => setAberto(aberto === e.id ? '' : e.id)}>{aberto === e.id ? 'Fechar' : 'Detalhes'}</button>
                             </div>
-                            <p className="mt-1 text-xs text-slate-500">
+                            {gov ? <p className="mt-1 text-xs text-slate-500">
+                                Transmitido fora do Consultor (IOB/Folhamatic), aceito no eSocial e importado pela conciliação
+                                {e.dataFonte === 'id-do-evento' ? ' · data do Id do evento (recibo não baixado)' : ' · data da recepção no eSocial'}
+                                {e.importadoPorEmail ? ` · importado por ${e.importadoPorEmail} em ${br(e.importadoEm)}` : ''}
+                            </p> : <p className="mt-1 text-xs text-slate-500">
                                 {e.protocolo ? `Protocolo ${e.protocolo}` : 'Sem protocolo'}
                                 {e.consultas ? ` · ${e.consultas} consulta(s)` : ''}{e.consultadoEm ? ` · última ${br(e.consultadoEm)}` : ''}
                                 {prox !== null && ` · próxima consulta ${emQuanto(prox - agora)}`}
                                 {e.erroEnvio ? ` · falha do envio: ${e.erroEnvio}` : ''}
                                 {e.verificadoPorEmail ? ` · conferido por ${e.verificadoPorEmail} em ${br(e.verificadoEm)}` : ''}
-                            </p>
+                            </p>}
                             {aberto === e.id && (
                                 <ul className="mt-2 space-y-1 text-xs">
                                     {e.ocorrencias.map(o => (

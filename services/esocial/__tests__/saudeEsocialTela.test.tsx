@@ -5,15 +5,15 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import type { Envio } from '../transmissaoService';
 
 const sv = vi.hoisted(() => ({
-    envios: [] as unknown[], pendentes: [] as unknown[],
+    envios: [] as unknown[], pendentes: [] as unknown[], ids: {} as Record<string, { id: string; nrRec: string }[]>, gravarGov: vi.fn(async (..._a: unknown[]) => undefined),
     verificar: vi.fn(async (..._a: unknown[]) => undefined), liberar: vi.fn(async (..._a: unknown[]) => undefined), registrarConsulta: vi.fn(async (..._a: unknown[]) => undefined),
     baixar: vi.fn(async (..._a: unknown[]) => ({ cdResposta: 200, descResposta: '', pedidosHoje: 1, arquivos: [] as unknown[] })),
     consultar: vi.fn(async (..._a: unknown[]) => ({ situacao: 'processado', eventos: [], ocorrencias: [], cdResposta: 201, descResposta: '', tempoEstimadoConclusao: null, protocolo: 'P', tpAmb: 1 })),
 }));
 vi.mock('../transmissaoService', async orig => ({ ...(await orig<typeof import('../transmissaoService')>()), listarEnvios: async () => sv.envios, listarPendentes: async () => sv.pendentes,
-    registrarVerificacao: (...a: unknown[]) => sv.verificar(...a), liberarReenvio: (...a: unknown[]) => sv.liberar(...a), registrarConsulta: (...a: unknown[]) => sv.registrarConsulta(...a) }));
+    registrarVerificacao: (...a: unknown[]) => sv.verificar(...a), liberarReenvio: (...a: unknown[]) => sv.liberar(...a), registrarConsulta: (...a: unknown[]) => sv.registrarConsulta(...a), registrarFechamentoDoGoverno: (...a: unknown[]) => sv.gravarGov(...a) }));
 vi.mock('../downloadEventos', async orig => ({ ...(await orig<typeof import('../downloadEventos')>()), baixarEventos: (...a: unknown[]) => sv.baixar(...a),
-    consultarIdentificadores: async (p: { tpEvt: string }) => ({ cdResposta: 201, descResposta: '', qtdeTotal: 0, dhUltimoEvtRetornado: '', pedidosHoje: 3, identificadores: p.tpEvt === 'S-1200' ? [{ id: 'ID1', nrRec: '1.1.0000000000000000055' }] : [] }) }));
+    consultarIdentificadores: async (p: { tpEvt: string }) => ({ cdResposta: 201, descResposta: '', qtdeTotal: 0, dhUltimoEvtRetornado: '', pedidosHoje: 3, identificadores: sv.ids[p.tpEvt] ?? (p.tpEvt === 'S-1200' ? [{ id: 'ID1', nrRec: '1.1.0000000000000000055' }] : []) }) }));
 const dg = vi.hoisted(() => ({
     verificar: vi.fn(async (p: { eventos: { xml: string }[]; tpAmb: number }) => ({ ok: true, achados: [], eventos: p.eventos, tpAmb: p.tpAmb, empresaId: 'E1' })),
     transmitir: vi.fn(async () => ({ situacao: 'enviado', envioId: 'N1', retorno: { protocolo: 'P9' } })),
@@ -30,7 +30,7 @@ import SaudeEsocialPanel from '../../../components/esocial/SaudeEsocialPanel';
 import { EmpresaAtivaProvider } from '../../empresaAtiva/empresaAtivaContext';
 import { rodadaDoVigia } from '../vigiaEsocial';
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); vi.clearAllMocks(); vi.restoreAllMocks(); sv.ids = {}; });
 const ativa = { id: 'E1', nome: 'ALFA', cnpj: '29463877000109', codigoSage: '1', competencia: '2026-09', ativadaPor: 'a@x', ativadaEm: 1 };
 const usuario = { id: 'u1', email: 'ana@x.com' };
 const iso = (minAtras: number) => new Date(Date.now() - minAtras * 60_000).toISOString();
@@ -87,6 +87,41 @@ describe('Saúde do eSocial: conciliação', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Gravar os recibos' }));
         await waitFor(() => expect(sv.verificar).toHaveBeenCalled());
         expect(sv.verificar.mock.calls[0][1]).toEqual({ ID1: '1.1.0000000000000000055' });
+    });
+});
+
+describe('Saúde do eSocial: fechamento transmitido fora do Consultor', () => {
+    const REC = '1.1.0000000000000000101';
+    const ID_F = 'ID1294638770001092026101010300000001';
+    it('a conciliação grava o S-1299 achado no eSocial e a tela mostra que veio do governo', async () => {
+        sv.envios = [];
+        sv.ids = { 'S-1200': [], 'S-1299': [{ id: ID_F, nrRec: REC }] };
+        sv.baixar.mockResolvedValueOnce({ cdResposta: 200, descResposta: '', pedidosHoje: 5, arquivos: [{ id: ID_F, cdResposta: 200, descResposta: '', elemento: 'evtFechaEvPer', evt: '',
+            rec: `<retornoEvento><recepcao><tpAmb>1</tpAmb><dhRecepcao>2026-10-10T10:31:12</dhRecepcao></recepcao><processamento><cdResposta>201</cdResposta></processamento><recibo><nrRecibo>${REC}</nrRecibo></recibo></retornoEvento>` }] });
+        montar();
+        fireEvent.click(await screen.findByRole('button', { name: 'Conciliar com o eSocial' }));
+        await waitFor(() => expect(sv.gravarGov).toHaveBeenCalledTimes(1));
+        expect(sv.baixar).toHaveBeenCalledWith(ativa.cnpj, [ID_F], 'escritorio');
+        const [f, u] = sv.gravarGov.mock.calls[0] as [{ docId: string; enviadoEm: string; dados: Record<string, unknown> }, unknown];
+        expect(u).toEqual(usuario);
+        expect(f.docId).toBe(`governo-${REC}`);
+        expect(f.enviadoEm).toBe('2026-10-10T13:31:12.000Z');
+        expect(f.dados).toMatchObject({ empresaId: 'E1', cnpj: ativa.cnpj, tpAmb: 1, situacao: 'processado', origem: 'governo', eventos: [{ tipo: 'S-1299', perApur: '2026-09', cdResposta: 201, nrRecibo: REC }] });
+        await waitFor(() => expect(screen.getByRole('status').textContent).toContain(`S-1299 (recibo ${REC}) transmitido(s) fora do Consultor: importado(s) do eSocial`));
+    });
+    it('o registro importado aparece como do governo, sem alerta nem ação de lote', async () => {
+        sv.envios = [lote({ id: `governo-${REC}`, origem: 'governo', protocolo: '', situacao: 'processado', enviadoEm: '2026-10-10T13:31:12.000Z', enviadoPorEmail: undefined as never,
+            importadoPorEmail: 'ana@x.com', importadoEm: '2026-10-13T12:00:00.000Z', dataFonte: 'recibo', eventos: [{ id: ID_F, tipo: 'S-1299', perApur: '2026-09', cdResposta: 201, nrRecibo: REC }] })];
+        montar();
+        const linha = await screen.findByLabelText('S-1299 importado do eSocial');
+        expect(linha.textContent).toContain('Fechamento (S-1299) de 09/2026 importado do eSocial: transmitido fora do Consultor (IOB/Folhamatic)');
+        expect(linha.textContent).toContain(`recibo ${REC}`);
+        expect(linha.textContent).toContain('recebido no eSocial em 10/10/2026');
+        expect(screen.getByText('Importado do eSocial')).toBeTruthy();
+        expect(screen.getByText(/Fila saudável/)).toBeTruthy();
+        expect(screen.queryByRole('button', { name: 'Consultar agora' })).toBeNull();
+        expect(screen.queryByRole('button', { name: 'Conferir no eSocial' })).toBeNull();
+        expect(screen.getByText(/0 evento\(s\) nos lotes/)).toBeTruthy();
     });
 });
 

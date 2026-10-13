@@ -64,6 +64,12 @@ describe('FGTS Digital', () => {
         expect(valorPagoNoFgts({ ok: true, depositoDevido: 100, depositoRealizado: 40 })).toMatchObject({ erro: expect.stringMatching(/R\$\s40,00 recolhidos de R\$\s100,00/) });
         expect(valorPagoNoFgts({ ok: true, depositoDevido: 100, depositoRealizado: 0 })).toMatchObject({ erro: expect.stringMatching(/não mostra recolhimento/) });
         expect(valorPagoNoFgts({ ok: false, depositoDevido: 0, depositoRealizado: 0 })).toMatchObject({ erro: expect.stringMatching(/não respondeu/) });
+        // O motivo real do servidor aparece; sem a consulta no SERPRO, a baixa é manual, pelo comprovante.
+        expect(valorPagoNoFgts({ ok: false, depositoDevido: 0, depositoRealizado: 0, situacao: 'indisponivel', erro: 'tempo esgotado no FGTS Digital' }))
+            .toEqual({ erro: 'Consulta do FGTS Digital não feita: tempo esgotado no FGTS Digital' });
+        const manual = valorPagoNoFgts({ ok: false, depositoDevido: 0, depositoRealizado: 0, situacao: 'nao_oferecido_serpro', erro: 'O SERPRO (Integra Contador) não oferece esta consulta.' });
+        expect(manual).toMatchObject({ manual: true, erro: expect.stringMatching(/^O SERPRO \(Integra Contador\) não oferece esta consulta\. A baixa do FGTS é feita com o comprovante da guia/) });
+        expect(valorPagoNoFgts({ ok: false, depositoDevido: 0, depositoRealizado: 0, situacao: 'nao_oferecido_serpro' })).toMatchObject({ manual: true, erro: expect.stringMatching(/não oferece esta consulta/) });
     });
 });
 

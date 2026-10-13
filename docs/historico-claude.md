@@ -5403,3 +5403,23 @@ Paulo: *"podemos fazer o P2 usando o terminal do meu mac"* (12/10).
   - o roxo da MiA;
   - as cores por papel em Usuários (memorização);
   - os emojis dos cartões do eSocial.
+
+## 13/10/2026 — S-1299 de fora do Consultor no semáforo da DCTFWeb e o motivo real da baixa do FGTS
+
+- **Paulo:** "pode seguir com os 3 itens". O servidor (CFI e plataforma, `dp-fechamento-esocial.js`) acende o selo "👥 DP/Folha — eSocial" da DCTFWeb lendo `esocial_envios` com o token do usuário. Faltava o fechamento transmitido pelo IOB/Folhamatic.
+- **Fechamento de fora (`services/esocial/fechamentoGoverno.ts`):**
+  - a conciliação da Saúde do eSocial (`conciliarComEsocial`, com o usuário) já achava no governo os S-1299 e S-1298 da competência; agora grava os que faltam em `esocial_envios/governo-<nrRecibo>`;
+  - o documento segue a régua do servidor: `tpAmb` 1, `cnpj` da empresa, `situacao` 'processado', `protocolo` '', `eventos` [{ tipo, perApur, cdResposta (o do recibo ou 201), nrRecibo }], `enviadoEm` = recepção no eSocial;
+  - marcado como do governo: `origem` 'governo', `importadoEm`, `importadoPor`, `importadoPorEmail`, `dataFonte`;
+  - a data vem do recibo baixado pelo Id (uma chamada de download, só quando há o que importar). Se o download falhar, usa a data de geração do Id do evento (`dataFonte` 'id-do-evento');
+  - não grava sem recibo válido (`1.d.19 dígitos`), fora da produção, com recibo recusado ou de outro ambiente. Não duplica: pula recibo já registrado (pelo Consultor ou importado) e Id que o Consultor transmitiu;
+  - o S-1298 também é gravado, e um S-1298 posterior derruba o selo, como no servidor.
+- **Leitores:** a fila (alertas, resumo, próxima consulta, liberar reenvio) e a consulta automática ignoram `origem` 'governo'. A conciliação o mantém como "de outro sistema" e não o acusa de sumir do governo. O pré-voo (competência fechada), o estorno e a anomalia "sem S-1299" passam a contar o fechamento importado.
+- **Tela:** Saúde do eSocial mostra "Fechamento (S-1299) de MM/AAAA importado do eSocial: transmitido fora do Consultor", com recibo, data e quem importou. A lista de lotes mostra o selo "Importado do eSocial", e a Transmissão também identifica o registro.
+- **Regra (`firestore.rules`):** nova criação em `esocial_envios` para `origem` 'governo':
+  - empresa da carteira, id `governo-<nrRecibo>`, só S-1299/S-1298, produção, 'processado', 201/202, sem protocolo;
+  - `importadoPor` do próprio usuário e `importadoEm` do servidor;
+  - não se altera nem se apaga. O lote do Consultor não pode levar `origem`;
+  - testes em `testes-regras/envios.test.mjs`.
+- **Prazos, baixa do FGTS (`valorPagoNoFgts`):** passa a mostrar o motivo que o servidor devolve (`erro`). Com `situacao` 'nao_oferecido_serpro', avisa que a baixa do FGTS é feita com o comprovante da guia, informado à mão, sem preencher nada como consultado.
+- **Testes:** `fechamentoGoverno.test.ts` (novo), casos novos em `saudeEsocialTela.test.tsx`, `calendarioEmpresa.test.tsx` e `pagamentoGuias.test.ts`.

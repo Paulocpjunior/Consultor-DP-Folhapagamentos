@@ -32,7 +32,8 @@ export interface Conciliacao {
 const doPeriodo = (ev: EventoEnviado, perApur: string) => ev.perApur === perApur;
 
 export function conciliar(envios: Envio[], governo: IdentificadoresDoGoverno, perApur: string, tpAmb: TpAmb = 1): Conciliacao {
-    const producao = envios.filter(e => e.tpAmb === tpAmb);
+    // O importado do governo (S-1299/S-1298 de fora, fechamentoGoverno.ts) não passou pelo Consultor: segue "de outro sistema".
+    const producao = envios.filter(e => e.tpAmb === tpAmb && e.origem !== 'governo');
     const noGoverno = new Map<string, { tipo: string; nrRec: string }>();
     const recibosNoGoverno = new Set<string>();
     for (const [tipo, ids] of Object.entries(governo)) for (const i of ids ?? []) { noGoverno.set(i.id, { tipo, nrRec: i.nrRec }); if (i.nrRec) recibosNoGoverno.add(i.nrRec); }

@@ -6,10 +6,11 @@
 
 import type { Usuario } from '../cadastros/cadastrosService';
 import { consultarLote } from './transmissao';
-import { listarPendentes, registrarConsulta, type Envio } from './transmissaoService';
+import { listarPendentes, registrarConsulta, registrarFechamentoDoGoverno, type Envio } from './transmissaoService';
 import { alertasDaFila, consultaVencida, type Alerta } from './filaEnvios';
 import { consultarIdentificadores } from './downloadEventos';
 import { conciliar, EVENTOS_CONCILIADOS, type Conciliacao, type IdentificadoresDoGoverno } from './anomalias';
+import { baixarRecibosDoGoverno, importarFechamentosDoGoverno, type DepsImportacao, type ResultadoImportacao } from './fechamentoGoverno';
 
 export interface RodadaVigia { pendentes: Envio[]; consultados: number; mudaram: number; alertas: Alerta[]; erro?: string }
 
@@ -32,8 +33,11 @@ export async function rodadaDoVigia(empresa: { id: string; cnpj: string }, usuar
 /**
  * Conciliação da competência com o eSocial (produção): os identificadores de S-1200, S-1210, S-1299 e S-1298
  * do período, sem baixar os XMLs. Devolve também quantos pedidos de download a empresa já fez hoje.
+ * Com o usuário, o S-1299/S-1298 achado no governo e transmitido fora do Consultor (IOB/Folhamatic) é gravado em
+ * esocial_envios (fechamentoGoverno.ts): é o registro que acende o selo do eSocial no semáforo da DCTFWeb.
  */
-export async function conciliarComEsocial(empresa: { id: string; cnpj: string }, perApur: string, envios: Envio[]): Promise<{ conciliacao: Conciliacao; pedidosHoje: number | null }> {
+export async function conciliarComEsocial(empresa: { id: string; cnpj: string }, perApur: string, envios: Envio[], usuario?: Usuario,
+    deps: DepsImportacao = { baixar: baixarRecibosDoGoverno, gravar: registrarFechamentoDoGoverno }): Promise<{ conciliacao: Conciliacao; pedidosHoje: number | null; importacao: ResultadoImportacao | null }> {
     const governo: IdentificadoresDoGoverno = {};
     let pedidosHoje: number | null = null;
     for (const tpEvt of EVENTOS_CONCILIADOS) {
@@ -41,5 +45,11 @@ export async function conciliarComEsocial(empresa: { id: string; cnpj: string },
         governo[tpEvt] = r.identificadores;
         pedidosHoje = r.pedidosHoje ?? pedidosHoje;
     }
-    return { conciliacao: conciliar(envios, governo, perApur, 1), pedidosHoje };
+    let importacao: ResultadoImportacao | null = null;
+    if (usuario) {
+        importacao = await importarFechamentosDoGoverno({ empresa, perApur, tpAmb: 1, governo, envios, usuario }, deps)
+            .catch(e => ({ importados: [], ignorados: [], erro: (e as Error).message }));
+        pedidosHoje = importacao.pedidosHoje ?? pedidosHoje;
+    }
+    return { conciliacao: conciliar(envios, governo, perApur, 1), pedidosHoje, importacao };
 }

@@ -210,16 +210,16 @@ const ESocialTransmissao: React.FC<Props> = ({ usuario }) => {
                     return (
                         <div key={e.id} className="rounded-lg border border-slate-200 bg-white p-3 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
                             <div className="flex flex-wrap items-center gap-2">
-                                <span className={`rounded-sm px-2 py-0.5 text-xs font-medium ${COR[e.situacao]}`}>{ROTULO_SITUACAO[e.situacao]}</span>
+                                <span className={`rounded-sm px-2 py-0.5 text-xs font-medium ${COR[e.situacao]}`}>{e.origem === 'governo' ? 'importado do eSocial' : ROTULO_SITUACAO[e.situacao]}</span>
                                 <strong>{[...new Set(e.eventos.map(x => x.tipo))].join(', ')}</strong>
-                                <span className="text-xs text-slate-500">{e.eventos.length} evento(s) · {ROTULO_AMBIENTE[e.tpAmb]} · {br(e.enviadoEm)} · {e.enviadoPorEmail}</span>
+                                <span className="text-xs text-slate-500">{e.eventos.length} evento(s) · {ROTULO_AMBIENTE[e.tpAmb]} · {br(e.enviadoEm)} · {e.origem === 'governo' ? `transmitido fora do Consultor${e.importadoPorEmail ? `, importado por ${e.importadoPorEmail}` : ''}` : e.enviadoPorEmail}</span>
                                 <span className="ml-auto flex gap-2">
                                     {e.protocolo && (e.situacao === 'enviado' || e.situacao === 'em-processamento') && <button className={btn} disabled={!usuario || !!ocupado} onClick={() => consultar(e)}>Consultar resultado</button>}
                                     <button className={btn} onClick={() => setAberto(aberto === e.id ? '' : e.id)}>{aberto === e.id ? 'Fechar' : 'Detalhes'}</button>
                                 </span>
                             </div>
                             <p className="mt-1 text-xs text-slate-500">
-                                {e.protocolo ? `Protocolo ${e.protocolo}` : 'Sem protocolo'} · {e.cdResposta ?? ''} {e.descResposta}{e.erroEnvio ? ` ${e.erroEnvio}` : ''}
+                                {e.protocolo ? `Protocolo ${e.protocolo}` : e.origem === 'governo' ? 'Sem protocolo do Consultor' : 'Sem protocolo'} · {e.cdResposta ?? ''} {e.descResposta}{e.erroEnvio ? ` ${e.erroEnvio}` : ''}
                                 {e.consultadoEm && ` · consultado ${br(e.consultadoEm)}`} · aceitos {r.aceitos}, recusados {r.recusados}{r.aguardando ? `, sem resultado ${r.aguardando}` : ''}
                             </p>
                             {aberto === e.id && (

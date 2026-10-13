@@ -128,7 +128,8 @@ const CalendarioEmpresa: React.FC<Props> = ({ empresa, fichas, sindicatos, usuar
         setAviso('Consultando o FGTS Digital…'); setErro('');
         try {
             const r = valorPagoNoFgts(await consultarFgtsRecolhimento(empresa.cnpj.replace(/\D/g, ''), empresa.competencia));
-            if ('erro' in r) { setAviso(''); setErro(r.erro); return; }
+            // SERPRO sem a consulta: a baixa segue manual, pelo comprovante (nada é preenchido como se tivesse sido consultado).
+            if ('erro' in r) { if (r.manual) { setAviso(r.erro); mudaBaixa({ fonte: 'manual' }); } else { setAviso(''); setErro(r.erro); } return; }
             mudaBaixa({ valorPago: texto(r.valorPago), valorDevido: texto(r.valorDevido), fonte: 'fgts-digital' });
             setAviso(`FGTS Digital: ${reais(r.valorPago)} recolhidos. Informe a data do pagamento do comprovante.`);
         } catch (e) { setAviso(''); setErro(mensagemErro(e)); }
