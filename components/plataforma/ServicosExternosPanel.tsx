@@ -3,12 +3,14 @@
 // Configurações › Serviços externos (autonomia, passo 3): quem atende cada serviço que o DP usa fora do
 // Firebase — CFI, plataforma comum ou próprio do DP — com o endereço e um teste de alcance. A troca é feita
 // no build (variáveis do repositório no GitHub); a tela mostra o que está valendo e os avisos de endereço inválido.
-// Admin e gestor veem também o comparador CFI × plataforma do governo (só leitura, ComparadorGoverno.tsx).
+// Admin e gestor veem também o comparador CFI × plataforma do governo (só leitura, ComparadorGoverno.tsx) e o teste
+// do governo pela plataforma só no navegador deles (TesteGovernoNavegador.tsx).
 
 import React, { useMemo, useState } from 'react';
 import { ROTULO_ORIGEM, SERVICOS, configuracaoDosServicos, enderecoExibido, testarAlcance, type Origem, type Servico } from '../../services/plataforma/servicos';
 import { ehAdmin } from '../../services/auth/papeis';
 import ComparadorGoverno from './ComparadorGoverno';
+import { BlocoTesteGoverno, useTesteGoverno } from './TesteGovernoNavegador';
 
 const COR: Record<Origem, string> = {
     cfi: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200',
@@ -24,6 +26,9 @@ const ServicosExternosPanel: React.FC<{ papel?: string }> = ({ papel }) => {
     const config = useMemo(() => configuracaoDosServicos(), []);
     const [testes, setTestes] = useState<Partial<Record<Servico, Teste>>>({});
     const avisos = [...new Set(config.flatMap(c => c.avisos))];
+    const admin = ehAdmin(papel);
+    const teste = useTesteGoverno();
+    const [colado, setColado] = useState('');
 
     const testar = async (servicos: Servico[]) => {
         setTestes(t => ({ ...t, ...Object.fromEntries(servicos.map(s => [s, 'testando'])) }));
@@ -60,7 +65,10 @@ const ServicosExternosPanel: React.FC<{ papel?: string }> = ({ papel }) => {
                                         <p className="font-medium text-slate-800 dark:text-slate-100">{SERVICOS[c.servico].titulo}</p>
                                         <p className="text-xs text-slate-500 dark:text-slate-400">{SERVICOS[c.servico].descricao}</p>
                                     </td>
-                                    <td className="px-3 py-2 align-top"><span className={`rounded-full px-2 py-0.5 text-xs font-medium ${COR[c.origem]}`}>{ROTULO_ORIGEM[c.origem]}</span></td>
+                                    <td className="px-3 py-2 align-top">
+                                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${COR[c.origem]}`}>{ROTULO_ORIGEM[c.origem]}</span>
+                                        {c.servico === 'governo' && teste && <p className="mt-1 text-[11px] text-blue-800 dark:text-blue-200">Neste navegador (teste): leituras e produção restrita na plataforma</p>}
+                                    </td>
                                     <td className="px-3 py-2 align-top">
                                         <code className="break-all text-xs text-slate-700 dark:text-slate-300">{enderecoExibido(c)}</code>
                                         <p className="text-[11px] text-slate-500 dark:text-slate-400">{SERVICOS[c.servico].variavel}</p>
@@ -76,7 +84,8 @@ const ServicosExternosPanel: React.FC<{ papel?: string }> = ({ papel }) => {
                     </tbody>
                 </table>
             </div>
-            {ehAdmin(papel) && <ComparadorGoverno />}
+            {admin && <ComparadorGoverno onColado={setColado} />}
+            {admin && <BlocoTesteGoverno sugestao={colado} />}
             <details className="rounded-lg border border-slate-200 p-3 text-sm text-slate-600 dark:border-slate-700 dark:text-slate-300">
                 <summary className="cursor-pointer font-medium text-slate-800 dark:text-slate-100">Como trocar o endereço</summary>
                 <ol className="mt-2 list-decimal space-y-1 pl-5">

@@ -19,7 +19,8 @@ const Lado: React.FC<{ r: RespostaHost }> = ({ r }) => (
     </span>
 );
 
-const ComparadorGoverno: React.FC<{ env?: Record<string, string | undefined> }> = ({ env }) => {
+/** `onColado`: avisa o endereço colado válido (o painel pré-preenche o teste no navegador com ele). */
+const ComparadorGoverno: React.FC<{ env?: Record<string, string | undefined>; onColado?: (url: string) => void }> = ({ env, onColado }) => {
     const { ativa } = useEmpresaAtiva();
     const [colado, setColado] = useState('');
     const [competencia, setCompetencia] = useState(ativa?.competencia ?? '');
@@ -30,6 +31,8 @@ const ComparadorGoverno: React.FC<{ env?: Record<string, string | undefined> }> 
     // Trocou a empresa ou o período ativo: a competência acompanha e o resultado anterior sai.
     useEffect(() => { setCompetencia(ativa?.competencia ?? ''); setResultado(null); }, [ativa?.id, ativa?.competencia]);
     const host = hostDaPlataforma(colado, env);
+    const coladoValido = !host.doBuild && host.url ? host.url : '';
+    useEffect(() => { if (coladoValido) onColado?.(coladoValido); }, [coladoValido, onColado]);
     const cnpj = (ativa?.cnpj ?? '').replace(/\D/g, '');
     const compOk = /^\d{4}-(0[1-9]|1[0-2])$/.test(competencia);
     const pronto = !!host.url && !!ativa && cnpj.length === 14 && compOk && ciente && !rodando;
