@@ -5464,3 +5464,24 @@ Paulo: *"podemos fazer o P2 usando o terminal do meu mac"* (12/10).
 - **Plataforma:** PR `governo-carteira` no sp-plataforma exige o `empresaId` nessas seis rotas (400 sem ele, 403 fora da carteira ou CNPJ de outra raiz). **Ordem de merge:** este PR do DP primeiro (ou junto) e republicado antes de ligar `VITE_SERVICO_GOVERNO_URL`.
 - **Testes:** `services/serpro/__tests__/empresaNasConsultas.test.ts` (novo: corpo de cada uma das seis com o `empresaId`); casos novos em `conferenciaPosFolha.test.ts`, `dctfwebTela.test.tsx`, `painelFgts.test.tsx` e `calendarioEmpresa.test.tsx`.
 
+## 13/10/2026 — Comparador CFI × plataforma do governo (Configurações › Serviços externos)
+
+- **Por quê:** conferir a troca do serviço `governo` do CFI para a plataforma comum (depois do dia 15) com dados reais, antes e depois de ligar `VITE_SERVICO_GOVERNO_URL` (critério do roteiro P4 no sp-plataforma: débitos e situação dos DARF "batem com o CFI").
+- **Onde:** seção "Comparar CFI × plataforma (governo)" em Configurações › Serviços externos (`components/plataforma/ComparadorGoverno.tsx`, lógica em `services/plataforma/comparadorGoverno.ts`).
+- **Quem vê:** só admin e gestor (o master entra como gestor). O painel recebe o papel do `MainTabs`.
+- **Endereço da plataforma:** o do build (`VITE_SERVICO_GOVERNO_URL`, ou `VITE_PLATAFORMA_URL`). Sem endereço no build, dá para colar um só para a comparação: é validado por `enderecoValido`, não pode ser o próprio CFI e não é gravado. Sem endereço válido, o botão fica desabilitado.
+- **O que compara:** para a empresa ativa e a competência escolhida, chama as mesmas rotas de leitura no CFI (`HOST_CFI_INTEGRACAO`) e na plataforma, com o mesmo token. As rotas são `dctfweb/status`, `dctfweb/debitos` e `pagamentos/situacao-darf`, sempre com o `empresaId`.
+- **O que mostra:** lado a lado, o HTTP, o `ok` e as diferenças nos campos de negócio. O diff ignora carimbos de hora (`consultadoEm`, `conferidoEm`…), ids de requisição (`requestId`, `traceId`…), diagnóstico (`diagnostico`, `ms`, `debug`…) e chaves com "_".
+- **Fora:**
+  - `pagamentos/consultar`: pede o número do documento ou o intervalo de arrecadação, que a tela não conhece, e grava auditoria nos dois servidores;
+  - download do eSocial: gasta a cota diária;
+  - qualquer envio, transmissão, DARF ou comprovante: `compararRota` recusa rota fora da lista fechada.
+- **Custo:** aviso antes de rodar. Cada consulta ao SERPRO é cobrada, 2× por item: 4 consultas por comparação (situação e débitos da DCTFWeb). A situação dos DARF não vai ao SERPRO. Para rodar, é preciso marcar "Entendi o custo"; a marca vale para uma rodada.
+- **Nada é gravado** (nem no Firestore nem no navegador).
+- **Testes:** `services/plataforma/__tests__/comparadorGoverno.test.tsx`:
+  - o diff ignora os campos voláteis e aponta as diferenças de negócio;
+  - a lista é fechada e rota de escrita é recusada sem chamar ninguém;
+  - o endereço do build vence, o colado só pode ser https e nunca o CFI;
+  - o comparador fica escondido para colaborador e pendente e aparece desabilitado sem endereço;
+  - a rodada completa usa as três rotas × dois hosts com o mesmo token e não chama nenhuma rota de escrita nem grava no `localStorage`.
+
