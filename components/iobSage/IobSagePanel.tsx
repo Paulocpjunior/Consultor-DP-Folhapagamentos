@@ -98,7 +98,7 @@ const IobSagePanel: React.FC<Props> = ({ onNavegar, usuario, ehGestor = false, e
                 {MENUS_IOB.map(m => (
                     <button key={m.id} onClick={() => setMenuId(m.id)}
                         className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium ${m.id === menu.id ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400'}`}>
-                        {m.titulo} <span className="text-xs text-slate-400">({m.itens.length})</span>
+                        {m.titulo} <span className="text-xs text-slate-500 dark:text-slate-400">({m.itens.length})</span>
                     </button>
                 ))}
             </nav>
@@ -115,7 +115,7 @@ const IobSagePanel: React.FC<Props> = ({ onNavegar, usuario, ehGestor = false, e
                         <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{i.noConsultor}</p>
                     </button>
                 ))}
-                {!itens.length && <p className="text-sm text-slate-500">Nenhum item com essa situação neste menu.</p>}
+                {!itens.length && <p className="text-sm text-slate-500 dark:text-slate-400">Nenhum item com essa situação neste menu.</p>}
             </div>
 
             {item && (
@@ -126,7 +126,7 @@ const IobSagePanel: React.FC<Props> = ({ onNavegar, usuario, ehGestor = false, e
                                 <p className="text-xs text-slate-500 dark:text-slate-400">{item.caminho.join(' › ')} · IOB {item.produto}</p>
                                 <h3 className="mt-1 text-lg font-semibold text-slate-800 dark:text-white">{item.caminho[item.caminho.length - 1]}</h3>
                             </div>
-                            <button aria-label="Fechar" className="rounded-sm px-2 text-xl text-slate-500 hover:text-slate-800 dark:hover:text-white" onClick={() => setItem(null)}>×</button>
+                            <button aria-label="Fechar" className="rounded-sm px-2 text-xl text-slate-500 hover:text-slate-800 dark:hover:text-white dark:text-slate-400" onClick={() => setItem(null)}>×</button>
                         </div>
                         <dl className="mt-3 space-y-3 text-sm">
                             <div><dt className="text-xs font-medium text-slate-500 dark:text-slate-400">No IOB</dt><dd className="text-slate-800 dark:text-slate-100">{item.descricao}</dd></div>

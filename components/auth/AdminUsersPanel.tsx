@@ -72,9 +72,9 @@ const AdminUsersPanel: React.FC<Props> = ({ currentUser, embutido = false }) => 
         : `Tornar ${ROTULO_PAPEL[novo].toLowerCase()}`;
     const corBotao: Record<Papel, string> = {
         gestor: 'bg-purple-600 hover:bg-purple-700',
-        admin: 'bg-amber-600 hover:bg-amber-700',
-        colaborador: 'bg-green-600 hover:bg-green-700',
-        pendente: 'bg-slate-500 hover:bg-slate-600',
+        admin: 'bg-amber-700 hover:bg-amber-800',
+        colaborador: 'bg-green-700 hover:bg-green-800',
+        pendente: 'bg-slate-600 hover:bg-slate-700',
     };
     const corPapel: Record<Papel, string> = {
         gestor: 'bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-200',
@@ -128,7 +128,7 @@ const AdminUsersPanel: React.FC<Props> = ({ currentUser, embutido = false }) => 
                             const opcoes = papeisPermitidos(ator, isMe, atual);
                             return (
                                 <tr key={u.uid} className="border-t border-slate-100 dark:border-slate-700">
-                                    <td className="px-3 py-2 text-slate-800 dark:text-slate-200">{u.name} {isMe && <span className="text-xs text-blue-500">(você)</span>}</td>
+                                    <td className="px-3 py-2 text-slate-800 dark:text-slate-200">{u.name} {isMe && <span className="text-xs text-blue-700 dark:text-blue-300">(você)</span>}</td>
                                     <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{u.email}</td>
                                     <td className="px-3 py-2"><span className={`px-2 py-0.5 text-xs font-medium rounded-sm ${corPapel[atual]}`}>{ROTULO_PAPEL[atual]}</span></td>
                                     <td className="px-3 py-2 text-xs text-slate-600 dark:text-slate-300">
@@ -139,7 +139,7 @@ const AdminUsersPanel: React.FC<Props> = ({ currentUser, embutido = false }) => 
                                     </td>
                                     <td className="px-3 py-2 text-right space-x-1">
                                         {opcoes.length === 0 ? (
-                                            <span className="text-xs text-slate-400">—</span>
+                                            <span className="text-xs text-slate-500 dark:text-slate-400">—</span>
                                         ) : opcoes.map(p => (
                                             <button key={p} onClick={() => mudar(u, p)} className={`px-2 py-1 text-xs text-white rounded-sm ${corBotao[p]}`}>{rotuloBotao(atual, p)}</button>
                                         ))}

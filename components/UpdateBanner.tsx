@@ -56,12 +56,12 @@ const ListaNovidades: React.FC<{ itens: Novidade[]; mais: number }> = ({ itens, 
                                     {n.itens.map((it, i) => <li key={i}>{it}</li>)}
                                 </ul>
                             )}
-                            <p className="mt-1 text-[11px] text-slate-400">{dataBr(n.data)}</p>
+                            <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">{dataBr(n.data)}</p>
                         </div>
                     </div>
                 </li>
             ))}
-            {mais > 0 && <li className="text-xs text-slate-500">e mais {mais} melhoria(s) anterior(es).</li>}
+            {mais > 0 && <li className="text-xs text-slate-500 dark:text-slate-400">e mais {mais} melhoria(s) anterior(es).</li>}
         </ol>
     ) : <p className="text-sm text-slate-600 dark:text-slate-300">Correções e melhorias gerais.</p>
 );

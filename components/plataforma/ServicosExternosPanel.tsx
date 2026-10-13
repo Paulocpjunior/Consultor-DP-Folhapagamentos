@@ -59,10 +59,10 @@ const ServicosExternosPanel: React.FC = () => {
                                     <td className="px-3 py-2 align-top"><span className={`rounded-full px-2 py-0.5 text-xs font-medium ${COR[c.origem]}`}>{ROTULO_ORIGEM[c.origem]}</span></td>
                                     <td className="px-3 py-2 align-top">
                                         <code className="break-all text-xs text-slate-700 dark:text-slate-300">{enderecoExibido(c)}</code>
-                                        <p className="text-[11px] text-slate-400">{SERVICOS[c.servico].variavel}</p>
+                                        <p className="text-[11px] text-slate-500 dark:text-slate-400">{SERVICOS[c.servico].variavel}</p>
                                     </td>
                                     <td className="px-3 py-2 align-top whitespace-nowrap">
-                                        {t === 'testando' ? <span className="text-xs text-slate-500">testando…</span>
+                                        {t === 'testando' ? <span className="text-xs text-slate-500 dark:text-slate-400">testando…</span>
                                             : t ? <span className={`text-xs font-medium ${t.ok ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>{t.ok ? `responde (${t.ms} ms)` : `sem resposta: ${t.erro}`}</span>
                                                 : <button className={btn} onClick={() => testar([c.servico])}>Testar</button>}
                                     </td>
@@ -79,7 +79,7 @@ const ServicosExternosPanel: React.FC = () => {
                     <li>O novo endereço precisa ser https, ter as mesmas rotas do CFI (docs/plataforma-servicos.md), aceitar o login deste app e liberar o acesso a partir do endereço do DP.</li>
                     <li>A troca vale na próxima publicação. Para voltar ao CFI, apague a variável e publique de novo.</li>
                 </ol>
-                <p className="mt-2 text-xs text-slate-500">O teste de alcance só confere se há um servidor respondendo; não usa o seu login nem envia nada.</p>
+                <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">O teste de alcance só confere se há um servidor respondendo; não usa o seu login nem envia nada.</p>
             </details>
         </div>
     );

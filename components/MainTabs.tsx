@@ -77,14 +77,16 @@ const SUB_CADASTRO: Partial<Record<Destino, SubCadastro>> = {
 
 function extrairNomeAmigavel(user: any): string {
     if (!user) return 'Usuário';
-    const candidato = user.nome || user.displayName;
+    const candidato = user.nome || user.name || user.displayName;
     if (candidato && typeof candidato === 'string' && candidato.trim()) {
-        // Pega só o primeiro nome
-        return candidato.trim().split(/\s+/)[0];
+        // Só o primeiro nome, com inicial maiúscula ("ANA TESTE" -> "Ana")
+        const primeiro = candidato.trim().split(/\s+/)[0];
+        return primeiro.charAt(0).toLocaleUpperCase('pt-BR') + primeiro.slice(1).toLocaleLowerCase('pt-BR');
     }
     if (user.email && typeof user.email === 'string') {
         // junior@spassessoriacontabil.com.br -> "Junior"
-        const local = user.email.split('@')[0];
+        // ana.souza@... -> "Ana" (só o primeiro pedaço do e-mail)
+        const local = user.email.split('@')[0].split(/[._-]/)[0];
         if (local) {
             return local.charAt(0).toUpperCase() + local.slice(1);
         }
@@ -375,7 +377,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
             <Cabecalho menu={menu} destino={nav.d} onNavegar={navegar} ativa={ativa} onTrocar={abrirTroca}
                 usuario={currentUser.name || currentUser.email} papel={isAdmin ? ROTULO_PAPEL[papelEfetivo(currentUser.role)] : undefined}
                 escuro={escuro} onTema={() => setEscuro(e => !e)} onSair={handleLogout} bloqueados={bloqueados}
-                situacaoPeriodo={situacaoPeriodo ? <button onClick={() => navegar({ aba: 'fimdemes', sub: 'fechamento' })} title="Fim de mês desta competência"><SeloSituacao situacao={situacaoPeriodo} /></button> : undefined}
+                situacaoPeriodo={situacaoPeriodo ? <button onClick={() => navegar({ aba: 'fimdemes', sub: 'fechamento' })} title="Fim de mês desta competência"><SeloSituacao situacao={situacaoPeriodo} sobreEscuro /></button> : undefined}
                 contadores={{ ...(pedidosGestor ? { fimdemes: pedidosGestor } : {}), ...(alertasEsocial ? { esocial: alertasEsocial } : {}) }}
                 extraEmpresa={ativa ? <ParticularidadesEmpresa cnpj={ativa.cnpj} /> : undefined} />
             {pedidosGestor > 0 && nav.d.aba !== 'fimdemes' && (
@@ -395,7 +397,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
 
             <EmpresaAtivaProvider ativa={ativa} trocar={abrirTroca} ativar={ativarEmpresa}>
             {/* Trocar de empresa ou de período remonta as telas: dado de um cliente (ou de um mês) nunca fica na tela de outro. */}
-            <main key={ativa ? `${ativa.id}_${ativa.competencia}` : 'sem-empresa'} className="max-w-7xl mx-auto p-4 sm:p-6">
+            <main key={ativa ? `${ativa.id}_${ativa.competencia}` : 'sem-empresa'} className="max-w-7xl mx-auto p-4 pb-24 sm:p-6 sm:pb-24">
                 {local && (
                     <div className="mb-5 border-b border-slate-200 pb-4 dark:border-slate-700/60">
                         <div className="flex items-center gap-3">

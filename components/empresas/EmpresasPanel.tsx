@@ -107,7 +107,7 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser, embutido = false }) => {
                         </div>
                     ))}
                     {confCentral.foraDoCadastro.length > 8 && (
-                        <div className="text-xs text-slate-500">mostrando 8 de {confCentral.foraDoCadastro.length}</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">mostrando 8 de {confCentral.foraDoCadastro.length}</div>
                     )}
                     {confCentral.nomesDivergentes.slice(0, 5).map((d) => (
                         <div key={d.cnpj} className="text-xs py-0.5 text-slate-500 dark:text-slate-400">
@@ -178,9 +178,9 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser, embutido = false }) => {
             )}
 
             {loading ? (
-                <div className="py-8 text-center text-slate-500">Carregando empresas…</div>
+                <div className="py-8 text-center text-slate-500 dark:text-slate-400">Carregando empresas…</div>
             ) : empresas.length === 0 ? (
-                <div className="py-12 text-center text-slate-400">
+                <div className="py-12 text-center text-slate-500 dark:text-slate-400">
                     Nenhuma empresa cadastrada. Clique em "+ Nova empresa" para começar.
                 </div>
             ) : (
@@ -198,7 +198,7 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser, embutido = false }) => {
                         </thead>
                         <tbody>
                             {visiveis.length === 0 && (
-                                <tr><td colSpan={6} className="px-3 py-6 text-center text-slate-400">Nenhuma empresa encontrada para "{busca}".</td></tr>
+                                <tr><td colSpan={6} className="px-3 py-6 text-center text-slate-500 dark:text-slate-400">Nenhuma empresa encontrada para "{busca}".</td></tr>
                             )}
                             {visiveis.map((e) => (
                                 <React.Fragment key={e.id}>
@@ -211,7 +211,7 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser, embutido = false }) => {
                                             {(() => {
                                                 // Situação no cofre único (CFI + Legal); só leitura.
                                                 const l = cofre?.get(e.cnpj.replace(/\D/g, ''));
-                                                if (!cofre) return <span className="text-xs text-slate-400" title={erroCofre || 'Carregando o cofre…'}>{erroCofre ? '—' : '…'}</span>;
+                                                if (!cofre) return <span className="text-xs text-slate-500 dark:text-slate-400" title={erroCofre || 'Carregando o cofre…'}>{erroCofre ? '—' : '…'}</span>;
                                                 const cls = !l || !l.apto ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200'
                                                     : precisaAtencao(l) ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
                                                     : 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200';
@@ -264,7 +264,7 @@ const DetalheCofre: React.FC<{ linha?: LinhaCofre }> = ({ linha }) => {
             {c && <p>Titular: {c.titular ?? '—'} · {c.tipo} · emissor {c.emissor ?? '—'} · válido até {br(c.validoAte)}{linha?.certificadoDaRaiz ? ' (certificado da matriz)' : ''}</p>}
             {linha?.legal && <p>Departamento Legal: vencimento acompanhado {br(linha.legal.vencimentoInformado)}{linha.legal.ultimaRenovacao ? ` · última renovação ${br(linha.legal.ultimaRenovacao.dataAntiga)} → ${br(linha.legal.ultimaRenovacao.dataNova)}` : ''}</p>}
             {linha?.divergenciaLegal === 'renovado-sem-upload' && <p className="font-medium text-red-700 dark:text-red-300">Renovado no Legal, mas o A1 novo não subiu ao cofre.</p>}
-            <p className="text-slate-500">O certificado novo (.pfx) sobe pelo app Legal, direto no cofre. Este app não envia nem baixa certificado.</p>
+            <p className="text-slate-500 dark:text-slate-400">O certificado novo (.pfx) sobe pelo app Legal, direto no cofre. Este app não envia nem baixa certificado.</p>
         </div>
     );
 };

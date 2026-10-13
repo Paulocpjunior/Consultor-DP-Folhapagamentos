@@ -115,13 +115,14 @@ const diasNoMes = (c: string) => { const [a, m] = c.split('-').map(Number); retu
 const quando = (d?: Date) => (d ? d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '');
 
 /** Ações do Cálculo agrupadas num menu (Conferir, Relatórios, Pagamento, Envios): os itens são os botões de sempre. */
+// No celular as ações abrem como folha no pé da tela (a lista à direita do botão saía cortada).
 const GrupoAcoes: React.FC<{ rotulo: string; children: React.ReactNode }> = ({ rotulo, children }) => (
     <details className="group relative">
         <summary className="flex cursor-pointer list-none items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 shadow-xs hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700 [&::-webkit-details-marker]:hidden">
             {rotulo}<svg aria-hidden viewBox="0 0 24 24" className="h-3.5 w-3.5 opacity-60 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth={2}><path d="M6 9l6 6 6-6" /></svg>
         </summary>
         {/* Escolher um item fecha o menu. */}
-        <div className="absolute right-0 z-30 mt-1 flex min-w-[16rem] flex-col gap-0.5 rounded-xl bg-white p-1.5 shadow-xl ring-1 ring-slate-900/10 dark:bg-slate-800 dark:ring-white/10 [&>button]:w-full [&>button]:rounded-lg [&>button]:border-0 [&>button]:text-left [&>button]:shadow-none"
+        <div className="absolute right-0 z-30 mt-1 flex min-w-[16rem] flex-col max-sm:fixed max-sm:inset-x-3 max-sm:bottom-3 max-sm:right-3 max-sm:z-60 max-sm:min-w-0 max-sm:max-h-[70dvh] max-sm:overflow-y-auto max-sm:shadow-2xl gap-0.5 rounded-xl bg-white p-1.5 shadow-xl ring-1 ring-slate-900/10 dark:bg-slate-800 dark:ring-white/10 [&>button]:w-full [&>button]:rounded-lg [&>button]:border-0 [&>button]:text-left [&>button]:shadow-none"
             onClick={e => { if ((e.target as HTMLElement).closest('button')) e.currentTarget.closest('details')?.removeAttribute('open'); }}>
             {children}
         </div>

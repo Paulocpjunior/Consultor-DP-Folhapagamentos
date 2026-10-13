@@ -7,7 +7,7 @@
 // opção de fixar no movimento o valor pago (desligamento, afastamento ou
 // reajuste depois do dia não mudam o desconto na folha).
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
 import { adiantamentoDoMes, type Movimento, type ResultadoCalculo } from '../../services/calculo/motorMensal';
@@ -63,6 +63,12 @@ const CalculoAdiantamentosModal: React.FC<Props> = ({ empresaNome, competencia, 
     const soma = (k: 'adiantamento' | 'irrf' | 'arredondamento' | 'aPagar') => linhas.reduce((s, l) => s + l[k], 0);
     const aFixar = linhas.filter(l => !l.informado && l.adiantamento > 0 && !l.situacao.startsWith('erro'));
     const mes = `${competencia.slice(5)}/${competencia.slice(0, 4)}`;
+    // Esc fecha, como nos outros modais.
+    useEffect(() => {
+        const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') onFechar(); };
+        document.addEventListener('keydown', esc);
+        return () => document.removeEventListener('keydown', esc);
+    }, [onFechar]);
 
     function exportar() {
         const wb = XLSX.utils.book_new();
