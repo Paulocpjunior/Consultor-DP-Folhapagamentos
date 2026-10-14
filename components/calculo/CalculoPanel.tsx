@@ -519,17 +519,19 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
     }, [sel, dados, competencia]);
     const [lancado, setLancado] = useState<{ fichaId: string; mensagem: string } | null>(null);
     // Lançamentos automáticos das fichas (aba "Lanç. automático"): entram no movimento do mês, uma vez cada.
-    const comAutomaticos = useMemo(() => (dados ? noMes(dados.fichas, competencia).filter(f => automaticosDoMes(f.lancamentosAutomaticos, competencia).length) : []), [dados, competencia]);
+    // Na rescisão, só os desligados (e simulados) do mês: os marcados "Lança na rescisão" vão para o movimento do mês deles.
+    const desligamentosDaTela = useMemo(() => (rescisao ? Object.fromEntries(resultadosCalculados.map(r => [r.fichaId, (r as ResultadoRescisao).data])) : undefined), [rescisao, resultadosCalculados]);
+    const comAutomaticos = useMemo(() => (dados ? noMes(dados.fichas, competencia).filter(f => (!desligamentosDaTela || f.id in desligamentosDaTela) && automaticosDoMes(f.lancamentosAutomaticos, competencia).length) : []), [dados, competencia, desligamentosDaTela]);
     async function lancarAutomaticos() {
         setErro('');
         const eventos = await carregarEventosIob().catch(() => null);
         if (!eventos) { setErro('Não foi possível carregar o catálogo de eventos do IOB.'); return; }
         const r = aplicarAutomaticos({
-            fichas: comAutomaticos, movimentos: movs, competencia, eventos, formulas: parametrosFolha?.formulasEventos, rubricas: rubricasEmpresa,
+            fichas: comAutomaticos, movimentos: movs, competencia, eventos, formulas: parametrosFolha?.formulasEventos, rubricas: rubricasEmpresa, desligamentos: desligamentosDaTela,
             salarioDe: f => { const sc = salarioContratual(fichaNaCompetencia(f, competencia).ficha.dados); return 'erro' in sc ? null : { mensal: sc.mensal, horasMes: sc.horasMes }; },
         });
         setMovs(r.movimentos); setVersao(n => n + 1);
-        setAviso(`Lançamentos automáticos: ${r.aplicados} lançado(s) em ${r.funcionarios} funcionário(s)${r.jaAplicados ? `; ${r.jaAplicados} já estava(m) no movimento` : ''}.${r.aplicados ? ' Confira e clique em "Salvar movimento".' : ''}`);
+        setAviso(`Lançamentos automáticos: ${r.aplicados} lançado(s) em ${r.funcionarios} funcionário(s)${r.jaAplicados ? `; ${r.jaAplicados} já estava(m) no movimento` : ''}${r.foraDaRescisao ? `; ${r.foraDaRescisao} sem "Lança na rescisão" ficou(aram) fora do mês do desligamento` : ''}.${r.aplicados ? ' Confira e clique em "Salvar movimento".' : ''}`);
         if (r.erros.length) setErro(r.erros.join(' '));
     }
     useEffect(() => setLancado(null), [aberto, competencia]);
@@ -784,7 +786,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                         </select></label>
                     <button className={btn} aria-pressed={verBeneficios} onClick={() => setVerBeneficios(x => !x)}>Benefícios ({parametrosFolha?.beneficios?.length ?? 0})</button>
                 </span>}
-                {mensal && comAutomaticos.length > 0 && <button className="ml-auto rounded-sm border border-blue-700 px-3 py-2 text-sm font-medium text-blue-800 disabled:opacity-50 dark:border-blue-400 dark:text-blue-200"
+                {(mensal || rescisao) && comAutomaticos.length > 0 && <button className="ml-auto rounded-sm border border-blue-700 px-3 py-2 text-sm font-medium text-blue-800 disabled:opacity-50 dark:border-blue-400 dark:text-blue-200"
                     disabled={encerrado || !movsLidos} title={encerrado ? MSG_ENCERRADO(competencia) : 'Põe no movimento os lançamentos automáticos das fichas (aba "Lanç. automático") que valem neste mês; o que já entrou não entra de novo.'}
                     onClick={() => void lancarAutomaticos()}>Lançamentos automáticos ({comAutomaticos.length})</button>}
                 {(mensal || rescisao) && <button className={`${comAutomaticos.length ? '' : 'ml-auto '}rounded-sm bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-50`} disabled={!pendentes.length || salvando || !gravados || encerrado} title={encerrado ? MSG_ENCERRADO(competencia) : undefined} onClick={salvar}>

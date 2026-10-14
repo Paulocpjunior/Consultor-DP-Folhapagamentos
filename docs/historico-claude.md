@@ -5573,3 +5573,18 @@ Pedido da colaboradora, pelo Paulo, com as telas do SAGE (Rescisão Contratual e
 - **Testes:**
   - `lancamentosAutomaticos.test.tsx`: triênio por valor com as incidências da rubrica, fora do catálogo sem rubrica, valor sobre a rotina, Sal como salário-base e validação;
   - o teste da carga do `lancauto` foi atualizado.
+
+## 14/10/2026 — Lançamento automático: "Lança na Rescisão" e "Cópia para ano seguinte" (SAGE)
+
+- **Pedido do Paulo:** "pode fazer, lança na rescisão e no ano seguinte".
+- **Lança na rescisão** (`naRescisao`: proporcional ou integral; vazio = não entra):
+  - no mês do desligamento só entram os marcados;
+  - o proporcional é o valor × dias trabalhados no mês ÷ 30 (`diasTrabalhadosNoMes`, contando da admissão se for no mesmo mês). Vale para o valor fixo e para o avulso da rotina;
+  - o desligamento vem da ficha ou da rescisão simulada na tela;
+  - o aviso informa quantos ficaram fora.
+- **Cópia para ano seguinte** (`copiaAnoSeguinte`): "Não" faz valer só no ano do "A partir de", que passa a ser obrigatório nesse caso. "Sim", o padrão, segue nos anos seguintes nos mesmos meses, como antes.
+- **Telas:**
+  - na ficha (aba Lanç. automático), os campos "Lança na rescisão" (Não, Proporcional, Integral) e "Cópia para ano seguinte" (Sim, Não);
+  - no Cálculo › Rescisão, o botão "Lançamentos automáticos" aplica os da rescisão no movimento do mês do desligamento.
+- **Mudança de comportamento:** antes, os automáticos entravam inteiros no mês do desligamento. Agora só entram os marcados, como no SAGE. Nenhuma ficha gravada foi alterada.
+- **Testes:** `lancamentosAutomaticos.test.tsx` (proporcional 14/30, integral, os sem marca fora, simulação, dias com admissão no mês, sem cópia para o ano seguinte e validação).

@@ -10,6 +10,8 @@
 //   no lugar do salário da ficha;
 // - nenhum dos dois: a rotina do evento com a referência e o salário da ficha, como antes.
 // As incidências e, para evento fora do catálogo, o tipo vêm da rubrica S-1010 da empresa ligada ao evento.
+// "Lança na Rescisão" (Proporcional ou Integral): no mês do desligamento só entram os marcados, o proporcional pelos dias
+// trabalhados no mês ÷ 30. "Cópia para ano seguinte" = Não: vale só no ano do "A partir de".
 // Puro, sem Firebase.
 
 import type { EventoIobSage } from '../folha/folhaTypes';
@@ -31,6 +33,10 @@ export interface LancamentoAutomatico {
     salario?: string;
     /** "Valor" do SAGE: valor fixo (R$, "626,50") que entra como está; vazio = calculado pela rotina com a referência. */
     valor?: string;
+    /** "Lança na Rescisão" do SAGE: no mês do desligamento entra proporcional aos dias trabalhados ou integral; vazio = não entra. */
+    naRescisao?: 'proporcional' | 'integral';
+    /** "Cópia para ano seguinte" do SAGE: false = vale só no ano do "A partir de"; vazio ou true = segue nos anos seguintes. */
+    copiaAnoSeguinte?: boolean;
     /** Meses do ano em que entra (1 a 12); vazio = todo mês. */
     meses: number[];
     /** Primeira e última competência (AAAA-MM); vazias = sem limite. */
@@ -60,6 +66,8 @@ export function validarAutomaticos(l: LancamentoAutomatico[]): string[] {
         if (a.desde && !comp.test(a.desde)) erros.push(`${q}: "a partir de" no formato AAAA-MM.`);
         if (a.ate && !comp.test(a.ate)) erros.push(`${q}: "até" no formato AAAA-MM.`);
         if (a.desde && a.ate && comp.test(a.desde) && comp.test(a.ate) && a.ate < a.desde) erros.push(`${q}: "até" antes de "a partir de".`);
+        if (a.copiaAnoSeguinte === false && !comp.test(a.desde)) erros.push(`${q}: sem cópia para o ano seguinte, informe "a partir de" (o ano em que vale).`);
+        if (a.naRescisao && a.naRescisao !== 'proporcional' && a.naRescisao !== 'integral') erros.push(`${q}: "Lança na rescisão" proporcional ou integral.`);
         const k = chaveAutomatico(a);
         if (chaves.has(k)) erros.push(`${q}: o mesmo evento com a mesma referência já está na lista.`);
         chaves.add(k);
@@ -70,7 +78,16 @@ export function validarAutomaticos(l: LancamentoAutomatico[]): string[] {
 /** Os lançamentos que valem na competência: dentro do período e no mês marcado (sem meses marcados, todo mês). */
 export function automaticosDoMes(l: LancamentoAutomatico[] | undefined, competencia: string): LancamentoAutomatico[] {
     const mes = Number(competencia.slice(5, 7));
-    return (l ?? []).filter(a => (!a.desde || a.desde <= competencia) && (!a.ate || competencia <= a.ate) && (!a.meses.length || a.meses.includes(mes)));
+    return (l ?? []).filter(a => (!a.desde || a.desde <= competencia) && (!a.ate || competencia <= a.ate) && (!a.meses.length || a.meses.includes(mes))
+        // Sem cópia para o ano seguinte: só no ano do "a partir de".
+        && !(a.copiaAnoSeguinte === false && a.desde && competencia.slice(0, 4) > a.desde.slice(0, 4)));
+}
+
+/** Dias trabalhados no mês do desligamento (até 30), contando da admissão se ela for no mesmo mês. */
+export function diasTrabalhadosNoMes(admissao: string, desligamento: string): number {
+    const dia = Math.min(30, Number(desligamento.slice(8, 10)) || 30);
+    const desde = admissao.slice(0, 7) === desligamento.slice(0, 7) ? Number(admissao.slice(8, 10)) || 1 : 1;
+    return Math.max(0, dia - desde + 1);
 }
 
 /** Texto dos meses para a tela: "todo mês" ou "jan, jul, dez". */
@@ -79,6 +96,8 @@ export const textoMeses = (meses: number[]) => (meses.length ? [...meses].sort((
 export interface ResultadoAutomaticos {
     movimentos: Record<string, Movimento>;
     aplicados: number;
+    /** No mês do desligamento, os sem "Lança na rescisão" (não entram). */
+    foraDaRescisao: number;
     funcionarios: number;
     jaAplicados: number;
     erros: string[];
@@ -93,12 +112,20 @@ export function aplicarAutomaticos(p: {
     formulas?: Record<string, FormulaEvento>; salarioDe: (f: FichaFuncionario) => SalarioDoMes | null;
     /** Rubricas S-1010 da empresa: incidências e, fora do catálogo, o tipo do evento. */
     rubricas?: Rubrica[];
+    /** Desligamentos na competência (ficha → data), além do da ficha: as rescisões simuladas. */
+    desligamentos?: Record<string, string>;
 }): ResultadoAutomaticos {
     const movimentos = { ...p.movimentos };
-    const r: ResultadoAutomaticos = { movimentos, aplicados: 0, funcionarios: 0, jaAplicados: 0, erros: [] };
+    const r: ResultadoAutomaticos = { movimentos, aplicados: 0, foraDaRescisao: 0, funcionarios: 0, jaAplicados: 0, erros: [] };
     for (const f of p.fichas) {
-        const doMes = automaticosDoMes(f.lancamentosAutomaticos, p.competencia);
+        // Mês do desligamento: só os marcados para a rescisão, o proporcional pelos dias trabalhados no mês ÷ 30.
+        const deslig = p.desligamentos?.[f.id] ?? (f.dados.dataDesligamento?.startsWith(p.competencia) ? f.dados.dataDesligamento : '');
+        const desligadoNoMes = !!deslig && deslig.startsWith(p.competencia);
+        const todosDoMes = automaticosDoMes(f.lancamentosAutomaticos, p.competencia);
+        const doMes = desligadoNoMes ? todosDoMes.filter(a => a.naRescisao) : todosDoMes;
+        if (desligadoNoMes) r.foraDaRescisao += todosDoMes.length - doMes.length;
         if (!doMes.length) continue;
+        const diasNoMes = desligadoNoMes ? diasTrabalhadosNoMes(f.dados.admissao ?? '', deslig) : 30;
         const nome = f.dados.nome || f.cpf;
         let mov: Movimento = movimentos[f.id] ?? {};
         let mudou = false;
@@ -114,8 +141,11 @@ export function aplicarAutomaticos(p: {
                     incidencias: { ir: 'N', in: 'N', irf: 'N', inf: 'N', fg: 'N', rt: 'N', vr: 'N' }, rv: 'V', coeficiente: 0, ro: '060' };
             }
             if (!ev) { r.erros.push(`${nome}: evento ${a.codigoEvento} não está no catálogo do IOB (Cadastros › Eventos IOB)${valorFixo ? ' nem tem rubrica S-1010 ligada na empresa' : ''}.`); continue; }
+            const proporcional = desligadoNoMes && a.naRescisao === 'proporcional' && diasNoMes < 30;
+            const textoProp = proporcional ? `; rescisão: proporcional a ${diasNoMes}/30 dias` : desligadoNoMes ? '; rescisão: integral' : '';
             let res;
-            if (valorFixo) res = lancarPorValor(ev, valorFixo, mov, `valor fixo do lançamento automático${a.referencia.trim() ? `, referência ${a.referencia.trim()}` : ''}`, inc, a.descricao);
+            if (valorFixo) res = lancarPorValor(ev, proporcional ? Math.round(valorFixo * diasNoMes / 30) : valorFixo, mov,
+                `valor fixo do lançamento automático${a.referencia.trim() ? `, referência ${a.referencia.trim()}` : ''}${proporcional ? ` (${reais(valorFixo)} × ${diasNoMes}/30)` : ''}${textoProp}`, inc, a.descricao);
             else {
                 const formula = p.formulas?.[ev.codigo];
                 const tipo = formula ? formula.referencia : tipoDaReferencia(ev);
@@ -127,6 +157,13 @@ export function aplicarAutomaticos(p: {
                 const sal = salBase ? { mensal: salBase, horasMes: daFicha?.horasMes ?? 220 } : daFicha;
                 res = lancarEvento(ev, ref, sal, mov, formula, inc);
                 if (!('erro' in res) && salBase) res = { ...res, mensagem: `${res.mensagem} Salário-base do lançamento automático: ${reais(salBase)}.` };
+                // Proporcional na rescisão: o lançamento avulso do evento pelos dias trabalhados (campos do movimento, como
+                // horas extras, já são do mês).
+                if (!('erro' in res) && proporcional) {
+                    const lancs = res.movimento.lancamentos ?? [];
+                    const i = lancs.findIndex(x => x.descricao.startsWith(`${ev!.codigo} `));
+                    if (i >= 0) res = { ...res, movimento: { ...res.movimento, lancamentos: lancs.map((x, j) => (j === i ? { ...x, valor: Math.round(x.valor * diasNoMes / 30) } : x)) }, mensagem: `${res.mensagem}${textoProp}.` };
+                }
             }
             if ('erro' in res) { r.erros.push(`${nome}: ${res.erro}`); continue; }
             mov = { ...res.movimento, automaticos: [...(mov.automaticos ?? []), chave] };
