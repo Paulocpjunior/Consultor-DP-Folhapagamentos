@@ -43,7 +43,7 @@ export function chaveVerbaRescisao(v: Pick<Verba, 'codigo' | 'descricao'>): stri
 }
 
 /** Verbas que só existem na rescisão: não há rubrica da folha para elas. */
-const SO_RESCISAO = new Set(['AVISO', 'AVISODESC', 'ART479', '13PROP', '13IND', 'FV', 'FV13', 'FVD', 'FVD13', 'FP', 'FP13']);
+const SO_RESCISAO = new Set(['AVISO', 'AVISODESC', 'ART479', 'ART480', 'INSUFSALDO', '13PROP', '13IND', 'FV', 'FV13', 'FVD', 'FVD13', 'FP', 'FP13']);
 
 /**
  * Sugestão de rubrica pela descrição do S-1010 da empresa (e pela natureza da Tabela 03, quando a descrição é
@@ -54,6 +54,8 @@ const SUGESTAO_RESC: Record<string, { dica: RegExp; evita?: RegExp; naturezas?: 
     AVISO: { dica: /AVISO/, evita: /DESC|13|FERIAS/, naturezas: ['6003'] },
     AVISODESC: { dica: /AVISO/ },
     ART479: { dica: /479/, naturezas: ['6104'] },
+    ART480: { dica: /480/, naturezas: ['6904'] },
+    INSUFSALDO: { dica: /INSUFIC/, naturezas: ['2930'] },
     '13PROP': { dica: /13/, evita: /AVISO|INDENIZ|ADIANT|INSS|IRRF|PENS/, naturezas: ['6002'] },
     '13IND': { dica: /13.*(AVISO|INDENIZ)|(AVISO|INDENIZ).*13/, naturezas: ['6001'] },
     FV: { dica: /FERIAS.*VENC|VENC.*FERIAS/, evita: /\b1 3\b|TERCO|DOBR/, naturezas: ['6007'] },

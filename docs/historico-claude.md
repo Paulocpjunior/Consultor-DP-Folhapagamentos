@@ -5530,3 +5530,21 @@ Paulo: *"podemos fazer o P2 usando o terminal do meu mac"* (12/10).
   - O mapa agora sai do `MENU` (todo item do menu, com grupo e descrição) mais as rotinas internas: abas da ficha, plano de saúde passo a passo (Benefícios no Cálculo mensal, adesão na aba Benefícios da ficha, coparticipação em Administração de benefícios, S-1210 `planSaude` pelo Consultor), Cálculo, Tabelas legais, pensão e férias.
   - O mapa também manda a MiA não afirmar que falta uma função quando não a encontra no mapa.
   - Testes em `mia.test.tsx`.
+
+## 14/10/2026 — Rescisão como no SAGE: art. 480, eventos digitados, insuficiência de saldo e avisos
+
+Pedido da colaboradora, pelo Paulo, com as telas do SAGE (Rescisão Contratual e menu Contratos) e um caso real comparado (término antecipado da experiência a pedido do empregado, salário de R$ 2.800,00, desligamento em 14/10/2026).
+- **Art. 480 (`motorRescisao.ts`):**
+  - nova opção `indenizacao480` no motivo 04: desconto ART480 de metade da remuneração dos dias até o fim do contrato da ficha (o teto do § 1º, igual ao art. 479);
+  - natureza 6904 ("Multa prevista no art. 480 da CLT"), sem incidências;
+  - é opção, como o checkbox do SAGE: desmarcada, o empregador abre mão;
+  - no caso do SAGE dá 16,5 dias = R$ 1.540,00, o mesmo valor.
+- **Insuficiência de saldo:** com os descontos acima dos proventos, a verba INSUFSALDO (natureza 2930) completa os proventos e o líquido fica zero, como o 04923 do SAGE. Um aviso diz que o empregado continua devendo a diferença e lembra o limite do art. 477, § 5º.
+- **Eventos digitados na rescisão (`CalculoPanel`):**
+  - o holerite da rescisão ganhou o painel "Eventos da rescisão": Lançar evento, lançamentos avulsos, VT, adiantamento etc.;
+  - os eventos ficam no movimento do mês do desligamento e entram no cálculo na hora, mesmo antes de salvar;
+  - o botão "Salvar movimento" aparece também na rescisão.
+- **eSocial:** rubricas-modelo RESC:ART480 (6904, desconto) e RESC:INSUFSALDO (2930, provento) em `tabelaRubricas.ts`, com as sugestões do de/para do S-2299 e da folha.
+- **Modelos (Relatórios › Contratos e modelos):** aviso prévio indenizado, aviso de término do contrato de experiência, término antecipado pelo empregador (art. 479) e pelo empregado (art. 480, com a ciência do desconto), e comunicação de justa causa (art. 482, motivo digitado). Os da lista do SAGE que já existiam (advertência, suspensão, aviso prévio do empregador, pedido de demissão) ficaram como estavam.
+- **MiA:** o mapa ganhou a rescisão (eventos, art. 480, insuficiência e onde estão os avisos).
+- **Testes:** `motorRescisao.test.ts` com o caso do SAGE (art. 480, saldo, 13º e férias com os valores do SAGE; insuficiência; sem a opção) e `modelos.test.ts` (os cinco modelos novos).

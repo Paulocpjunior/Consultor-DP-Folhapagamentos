@@ -144,6 +144,8 @@ export const MODELOS: ModeloRubrica[] = [
     m(`${PREFIXO_RESC}AVISO`, 'Aviso prévio indenizado', '6003', '1', '00', '74', '21', 'Aviso indenizado: FGTS 21 e isento de IRRF; confira o código da isenção na Tabela 21.'),
     m(`${PREFIXO_RESC}AVISODESC`, 'Desconto do aviso prévio não cumprido', '6901', '2', '00', '9', '00'),
     m(`${PREFIXO_RESC}ART479`, 'Indenização do art. 479 da CLT', '6104', '1', '00', '74', '00', 'Indenização isenta de IRRF: confira o código da isenção na Tabela 21.'),
+    m(`${PREFIXO_RESC}ART480`, 'Indenização do art. 480 da CLT (desconto)', '6904', '2', '00', '9', '00'),
+    m(`${PREFIXO_RESC}INSUFSALDO`, 'Insuficiência de saldo rescisório', '2930', '1', '00', '9', '00'),
     m(`${PREFIXO_RESC}13PROP`, '13º salário proporcional', '6002', '1', '12', '12', '12'),
     m(`${PREFIXO_RESC}13IND`, '13º salário sobre o aviso indenizado', '6001', '1', '12', '12', '12'),
     m(`${PREFIXO_RESC}FV`, 'Férias vencidas', '6007', '1', '00', '74', '00', 'Férias indenizadas: isentas de IRRF; confira o código da isenção na Tabela 21.'),

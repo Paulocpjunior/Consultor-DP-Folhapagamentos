@@ -70,6 +70,17 @@ describe('modelos-base', () => {
         }
         expect(new Set(MODELOS_BASE.map(m => m.id)).size).toBe(MODELOS_BASE.length);
     });
+    it('têm os avisos do menu Contratos do SAGE: aviso indenizado, término do contrato, término antecipado (empregador e empregado) e justa causa', () => {
+        const porId = new Map(MODELOS_BASE.map(m => [m.id, m]));
+        expect(porId.get('base-aviso-previo-indenizado')?.corpo).toContain('art. 487, § 1º');
+        expect(porId.get('base-termino-contrato')?.corpo).toContain('{{contrato.fimContrato}}');
+        expect(porId.get('base-termino-antecipado-empregador')?.corpo).toContain('art. 479');
+        expect(porId.get('base-termino-antecipado-empregado')?.corpo).toMatch(/art\. 480[\s\S]*§ 1º/);
+        expect(porId.get('base-justa-causa')?.corpo).toContain('{{digitado.motivo}}');
+        for (const id of ['base-aviso-previo-indenizado', 'base-termino-contrato', 'base-termino-antecipado-empregador', 'base-termino-antecipado-empregado', 'base-justa-causa']) {
+            expect(porId.get(id)?.categoria, id).toBe('desligamento');
+        }
+    });
 });
 
 describe('textos do SAGE', () => {

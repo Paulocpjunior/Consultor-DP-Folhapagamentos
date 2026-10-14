@@ -187,6 +187,8 @@ export const SUGESTAO: Record<string, { naturezas: string[]; dica?: RegExp; evit
     FGTSSM: { naturezas: ['9905'] },
     AVISO: { naturezas: ['6003'], dica: /AVISO/, evita: /DESC|13|FERIAS/ },
     ART479: { naturezas: ['6104'] },
+    ART480: { naturezas: ['6904'], dica: /480/ },
+    INSUFSALDO: { naturezas: ['2930'], dica: /INSUFIC/ },
     '13PROP': { naturezas: ['6002'] },
     '13IND': { naturezas: ['6001'] },
     FV: { naturezas: ['6007'], evita: /\b1 3\b|TERCO|DOBR/ },

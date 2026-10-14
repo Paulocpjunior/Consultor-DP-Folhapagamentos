@@ -181,3 +181,42 @@ describe('motivos 05, 10 e 17 da Tabela 19', () => {
         expect(ind.avisos.join(' ')).toMatch(/S-2500/);
     });
 });
+
+// Caso do SAGE (rescisão 14/10/2026, contrato de experiência de 90 dias, salário de R$ 2.800,00): término antecipado
+// pelo empregado com a indenização do art. 480, vale-transporte e vale-refeição não utilizados digitados na rescisão.
+describe('término antecipado pelo empregado (art. 480) e insuficiência de saldo, como no SAGE', () => {
+    const exp = ficha({ admissao: '2026-08-19', salario: '2800.00', tipoContrato: '2', fimContrato: '2026-11-16' });
+    const base = { ficha: exp, data: '2026-10-14', tipo: '04' as const, aviso: 'dispensado' as const, afastamentos: [] };
+
+    it('sem a opção, nada é descontado e o aviso explica como descontar', () => {
+        const r = calc(base);
+        expect(v(r, 'ART480')).toBe(0);
+        expect(r.avisos.join('\n')).toContain('marque "Indenização do art. 480"');
+    });
+
+    it('com a opção: metade da remuneração dos 33 dias até o fim do contrato = 16,5 dias × 93,33 = R$ 1.540,00 (o SAGE dá o mesmo)', () => {
+        const r = calc({ ...base, indenizacao480: true });
+        const art480 = r.verbas.find(x => x.codigo === 'ART480')!;
+        expect(art480).toMatchObject({ tipo: 'desconto', valor: 154000, referencia: '16,5 dias', inss: false, fgts: false, irrf: false });
+        // As demais verbas batem com o SAGE: saldo 14 dias, 13º 1/12, férias 2/12 + 1/3.
+        expect([v(r, 'SAL'), v(r, '13PROP'), v(r, 'FP'), v(r, 'FP13')]).toEqual([130667, 23333, 46667, 15556]);
+    });
+
+    it('descontos maiores que os proventos: a insuficiência de saldo completa e o líquido fica zero', () => {
+        const movimentos = { '2026-10': { lancamentos: [
+            { descricao: 'VALE TRANSPORTE NÃO UTILIZADO', tipo: 'desconto' as const, valor: 45280, inss: false, fgts: false, irrf: false },
+            { descricao: 'VALE REFEIÇÃO NÃO UTILIZADO', tipo: 'desconto' as const, valor: 62000, inss: false, fgts: false, irrf: false },
+        ] } };
+        const r = calc({ ...base, indenizacao480: true, movimentos });
+        const insuf = r.verbas.find(x => x.codigo === 'INSUFSALDO')!;
+        expect(insuf.tipo).toBe('provento');
+        expect(r.totais.liquido).toBe(0);
+        expect(r.totais.proventos).toBe(r.totais.descontos);
+        expect(insuf.valor).toBe(r.verbas.filter(x => x.tipo === 'desconto').reduce((s, x) => s + x.valor, 0) - r.verbas.filter(x => x.tipo === 'provento' && x.codigo !== 'INSUFSALDO').reduce((s, x) => s + x.valor, 0));
+        expect(r.avisos.join('\n')).toContain('o empregado continua devendo');
+    });
+
+    it('com saldo suficiente, não há insuficiência', () => {
+        expect(calc({ ...base, indenizacao480: true }).verbas.some(x => x.codigo === 'INSUFSALDO')).toBe(false);
+    });
+});
