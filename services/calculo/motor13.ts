@@ -34,7 +34,7 @@ import { dataValida, reais } from '../cadastros/documentos';
 import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros/tabelasLegais';
 import { adicionalDeRisco } from './adicionais';
 import { diaUtilAnterior, somarDias } from '../prazos/calendario';
-import { mediaDasVariaveis, salarioContratual, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
+import { mediaDasVariaveis, percentualDaPensao, salarioContratual, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
 import { ehDomestico, indenizacaoCompensatoria } from '../domestico/domestico';
 
 export type Parcela13 = '1a' | '2a';
@@ -209,13 +209,21 @@ export function calcular13(e: Entrada13): ResultadoCalculo {
 
     // Pensão alimentícia sobre o 13º (informada no movimento do mês do pagamento): desconto na parcela e dedução no IRRF do 13º,
     // que é apurado na 2ª sobre o integral (a pensão descontada na 1ª, em novembro, também deduz).
-    const pensaoParcela = Math.max(0, Math.round(e.movimentos[pagamento]?.pensao13 ?? 0));
+    let pensaoParcela = Math.max(0, Math.round(e.movimentos[pagamento]?.pensao13 ?? 0));
     if (pensaoParcela) r.memoria.push(`Pensão alimentícia sobre o 13º (movimento de ${rotuloCompetencia(pagamento)}): ${reais(pensaoParcela)}.`);
+    // Pensão em % (a fórmula do SAGE): sem valor informado, o percentual da pensão sobre a parcela menos o INSS dela.
+    const pctPensao = pensaoParcela ? null : percentualDaPensao(e.movimentos, pagamento);
+    const novembro = `${ano}-11`;
+    let pensaoNaPrimeira = pagamento !== novembro ? Math.max(0, Math.round(e.movimentos[novembro]?.pensao13 ?? 0)) : 0;
 
     if (parcela === '1a') {
         verba({ codigo: '13A', descricao: '13º salário — 1ª parcela', referencia: `${avos1}/12`, tipo: 'provento', valor: primeiraCalculada, inss: false, fgts: true, irrf: false });
         r.memoria.push(`1ª parcela: metade de (${reais(remuneracao)} × ${avos1}/12) = ${reais(primeiraCalculada)}; sem INSS e sem IRRF (descontados na 2ª).`);
         r.bases.fgts = primeiraCalculada;
+        if (pctPensao) {
+            pensaoParcela = Math.round(primeiraCalculada * pctPensao.pct / 100);
+            r.memoria.push(`Pensão alimentícia sobre a 1ª parcela: ${pct(pctPensao.pct)} (movimento de ${rotuloCompetencia(pctPensao.competencia)}) de ${reais(primeiraCalculada)} = ${reais(pensaoParcela)}.`);
+        }
     } else {
         // Sem valor informado: a 1ª parcela paga com as férias, se houve; senão, o que a 1ª parcela calculou em
         // novembro (avos projetados e média até outubro), que é o que foi pago; na parcela única, nada.
@@ -261,14 +269,21 @@ export function calcular13(e: Entrada13): ResultadoCalculo {
             r.memoria.push(`INSS do 13º (em separado, tabela de ${rotuloCompetencia(t.vigencia)}): ${partes.join(' + ')} = ${reais(inss)}${fx ? ` (pela faixa de ${fx.referencia}: ${fx.formula})` : ''}.`);
         }
 
+        // Pensão em %: sobre o 13º integral menos o INSS dele, menos a pensão já descontada na 1ª parcela.
+        if (pctPensao) {
+            const total = Math.round(Math.max(0, integral - inss) * pctPensao.pct / 100);
+            if (!pensaoNaPrimeira && primeira && pagamento !== novembro) pensaoNaPrimeira = Math.round(primeira * pctPensao.pct / 100);
+            pensaoParcela = Math.max(0, total - pensaoNaPrimeira);
+            r.memoria.push(`Pensão alimentícia sobre o 13º: ${pct(pctPensao.pct)} (movimento de ${rotuloCompetencia(pctPensao.competencia)}) de (${reais(integral)} − INSS ${reais(inss)}) = ${reais(total)}${pensaoNaPrimeira ? ` − ${reais(pensaoNaPrimeira)} descontados na 1ª parcela` : ''} = ${reais(pensaoParcela)}.`);
+        }
+
         // IRRF do 13º: exclusivo na fonte, sobre o integral.
         const tIr = tabelaVigente(e.tabelas, 'irrf', pagamento);
         if ('erro' in tIr) erro(`IRRF: ${tIr.erro}`);
         else {
             const t = tIr.tabela;
             const nDep = ficha.dependentes.filter(x => x.irrf === 'S' && x.pensao !== 'S').length; // quem recebe pensão deduz só por ela (Lei 9.250/1995, art. 35, § 4º)
-            const novembro = `${ano}-11`;
-            const pensao = pensaoParcela + (pagamento !== novembro ? Math.max(0, Math.round(e.movimentos[novembro]?.pensao13 ?? 0)) : 0);
+            const pensao = pensaoParcela + pensaoNaPrimeira;
             const legais = inss + nDep * (t.valores.deducaoDependente ?? 0) + pensao;
             const simpl = opcoes.simplificado ? t.valores.descontoSimplificado ?? 0 : 0;
             const usaSimpl = simpl > legais;
@@ -292,7 +307,7 @@ export function calcular13(e: Entrada13): ResultadoCalculo {
         }
     }
 
-    if (pensaoParcela) verba({ codigo: 'PENSAO13', descricao: 'Pensão alimentícia sobre 13º', referencia: '', tipo: 'desconto', valor: pensaoParcela, inss: false, fgts: false, irrf: false });
+    if (pensaoParcela) verba({ codigo: 'PENSAO13', descricao: 'Pensão alimentícia sobre 13º', referencia: pctPensao ? pct(pctPensao.pct) : '', tipo: 'desconto', valor: pensaoParcela, inss: false, fgts: false, irrf: false });
     r.fgts = Math.round(r.bases.fgts * aliqFgts / 100);
     r.memoria.push(`FGTS: ${reais(r.bases.fgts)} × ${aliqFgts}% = ${reais(r.fgts)}${parcela === '2a' ? ' (13º menos a 1ª parcela, que já teve FGTS)' : ''}.`);
     if (ehDomestico(categoria)) {

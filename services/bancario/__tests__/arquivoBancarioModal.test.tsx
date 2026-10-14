@@ -134,3 +134,19 @@ describe('modal Arquivo Bancário', () => {
         expect(screen.queryByText(/Fora do arquivo/)).toBeNull();
     });
 });
+
+describe('modal Arquivo Bancário: relação de depósito', () => {
+    it('sem conta da empresa, a relação sai dos mesmos favorecidos, com a data de crédito e as opções do SAGE', async () => {
+        const salvos: string[] = [];
+        vi.doMock('../../relatorios/layoutPdf', async (orig) => ({ ...(await orig() as object), tabelaPdf: () => ({ save: (n: string) => salvos.push(n) }) }));
+        render(<ArquivoBancarioModal empresa={empresa} resultados={[res('f1', 'ANA', 250000), res('f2', 'BRUNO', 180000)]} fichas={fichas}
+            titulo="Adiantamento salarial 10/2026" dataSugerida="2026-10-20" onFechar={() => {}} />);
+        const sec = screen.getByRole('region', { name: 'Relação de depósito bancário' });
+        expect(within(sec).getByText(/2 funcionário\(s\)/)).toBeTruthy();
+        expect((within(sec).getByLabelText('Data de crédito da relação') as HTMLInputElement).value).toBe('2026-10-20');
+        fireEvent.change(within(sec).getByLabelText('Documento na relação'), { target: { value: 'nenhum' } });
+        fireEvent.click(within(sec).getByText('Relação de depósito (PDF)'));
+        await waitFor(() => expect(salvos).toEqual(['relacao-deposito-1200-adiantamento-salarial-10-2026.pdf']));
+        vi.doUnmock('../../relatorios/layoutPdf');
+    });
+});

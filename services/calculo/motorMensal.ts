@@ -974,6 +974,22 @@ export function apurarIrrf(t: TabelaLegal, rendimentos: number, legais: number) 
     return { simplificado, deducao, base, aliquota: faixa.aliquota, deducaoFaixa: faixa.deducao, bruto, valor, memoriaRedutor };
 }
 
+/**
+ * Percentual da pensão alimentícia que vale no mês (Movimento.pensaoPercentual): o do próprio mês ou, sem ele, o do
+ * último mês anterior que informou a pensão (até 12 meses). Um mês com a pensão em valor fixo encerra a busca: a decisão
+ * mudou para valor. Usado no 13º, nas férias e na rescisão, que não têm o movimento do mês do jeito da folha mensal.
+ */
+export function percentualDaPensao(movimentos: Record<string, Movimento>, ate: string): { pct: number; competencia: string } | null {
+    const limite = ate.slice(0, 7);
+    const meses = Object.keys(movimentos).filter(c => /^\d{4}-\d{2}$/.test(c) && c <= limite).sort().reverse().slice(0, 12);
+    for (const c of meses) {
+        const m = movimentos[c];
+        if (m?.pensaoPercentual && m.pensaoPercentual > 0) return { pct: m.pensaoPercentual, competencia: c };
+        if (m?.pensaoAlimenticia && m.pensaoAlimenticia > 0) return null;
+    }
+    return null;
+}
+
 /** Funcionários com vínculo em algum dia da competência. */
 export function noMes(fichas: FichaFuncionario[], competencia: string): FichaFuncionario[] {
     const ini = `${competencia}-01`; const ult = ultimoDia(competencia);

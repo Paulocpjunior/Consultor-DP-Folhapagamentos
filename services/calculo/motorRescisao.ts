@@ -40,7 +40,7 @@ import type { Afastamento } from '../cadastros/afastamentos';
 import { dataValida, reais } from '../cadastros/documentos';
 import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros/tabelasLegais';
 import { aniversario, diasEntre, somarDias, somarMeses } from '../prazos/calendario';
-import { calcularMensal, competenciaAnterior, mediaDasVariaveis, salarioContratual, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
+import { calcularMensal, competenciaAnterior, mediaDasVariaveis, percentualDaPensao, salarioContratual, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
 import { avosDoAno, primeiraParcelaNasFerias } from './motor13';
 import { descontosConsignado } from './consignado';
 import { folhaPagaAntes } from './arredondamento';
@@ -409,8 +409,14 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
         if ('erro' in tIr) erro(`IRRF: ${tIr.erro}`);
         else if (prop + ind) {
             // Pensão sobre o 13º da rescisão (movimento do mês do desligamento): desconto e dedução no IRRF do 13º.
-            const pensao13 = Math.max(0, Math.round(e.movimentos[comp]?.pensao13 ?? 0));
-            if (pensao13) verba({ codigo: 'PENSAO13', descricao: 'Pensão alimentícia sobre 13º', referencia: '', tipo: 'desconto', valor: pensao13, inss: false, fgts: false, irrf: false });
+            let pensao13 = Math.max(0, Math.round(e.movimentos[comp]?.pensao13 ?? 0));
+            // Pensão em % (a fórmula do SAGE), sem valor informado: sobre o 13º da rescisão menos o INSS dele.
+            const pctPensao13 = pensao13 ? null : percentualDaPensao(e.movimentos, comp);
+            if (pctPensao13) {
+                pensao13 = Math.round(Math.max(0, prop + ind - inss13) * pctPensao13.pct / 100);
+                r.memoria.push(`Pensão alimentícia sobre o 13º da rescisão: ${pctPensao13.pct.toLocaleString('pt-BR')}% (movimento de ${rotuloCompetencia(pctPensao13.competencia)}) de (${reais(prop + ind)} − INSS ${reais(inss13)}) = ${reais(pensao13)}.`);
+            }
+            if (pensao13) verba({ codigo: 'PENSAO13', descricao: 'Pensão alimentícia sobre 13º', referencia: pctPensao13 ? `${pctPensao13.pct.toLocaleString('pt-BR')}%` : '', tipo: 'desconto', valor: pensao13, inss: false, fgts: false, irrf: false });
             const x = irrfDetalhado({ rendimento: prop + ind, inss: inss13, dependentes: ficha.dependentes.filter(y => y.irrf === 'S' && y.pensao !== 'S').length, pensao: pensao13, tabela: tIr.tabela, opcoes, rotulo: 'IRRF do 13º (exclusivo na fonte)' });
             r.memoria.push(...x.memoria);
             const deps13 = ficha.dependentes.filter(y => y.irrf === 'S' && y.pensao !== 'S');
@@ -513,6 +519,7 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
         r.memoria.push(`Falecimento: sem IRRF na rescisão${ir ? ` (os ${reais(ir)} calculados não são retidos)` : ''}; o S-2299 vai com indApurIR 1 e sem S-1210, e a retenção, se houver, é com o CPF de quem recebe, na EFD-Reinf (MOS, S-2299, item 11.1).`);
         r.avisos.push('Falecimento: pague aos dependentes habilitados na Previdência ou, sem eles, aos sucessores indicados em alvará judicial (Lei 6.858/1980). A data do desligamento é a do óbito.');
     }
+    if (percentualDaPensao(e.movimentos, comp)) r.avisos.push('Pensão em %: entra no saldo de salário e no 13º. Se a decisão também alcança as férias indenizadas ou o aviso prévio indenizado, lance a pensão sobre eles nos eventos da rescisão.');
     if (semAmparo) { r.avisos.unshift(semAmparo); if (r.situacao === 'calculado') r.situacao = 'incompleto'; }
     if (tipo === '17') r.avisos.push('Rescisão indireta reconhecida em juízo: o S-2299 vai com o número do processo e sem as verbas, e os valores pelo S-2500 (MOS, S-2299, item 20). O S-2299 com as verbas é para a rescisão indireta reconhecida pelo empregador.');
     r.totais.proventos = r.verbas.filter(v => v.tipo === 'provento').reduce((s, v) => s + v.valor, 0);
