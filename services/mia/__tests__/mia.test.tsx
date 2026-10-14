@@ -6,14 +6,32 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 
 const sv = vi.hoisted(() => ({ chamar: vi.fn(async (_p: string, _b: unknown) => ({ texto: 'Até **2 dias** antes do início (CLT, art. 145).', fontes: [{ titulo: 'CLT', uri: 'https://www.planalto.gov.br/clt' }] })) }));
 vi.mock('../../serpro/serproIntegrationService', () => ({ callFiscal: (p: string, b: unknown) => sv.chamar(p, b) }));
-import { contextoDoHolerite, contextoMiaAtual, definirContextoMia, mascararCpf, perguntarMia, GUIA_DO_APP, MAX_TEXTO, type MensagemMia } from '../mia';
+import { contextoDoHolerite, contextoMiaAtual, definirContextoMia, mascararCpf, perguntarMia, GUIA_DO_APP, MAX_CONTEXTO, MAX_TEXTO, type MensagemMia } from '../mia';
 import MiaAssistente from '../../../components/mia/MiaAssistente';
 import type { ResultadoCalculo } from '../../calculo/motorMensal';
+import { MENU } from '../../navegacao/menu';
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); definirContextoMia('a', null); definirContextoMia('b', null); });
 const r = { fichaId: 'f1', nome: 'ANA', competencia: '2026-09', pagamento: '2026-10', situacao: 'calculado', fgts: 24000, erros: [], avisos: ['Confira o DSR.'],
     verbas: [{ codigo: 'SAL', descricao: 'Salário', referencia: '30 dias', tipo: 'provento', valor: 300000 }], bases: { inss: 300000, fgts: 300000, irrf: 300000 },
     totais: { proventos: 300000, descontos: 0, liquido: 300000 }, memoria: ['Salário mensal: R$ 3.000,00.'] } as unknown as ResultadoCalculo;
+
+describe('mapa do app da MiA', () => {
+    it('sai do menu: todo item do menu está no mapa, com o grupo e a descrição', () => {
+        for (const g of MENU) for (const i of g.itens) expect(GUIA_DO_APP).toContain(`- ${g.rotulo} › ${i.rotulo}`);
+        expect(GUIA_DO_APP).toContain('Administração de benefícios');
+    });
+    it('explica onde se cadastra o plano de saúde e odontológico (pergunta da equipe em 14/10/2026)', () => {
+        expect(GUIA_DO_APP).toMatch(/Plano de saúde e odontológico/);
+        expect(GUIA_DO_APP).toMatch(/aba Benefícios/);
+        expect(GUIA_DO_APP).toMatch(/CNPJ da operadora e o registro na ANS/);
+        expect(GUIA_DO_APP).toMatch(/S-1210 gerado pelo Consultor/);
+    });
+    it('não afirma que falta função fora do mapa e cabe no limite do contexto', () => {
+        expect(GUIA_DO_APP).toMatch(/não afirme que o app não tem a função/);
+        expect(GUIA_DO_APP.length).toBeLessThan(MAX_CONTEXTO / 2);
+    });
+});
 
 describe('MiA', () => {
     it('contexto em camadas: vale o publicado por último; ao retirar, volta o anterior', () => {

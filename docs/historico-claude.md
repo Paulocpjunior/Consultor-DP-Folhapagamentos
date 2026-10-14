@@ -5518,3 +5518,15 @@ Paulo: *"podemos fazer o P2 usando o terminal do meu mac"* (12/10).
 
 - **`docs/retomada.md`:** a seção de 14/10 registra a regra de autonomia do Paulo, o #251, a plataforma por app (sp-plataforma #11 e #12) e o DP com as cinco `VITE_SERVICO_*_URL` no `sp-plataforma-dp`. Explica também como voltar e a P5 no CFI depois das primeiras transmissões reais.
 - **Configurações › Serviços externos:** o texto do topo dizia que os serviços "moram no CFI". Agora explica que "Endereço próprio" é a plataforma só do DP. O passo 3 de "Como trocar o endereço" ensina o "Run workflow" (#252).
+
+## 14/10/2026 — Retorno da colaboradora: parcela a deduzir do INSS e a MiA sobre plano de saúde
+
+- **INSS em Cadastros › Tabelas legais:** faltava a coluna "Parcela a deduzir" que a tabela publicada mostra (0,00 · 24,32 · 111,40 · 198,49 em 2026).
+  - `deducoesInss` (`tabelasLegais.ts`) calcula a parcela pelas próprias faixas: a 1ª é zero; cada faixa seguinte soma o limite da anterior × a diferença das alíquotas. A soma usa a fração do centavo e só a exibição arredonda.
+  - A parcela não se digita nem se grava: nenhuma tabela já gravada muda.
+  - O editor mostra a coluna (só leitura) e a lista mostra as parcelas ao lado da contribuição no teto.
+  - Teste: as quatro parcelas de 2026 e base × alíquota − parcela = progressivo, até o teto (R$ 988,09).
+- **MiA respondeu que não havia onde cadastrar assistência médica/odonto. Estava errado**, porque o `GUIA_DO_APP` ainda era o mapa das abas antigas, escrito à mão.
+  - O mapa agora sai do `MENU` (todo item do menu, com grupo e descrição) mais as rotinas internas: abas da ficha, plano de saúde passo a passo (Benefícios no Cálculo mensal, adesão na aba Benefícios da ficha, coparticipação em Administração de benefícios, S-1210 `planSaude` pelo Consultor), Cálculo, Tabelas legais, pensão e férias.
+  - O mapa também manda a MiA não afirmar que falta uma função quando não a encontra no mapa.
+  - Testes em `mia.test.tsx`.

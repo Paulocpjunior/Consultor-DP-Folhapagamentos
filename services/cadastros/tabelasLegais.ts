@@ -151,6 +151,21 @@ export function inssProgressivo(baseCentavos: number, t: TabelaLegal): number {
     return Math.round(total);
 }
 
+/**
+ * Parcela a deduzir de cada faixa do INSS progressivo, como a tabela publicada a mostra (base × alíquota da faixa −
+ * parcela). Sai das próprias faixas, não é digitada nem gravada: na 1ª é zero; na seguinte soma o limite da anterior ×
+ * a diferença das alíquotas. A soma usa a fração do centavo e só a exibição arredonda, como a portaria (2026: 0,00 ·
+ * 24,32 · 111,40 · 198,49).
+ */
+export function deducoesInss(t: Pick<TabelaLegal, 'faixas'>): number[] {
+    let acumulada = 0;
+    return t.faixas.map((f, i) => {
+        const anterior = t.faixas[i - 1];
+        if (anterior) acumulada += (anterior.ate ?? 0) * (f.aliquota - anterior.aliquota) / 100;
+        return Math.round(acumulada);
+    });
+}
+
 export const tetoInss = (t: TabelaLegal) => t.faixas[t.faixas.length - 1]?.ate ?? null;
 
 export const rotuloCompetencia = (c: string) => (competenciaValida(c) ? `${c.slice(5)}/${c.slice(0, 4)}` : c);

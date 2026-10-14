@@ -2,14 +2,17 @@
 //
 // MiA, a agente de IA do DP (Paulo, 07/10/2026: "nossa agente de IA dentro do
 // app, agente mulher, porque este depto é composto só de mulheres"). Ela roda
-// no CFI (Gemini com a conta do escritório, busca do Google para a base
-// legal), pelo túnel: POST /api/dp-integration/assistente/mia. Aqui ficam o
-// que a tela manda para ela (o contexto, o mapa do app) e a conversa, que não
-// é gravada.
+// no serviço de IA do DP (a plataforma do DP, ou o CFI se VITE_SERVICO_IA_URL
+// voltar para lá): Gemini com a conta do escritório e a busca do Google para a
+// base legal, em POST /api/dp-integration/assistente/mia. Aqui ficam o que a
+// tela manda para ela (o contexto, o mapa do app) e a conversa, que não é
+// gravada.
 
 import { callFiscal } from '../serpro/serproIntegrationService';
 import type { ResultadoCalculo } from '../calculo/motorMensal';
 import { cpfValido } from '../implantacao/implantacao';
+import { MENU } from '../navegacao/menu';
+import { ABAS as ABAS_DA_FICHA } from '../cadastros/funcionarios';
 
 export type Papel = 'usuaria' | 'mia';
 export interface MensagemMia { papel: Papel; texto: string; fontes?: { titulo: string; uri: string }[] }
@@ -31,21 +34,26 @@ export const mascararCpf = (t: string) => t.replace(/(?<![\d.])(\d{3}\.\d{3}\.\d
 const caber = (m: { papel: Papel; texto: string }) => m.texto.length <= MAX_TEXTO ? m
     : { ...m, texto: m.papel === 'usuaria' ? `[…] ${m.texto.slice(-(MAX_TEXTO - 4))}` : `${m.texto.slice(0, MAX_TEXTO - 4)} […]` };
 
-/** Mapa do app para a MiA guiar a equipe (onde fica cada coisa). */
+/**
+ * Mapa do app para a MiA guiar a equipe (onde fica cada coisa). A lista de telas sai do próprio menu
+ * (services/navegacao/menu.ts), para nunca ficar velha: em 14/10/2026 a MiA respondeu que não havia onde cadastrar
+ * plano de saúde porque o mapa escrito à mão ainda era o das abas antigas. O resto são as rotinas que o menu não
+ * explica.
+ */
 export const GUIA_DO_APP = [
-    'Mapa do Consultor DP (abas no topo):',
-    '- Folha: conferência pós-folha (totalizadores S-5001/S-5003/S-5011/S-5013 do eSocial), eventos e relatórios.',
-    '- Cadastros: funcionários (fichas), sindicatos, tabelas legais (INSS, IRRF, salário mínimo; botão para carregar as oficiais de 2026), horários, afastamentos, incidências (rubricas do S-1010) e enquadramento patronal.',
-    '- Cálculo: escolha a folha (mensal, 13º 1ª/2ª parcela, férias, rescisão) e a competência. Botões: Salvar movimento, Conferir com holerites do IOB (PDF lido pelo Gemini), Conferir com o eSocial do IOB (S-1200, critério de 3 meses sem diferença), Resumo da folha, Holerites (PDF), Arquivo bancário (CNAB 240), Pacote do cliente (.zip com PDFs, .REM, agenda .ics e LEIA-ME, com envio por WhatsApp/e-mail), S-1200 e S-1210 (gerar e transmitir pelo CFI), Exportar Excel. Clicar no funcionário abre o holerite com a memória de cálculo; nas férias, Programar férias, IRRF das férias, convite de agenda e envio do S-2230.',
-    '- Prazos: calendário de obrigações da folha por empresa (salário, DARF, FGTS Digital, DCTFWeb, S-1299).',
-    '- Certificados: cofre único de certificados A1 (o mesmo do CFI e do app Legal); a renovação sobe pelo app Legal.',
-    '- Empresas: cadastro das empresas (código SAGE e CNPJ únicos), contas para o arquivo bancário.',
-    '- eSocial: monitor, transmissão (lotes enviados e "Consultar resultado"), download de eventos pelo CFI.',
-    '- IOB SAGE: restauração do backup do SAGE (empresa piloto e as demais), registro de guarda dos backups.',
-    '- Usuários (só admin): papéis e carteira de empresas. O vínculo com o módulo DP/Folha é no Gerenciar Usuários do CFI.',
+    'Mapa do Consultor DP (menu no topo, "grupo › item: o que faz"):',
+    ...MENU.flatMap(g => g.itens.map(i => `- ${g.rotulo} › ${i.rotulo}${i.soAdmin ? ' (só admin)' : ''}: ${i.descricao}.`)),
+    '',
+    'Rotinas dentro das telas:',
+    `- Ficha do funcionário (Cadastros › Funcionários, clicar no nome), abas: ${ABAS_DA_FICHA.map(a => a.titulo).join(', ')}, Dependentes, Benefícios, Consignado, Lanç. automático, Afastamentos e Histórico.`,
+    '- Plano de saúde e odontológico (e outros benefícios descontados em folha): 1) a empresa cadastra o plano em Folha do mês › Cálculo mensal › botão "Benefícios" (nome, evento IOB, valor por vida, incidências e, se for plano de saúde coletivo, o CNPJ da operadora e o registro na ANS); 2) na ficha do funcionário, aba Benefícios, entra a adesão: o plano, o número de vidas (titular + dependentes) e os meses "desde" e "até"; 3) o motor desconta valor por vida × vidas em toda folha mensal do período; 4) a coparticipação do mês vem da planilha da operadora em Folha do mês › Administração de benefícios. Com o CNPJ da operadora, o que o empregado pagou (mensalidade e coparticipação) vai no S-1210 gerado pelo Consultor (infoIRComplem/planSaude, valor todo no titular) e no informe de rendimentos. Não há campo de número de carteirinha.',
+    '- Cálculo (Folha do mês › Cálculo mensal, Férias, Rescisão, 13º): botões Salvar movimento, Benefícios, Conferir com holerites do IOB, Conferir com o eSocial do IOB (S-1200), Resumo da folha, Holerites (PDF), Arquivo bancário (CNAB 240), Pacote do cliente, S-1200 e S-1210 (gerar e transmitir), Exportar Excel. Clicar no funcionário abre o holerite com a memória de cálculo.',
+    '- Tabelas legais (Cadastros › Tabelas legais): INSS progressivo por faixa (a tela mostra a parcela a deduzir de cada faixa e a contribuição no teto), IRRF com parcela a deduzir, dependente, desconto simplificado e redutor, salário-família e mínimos. O botão carrega as tabelas oficiais de 2026.',
     '- Pensão alimentícia: o valor do mês entra no movimento do Cálculo; quem recebe (alimentando) se marca na ficha, aba Dependentes (colunas Pensão, Cota % e No eSocial). O S-1210 informa a pensão pelo CPF de cada alimentando; com mais de um, a cota divide o valor.',
-    '- Férias no eSocial (MOS S-1.3, S-1010 item 23 e S-1200 item 29): o recibo vai no S-1200 do mês em que é pago, em demonstrativo próprio, inteiro como adiantamento (natureza 1015) com o INSS e o IRRF retidos, e no S-1210 desse mês (data do recibo). A folha de cada mês do gozo traz as férias e o 1/3 do mês (1016 e 1017) e abate o adiantamento (9221) e o retido. Gera-se pelo Cálculo › Mensal › "S-1200 e S-1210" da competência do pagamento. O manual está em docs/referencias.',
-    'Antes de qualquer ação o app pede a empresa e o período ativos ("Trocar empresa ou período" no topo).',
+    '- Férias no eSocial (MOS S-1.3, S-1010 item 23 e S-1200 item 29): o recibo vai no S-1200 do mês em que é pago, em demonstrativo próprio, inteiro como adiantamento (natureza 1015) com o INSS e o IRRF retidos, e no S-1210 desse mês (data do recibo). A folha de cada mês do gozo traz as férias e o 1/3 do mês (1016 e 1017) e abate o adiantamento (9221) e o retido. Gera-se pelo Cálculo › Mensal › "S-1200 e S-1210" da competência do pagamento.',
+    '- O Consultor gera e transmite os eventos do eSocial (S-1010, S-1200, S-1210, S-2200, S-2230, S-2299, S-1299 e outros); o IOB SAGE é a origem dos dados importados e a base de conferência, não o lugar onde se resolve o que o Consultor já faz.',
+    'Antes de qualquer ação o app pede a empresa e o período ativos ("Ativar empresa e período", no grupo Empresas).',
+    'Se o que perguntarem não estiver neste mapa, diga que não encontrou no mapa e peça para confirmar com o gestor do DP; não afirme que o app não tem a função.',
 ].join('\n');
 
 const reais = (c: number) => (c / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
