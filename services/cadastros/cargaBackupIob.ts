@@ -557,7 +557,7 @@ export function aplicarComplementos(linhas: LinhaIob[], comp: Map<string, Comple
 /**
  * Lançamentos automáticos do FolhaWin (`lancauto`: codfun, codeven, ref, valor, anomes e os meses marcados em jan1s…dez2q,
  * semanas e quinzenas de cada mês). O mês entra quando qualquer marca dele está ligada; sem nenhuma marca (ou com as
- * doze), todo mês. A referência vai no formato do "Lançar evento": o valor em R$ quando há valor, senão a referência.
+ * doze), todo mês. A referência e o valor vão em campos próprios, como na tela do SAGE.
  */
 export function automaticosDoBackup(t: TabelaLida | null): Map<string, LancamentoAutomatico[]> {
     const r = new Map<string, LancamentoAutomatico[]>();
@@ -575,7 +575,8 @@ export function automaticosDoBackup(t: TabelaLida | null): Map<string, Lancament
         const meses = marcas.map((js, m) => (js.some(j => sim(l[j])) ? m + 1 : 0)).filter(Boolean);
         const anomes = iAno >= 0 ? (l[iAno] ?? '').replace(/\D/g, '') : '';
         const a: LancamentoAutomatico = {
-            codigoEvento: ev, referencia: valor ? br(valor, 2) : ref ? br(ref, 0) : '', meses: meses.length === 12 ? [] : meses,
+            // Como os Eventos Automáticos do SAGE: a referência e o valor em campos próprios (o valor entra como está).
+            codigoEvento: ev, referencia: ref ? br(ref, 4).replace(/,?0+$/, '') : '', ...(valor ? { valor: br(valor, 2) } : {}), meses: meses.length === 12 ? [] : meses,
             desde: /^\d{4}(0[1-9]|1[0-2])$/.test(anomes) ? `${anomes.slice(0, 4)}-${anomes.slice(4)}` : '', ate: '', observacao: 'IOB: lancauto',
         };
         const lista = r.get(k) ?? [];

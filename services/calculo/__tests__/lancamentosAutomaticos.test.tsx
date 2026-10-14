@@ -55,6 +55,25 @@ describe('lançamentos automáticos', () => {
         // O movimento gravado guarda as chaves.
         expect(limparMovimento({ automaticos: ['300|25,00', '200|150,00', '200|150,00'] }).automaticos).toEqual(['200|150,00', '300|25,00']);
     });
+    it('como os Eventos Automáticos do SAGE: Valor entra como está, Sal é o salário-base, fora do catálogo pela rubrica S-1010', () => {
+        // Triênio do SAGE (1015, referência 1,0000, valor 626,50): o valor entra como está, com as incidências da rubrica.
+        const rubricas = [{ id: 'r', empresaId: 'E1', codRubr: '1015', ideTabRubr: 'T', eventoIob: '', origem: 'S-1010',
+            vigencias: [{ iniValid: '2022-01', fimValid: '', recibo: '1', dados: { dscRubr: 'TRIENIO', natRubr: '1003', tpRubr: '1', codIncCP: '11', codIncIRRF: '11', codIncFGTS: '11', codIncCPRP: '', observacao: '' } }] }];
+        const tri = aplicarAutomaticos({ fichas: [ficha('ale', [a({ codigoEvento: '1015', descricao: 'TRIENIO', referencia: '1,0000', valor: '626,50' })])], movimentos: {}, competencia: '2026-10', eventos: EVENTOS, salarioDe: SAL, rubricas });
+        expect(tri.erros).toEqual([]);
+        expect(tri.movimentos.ale.lancamentos).toEqual([expect.objectContaining({ descricao: '1015 TRIENIO', valor: 62650, tipo: 'provento', inss: true, fgts: true, irrf: true })]);
+        // Fora do catálogo e sem rubrica: não há como saber se é provento ou desconto.
+        expect(aplicarAutomaticos({ fichas: [ficha('ale', [a({ codigoEvento: '1015', valor: '626,50' })])], movimentos: {}, competencia: '2026-10', eventos: EVENTOS, salarioDe: SAL }).erros.join())
+            .toMatch(/1015 não está no catálogo do IOB .* nem tem rubrica S-1010/);
+        // Valor vale sobre a rotina do evento do catálogo.
+        const fixo = aplicarAutomaticos({ fichas: [ficha('ana', [a({ referencia: '2', valor: '99,90' })])], movimentos: {}, competencia: '2026-10', eventos: EVENTOS, salarioDe: SAL });
+        expect(fixo.movimentos.ana.lancamentos?.[0].valor).toBe(9990);
+        // Sal: o salário-base no lugar do da ficha (10% de R$ 5.000,00 em vez de R$ 3.000,00).
+        const formulas = { '0200': { expressao: 'SALARIO * 0,1', referencia: 'nenhuma' as const } };
+        const comSal = aplicarAutomaticos({ fichas: [ficha('ana', [a({ referencia: '', salario: '5000,00' })])], movimentos: {}, competencia: '2026-10', eventos: EVENTOS, salarioDe: SAL, formulas });
+        expect(comSal.movimentos.ana.lancamentos?.[0].valor).toBe(50000);
+        expect(validarAutomaticos([a({ salario: 'abc' }), a({ codigoEvento: '300', valor: '0' })]).join(' | ')).toMatch(/"Sal".*\| .*"Valor"/);
+    });
 });
 
 describe('ficha: Complementos e Holerite', () => {
@@ -90,7 +109,7 @@ describe('carga do backup do IOB', () => {
         ] };
         const r = automaticosDoBackup(t);
         expect(r.get('7')).toEqual([
-            { codigoEvento: '0200', referencia: '150,00', meses: [1, 7], desde: '2026-01', ate: '', observacao: 'IOB: lancauto' },
+            { codigoEvento: '0200', referencia: '', valor: '150,00', meses: [1, 7], desde: '2026-01', ate: '', observacao: 'IOB: lancauto' },
             { codigoEvento: '0300', referencia: '8,5', meses: [], desde: '', ate: '', observacao: 'IOB: lancauto' },
         ]);
         expect(r.get('8')?.[0].meses).toEqual([]);

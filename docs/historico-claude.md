@@ -5558,3 +5558,18 @@ Pedido da colaboradora, pelo Paulo, com as telas do SAGE (Rescisão Contratual e
   - as incidências vêm da **rubrica S-1010 da empresa** ligada ao evento (`incidenciasDaRubrica`: CP 11–28 → INSS, FGTS 11/12/21 → FGTS, IRRF 11–15 → IRRF), que é o que a empresa declara ao eSocial; o catálogo só vale sem rubrica;
   - provento lançado sem nenhuma incidência sai com **ATENÇÃO** em destaque, pedindo para marcar INSS, FGTS e IRRF quando for salário.
 - **Testes:** `lancarEvento.test.ts` com o caso real (sem rubrica, alerta; com a rubrica, base R$ 3.227,95, INSS R$ 275,95 e referência 12%; sem o triênio, R$ 265,21 também com 12%; rubrica de outra vigência ou de outro evento não vale).
+
+## 14/10/2026 — Lançamento automático como os Eventos Automáticos do SAGE (Referência, Sal, Valor)
+
+- **Pedido do Paulo**, com a tela do SAGE: o triênio 1015 do Alexandre, referência 1,0000, valor R$ 626,50, outubro a dezembro. A aba "Lanç. automático" precisa ter referência, salário (Sal) e valor. "O campo sal é amarrado ao evento que calcula referência sobre o salário."
+- **`LancamentoAutomatico`:** campos novos `descricao`, `salario` (Sal) e `valor`.
+  - **Valor** preenchido: entra o valor, como está (`lancarPorValor`).
+  - **Sal** preenchido: é o salário-base da rotina ou da fórmula, no lugar do salário da ficha, com as mesmas horas do mês.
+  - **Nenhum dos dois:** a rotina do evento com a referência, como antes.
+- **Incidências:** vêm da rubrica S-1010 da empresa (`incidenciasDaRubrica`, que agora também devolve o tipo e a descrição).
+- **Evento fora do catálogo**, como o 1015 da SP: entra só por valor, com o tipo da rubrica S-1010. Sem rubrica, dá erro claro.
+- **Ficha:** Código, Descrição (vem do catálogo ao digitar o código; fora dele, digitada), Referência, Sal (R$) e Valor (R$), além do período, da observação e dos meses.
+- **Backup do IOB (`lancauto`):** a referência e o valor vão em campos próprios. Só vale para importações novas: as fichas já gravadas não mudam e continuam funcionando, porque o valor delas está na referência.
+- **Testes:**
+  - `lancamentosAutomaticos.test.tsx`: triênio por valor com as incidências da rubrica, fora do catálogo sem rubrica, valor sobre a rotina, Sal como salário-base e validação;
+  - o teste da carga do `lancauto` foi atualizado.
