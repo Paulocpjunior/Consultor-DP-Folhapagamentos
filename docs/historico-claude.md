@@ -5588,3 +5588,15 @@ Pedido da colaboradora, pelo Paulo, com as telas do SAGE (Rescisão Contratual e
   - no Cálculo › Rescisão, o botão "Lançamentos automáticos" aplica os da rescisão no movimento do mês do desligamento.
 - **Mudança de comportamento:** antes, os automáticos entravam inteiros no mês do desligamento. Agora só entram os marcados, como no SAGE. Nenhuma ficha gravada foi alterada.
 - **Testes:** `lancamentosAutomaticos.test.tsx` (proporcional 14/30, integral, os sem marca fora, simulação, dias com admissão no mês, sem cópia para o ano seguinte e validação).
+
+## 14/10/2026 — Lançamento automático: Sal = evento-base, referência em % (pensão do Alexandre)
+
+- **Pedido do Paulo**, com a tela do SAGE: pensão 05810 com referência 33,0000 e Sal 00001. "A referência é a porcentagem, que vai fazer o cálculo sobre o salário, evento 00001."
+- **Como fica:** o "Sal" com só dígitos (até 5, ex.: 00001) é o **código do evento-base**, e a referência é o **percentual** sobre o valor dele no mês (`salEhEvento`, `valorDoEventoBase`).
+  - O evento de salário (rotina 000, ou 0001) vale o salário do mês da ficha. Outro evento vale o lançamento dele no movimento.
+  - O resultado vai para o campo do evento: a pensão vai no campo "Pensão alimentícia", que deduz no IRRF. Os demais vão como avulso.
+  - O "Valor" não entra nessa conta.
+  - O "Sal" com vírgula continua sendo o salário-base em R$ da rotina.
+- **Validação:** com o Sal como evento, a referência tem de ser um percentual de 0 a 100.
+- **Atenção registrada para o Paulo:** 33% do salário (R$ 3.138,45) dá R$ 1.035,69. O holerite do IOB de 09/2026 descontou R$ 974,16, que é 33% de R$ 2.952,00 = bruto R$ 3.227,95 − INSS R$ 275,95, porque o SAGE usa a fórmula da pensão. A base certa é a da decisão judicial.
+- **Testes:** `lancamentosAutomaticos.test.tsx` (5810 a 33% sobre o 00001 no campo da pensão; base em lançamento do mês; referência fora de 0 a 100; evento-base ausente).

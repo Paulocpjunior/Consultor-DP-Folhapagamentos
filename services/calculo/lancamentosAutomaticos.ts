@@ -29,7 +29,11 @@ export interface LancamentoAutomatico {
     descricao?: string;
     /** Referência como no "Lançar evento": horas (8,5 ou 8:30), dias, % ou valor em R$ (150,00); vazia se a fórmula não usa. */
     referencia: string;
-    /** "Sal" do SAGE: salário-base (R$, "3138,45") dos eventos que calculam a referência sobre o salário; vazio = o da ficha. */
+    /**
+     * "Sal" do SAGE: o código do evento-base (ex.: "00001", o salário), e então a referência é o percentual sobre o valor
+     * dele no mês (pensão de 33% sobre o salário); ou um salário-base em R$ com vírgula ("3138,45") para a rotina do evento.
+     * Vazio = o salário da ficha.
+     */
     salario?: string;
     /** "Valor" do SAGE: valor fixo (R$, "626,50") que entra como está; vazio = calculado pela rotina com a referência. */
     valor?: string;
@@ -60,7 +64,8 @@ export function validarAutomaticos(l: LancamentoAutomatico[]): string[] {
         if (!/^\d{1,5}$/.test(a.codigoEvento.trim())) erros.push(`${q}: código do evento do IOB (até 5 dígitos).`);
         if (a.referencia.length > 20) erros.push(`${q}: referência longa demais.`);
         if ((a.descricao ?? '').length > 60) erros.push(`${q}: descrição longa demais.`);
-        if (a.salario?.trim() && !((centavosDeTexto(a.salario) ?? 0) > 0)) erros.push(`${q}: "Sal" (salário-base) em R$, ex.: 3138,45.`);
+        if (a.salario?.trim() && !salEhEvento(a.salario) && !((centavosDeTexto(a.salario) ?? 0) > 0)) erros.push(`${q}: "Sal": o código do evento-base (ex.: 00001, o salário) ou um salário-base em R$ (ex.: 3138,45).`);
+        if (salEhEvento(a.salario) && !(Number(a.referencia.trim().replace(',', '.')) > 0 && Number(a.referencia.trim().replace(',', '.')) <= 100)) erros.push(`${q}: com o Sal ${a.salario!.trim()} (evento-base), a referência é o percentual (ex.: 33,00).`);
         if (a.valor?.trim() && !((centavosDeTexto(a.valor) ?? 0) > 0)) erros.push(`${q}: "Valor" em R$, ex.: 626,50.`);
         if (a.meses.some(m => !Number.isInteger(m) || m < 1 || m > 12)) erros.push(`${q}: meses de 1 a 12.`);
         if (a.desde && !comp.test(a.desde)) erros.push(`${q}: "a partir de" no formato AAAA-MM.`);
@@ -81,6 +86,25 @@ export function automaticosDoMes(l: LancamentoAutomatico[] | undefined, competen
     return (l ?? []).filter(a => (!a.desde || a.desde <= competencia) && (!a.ate || competencia <= a.ate) && (!a.meses.length || a.meses.includes(mes))
         // Sem cópia para o ano seguinte: só no ano do "a partir de".
         && !(a.copiaAnoSeguinte === false && a.desde && competencia.slice(0, 4) > a.desde.slice(0, 4)));
+}
+
+/** "Sal" com o código de um evento (só dígitos, até 5: "00001"), e não um valor em R$ (com vírgula). */
+export const salEhEvento = (sal: string | undefined) => /^\d{1,5}$/.test((sal ?? '').trim());
+
+/**
+ * Valor do evento-base no mês, para a referência em %: o salário (rotina 000, como o 00001 do SAGE) é o salário do mês da
+ * ficha; outro evento, o lançamento dele já no movimento.
+ */
+function valorDoEventoBase(codigo: string, eventos: EventoIobSage[], sal: SalarioDoMes | null, mov: Movimento): { valor: number; rotulo: string } | { erro: string } {
+    const c = codigo.trim().padStart(4, '0').slice(-4);
+    const ev = eventoPorCodigo(eventos, c);
+    if ((ev && ev.ro === '000') || c === '0001') {
+        if (!sal) return { erro: 'ficha sem salário para a base do percentual' };
+        return { valor: sal.mensal, rotulo: `evento ${c} ${ev?.descricao ?? 'SALÁRIO'}` };
+    }
+    const l = (mov.lancamentos ?? []).find(x => x.descricao.startsWith(`${c} `));
+    if (l) return { valor: l.valor, rotulo: `evento ${l.descricao}` };
+    return { erro: `o evento-base ${c} não está no movimento do mês (lance-o antes)` };
 }
 
 /** Dias trabalhados no mês do desligamento (até 30), contando da admissão se ela for no mesmo mês. */
@@ -144,7 +168,20 @@ export function aplicarAutomaticos(p: {
             const proporcional = desligadoNoMes && a.naRescisao === 'proporcional' && diasNoMes < 30;
             const textoProp = proporcional ? `; rescisão: proporcional a ${diasNoMes}/30 dias` : desligadoNoMes ? '; rescisão: integral' : '';
             let res;
-            if (valorFixo) res = lancarPorValor(ev, proporcional ? Math.round(valorFixo * diasNoMes / 30) : valorFixo, mov,
+            if (salEhEvento(a.salario)) {
+                // Como o SAGE: Sal = evento-base e a referência é o percentual sobre o valor dele no mês (ex.: pensão de 33%
+                // sobre o 00001 SALÁRIO). O Valor, se houver, não entra nessa conta.
+                const pct = Number(a.referencia.trim().replace(/\./g, '').replace(',', '.'));
+                if (!(pct > 0 && pct <= 100)) { r.erros.push(`${nome}: evento ${ev.codigo}: com o Sal ${a.salario} (evento-base), a referência é o percentual (de 0 a 100); "${a.referencia}" não serve.`); continue; }
+                const base = valorDoEventoBase(a.salario!, p.eventos, p.salarioDe(f), mov);
+                if ('erro' in base) { r.erros.push(`${nome}: evento ${ev.codigo}: ${base.erro}.`); continue; }
+                let v = Math.round(base.valor * pct / 100);
+                if (proporcional) v = Math.round(v * diasNoMes / 30);
+                const memoria = `${pct.toLocaleString('pt-BR')}% de ${reais(base.valor)} (${base.rotulo})${proporcional ? ` × ${diasNoMes}/30` : ''}${textoProp}`;
+                // Evento que vai para um campo do movimento (pensão, adiantamento…): o valor vai no campo; senão, avulso.
+                res = tipoDaReferencia(ev) === 'valor' ? lancarEvento(ev, v, null, mov, undefined, inc) : lancarPorValor(ev, v, mov, memoria, inc, a.descricao);
+                if (!('erro' in res)) res = { ...res, mensagem: `${res.mensagem} Pelo Sal ${a.salario}: ${memoria}.` };
+            } else if (valorFixo) res = lancarPorValor(ev, proporcional ? Math.round(valorFixo * diasNoMes / 30) : valorFixo, mov,
                 `valor fixo do lançamento automático${a.referencia.trim() ? `, referência ${a.referencia.trim()}` : ''}${proporcional ? ` (${reais(valorFixo)} × ${diasNoMes}/30)` : ''}${textoProp}`, inc, a.descricao);
             else {
                 const formula = p.formulas?.[ev.codigo];
@@ -153,7 +190,7 @@ export function aplicarAutomaticos(p: {
                 if (ref === null) { r.erros.push(`${nome}: evento ${ev.codigo}: referência "${a.referencia}" inválida.`); continue; }
                 // "Sal": o salário-base informado no lugar do da ficha (mesmas horas do mês).
                 const daFicha = p.salarioDe(f);
-                const salBase = a.salario?.trim() ? centavosDeTexto(a.salario) : null;
+                const salBase = a.salario?.trim() && !salEhEvento(a.salario) ? centavosDeTexto(a.salario) : null;
                 const sal = salBase ? { mensal: salBase, horasMes: daFicha?.horasMes ?? 220 } : daFicha;
                 res = lancarEvento(ev, ref, sal, mov, formula, inc);
                 if (!('erro' in res) && salBase) res = { ...res, mensagem: `${res.mensagem} Salário-base do lançamento automático: ${reais(salBase)}.` };
