@@ -1491,6 +1491,10 @@ const Holerite: React.FC<{ r: ResultadoCalculo; comMovimento?: boolean; tituloMo
                         <input aria-label="Pensão alimentícia" className={`mt-0.5 block w-28 ${inp}`} defaultValue={mov.pensaoAlimenticia ? (mov.pensaoAlimenticia / 100).toFixed(2).replace('.', ',') : ''}
                             onChange={e => onMov({ ...mov, pensaoAlimenticia: centavosDeTexto(e.target.value) ?? undefined })} />
                     </label>
+                    <label className="text-xs dark:text-slate-200" title="Percentual da decisão sobre a remuneração do mês menos o INSS (a fórmula da pensão do SAGE). Calculado no fechamento do holerite; o valor em R$ ao lado, se preenchido, vale sobre ele.">Pensão alimentícia (%)
+                        <input aria-label="Pensão alimentícia em percentual" className={`mt-0.5 block w-20 ${inp}`} defaultValue={mov.pensaoPercentual ? String(mov.pensaoPercentual).replace('.', ',') : ''}
+                            onChange={e => onMov({ ...mov, pensaoPercentual: decimal(e.target.value) ?? undefined })} />
+                    </label>
                     {(mostrarPensao13 || !!mov.pensao13) && <label className="text-xs dark:text-slate-200" title="Pensão sobre o 13º pago neste mês (1ª ou 2ª parcela, ou o 13º da rescisão): desconta e deduz no IRRF do 13º.">Pensão sobre o 13º (R$)
                         <input aria-label="Pensão sobre o 13º" className={`mt-0.5 block w-28 ${inp}`} defaultValue={mov.pensao13 ? (mov.pensao13 / 100).toFixed(2).replace('.', ',') : ''}
                             onChange={e => onMov({ ...mov, pensao13: centavosDeTexto(e.target.value) ?? undefined })} />

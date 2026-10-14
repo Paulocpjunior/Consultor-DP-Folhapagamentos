@@ -173,6 +173,13 @@ export function aplicarAutomaticos(p: {
                 // sobre o 00001 SALÁRIO). O Valor, se houver, não entra nessa conta.
                 const pct = Number(a.referencia.trim().replace(/\./g, '').replace(',', '.'));
                 if (!(pct > 0 && pct <= 100)) { r.erros.push(`${nome}: evento ${ev.codigo}: com o Sal ${a.salario} (evento-base), a referência é o percentual (de 0 a 100); "${a.referencia}" não serve.`); continue; }
+                // Pensão: como a fórmula do SAGE, o percentual vai para o movimento e o motor calcula no fechamento do
+                // holerite, sobre a remuneração do mês menos o INSS (33% de R$ 2.952,00 = R$ 974,16 em 09/2026).
+                if (/^PENS[AÃ]O ALIMENT/i.test(ev.descricao.normalize('NFD').replace(/[\u0300-\u036f]/g, '')) && tipoDaReferencia(ev) === 'valor') {
+                    mov = { ...mov, pensaoPercentual: pct, pensaoAlimenticia: undefined, automaticos: [...(mov.automaticos ?? []), chave] };
+                    mudou = true; r.aplicados++;
+                    continue;
+                }
                 const base = valorDoEventoBase(a.salario!, p.eventos, p.salarioDe(f), mov);
                 if ('erro' in base) { r.erros.push(`${nome}: evento ${ev.codigo}: ${base.erro}.`); continue; }
                 let v = Math.round(base.valor * pct / 100);

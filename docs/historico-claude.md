@@ -5600,3 +5600,17 @@ Pedido da colaboradora, pelo Paulo, com as telas do SAGE (Rescisão Contratual e
 - **Validação:** com o Sal como evento, a referência tem de ser um percentual de 0 a 100.
 - **Atenção registrada para o Paulo:** 33% do salário (R$ 3.138,45) dá R$ 1.035,69. O holerite do IOB de 09/2026 descontou R$ 974,16, que é 33% de R$ 2.952,00 = bruto R$ 3.227,95 − INSS R$ 275,95, porque o SAGE usa a fórmula da pensão. A base certa é a da decisão judicial.
 - **Testes:** `lancamentosAutomaticos.test.tsx` (5810 a 33% sobre o 00001 no campo da pensão; base em lançamento do mês; referência fora de 0 a 100; evento-base ausente).
+
+## 14/10/2026 — Pensão alimentícia em %: remuneração menos INSS (a fórmula do SAGE)
+
+- **Decisão do Paulo:** a base certa é a do IOB de 09/2026, R$ 974,16 = 33% de R$ 2.952,00, que é o bruto (salário + triênio, R$ 3.227,95) menos o INSS (R$ 275,95). Não é 33% do salário.
+- **Motor (`motorMensal.ts`, passo 8):** `Movimento.pensaoPercentual` faz a pensão = % × (base do INSS do mês − INSS descontado), calculada no fechamento do holerite.
+  - A referência mostra o percentual e a memória mostra a conta.
+  - O valor fixo (`pensaoAlimenticia`) vale sobre o percentual, com aviso.
+  - A pensão continua deduzindo no IRRF e indo no S-1210.
+- **Lançamento automático:** o evento de pensão com Sal = evento-base (ex.: 5810, referência 33, Sal 00001, a linha do SAGE) põe o percentual no movimento e tira o valor fixo. O motor faz a conta.
+- **Movimento do mês:** campo novo "Pensão alimentícia (%)" ao lado do valor em R$. A validação aceita até 100.
+- **Ainda não coberto:** a pensão sobre o 13º, as férias e a rescisão segue pelo valor (`pensao13` e o movimento). O percentual vale no holerite mensal, inclusive no saldo de salário da rescisão.
+- **Testes:**
+  - `lancarEvento.test.ts`: caso do Alexandre, R$ 974,16 com referência 33% e a memória; o valor fixo vale sobre o percentual;
+  - `lancamentosAutomaticos.test.tsx`: o percentual vai ao movimento e o valor fixo sai.

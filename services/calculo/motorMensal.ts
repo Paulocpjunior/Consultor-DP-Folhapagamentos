@@ -70,6 +70,11 @@ export interface Movimento {
     /** Feriados estaduais/municipais no mês (entram como descanso no DSR das horas extras). */
     feriadosLocais?: number;
     pensaoAlimenticia?: number;
+    /**
+     * Pensão alimentícia em % (como a fórmula da pensão do SAGE): calculada no fechamento do holerite sobre a remuneração
+     * do mês (base do INSS) menos o INSS descontado. Vale quando não há o valor fixo (pensaoAlimenticia).
+     */
+    pensaoPercentual?: number;
     /** Pensão alimentícia sobre o 13º pago no mês (centavos): 1ª ou 2ª parcela, ou o 13º da rescisão; deduz no IRRF do 13º. */
     pensao13?: number;
     /** Adiantamento salarial pago no mês (centavos): substitui o calculado pelo percentual da ficha. 0 = não pago. */
@@ -711,9 +716,18 @@ function calcularMensalSemObras(e: EntradaCalculo): ResultadoCalculo {
         }
     }
 
-    // 8. Pensão alimentícia (valor fixo da decisão).
-    const pensao = Math.round(mov.pensaoAlimenticia ?? 0);
-    if (pensao > 0) verba({ codigo: 'PENSAO', descricao: 'Pensão alimentícia', referencia: '', tipo: 'desconto', valor: pensao, inss: false, fgts: false, irrf: false });
+    // 8. Pensão alimentícia: o valor fixo da decisão ou o percentual sobre a remuneração menos o INSS (a fórmula do SAGE:
+    // 33% de R$ 3.227,95 − R$ 275,95 = R$ 974,16 no holerite do IOB de 09/2026). O valor fixo vale sobre o percentual.
+    const pctPensao = mov.pensaoPercentual ?? 0;
+    const basePensao = Math.max(0, r.bases.inss - inss);
+    const pensao = mov.pensaoAlimenticia && mov.pensaoAlimenticia > 0 ? Math.round(mov.pensaoAlimenticia)
+        : pctPensao > 0 ? Math.round(basePensao * pctPensao / 100) : 0;
+    if (pensao > 0) {
+        const emPct = !(mov.pensaoAlimenticia && mov.pensaoAlimenticia > 0) && pctPensao > 0;
+        verba({ codigo: 'PENSAO', descricao: 'Pensão alimentícia', referencia: emPct ? pct(pctPensao) : '', tipo: 'desconto', valor: pensao, inss: false, fgts: false, irrf: false });
+        if (emPct) r.memoria.push(`Pensão alimentícia: ${pct(pctPensao)} de (remuneração ${reais(r.bases.inss)} − INSS ${reais(inss)} = ${reais(basePensao)}) = ${reais(pensao)}.`);
+        else if (pctPensao > 0) r.avisos.push(`Pensão: o valor fixo do movimento (${reais(pensao)}) vale sobre o percentual de ${pct(pctPensao)}. Apague o valor para calcular pelo percentual.`);
+    }
 
     // 9. IRRF (regime de caixa: tabela do mês do pagamento).
     const tIr = tabelaVigente(e.tabelas, 'irrf', pagamento);

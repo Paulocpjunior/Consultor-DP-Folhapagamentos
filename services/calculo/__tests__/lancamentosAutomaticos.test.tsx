@@ -79,10 +79,11 @@ describe('lançamentos automáticos', () => {
 describe('Sal = evento-base: a referência é o percentual sobre ele (pensão do Alexandre, 14/10/2026)', () => {
     const EV = [...EVENTOS, ev('0001', 'SALÁRIO', { ro: '000' }), ev('5810', 'PENSÃO ALIMENTÍCIA', { tipo: 'D', rv: 'R', ro: '060', coeficiente: 1, incidencias: { in: 'N', ir: 'S', fg: 'N' } as EventoIobSage['incidencias'] })];
     const SAL_ALE = () => ({ mensal: 313845, horasMes: 220 });
-    it('5810 com referência 33,00 e Sal 00001: 33% do salário no campo da pensão (o Valor do SAGE não entra)', () => {
-        const r = aplicarAutomaticos({ fichas: [ficha('ale', [a({ codigoEvento: '5810', referencia: '33,00', salario: '00001', valor: '1' })])], movimentos: {}, competencia: '2026-10', eventos: EV, salarioDe: SAL_ALE });
+    it('pensão 5810 com referência 33,00 e Sal 00001: o percentual vai ao movimento (o motor calcula sobre remuneração − INSS)', () => {
+        const r = aplicarAutomaticos({ fichas: [ficha('ale', [a({ codigoEvento: '5810', referencia: '33,00', salario: '00001', valor: '1' })])], movimentos: { ale: { pensaoAlimenticia: 3000 } }, competencia: '2026-10', eventos: EV, salarioDe: SAL_ALE });
         expect(r.erros).toEqual([]);
-        expect(r.movimentos.ale.pensaoAlimenticia).toBe(Math.round(313845 * 0.33));
+        expect(r.movimentos.ale.pensaoPercentual).toBe(33);
+        expect(r.movimentos.ale.pensaoAlimenticia).toBeUndefined();
         expect(r.movimentos.ale.lancamentos).toBeUndefined();
     });
     it('evento-base que é um lançamento do mês; percentual fora de 0 a 100 é recusado', () => {
