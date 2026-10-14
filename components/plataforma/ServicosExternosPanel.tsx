@@ -41,8 +41,9 @@ const ServicosExternosPanel: React.FC<{ papel?: string }> = ({ papel }) => {
     return (
         <div className="space-y-4">
             <p className="text-sm text-slate-600 dark:text-slate-300">
-                Tudo o que o DP faz fora do próprio banco de dados passa por um destes serviços. Hoje eles moram no CFI; quando a
-                plataforma comum (ou um serviço próprio do DP) estiver no ar, a troca é só de endereço, sem mexer nas telas.
+                Tudo o que o DP faz fora do próprio banco de dados passa por um destes serviços. "Endereço próprio" é a plataforma
+                do DP, só dele: se outro app cair ou travar, o DP segue. Trocar um serviço de lugar é só trocar o endereço, sem
+                mexer nas telas.
             </p>
             {avisos.length > 0 && (
                 <div role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-100">
@@ -91,7 +92,7 @@ const ServicosExternosPanel: React.FC<{ papel?: string }> = ({ papel }) => {
                 <ol className="mt-2 list-decimal space-y-1 pl-5">
                     <li>No GitHub do DP, em Settings › Secrets and variables › Actions › <b>Variables</b>, crie <code>VITE_PLATAFORMA_URL</code> (todos os serviços) ou a variável do serviço que vai mudar (coluna Endereço).</li>
                     <li>O novo endereço precisa ser https, ter as mesmas rotas do CFI (docs/plataforma-servicos.md), aceitar o login deste app e liberar o acesso a partir do endereço do DP.</li>
-                    <li>A troca vale na próxima publicação. Para voltar ao CFI, apague a variável e publique de novo.</li>
+                    <li>A troca vale na próxima publicação: rode o workflow de deploy do DP (Actions › Run workflow, ou <code>gh workflow run deploy.yml</code>). Para voltar ao CFI, apague a variável e rode de novo.</li>
                 </ol>
                 <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">O teste de alcance só confere se há um servidor respondendo; não usa o seu login nem envia nada.</p>
             </details>
