@@ -6,7 +6,7 @@
 
 import React, { useState } from 'react';
 import {
-    DEF_TABELAS, TIPOS_TABELA, UFS, coeficienteDeTexto, inssProgressivo, rotuloCompetencia, tabelaVazia, tabelaVigente, tetoInss, textoCoeficiente, validarTabela,
+    DEF_TABELAS, TIPOS_TABELA, UFS, coeficienteDeTexto, deducoesInss, inssProgressivo, rotuloCompetencia, tabelaVazia, tabelaVigente, tetoInss, textoCoeficiente, validarTabela,
     type ChaveValor, type DefValor, type TabelaLegal, type TipoTabela,
 } from '../../services/cadastros/tabelasLegais';
 import { excluirTabela, gravarTabelaOficial, mensagemErro, salvarTabela, type Usuario } from '../../services/cadastros/cadastrosService';
@@ -109,6 +109,8 @@ const TabelasLegaisCadastro: React.FC<Props> = ({ tabelas, erroLista, usuario, i
     const setFaixa = (i: number, k: keyof FaixaTexto, v: string) => setEdicao(e => e && ({ ...e, faixas: e.faixas.map((f, j) => (j === i ? { ...f, [k]: v } : f)) }));
     const previa = edicao && edicao.t.tipo === 'inss' ? deEdicao(edicao) : null;
     const tetoPrevia = previa && !previa.erros.length ? tetoInss(previa.t) : null;
+    // INSS: a parcela a deduzir de cada faixa sai das faixas (como a tabela publicada a mostra); com erro na digitação, traço.
+    const deducoesPrevia = previa && !previa.erros.length ? deducoesInss(previa.t) : null;
 
     return (
         <div className="space-y-4">
@@ -164,6 +166,7 @@ const TabelasLegaisCadastro: React.FC<Props> = ({ tabelas, erroLista, usuario, i
                                                 {t.faixas.length > 0 && t.faixas.map(f => `${f.ate === null ? 'acima' : `até ${reais(f.ate)}`}: ${pct(f.aliquota)}${f.deducao ? ` − ${reais(f.deducao)}` : ''}`).join(' · ')}
                                                 {DEF_TABELAS[tipo].valores.map(v => t.valores[v.chave] != null ? ` · ${v.rotulo}: ${mostrarValor(v, t.valores[v.chave]!)}` : '').join('')}
                                                 {(t.pisos ?? []).map(x => `${x.descricao}: ${reais(x.valor)}`).join(' · ')}
+                                                {tipo === 'inss' && t.faixas.length > 0 && ` · parcela a deduzir: ${deducoesInss(t).map(c => reais(c)).join(' · ')}`}
                                                 {tipo === 'inss' && tetoInss(t) !== null && ` · contribuição no teto: ${reais(inssProgressivo(tetoInss(t)!, t))}`}
                                             </span>
                                         </button>
@@ -193,7 +196,7 @@ const TabelasLegaisCadastro: React.FC<Props> = ({ tabelas, erroLista, usuario, i
                             {def.faixas && (
                                 <div className="space-y-1">
                                     <table className="w-full text-sm">
-                                        <thead><tr className="text-left text-xs text-slate-500 dark:text-slate-400"><th className="p-1">Faixa</th><th className="p-1">Até (R$){def.faixas.ultimaAberta ? ' — vazio na última = acima' : ''}</th><th className="p-1">Alíquota (%)</th>{def.faixas.deducao && <th className="p-1">Parcela a deduzir (R$)</th>}<th /></tr></thead>
+                                        <thead><tr className="text-left text-xs text-slate-500 dark:text-slate-400"><th className="p-1">Faixa</th><th className="p-1">Até (R$){def.faixas.ultimaAberta ? ' — vazio na última = acima' : ''}</th><th className="p-1">Alíquota (%)</th>{(def.faixas.deducao || edicao.t.tipo === 'inss') && <th className="p-1">Parcela a deduzir (R$)</th>}<th /></tr></thead>
                                         <tbody>
                                             {edicao.faixas.map((f, i) => (
                                                 <tr key={i}>
@@ -201,13 +204,14 @@ const TabelasLegaisCadastro: React.FC<Props> = ({ tabelas, erroLista, usuario, i
                                                     <td className="p-1"><input className={inp} value={f.ate} onChange={e => setFaixa(i, 'ate', e.target.value)} aria-label={`Limite da faixa ${i + 1}`} /></td>
                                                     <td className="p-1"><input className={inp} value={f.aliquota} onChange={e => setFaixa(i, 'aliquota', e.target.value)} aria-label={`Alíquota da faixa ${i + 1}`} /></td>
                                                     {def.faixas && def.faixas.deducao && <td className="p-1"><input className={inp} value={f.deducao} onChange={e => setFaixa(i, 'deducao', e.target.value)} aria-label={`Parcela a deduzir da faixa ${i + 1}`} /></td>}
+                                                    {edicao.t.tipo === 'inss' && <td className="p-1 text-right tabular-nums text-slate-700 dark:text-slate-200" aria-label={`Parcela a deduzir da faixa ${i + 1}`} title="Calculada pelas faixas (não se digita)">{deducoesPrevia ? reais(deducoesPrevia[i] ?? 0) : '—'}</td>}
                                                     <td className="p-1"><button className="text-xs text-red-600 underline" onClick={() => setEdicao({ ...edicao, faixas: edicao.faixas.filter((_, j) => j !== i) })}>Remover</button></td>
                                                 </tr>
                                             ))}
                                         </tbody>
                                     </table>
                                     <button className="rounded-sm border border-slate-300 px-3 py-1 text-sm dark:border-slate-600 dark:text-white" onClick={() => setEdicao({ ...edicao, faixas: [...edicao.faixas, { ate: '', aliquota: '', deducao: '' }] })}>Adicionar faixa</button>
-                                    {tetoPrevia !== null && previa && <p className="text-xs text-slate-600 dark:text-slate-300">Conferência: contribuição no teto de {reais(tetoPrevia)} = <strong>{reais(inssProgressivo(tetoPrevia, previa.t))}</strong>. Compare com o valor máximo publicado na norma.</p>}
+                                    {tetoPrevia !== null && previa && <p className="text-xs text-slate-600 dark:text-slate-300">Conferência: contribuição no teto de {reais(tetoPrevia)} = <strong>{reais(inssProgressivo(tetoPrevia, previa.t))}</strong>. Compare com o valor máximo publicado na norma. A parcela a deduzir é calculada pelas faixas: base × alíquota da faixa − parcela dá a mesma contribuição.</p>}
                                 </div>
                             )}
                             {def.estadual && (
