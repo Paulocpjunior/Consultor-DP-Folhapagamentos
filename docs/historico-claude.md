@@ -5548,3 +5548,13 @@ Pedido da colaboradora, pelo Paulo, com as telas do SAGE (Rescisão Contratual e
 - **Modelos (Relatórios › Contratos e modelos):** aviso prévio indenizado, aviso de término do contrato de experiência, término antecipado pelo empregador (art. 479) e pelo empregado (art. 480, com a ciência do desconto), e comunicação de justa causa (art. 482, motivo digitado). Os da lista do SAGE que já existiam (advertência, suspensão, aviso prévio do empregador, pedido de demissão) ficaram como estavam.
 - **MiA:** o mapa ganhou a rescisão (eventos, art. 480, insuficiência e onde estão os avisos).
 - **Testes:** `motorRescisao.test.ts` com o caso do SAGE (art. 480, saldo, 13º e férias com os valores do SAGE; insuficiência; sem a opção) e `modelos.test.ts` (os cinco modelos novos).
+
+## 14/10/2026 — INSS com 8,45% e o triênio fora da base (caso do Alexandre, 09/2026)
+
+- **Pedido do Paulo:** o Consultor mostrava INSS de 8,45%, uma alíquota que não está na tabela, e R$ 265,21. O IOB mostrava 12,00 e R$ 275,95.
+- **Achado 1 (referência):** o "8,45%" era a alíquota **efetiva** (INSS ÷ base: 265,21 ÷ 3.138,45). O cálculo faixa a faixa estava certo. Agora a referência do INSS (mensal e 13º) é a **alíquota da faixa** em que a base cai, como o IOB. A memória mostra também a conta pela parcela a deduzir (`faixaInss` em `tributos.ts`, sobre `deducoesInss`): ex. "R$ 3.227,95 × 12% − R$ 111,40 (parcela a deduzir)".
+- **Achado 2 (a diferença de valor):** o triênio de R$ 89,50 foi lançado pelo evento **1108** do catálogo de eventos. Esse catálogo (`data/eventos-iob-sage.json`) veio do PDF de outro cliente do IOB, e lá o 1108 TRIENIO não tem nenhuma incidência. A base do INSS ficou R$ 3.138,45 em vez de R$ 3.227,95. Com o triênio na base, o motor dá R$ 275,95, igual ao IOB (teste).
+- **Correção do Lançar evento:**
+  - as incidências vêm da **rubrica S-1010 da empresa** ligada ao evento (`incidenciasDaRubrica`: CP 11–28 → INSS, FGTS 11/12/21 → FGTS, IRRF 11–15 → IRRF), que é o que a empresa declara ao eSocial; o catálogo só vale sem rubrica;
+  - provento lançado sem nenhuma incidência sai com **ATENÇÃO** em destaque, pedindo para marcar INSS, FGTS e IRRF quando for salário.
+- **Testes:** `lancarEvento.test.ts` com o caso real (sem rubrica, alerta; com a rubrica, base R$ 3.227,95, INSS R$ 275,95 e referência 12%; sem o triênio, R$ 265,21 também com 12%; rubrica de outra vigência ou de outro evento não vale).

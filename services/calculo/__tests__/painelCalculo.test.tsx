@@ -28,6 +28,7 @@ vi.mock('../../cadastros/cadastrosService', () => ({
     salvarAfastamento: (...a: unknown[]) => cad.salvar(...a),
     listarEnquadramentos: async () => { if (cad.erroEnq) throw new Error(cad.erroEnq); return cad.enquadramentos; },
     listarTabelas: async () => [INSS, IR],
+    listarRubricas: async () => [],
 }));
 
 const movs = vi.hoisted(() => ({ listarMovimentos: vi.fn(), salvarMovimentos: vi.fn(), listarMovimentosDoAno: vi.fn(), listarMovimentosDaEmpresa: vi.fn() }));

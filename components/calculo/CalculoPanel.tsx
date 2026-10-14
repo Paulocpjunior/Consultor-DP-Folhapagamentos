@@ -23,7 +23,8 @@ import { listarDepartamentos } from '../../services/departamentos/departamentosS
 import { departamentoDa, type Departamento } from '../../services/departamentos/departamentos';
 import type { Lotacao } from '../../services/obras/lotacoes';
 import type { Convocacao } from '../../services/calculo/intermitente';
-import { listarAfastamentos, listarEnquadramentos, listarFuncionarios, listarTabelas, mensagemErro, salvarAfastamento, type Usuario } from '../../services/cadastros/cadastrosService';
+import { listarAfastamentos, listarEnquadramentos, listarFuncionarios, listarRubricas, listarTabelas, mensagemErro, salvarAfastamento, type Usuario } from '../../services/cadastros/cadastrosService';
+import { incidenciasDaRubrica, type Rubrica } from '../../services/cadastros/rubricas';
 import { enquadramentoVigente, type Enquadramento } from '../../services/cadastros/enquadramento';
 import type { User } from '../../types';
 import { fichaNaCompetencia, type FichaFuncionario } from '../../services/cadastros/funcionarios';
@@ -137,6 +138,15 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
     const { ativa } = useEmpresaAtiva();
     const inicio = ativa?.competencia ?? mesAnterior;
     const [empresaId, setEmpresaId] = useState(ativa?.id ?? '');
+    // Rubricas S-1010 da empresa: as incidências do "Lançar evento" vêm delas quando o evento tem rubrica ligada.
+    const [rubricasEmpresa, setRubricasEmpresa] = useState<Rubrica[]>([]);
+    useEffect(() => {
+        setRubricasEmpresa([]);
+        if (!empresaId) return;
+        let vivo = true;
+        listarRubricas(empresaId).then(r => { if (vivo) setRubricasEmpresa(r); }).catch(() => { /* sem rubricas: vale o catálogo, com o alerta */ });
+        return () => { vivo = false; };
+    }, [empresaId]);
     const [competencia, setCompetencia] = useState(inicio);
     const [pagamento, setPagamento] = useState(competenciaSeguinte(inicio));
     const [dados, setDados] = useState<Dados | null>(null);
@@ -704,6 +714,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
 
     return (
         <FormulasContexto.Provider value={parametrosFolha?.formulasEventos}>
+        <RubricasContexto.Provider value={{ rubricas: rubricasEmpresa, competencia }}>
         <PdfContexto.Provider value={r => pdfHolerites([r], `holerite-${empresa?.codigoSage ?? 'empresa'}-${sufixoArquivo}-${(nomeDe(r.fichaId) || r.fichaId).replace(/[^A-Za-z0-9]+/g, '-').toLowerCase()}.pdf`)}>
         <div className="space-y-4">
             {homologado ? (
@@ -1342,6 +1353,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
             )}
         </div>
         </PdfContexto.Provider>
+        </RubricasContexto.Provider>
         </FormulasContexto.Provider>
     );
 };
@@ -1349,6 +1361,8 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
 const PdfContexto = React.createContext<((r: ResultadoCalculo) => void) | null>(null);
 /** Fórmulas próprias da empresa por código de evento (Cadastros › Eventos IOB), para o "Lançar evento". */
 const FormulasContexto = React.createContext<Record<string, FormulaEvento> | undefined>(undefined);
+/** Rubricas S-1010 da empresa e a competência: as incidências do "Lançar evento". */
+const RubricasContexto = React.createContext<{ rubricas: Rubrica[]; competencia: string } | null>(null);
 
 /** "Lançar evento" como no Sage: código do evento do IOB + referência; o Consultor calcula e põe no movimento. */
 const LancarEvento: React.FC<{ mov: Movimento; salario: SalarioDoMes | null; lancado: string; onLancar: (m: Movimento, mensagem: string) => void }> = ({ mov, salario, lancado, onLancar }) => {
@@ -1358,6 +1372,7 @@ const LancarEvento: React.FC<{ mov: Movimento; salario: SalarioDoMes | null; lan
     const [erro, setErro] = useState('');
     const carregar = () => { if (!eventos) carregarEventosIob().then(setEventos).catch(() => setErro('Não foi possível carregar o catálogo de eventos do IOB.')); };
     const formulas = React.useContext(FormulasContexto);
+    const doS1010 = React.useContext(RubricasContexto);
     const ev = eventos ? eventoPorCodigo(eventos, codigo) : null;
     const formula = ev ? formulas?.[ev.codigo] : undefined;
     const tipo = ev ? (formula ? formula.referencia : tipoDaReferencia(ev)) : null;
@@ -1373,7 +1388,7 @@ const LancarEvento: React.FC<{ mov: Movimento; salario: SalarioDoMes | null; lan
         const tipoRef = f ? f.referencia : tipoDaReferencia(e);
         const n = tipoRef === 'nenhuma' ? 0 : lerReferencia(ref, tipoRef);
         if (n === null) { setErro('Referência inválida.'); return; }
-        const res = lancarEvento(e, n, salario, mov, f);
+        const res = lancarEvento(e, n, salario, mov, f, doS1010 ? incidenciasDaRubrica(doS1010.rubricas, e.codigo, doS1010.competencia) : null);
         if ('erro' in res) setErro(res.erro);
         else onLancar(res.movimento, res.mensagem);
     };
@@ -1388,7 +1403,7 @@ const LancarEvento: React.FC<{ mov: Movimento; salario: SalarioDoMes | null; lan
                 {ev && <span className="pb-1 text-slate-500 dark:text-slate-400">{ev.descricao} · {ev.tipo === 'V' ? 'provento' : ev.tipo === 'D' ? 'desconto' : 'informativo'}{formula ? ` · fórmula da empresa: ${formula.expressao}` : ''}</span>}
             </form>
             {erro && <p role="alert" className="mt-1 text-xs text-red-700 dark:text-red-300">{erro}</p>}
-            {lancado && !erro && <p role="status" className="mt-1 text-xs text-green-700 dark:text-green-300">{lancado}</p>}
+            {lancado && !erro && <p role="status" className={`mt-1 text-xs ${lancado.includes('ATENÇÃO') ? 'font-medium text-amber-800 dark:text-amber-200' : 'text-green-700 dark:text-green-300'}`}>{lancado}</p>}
             <p className="mt-1 text-xs text-slate-500">Horas extras, faltas, atrasos, DSR, pensão, adiantamento e vale-transporte vão para o campo do movimento; os demais viram lançamento avulso com as incidências do evento.</p>
         </div>
     );

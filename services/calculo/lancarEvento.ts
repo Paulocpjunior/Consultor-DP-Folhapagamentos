@@ -131,7 +131,10 @@ function valorPelaRotina(ev: EventoIobSage, ref: number, sal: SalarioDoMes | nul
  * Lança o evento no movimento. Campos próprios são substituídos (como no Sage, o evento vale uma vez por mês);
  * o lançamento avulso do mesmo código também.
  */
-export function lancarEvento(ev: EventoIobSage, ref: number, sal: SalarioDoMes | null, mov: Movimento, formula?: FormulaEvento): Lancado {
+/** Incidências que valem sobre as do catálogo: as da rubrica S-1010 da empresa ligada ao evento (incidenciasDaRubrica). */
+export interface IncidenciasLancamento { inss: boolean; fgts: boolean; irrf: boolean; origem: string }
+
+export function lancarEvento(ev: EventoIobSage, ref: number, sal: SalarioDoMes | null, mov: Movimento, formula?: FormulaEvento, incidencias?: IncidenciasLancamento | null): Lancado {
     const titulo = `${ev.codigo} ${ev.descricao}`;
     // O tipo do cadastro é V ou D, mas o catálogo extraído do PDF do IOB tem eventos com N (informativo) e S.
     const tipoNoCadastro: string = ev.tipo;
@@ -148,7 +151,7 @@ export function lancarEvento(ev: EventoIobSage, ref: number, sal: SalarioDoMes |
         if ('erro' in r) return { erro: `Evento ${titulo}: fórmula "${formula.expressao}": ${r.erro}` };
         const valor = Math.round(r.valor * 100);
         if (!(valor > 0)) return { erro: `Evento ${titulo}: a fórmula "${formula.expressao}" dá ${reais(valor)}.` };
-        return avulso(ev, titulo, valor, `fórmula ${formula.expressao}${formula.referencia !== 'nenhuma' ? ` com REF ${formula.referencia === 'valor' ? reais(Math.round(ref)) : num(ref)}` : ''}`, mov);
+        return avulso(ev, titulo, valor, `fórmula ${formula.expressao}${formula.referencia !== 'nenhuma' ? ` com REF ${formula.referencia === 'valor' ? reais(Math.round(ref)) : num(ref)}` : ''}`, mov, incidencias);
     }
     if (!(ref > 0)) return { erro: 'Informe a referência (maior que zero).' };
     const tipo = tipoDaReferencia(ev);
@@ -192,18 +195,30 @@ export function lancarEvento(ev: EventoIobSage, ref: number, sal: SalarioDoMes |
     const v = valorPelaRotina(ev, ref, sal);
     if ('erro' in v) return v;
     if (!(v.valor > 0)) return { erro: `Evento ${titulo}: o valor calculado é zero.` };
-    return avulso(ev, titulo, v.valor, v.memoria, mov);
+    return avulso(ev, titulo, v.valor, v.memoria, mov, incidencias);
 }
 
-/** Lançamento avulso com as incidências do evento; o do mesmo código no mês é substituído. */
-function avulso(ev: EventoIobSage, titulo: string, valor: number, memoria: string, mov: Movimento): Lancado {
-    const l: Lancamento = { descricao: titulo, tipo: ev.tipo === 'V' ? 'provento' : 'desconto', valor, inss: ev.incidencias.in === 'S', fgts: ev.incidencias.fg === 'S', irrf: ev.incidencias.ir === 'S' };
+/**
+ * Lançamento avulso; o do mesmo código no mês é substituído. Incidências: as da rubrica S-1010 da empresa, quando há
+ * rubrica ligada ao evento; senão, as do catálogo. Provento sem nenhuma incidência sai com alerta (Paulo, 14/10/2026:
+ * o triênio 1108 do catálogo, sem INSS, tirou R$ 89,50 da base e o INSS ficou menor que o do IOB).
+ */
+function avulso(ev: EventoIobSage, titulo: string, valor: number, memoria: string, mov: Movimento, incidencias?: IncidenciasLancamento | null): Lancado {
+    const doCatalogo = { inss: ev.incidencias.in === 'S', fgts: ev.incidencias.fg === 'S', irrf: ev.incidencias.ir === 'S' };
+    const inc = incidencias ?? doCatalogo;
+    const l: Lancamento = { descricao: titulo, tipo: ev.tipo === 'V' ? 'provento' : 'desconto', valor, inss: inc.inss, fgts: inc.fgts, irrf: inc.irrf };
     const lancs = mov.lancamentos ?? [];
     const i = lancs.findIndex(x => x.descricao.startsWith(`${ev.codigo} `));
-    const inc = (['inss', 'fgts', 'irrf'] as const).filter(k => l[k]).map(k => k.toUpperCase()).join(', ') || 'sem incidências';
+    const lista = (x: { inss: boolean; fgts: boolean; irrf: boolean }) => (['inss', 'fgts', 'irrf'] as const).filter(k => x[k]).map(k => k.toUpperCase()).join(', ') || 'sem incidências';
+    const fonte = incidencias
+        ? `; incidências da ${incidencias.origem}${lista(incidencias) !== lista(doCatalogo) ? `, no lugar das do catálogo (${lista(doCatalogo)})` : ''}`
+        : '';
+    const alerta = l.tipo === 'provento' && !l.inss && !l.fgts && !l.irrf
+        ? ' ATENÇÃO: provento sem INSS, FGTS e IRRF. Se for salário (triênio, gratificação, comissão, adicional), marque INSS, FGTS e IRRF no lançamento abaixo e confira a incidência em Cadastros › Incidências.'
+        : '';
     return {
         movimento: { ...mov, lancamentos: i >= 0 ? lancs.map((x, j) => (j === i ? l : x)) : [...lancs, l] },
-        mensagem: `${titulo}: ${l.tipo} de ${reais(valor)} (${memoria}; ${inc})${i >= 0 ? `; substituiu ${reais(lancs[i].valor)}` : ''}.`,
+        mensagem: `${titulo}: ${l.tipo} de ${reais(valor)} (${memoria}; ${lista(l)}${fonte})${i >= 0 ? `; substituiu ${reais(lancs[i].valor)}` : ''}.${alerta}`,
     };
 }
 

@@ -103,6 +103,25 @@ export function codigoEvento(r: Rubrica): string {
 // ---------- Conferência IOB × eSocial ----------
 
 export type SituacaoInc = 'ok' | 'divergente' | 'suspensa' | 'conferir';
+/**
+ * Incidências de INSS, FGTS e IRRF da rubrica S-1010 da empresa ligada ao evento do IOB, na competência: é o que a
+ * empresa declara ao eSocial, e vale sobre o catálogo de eventos (que pode ser de outro cliente do IOB). Sem rubrica
+ * ligada ao evento, null.
+ */
+export function incidenciasDaRubrica(rubricas: Rubrica[], codigoIob: string, competencia: string): { inss: boolean; fgts: boolean; irrf: boolean; origem: string } | null {
+    const c = codigoIob.replace(/\D/g, '').padStart(4, '0');
+    for (const r of rubricas) {
+        if (codigoEvento(r) !== c) continue;
+        const v = vigenciaEm(r, competencia);
+        if (!v) continue;
+        return {
+            inss: BASE_CP.includes(v.dados.codIncCP), fgts: BASE_FGTS.includes(v.dados.codIncFGTS), irrf: classeIrrf(v.dados.codIncIRRF) === 'tributavel',
+            origem: `rubrica ${r.codRubr} do S-1010 da empresa (CP ${v.dados.codIncCP || '—'}, FGTS ${v.dados.codIncFGTS || '—'}, IRRF ${v.dados.codIncIRRF || '—'})`,
+        };
+    }
+    return null;
+}
+
 export interface ItemConferencia { tributo: 'Tipo' | 'INSS' | 'IRRF' | 'FGTS' | 'Natureza'; situacao: SituacaoInc; mensagem: string }
 
 /**
