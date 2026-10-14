@@ -3,7 +3,7 @@
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { aplicarAutomaticos, automaticosDoMes, chaveAutomatico, textoMeses, validarAutomaticos, type LancamentoAutomatico } from '../lancamentosAutomaticos';
+import { aplicarAutomaticos, automaticosDoMes, chaveAutomatico, diasTrabalhadosNoMes, textoMeses, validarAutomaticos, type LancamentoAutomatico } from '../lancamentosAutomaticos';
 import { limparMovimento } from '../movimento';
 import { fichaVazia, diffFicha, validarFicha, ABAS, type FichaFuncionario } from '../../cadastros/funcionarios';
 import { automaticosDoBackup, compararComFichas, linhaParaCampos, normalizarValor, proporMapeamento } from '../../cadastros/cargaBackupIob';
@@ -73,6 +73,37 @@ describe('lançamentos automáticos', () => {
         const comSal = aplicarAutomaticos({ fichas: [ficha('ana', [a({ referencia: '', salario: '5000,00' })])], movimentos: {}, competencia: '2026-10', eventos: EVENTOS, salarioDe: SAL, formulas });
         expect(comSal.movimentos.ana.lancamentos?.[0].valor).toBe(50000);
         expect(validarAutomaticos([a({ salario: 'abc' }), a({ codigoEvento: '300', valor: '0' })]).join(' | ')).toMatch(/"Sal".*\| .*"Valor"/);
+    });
+});
+
+describe('Lança na rescisão e cópia para o ano seguinte (como o SAGE)', () => {
+    it('no mês do desligamento só entram os marcados: proporcional aos dias ÷ 30 ou integral', () => {
+        const l = [a({ valor: '626,50', codigoEvento: '200', referencia: '1', naRescisao: 'proporcional' }), a({ codigoEvento: '300', referencia: '30,00', naRescisao: 'integral' }), a({ codigoEvento: '200', referencia: '9' })];
+        const deslig = ficha('ale', l, { dataDesligamento: '2026-10-14' });
+        const r = aplicarAutomaticos({ fichas: [deslig], movimentos: {}, competencia: '2026-10', eventos: EVENTOS, salarioDe: SAL });
+        expect(r).toMatchObject({ aplicados: 2, foraDaRescisao: 1 });
+        expect(r.movimentos.ale.lancamentos).toEqual([
+            expect.objectContaining({ descricao: '0200 GRATIFICACAO', valor: Math.round(62650 * 14 / 30) }),
+            expect.objectContaining({ descricao: '0300 CONVENIO FARMACIA', valor: 3000 }),
+        ]);
+        // Rescisão simulada (a data vem da tela): a mesma regra. Fora do mês do desligamento, todos entram inteiros.
+        const sim = aplicarAutomaticos({ fichas: [ficha('bia', l)], movimentos: {}, competencia: '2026-10', eventos: EVENTOS, salarioDe: SAL, desligamentos: { bia: '2026-10-14' } });
+        expect(sim.foraDaRescisao).toBe(1);
+        expect(aplicarAutomaticos({ fichas: [ficha('bia', l)], movimentos: {}, competencia: '2026-10', eventos: EVENTOS, salarioDe: SAL }).aplicados).toBe(3);
+        // Pela rotina do evento: o avulso é proporcional também (R$ 150,00 × 14/30).
+        const rot = aplicarAutomaticos({ fichas: [ficha('caio', [a({ naRescisao: 'proporcional' })], { dataDesligamento: '2026-10-14' })], movimentos: {}, competencia: '2026-10', eventos: EVENTOS, salarioDe: SAL });
+        expect(rot.movimentos.caio.lancamentos?.[0].valor).toBe(7000);
+    });
+    it('dias trabalhados no mês do desligamento (até 30, da admissão no mesmo mês)', () => {
+        expect(diasTrabalhadosNoMes('2025-01-02', '2026-10-14')).toBe(14);
+        expect(diasTrabalhadosNoMes('2026-10-05', '2026-10-14')).toBe(10);
+        expect(diasTrabalhadosNoMes('2025-01-02', '2026-10-31')).toBe(30);
+    });
+    it('sem cópia para o ano seguinte: só no ano do "a partir de"', () => {
+        const l = [a({ desde: '2026-10', meses: [10, 11, 12], copiaAnoSeguinte: false }), a({ codigoEvento: '300', desde: '2026-10', meses: [10] })];
+        expect(automaticosDoMes(l, '2026-11').map(x => x.codigoEvento)).toEqual(['200']);
+        expect(automaticosDoMes(l, '2027-10').map(x => x.codigoEvento)).toEqual(['300']);
+        expect(validarAutomaticos([a({ copiaAnoSeguinte: false })]).join()).toMatch(/informe "a partir de"/);
     });
 });
 

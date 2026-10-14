@@ -267,6 +267,18 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                                         <label className="flex-1">Observação<input aria-label={`Observação do lançamento automático ${i + 1}`} className="mt-0.5 block w-full rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" maxLength={100} value={a.observacao ?? ''} onChange={e => setAutomatico(i, { observacao: e.target.value })} /></label>
                                         <button className="text-red-700 underline dark:text-red-300" onClick={() => setAutomatico(i, null)}>remover</button>
                                     </div>
+                                    <div className="flex flex-wrap items-end gap-3">
+                                        <label title="No mês do desligamento, só entram os marcados: proporcional aos dias trabalhados no mês (÷ 30) ou integral.">Lança na rescisão
+                                            <select aria-label={`Lança na rescisão do lançamento automático ${i + 1}`} className="mt-0.5 block rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={a.naRescisao ?? ''}
+                                                onChange={e => setAutomatico(i, { naRescisao: (e.target.value || undefined) as LancamentoAutomatico['naRescisao'] })}>
+                                                <option value="">Não</option><option value="proporcional">Proporcional</option><option value="integral">Integral</option>
+                                            </select></label>
+                                        <label title="Não: vale só no ano do &quot;A partir de&quot;. Sim: segue nos anos seguintes, nos mesmos meses.">Cópia para ano seguinte
+                                            <select aria-label={`Cópia para ano seguinte do lançamento automático ${i + 1}`} className="mt-0.5 block rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={a.copiaAnoSeguinte === false ? 'nao' : 'sim'}
+                                                onChange={e => setAutomatico(i, { copiaAnoSeguinte: e.target.value === 'nao' ? false : undefined })}>
+                                                <option value="sim">Sim</option><option value="nao">Não</option>
+                                            </select></label>
+                                    </div>
                                     <div className="flex flex-wrap items-center gap-2"><span className="text-slate-500">Meses ({textoMeses(a.meses)}):</span>
                                         {MESES_CURTOS.map((m, k) => (
                                             <label key={m} className="flex items-center gap-0.5"><input type="checkbox" aria-label={`${m} no lançamento automático ${i + 1}`} checked={a.meses.includes(k + 1)}
