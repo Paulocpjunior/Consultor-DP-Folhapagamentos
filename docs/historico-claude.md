@@ -5507,3 +5507,9 @@ Paulo: *"podemos fazer o P2 usando o terminal do meu mac"* (12/10).
 - **Causa:** o `testarAlcance` fazia um GET opaco (`no-cors`). O CFI usa o helmet, que manda `Cross-Origin-Resource-Policy: same-origin`, e com esse cabeçalho o navegador derruba a resposta opaca como erro de rede. O servidor estava no ar; a plataforma passava porque não manda esse cabeçalho.
 - **Correção:** primeiro um GET com CORS (o CFI e a plataforma liberam o DP), e o GET opaco fica de reserva para endereço sem CORS. Qualquer resposta HTTP conta como alcançado, sem token e sem efeito. O tempo-limite continua 10 s no total.
 - **Testes:** `services/plataforma/__tests__/servicos.test.ts` (cors primeiro, reserva no-cors, falha nas duas).
+
+## 14/10/2026 — "Run workflow" do deploy agora publica o site
+
+- **Sintoma:** o Paulo criou `VITE_SERVICO_GOVERNO_URL` e rodou `gh workflow run deploy.yml` (run 38544241779). O build e as regras rodaram, mas o job `deploy` foi pulado: o `if` dele aceitava só `push`.
+- **Correção:** o `deploy` usa a mesma condição do `publicar-regras` (`github.event_name != 'pull_request'` na main). Uma variável `VITE_*` nova, ou apagada para voltar ao CFI, chega ao site pelo "Run workflow", sem commit.
+- **Decisão do Paulo (14/10):** a troca do governo para a plataforma não depende de data. Os apps são autônomos e não podem formar uma pirâmide em que a queda de um trava os outros.

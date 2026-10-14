@@ -118,8 +118,10 @@ jobs:
         if: env.FIREBASE_SERVICE_ACCOUNT == ''
         run: echo "::warning::Segredo FIREBASE_SERVICE_ACCOUNT ausente - as regras do Firestore nao foram publicadas (publique pelo console)."
 
+  # Publica a cada push na main e também pelo "Run workflow" (gh workflow run deploy.yml): é assim que uma variável
+  # VITE_* nova (ou apagada, para voltar ao CFI) chega ao site sem precisar de commit.
   deploy:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
