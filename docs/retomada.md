@@ -1,10 +1,10 @@
 # Retomada do trabalho
 
-Ponto de partida da próxima sessão. Atualizado em **13/10/2026**. O detalhe de cada entrega está em `docs/historico-claude.md`.
+Ponto de partida da próxima sessão. Atualizado em **14/10/2026**. O detalhe de cada entrega está em `docs/historico-claude.md`.
 
 ## App
 
-- **Consultor DP:** https://paulocpjunior.github.io/Consultor-DP-Folhapagamentos/ (GitHub Pages; o deploy roda a cada merge na `main`).
+- **Consultor DP:** https://paulocpjunior.github.io/Consultor-DP-Folhapagamentos/ (GitHub Pages). O deploy roda a cada merge na `main` e também pelo "Run workflow" (`gh workflow run deploy.yml`, desde o #252).
 - Versão e data da publicação aparecem abaixo de "SP Assessoria". Clicar abre as novidades.
 
 ## Publicado em 12/10/2026
@@ -67,6 +67,21 @@ Ponto de partida da próxima sessão. Atualizado em **13/10/2026**. O detalhe de
   - a baixa do FGTS em Prazos mostra o motivo real e orienta a usar o comprovante da GFD.
 - **Limite de download estimado:** o vigia para em 10 pedidos por dia por empregador (`RESERVA_PEDIDOS_DIA`). Ajustar quando o limite oficial for conhecido.
 
+## Feito em 14/10/2026: o DP sai do CFI e ganha plataforma própria
+
+- **Regra do Paulo (14/10):** cada app é autônomo e responde por si; os apps só se falam na frente. Nada de pirâmide em que a queda de um trava os outros. A troca não depende de data.
+- **"Testar" de Serviços externos (#251):** o falso "Load failed" no CFI vinha do cabeçalho CORP do helmet. O teste agora pergunta com CORS primeiro.
+- **Uma plataforma por app (sp-plataforma #11 e #12):**
+  - **`sp-plataforma-dp`** (https://sp-plataforma-dp-zricstsjqa-uw.a.run.app) atende só o navegador do DP (`PLATAFORMA_APP=dp`).
+  - A esteira gera a imagem uma vez e publica um serviço por app. A falha de um não segura os outros.
+  - O `sp-plataforma` antigo saiu da esteira e foi apagado pelo Paulo.
+- **O DP no `sp-plataforma-dp`:**
+  - as cinco `VITE_SERVICO_*_URL` (cadastro, cofre, governo, e-mail, IA) apontam para ele, conferidas no log do build do run 38548225806;
+  - o `/ready` mostrou IA, cadastro, e-mail, governo e SERPRO configurados;
+  - o WhatsApp segue no CFI, a caminho do SP Connect.
+- **Para voltar** um serviço ao CFI: apagar a variável dele e rodar `gh workflow run deploy.yml`.
+- **Próximo passo (P5):** tirar do CFI as rotas do DP, um PR por serviço, quando o DP tiver passado pelas primeiras transmissões reais pela plataforma. Até lá, o CFI é a volta.
+
 ## Depende do Paulo
 
 1. Template do WhatsApp do dp-folha: mandar o texto e o motivo da recusa da Meta.
@@ -74,7 +89,7 @@ Ponto de partida da próxima sessão. Atualizado em **13/10/2026**. O detalhe de
 3. Motivo 26: confirmar o amparo legal.
 4. Integração com o CCI: definir o que passa de um sistema para o outro.
 5. E-mail verificado no login, CSP e App Check: mudam o login de quem já usa, então combinar antes.
-6. Autorizar a data da troca do governo no DP, depois do dia 15.
+6. Avisar quando a primeira transmissão real pela plataforma passar (eSocial ou DCTFWeb), para eu começar a P5 no CFI.
 7. Colaboradora:
    - testar a MIA;
    - arquivos do IOB do #61 e do caso do 13º;
@@ -82,7 +97,8 @@ Ponto de partida da próxima sessão. Atualizado em **13/10/2026**. O detalhe de
 
 ## Liberado para mim
 
-- **Antes da troca do governo:** trava da carteira nas consultas por CNPJ e comparador CFI × plataforma (em andamento).
+- **Feito:** trava da carteira nas consultas por CNPJ, comparador CFI × plataforma e a troca do DP para o `sp-plataforma-dp`.
+- **Próximo:** P5 no CFI depois das primeiras transmissões reais. Plataforma própria da Legalização e do Financeiro quando eles saírem do CFI (uma linha na esteira).
 
 ## Regras combinadas hoje
 

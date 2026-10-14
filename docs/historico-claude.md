@@ -5513,3 +5513,8 @@ Paulo: *"podemos fazer o P2 usando o terminal do meu mac"* (12/10).
 - **Sintoma:** o Paulo criou `VITE_SERVICO_GOVERNO_URL` e rodou `gh workflow run deploy.yml` (run 38544241779). O build e as regras rodaram, mas o job `deploy` foi pulado: o `if` dele aceitava só `push`.
 - **Correção:** o `deploy` usa a mesma condição do `publicar-regras` (`github.event_name != 'pull_request'` na main). Uma variável `VITE_*` nova, ou apagada para voltar ao CFI, chega ao site pelo "Run workflow", sem commit.
 - **Decisão do Paulo (14/10):** a troca do governo para a plataforma não depende de data. Os apps são autônomos e não podem formar uma pirâmide em que a queda de um trava os outros.
+
+## 14/10/2026 — Retomada e Serviços externos com a plataforma própria do DP
+
+- **`docs/retomada.md`:** a seção de 14/10 registra a regra de autonomia do Paulo, o #251, a plataforma por app (sp-plataforma #11 e #12) e o DP com as cinco `VITE_SERVICO_*_URL` no `sp-plataforma-dp`. Explica também como voltar e a P5 no CFI depois das primeiras transmissões reais.
+- **Configurações › Serviços externos:** o texto do topo dizia que os serviços "moram no CFI". Agora explica que "Endereço próprio" é a plataforma só do DP. O passo 3 de "Como trocar o endereço" ensina o "Run workflow" (#252).
