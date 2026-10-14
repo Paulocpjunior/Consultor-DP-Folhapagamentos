@@ -155,6 +155,96 @@ ${LOCAL}
 {{assinaturas}}`,
     },
     {
+        id: 'base-aviso-previo-indenizado', categoria: 'desligamento', titulo: 'Aviso prévio indenizado',
+        corpo: `# AVISO PRÉVIO INDENIZADO
+
+Ao(À) Sr.(a) {{funcionario.nome}}, CPF {{funcionario.cpf}}, admitido(a) em {{contrato.admissao}}, função {{contrato.cargo}}.
+
+Comunicamos que, por iniciativa da empresa e sem justa causa, o seu contrato de trabalho fica rescindido em {{digitado.data}}, último dia de trabalho, ficando V.Sa. dispensado(a) do cumprimento do aviso prévio, que será indenizado nos termos do art. 487, § 1º, da CLT e da Lei nº 12.506/2011 (30 dias, acrescidos de 3 dias por ano completo de serviço, até 90 dias).
+
+O período do aviso prévio indenizado integra o tempo de serviço para todos os efeitos legais, inclusive para o 13º salário e as férias proporcionais (art. 487, § 1º, da CLT).
+
+As verbas rescisórias serão pagas até 10 (dez) dias contados do término do contrato (art. 477, § 6º, da CLT), conforme o Termo de Rescisão do Contrato de Trabalho.
+
+${LOCAL}
+
+{{empresa.razaoSocial}}
+
+{{assinaturas}}`,
+    },
+    {
+        id: 'base-termino-contrato', categoria: 'desligamento', titulo: 'Aviso de término do contrato de experiência',
+        corpo: `# AVISO DE TÉRMINO DO CONTRATO DE EXPERIÊNCIA
+
+Ao(À) Sr.(a) {{funcionario.nome}}, CPF {{funcionario.cpf}}, admitido(a) em {{contrato.admissao}}, função {{contrato.cargo}}.
+
+Comunicamos que o seu contrato de trabalho por prazo determinado (experiência), firmado nos termos do art. 443, § 2º, "c", e do art. 445, parágrafo único, da CLT, não será prorrogado nem convertido em contrato por prazo indeterminado, encerrando-se no termo final ajustado, em {{contrato.fimContrato}}.
+
+Por se tratar do término normal do prazo contratado, não há aviso prévio nem a indenização do art. 479 da CLT. Serão pagos o saldo de salário, o 13º salário proporcional e as férias proporcionais com o terço constitucional, até 10 (dez) dias contados do término do contrato (art. 477, § 6º, da CLT).
+
+${LOCAL}
+
+{{empresa.razaoSocial}}
+
+{{assinaturas}}`,
+    },
+    {
+        id: 'base-termino-antecipado-empregador', categoria: 'desligamento', titulo: 'Aviso de término antecipado do contrato de experiência (pelo empregador)',
+        corpo: `# AVISO DE TÉRMINO ANTECIPADO DO CONTRATO DE EXPERIÊNCIA PELO EMPREGADOR
+
+Ao(À) Sr.(a) {{funcionario.nome}}, CPF {{funcionario.cpf}}, admitido(a) em {{contrato.admissao}}, função {{contrato.cargo}}.
+
+Comunicamos que a empresa, por sua iniciativa e sem justa causa, encerra antecipadamente o seu contrato de trabalho por prazo determinado (experiência), cujo término estava previsto para {{contrato.fimContrato}}, sendo o último dia de trabalho {{digitado.data}}.
+
+Nos termos do art. 479 da CLT, V.Sa. receberá, a título de indenização, metade da remuneração a que teria direito até o termo do contrato, além do saldo de salário, do 13º salário proporcional, das férias proporcionais com o terço constitucional e da indenização de 40% sobre o saldo do FGTS, com o saque da conta vinculada.
+
+Se o contrato tiver a cláusula assecuratória do direito recíproco de rescisão antecipada, aplicam-se, em lugar do art. 479, as regras do aviso prévio (art. 481 da CLT).
+
+As verbas rescisórias serão pagas até 10 (dez) dias contados do término do contrato (art. 477, § 6º, da CLT).
+
+${LOCAL}
+
+{{empresa.razaoSocial}}
+
+{{assinaturas}}`,
+    },
+    {
+        id: 'base-termino-antecipado-empregado', categoria: 'desligamento', titulo: 'Pedido de término antecipado do contrato de experiência (pelo empregado)',
+        corpo: `# PEDIDO DE TÉRMINO ANTECIPADO DO CONTRATO DE EXPERIÊNCIA
+
+À {{empresa.razaoSocial}}, CNPJ {{empresa.cnpj}}.
+
+Eu, {{funcionario.nome}}, CPF {{funcionario.cpf}}, admitido(a) em {{contrato.admissao}} na função de {{contrato.cargo}}, por contrato de trabalho por prazo determinado (experiência) com término previsto para {{contrato.fimContrato}}, comunico a minha decisão de encerrá-lo antecipadamente, por motivos particulares, sendo o meu último dia de trabalho {{digitado.data}}.
+
+Declaro estar ciente de que, nos termos do art. 480 da CLT, sou obrigado(a) a indenizar a empresa pelos prejuízos decorrentes da saída antecipada, em valor que não excederá a metade da remuneração a que teria direito até o termo do contrato (art. 480, § 1º), e que esse valor poderá ser descontado das minhas verbas rescisórias. Estou ciente também de que, neste caso, não há saque do FGTS nem a indenização de 40%.
+
+Se o contrato tiver a cláusula assecuratória do direito recíproco de rescisão antecipada, aplicam-se, em lugar do art. 480, as regras do aviso prévio (art. 481 da CLT).
+
+${LOCAL}
+
+{{assinaturas}}`,
+    },
+    {
+        id: 'base-justa-causa', categoria: 'desligamento', titulo: 'Comunicação de dispensa por justa causa',
+        corpo: `# COMUNICAÇÃO DE DISPENSA POR JUSTA CAUSA
+
+Ao(À) Sr.(a) {{funcionario.nome}}, CPF {{funcionario.cpf}}, admitido(a) em {{contrato.admissao}}, função {{contrato.cargo}}.
+
+Comunicamos que, a partir de {{digitado.data}}, o seu contrato de trabalho fica rescindido por justa causa, nos termos do art. 482 da CLT, pelo seguinte motivo:
+
+{{digitado.motivo}}
+
+Na dispensa por justa causa são devidos apenas o saldo de salário e as férias vencidas com o terço constitucional, se houver; não há aviso prévio, 13º salário proporcional, férias proporcionais, indenização de 40% do FGTS nem saque da conta vinculada. As verbas serão pagas até 10 (dez) dias contados do término do contrato (art. 477, § 6º, da CLT).
+
+${LOCAL}
+
+{{empresa.razaoSocial}}
+
+Recusando-se o(a) empregado(a) a assinar, a comunicação é assinada por duas testemunhas.
+
+{{assinaturas}}`,
+    },
+    {
         id: 'base-declaracao-dependentes', categoria: 'declaracao', titulo: 'Declaração de dependentes (IRRF e salário-família)',
         corpo: `# DECLARAÇÃO DE DEPENDENTES
 

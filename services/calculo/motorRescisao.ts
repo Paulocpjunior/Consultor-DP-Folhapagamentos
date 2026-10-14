@@ -15,7 +15,11 @@
 // - Férias vencidas (em dobro se o concessivo passou) e proporcionais, com
 //   1/3, indenizadas: sem INSS, FGTS e IRRF. Na justa causa, só as vencidas.
 // - Término antecipado de contrato a termo pelo empregador: metade da
-//   remuneração dos dias restantes (art. 479).
+//   remuneração dos dias restantes (art. 479). Pelo empregado, com a opção
+//   "Indenização do art. 480" (como no SAGE): desconto do mesmo valor, que é o
+//   teto do art. 480, § 1º (natureza 6904 do eSocial).
+// - Descontos maiores que os proventos: "Insuficiência de saldo" (natureza 2930)
+//   zera o líquido, como no SAGE; o que sobra o empregado continua devendo.
 // - FGTS do mês e rescisório; multa de 40% (dispensa sem justa causa e
 //   art. 479) ou 20% (acordo) sobre o saldo informado — paga por guia, fora
 //   do líquido. Pagamento em até 10 dias do término (art. 477, § 6º).
@@ -152,6 +156,12 @@ export interface EntradaRescisao {
     convocacoes?: Convocacao[];
     /** Fato que ampara os motivos 09, 26, 27, 47, 48 e 49 (AMPARO_DO_MOTIVO). */
     amparo?: AmparoMotivo;
+    /**
+     * Motivo 04 (término antecipado do contrato a termo pelo empregado): descontar a indenização do art. 480 da CLT,
+     * metade da remuneração dos dias que faltavam (o teto do § 1º, igual ao art. 479). É opção, como no SAGE: o
+     * empregador pode abrir mão. Sem ela, nada é descontado.
+     */
+    indenizacao480?: boolean;
 }
 
 export interface ResultadoRescisao extends ResultadoCalculo {
@@ -338,7 +348,15 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
             verba({ codigo: 'ART479', descricao: 'Indenização do art. 479 da CLT', referencia: `${restantes} dias ÷ 2`, tipo: 'provento', valor: v, inss: false, fgts: false, irrf: false });
             r.memoria.push(`Art. 479: metade da remuneração dos ${restantes} dias até o fim do contrato (${br(d.fimContrato)}) = ${reais(v)}.`);
         } else r.avisos.push('Término antecipado: informe o fim do contrato na ficha para calcular a indenização do art. 479.');
-    } else if (tipo === '04') r.avisos.push('Término antecipado pelo empregado: a indenização do art. 480 (até o valor do art. 479) pode ser lançada como desconto no movimento do mês.');
+    } else if (tipo === '04') {
+        if (!e.indenizacao480) r.avisos.push('Término antecipado pelo empregado: a indenização do art. 480 não foi descontada. Para descontar (metade da remuneração dos dias que faltavam), marque "Indenização do art. 480".');
+        else if (d.fimContrato && dataValida(d.fimContrato) && d.fimContrato > data) {
+            const restantes = diasEntre(data, d.fimContrato);
+            const v = Math.round(diaria * restantes / 2);
+            verba({ codigo: 'ART480', descricao: 'Indenização do art. 480 da CLT', referencia: `${num(restantes / 2)} dias`, tipo: 'desconto', valor: v, inss: false, fgts: false, irrf: false });
+            r.memoria.push(`Art. 480: metade da remuneração dos ${restantes} dias até o fim do contrato (${br(d.fimContrato)}) = ${num(restantes / 2)} dias × ${reais(Math.round(diaria))} = ${reais(v)}, descontada (o teto do § 1º é o valor do art. 479).`);
+        } else r.avisos.push('Indenização do art. 480: informe o fim do contrato na ficha (Ident. Adm.) para calcular o desconto.');
+    }
     else if (tipo === '27') {
         r.memoria.push('Força maior (arts. 501 e 502): sem aviso prévio; 13º e férias proporcionais integrais; multa do FGTS de 20% (Lei 8.036/1990, art. 18, § 2º).');
         r.avisos.push('Força maior: a extinção precisa ser do estabelecimento ou da empresa e o fato, imprevisível e alheio ao empregador (art. 501). Contrato a termo tem a indenização do art. 479 pela metade (art. 502, III): lance no movimento, se for o caso.');
@@ -500,7 +518,16 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
     r.totais.proventos = r.verbas.filter(v => v.tipo === 'provento').reduce((s, v) => s + v.valor, 0);
     r.totais.descontos = r.verbas.filter(v => v.tipo === 'desconto').reduce((s, v) => s + v.valor, 0);
     r.totais.liquido = r.totais.proventos - r.totais.descontos;
-    if (r.totais.liquido < 0) r.avisos.push('Líquido negativo: os descontos passam dos proventos. Confira (art. 477, § 5º limita a compensação a uma remuneração).');
+    if (r.totais.liquido < 0) {
+        // Como o SAGE: a "Insuficiência de saldo" (natureza 2930) completa os proventos e o líquido fica zero. O que
+        // passou continua sendo dívida do empregado, cobrada à parte; a rescisão não sai negativa.
+        const falta = -r.totais.liquido;
+        verba({ codigo: 'INSUFSALDO', descricao: 'Insuficiência de saldo rescisório', referencia: '', tipo: 'provento', valor: falta, inss: false, fgts: false, irrf: false });
+        r.totais.proventos += falta;
+        r.totais.liquido = 0;
+        r.memoria.push(`Insuficiência de saldo: os descontos passaram dos proventos em ${reais(falta)}; a verba completa os proventos e o líquido fica zero.`);
+        r.avisos.push(`Insuficiência de saldo de ${reais(falta)}: o empregado continua devendo esse valor (cobrança fora da rescisão). Na rescisão, a compensação é limitada a uma remuneração (CLT, art. 477, § 5º): confira os descontos.`);
+    }
     r.memoria.push(`Competência do INSS e FGTS: ${rotuloCompetencia(data.slice(0, 7))}.`);
     return r;
 }

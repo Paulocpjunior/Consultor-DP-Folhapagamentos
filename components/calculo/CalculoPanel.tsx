@@ -92,7 +92,7 @@ const v = (r: ResultadoCalculo, c: string) => r.verbas.find(x => x.codigo === c)
 const inssDe = (r: ResultadoCalculo) => v(r, 'INSS') + v(r, 'INSS13') + v(r, 'INSSFER') + v(r, 'INSSFERRET');
 const irrfDe = (r: ResultadoCalculo) => v(r, 'IRRF') + v(r, 'IRRF13') + v(r, 'IRRFFER') + v(r, 'IRRFFERRET');
 type Folha = 'mensal' | '13-1a' | '13-2a' | 'ferias' | 'rescisao';
-interface ParamRescisao { data: string; tipo: TipoRescisao | ''; aviso: AvisoPrevio; pagamento?: string; saldoFgts?: number; adiantamento13?: number; simulada: boolean; amparo?: AmparoMotivo }
+interface ParamRescisao { data: string; tipo: TipoRescisao | ''; aviso: AvisoPrevio; pagamento?: string; saldoFgts?: number; adiantamento13?: number; simulada: boolean; amparo?: AmparoMotivo; indenizacao480?: boolean }
 /** Chave da linha: o gozo nas férias (pode haver dois no mês), a ficha nas demais. */
 const chave = (r: ResultadoCalculo) => (r as Partial<ResultadoFerias>).gozoId || r.fichaId;
 const br = (d: string) => d.split('-').reverse().join('/');
@@ -350,9 +350,11 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
             return [...itens.entries()].flatMap(([id, p]) => {
                 const f = dados.fichas.find(x => x.id === id);
                 const conv = f ? convencaoDe(f, p.data) : undefined;
-                return f ? [calcularRescisao({ ficha: f, data: p.data, tipo: p.tipo, aviso: p.aviso, pagamento: p.pagamento, saldoFgts: p.saldoFgts, adiantamento13: p.adiantamento13, amparo: p.amparo, opcoes: opcoesFerias,
+                // Eventos digitados na rescisão (proventos e descontos): o movimento do mês do desligamento na tela, mesmo antes de salvar.
+                const movimentos = p.data.startsWith(competencia) && movs[id] ? { ...(movsAno[id] ?? {}), [competencia]: movs[id] } : movsAno[id] ?? {};
+                return f ? [calcularRescisao({ ficha: f, data: p.data, tipo: p.tipo, aviso: p.aviso, pagamento: p.pagamento, saldoFgts: p.saldoFgts, adiantamento13: p.adiantamento13, amparo: p.amparo, indenizacao480: p.indenizacao480, opcoes: opcoesFerias,
                     avisoConvencao: avisoDaConvencao(conv?.avisoPrevio, f, p.data), contribuicoesSindicais: conv?.contribuicoes,
-                    afastamentos: dados.afastamentos.filter(a => a.fichaId === id), tabelas: dados.tabelas, movimentos: movsAno[id] ?? {},
+                    afastamentos: dados.afastamentos.filter(a => a.fichaId === id), tabelas: dados.tabelas, movimentos,
                     // Paga no próprio mês: com a folha anterior paga nele (regime "mês seguinte"), o IRRF soma as duas.
                     regimePagamento: m => mesDoPagamento(parametrosFolha, m), convocacoes: dados.convocacoes })] : [];
             });
@@ -774,7 +776,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                 {mensal && comAutomaticos.length > 0 && <button className="ml-auto rounded-sm border border-blue-700 px-3 py-2 text-sm font-medium text-blue-800 disabled:opacity-50 dark:border-blue-400 dark:text-blue-200"
                     disabled={encerrado || !movsLidos} title={encerrado ? MSG_ENCERRADO(competencia) : 'Põe no movimento os lançamentos automáticos das fichas (aba "Lanç. automático") que valem neste mês; o que já entrou não entra de novo.'}
                     onClick={() => void lancarAutomaticos()}>Lançamentos automáticos ({comAutomaticos.length})</button>}
-                {mensal && <button className={`${comAutomaticos.length ? '' : 'ml-auto '}rounded-sm bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-50`} disabled={!pendentes.length || salvando || !gravados || encerrado} title={encerrado ? MSG_ENCERRADO(competencia) : undefined} onClick={salvar}>
+                {(mensal || rescisao) && <button className={`${comAutomaticos.length ? '' : 'ml-auto '}rounded-sm bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-50`} disabled={!pendentes.length || salvando || !gravados || encerrado} title={encerrado ? MSG_ENCERRADO(competencia) : undefined} onClick={salvar}>
                     {salvando ? 'Salvando…' : `Salvar movimento${pendentes.length ? ` (${pendentes.length})` : ''}`}
                 </button>}
                 {mensal && <button className="rounded-sm border border-blue-700 px-3 py-2 text-sm font-medium text-blue-800 disabled:opacity-50 dark:border-blue-400 dark:text-blue-200"
@@ -1078,8 +1080,13 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                             onChange={e => { const c = centavosDeTexto(e.target.value); mudar({ [k]: c ?? undefined }); }} />
                     </label>
                 );
+                // Eventos da rescisão (como o "Lançamento de Eventos" do SAGE): o movimento do mês do desligamento, gravado em "Salvar movimento".
+                const comEventos = t.data.startsWith(competencia) && !encerrado && !!gravados;
                 return (
-                    <Holerite key={`${t.fichaId}-rescisao`} r={t}>
+                    <Holerite key={`${t.fichaId}-rescisao-${versao}`} r={t} comMovimento={comEventos} tituloMovimento="Eventos da rescisão (proventos e descontos do mês)"
+                        mov={movs[t.fichaId] ?? {}} gravado={gravados?.[t.fichaId]} pendente={pendentes.includes(t.fichaId)} mostrarPensao13
+                        onMov={m => setMovs(x => ({ ...x, [t.fichaId]: m }))} salario={salarioSel} lancado={lancado?.fichaId === t.fichaId ? lancado.mensagem : ''}
+                        onLancar={(m, mensagem) => { setMovs(x => ({ ...x, [t.fichaId]: m })); setLancado({ fichaId: t.fichaId, mensagem }); setVersao(n => n + 1); }}>
                         <div className="space-y-2 text-xs text-slate-700 dark:text-slate-200">
                             <h4 className="text-sm font-semibold text-slate-800 dark:text-white">Rescisão {p.simulada ? '(simulação)' : ''}</h4>
                             <label className="block">Tipo do desligamento
@@ -1105,6 +1112,12 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                                     {Object.entries(ROTULO_AVISO).map(([c, x]) => <option key={c} value={c}>{x}</option>)}
                                 </select>
                             </label>
+                            {p.tipo === '04' && (
+                                <label className="flex items-start gap-2 rounded-sm border border-slate-200 p-2 dark:border-slate-700" title="CLT, art. 480: o empregado que sai antes do fim do contrato a termo indeniza o empregador, até a metade da remuneração dos dias que faltavam (§ 1º).">
+                                    <input type="checkbox" aria-label="Indenização do art. 480" className="mt-0.5" checked={!!p.indenizacao480} onChange={e => mudar({ indenizacao480: e.target.checked || undefined })} />
+                                    <span><strong>Indenização do art. 480</strong> (desconto): metade da remuneração dos dias até o fim do contrato da ficha. Desmarcado, o empregador abre mão e nada é descontado.</span>
+                                </label>
+                            )}
                             {p.simulada && <label className="block">Data do desligamento<input aria-label="Data do desligamento simulado" type="date" className={`mt-0.5 block ${inp}`} value={p.data} onChange={e => mudar({ data: e.target.value })} /></label>}
                             <label className="block">Mês do pagamento (tabela do IRRF)
                                 <input aria-label="Mês do pagamento da rescisão" type="month" className={`mt-0.5 block ${inp}`} value={mesPagamento} onChange={e => mudar({ pagamento: e.target.value || undefined })} />
@@ -1381,7 +1394,7 @@ const LancarEvento: React.FC<{ mov: Movimento; salario: SalarioDoMes | null; lan
     );
 };
 
-const Holerite: React.FC<{ r: ResultadoCalculo; mov?: Movimento; gravado?: MovimentoGravado; pendente?: boolean; arredonda?: boolean; onMov?: (m: Movimento) => void; salario?: SalarioDoMes | null; lancado?: string; onLancar?: (m: Movimento, mensagem: string) => void; mostrarPensao13?: boolean; lotacoes?: Lotacao[]; children?: React.ReactNode }> = ({ r, mov = {}, gravado, pendente = false, arredonda = false, onMov = () => {}, salario = null, lancado = '', onLancar, mostrarPensao13 = false, lotacoes = [], children }) => {
+const Holerite: React.FC<{ r: ResultadoCalculo; comMovimento?: boolean; tituloMovimento?: string; mov?: Movimento; gravado?: MovimentoGravado; pendente?: boolean; arredonda?: boolean; onMov?: (m: Movimento) => void; salario?: SalarioDoMes | null; lancado?: string; onLancar?: (m: Movimento, mensagem: string) => void; mostrarPensao13?: boolean; lotacoes?: Lotacao[]; children?: React.ReactNode }> = ({ r, comMovimento = false, tituloMovimento = 'Movimento do mês', mov = {}, gravado, pendente = false, arredonda = false, onMov = () => {}, salario = null, lancado = '', onLancar, mostrarPensao13 = false, lotacoes = [], children }) => {
     const pdf = React.useContext(PdfContexto);
     const emHoras = (k: string) => k === 'horasExtras50' || k === 'horasExtras100' || k === 'atrasosHoras';
     const campo = (k: 'horasExtras50' | 'horasExtras100' | 'faltasDias' | 'dsrDescontadoDias' | 'atrasosHoras' | 'feriadosLocais', rotulo: string) => (
@@ -1418,9 +1431,10 @@ const Holerite: React.FC<{ r: ResultadoCalculo; mov?: Movimento; gravado?: Movim
                 </details>
                 {r.avisos.length > 0 && <ul className="mt-2 list-disc pl-5 text-xs text-amber-800 dark:text-amber-200">{r.avisos.map(a => <li key={a}>{a}</li>)}</ul>}
             </div>
-            {children ?? <div className="space-y-3">
-                <div>
-                    <h4 className="text-sm font-semibold text-slate-800 dark:text-white">Movimento do mês</h4>
+            {children && !comMovimento ? children : <div className="space-y-3">
+                {comMovimento && children}
+                <div className={comMovimento ? 'border-t border-slate-200 pt-3 dark:border-slate-700' : undefined}>
+                    <h4 className="text-sm font-semibold text-slate-800 dark:text-white">{tituloMovimento}</h4>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
                         {pendente ? <span className="text-amber-700 dark:text-amber-300">Alterado e ainda não salvo.</span>
                             : gravado ? `Salvo por ${gravado.atualizadoPorEmail ?? '—'}${gravado.atualizadoEm ? ` em ${quando(gravado.atualizadoEm)}` : ''}.` : 'Sem movimento gravado.'}
