@@ -6,6 +6,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { automaticoVazio, MESES_CURTOS, textoMeses, type LancamentoAutomatico } from '../../services/calculo/lancamentosAutomaticos';
+import { carregarEventosIob } from '../../services/calculo/catalogoEventos';
+import { eventoPorCodigo } from '../../services/calculo/lancarEvento';
+import type { EventoIobSage } from '../../services/folha/folhaTypes';
 import {
     ABAS, ROTULO, aplicarEdicao, defCampo, depNoEsocial, ehManual, idFuncionario, normalizarFicha, rotuloAlteracao, validarFicha,
     type CampoFicha, type Dependente, type FichaFuncionario,
@@ -123,6 +126,9 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
         return { ...x, consignados: m === null ? atual.filter((_, k) => k !== i) : atual.map((c, k) => (k === i ? { ...c, ...m } : c)) };
     });
     const automaticos = f.lancamentosAutomaticos ?? [];
+    // Catálogo de eventos do IOB: a descrição do evento aparece ao digitar o código (como o SAGE).
+    const [catalogo, setCatalogo] = useState<EventoIobSage[] | null>(null);
+    useEffect(() => { if (aba === 'automaticos' && !catalogo) carregarEventosIob().then(setCatalogo).catch(() => setCatalogo([])); }, [aba, catalogo]);
     const setAutomatico = (i: number, m: Partial<LancamentoAutomatico> | null) => setF(x => {
         const atual = x.lancamentosAutomaticos ?? [];
         return { ...x, lancamentosAutomaticos: m === null ? atual.filter((_, k) => k !== i) : atual.map((a, k) => (k === i ? { ...a, ...m } : a)) };
@@ -245,12 +251,17 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
 
                     {aba === 'automaticos' && (
                         <div className="space-y-2 text-sm dark:text-slate-100">
-                            <p className="text-xs text-slate-600 dark:text-slate-300">Eventos do IOB que entram no movimento do mês sozinhos, como o Lançamento Automático do IOB (ex.: uma gratificação fixa, um desconto de convênio). No Cálculo, "Lançamentos automáticos" põe os do mês no movimento pelo mesmo cálculo do "Lançar evento" (rotina do evento ou fórmula da empresa); cada um entra uma vez por mês. Sem meses marcados, entra todo mês.</p>
+                            <p className="text-xs text-slate-600 dark:text-slate-300">Eventos do IOB que entram no movimento do mês sozinhos, como os Eventos Automáticos do SAGE (ex.: triênio, gratificação fixa, desconto de convênio). No Cálculo, "Lançamentos automáticos" põe os do mês no movimento; cada um entra uma vez por mês. Sem meses marcados, entra todo mês.</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400"><strong>Valor</strong> preenchido: entra o valor, como está. <strong>Sal</strong> preenchido: é o salário-base dos eventos que calculam a referência sobre o salário (% do salário, horas, dias), no lugar do salário da ficha. Sem os dois: a rotina do evento com a referência e o salário da ficha. As incidências vêm da rubrica S-1010 da empresa ligada ao evento.</p>
                             {automaticos.map((a, i) => (
                                 <div key={i} role="group" aria-label={`Lançamento automático ${i + 1}`} className="space-y-1 rounded-sm border border-slate-200 p-2 text-xs dark:border-slate-700">
                                     <div className="flex flex-wrap items-end gap-2">
-                                        <label>Evento<input aria-label={`Evento do lançamento automático ${i + 1}`} className="mt-0.5 block w-20 rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" inputMode="numeric" maxLength={5} value={a.codigoEvento} onChange={e => setAutomatico(i, { codigoEvento: e.target.value.replace(/\D/g, '') })} /></label>
-                                        <label>Referência<input aria-label={`Referência do lançamento automático ${i + 1}`} className="mt-0.5 block w-24 rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" placeholder="8:30 ou 150,00" maxLength={20} value={a.referencia} onChange={e => setAutomatico(i, { referencia: e.target.value })} /></label>
+                                        <label>Código<input aria-label={`Evento do lançamento automático ${i + 1}`} className="mt-0.5 block w-20 rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" inputMode="numeric" maxLength={5} value={a.codigoEvento}
+                                            onChange={e => { const c = e.target.value.replace(/\D/g, ''); const ev = catalogo ? eventoPorCodigo(catalogo, c) : null; setAutomatico(i, { codigoEvento: c, ...(ev && (!a.descricao || a.descricao === (catalogo && eventoPorCodigo(catalogo, a.codigoEvento)?.descricao)) ? { descricao: ev.descricao } : {}) }); }} /></label>
+                                        <label>Descrição<input aria-label={`Descrição do lançamento automático ${i + 1}`} className="mt-0.5 block w-44 rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" maxLength={60} placeholder={catalogo && a.codigoEvento && !eventoPorCodigo(catalogo, a.codigoEvento) ? 'fora do catálogo: digite' : ''} value={a.descricao ?? ''} onChange={e => setAutomatico(i, { descricao: e.target.value })} /></label>
+                                        <label>Referência<input aria-label={`Referência do lançamento automático ${i + 1}`} className="mt-0.5 block w-24 rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" placeholder="1,0000 ou 8:30" maxLength={20} value={a.referencia} onChange={e => setAutomatico(i, { referencia: e.target.value })} /></label>
+                                        <label title="Salário-base dos eventos que calculam a referência sobre o salário (% do salário, horas, dias). Em branco: o salário da ficha.">Sal (R$)<input aria-label={`Sal do lançamento automático ${i + 1}`} className="mt-0.5 block w-24 rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" inputMode="decimal" placeholder="da ficha" maxLength={15} value={a.salario ?? ''} onChange={e => setAutomatico(i, { salario: e.target.value })} /></label>
+                                        <label title="Valor fixo que entra como está. Em branco: calculado pela rotina do evento com a referência.">Valor (R$)<input aria-label={`Valor do lançamento automático ${i + 1}`} className="mt-0.5 block w-24 rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" inputMode="decimal" placeholder="calculado" maxLength={15} value={a.valor ?? ''} onChange={e => setAutomatico(i, { valor: e.target.value })} /></label>
                                         <label>A partir de<input aria-label={`Início do lançamento automático ${i + 1}`} type="month" className="mt-0.5 block rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={a.desde} onChange={e => setAutomatico(i, { desde: e.target.value })} /></label>
                                         <label>Até<input aria-label={`Fim do lançamento automático ${i + 1}`} type="month" className="mt-0.5 block rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={a.ate} onChange={e => setAutomatico(i, { ate: e.target.value })} /></label>
                                         <label className="flex-1">Observação<input aria-label={`Observação do lançamento automático ${i + 1}`} className="mt-0.5 block w-full rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" maxLength={100} value={a.observacao ?? ''} onChange={e => setAutomatico(i, { observacao: e.target.value })} /></label>

@@ -222,6 +222,17 @@ function avulso(ev: EventoIobSage, titulo: string, valor: number, memoria: strin
     };
 }
 
+/**
+ * Lançamento por valor fixo (o "Valor" do Lançamento Automático do SAGE): vai como avulso com o valor informado, sem a
+ * rotina do evento. A descrição digitada vale sobre a do catálogo.
+ */
+export function lancarPorValor(ev: EventoIobSage, valor: number, mov: Movimento, memoria: string, incidencias?: IncidenciasLancamento | null, descricao?: string): Lancado {
+    const titulo = `${ev.codigo} ${descricao?.trim() || ev.descricao}`;
+    if (ev.tipo !== 'V' && ev.tipo !== 'D') return { erro: `Evento ${titulo}: não é vencimento nem desconto.` };
+    if (!(valor > 0)) return { erro: `Evento ${titulo}: valor zerado.` };
+    return avulso(ev, titulo, valor, memoria, mov, incidencias);
+}
+
 /** Procura o evento pelo código (aceita 810 por 0810). */
 export const eventoPorCodigo = (eventos: EventoIobSage[], codigo: string) => {
     const c = codigo.trim().replace(/\D/g, '');

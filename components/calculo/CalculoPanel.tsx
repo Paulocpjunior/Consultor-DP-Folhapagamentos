@@ -525,7 +525,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
         const eventos = await carregarEventosIob().catch(() => null);
         if (!eventos) { setErro('Não foi possível carregar o catálogo de eventos do IOB.'); return; }
         const r = aplicarAutomaticos({
-            fichas: comAutomaticos, movimentos: movs, competencia, eventos, formulas: parametrosFolha?.formulasEventos,
+            fichas: comAutomaticos, movimentos: movs, competencia, eventos, formulas: parametrosFolha?.formulasEventos, rubricas: rubricasEmpresa,
             salarioDe: f => { const sc = salarioContratual(fichaNaCompetencia(f, competencia).ficha.dados); return 'erro' in sc ? null : { mensal: sc.mensal, horasMes: sc.horasMes }; },
         });
         setMovs(r.movimentos); setVersao(n => n + 1);
