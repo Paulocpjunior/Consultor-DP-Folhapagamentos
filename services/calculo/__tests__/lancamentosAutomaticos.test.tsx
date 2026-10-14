@@ -76,6 +76,25 @@ describe('lançamentos automáticos', () => {
     });
 });
 
+describe('Sal = evento-base: a referência é o percentual sobre ele (pensão do Alexandre, 14/10/2026)', () => {
+    const EV = [...EVENTOS, ev('0001', 'SALÁRIO', { ro: '000' }), ev('5810', 'PENSÃO ALIMENTÍCIA', { tipo: 'D', rv: 'R', ro: '060', coeficiente: 1, incidencias: { in: 'N', ir: 'S', fg: 'N' } as EventoIobSage['incidencias'] })];
+    const SAL_ALE = () => ({ mensal: 313845, horasMes: 220 });
+    it('5810 com referência 33,00 e Sal 00001: 33% do salário no campo da pensão (o Valor do SAGE não entra)', () => {
+        const r = aplicarAutomaticos({ fichas: [ficha('ale', [a({ codigoEvento: '5810', referencia: '33,00', salario: '00001', valor: '1' })])], movimentos: {}, competencia: '2026-10', eventos: EV, salarioDe: SAL_ALE });
+        expect(r.erros).toEqual([]);
+        expect(r.movimentos.ale.pensaoAlimenticia).toBe(Math.round(313845 * 0.33));
+        expect(r.movimentos.ale.lancamentos).toBeUndefined();
+    });
+    it('evento-base que é um lançamento do mês; percentual fora de 0 a 100 é recusado', () => {
+        const mov = { ale: { lancamentos: [{ descricao: '0200 GRATIFICACAO', tipo: 'provento' as const, valor: 100000, inss: true, fgts: true, irrf: true }] } };
+        const r = aplicarAutomaticos({ fichas: [ficha('ale', [a({ codigoEvento: '300', referencia: '10', salario: '200' })])], movimentos: mov, competencia: '2026-10', eventos: EV, salarioDe: SAL_ALE });
+        expect(r.movimentos.ale.lancamentos?.find(x => x.descricao.startsWith('0300'))?.valor).toBe(10000);
+        expect(validarAutomaticos([a({ referencia: '150', salario: '00001' })]).join()).toMatch(/a referência é o percentual/);
+        expect(aplicarAutomaticos({ fichas: [ficha('ale', [a({ codigoEvento: '300', referencia: '10', salario: '0999' })])], movimentos: {}, competencia: '2026-10', eventos: EV, salarioDe: SAL_ALE }).erros.join())
+            .toMatch(/evento-base 0999 não está no movimento/);
+    });
+});
+
 describe('Lança na rescisão e cópia para o ano seguinte (como o SAGE)', () => {
     it('no mês do desligamento só entram os marcados: proporcional aos dias ÷ 30 ou integral', () => {
         const l = [a({ valor: '626,50', codigoEvento: '200', referencia: '1', naRescisao: 'proporcional' }), a({ codigoEvento: '300', referencia: '30,00', naRescisao: 'integral' }), a({ codigoEvento: '200', referencia: '9' })];
