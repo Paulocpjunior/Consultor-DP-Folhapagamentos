@@ -15,6 +15,7 @@
 // Fica de fora (aviso e situação "incompleto"): férias, 13º, rescisão,
 // adicionais e médias de variáveis.
 
+import { faixaInss } from './tributos';
 import { verbasDosBeneficios, type Beneficio } from './beneficios';
 import { descontosConsignado } from './consignado';
 import { estabelecimentosNoMes } from '../cadastros/locaisTrabalho';
@@ -680,8 +681,10 @@ function calcularMensalSemObras(e: EntradaCalculo): ResultadoCalculo {
         const inssTotal = Math.round(total);
         const retido = fm?.inss ?? 0;
         inss = Math.max(0, inssTotal - retido);
-        verba({ codigo: 'INSS', descricao: 'INSS', referencia: base ? pct(Math.round(inssTotal / base * 10000) / 100) : '', tipo: 'desconto', valor: inss, inss: false, fgts: false, irrf: false });
-        r.memoria.push(`INSS (tabela de ${rotuloCompetencia(t.vigencia)}, ${t.norma}): base ${reais(r.bases.inss)}${base < r.bases.inss ? `, limitada ao teto ${reais(base)}` : ''}; ${partes.join(' + ') || 'sem base'} = ${reais(inssTotal)}${retido ? ` − ${reais(retido)} já retidos no recibo de férias = ${reais(inss)}` : ''}.`);
+        // Referência: a alíquota da faixa da base (como o IOB), não a efetiva (INSS ÷ base).
+        const fx = faixaInss(base, t);
+        verba({ codigo: 'INSS', descricao: 'INSS', referencia: fx?.referencia ?? '', tipo: 'desconto', valor: inss, inss: false, fgts: false, irrf: false });
+        r.memoria.push(`INSS (tabela de ${rotuloCompetencia(t.vigencia)}, ${t.norma}): base ${reais(r.bases.inss)}${base < r.bases.inss ? `, limitada ao teto ${reais(base)}` : ''}; ${partes.join(' + ') || 'sem base'} = ${reais(inssTotal)}${fx ? ` (pela faixa de ${fx.referencia}: ${fx.formula} = ${reais(inssTotal)})` : ''}${retido ? ` − ${reais(retido)} já retidos no recibo de férias = ${reais(inss)}` : ''}.`);
     }
 
     // 7. Salário-família (competência).

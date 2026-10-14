@@ -130,3 +130,49 @@ describe('Lançar evento: leitura da referência e do código', () => {
         expect(eventoPorCodigo(eventos, '')).toBeNull();
     });
 });
+
+// Caso do Alexandre (09/2026, salário R$ 3.138,45 + triênio R$ 89,50): o 1108 TRIENIO do catálogo não tem incidência,
+// o triênio saiu da base e o INSS ficou R$ 265,21 em vez dos R$ 275,95 do IOB (base R$ 3.227,95, faixa de 12%).
+import { TABELAS_OFICIAIS_2026 } from '../../cadastros/tabelasOficiais';
+import { incidenciasDaRubrica, type Rubrica } from '../../cadastros/rubricas';
+
+describe('Lançar evento: incidências da rubrica S-1010 e INSS pela faixa (caso do triênio, 14/10/2026)', () => {
+    const tabelas = TABELAS_OFICIAIS_2026.map((t, i) => ({ ...t, id: `o${i}` }));
+    const ficha = { ...fichaVazia({ id: 'e', cnpj: '11222333000181' }), id: 'f', cpf: '52998224725', situacao: 'ativo' as const,
+        dados: { nome: 'ALEXANDRE', admissao: '2022-05-02', salario: '3138.45', unidadeSalario: '5', horasSemanais: '44', categoria: '101' } };
+    const sal = { mensal: 313845, horasMes: 220 };
+    const rubrica: Rubrica = { id: 'r', empresaId: 'e', codRubr: '1108', ideTabRubr: 'T', eventoIob: '', origem: 'S-1010',
+        vigencias: [{ iniValid: '2022-01', fimValid: '', recibo: '1', dados: { dscRubr: 'TRIENIO', natRubr: '1003', tpRubr: '1', codIncCP: '11', codIncIRRF: '11', codIncFGTS: '11', codIncCPRP: '', observacao: '' } }] };
+
+    it('sem rubrica: incidências do catálogo e alerta de provento sem INSS, FGTS e IRRF', () => {
+        const r = ok(lancarEvento(ev('1108'), 8950, sal, {}));
+        expect(r.movimento.lancamentos?.[0]).toMatchObject({ inss: false, fgts: false, irrf: false });
+        expect(msg(r)).toContain('ATENÇÃO: provento sem INSS, FGTS e IRRF');
+    });
+
+    it('com a rubrica S-1010 da empresa: INSS, FGTS e IRRF dela, e o INSS bate com o IOB (R$ 275,95, ref. 12%)', () => {
+        const inc = incidenciasDaRubrica([rubrica], '1108', '2026-09');
+        expect(inc).toMatchObject({ inss: true, fgts: true, irrf: true });
+        const r = ok(lancarEvento(ev('1108'), 8950, sal, {}, undefined, inc));
+        expect(r.movimento.lancamentos?.[0]).toMatchObject({ valor: 8950, inss: true, fgts: true, irrf: true });
+        expect(msg(r)).toContain('rubrica 1108 do S-1010 da empresa');
+        expect(msg(r)).not.toContain('ATENÇÃO');
+        const m = calcularMensal({ competencia: '2026-09', pagamento: '2026-09', ficha, afastamentos: [], tabelas, movimento: r.movimento });
+        const inss = m.verbas.find(v => v.codigo === 'INSS')!;
+        expect(m.bases.inss).toBe(322795);
+        expect(inss.valor).toBe(27595);
+        expect(inss.referencia).toBe('12%');
+        expect(m.memoria.join('\n').replace(/ /g, ' ')).toContain('R$ 3.227,95 × 12% − R$ 111,40 (parcela a deduzir)');
+    });
+
+    it('a referência do INSS é a alíquota da faixa, nunca a efetiva (8,45% não existe na tabela)', () => {
+        const m = calcularMensal({ competencia: '2026-09', pagamento: '2026-09', ficha, afastamentos: [], tabelas, movimento: {} });
+        const inss = m.verbas.find(v => v.codigo === 'INSS')!;
+        expect([m.bases.inss, inss.valor, inss.referencia]).toEqual([313845, 26521, '12%']);
+    });
+
+    it('rubrica fora da vigência ou de outro evento não vale', () => {
+        expect(incidenciasDaRubrica([rubrica], '1015', '2026-09')).toBeNull();
+        expect(incidenciasDaRubrica([{ ...rubrica, vigencias: [{ ...rubrica.vigencias[0], iniValid: '2027-01' }] }], '1108', '2026-09')).toBeNull();
+    });
+});

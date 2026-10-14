@@ -26,6 +26,7 @@
 // - Parcela única: a empresa que paga o 13º inteiro em dezembro não tem 1ª parcela; a lei manda adiantar a metade
 //   até 30 de novembro (Lei 4.749/1965, art. 2º), e o descumprimento tem multa (Lei 7.855/1989, art. 3º).
 
+import { faixaInss } from './tributos';
 import { fichaNaData, memoriaDoHistorico, type FichaFuncionario } from '../cadastros/funcionarios';
 import type { Afastamento } from '../cadastros/afastamentos';
 import { inicioBeneficio } from '../cadastros/afastamentos';
@@ -255,8 +256,9 @@ export function calcular13(e: Entrada13): ResultadoCalculo {
                 total += parte * f.aliquota / 100; partes.push(`${reais(parte)} × ${pct(f.aliquota)}`); piso = f.ate;
             }
             inss = Math.round(total);
-            verba({ codigo: 'INSS13', descricao: 'INSS sobre 13º', referencia: base ? pct(Math.round(inss / base * 10000) / 100) : '', tipo: 'desconto', valor: inss, inss: false, fgts: false, irrf: false });
-            r.memoria.push(`INSS do 13º (em separado, tabela de ${rotuloCompetencia(t.vigencia)}): ${partes.join(' + ')} = ${reais(inss)}.`);
+            const fx = faixaInss(base, t);
+            verba({ codigo: 'INSS13', descricao: 'INSS sobre 13º', referencia: fx?.referencia ?? '', tipo: 'desconto', valor: inss, inss: false, fgts: false, irrf: false });
+            r.memoria.push(`INSS do 13º (em separado, tabela de ${rotuloCompetencia(t.vigencia)}): ${partes.join(' + ')} = ${reais(inss)}${fx ? ` (pela faixa de ${fx.referencia}: ${fx.formula})` : ''}.`);
         }
 
         // IRRF do 13º: exclusivo na fonte, sobre o integral.
