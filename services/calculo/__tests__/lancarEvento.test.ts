@@ -171,6 +171,19 @@ describe('Lançar evento: incidências da rubrica S-1010 e INSS pela faixa (caso
         expect([m.bases.inss, inss.valor, inss.referencia]).toEqual([313845, 26521, '12%']);
     });
 
+    it('pensão de 33% sobre a remuneração menos o INSS, como o IOB em 09/2026: R$ 974,16', () => {
+        const inc = incidenciasDaRubrica([rubrica], '1108', '2026-09');
+        const tri = ok(lancarEvento(ev('1108'), 8950, sal, {}, undefined, inc));
+        const m = calcularMensal({ competencia: '2026-09', pagamento: '2026-09', ficha, afastamentos: [], tabelas, movimento: { ...tri.movimento, pensaoPercentual: 33 } });
+        const p = m.verbas.find(v => v.codigo === 'PENSAO')!;
+        expect([p.valor, p.referencia]).toEqual([97416, '33%']);
+        expect(m.memoria.join('\n').replace(/\u00a0/g, ' ')).toContain('33% de (remuneração R$ 3.227,95 − INSS R$ 275,95 = R$ 2.952,00) = R$ 974,16');
+        // O valor fixo vale sobre o percentual, com aviso.
+        const fixo = calcularMensal({ competencia: '2026-09', pagamento: '2026-09', ficha, afastamentos: [], tabelas, movimento: { ...tri.movimento, pensaoPercentual: 33, pensaoAlimenticia: 3000 } });
+        expect(fixo.verbas.find(v => v.codigo === 'PENSAO')!.valor).toBe(3000);
+        expect(fixo.avisos.join()).toMatch(/vale sobre o percentual/);
+    });
+
     it('rubrica fora da vigência ou de outro evento não vale', () => {
         expect(incidenciasDaRubrica([rubrica], '1015', '2026-09')).toBeNull();
         expect(incidenciasDaRubrica([{ ...rubrica, vigencias: [{ ...rubrica.vigencias[0], iniValid: '2027-01' }] }], '1108', '2026-09')).toBeNull();
