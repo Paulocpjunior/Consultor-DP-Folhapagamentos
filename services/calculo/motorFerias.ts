@@ -25,7 +25,7 @@ import { dataValida, reais } from '../cadastros/documentos';
 import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros/tabelasLegais';
 import { adicionalDeRisco } from './adicionais';
 import { aniversario, diaUtilAnterior, diasEntre, somarDias, somarMeses } from '../prazos/calendario';
-import { mediaDasVariaveis, salarioContratual, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
+import { mediaDasVariaveis, percentualDaPensao, salarioContratual, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
 import { ehDomestico } from '../domestico/domestico';
 import { calcular13 } from './motor13';
 
@@ -378,8 +378,15 @@ export function calcularFerias(e: EntradaFerias): ResultadoFerias {
         const t = tIr.tabela;
         const nDep = ficha.dependentes.filter(x => x.irrf === 'S' && x.pensao !== 'S').length; // quem recebe pensão deduz só por ela (Lei 9.250/1995, art. 35, § 4º)
         // Pensão alimentícia sobre as férias (decisão judicial): desconto no recibo e dedução no IRRF delas.
-        const pensao = Math.max(0, Math.round(e.pensao ?? Number(gozo.pensaoFerias || 0)));
-        if (pensao) verba({ codigo: 'PENSAOFER', descricao: 'Pensão alimentícia sobre férias', referencia: '', tipo: 'desconto', valor: pensao, inss: false, fgts: false, irrf: false });
+        // Sem valor informado, a pensão em % (a fórmula do SAGE): sobre as férias com o 1/3 menos o INSS delas.
+        let pensao = Math.max(0, Math.round(e.pensao ?? Number(gozo.pensaoFerias || 0)));
+        const pctPensao = pensao || e.pensao !== undefined || gozo.pensaoFerias ? null : percentualDaPensao(e.movimentos, pagamento);
+        if (pctPensao) {
+            const basePensao = Math.max(0, ferias + terco - inssTotal);
+            pensao = Math.round(basePensao * pctPensao.pct / 100);
+            r.memoria.push(`Pensão alimentícia sobre as férias: ${pct(pctPensao.pct)} (movimento de ${rotuloCompetencia(pctPensao.competencia)}) de (férias + 1/3 ${reais(ferias + terco)} − INSS ${reais(inssTotal)} = ${reais(basePensao)}) = ${reais(pensao)}.`);
+        }
+        if (pensao) verba({ codigo: 'PENSAOFER', descricao: 'Pensão alimentícia sobre férias', referencia: pctPensao ? pct(pctPensao.pct) : '', tipo: 'desconto', valor: pensao, inss: false, fgts: false, irrf: false });
         const legais = inssTotal + nDep * (t.valores.deducaoDependente ?? 0) + pensao;
         const simpl = opcoes.simplificado ? t.valores.descontoSimplificado ?? 0 : 0;
         const usaSimpl = simpl > legais;

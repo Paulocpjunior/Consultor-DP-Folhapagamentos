@@ -5614,3 +5614,19 @@ Pedido da colaboradora, pelo Paulo, com as telas do SAGE (Rescisão Contratual e
 - **Testes:**
   - `lancarEvento.test.ts`: caso do Alexandre, R$ 974,16 com referência 33% e a memória; o valor fixo vale sobre o percentual;
   - `lancamentosAutomaticos.test.tsx`: o percentual vai ao movimento e o valor fixo sai.
+
+## 14/10/2026 — Pensão em % no 13º, férias e rescisão; relação de depósito bancário (SAGE)
+
+- **Pedido do Paulo:** "pensão em % também no 13º, nas férias e na rescisão, devemos criar a opção com relação ao Adiantamento da Folha conforme IOB / SAGE", com a tela "Valores de Salários para Bancos" e a "Relação de Depósito Bancário — Adiantamento — 10/2026" do SAGE.
+- **Pensão em %:**
+  - `percentualDaPensao(movimentos, até)` pega o `pensaoPercentual` do mês ou do último mês que informou a pensão (até 12 meses). Um mês com valor fixo encerra a busca;
+  - **13º:** a 1ª parcela recebe % da parcela. Na 2ª, % de (integral − INSS do 13º) menos a pensão da 1ª, e as duas deduzem no IRRF do 13º;
+  - **férias:** % de (férias + 1/3 − INSS das férias), quando não há pensão informada no recibo nem no gozo;
+  - **rescisão:** o saldo segue pelo mês e o 13º rescisório recebe % de (proporcional + indenizado − INSS). Um aviso pede para lançar nos eventos a pensão sobre férias indenizadas e aviso indenizado se a decisão alcançar essas verbas;
+  - o valor em R$ informado continua valendo sobre o percentual.
+- **Relação de depósito bancário** (`relacaoDeposito.ts`):
+  - sai dos mesmos favorecidos do arquivo bancário, então o tipo de movimento é o da folha aberta: mensal, adiantamento, 13º, férias ou rescisão;
+  - colunas: Banco, Agência, Conta/DV, CPF ou RG (ou nada), Funcionário, Código e Valor;
+  - opções: separar bancos (com o total de cada um), somente totais e imprimir demitidos;
+  - fica no modal do Arquivo bancário (e do Arquivo do adiantamento), sem precisar da conta da empresa, com a data de crédito.
+- **Testes:** `pensaoPercentual.test.ts`, `relacaoDeposito.test.ts` e o modal em `arquivoBancarioModal.test.tsx`.

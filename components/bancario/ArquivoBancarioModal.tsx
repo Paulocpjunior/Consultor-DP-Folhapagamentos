@@ -17,6 +17,7 @@ import { favorecidosDaFolha } from '../../services/bancario/favorecidos';
 import { remessaParaBaixar } from '../../services/bancario/download';
 import { baixarBytes } from '../../services/implantacao/zip';
 import { reais } from '../../services/cadastros/documentos';
+import { OPCOES_RELACAO_PADRAO, relacaoDeposito, type OpcoesRelacao } from '../../services/bancario/relacaoDeposito';
 
 const inp = 'w-full rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const br = (d: string) => (d ? d.split('-').reverse().join('/') : '');
@@ -47,6 +48,7 @@ const ArquivoBancarioModal: React.FC<Props> = ({ empresa, resultados, fichas, ti
     const [usarDataDoRecibo, setUsarDataDoRecibo] = useState(!!dataPorResultado);
     const [preferirPix, setPreferirPix] = useState(false);
     const [msg, setMsg] = useState(''); const [erro, setErro] = useState(''); const [salvando, setSalvando] = useState(false);
+    const [relacao, setRelacao] = useState<OpcoesRelacao>(OPCOES_RELACAO_PADRAO);
     const conta = contas.find(c => c.id === contaId) ?? null;
     const perfil = conta ? PERFIS_BANCO[conta.banco] : undefined;
 
@@ -100,6 +102,18 @@ const ArquivoBancarioModal: React.FC<Props> = ({ empresa, resultados, fichas, ti
         baixarBytes(d.nome, d.bytes, d.mime);
         setMsg(`${r.nomeArquivo} baixado${d.dentroDoZip ? ` dentro de ${d.nome}` : ''}: ${r.incluidos.length} pagamento(s), ${reais(r.total)}. Próximo arquivo: nº ${r.nsa + 1}.`
             + (d.dentroDoZip ? ` No Safari o arquivo vai compactado porque o Safari acrescentaria ".txt" ao nome e o banco recusaria. O Safari abre o .zip sozinho; envie ao banco o ${r.nomeArquivo} da pasta Downloads (se o .zip não abrir, dê dois cliques nele).` : ''));
+    }
+
+    // Relação de depósito bancário (o "Valores de Salários para Bancos" do SAGE), dos mesmos favorecidos do arquivo.
+    async function baixarRelacao() {
+        if (!favorecidos.length) { setErro('Ninguém a pagar nesta relação.'); return; }
+        try {
+            const { tabelaPdf } = await import('../../services/relatorios/layoutPdf');
+            const datas = [...new Set(favorecidos.map(f => f.dataPagamento))].sort();
+            const sub = `Data de crédito: ${datas.length === 1 ? br(datas[0]) : `${br(datas[0])} a ${br(datas[datas.length - 1])}`}`;
+            tabelaPdf(relacaoDeposito(favorecidos, fichas, relacao), { empresa: { razaoSocial: empresa.razaoSocial, cnpj: empresa.cnpj, codigoSage: empresa.codigoSage }, titulo: `Relação de depósito bancário — ${titulo}`, previa: false, orientacao: 'retrato' }, sub)
+                .save(`relacao-deposito-${empresa.codigoSage ?? 'empresa'}-${titulo.replace(/[^\w]+/g, '-').toLowerCase()}.pdf`);
+        } catch (e) { setErro(`Relação não gerada: ${(e as Error).message}`); }
     }
 
     const setE = (k: keyof ContaPagamento, v: string | number) => setEdicao(e => (e ? { ...e, [k]: v } : e));
@@ -198,6 +212,19 @@ const ArquivoBancarioModal: React.FC<Props> = ({ empresa, resultados, fichas, ti
                         )}
                     </section>
                 )}
+                <section aria-label="Relação de depósito bancário" className="space-y-2 rounded-sm border border-slate-200 p-2 dark:border-slate-700">
+                    <p className="font-medium">Relação de depósito bancário <span className="text-xs font-normal text-slate-500">(como os Valores de Salários para Bancos do SAGE: {favorecidos.length} funcionário(s), {reais(favorecidos.reduce((s, f) => s + f.valor, 0))})</span></p>
+                    <div className="flex flex-wrap items-end gap-3 text-xs">
+                        {!(conta && !edicao) && <label>Data de crédito<input aria-label="Data de crédito da relação" type="date" className={`block ${inp}`} value={data} onChange={e => setData(e.target.value)} /></label>}
+                        <label>Imprimir<select aria-label="Documento na relação" className={`block ${inp}`} value={relacao.documento} onChange={e => setRelacao({ ...relacao, documento: e.target.value as OpcoesRelacao['documento'] })}>
+                            <option value="cpf">C.P.F.</option><option value="rg">R.G.</option><option value="nenhum">Não imprimir</option></select></label>
+                        <label className="flex items-center gap-1"><input type="checkbox" checked={relacao.separarBancos} onChange={e => setRelacao({ ...relacao, separarBancos: e.target.checked })} />Separar bancos</label>
+                        <label className="flex items-center gap-1"><input type="checkbox" checked={relacao.somenteTotais} onChange={e => setRelacao({ ...relacao, somenteTotais: e.target.checked })} />Imprime somente totais</label>
+                        <label className="flex items-center gap-1"><input type="checkbox" checked={relacao.imprimirDemitidos} onChange={e => setRelacao({ ...relacao, imprimirDemitidos: e.target.checked })} />Imprime demitidos</label>
+                        <button className="rounded-sm border border-blue-700 px-3 py-1.5 font-medium text-blue-800 disabled:opacity-50 dark:border-blue-400 dark:text-blue-200" disabled={!favorecidos.length} onClick={() => void baixarRelacao()}>Relação de depósito (PDF)</button>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">A data de crédito é a data do pagamento do arquivo. Não precisa da conta da empresa: é só a relação para o cliente ou o banco.</p>
+                </section>
                 {erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
                 {msg && <p role="status" className="rounded-sm bg-green-50 p-2 text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
             </div>
