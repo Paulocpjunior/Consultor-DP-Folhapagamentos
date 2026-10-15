@@ -11,12 +11,12 @@ Estudo de 15/10/2026, pedido pelo Paulo: analisar na íntegra o empréstimo cons
 | Portaria MTE 435/2025 | Regulamento operacional: consulta mensal obrigatória ao Portal Emprega Brasil (art. 20); competência da 1ª parcela pela data de averbação, de 21 do mês anterior a 20 do mês corrente (art. 24); dever de informação (art. 25); limite de 35% da remuneração disponível e como apurá-la, inclusive na rescisão (art. 30, §§ 1º a 5º). |
 | Portaria MTE 506/2026 | A partir da competência 02/2026, parcelas vencidas só pelo FGTS Digital, com IPCA, juros de 0,033% ao dia e multa de 2%. De 05/2025 a 01/2026, a regularização é direto com a instituição. |
 | Manual de Orientação do Empregador, v2.1, 26/06/2026 (MTE) | Passo a passo: DET, Portal Emprega Brasil, eSocial, FGTS Digital/DAE, casos especiais (adiantamento, férias, afastamento, maternidade, transferência, 13º, rescisão com garantia). Lido na íntegra (61 páginas). |
-| Leiaute do arquivo de empréstimos (Portal Emprega Brasil, versões até 1.4) | Arquivo da competência em CSV, XLS ou JSON, matriz e filiais juntas; campos como `ifConcessora.codigo`, `contrato`, `cpf`, `matricula`, `valorParcela`, `competencia` e, na 1.4, a data de admissão. **A página oficial não abre deste ambiente: falta conferir o leiaute completo com um arquivo real.** |
+| Leiaute do arquivo de empréstimos (Portal Emprega Brasil, versões até 1.4) | Arquivo da competência em CSV, XLS ou JSON, matriz e filiais juntas; campos como `ifConcessora.codigo`, `contrato`, `cpf`, `matricula`, `valorParcela`, `competencia` e, na 1.4, a data de admissão. O guia oficial (versão 1.4) publica o cabeçalho, a tabela de campos (tipo, formato, obrigatoriedade) e exemplos fictícios. **A página não abre deste ambiente: os campos acima vêm de fontes secundárias e serão conferidos com o guia oficial antes da importação.** |
 | eSocial S-1.3 | Rubrica natureza 9253 (S-1010 com codIncCP 00, codIncIRRF 9, codIncFGTS 31), grupo `descFolha` (tpDesc, instFinanc, nrDoc, observacao) no S-1200, S-2299 e S-2399; vedada no S-1200 do 13º (REGRA_RUBRICA_COMPATIVEL_DECTERCEIRO); o grupo `consigFGTS` do S-2299 não se usa no programa. |
 
 ## 2. Como funciona (visão do empregador)
 
-1. **Elegíveis:** categorias 101 (empregado CLT), 104 (doméstico) e 721 (diretor não empregado com FGTS), com vínculo ativo. A contratação é só do trabalhador, pela Carteira de Trabalho Digital; a Dataprev registra e administra o contrato.
+1. **Elegíveis:** categorias 101 (empregado CLT), 104 (doméstico) e 721 (diretor não empregado com FGTS), com vínculo ativo. A contratação é só do trabalhador, pela Carteira de Trabalho Digital ou, desde 25/04/2025, também pelos canais da instituição financeira (aplicativo, internet banking, agência); em qualquer canal, a Dataprev registra e administra o contrato e ele aparece para o empregador no Portal Emprega Brasil.
 2. **Aviso no DET** (dias 21 a 25): "Contratação de Empréstimo Consignado…". É complementar; não ler o aviso não tira a obrigação.
 3. **Portal Emprega Brasil › Crédito do Trabalhador** (dias 21 a 25, por competência):
    - Arquivos de Empréstimos: todos os trabalhadores com parcela na competência (CSV, XLS, JSON);
@@ -73,7 +73,7 @@ Estudo de 15/10/2026, pedido pelo Paulo: analisar na íntegra o empréstimo cons
 | F4 | Mensagem no holerite. | Texto do manual quando houver desconto parcial ou nenhum desconto. |
 | F5 | Relatório de repasse e prazo. | Relatório por competência (trabalhador, instituição, contrato, devido, descontado, motivo) e o vencimento do dia 20 no Prazos do DP e no calendário da empresa; aviso de atraso com os encargos da Portaria 506/2026. |
 | F6 | Conferência com o eSocial/FGTS Digital. | Na conferência pós-folha, comparar o consignado do S-5003 com o da folha. |
-| F7 | API da Dataprev (fase 2). | Buscar o arquivo direto pelo serviço da plataforma comum (credenciais do empregador), quando houver a documentação técnica (docs.dataprev.gov.br, bloqueado neste ambiente). |
+| F7 | API da Dataprev (fase 2). | Buscar consignações, empréstimos e extratos direto pelo serviço da plataforma comum. A Dataprev publica a documentação técnica para empregadores desde 06/2026 (manual, autenticação por certificado ou procuração, estruturas JSON, homologação e produção; outros sistemas de folha já a usam). O site não abre deste ambiente, então a especificação será lida de outro lugar; a dependência real é o certificado A1 do empregador (ou a procuração do escritório). |
 | F8 | Avisos de casos especiais. | Transferência no grupo (só após o Portal mostrar o novo CNPJ), doméstico/MEI (o eSocial lança e recolhe por DAE), afastado o mês todo, salário-maternidade pago pelo INSS, e retificação de mês já pago ou vencido. |
 | F9 | MIA e catálogo. | A MIA explica o fluxo mensal e onde importar; o catálogo SAGE ganha o item. |
 
@@ -81,14 +81,14 @@ Estudo de 15/10/2026, pedido pelo Paulo: analisar na íntegra o empréstimo cons
 
 1. **Correções de cálculo (D1, D2, D5 e F4):** remuneração disponível pelas incidências de INSS e os compulsórios; parcela dentro dos 35% mesmo sem líquido (insuficiência de saldo, como já existe na rescisão); mensagem no holerite; testes com os 7 exemplos do manual (valores conferidos com o manual).
 2. **Rescisão com garantia (D3 e F2):** percentual e saldo devedor no contrato; base da rescisão do § 5º; sem garantia, nenhum desconto; testes com os 2 exemplos do item 5.7.
-3. **Importação do arquivo do Portal (D4 e F1):** depende de um arquivo real de uma competência (CSV ou JSON), enviado pelo chat (tem dados pessoais: fica fora do repositório), para fechar o leiaute.
+3. **Importação do arquivo do Portal (D4 e F1):** pelo leiaute oficial 1.4 (cabeçalho e tabela de campos) e pelos exemplos fictícios do guia, que servem de testes. Um arquivo real não é necessário; se o Paulo quiser uma validação extra, só anonimizado e pelo chat, nunca no repositório.
 4. **Repasse, prazo e conferência (F5, F6 e F8):** relatório, dia 20 no calendário, comparação com o S-5003.
 5. **Provisão no adiantamento e nas férias (F3):** opção por empresa.
-6. **API da Dataprev (F7):** quando houver acesso à documentação técnica e às credenciais.
+6. **API da Dataprev (F7):** a documentação técnica já existe; depende do certificado A1 da empresa (ou procuração) e de ler a especificação fora deste ambiente.
 
 ## 7. Dependências do Paulo
 
-- Um arquivo de empréstimos real de uma competência, baixado do Portal Emprega Brasil (CSV ou JSON), de qualquer empresa com consignado, para fechar o leiaute da importação.
+- Como os sites do MTE e da Dataprev não abrem deste ambiente: copiar pelo chat o texto do guia do leiaute 1.4 (cabeçalho, tabela de campos e exemplos fictícios), ou o PDF do manual técnico da API. Não é preciso enviar arquivo com dados reais.
 - Se o escritório acessa o Portal Emprega Brasil e o DET por procuração eletrônica (SPE) para os clientes.
 - Se as empresas querem a provisão no adiantamento (F3) ou preferem a insuficiência de saldo.
 
@@ -99,4 +99,5 @@ Estudo de 15/10/2026, pedido pelo Paulo: analisar na íntegra o empréstimo cons
 - [Lei 15.179/2025](https://www.jusbrasil.com.br/legislacao/4298993724/lei-15179-25)
 - [Guia dos arquivos de empréstimos do Portal do Empregador (MTE)](https://servicos.mte.gov.br/empregador/manuais/leiauteArquivoEmprestimos.html) e [versão 1.4](https://servicos.mte.gov.br/empregador/manuais/leiauteArquivoEmprestimos1.4.html)
 - [Tutorial do fluxo operacional (MTE)](https://www.gov.br/trabalho-e-emprego/pt-br/assuntos/credito-do-trabalhador/empregador/tutorial-credito-do-trabalhador.pdf)
-- [Portal técnico da Dataprev](https://docs.dataprev.gov.br/docs/credito-trabalhador/)
+- [Portal técnico da Dataprev](https://docs.dataprev.gov.br/docs/credito-trabalhador/) e [obtenção de dados de consignações via API](https://docs.dataprev.gov.br/docs/credito-trabalhador/orientacao-para-empregadores/obtencao-de-dados-de-consignacoes-via-api/)
+- [Contratação também pelos bancos desde 25/04/2025 (MTE)](https://www.gov.br/trabalho-e-emprego/pt-br/noticias-e-conteudo/2025/abril/sao-paulo-e-rio-de-janeiro-lideram-adesao-ao-credito-do-trabalhador)
