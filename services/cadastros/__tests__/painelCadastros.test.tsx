@@ -263,4 +263,22 @@ describe('Cadastros na interface', () => {
         expect(screen.getByText('2523-05')).toBeTruthy();
         expect(svc.salvarFuncionario).not.toHaveBeenCalled();
     });
+    it('duplo vínculo: aba na ficha com o outro empregador, validada e gravada', async () => {
+        const ficha: FichaFuncionario = { id: `emp1_${CPF}_M-1`, empresaId: 'emp1', cnpj: '11222333000181', cpf: CPF, matriculaEsocial: 'M-1', situacao: 'ativo', dados: { nome: 'PESSOA', admissao: '2026-02-01', salario: '2000.00', cbo: '411005' }, dependentes: [], origens: {}, pendenciasImportacao: [] };
+        svc.listarFuncionarios.mockResolvedValue([ficha]);
+        await abrirEmpresa();
+        fireEvent.click(await screen.findByText('PESSOA'));
+        const dlg = screen.getByRole('dialog', { name: 'Ficha do funcionário' });
+        fireEvent.click(within(dlg).getByText('Duplo vínculo (0)'));
+        fireEvent.click(within(dlg).getByText('Adicionar outro vínculo'));
+        fireEvent.change(within(dlg).getByLabelText('Inscrição do outro empregador 1'), { target: { value: '11.222.333/0001-80' } });
+        fireEvent.change(within(dlg).getByLabelText('Remuneração no outro vínculo 1'), { target: { value: '2.000,00' } });
+        fireEvent.change(within(dlg).getByLabelText('Início do outro vínculo 1'), { target: { value: '2026-10' } });
+        fireEvent.click(within(dlg).getByText('Gravar'));
+        expect(within(dlg).getByRole('alert').textContent).toContain('Duplo vínculo 1: CNPJ do outro empregador inválido.');
+        fireEvent.change(within(dlg).getByLabelText('Inscrição do outro empregador 1'), { target: { value: '11.222.333/0001-81' } });
+        fireEvent.click(within(dlg).getByText('Gravar'));
+        await waitFor(() => expect(svc.salvarFuncionario).toHaveBeenCalledTimes(1));
+        expect(svc.salvarFuncionario.mock.calls[0][1].outrosVinculos).toEqual([{ tpInsc: '1', nrInsc: '11222333000181', codCateg: '101', remuneracao: 200000, desde: '2026-10', ate: '', observacao: '' }]);
+    });
 });

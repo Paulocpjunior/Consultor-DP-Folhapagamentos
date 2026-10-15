@@ -16,6 +16,7 @@
 // adicionais e médias de variáveis.
 
 import { faixaInss } from './tributos';
+import { inssComOutrosVinculos, vinculosDoMes, type OutroVinculo } from '../cadastros/duploVinculo';
 import { verbasDosBeneficios, type Beneficio } from './beneficios';
 import { descontosConsignado } from './consignado';
 import { estabelecimentosNoMes } from '../cadastros/locaisTrabalho';
@@ -177,6 +178,8 @@ export interface ResultadoCalculo {
     verbasInformativas?: Verba[];
     /** Lançamentos do movimento pagos no adiantamento (fora das verbas e do líquido da folha; entram no recibo dele). */
     verbasAdiantamento?: Verba[];
+    /** Duplo vínculo no mês: o indicador do desconto (S-1200, infoMV) e as outras fontes. */
+    infoMV?: { indMV: '1' | '2' | '3'; outras: OutroVinculo[] };
     bases: { inss: number; fgts: number; irrf: number };
     totais: { proventos: number; descontos: number; liquido: number };
     fgts: number;
@@ -712,13 +715,20 @@ function calcularMensalSemObras(e: EntradaCalculo): ResultadoCalculo {
             partes.push(`${reais(parte)} × ${pct(f.aliquota)}`);
             piso = f.ate;
         }
-        const inssTotal = Math.round(total);
+        // Duplo vínculo: com outras fontes no mês, o INSS é a parte desta empresa no total limitado ao teto (IN RFB 2.110/2022, art. 36).
+        const outrosMes = vinculosDoMes(ficha.outrosVinculos, competencia);
+        const mv = inssComOutrosVinculos(r.bases.inss, outrosMes.reduce((s, v) => s + v.remuneracao, 0), t.faixas, teto, reais);
+        const inssTotal = mv ? mv.valor : Math.round(total);
         const retido = fm?.inss ?? 0;
         inss = Math.max(0, inssTotal - retido);
         // Referência: a alíquota da faixa da base (como o IOB), não a efetiva (INSS ÷ base).
-        const fx = faixaInss(base, t);
+        const fx = faixaInss(mv ? Math.min(r.bases.inss + mv.outras, teto) : base, t);
         verba({ codigo: 'INSS', descricao: 'INSS', referencia: fx?.referencia ?? '', tipo: 'desconto', valor: inss, inss: false, fgts: false, irrf: false });
-        r.memoria.push(`INSS (tabela de ${rotuloCompetencia(t.vigencia)}, ${t.norma}): base ${reais(r.bases.inss)}${base < r.bases.inss ? `, limitada ao teto ${reais(base)}` : ''}; ${partes.join(' + ') || 'sem base'} = ${reais(inssTotal)}${fx ? ` (pela faixa de ${fx.referencia}: ${fx.formula} = ${reais(inssTotal)})` : ''}${retido ? ` − ${reais(retido)} já retidos no recibo de férias = ${reais(inss)}` : ''}.`);
+        if (mv) {
+            r.infoMV = { indMV: mv.indMV, outras: outrosMes };
+            r.memoria.push(`INSS (tabela de ${rotuloCompetencia(t.vigencia)}, ${t.norma}), ${mv.memoria}${retido ? ` Menos ${reais(retido)} já retidos no recibo de férias = ${reais(inss)}.` : ''}`);
+            if (retido) r.avisos.push('Duplo vínculo com férias no mês: o INSS retido no recibo de férias foi calculado sem as outras fontes; confira.');
+        } else r.memoria.push(`INSS (tabela de ${rotuloCompetencia(t.vigencia)}, ${t.norma}): base ${reais(r.bases.inss)}${base < r.bases.inss ? `, limitada ao teto ${reais(base)}` : ''}; ${partes.join(' + ') || 'sem base'} = ${reais(inssTotal)}${fx ? ` (pela faixa de ${fx.referencia}: ${fx.formula} = ${reais(inssTotal)})` : ''}${retido ? ` − ${reais(retido)} já retidos no recibo de férias = ${reais(inss)}` : ''}.`);
     }
 
     // 7. Salário-família (competência).

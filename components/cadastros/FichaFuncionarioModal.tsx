@@ -20,6 +20,7 @@ import { duracao, rotuloMotivo, type Afastamento } from '../../services/cadastro
 import type { AdesaoBeneficio, Beneficio } from '../../services/calculo/beneficios';
 import { PCT_MARGEM_CONSIGNADO, type ContratoConsignado } from '../../services/calculo/consignado';
 import { ehDomestico, FUNCOES_DOMESTICAS } from '../../services/domestico/domestico';
+import { outroVinculoVazio, type OutroVinculo } from '../../services/cadastros/duploVinculo';
 import { camposDoCargo, cargoDaFicha, cboFormatado, normalizarCbo, normalizarCodigoCargo, type Cargo } from '../../services/cadastros/cargos';
 
 interface Props {
@@ -147,6 +148,11 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
         const atual = x.consignados ?? [];
         return { ...x, consignados: m === null ? atual.filter((_, k) => k !== i) : atual.map((c, k) => (k === i ? { ...c, ...m } : c)) };
     });
+    const vinculos = f.outrosVinculos ?? [];
+    const setVinculo = (i: number, m: Partial<OutroVinculo> | null) => setF(x => {
+        const atual = x.outrosVinculos ?? [];
+        return { ...x, outrosVinculos: m === null ? atual.filter((_, k) => k !== i) : atual.map((v, k) => (k === i ? { ...v, ...m } : v)) };
+    });
     const automaticos = f.lancamentosAutomaticos ?? [];
     // Catálogo de eventos do IOB: a descrição do evento aparece ao digitar o código (como o SAGE).
     const [catalogo, setCatalogo] = useState<EventoIobSage[] | null>(null);
@@ -157,7 +163,7 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
     });
     const centavos = (t: string) => { const n = Math.round(Number(t.replace(/\./g, '').replace(',', '.')) * 100); return Number.isFinite(n) ? n : 0; };
     const emReais = (c?: number) => (c === undefined ? '' : (c / 100).toFixed(2).replace('.', ','));
-    const abas = [...ABAS.map(a => ({ id: a.id, titulo: a.titulo })), { id: 'dependentes', titulo: `Dependentes (${f.dependentes.length})` }, { id: 'beneficios', titulo: `Benefícios (${adesoes.length})` }, { id: 'consignado', titulo: `Consignado (${contratos.length})` }, { id: 'automaticos', titulo: `Lanç. automático (${automaticos.length})` }, ...(nova ? [] : [{ id: 'afastamentos', titulo: `Afastamentos (${afastamentos.length})` }, { id: 'historico', titulo: 'Histórico' }])];
+    const abas = [...ABAS.map(a => ({ id: a.id, titulo: a.titulo })), { id: 'dependentes', titulo: `Dependentes (${f.dependentes.length})` }, { id: 'beneficios', titulo: `Benefícios (${adesoes.length})` }, { id: 'consignado', titulo: `Consignado (${contratos.length})` }, { id: 'duploVinculo', titulo: `Duplo vínculo (${vinculos.length})` }, { id: 'automaticos', titulo: `Lanç. automático (${automaticos.length})` }, ...(nova ? [] : [{ id: 'afastamentos', titulo: `Afastamentos (${afastamentos.length})` }, { id: 'historico', titulo: 'Histórico' }])];
     const atual = ABAS.find(a => a.id === aba);
 
     return (
@@ -247,6 +253,29 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                         </div>
                     )}
 
+                    {aba === 'duploVinculo' && (
+                        <div className="space-y-2 text-sm dark:text-slate-100">
+                            <p className="text-xs text-slate-600 dark:text-slate-300">Duplo vínculo (Arquivos › Duplo Vínculo do SAGE): o empregado que também recebe em outro empregador informa a remuneração de lá, para o INSS respeitar o teto. O cálculo do mês faz o INSS sobre o total (aqui + outras fontes), limitado ao teto, e desconta aqui a parte proporcional à remuneração desta empresa; outras fontes já no teto, nada a descontar (IN RFB 2.110/2022). O S-1200 leva o grupo infoMV com cada outra fonte. Guarde a declaração do empregado.</p>
+                            {vinculos.length > 0 && (
+                                <table className="w-full text-xs">
+                                    <thead className="text-left text-slate-500"><tr><th className="p-1">Inscrição</th><th className="p-1">CNPJ ou CPF do outro empregador</th><th className="p-1">Categoria</th><th className="p-1">Remuneração mensal lá (R$)</th><th className="p-1">A partir de</th><th className="p-1">Até</th><th /></tr></thead>
+                                    <tbody>{vinculos.map((v, i) => (
+                                        <tr key={i} className="border-t border-slate-100 dark:border-slate-700">
+                                            <td className="p-1"><select aria-label={`Tipo de inscrição do vínculo ${i + 1}`} className="rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={v.tpInsc} onChange={e => setVinculo(i, { tpInsc: e.target.value as OutroVinculo['tpInsc'] })}><option value="1">CNPJ</option><option value="2">CPF</option></select></td>
+                                            <td className="p-1"><input aria-label={`Inscrição do outro empregador ${i + 1}`} className="w-40 rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" inputMode="numeric" value={v.nrInsc} onChange={e => setVinculo(i, { nrInsc: e.target.value.replace(/[^\d./-]/g, '').slice(0, 18) })} /></td>
+                                            <td className="p-1"><input aria-label={`Categoria no outro vínculo ${i + 1}`} className="w-14 rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" inputMode="numeric" maxLength={3} value={v.codCateg} onChange={e => setVinculo(i, { codCateg: e.target.value.replace(/\D/g, '') })} /></td>
+                                            <td className="p-1"><input aria-label={`Remuneração no outro vínculo ${i + 1}`} className="w-28 rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" inputMode="decimal" defaultValue={emReais(v.remuneracao || undefined)} onChange={e => setVinculo(i, { remuneracao: centavos(e.target.value) })} /></td>
+                                            <td className="p-1"><input aria-label={`Início do outro vínculo ${i + 1}`} type="month" className="rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={v.desde} onChange={e => setVinculo(i, { desde: e.target.value })} /></td>
+                                            <td className="p-1"><input aria-label={`Fim do outro vínculo ${i + 1}`} type="month" className="rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={v.ate} onChange={e => setVinculo(i, { ate: e.target.value })} /></td>
+                                            <td className="p-1"><button className="text-red-700 underline dark:text-red-300" onClick={() => setVinculo(i, null)}>remover</button></td>
+                                        </tr>
+                                    ))}</tbody>
+                                </table>
+                            )}
+                            <button className="rounded-sm border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600" onClick={() => setF(x => ({ ...x, outrosVinculos: [...(x.outrosVinculos ?? []), outroVinculoVazio()] }))}>Adicionar outro vínculo</button>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400">Mudou a remuneração lá: feche o período ("Até") e abra outro. O 13º do outro vínculo não está aqui: o INSS do 13º avisa para conferir o teto.</p>
+                        </div>
+                    )}
                     {aba === 'consignado' && (
                         <div className="space-y-2 text-sm dark:text-slate-100">
                             <p className="text-xs text-slate-600 dark:text-slate-300">Contratos do Crédito do Trabalhador (consignado CLT, Lei 10.820/2003), como a instituição informa ao empregador. A folha desconta a parcela de cada contrato nos meses dele, até {PCT_MARGEM_CONSIGNADO}% da remuneração disponível (menos INSS, IRRF e pensão) e sem deixar o líquido negativo; na rescisão, das verbas rescisórias, pelo saldo informado ou pela parcela. No eSocial vai na rubrica de natureza 9253 com a instituição e o contrato (descFolha). O limite de {PCT_MARGEM_CONSIGNADO}% é o da Lei 10.820/2003, art. 2º, § 2º, I: confira a norma vigente (alterada pela Lei 15.179/2025 e pela MP 1.355/2026).</p>

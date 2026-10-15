@@ -20,6 +20,7 @@ import { validarAdesoes } from '../calculo/beneficios';
 import { validarContratos, type ContratoConsignado } from '../calculo/consignado';
 import type { FaixaLocal } from './locaisTrabalho';
 import { textoMeses, validarAutomaticos, type LancamentoAutomatico } from '../calculo/lancamentosAutomaticos';
+import { validarOutrosVinculos, type OutroVinculo } from './duploVinculo';
 import { UFS, cnpjValido, cpfValido, dataValida, centavosDeTexto, pisValido } from './documentos';
 
 export type { Dependente };
@@ -58,6 +59,8 @@ export interface FichaFuncionario {
     consignados?: ContratoConsignado[];
     /** Lançamentos automáticos (aba "Lanç. Automático" do IOB): eventos que entram no movimento nos meses marcados. */
     lancamentosAutomaticos?: LancamentoAutomatico[];
+    /** Duplo vínculo (Arquivos › Duplo Vínculo do SAGE): remuneração em outro empregador, para o teto do INSS e o infoMV do S-1200. */
+    outrosVinculos?: OutroVinculo[];
 }
 
 export interface FaixaSalarial {
@@ -319,6 +322,7 @@ export function normalizarFicha(f: FichaFuncionario): FichaFuncionario {
         ...f, cpf: f.cpf.replace(/\D/g, ''), matriculaEsocial: f.matriculaEsocial.trim(), dados,
         dependentes: f.dependentes.map(d => ({ ...d, nome: d.nome.trim(), cpf: d.cpf.replace(/\D/g, ''), nascimento: d.nascimento.trim(), noEsocial: d.noEsocial || (depNoEsocial(f, d) ? 'S' : 'N'),
             ...(d.pensao === 'S' ? { cotaPensao: (d.cotaPensao ?? '').trim().replace(',', '.') } : { pensao: 'N', cotaPensao: '' }) })),
+        ...(f.outrosVinculos ? { outrosVinculos: f.outrosVinculos.map(v => ({ ...v, nrInsc: v.nrInsc.replace(/\D/g, ''), codCateg: v.codCateg.trim(), observacao: (v.observacao ?? '').trim() })) } : {}),
     };
 }
 
@@ -370,6 +374,7 @@ export function validarFicha(f: FichaFuncionario): Validacao {
     erros.push(...validarAdesoes(f.beneficios ?? []));
     erros.push(...validarContratos(f.consignados ?? []));
     erros.push(...validarAutomaticos(f.lancamentosAutomaticos ?? []));
+    erros.push(...validarOutrosVinculos(f.outrosVinculos ?? []));
     const medida = (k: 'altura' | 'peso', max: number) => { const t = (d[k] ?? '').trim(); if (t && !(/^\d{1,3}([.,]\d{1,2})?$/.test(t) && Number(t.replace(',', '.')) > 0 && Number(t.replace(',', '.')) <= max)) erros.push(`${ROTULO[k]}: número até ${max} (ex.: ${k === 'altura' ? '1,75' : '72,5'}).`); };
     medida('altura', 3); medida('peso', 400);
     for (const k of ['mensagemHolerite1', 'mensagemHolerite2', 'mensagemHolerite3'] as CampoFicha[]) if ((d[k] ?? '').length > 100) erros.push(`${ROTULO[k]}: até 100 caracteres.`);
@@ -412,10 +417,10 @@ export function validarFicha(f: FichaFuncionario): Validacao {
     return { erros, avisos };
 }
 
-export interface Alteracao { campo: ChaveOrigem | 'codigoIob' | 'matriculaEsocial' | 'cpf' | 'cnpj' | 'pendencias' | 'historicoSalario' | 'beneficios' | 'locais' | 'consignados' | 'lancamentosAutomaticos'; de: string; para: string }
+export interface Alteracao { campo: ChaveOrigem | 'codigoIob' | 'matriculaEsocial' | 'cpf' | 'cnpj' | 'pendencias' | 'historicoSalario' | 'beneficios' | 'locais' | 'consignados' | 'lancamentosAutomaticos' | 'outrosVinculos'; de: string; para: string }
 
 /** Rótulo de uma alteração na prévia e no histórico. */
-export const rotuloAlteracao = (campo: string) => (campo === 'pendencias' ? 'Pendências da importação' : campo === 'beneficios' ? 'Benefícios' : campo === 'consignados' ? 'Crédito do Trabalhador (consignado)' : campo === 'lancamentosAutomaticos' ? 'Lançamentos automáticos' : campo === 'historicoSalario' ? 'Histórico de salário' : campo === 'locais' ? 'Locais de trabalho (estabelecimentos)' : campo === 'cnpj' ? 'CNPJ do empregador' : ROTULO[campo as CampoFicha] ?? campo);
+export const rotuloAlteracao = (campo: string) => (campo === 'pendencias' ? 'Pendências da importação' : campo === 'beneficios' ? 'Benefícios' : campo === 'consignados' ? 'Crédito do Trabalhador (consignado)' : campo === 'lancamentosAutomaticos' ? 'Lançamentos automáticos' : campo === 'outrosVinculos' ? 'Duplo vínculo (outros empregadores)' : campo === 'historicoSalario' ? 'Histórico de salário' : campo === 'locais' ? 'Locais de trabalho (estabelecimentos)' : campo === 'cnpj' ? 'CNPJ do empregador' : ROTULO[campo as CampoFicha] ?? campo);
 
 // A marca "fora do eSocial" entra (a do XML é "S" e não muda o texto): trocada à mão, vira alteração e a origem passa a "Manual".
 const depsTexto = (l: Dependente[]) => l.map(d => `${d.nome} (${d.nascimento || 's/ nasc.'}${d.cpf ? `, CPF ${d.cpf}` : ''}${d.pensao === 'S' ? `, pensão${d.cotaPensao ? ` ${d.cotaPensao}%` : ''}` : ''}${d.noEsocial === 'N' ? ', fora do eSocial' : ''})`).join('; ');
@@ -447,6 +452,8 @@ export function diffFicha(antes: FichaFuncionario | null, depois: FichaFuncionar
     if (aut(antes) !== aut(depois)) r.push({ campo: 'lancamentosAutomaticos', de: aut(antes), para: aut(depois) });
     const loc = (f: Pick<FichaFuncionario, 'locais'> | null) => (f?.locais ?? []).map(x => `${x.desde}: ${x.estabelecimento}`).join('; ');
     if (loc(antes) !== loc(depois)) r.push({ campo: 'locais', de: loc(antes), para: loc(depois) });
+    const mv = (f: Pick<FichaFuncionario, 'outrosVinculos'> | null) => (f?.outrosVinculos ?? []).map(x => `${x.nrInsc} (${x.codCateg}): ${x.remuneracao} desde ${x.desde}${x.ate ? ` até ${x.ate}` : ''}`).join('; ');
+    if (mv(antes) !== mv(depois)) r.push({ campo: 'outrosVinculos', de: mv(antes), para: mv(depois) });
     return r;
 }
 
@@ -454,7 +461,7 @@ export function diffFicha(antes: FichaFuncionario | null, depois: FichaFuncionar
 export function aplicarEdicao(antes: FichaFuncionario | null, depois: FichaFuncionario, autor: string, quando: string): FichaFuncionario {
     const origens = { ...depois.origens };
     for (const alt of diffFicha(antes, depois)) {
-        if (alt.campo === 'cpf' || alt.campo === 'matriculaEsocial' || alt.campo === 'cnpj' || alt.campo === 'historicoSalario' || alt.campo === 'beneficios' || alt.campo === 'consignados' || alt.campo === 'lancamentosAutomaticos') continue;
+        if (alt.campo === 'cpf' || alt.campo === 'matriculaEsocial' || alt.campo === 'cnpj' || alt.campo === 'historicoSalario' || alt.campo === 'beneficios' || alt.campo === 'consignados' || alt.campo === 'lancamentosAutomaticos' || alt.campo === 'outrosVinculos') continue;
         origens[alt.campo] = `Manual · ${autor} · ${quando}`;
     }
     return { ...depois, origens };

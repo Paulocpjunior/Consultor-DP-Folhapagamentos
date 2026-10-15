@@ -80,7 +80,7 @@ const EnquadramentoCadastro: React.FC<Props> = ({ empresa, usuario, isAdmin }) =
                             <button className="text-left" onClick={() => abrir(e)}>
                                 <strong>A partir de {e.vigencia.split('-').reverse().join('/')}</strong> · {REGIMES[e.regime]}
                                 <span className="block text-xs text-slate-500 dark:text-slate-400">
-                                    {e.regime === 'simples' ? 'Sem contribuição patronal na folha.' : `${e.cprb ? 'CPRB (reoneração gradual) · ' : ''}Patronal ${num(e.patronal)}% · RAT ${e.rat}% × FAP ${e.fap.toFixed(4).replace('.', ',')}${e.regime === 'normal' ? ` · terceiros ${num(e.terceiros)}% (FPAS ${e.fpas})` : ''} · total ${num(total(e))}% sobre a folha`}
+                                    {e.regime === 'simples' ? 'Sem contribuição patronal na folha.' : `${e.cprb ? 'CPRB (reoneração gradual) · ' : ''}Patronal ${num(e.patronal)}% · RAT ${e.rat}% × FAP ${e.fap.toFixed(4).replace('.', ',')} = RAT ajustado ${(e.rat * e.fap).toFixed(4).replace('.', ',')}%${e.regime === 'normal' ? ` · terceiros ${num(e.terceiros)}% (FPAS ${e.fpas})` : ''} · total ${num(total(e))}% sobre a folha`}
                                 </span>
                             </button>
                             {isAdmin && <button className="text-xs text-red-700 dark:text-red-300" onClick={() => excluir(e)}>excluir</button>}
@@ -105,7 +105,8 @@ const EnquadramentoCadastro: React.FC<Props> = ({ empresa, usuario, isAdmin }) =
                                     <label className="block"><span className={rot}>Contribuição patronal (%)</span><input aria-label="Patronal" className={inp} value={ed.patronal} onChange={x => setEd({ ...ed, patronal: x.target.value })} /></label>
                                     <label className="block"><span className={rot}>RAT (%)</span>
                                         <select aria-label="RAT" className={inp} value={String(ed.e.rat || '')} onChange={x => set({ rat: Number(x.target.value) })}><option value="">—</option><option value="1">1%</option><option value="2">2%</option><option value="3">3%</option></select></label>
-                                    <label className="block"><span className={rot}>FAP (0,5000 a 2,0000)</span><input aria-label="FAP" className={inp} value={ed.fap} onChange={x => setEd({ ...ed, fap: x.target.value })} /></label>
+                                    <label className="block"><span className={rot}>FAP (0,5000 a 2,0000)</span><input aria-label="FAP" className={inp} value={ed.fap} onChange={x => setEd({ ...ed, fap: x.target.value })} />
+                                        {ed.e.rat > 0 && numeroDeTexto(ed.fap) > 0 && <span className="text-xs text-slate-500 dark:text-slate-400" aria-label="RAT ajustado">RAT ajustado (RAT × FAP, como o SAGE): {(ed.e.rat * numeroDeTexto(ed.fap)).toFixed(4).replace('.', ',')}%</span>}</label>
                                 </>
                             )}
                             {ed.e.regime === 'normal' && (
