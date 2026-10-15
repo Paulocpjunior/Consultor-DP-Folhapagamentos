@@ -6,7 +6,7 @@
 // outras. Só os movimentos gravados entram (o rascunho não salvo fica na tela de Cálculo de quem digitou).
 
 import type { Empresa } from '../empresas/empresasTypes';
-import { listarAfastamentos, listarEnquadramentos, listarFuncionarios, mensagemErro, type Usuario } from '../cadastros/cadastrosService';
+import { listarAfastamentos, listarEnquadramentos, listarFuncionarios, listarTabelasDsr, mensagemErro, type Usuario } from '../cadastros/cadastrosService';
 import { enquadramentoVigente } from '../cadastros/enquadramento';
 import type { TabelaLegal } from '../cadastros/tabelasLegais';
 import { listarConvocacoes } from './convocacoesService';
@@ -46,9 +46,10 @@ export async function processarEmpresa(e: Empresa, o: OpcoesAgrupado): Promise<L
     if (o.folha === '13-1a' || o.folha === '13-2a') return processar13(e, { ...o, folha: o.folha });
     const c = o.competencia;
     try {
-        const [fichas, afastamentos, convocacoes, doMes, daEmpresa, enquadramentos, lotacoes, fechamento, gravada] = await Promise.all([
+        const [fichas, afastamentos, convocacoes, doMes, daEmpresa, enquadramentos, lotacoes, fechamento, gravada, tabelasDsr] = await Promise.all([
             listarFuncionarios(e.id), listarAfastamentos(e.id), listarConvocacoes(e.id).catch(() => undefined), listarMovimentos(e.id, c), listarMovimentosDaEmpresa(e.id),
             listarEnquadramentos(e.id).catch(() => null), listarLotacoes(e.id).catch(() => []), lerFechamento(e.id, c).catch(() => null), lerFolhaGravada(e.id, c).catch(() => null),
+            listarTabelasDsr(e.id).catch(() => undefined),
         ]);
         const avisos: string[] = [];
         const movs = Object.fromEntries(doMes.map(g => [g.fichaId, g.movimento]));
@@ -60,7 +61,7 @@ export async function processarEmpresa(e: Empresa, o: OpcoesAgrupado): Promise<L
         if (!convocacoes) avisos.push('Convocações do intermitente não lidas: a categoria 111 fica incompleta.');
         const resultados = calcularFolhaMensal({
             fichas, afastamentos, tabelas: o.tabelas, convocacoes, movimentosEmpresa: daEmpresa, parametrosFolha: e.parametrosFolha,
-            convencaoDe: (f, dia) => convencaoDaFicha(o.convencoes, f, e.sindicatos ?? [], dia), opcoesFerias: OPCOES_FERIAS_PADRAO,
+            convencaoDe: (f, dia) => convencaoDaFicha(o.convencoes, f, e.sindicatos ?? [], dia), opcoesFerias: OPCOES_FERIAS_PADRAO, tabelasDsr,
         }, c, pagamento, movs);
         let enq;
         if (enquadramentos === null) avisos.push('Enquadramento não lido: sem a parte patronal.');
@@ -101,9 +102,9 @@ async function processar13(e: Empresa, o: OpcoesAgrupado & { folha: '13-1a' | '1
     const primeira = o.folha === '13-1a';
     const c = `${ano}-13`;
     try {
-        const [fichas, afastamentos, daEmpresa, enquadramentos, lotacoes] = await Promise.all([
+        const [fichas, afastamentos, daEmpresa, enquadramentos, lotacoes, tabelasDsr] = await Promise.all([
             listarFuncionarios(e.id), listarAfastamentos(e.id), listarMovimentosDaEmpresa(e.id, comp => comp.startsWith(`${ano}-`)),
-            listarEnquadramentos(e.id).catch(() => null), listarLotacoes(e.id).catch(() => []),
+            listarEnquadramentos(e.id).catch(() => null), listarLotacoes(e.id).catch(() => []), listarTabelasDsr(e.id).catch(() => undefined),
         ]);
         const avisos: string[] = [];
         const pagamento = `${ano}-${primeira ? '11' : '12'}`;
@@ -117,7 +118,7 @@ async function processar13(e: Empresa, o: OpcoesAgrupado & { folha: '13-1a' | '1
         }
         const resultados = elegiveis.map(f => calcular13({
             ano, parcela: primeira ? '1a' : '2a', pagamento, ficha: f, afastamentos: afastamentos.filter(a => a.fichaId === f.id), tabelas: o.tabelas,
-            movimentos: daEmpresa[f.id] ?? {}, parcelaUnica,
+            movimentos: daEmpresa[f.id] ?? {}, parcelaUnica, tabelasDsr,
         }));
         let enq;
         if (enquadramentos === null) avisos.push('Enquadramento não lido: sem a parte patronal.');

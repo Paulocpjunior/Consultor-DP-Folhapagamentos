@@ -46,7 +46,7 @@ export const MENU: GrupoMenu[] = [
         { id: 'transferencia', rotulo: 'Transferência de funcionários', descricao: 'Para outra empresa do grupo, sem rescisão: ficha, férias e históricos no destino, S-2299 (motivo 11) e S-2200 com a sucessão', icone: 'trocar', destino: { aba: 'transferencia' } },
         { id: 'processosjud', rotulo: 'Processos judiciais e administrativos', descricao: 'S-1070: processos que suspendem INSS, IRRF ou FGTS e os do RAT, do FAP e de terceiros, com o envio pelo Consultor', icone: 'balanca', destino: { aba: 'processosjud' } },
         { id: 'enquadramento', rotulo: 'Enquadramento', descricao: 'FPAS, RAT/FAP e terceiros da empresa', icone: 'camadas', destino: { aba: 'cadastros', sub: 'enquadramento' } },
-        { id: 'tabelas', rotulo: 'Tabelas legais', descricao: 'INSS, IRRF, salário-família e mínimo federal e estadual', icone: 'tabela', destino: { aba: 'cadastros', sub: 'tabelas' } },
+        { id: 'tabelas', rotulo: 'Tabelas legais', descricao: 'INSS, IRRF, salário-família, mínimo federal e estadual e Tabela de DSR', icone: 'tabela', destino: { aba: 'cadastros', sub: 'tabelas' } },
         { id: 'conformidade', rotulo: 'Conformidade', descricao: 'Salário mínimo e convenção coletiva: pisos, reajuste e obrigações', icone: 'sindicato', destino: { aba: 'cadastros', sub: 'conformidade' } },
         { id: 'implantacao', rotulo: 'Implantação de funcionários', descricao: 'Primeiro acesso: unificar eSocial e ficha', icone: 'pessoaMais', destino: { aba: 'folha', sub: 'implantacao' } },
     ] },

@@ -31,6 +31,7 @@ import { fichaNaData, memoriaDoHistorico, type FichaFuncionario } from '../cadas
 import type { Afastamento } from '../cadastros/afastamentos';
 import { inicioBeneficio } from '../cadastros/afastamentos';
 import { dataValida, reais } from '../cadastros/documentos';
+import type { TabelaDsr } from '../cadastros/tabelaDsr';
 import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros/tabelasLegais';
 import { adicionalDeRisco } from './adicionais';
 import { diaUtilAnterior, somarDias } from '../prazos/calendario';
@@ -58,6 +59,8 @@ export interface Entrada13 {
     parcelaUnica?: boolean;
     /** Cálculo da 1ª parcela para o recibo de férias (não recusa por já ter sido paga nas férias). */
     noReciboDeFerias?: boolean;
+    /** Tabela para D.S.R. da empresa (Tabelas legais): o DSR das horas extras na média. */
+    tabelasDsr?: TabelaDsr[];
 }
 
 /** Mês do pagamento do recibo de férias: o dia útil até 2 dias antes do início (como o motor das férias). */
@@ -196,7 +199,7 @@ export function calcular13(e: Entrada13): ResultadoCalculo {
     // Média de horas extras dos meses antes do pagamento, com o valor da hora atual.
     // Divisor: os meses do período que dão avo (15 dias ou mais trabalhados).
     const periodo = meses.filter(m => m.competencia < pagamento && m.conta);
-    const mv = mediaDasVariaveis(salarioHora, e.movimentos, periodo.map(m => m.competencia), periodo.length, `${periodo.length} mês(es)`);
+    const mv = mediaDasVariaveis(salarioHora, e.movimentos, periodo.map(m => m.competencia), periodo.length, `${periodo.length} mês(es)`, e.tabelasDsr);
     const media = periodo.length ? mv.media : 0;
     if (media) r.memoria.push(...mv.memoria);
     if (periodo.length) r.avisos.push(`Média pelos movimentos gravados no Consultor (${periodo.filter(m => e.movimentos[m.competencia]).length} de ${periodo.length} mês(es) com movimento): horas extras com DSR e os lançamentos que entram na média. Meses sem movimento contam como sem variáveis.`);

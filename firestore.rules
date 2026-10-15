@@ -337,6 +337,23 @@ service cloud.firestore {
     }
 
     // Enquadramento previdenciário por empresa e vigência: empresa_AAAA-MM.
+    // Tabela para D.S.R. (Tabelas legais), por empresa e ano: {empresaId}_{AAAA}. O mês encerrado no Fim de mês a tela
+    // não deixa alterar (reabra o mês primeiro, como no SAGE); a folha encerrada usa o resultado gravado.
+    match /cadastro_dsr/{dsrId} {
+      allow read, list: if podeEmpresa(resource.data.empresaId);
+      allow create, update: if gravaNaEmpresa()
+                    && request.resource.data.atualizadoPor == request.auth.uid
+                    && request.resource.data.empresaId is string
+                    && request.resource.data.ano is string
+                    && request.resource.data.ano.matches('^[0-9]{4}$')
+                    && request.resource.data.meses is map
+                    && request.resource.data.meses.keys().hasOnly(['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'])
+                    && request.resource.data.faltasPelosDiasDoMes is bool
+                    && request.resource.data.descontarDsrNaFalta is bool
+                    && dsrId == request.resource.data.empresaId + '_' + request.resource.data.ano;
+      allow delete: if isAdmin() && podeEmpresa(resource.data.empresaId);
+    }
+
     match /cadastro_enquadramentos/{enqId} {
       allow read, list: if podeEmpresa(resource.data.empresaId);
       allow create, update: if gravaNaEmpresa()

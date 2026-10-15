@@ -16,6 +16,7 @@ import type { Convocacao } from './intermitente';
 import { inicioNaEmpresa, type FichaFuncionario } from '../cadastros/funcionarios';
 import type { Afastamento } from '../cadastros/afastamentos';
 import type { TabelaLegal } from '../cadastros/tabelasLegais';
+import type { TabelaDsr } from '../cadastros/tabelaDsr';
 import type { ConvencaoColetiva } from '../sindicatos/convencao';
 
 export interface DadosFolhaEmpresa {
@@ -30,6 +31,8 @@ export interface DadosFolhaEmpresa {
     /** Convenção do sindicato da ficha no dia. */
     convencaoDe: (f: FichaFuncionario, dia: string) => ConvencaoColetiva | undefined;
     opcoesFerias: OpcoesFerias;
+    /** Tabela para D.S.R. da empresa, por ano (Tabelas legais). */
+    tabelasDsr?: TabelaDsr[];
 }
 
 /**
@@ -73,7 +76,7 @@ export function criarArredondamento(d: DadosFolhaEmpresa, folhaPaga = criarFolha
                 const pag = salvos[m]?.mesPagamento ?? salvos[m]?.arredondamentoPagamento ?? mesDoPagamento(p, m);
                 return calcularMensal({ competencia: m, pagamento: pag, ficha: f, tabelas: d.tabelas, movimento: salvos[m], afastamentos: afs,
                     feriasDoMes: feriasDaCompetencia(f, afs, d.tabelas, salvos, m, d.opcoesFerias), folhaPagaNoAdiantamento: folhaPaga(f, m, pag), beneficios: p.beneficios,
-                    contribuicoesSindicais: d.convencaoDe(f, `${m}-01`)?.contribuicoes, convocacoes: d.convocacoes });
+                    contribuicoesSindicais: d.convencaoDe(f, `${m}-01`)?.contribuicoes, convocacoes: d.convocacoes, tabelasDsr: d.tabelasDsr });
             },
             // O atual gravado só vale se foi encadeado do mesmo mês de início. O mês do pagamento gravado com ele é o que foi
             // usado de fato: mudar o regime depois não reescreve mês fechado (para isso, reabra o mês e salve de novo; Codex #116).
@@ -96,7 +99,7 @@ export function calcularFolhaMensal(d: DadosFolhaEmpresa, competencia: string, p
             competencia, pagamento, ficha: f, tabelas: d.tabelas, movimento: movs[f.id], afastamentos: afs,
             feriasDoMes: d.movimentosEmpresa ? feriasDaCompetencia(f, afs, d.tabelas, d.movimentosEmpresa[f.id] ?? {}, competencia, d.opcoesFerias) : undefined,
             folhaPagaNoAdiantamento: folhaPaga(f, competencia, pagamento), beneficios: d.parametrosFolha?.beneficios,
-            contribuicoesSindicais: d.convencaoDe(f, `${competencia}-01`)?.contribuicoes, convocacoes: d.convocacoes,
+            contribuicoesSindicais: d.convencaoDe(f, `${competencia}-01`)?.contribuicoes, convocacoes: d.convocacoes, tabelasDsr: d.tabelasDsr,
         });
     }), d.fichas, pagamento !== competencia
         // Só os contratos da competência anterior com folha paga neste mês (pelo mês gravado ou pelo regime) e com valor:

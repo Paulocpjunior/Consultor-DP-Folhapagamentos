@@ -22,6 +22,7 @@ import { fichaNaData, memoriaDoHistorico, type FichaFuncionario } from '../cadas
 import type { Afastamento } from '../cadastros/afastamentos';
 import { inicioBeneficio } from '../cadastros/afastamentos';
 import { dataValida, reais } from '../cadastros/documentos';
+import type { TabelaDsr } from '../cadastros/tabelaDsr';
 import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros/tabelasLegais';
 import { adicionalDeRisco } from './adicionais';
 import { aniversario, diaUtilAnterior, diasEntre, somarDias, somarMeses } from '../prazos/calendario';
@@ -47,6 +48,8 @@ export interface EntradaFerias {
     /** Mês do pagamento (AAAA-MM). Padrão: o mês de 2 dias antes do início. */
     pagamento?: string;
     opcoes?: OpcoesFerias;
+    /** Tabela para D.S.R. da empresa (Tabelas legais): o DSR das horas extras na média. */
+    tabelasDsr?: TabelaDsr[];
 }
 
 export interface CompetenciaFerias { competencia: string; dias: number; ferias: number; terco: number; inss: number; fgts: number }
@@ -296,7 +299,7 @@ export function calcularFerias(e: EntradaFerias): ResultadoFerias {
     const comMov = meses.filter(c => e.movimentos[c]).length;
     // Período proporcional (férias coletivas, art. 140): a média pelos meses do período.
     const divisor = p.art140 ? Math.max(1, meses.length) : 12;
-    const mv = mediaDasVariaveis(salarioHora, e.movimentos, meses, divisor, String(divisor));
+    const mv = mediaDasVariaveis(salarioHora, e.movimentos, meses, divisor, String(divisor), e.tabelasDsr);
     const media = mv.media;
     r.memoria.push(...mv.memoria);
     r.avisos.push(`Média pelos movimentos gravados no Consultor (${comMov} de 12 meses do período com movimento): horas extras com DSR e os lançamentos que entram na média.`);

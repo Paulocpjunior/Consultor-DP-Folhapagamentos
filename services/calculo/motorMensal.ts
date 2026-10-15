@@ -25,7 +25,8 @@ import { inicioBeneficio, rotuloMotivo } from '../cadastros/afastamentos';
 import { centavosDeTexto, dataValida, reais } from '../cadastros/documentos';
 import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros/tabelasLegais';
 import { adicionalDeRisco, adicionalProporcional } from './adicionais';
-import { diaSemana, diaUtilAnterior, feriados, somarDias, somarMeses } from '../prazos/calendario';
+import { diaUtilAnterior, somarDias, somarMeses } from '../prazos/calendario';
+import { contarDiasDsr, diasNoMes, mesDaTabelaDsr, tabelaDsrDoAno, type Mes, type TabelaDsr } from '../cadastros/tabelaDsr';
 import { ehDomestico, indenizacaoCompensatoria } from '../domestico/domestico';
 import { descontosSindicais, type ContribuicaoConvencao } from '../sindicatos/contribuicoes';
 import { calcularIntermitente, type Convocacao } from './intermitente';
@@ -148,6 +149,8 @@ export interface EntradaCalculo {
     contribuicoesSindicais?: ContribuicaoConvencao[];
     /** Intermitente (categoria 111): as convocações do empregado (as aceitas com dias na competência são pagas). */
     convocacoes?: Convocacao[];
+    /** Tabela para D.S.R. da empresa (Tabelas legais), por ano: dias úteis e domingos/feriados de cada mês e as opções de falta. */
+    tabelasDsr?: TabelaDsr[];
 }
 
 /** O IRRF de um pagamento da folha: rendimentos tributáveis, deduções legais (INSS, dependentes, pensão) e o retido. */
@@ -237,19 +240,10 @@ const competenciaValida = (c: string) => /^\d{4}-(0[1-9]|1[0-2])$/.test(c);
 export const competenciaSeguinte = (c: string) => somarMeses(`${c}-01`, 1).slice(0, 7);
 export const competenciaAnterior = (c: string) => somarMeses(`${c}-01`, -1).slice(0, 7);
 
-/** Feriados nacionais por lei (sem Carnaval e Sexta-feira Santa, que dependem de lei local). */
-function feriadoNacional(d: string): boolean {
-    const nome = feriados(Number(d.slice(0, 4))).get(d);
-    return !!nome && !/Carnaval|Sexta-feira Santa/.test(nome);
-}
-
 /** Dias úteis (segunda a sábado) e de descanso (domingos e feriados nacionais) do mês, para o DSR. */
 export function diasDsr(competencia: string, feriadosLocais = 0, de = `${competencia}-01`, ate = ultimoDia(competencia)): { uteis: number; descanso: number } {
-    let uteis = 0; let descanso = 0;
     // Mês parcial (admissão ou desligamento): só os dias do vínculo.
-    for (let d = de; d <= ate; d = somarDias(d, 1)) {
-        if (diaSemana(d) === 0 || feriadoNacional(d)) descanso++; else uteis++;
-    }
+    const { uteis, descanso } = contarDiasDsr(de, ate);
     const n = Math.max(0, Math.min(feriadosLocais, uteis));
     return { uteis: uteis - n, descanso: descanso + n };
 }
@@ -378,6 +372,8 @@ function calcularMensalSemObras(e: EntradaCalculo): ResultadoCalculo {
     const salarioHora = (mensal + (adicional?.mensal ?? 0)) / horasMes;
     const diaria = mensal / 30;
     const diariaComAdicional = (mensal + (adicional?.mensal ?? 0)) / 30;
+    // Tabela para D.S.R. da empresa no ano (Tabelas legais), como a do SAGE.
+    const tabelaDsr = tabelaDsrDoAno(e.tabelasDsr, competencia);
     if (adicional) r.memoria.push(`Salário-hora com o adicional: (${reais(mensal)} + ${reais(adicional.mensal)}) ÷ ${num(horasMes)} h = ${reais(Math.round(salarioHora))} (base das horas extras e dos atrasos).`);
 
     // 2. Dias do mês: vínculo e afastamentos.
@@ -522,17 +518,27 @@ function calcularMensalSemObras(e: EntradaCalculo): ResultadoCalculo {
         r.memoria.push(`Horas extras ${num(p)}%: ${num(h)} h × ${reais(Math.round(salarioHora))}/h × ${num(1 + p / 100)} = ${reais(v)}.`);
     }
     if (totalHe) {
-        const { uteis, descanso } = diasDsr(competencia, mov.feriadosLocais, de, ate);
+        // Mês inteiro com a tabela de DSR da empresa: os dias dela (com os feriados locais já acertados). Mês parcial
+        // (admissão ou desligamento) ou sem tabela: pelo calendário, com os feriados locais do movimento.
+        const daTabela = de === ini && ate === ult ? mesDaTabelaDsr(e.tabelasDsr, competencia) : null;
+        const { uteis, descanso } = daTabela ?? diasDsr(competencia, mov.feriadosLocais, de, ate);
         const v = Math.round(totalHe / uteis * descanso);
         verba({ codigo: 'DSRHE', descricao: 'DSR sobre horas extras', referencia: `${descanso}/${uteis}`, tipo: 'provento', valor: v, inss: true, fgts: true, irrf: true });
-        r.memoria.push(`DSR sobre horas extras: ${reais(totalHe)} ÷ ${uteis} dias úteis × ${descanso} domingos e feriados = ${reais(v)}${mov.feriadosLocais ? ` (com ${mov.feriadosLocais} feriado(s) local(is))` : ' (só feriados nacionais; informe os locais)'}.`);
+        const origem = daTabela ? ` (Tabela de DSR da empresa de ${competencia.slice(0, 4)}${mov.feriadosLocais ? '; os feriados locais do movimento ficam de fora, a tabela já os tem' : ''})`
+            : mov.feriadosLocais ? ` (com ${mov.feriadosLocais} feriado(s) local(is))` : tabelaDsr ? ' (mês parcial: pelo calendário, só feriados nacionais; informe os locais)' : ' (só feriados nacionais; informe os locais ou cadastre a Tabela de DSR)';
+        r.memoria.push(`DSR sobre horas extras: ${reais(totalHe)} ÷ ${uteis} dias úteis × ${descanso} domingos e feriados = ${reais(v)}${origem}.`);
     }
 
     // 4. Descontos do movimento.
     const faltas = mov.faltasDias ?? 0; const dsrDesc = mov.dsrDescontadoDias ?? 0;
-    if (faltas > 0) verba({ codigo: 'FALTA', descricao: 'Faltas', referencia: `${num(faltas)} dias`, tipo: 'desconto', valor: Math.round(diariaComAdicional * faltas), inss: true, fgts: true, irrf: true });
-    if (dsrDesc > 0) verba({ codigo: 'DSRF', descricao: 'DSR descontado (faltas)', referencia: `${num(dsrDesc)} dias`, tipo: 'desconto', valor: Math.round(diariaComAdicional * dsrDesc), inss: true, fgts: true, irrf: true });
-    if (faltas > 0 || dsrDesc > 0) r.memoria.push(`Faltas e DSR: ${reais(Math.round(diariaComAdicional))} por dia (${adicional ? 'salário + adicional' : 'salário'} ÷ 30).`);
+    // Tabela de DSR com "Descontar faltas pelos dias do mês": o dia vale salário ÷ dias do mês (28 a 31), não ÷ 30.
+    const divisorFalta = tabelaDsr?.faltasPelosDiasDoMes ? diasNoMes(competencia.slice(0, 4), competencia.slice(5, 7) as Mes) : 30;
+    const diariaFalta = (mensal + (adicional?.mensal ?? 0)) / divisorFalta;
+    if (faltas > 0) verba({ codigo: 'FALTA', descricao: 'Faltas', referencia: `${num(faltas)} dias`, tipo: 'desconto', valor: Math.round(diariaFalta * faltas), inss: true, fgts: true, irrf: true });
+    if (dsrDesc > 0) verba({ codigo: 'DSRF', descricao: 'DSR descontado (faltas)', referencia: `${num(dsrDesc)} dias`, tipo: 'desconto', valor: Math.round(diariaFalta * dsrDesc), inss: true, fgts: true, irrf: true });
+    if (faltas > 0 || dsrDesc > 0) r.memoria.push(`Faltas e DSR: ${reais(Math.round(diariaFalta))} por dia (${adicional ? 'salário + adicional' : 'salário'} ÷ ${divisorFalta}${divisorFalta !== 30 ? ' dias do mês, pela Tabela de DSR' : ''}).`);
+    if (faltas > 0 && dsrDesc === 0 && tabelaDsr?.descontarDsrNaFalta)
+        r.avisos.push('A Tabela de DSR da empresa manda descontar o DSR quando há falta diária: informe o "DSR descontado (dias)" no movimento (o DSR da semana da falta, Lei 605/1949, art. 6º).');
     const atrasos = mov.atrasosHoras ?? 0;
     if (atrasos > 0) {
         const v = Math.round(salarioHora * atrasos);
@@ -843,20 +849,21 @@ export function valorHorasExtras(salarioHora: number, mov: Movimento): { valor: 
  * Variáveis do mês para as médias de férias, 13º e rescisão, pelo salário-hora dado: horas extras com o DSR
  * e os lançamentos que entram na média (comissões, adicional noturno, gratificações habituais…).
  */
-export function variaveisDoMes(salarioHora: number, mov: Movimento, competencia: string): { horasExtras: number; horas: number; outras: number } {
+export function variaveisDoMes(salarioHora: number, mov: Movimento, competencia: string, tabelasDsr?: TabelaDsr[]): { horasExtras: number; horas: number; outras: number } {
     const { valor: he, horas } = valorHorasExtras(salarioHora, mov);
     let horasExtras = 0;
-    if (he) { const { uteis, descanso } = diasDsr(competencia, mov.feriadosLocais); horasExtras = he + Math.round(he / uteis * descanso); }
+    // O DSR do mês pela Tabela de DSR da empresa, quando houver; senão, pelo calendário com os feriados locais do movimento.
+    if (he) { const { uteis, descanso } = mesDaTabelaDsr(tabelasDsr, competencia) ?? diasDsr(competencia, mov.feriadosLocais); horasExtras = he + Math.round(he / uteis * descanso); }
     const outras = (mov.lancamentos ?? []).filter(entraNaMedia).reduce((s, l) => s + (l.tipo === 'provento' ? l.valor : -l.valor), 0);
     return { horasExtras, horas, outras: Math.max(0, outras) };
 }
 
 /** Média das variáveis nos meses dados, dividida pelo divisor, com a memória do cálculo. */
-export function mediaDasVariaveis(salarioHora: number, movimentos: Record<string, Movimento>, comps: string[], divisor: number, rotuloDivisor: string): { media: number; horasExtras: number; outras: number; horas: number; memoria: string[] } {
+export function mediaDasVariaveis(salarioHora: number, movimentos: Record<string, Movimento>, comps: string[], divisor: number, rotuloDivisor: string, tabelasDsr?: TabelaDsr[]): { media: number; horasExtras: number; outras: number; horas: number; memoria: string[] } {
     let horasExtras = 0; let outras = 0; let horas = 0;
     for (const c of comps) {
         const mov = movimentos[c]; if (!mov) continue;
-        const v = variaveisDoMes(salarioHora, mov, c);
+        const v = variaveisDoMes(salarioHora, mov, c, tabelasDsr);
         horasExtras += v.horasExtras; outras += v.outras; horas += v.horas;
     }
     const d = Math.max(1, divisor);

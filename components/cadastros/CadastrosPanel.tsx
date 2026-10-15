@@ -19,6 +19,7 @@ import type { TabelaLegal } from '../../services/cadastros/tabelasLegais';
 import FuncionariosCadastro from './FuncionariosCadastro';
 import SindicatosCadastro from './SindicatosCadastro';
 import TabelasLegaisCadastro from './TabelasLegaisCadastro';
+import TabelaDsrCadastro from './TabelaDsrCadastro';
 import HorariosCadastro from './HorariosCadastro';
 import AfastamentosCadastro from './AfastamentosCadastro';
 import ConformidadePanel from '../conformidade/ConformidadePanel';
@@ -36,7 +37,7 @@ const SUBS: { id: SubCadastro; titulo: string; caminho: string }[] = [
     { id: 'incidencias', titulo: 'Incidências', caminho: 'eSocial › Rotinas Auxiliares › Relacionamento de Rubricas (SGC) · Arquivos › Eventos' },
     { id: 'enquadramento', titulo: 'Enquadramento', caminho: 'Gerenciador de Sistemas › Empresas › Parâmetros (FPAS, RAT, FAP, terceiros)' },
     { id: 'sindicatos', titulo: 'Sindicatos', caminho: 'Arquivos › Sindicatos' },
-    { id: 'tabelas', titulo: 'Tabelas legais', caminho: 'Cadastros › Genéricos › Tabelas Legais (SGC)' },
+    { id: 'tabelas', titulo: 'Tabelas legais', caminho: 'Cadastros › Genéricos › Tabelas Legais (SGC) e Arquivos › Tabelas › Tabela para D.S.R.' },
     { id: 'conformidade', titulo: 'Conformidade', caminho: 'sem equivalente no IOB: salário mínimo e convenção coletiva conferidos com a folha' },
 ];
 
@@ -115,6 +116,7 @@ const CadastrosPanel: React.FC<Props> = ({ currentUser, subInicial, onAbrirEvent
             )}
             {sub === 'sindicatos' && <SindicatosCadastro sindicatos={sindicatos} erroLista={erroSind} usuario={usuario} isAdmin={isAdmin} onRecarregar={carregarSindicatos} />}
             {sub === 'tabelas' && <TabelasLegaisCadastro tabelas={tabelas} erroLista={erroTab} usuario={usuario} isAdmin={isAdmin} onRecarregar={carregarTabelas} />}
+            {sub === 'tabelas' && <TabelaDsrCadastro empresas={empresas} empresaInicial={empresaId} usuario={usuario} isAdmin={isAdmin} />}
         </div>
     );
 };

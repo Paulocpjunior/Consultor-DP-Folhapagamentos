@@ -5641,3 +5641,19 @@ Pedido da colaboradora, pelo Paulo, com as telas do SAGE (Rescisão Contratual e
   - Os recibos de VT, refeição e cesta ficam como modelos a criar no escritório.
 - **Resultado:** 52 disponíveis, 1 parcial (CCI) e 2 fora do escopo (SEFIP/GRRF e SST).
 - **`docs/retomada.md`:** a seção "Status × SAGE" com o que ainda prende ao SAGE (homologação por empresa e o #61, tabela de eventos de cada empresa, "Lança na rescisão" nos automáticos já gravados, backup como origem e o CCI).
+
+## 15/10/2026 — Tabela para D.S.R. (SAGE) em Tabelas legais
+
+- **Pedido do Paulo:** incluir a tabela de DSR em Tabelas legais, com a tela do SAGE como exemplo (Tabela para D.S.R., empresa 1200, 2026).
+- **Cadastro (`tabelaDsr.ts`, `TabelaDsrCadastro.tsx`, coleção `cadastro_dsr/{empresa}_{ano}` com regra e auditoria):**
+  - por empresa e ano, no layout do SAGE: Nº horas D.S.R. (domingos/feriados × 220 ÷ 30, não se digita), dias úteis e domingos/feriados;
+  - Cópia padrão pelo calendário com os feriados nacionais e Cópia entre empresas;
+  - valida a soma com os dias do mês e aponta os meses diferentes do calendário;
+  - mês encerrado no Fim de mês fica travado (reabrir antes), como no SAGE.
+- **Conferência com o SAGE de 2026:** a cópia padrão bate em 11 meses. Em novembro o SAGE tem 24 úteis/6 DSR e o calendário 23/7, porque 20/11 é feriado nacional desde a Lei 14.759/2023. Fica para a colaboradora conferir.
+- **Motor:**
+  - DSR das horas extras pela tabela no mês inteiro (mês parcial segue o calendário) e nas médias de férias, 13º e rescisão;
+  - "Descontar faltas pelos dias do mês": falta e DSR descontado por salário ÷ dias do mês;
+  - "Descontar DSR na falta diária": aviso quando há falta sem DSR descontado. A conta automática espera um holerite do SAGE com falta para conferir.
+- **Sem tabela cadastrada, nada muda:** o cálculo segue pelo calendário com os feriados locais do movimento.
+- **Testes:** `tabelaDsr.test.ts`, `tabelaDsrTela.test.tsx` e `testes-regras/tabelaDsr.test.mjs`.
