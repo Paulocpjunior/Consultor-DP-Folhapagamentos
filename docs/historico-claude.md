@@ -5766,3 +5766,10 @@ Pedido da colaboradora, pelo Paulo, com as telas do SAGE (Rescisão Contratual e
   - Vídeo (abre o PDF), Gerar holerite (baixa) e Enviar (e-mail do escritório ou WhatsApp do SP Connect, cada um só com o documento dele).
 - O histórico de quem já recebeu passou a ser por tipo (`holerite-ferias`, `holerite-13-2a`…), com a regra do Firestore e o teste das regras.
 - **PLR:** Paulo confirmou que a PLR (até duas vezes no ano) não é paga ao mesmo CPF em dois contratos; o achado da revisão sobre CPF com duas fichas fica sem mudança.
+
+## 15/10/2026 — Mata-burro no main depois do #270
+
+- **Pedido do Paulo:** "passe o mata-burro".
+- **No main (0c8cb81):** `tsc` sem erros; 206 arquivos e 1562 testes; 38 arquivos e 130 testes das regras do Firestore no emulador; `vite build` ok.
+- **Catálogo IOB × Consultor:** 59 itens, 56 disponíveis, 1 parcial e 2 fora do escopo.
+- **Status:** o `docs/retomada.md` recebeu os PRs #267 a #270 e os pontos que ainda dependem da equipe (tabela anual da PLR, médias do histórico, fim do contrato a termo nas fichas).
