@@ -18,6 +18,7 @@ function backup(): Uint8Array {
         ...copy('f1200.arquivoeventotransmissaoesocial', 'id_protoco, nome_arq, dados_arq', [['1', 'S2200.xml', hex(admissao)]]),
         ...copy('f1200.eventotransmissaoesocial', 'id_protoco, id_evento, rec_esocia', [['1', ID, '1.1.1']]),
         ...copy('f1200.func', 'codfun, nome, cpf, dtadm, pis, cep', [['000052', 'ALEXANDRE TESTE', CPF, '2022-05-02', '12345678900', '1310100']]),
+        ...copy('f1200.cargos', 'codcargo, cargo, cbo', [['000001', 'ASSISTENTE ADM II', '411010'], ['000004', 'ANALISTA DE DEPARTAMENTO PESSOAL I', '']]),
         ...copy('f1200.hist_ferias', 'codfun, daquisiini, daquisifim, dgozoini, dgozofim, ntotabono', [['52', '2022-05-02', '2023-05-01', '2023-07-03', '2023-07-22', '10']]),
         ...copy('f1200.holerith', 'codfun, anomes, codeven, ref, valor, descricao', [['52', '202501', '50', '10,5', '214.77', 'HORAS EXTRAS 50%'], ['52', '202502', '120', '2', '200.00', 'FALTAS']]),
         ...copy('f1200.eventos_esocial', 'codeven, rubesocial', [['50', '50'], ['120', '120']]),
@@ -54,7 +55,10 @@ describe('restaurar a empresa pelo backup', () => {
         expect(p.fichaFinanceira.map(a => [a.fichaId, a.ano, a.linhas.map(l => [l.codigo, l.tipo, l.meses[0], l.meses[1]])])).toEqual([
             [p.fichas[0].ficha.id, '2025', [['50', 'provento', 21477, null], ['120', 'desconto', null, 20000]]],
         ]);
-        expect(p.etapas.map(e => e.titulo)).toEqual(['Vínculos pelo eSocial', 'Funcionários (func)', 'Enquadramento', 'Afastamentos e férias', 'Histórico da folha', 'Ficha financeira do SAGE']);
+        // Cadastro de cargos pela tabela cargos do SAGE: só os que têm CBO válido (o outro vira aviso).
+        expect(p.cargos.map(c => [c.id, c.codigo, c.nome, c.cbo])).toEqual([['emp1_000001', '000001', 'ASSISTENTE ADM II', '411010']]);
+        expect(p.etapas.find(e => e.titulo === 'Cargos')?.avisos).toEqual(['Cargo 000004 (ANALISTA DE DEPARTAMENTO PESSOAL I) do backup sem CBO válido: cadastre à mão.']);
+        expect(p.etapas.map(e => e.titulo)).toEqual(['Vínculos pelo eSocial', 'Funcionários (func)', 'Cargos', 'Enquadramento', 'Afastamentos e férias', 'Histórico da folha', 'Ficha financeira do SAGE']);
         expect(p.origem).toEqual(['f1200.arquivoeventotransmissaoesocial', 'f1200.func', 'f1200.hist_ferias', 'f1200.holerith']);
     });
 
@@ -74,10 +78,10 @@ describe('restaurar a empresa pelo backup', () => {
         const vazio = { fichas: [], afastamentos: [], enquadramentos: [], movimentos: {} };
         const pelo = await planejarRestauracao(rest, empresa, vazio, { ...parametrosPadrao(), historicoDesde: '2024-01' });
         expect(pelo.enquadramentos).toHaveLength(0);
-        expect(pelo.etapas[2].resumo).toMatch(/1 com erro \(Normal \(lucro presumido ou real\): .*FPAS: 3 dígitos\./);
+        expect(pelo.etapas.find(e => e.titulo === 'Enquadramento')!.resumo).toMatch(/1 com erro \(Normal \(lucro presumido ou real\): .*FPAS: 3 dígitos\./);
         const simples = await planejarRestauracao(rest, empresa, vazio, { ...parametrosPadrao(), historicoDesde: '2024-01', fpas: '515', codigoTerceiros: '0115', terceiros: 5.8, regimes: { emp1: 'simples' } });
         expect(simples.enquadramentos.map(({ enquadramento: e }) => [e.regime, e.fpas, e.terceiros])).toEqual([['simples', '', 0]]);
-        expect(simples.etapas[2].resumo).toMatch(/1 para gravar.*0 com erro$/);
+        expect(simples.etapas.find(e => e.titulo === 'Enquadramento')!.resumo).toMatch(/1 para gravar.*0 com erro$/);
     });
 
     it('empresa que mudou de CNPJ: as fichas gravadas passam para o CNPJ atual', async () => {

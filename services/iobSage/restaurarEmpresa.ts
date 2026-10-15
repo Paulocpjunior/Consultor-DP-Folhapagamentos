@@ -34,6 +34,7 @@ import { TABELA_HIST_FERIAS, gozosDoHistorico, juntarComHistorico } from '../cad
 import { mesclarMovimentos, movimentosDoHolerith, naturezasDosEventos, type ClasseManual, type EventoResumo, type MesclaMovimento } from '../calculo/movimentosDoBackup';
 import type { Movimento } from '../calculo/motorMensal';
 import { historicoDoHolerith, type HistoricoSageAno } from '../relatorios/historicoSage';
+import { cargosDoBackup, type Cargo } from '../cadastros/cargos';
 
 export interface ParametrosRestauracao {
     /** FPAS padrão para enquadramento normal sem FPAS no backup (vazio = não aplica). */
@@ -77,7 +78,7 @@ export function empresasDoBackup(rest: Pick<Restauracao, 'grupos'>, empresas: Em
         .sort((a, b) => Number(a.codigo) - Number(b.codigo) || a.codigo.localeCompare(b.codigo) || (a.empresa?.cnpj ?? '').localeCompare(b.empresa?.cnpj ?? ''));
 }
 
-export interface Existentes { fichas: FichaFuncionario[]; afastamentos: Afastamento[]; enquadramentos: Enquadramento[]; movimentos: Record<string, Record<string, Movimento>> }
+export interface Existentes { fichas: FichaFuncionario[]; afastamentos: Afastamento[]; enquadramentos: Enquadramento[]; movimentos: Record<string, Record<string, Movimento>>; /** Cargos já cadastrados (não são tocados). */ cargos?: Cargo[] }
 
 export interface Etapa { titulo: string; resumo: string; avisos: string[] }
 export interface PlanoRestauracao {
@@ -86,6 +87,8 @@ export interface PlanoRestauracao {
     enquadramentos: PropostaEnquadramento[];
     afastamentos: MesclaAfastamento[];
     movimentos: MesclaMovimento[];
+    /** Cargos da tabela `cargos` do SAGE que ainda não estão no cadastro (só cria). */
+    cargos: Cargo[];
     /** Ficha financeira do SAGE por funcionário e ano (grava por cima da restauração anterior). */
     fichaFinanceira: HistoricoSageAno[];
     /** Todos os eventos do holerith no período (para acertar a classificação). */
@@ -129,6 +132,7 @@ export async function planejarRestauracao(rest: Leitor, empresa: Empresa, existe
     ] });
     if (b.fontes.length) origem.push(`${b.grupos.join(', ')}.arquivoeventotransmissaoesocial`);
 
+    let cargos: Cargo[] = [];
     // 2. Fichas pela func e complementares.
     aoProgresso('2/5 · Funcionários (func e complementares)…');
     const func = doSchema('func');
@@ -153,6 +157,10 @@ export async function planejarRestauracao(rest: Leitor, empresa: Empresa, existe
             avisos: [...c.avisos, ...c.semFicha.slice(0, 50).map(s => `Linha ${s.linha} (${s.nome || s.cpf}): ${s.motivo}`), ...(c.semFicha.length > 50 ? [`e mais ${c.semFicha.length - 50} sem ficha`] : [])],
         });
         origem.push(`${func.grupo}.func`);
+        // Cadastro de cargos (Arquivos › Cargos do SAGE): só os que ainda não estão no Consultor.
+        const car = cargosDoBackup(lidas.cargos, empresa.id, existentes.cargos ?? []);
+        cargos = car.cargos;
+        if (lidas.cargos) etapas.push({ titulo: 'Cargos', resumo: `${lidas.cargos.linhas.length} cargo(s) no SAGE · ${cargos.length} novo(s) no cadastro de cargos`, avisos: car.avisos });
     }
 
     // Fichas: o que mudou em relação ao gravado (eSocial + func juntos).
@@ -227,5 +235,5 @@ export async function planejarRestauracao(rest: Leitor, empresa: Empresa, existe
         origem.push(`f${codigo}.holerith`);
     }
 
-    return { etapas, fichas: fichasPlano, enquadramentos: enqGravaveis, afastamentos, movimentos, fichaFinanceira, eventosHistorico, origem };
+    return { etapas, fichas: fichasPlano, enquadramentos: enqGravaveis, afastamentos, movimentos, cargos, fichaFinanceira, eventosHistorico, origem };
 }

@@ -11,6 +11,7 @@ const svc = vi.hoisted(() => ({
     listarSindicatos: vi.fn(), salvarSindicato: vi.fn(), excluirSindicato: vi.fn(),
     listarTabelas: vi.fn(), listarTabelasDsr: vi.fn(async () => []), salvarTabelaDsr: vi.fn(), excluirTabelaDsr: vi.fn(), salvarTabela: vi.fn(), gravarTabelaOficial: vi.fn(), excluirTabela: vi.fn(),
     listarHorarios: vi.fn(), salvarHorario: vi.fn(), excluirHorario: vi.fn(),
+    listarCargos: vi.fn(), salvarCargo: vi.fn(), criarCargos: vi.fn(), excluirCargo: vi.fn(),
     listarAfastamentos: vi.fn(), salvarAfastamento: vi.fn(), gravarAfastamentosImportados: vi.fn(), excluirAfastamento: vi.fn(),
     listarRubricas: vi.fn(), gravarRubricasImportadas: vi.fn(), salvarVinculoRubrica: vi.fn(), excluirRubrica: vi.fn(),
 }));
@@ -40,6 +41,9 @@ beforeEach(() => {
     svc.salvarFuncionario.mockResolvedValue(undefined);
     svc.historico.mockResolvedValue([]);
     svc.listarHorarios.mockResolvedValue([]);
+    svc.listarCargos.mockResolvedValue([]);
+    svc.salvarCargo.mockResolvedValue(undefined);
+    svc.criarCargos.mockResolvedValue(undefined);
     svc.listarAfastamentos.mockResolvedValue([]);
     svc.salvarHorario.mockResolvedValue(undefined);
     svc.salvarAfastamento.mockResolvedValue(undefined);
@@ -49,7 +53,7 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-async function abrirEmpresa(sub?: 'funcionarios' | 'horarios' | 'afastamentos' | 'incidencias') {
+async function abrirEmpresa(sub?: 'funcionarios' | 'cargos' | 'horarios' | 'afastamentos' | 'incidencias') {
     render(<CadastrosPanel currentUser={usuario} subInicial={sub} />);
     await waitFor(() => expect(screen.getByRole('option', { name: /0229/ })).toBeTruthy());
     fireEvent.change(screen.getByLabelText('Empresa'), { target: { value: 'emp1' } });
@@ -198,5 +202,65 @@ describe('Cadastros na interface', () => {
         expect(screen.getByText(/IOB não incide × eSocial 11 - Base: salário de contribuição mensal/)).toBeTruthy();
         expect(screen.getByText('Divergente: 1')).toBeTruthy();
         expect(screen.getByText('OK: 1')).toBeTruthy();
+    });
+    it('cargos: a ficha escolhe o cargo do cadastro e traz o nome e o CBO; diferença aparece sem mudar nada', async () => {
+        const cargo = (codigo: string, nome: string, cbo: string) => ({ id: `emp1_${codigo}`, empresaId: 'emp1', codigo, nome, descricao: '', inativo: false, inicioValidade: '2022-07', finalValidade: '',
+            cargoPublico: false, nrLei: '', dtLei: '', situacao: '', acumulo: '', dedicacaoExclusiva: '', tempoEspecial: '', cbo, funcao: '', atividades: [] });
+        svc.listarCargos.mockResolvedValue([cargo('000001', 'ASSISTENTE ADM II', '411010'), cargo('000004', 'ANALISTA DE DEPARTAMENTO PESSOAL I', '411005')]);
+        const ficha: FichaFuncionario = { id: `emp1_${CPF}_M-1`, empresaId: 'emp1', cnpj: '11222333000181', cpf: CPF, matriculaEsocial: 'M-1', situacao: 'ativo',
+            dados: { nome: 'PESSOA', admissao: '2026-02-01', salario: '2000.00', cargo: 'AUXILIAR', cbo: '411005', cargoIob: '4' }, dependentes: [], origens: {}, pendenciasImportacao: [] };
+        svc.listarFuncionarios.mockResolvedValue([ficha]);
+        await abrirEmpresa();
+        fireEvent.click(await screen.findByText('PESSOA'));
+        const dlg = screen.getByRole('dialog', { name: 'Ficha do funcionário' });
+        fireEvent.click(within(dlg).getByText('Ident. Adm.'));
+        expect((within(dlg).getByLabelText('Código do cargo IOB') as HTMLSelectElement).value).toBe('000004');
+        expect(within(dlg).getByText('Diferente do cargo 000004: ANALISTA DE DEPARTAMENTO PESSOAL I')).toBeTruthy();
+        fireEvent.change(within(dlg).getByLabelText('Código do cargo IOB'), { target: { value: '000001' } });
+        expect((within(dlg).getByLabelText('Cargo') as HTMLInputElement).value).toBe('ASSISTENTE ADM II');
+        expect((within(dlg).getByLabelText('CBO') as HTMLInputElement).value).toBe('411010');
+        expect(within(dlg).queryByText(/Diferente do cargo/)).toBeNull();
+        fireEvent.click(within(dlg).getByText('Gravar'));
+        await waitFor(() => expect(svc.salvarFuncionario).toHaveBeenCalledTimes(1));
+        expect(svc.salvarFuncionario.mock.calls[0][1].dados).toMatchObject({ cargoIob: '000001', cargo: 'ASSISTENTE ADM II', cbo: '411010' });
+    });
+
+    it('cargos: cadastro como o SAGE, criar pelas fichas e lista de diferenças', async () => {
+        svc.listarFuncionarios.mockResolvedValue([
+            { id: 'f1', empresaId: 'emp1', cnpj: '1', cpf: CPF, matriculaEsocial: 'M-1', situacao: 'ativo', dados: { nome: 'ANA', cargo: 'ANALISTA DP I', cbo: '411005', cargoIob: '000004' }, dependentes: [], origens: {}, pendenciasImportacao: [] },
+            { id: 'f2', empresaId: 'emp1', cnpj: '1', cpf: '11144477735', matriculaEsocial: 'M-2', situacao: 'ativo', dados: { nome: 'BIA', cargo: 'AUXILIAR', cbo: '411005', cargoIob: '7' }, dependentes: [], origens: {}, pendenciasImportacao: [] },
+        ]);
+        await abrirEmpresa('cargos');
+        await screen.findByText('Nenhum cargo cadastrado nesta empresa. A restauração do backup do SAGE traz a tabela de cargos; ou crie pelos cargos das fichas.');
+        vi.spyOn(window, 'confirm').mockReturnValue(true);
+        fireEvent.click(await screen.findByRole('button', { name: 'Criar pelos cargos das fichas (2)' }));
+        await waitFor(() => expect(svc.criarCargos).toHaveBeenCalledTimes(1));
+        expect(svc.criarCargos.mock.calls[0][0].map((c: { codigo: string; nome: string; cbo: string }) => [c.codigo, c.nome, c.cbo])).toEqual([['000004', 'ANALISTA DP I', '411005'], ['000007', 'AUXILIAR', '411005']]);
+        fireEvent.click(screen.getByRole('button', { name: 'Novo cargo' }));
+        const dlg = screen.getByRole('dialog', { name: 'Cadastro de cargo' });
+        fireEvent.change(within(dlg).getByLabelText('Código do cargo'), { target: { value: '1' } });
+        fireEvent.change(within(dlg).getByLabelText('Nome do cargo'), { target: { value: 'assistente adm ii' } });
+        fireEvent.change(within(dlg).getByLabelText('CBO do cargo'), { target: { value: '4110' } });
+        fireEvent.click(within(dlg).getByText('Gravar'));
+        expect(within(dlg).getByRole('alert').textContent).toContain('CBO do cargo: 6 dígitos');
+        fireEvent.change(within(dlg).getByLabelText('CBO do cargo'), { target: { value: '4110-10' } });
+        fireEvent.change(within(dlg).getByLabelText('Início da validade'), { target: { value: '2022-07' } });
+        fireEvent.click(within(dlg).getByText('Adicionar atividade'));
+        fireEvent.change(within(dlg).getByLabelText('Descrição da atividade 1'), { target: { value: 'Rotinas de admissão' } });
+        fireEvent.click(within(dlg).getByText('Gravar'));
+        await waitFor(() => expect(svc.salvarCargo).toHaveBeenCalledTimes(1));
+        expect(svc.salvarCargo.mock.calls[0][0]).toBeNull();
+        expect(svc.salvarCargo.mock.calls[0][1]).toMatchObject({ id: 'emp1_000001', codigo: '000001', nome: 'ASSISTENTE ADM II', cbo: '411010', inicioValidade: '2022-07', atividades: [{ codigo: '', descricao: 'Rotinas de admissão' }] });
+    });
+
+    it('cargos: fichas com cargo ou CBO diferente do cadastro ficam listadas', async () => {
+        svc.listarCargos.mockResolvedValue([{ id: 'emp1_000004', empresaId: 'emp1', codigo: '000004', nome: 'ANALISTA DE DEPARTAMENTO PESSOAL I', descricao: '', inativo: false, inicioValidade: '', finalValidade: '',
+            cargoPublico: false, nrLei: '', dtLei: '', situacao: '', acumulo: '', dedicacaoExclusiva: '', tempoEspecial: '', cbo: '252305', funcao: '', atividades: [] }]);
+        svc.listarFuncionarios.mockResolvedValue([{ id: 'f1', empresaId: 'emp1', cnpj: '1', cpf: CPF, matriculaEsocial: 'M-1', situacao: 'ativo', dados: { nome: 'ANA', cargo: 'ANALISTA DE DEPARTAMENTO PESSOAL I', cbo: '411005', cargoIob: '000004' }, dependentes: [], origens: {}, pendenciasImportacao: [] }]);
+        await abrirEmpresa('cargos');
+        const sec = await screen.findByRole('region', { name: 'Fichas com cargo diferente do cadastro' });
+        expect(sec.textContent).toContain('ANA · CBO: na ficha "411005", no cargo 000004 "2523-05"');
+        expect(screen.getByText('2523-05')).toBeTruthy();
+        expect(svc.salvarFuncionario).not.toHaveBeenCalled();
     });
 });
