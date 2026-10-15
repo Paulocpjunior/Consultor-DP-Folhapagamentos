@@ -5630,3 +5630,14 @@ Pedido da colaboradora, pelo Paulo, com as telas do SAGE (Rescisão Contratual e
   - opções: separar bancos (com o total de cada um), somente totais e imprimir demitidos;
   - fica no modal do Arquivo bancário (e do Arquivo do adiantamento), sem precisar da conta da empresa, com a data de crédito.
 - **Testes:** `pensaoPercentual.test.ts`, `relacaoDeposito.test.ts` e o modal em `arquivoBancarioModal.test.tsx`.
+
+## 15/10/2026 — Status × SAGE atualizado
+
+- **Pedido do Paulo:** "atualize nosso status com relação a SAGE".
+- **Catálogo (`catalogoMenus.ts`, revisto em 15/10):** as entregas de 14 e 15/10 entraram nos itens Funcionários, Eventos, Tabelas legais, Textos, Cálculo da folha, Adiantamento, Férias, 13º e Rescisão.
+- **Itens novos:**
+  - Relatórios › Valores de Salários para Bancos (a relação de depósito);
+  - o menu Contratos do Office (avisos e documentos).
+  - Os recibos de VT, refeição e cesta ficam como modelos a criar no escritório.
+- **Resultado:** 52 disponíveis, 1 parcial (CCI) e 2 fora do escopo (SEFIP/GRRF e SST).
+- **`docs/retomada.md`:** a seção "Status × SAGE" com o que ainda prende ao SAGE (homologação por empresa e o #61, tabela de eventos de cada empresa, "Lança na rescisão" nos automáticos já gravados, backup como origem e o CCI).
