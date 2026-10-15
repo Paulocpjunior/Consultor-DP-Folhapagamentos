@@ -354,6 +354,21 @@ service cloud.firestore {
       allow delete: if isAdmin() && podeEmpresa(resource.data.empresaId);
     }
 
+    // Cargos da empresa (Arquivos › Cargos / Carreira › Cargos do SAGE): {empresaId}_{código}. A ficha escolhe o cargo
+    // pelo código e recebe o nome e o CBO; o eSocial S-1.x não tem mais a tabela de cargos (S-1030).
+    match /cadastro_cargos/{cargoId} {
+      allow read, list: if podeEmpresa(resource.data.empresaId);
+      allow create, update: if gravaNaEmpresa()
+                    && request.resource.data.atualizadoPor == request.auth.uid
+                    && request.resource.data.empresaId is string
+                    && request.resource.data.codigo is string
+                    && request.resource.data.codigo.matches('^[A-Z0-9._-]{1,20}$')
+                    && request.resource.data.nome is string && request.resource.data.nome.size() > 0 && request.resource.data.nome.size() <= 100
+                    && request.resource.data.cbo is string && request.resource.data.cbo.matches('^[0-9]{6}$')
+                    && cargoId == request.resource.data.empresaId + '_' + request.resource.data.codigo;
+      allow delete: if isAdmin() && podeEmpresa(resource.data.empresaId);
+    }
+
     match /cadastro_enquadramentos/{enqId} {
       allow read, list: if podeEmpresa(resource.data.empresaId);
       allow create, update: if gravaNaEmpresa()

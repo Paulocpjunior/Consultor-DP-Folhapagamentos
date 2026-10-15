@@ -20,12 +20,15 @@ import { duracao, rotuloMotivo, type Afastamento } from '../../services/cadastro
 import type { AdesaoBeneficio, Beneficio } from '../../services/calculo/beneficios';
 import { PCT_MARGEM_CONSIGNADO, type ContratoConsignado } from '../../services/calculo/consignado';
 import { ehDomestico, FUNCOES_DOMESTICAS } from '../../services/domestico/domestico';
+import { camposDoCargo, cargoDaFicha, cboFormatado, normalizarCbo, normalizarCodigoCargo, type Cargo } from '../../services/cadastros/cargos';
 
 interface Props {
     ficha: FichaFuncionario;
     nova: boolean;
     sindicatos: Sindicato[];
     horarios?: Horario[];
+    /** Cargos da empresa (Cadastros › Cargos): escolher o código preenche o cargo e o CBO, como no SAGE. */
+    cargos?: Cargo[];
     afastamentos?: Afastamento[];
     /** Benefícios da empresa (parâmetros da folha): a ficha marca a adesão e as vidas. */
     beneficios?: Beneficio[];
@@ -39,7 +42,7 @@ const inp = 'w-full rounded-sm border border-slate-300 bg-white px-2 py-1.5 text
 const DEP_VAZIO: Dependente = { tipo: '', nome: '', nascimento: '', cpf: '', irrf: 'N', salarioFamilia: 'N', pensao: 'N', cotaPensao: '', noEsocial: 'N' };
 const formatarCpf = (c: string) => (c.length === 11 ? `${c.slice(0, 3)}.${c.slice(3, 6)}.${c.slice(6, 9)}-${c.slice(9)}` : c);
 
-const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horarios = [], afastamentos = [], beneficios = [], usuario, isAdmin, onFechar, onSalvo }) => {
+const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horarios = [], cargos = [], afastamentos = [], beneficios = [], usuario, isAdmin, onFechar, onSalvo }) => {
     const [f, setF] = useState<FichaFuncionario>(ficha);
     const [aba, setAba] = useState<string>(ABAS[0].id);
     const [erros, setErros] = useState<string[]>([]);
@@ -79,7 +82,21 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
         const valor = f.dados[c] ?? '';
         const origem = f.origens[c];
         let entrada: React.ReactNode;
-        if (c === 'horario') {
+        if (c === 'cargoIob' && cargos.length) {
+            // Como no SAGE: o código do cargo vem do cadastro de Cargos e traz o nome e o CBO para a ficha.
+            const cod = valor ? normalizarCodigoCargo(valor) : '';
+            entrada = (
+                <select className={inp} value={cod} aria-label={ROTULO[c]} onChange={e => {
+                    const escolhido = cargos.find(x => x.codigo === e.target.value);
+                    if (!escolhido) { setCampo(c, e.target.value); return; }
+                    setF(x => ({ ...x, dados: { ...x.dados, ...camposDoCargo(escolhido, x.dados) } }));
+                }}>
+                    <option value="">—</option>
+                    {cod && !cargos.some(x => x.codigo === cod) && <option value={cod}>{cod} (não cadastrado)</option>}
+                    {cargos.filter(x => !x.inativo || x.codigo === cod).map(x => <option key={x.id} value={x.codigo}>{x.codigo} · {x.nome} · CBO {cboFormatado(x.cbo)}{x.inativo ? ' (inativo)' : ''}</option>)}
+                </select>
+            );
+        } else if (c === 'horario') {
             entrada = (
                 <select className={inp} value={valor} onChange={e => setCampo(c, e.target.value)} aria-label={ROTULO[c]}>
                     <option value="">{horarios.length ? '—' : 'Nenhum horário cadastrado'}</option>
@@ -99,6 +116,10 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
         } else if (def.tipo === 'longo') entrada = <textarea className={inp} rows={2} value={valor} onChange={e => setCampo(c, e.target.value)} aria-label={ROTULO[c]} />;
         else entrada = <input className={inp} type={def.tipo === 'data' ? 'date' : 'text'} value={valor} onChange={e => setCampo(c, e.target.value)} aria-label={ROTULO[c]} list={c === 'sindicato' ? 'lista-sindicatos' : c === 'cbo' && ehDomestico(f.dados.categoria) ? 'lista-cbo-domesticos' : undefined} />;
         const hor = c === 'horario' && valor ? horarios.find(h => h.codigo === valor) : undefined;
+        // Cargo ou CBO da ficha diferente do cadastro do cargo escolhido: aviso (a ficha só muda se escolher o cargo de novo).
+        const doCargo = (c === 'cargo' || c === 'cbo') ? cargoDaFicha(cargos, f.dados) : undefined;
+        const difCargo = doCargo && (c === 'cargo' ? valor.trim().toUpperCase() !== doCargo.nome : normalizarCbo(valor) !== doCargo.cbo)
+            ? `Diferente do cargo ${doCargo.codigo}: ${c === 'cargo' ? doCargo.nome : cboFormatado(doCargo.cbo)}` : '';
         const difHoras = c === 'horario' && hor ? conferirHorasSemanais(f.dados.horasSemanais, hor) : null;
         const sind = c === 'sindicato' && valor ? sindicatos.find(s => s.cnpj === valor.replace(/[.\-/\s]/g, '').toUpperCase()) : undefined;
         return (
@@ -108,6 +129,7 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                 {sind && <span className="block text-xs text-green-700 dark:text-green-400">{sind.nome}</span>}
                 {hor && <span className="block text-xs text-slate-500 dark:text-slate-400">{descricaoJornada(hor)}</span>}
                 {difHoras && <span className="block text-xs text-amber-700 dark:text-amber-400">{difHoras}</span>}
+                {difCargo && <span className="block text-xs text-amber-700 dark:text-amber-400">{difCargo}</span>}
                 {c === 'sindicato' && valor && !sind && <span className="block text-xs text-amber-700 dark:text-amber-400">Sindicato não cadastrado.</span>}
                 {origem && <span className={`block truncate text-[11px] ${ehManual(origem) ? 'text-blue-700 dark:text-blue-300' : 'text-slate-400'}`} title={origem}>{origem}</span>}
             </label>

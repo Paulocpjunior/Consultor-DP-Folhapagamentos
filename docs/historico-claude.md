@@ -5657,3 +5657,21 @@ Pedido da colaboradora, pelo Paulo, com as telas do SAGE (Rescisão Contratual e
   - "Descontar DSR na falta diária": aviso quando há falta sem DSR descontado. A conta automática espera um holerite do SAGE com falta para conferir.
 - **Sem tabela cadastrada, nada muda:** o cálculo segue pelo calendário com os feriados locais do movimento.
 - **Testes:** `tabelaDsr.test.ts`, `tabelaDsrTela.test.tsx` e `testes-regras/tabelaDsr.test.mjs`.
+
+## 15/10/2026 — Cadastro de Cargos (SAGE) amarrado à ficha
+
+- **Pedido do Paulo:** criar em Cadastros a opção de cadastro de cargos, amarrada à ficha do funcionário, como a tela Arquivos › Cargos / Carreira › Cargos do SAGE.
+- **Cadastro (`cargos.ts`, `CargosCadastro.tsx`, coleção `cadastro_cargos/{empresa}_{código}` com regra e auditoria):**
+  - campos como o SAGE: código (6 dígitos, 000001), cargo, inativo, descrição para relatórios, início e final da validade;
+  - cargo/emprego público: lei, data, situação, acúmulo, dedicação exclusiva e tempo especial;
+  - C.B.O. (4110-10), função e atividades desempenhadas;
+  - pesquisa e contagem de funcionários por cargo.
+- **Ficha (Ident. Adm.):**
+  - o "Código do cargo IOB" virou a escolha do cargo e traz o nome e o CBO, que vão ao S-2200/S-2206;
+  - cargo ou CBO diferente do cadastro gera aviso no campo;
+  - a tela de Cargos lista essas fichas. Nenhuma ficha gravada muda sozinha.
+- **Carga:**
+  - "Criar pelos cargos das fichas": código, nome e CBO iguais em todas as fichas do código; quando diferem, aviso para cadastrar à mão;
+  - a restauração do backup traz a tabela `cargos` do SAGE: só os novos, e sem CBO válido fica de fora, com aviso.
+- **Funções e Carreiras Públicas** ficaram como texto (função) e nos campos de cargo público, porque o eSocial S-1.x não tem mais o S-1030/S-1040.
+- **Testes:** `cargos.test.ts`, telas em `painelCadastros.test.tsx`, restauração e `testes-regras/cargos.test.mjs`.

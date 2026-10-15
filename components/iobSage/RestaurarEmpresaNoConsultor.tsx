@@ -74,23 +74,23 @@ const RestaurarEmpresaNoConsultor: React.FC<Props> = ({ restauracao, arquivos, u
     async function gravar() {
         if (!plano || !usuario) return;
         const { plano: p, empresa } = plano;
-        if (!window.confirm(`Restaurar ${empresa.nomeFantasia || empresa.razaoSocial} no Consultor?\n\n${p.fichas.length} ficha(s), ${p.enquadramentos.length} enquadramento(s), ${p.afastamentos.length} afastamento(s)/férias, ${p.movimentos.length} mês(es) de histórico, ${p.fichaFinanceira.length} ficha(s) financeira(s) por ano.`)) return;
+        if (!window.confirm(`Restaurar ${empresa.nomeFantasia || empresa.razaoSocial} no Consultor?\n\n${p.fichas.length} ficha(s), ${p.cargos?.length ?? 0} cargo(s), ${p.enquadramentos.length} enquadramento(s), ${p.afastamentos.length} afastamento(s)/férias, ${p.movimentos.length} mês(es) de histórico, ${p.fichaFinanceira.length} ficha(s) financeira(s) por ano.`)) return;
         setErro('');
         try {
             await gravarRestauracao(p, empresa, plano.existentes, usuario, arquivos, setOcupado);
-            setFeito(`${empresa.nomeFantasia || empresa.razaoSocial} restaurada: ${p.fichas.length} ficha(s), ${p.enquadramentos.length} enquadramento(s), ${p.afastamentos.length} afastamento(s)/férias, ${p.movimentos.length} mês(es) de histórico e ${p.fichaFinanceira.length} ficha(s) financeira(s) do SAGE gravados.`);
+            setFeito(`${empresa.nomeFantasia || empresa.razaoSocial} restaurada: ${p.fichas.length} ficha(s), ${p.cargos?.length ?? 0} cargo(s), ${p.enquadramentos.length} enquadramento(s), ${p.afastamentos.length} afastamento(s)/férias, ${p.movimentos.length} mês(es) de histórico e ${p.fichaFinanceira.length} ficha(s) financeira(s) do SAGE gravados.`);
             setPlano(null);
         } catch (e) { setErro(mensagemErro(e)); }
         finally { setOcupado(''); }
     }
 
-    const total = plano ? plano.plano.fichas.length + plano.plano.enquadramentos.length + plano.plano.afastamentos.length + plano.plano.movimentos.length + plano.plano.fichaFinanceira.length : 0;
+    const total = plano ? plano.plano.fichas.length + (plano.plano.cargos?.length ?? 0) + plano.plano.enquadramentos.length + plano.plano.afastamentos.length + plano.plano.movimentos.length + plano.plano.fichaFinanceira.length : 0;
     return (
         <section aria-label="Restaurar empresa no Consultor" className="space-y-3 rounded-lg border-2 border-blue-300 p-3 dark:border-blue-800">
             <div>
                 <h4 className="font-semibold text-slate-800 dark:text-white">Restaurar a empresa no Consultor</h4>
                 <p className="text-xs text-slate-600 dark:text-slate-300">
-                    Traz do backup, numa sequência só: vínculos pelo eSocial transmitido, fichas (func e complementares), enquadramento, afastamentos e férias, o histórico da folha (horas extras e faltas) e a ficha financeira dos anos anteriores (valores do holerith).
+                    Traz do backup, numa sequência só: vínculos pelo eSocial transmitido, fichas (func e complementares), cargos, enquadramento, afastamentos e férias, o histórico da folha (horas extras e faltas) e a ficha financeira dos anos anteriores (valores do holerith).
                     Só completa o que falta: o que já está no Consultor (inclusive o digitado à mão) é mantido. Acerte os parâmetros na empresa piloto; eles ficam salvos para as próximas.
                 </p>
             </div>

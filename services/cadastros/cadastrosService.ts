@@ -5,6 +5,7 @@
 //   cadastro_sindicatos/{cnpj}
 //   cadastro_tabelas_legais/{auto}  (oficiais: oficial_{tipo}_{vigência})
 //   cadastro_dsr/{empresaId_ano}  (Tabela para D.S.R. da empresa)
+//   cadastro_cargos/{empresaId_código}  (Cargos da empresa)
 //   cadastro_audit/{auto}   (só inclusão; ninguém altera nem apaga)
 // Toda gravação vai num lote junto com o registro de auditoria: ou grava os
 // dois, ou nenhum. As regras estão em firestore.rules.
@@ -18,6 +19,7 @@ import { sindicatoVazio, type Sindicato } from './sindicatos';
 import { tabelaVazia, type TabelaLegal } from './tabelasLegais';
 import { horarioVazio, type Horario } from './horarios';
 import { MESES, idTabelaDsr, tabelaDsrPadrao, type TabelaDsr } from './tabelaDsr';
+import { cargoVazio, idCargo, normalizarCargo, type Cargo } from './cargos';
 import { afastamentoVazio, type Afastamento, type MesclaAfastamento } from './afastamentos';
 import { rubricaVazia, type MesclaRubrica, type Rubrica } from './rubricas';
 import { enquadramentoVazio, idEnquadramento, type Enquadramento } from './enquadramento';
@@ -33,6 +35,7 @@ const AFA = 'cadastro_afastamentos';
 const RUB = 'cadastro_rubricas';
 const ENQ = 'cadastro_enquadramentos';
 const DSR = 'cadastro_dsr';
+const CAR = 'cadastro_cargos';
 const AUDIT = 'cadastro_audit';
 
 export const COMANDO_REGRAS = 'firebase deploy --only firestore:rules --project consultor-dp-folha';
@@ -250,6 +253,46 @@ export async function excluirTabelaDsr(t: TabelaDsr, u: Usuario): Promise<void> 
     const lote = writeBatch(db);
     lote.delete(doc(db, DSR, t.id));
     auditar(lote, u, DSR, t.id, 'excluir', diffObjeto(semId(t), {}), { empresaId: t.empresaId });
+    await lote.commit();
+}
+
+// ---------- Cargos ----------
+
+const cargoDoDoc = (id: string, x: Partial<Cargo>, empresaId: string): Cargo => ({ ...soCampos({ ...cargoVazio(empresaId), ...x } as Cargo, cargoVazio(empresaId)), id, atividades: x.atividades ?? [] });
+
+export async function listarCargos(empresaId: string): Promise<Cargo[]> {
+    const snap = await getDocs(query(collection(db, CAR), where('empresaId', '==', empresaId)));
+    return snap.docs.map(d => cargoDoDoc(d.id, d.data() as Partial<Cargo>, empresaId)).sort((a, b) => a.codigo.localeCompare(b.codigo, 'pt-BR', { numeric: true }));
+}
+
+export async function salvarCargo(antes: Cargo | null, c: Cargo, u: Usuario): Promise<void> {
+    const n = normalizarCargo(c);
+    if (antes && antes.id !== n.id) throw new Error('O código do cargo não muda: cadastre um cargo novo com o outro código.');
+    if (!antes && (await getDoc(doc(db, CAR, n.id))).exists()) throw new Error(`Já existe o cargo ${n.codigo} nesta empresa.`);
+    const lote = writeBatch(db);
+    lote.set(doc(db, CAR, n.id), { ...limpo(semId(soCampos(n, cargoVazio(n.empresaId)))), atualizadoPor: u.id, atualizadoPorEmail: u.email, atualizadoEm: serverTimestamp() });
+    auditar(lote, u, CAR, n.id, antes ? 'editar' : 'criar', diffObjeto(antes && semId(soCampos(antes, cargoVazio(n.empresaId))), semId(soCampos(n, cargoVazio(n.empresaId)))), { empresaId: n.empresaId });
+    await lote.commit();
+}
+
+/** Cargos novos de uma vez (das fichas ou do backup do SAGE): só cria; o que já existe não é tocado. */
+export async function criarCargos(lista: Cargo[], u: Usuario, origem: string): Promise<void> {
+    for (let i = 0; i < lista.length; i += 200) {
+        const lote = writeBatch(db);
+        for (const c of lista.slice(i, i + 200)) {
+            const n = normalizarCargo(c);
+            const dados = semId(soCampos(n, cargoVazio(n.empresaId)));
+            lote.set(doc(db, CAR, n.id), { ...limpo(dados), atualizadoPor: u.id, atualizadoPorEmail: u.email, atualizadoEm: serverTimestamp() });
+            auditar(lote, u, CAR, n.id, 'criar', diffObjeto(null, dados), { empresaId: n.empresaId, origem });
+        }
+        await lote.commit();
+    }
+}
+
+export async function excluirCargo(c: Cargo, u: Usuario): Promise<void> {
+    const lote = writeBatch(db);
+    lote.delete(doc(db, CAR, idCargo(c.empresaId, c.codigo)));
+    auditar(lote, u, CAR, c.id, 'excluir', diffObjeto(semId(soCampos(c, cargoVazio(c.empresaId))), {}), { empresaId: c.empresaId });
     await lote.commit();
 }
 

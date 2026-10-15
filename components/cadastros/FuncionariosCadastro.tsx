@@ -11,6 +11,7 @@ import { gravarImportacao, listarFuncionarios, mensagemErro, type Usuario } from
 import { paraGravar, prepararImportacao, type PreviaImportacao } from '../../services/cadastros/importacaoEsocial';
 import type { Sindicato } from '../../services/cadastros/sindicatos';
 import type { Horario } from '../../services/cadastros/horarios';
+import type { Cargo } from '../../services/cadastros/cargos';
 import { emAberto, type Afastamento } from '../../services/cadastros/afastamentos';
 import { fontesDosArquivos } from './lerArquivosXml';
 import { esocialDoBackup } from '../../services/cadastros/esocialDoBackup';
@@ -20,13 +21,13 @@ import FichaFuncionarioModal from './FichaFuncionarioModal';
 import CompletarPeloIobModal from './CompletarPeloIobModal';
 import HistoricoFolhaIobModal from './HistoricoFolhaIobModal';
 
-interface Props { empresa: Empresa; usuario: Usuario; isAdmin: boolean; sindicatos: Sindicato[]; horarios: Horario[]; afastamentos: Afastamento[] }
+interface Props { empresa: Empresa; usuario: Usuario; isAdmin: boolean; sindicatos: Sindicato[]; horarios: Horario[]; afastamentos: Afastamento[]; /** Cargos da empresa: a ficha escolhe pelo código. */ cargos?: Cargo[] }
 
 const btn = 'rounded-sm border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
 const fmtCpf = (c: string) => (c.length === 11 ? `${c.slice(0, 3)}.${c.slice(3, 6)}.${c.slice(6, 9)}-${c.slice(9)}` : c);
 const fmtData = (d?: string) => (d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d.split('-').reverse().join('/') : d ?? '');
 
-const FuncionariosCadastro: React.FC<Props> = ({ empresa, usuario, isAdmin, sindicatos, horarios, afastamentos }) => {
+const FuncionariosCadastro: React.FC<Props> = ({ empresa, usuario, isAdmin, sindicatos, horarios, afastamentos, cargos = [] }) => {
     const hoje = new Date().toISOString().slice(0, 10);
     const afastadoHoje = useMemo(() => new Map(afastamentos.filter(a => emAberto(a, hoje)).map(a => [a.fichaId, a])), [afastamentos, hoje]);
     const [fichas, setFichas] = useState<FichaFuncionario[] | null>(null);
@@ -104,7 +105,7 @@ const FuncionariosCadastro: React.FC<Props> = ({ empresa, usuario, isAdmin, sind
                 </div>
             )}
 
-            {aberta && <FichaFuncionarioModal key={aberta.ficha.id || 'nova'} ficha={aberta.ficha} nova={aberta.nova} sindicatos={sindicatos} horarios={horarios} afastamentos={afastamentos.filter(a => a.fichaId === aberta.ficha.id)} beneficios={empresa.parametrosFolha?.beneficios} usuario={usuario} isAdmin={isAdmin}
+            {aberta && <FichaFuncionarioModal key={aberta.ficha.id || 'nova'} ficha={aberta.ficha} nova={aberta.nova} sindicatos={sindicatos} horarios={horarios} cargos={cargos} afastamentos={afastamentos.filter(a => a.fichaId === aberta.ficha.id)} beneficios={empresa.parametrosFolha?.beneficios} usuario={usuario} isAdmin={isAdmin}
                 onFechar={() => setAberta(null)} onSalvo={() => { setAberta(null); carregar(); }} />}
             {importar && fichas && <ImportarEsocialModal empresa={empresa} usuario={usuario} existentes={fichas} onFechar={() => setImportar(false)} onGravado={() => { setImportar(false); carregar(); }} />}
             {historicoIob && fichas && <HistoricoFolhaIobModal empresa={empresa} usuario={usuario} fichas={fichas} onFechar={() => setHistoricoIob(false)} onGravado={() => setHistoricoIob(false)} />}

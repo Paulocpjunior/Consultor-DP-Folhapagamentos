@@ -7,7 +7,7 @@
 export type Aba = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin' | 'fimdemes' | 'relatorios' | 'servicos' | 'demissoes' | 'beneficios' | 'contribuintes' | 'dctfweb' | 'processos' | 'intermitentes' | 'obras' | 'departamentos' | 'agrupado' | 'transferencia' | 'contabil' | 'processosjud' | 'sindicalpatronal' | 'importacao';
 
 export type SubFolha = 'eventos' | 'apontamento' | 'validador-ponto' | 'implantacao' | 'conferencia';
-export type SubCadastroMenu = 'funcionarios' | 'horarios' | 'afastamentos' | 'incidencias' | 'enquadramento' | 'sindicatos' | 'tabelas' | 'conformidade';
+export type SubCadastroMenu = 'funcionarios' | 'cargos' | 'horarios' | 'afastamentos' | 'incidencias' | 'enquadramento' | 'sindicatos' | 'tabelas' | 'conformidade';
 export type SubEsocial = 'dashboard' | 'saude' | 'diagnostico' | 'eventos' | 'transmissao' | 'download' | 'fgts' | 'calendario' | 'teses' | 'ponto' | 'ponto_eletronico' | 'relatorio' | 'audit';
 export type FolhaCalculo = 'mensal' | 'adiantamento' | '13-1a' | '13-2a' | 'ferias' | 'rescisao';
 
@@ -36,6 +36,7 @@ export const MENU: GrupoMenu[] = [
     ] },
     { id: 'cadastros', rotulo: 'Cadastros', icone: 'cadastro', itens: [
         { id: 'funcionarios', rotulo: 'Funcionários', descricao: 'Fichas, salários e dependentes', icone: 'pessoas', destino: { aba: 'cadastros', sub: 'funcionarios' } },
+        { id: 'cargos', rotulo: 'Cargos', descricao: 'Cargos da empresa com CBO, validade e atividades, escolhidos na ficha do funcionário (como o SAGE)', icone: 'contrato', destino: { aba: 'cadastros', sub: 'cargos' } },
         { id: 'horarios', rotulo: 'Horários', descricao: 'Jornadas e escalas', icone: 'relogio', destino: { aba: 'cadastros', sub: 'horarios' } },
         { id: 'afastamentos', rotulo: 'Afastamentos e férias', descricao: 'Licenças, atestados e gozos de férias', icone: 'calendarioX', destino: { aba: 'cadastros', sub: 'afastamentos' } },
         { id: 'sindicatos', rotulo: 'Sindicatos', descricao: 'Convenções em PDF, pisos, reajuste e contribuições', icone: 'sindicato', destino: { aba: 'cadastros', sub: 'sindicatos' } },

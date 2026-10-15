@@ -25,6 +25,7 @@ const ROTULO_DESTINO: Record<Destino, string> = {
     'folha:eventos': 'Abrir Folha › Catálogo de Eventos',
     'folha:ponto': 'Abrir Folha › Validador ACJEF',
     'cadastros:funcionarios': 'Abrir Cadastros › Funcionários',
+    'cadastros:cargos': 'Abrir Cadastros › Cargos',
     'cadastros:horarios': 'Abrir Cadastros › Horários',
     'cadastros:afastamentos': 'Abrir Cadastros › Afastamentos',
     'cadastros:incidencias': 'Abrir Cadastros › Incidências',

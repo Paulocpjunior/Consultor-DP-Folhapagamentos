@@ -11,7 +11,9 @@ import type { Empresa } from '../../services/empresas/empresasTypes';
 import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
 import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
 import EmpresaAtivaFixa from '../empresaAtiva/EmpresaAtivaFixa';
-import { listarAfastamentos, listarHorarios, listarSindicatos, listarTabelas, mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
+import { listarAfastamentos, listarCargos, listarHorarios, listarSindicatos, listarTabelas, mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
+import type { Cargo } from '../../services/cadastros/cargos';
+import CargosCadastro from './CargosCadastro';
 import type { Horario } from '../../services/cadastros/horarios';
 import type { Afastamento } from '../../services/cadastros/afastamentos';
 import type { Sindicato } from '../../services/cadastros/sindicatos';
@@ -26,12 +28,13 @@ import ConformidadePanel from '../conformidade/ConformidadePanel';
 import IncidenciasCadastro from './IncidenciasCadastro';
 import EnquadramentoCadastro from './EnquadramentoCadastro';
 
-export type SubCadastro = 'funcionarios' | 'horarios' | 'afastamentos' | 'incidencias' | 'enquadramento' | 'sindicatos' | 'tabelas' | 'conformidade';
+export type SubCadastro = 'funcionarios' | 'cargos' | 'horarios' | 'afastamentos' | 'incidencias' | 'enquadramento' | 'sindicatos' | 'tabelas' | 'conformidade';
 
 interface Props { currentUser: User; subInicial?: SubCadastro; onAbrirEventos?: () => void; /** Aberto pelo menu do app: sem título, abas e empresa repetidos. */ embutido?: boolean }
 
 const SUBS: { id: SubCadastro; titulo: string; caminho: string }[] = [
     { id: 'funcionarios', titulo: 'Funcionários', caminho: 'Arquivos › Funcionários › Cadastro Básico' },
+    { id: 'cargos', titulo: 'Cargos', caminho: 'Arquivos › Cargos / Carreira › Cargos' },
     { id: 'horarios', titulo: 'Horários', caminho: 'Arquivos › Horários › Tabela de Horários' },
     { id: 'afastamentos', titulo: 'Afastamentos', caminho: 'Arquivos › Afastamentos/Retorno (S-2230)' },
     { id: 'incidencias', titulo: 'Incidências', caminho: 'eSocial › Rotinas Auxiliares › Relacionamento de Rubricas (SGC) · Arquivos › Eventos' },
@@ -54,6 +57,8 @@ const CadastrosPanel: React.FC<Props> = ({ currentUser, subInicial, onAbrirEvent
     const [horarios, setHorarios] = useState<Horario[] | null>(null);
     const [erroHor, setErroHor] = useState('');
     const [afastamentos, setAfastamentos] = useState<Afastamento[] | null>(null);
+    const [cargos, setCargos] = useState<Cargo[] | null>(null);
+    const [erroCar, setErroCar] = useState('');
     const [erroAfa, setErroAfa] = useState('');
     const usuario: Usuario = { id: currentUser.uid ?? currentUser.id, email: currentUser.email };
     const isAdmin = ehAdmin(currentUser.role);
@@ -71,9 +76,14 @@ const CadastrosPanel: React.FC<Props> = ({ currentUser, subInicial, onAbrirEvent
         setErroAfa(''); setAfastamentos(null);
         if (empresaId) listarAfastamentos(empresaId).then(setAfastamentos).catch(e => { setErroAfa(mensagemErro(e)); setAfastamentos([]); });
     }, [empresaId]);
+    const carregarCargos = useCallback(() => {
+        setErroCar(''); setCargos(null);
+        if (empresaId) listarCargos(empresaId).then(setCargos).catch(e => { setErroCar(mensagemErro(e)); setCargos([]); });
+    }, [empresaId]);
     useEffect(carregarHorarios, [carregarHorarios]);
+    useEffect(carregarCargos, [carregarCargos]);
     useEffect(carregarAfastamentos, [carregarAfastamentos]);
-    const porEmpresa = sub === 'funcionarios' || sub === 'horarios' || sub === 'afastamentos' || sub === 'incidencias' || sub === 'enquadramento' || sub === 'conformidade';
+    const porEmpresa = sub === 'funcionarios' || sub === 'cargos' || sub === 'horarios' || sub === 'afastamentos' || sub === 'incidencias' || sub === 'enquadramento' || sub === 'conformidade';
 
     const empresa = empresas?.find(e => e.id === empresaId);
     const atual = SUBS.find(s => s.id === sub)!;
@@ -106,7 +116,8 @@ const CadastrosPanel: React.FC<Props> = ({ currentUser, subInicial, onAbrirEvent
                     </label>}
                     {erroEmpresas && <p role="alert" className="text-sm text-red-700">{erroEmpresas}</p>}
                     {!empresa && <p className="text-sm text-slate-500">Selecione a empresa.</p>}
-                    {empresa && sub === 'funcionarios' && <FuncionariosCadastro key={empresa.id} empresa={empresa} usuario={usuario} isAdmin={isAdmin} sindicatos={sindicatos ?? []} horarios={horarios ?? []} afastamentos={afastamentos ?? []} />}
+                    {empresa && sub === 'funcionarios' && <FuncionariosCadastro key={empresa.id} empresa={empresa} usuario={usuario} isAdmin={isAdmin} sindicatos={sindicatos ?? []} horarios={horarios ?? []} afastamentos={afastamentos ?? []} cargos={cargos ?? []} />}
+                    {empresa && sub === 'cargos' && <CargosCadastro key={empresa.id} empresa={empresa} cargos={cargos} erroLista={erroCar} usuario={usuario} isAdmin={isAdmin} onRecarregar={carregarCargos} />}
                     {empresa && sub === 'horarios' && <HorariosCadastro key={empresa.id} empresa={empresa} horarios={horarios} erroLista={erroHor} usuario={usuario} isAdmin={isAdmin} onRecarregar={carregarHorarios} />}
                     {empresa && sub === 'incidencias' && <IncidenciasCadastro key={empresa.id} empresa={empresa} usuario={usuario} />}
                     {empresa && sub === 'conformidade' && <ConformidadePanel key={empresa.id} empresa={empresa} usuario={usuario} competenciaInicial={ativa?.id === empresa.id ? ativa.competencia : undefined} />}
