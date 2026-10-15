@@ -10,6 +10,9 @@
 //   9207 = faltas; 9211 = faltas e atrasos (só se a descrição falar em falta).
 // DSR descontado: desconto com "DSR"/"repouso" e "falta" na descrição.
 // A referência do IOB é a quantidade (horas ou dias). Nada é gravado aqui.
+// Eventos que fazem média (como no Cálculo de Férias do SAGE, que traz a média dos eventos do período aquisitivo):
+// adicional noturno, comissões e o DSR sobre elas, gratificações, prêmios, produtividade, gorjetas, sobreaviso e
+// prontidão vão, pelo valor, como lançamento marcado "Média" no movimento do mês; a equipe acerta evento a evento.
 
 import type { TabelaLida } from '../cadastros/cargaBackupIob';
 import { chaveCodfun, chaveColuna } from '../cadastros/cargaBackupIob';
@@ -19,8 +22,17 @@ import { validarMovimento } from './movimento';
 
 export const TABELAS_HISTORICO = ['holerith', 'eventos_esocial', 'esocialdadosficha_s1010'];
 
-export type Classe = 'horasExtras50' | 'horasExtras100' | 'faltasDias' | 'dsrDescontadoDias' | 'atrasosHoras';
-export const CAMPOS_HISTORICO: Classe[] = ['horasExtras50', 'horasExtras100', 'faltasDias', 'dsrDescontadoDias', 'atrasosHoras'];
+export type CampoHistorico = 'horasExtras50' | 'horasExtras100' | 'faltasDias' | 'dsrDescontadoDias' | 'atrasosHoras';
+export const CAMPOS_HISTORICO: CampoHistorico[] = ['horasExtras50', 'horasExtras100', 'faltasDias', 'dsrDescontadoDias', 'atrasosHoras'];
+/** O que o evento do IOB vira: um campo do movimento (quantidade) ou um lançamento que entra na média (valor). */
+export type Classe = CampoHistorico | 'media';
+export const CLASSES_HISTORICO: Classe[] = [...CAMPOS_HISTORICO, 'media'];
+export const ROTULO_CLASSE: Record<Classe, string> = {
+    horasExtras50: 'Horas extras 50%', horasExtras100: 'Horas extras 100%', faltasDias: 'Faltas (dias)', dsrDescontadoDias: 'DSR descontado (dias)',
+    atrasosHoras: 'Faltas e atrasos (horas)', media: 'Faz média (valor: noturno, comissão…)',
+};
+/** Provento variável que entra na média de férias, 13º e rescisão (pela descrição). */
+const FAZ_MEDIA = /noturn|comiss|gratific|premi|produtiv|gorjeta|sobreaviso|prontidao/;
 
 const semAcento = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
@@ -36,6 +48,8 @@ export function classificarEvento(natRubr: string, descricao: string): Classe | 
     const d = semAcento(descricao);
     const dsr = /\bdsr\b|d\.s\.r|repouso/.test(d);
     const falta = /falta/.test(d) && !/abon|justific/.test(d);
+    // Média: provento variável (não desconto, nem reflexo ou média já paga em férias, 13º e rescisão).
+    if (FAZ_MEDIA.test(d) && !falta && !/^9/.test(natRubr) && !['1202', '1203'].includes(natRubr) && !/reflexo|media|ferias|13|decimo|aviso|indeniz|desc/.test(d)) return 'media';
     if (dsr) return falta || natRubr === '9207' || natRubr === '9211' ? 'dsrDescontadoDias' : null;
     if (natRubr === '1003' || (!natRubr && /hora?s?\s*extra|\bh\.?\s*e\b|\bhe\b/.test(d))) {
         if (/reflexo|media|dsr|banco/.test(d)) return null;
@@ -143,7 +157,7 @@ export type ClasseManual = Classe | 'ignorar';
 export function movimentosDoHolerith(holerith: TabelaLida, naturezas: NaturezasEventos, fichas: FichaFuncionario[], opcoes: { desde?: string; sexagesimal?: boolean; eventos?: Record<string, ClasseManual> } = {}): HistoricoDaFolha {
     const r: HistoricoDaFolha = { movimentos: [], eventos: [], todos: [], avisos: [], linhas: 0 };
     const i = (n: string) => holerith.colunas.findIndex(c => chaveColuna(c) === n);
-    const [iCod, iAno, iEv, iRef, iDesc] = ['codfun', 'anomes', 'codeven', 'ref', 'descricao'].map(i);
+    const [iCod, iAno, iEv, iRef, iDesc, iValor, iVen] = ['codfun', 'anomes', 'codeven', 'ref', 'descricao', 'valor', 'vlven'].map(i);
     if ([iCod, iAno, iEv, iRef].some(x => x < 0)) { r.avisos.push('holerith sem as colunas codfun, anomes, codeven e ref.'); return r; }
     const porCodigo = fichasPorCodigoIob(fichas);
     const resumo = new Map<string, EventoResumo>();
@@ -159,7 +173,11 @@ export function movimentosDoHolerith(holerith: TabelaLida, naturezas: NaturezasE
         const manual = opcoes.eventos?.[ev];
         const automatica = classificarEvento(natRubr, descricao);
         const classe = manual ? (manual === 'ignorar' ? null : manual) : automatica;
-        const q = Math.abs(quantidade(l[iRef], opcoes.sexagesimal && (classe === 'horasExtras50' || classe === 'horasExtras100' || classe === 'atrasosHoras')));
+        // Média: o valor do evento (R$); os demais, a quantidade da referência.
+        // O valor vem da coluna valor ou, vazia, da de vencimento (vl_ven), como no histórico financeiro.
+        const valorDe = (k: number) => (k >= 0 ? Math.abs(quantidade(l[k])) : 0);
+        const q = classe === 'media' ? Math.round((valorDe(iValor) || valorDe(iVen)) * 100) / 100
+            : Math.abs(quantidade(l[iRef], opcoes.sexagesimal && (classe === 'horasExtras50' || classe === 'horasExtras100' || classe === 'atrasosHoras')));
         const chaveResumo = `${ev}|${natRubr}`;
         const res = resumo.get(chaveResumo) ?? { codeven: ev, descricao, natRubr, classe, automatica, manual: !!manual, linhas: 0, total: 0 };
         res.linhas++; res.total += q; resumo.set(chaveResumo, res);
@@ -170,6 +188,16 @@ export function movimentosDoHolerith(holerith: TabelaLida, naturezas: NaturezasE
         if (vinculos.length !== 1) { semFicha++; continue; }
         const chave = `${vinculos[0].id}_${competencia}`;
         const m = soma.get(chave) ?? { fichaId: vinculos[0].id, competencia, movimento: {} };
+        if (classe === 'media') {
+            const desc = `${ev} ${descricao}`.trim();
+            const lans = m.movimento.lancamentos ?? [];
+            const ja = lans.find(x => x.descricao === desc);
+            if (ja) ja.valor += Math.round(q * 100);
+            else lans.push({ descricao: desc, tipo: 'provento', valor: Math.round(q * 100), inss: true, fgts: true, irrf: true, media: true });
+            m.movimento.lancamentos = lans;
+            soma.set(chave, m);
+            continue;
+        }
         const qq = classe === 'horasExtras50' ? q * fatorHoraExtra(descricao) : q;
         m.movimento[classe] = Math.round(((m.movimento[classe] ?? 0) + qq) * 10000) / 10000;
         soma.set(chave, m);
@@ -196,6 +224,13 @@ export function mesclarMovimentos(importados: MovimentoImportado[], existentes: 
         const antes = existentes[imp.fichaId]?.[imp.competencia] ?? null;
         const depois: Movimento = { ...(antes ?? {}) };
         const preservados: Classe[] = [];
+        // Lançamentos que fazem média: entram os que o mês ainda não tem (pela descrição); o lançado com outro valor fica.
+        let lancouMedia = false;
+        for (const l of imp.movimento.lancamentos ?? []) {
+            const ja = (depois.lancamentos ?? []).find(x => x.descricao === l.descricao);
+            if (!ja) { depois.lancamentos = [...(depois.lancamentos ?? []), l]; lancouMedia = true; }
+            else if (ja.valor !== l.valor && !preservados.includes('media')) preservados.push('media');
+        }
         for (const k of CAMPOS_HISTORICO) {
             const v = imp.movimento[k];
             if (v === undefined) continue;
@@ -203,7 +238,7 @@ export function mesclarMovimentos(importados: MovimentoImportado[], existentes: 
             if (atual === undefined || atual === 0) depois[k] = v;
             else if (atual !== v) preservados.push(k);
         }
-        const mudou = CAMPOS_HISTORICO.some(k => (antes?.[k] ?? 0) !== (depois[k] ?? 0));
+        const mudou = lancouMedia || CAMPOS_HISTORICO.some(k => (antes?.[k] ?? 0) !== (depois[k] ?? 0));
         return { fichaId: imp.fichaId, competencia: imp.competencia, antes, depois, mudou, preservados, erros: mudou ? validarMovimento(depois, diasNoMes(imp.competencia)) : [] };
     });
 }

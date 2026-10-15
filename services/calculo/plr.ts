@@ -86,7 +86,7 @@ export function calcularPlr(e: EntradaPlr): ResultadoPlr {
     // IRRF exclusivo: o total do ano (com os pagamentos anteriores), menos a pensão sobre a PLR, pela tabela anual.
     const ant = e.anteriores ?? [];
     const valorAno = ant.reduce((s, a) => s + a.valor, 0) + (plr.anteriorValor ?? 0) + plr.valor;
-    const pensaoAno = ant.reduce((s, a) => s + a.pensao, 0) + pensao;
+    const pensaoAno = ant.reduce((s, a) => s + a.pensao, 0) + Math.min(plr.anteriorPensao ?? 0, plr.anteriorValor ?? 0) + pensao;
     const irrfAnterior = ant.reduce((s, a) => s + a.irrf, 0) + (plr.anteriorIrrf ?? 0);
     const base = Math.max(0, valorAno - pensaoAno);
     const t = tabelaVigente(e.tabelas, 'irrf_plr', competencia);
@@ -137,7 +137,7 @@ export function plrDoMes(ficha: FichaFuncionario, movimentos: Record<string, Mov
         const v = (k: string) => r!.verbas.find(x => x.codigo === k)?.valor ?? 0;
         // A PLR paga fora do Consultor, informada neste mês, segue para os pagamentos seguintes do ano.
         const p = movimentos[c].plr!;
-        if (p.anteriorValor || p.anteriorIrrf) anteriores.push({ competencia: '', valor: p.anteriorValor ?? 0, pensao: 0, irrf: p.anteriorIrrf ?? 0 });
+        if (p.anteriorValor || p.anteriorIrrf) anteriores.push({ competencia: '', valor: p.anteriorValor ?? 0, pensao: Math.min(p.anteriorPensao ?? 0, p.anteriorValor ?? 0), irrf: p.anteriorIrrf ?? 0 });
         anteriores.push({ competencia: c, valor: v('PLR'), pensao: v('PENSAOPLR'), irrf: v('IRRFPLR') });
     }
     return r;

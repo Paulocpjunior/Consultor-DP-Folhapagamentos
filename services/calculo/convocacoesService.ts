@@ -17,7 +17,8 @@ export async function listarConvocacoes(empresaId: string): Promise<Convocacao[]
     return s.docs.map(d => {
         const x = d.data();
         return { id: d.id, empresaId: x.empresaId, fichaId: x.fichaId, enviadaEm: x.enviadaEm ?? '', resposta: x.resposta ?? 'pendente', respondidaEm: x.respondidaEm ?? '',
-            funcao: x.funcao ?? '', local: x.local ?? '', valorHora: x.valorHora ?? 0, dias: x.dias ?? [], obs: x.obs ?? '', atualizadoPor: x.atualizadoPor };
+            funcao: x.funcao ?? '', local: x.local ?? '', valorHora: x.valorHora ?? 0, dias: x.dias ?? [], obs: x.obs ?? '', atualizadoPor: x.atualizadoPor,
+            codigo: typeof x.codigo === 'number' ? x.codigo : undefined, dataPagamento: x.dataPagamento ?? '', jornada: x.jornada ?? '', eventos: x.eventos ?? [] };
     });
 }
 
@@ -25,9 +26,14 @@ export async function salvarConvocacao(c: Convocacao, u: Usuario): Promise<void>
     await setDoc(doc(db, COL, c.id), {
         empresaId: c.empresaId, fichaId: c.fichaId, enviadaEm: c.enviadaEm, resposta: c.resposta, respondidaEm: c.respondidaEm,
         funcao: c.funcao, local: c.local, valorHora: c.valorHora, dias: c.dias.map(x => ({ data: x.data, horas: x.horas })), obs: c.obs,
+        ...(c.codigo ? { codigo: c.codigo } : {}), dataPagamento: c.dataPagamento ?? '', jornada: c.jornada ?? '',
+        eventos: (c.eventos ?? []).map(ev => ({ descricao: ev.descricao, tipo: ev.tipo, valor: Math.round(ev.valor), inss: !!ev.inss, fgts: !!ev.fgts, irrf: !!ev.irrf })),
         atualizadoPor: u.id, atualizadoPorEmail: u.email, atualizadoEm: serverTimestamp(),
     });
 }
+
+/** Próximo código de convocação da empresa (sequencial, como o do SAGE). */
+export const proximoCodigoConvocacao = (cs: Pick<Convocacao, 'codigo'>[]) => cs.reduce((m, c) => Math.max(m, c.codigo ?? 0), 0) + 1;
 
 export async function excluirConvocacao(id: string): Promise<void> {
     await deleteDoc(doc(db, COL, id));

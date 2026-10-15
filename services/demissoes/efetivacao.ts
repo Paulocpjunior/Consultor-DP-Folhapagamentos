@@ -50,6 +50,9 @@ export interface SeguroDesemprego {
  * 1ª: 4 (12 a 23 meses) ou 5 (24+); 2ª: 3 (9 a 11), 4 (12 a 23) ou 5; 3ª+: 3 (6 a 11), 4 (12 a 23) ou 5.
  * Só este vínculo é contado: outros empregos no período somam, e quem decide é o MTE.
  */
+/** Motivos com direito ao seguro-desemprego (dispensa sem justa causa, inclusive a indireta, e os equiparados). */
+export const MOTIVOS_SEGURO: readonly string[] = ['02', '03', '17', '47', '48', '26'];
+
 export function seguroDesemprego(ficha: FichaFuncionario, r: Pick<ResultadoRescisao, 'tipo' | 'data'>, solicitacao: Solicitacao = 1): SeguroDesemprego {
     const obs: string[] = [];
     const meses = mesesTrabalhados(ficha.dados.admissao ?? '', r.data);
@@ -58,7 +61,7 @@ export function seguroDesemprego(ficha: FichaFuncionario, r: Pick<ResultadoResci
     const base = { meses, exigidos, mediaSalarios: media, observacoes: obs };
     // Lei 7.998/1990, art. 3º: dispensa sem justa causa, inclusive a indireta; o fim da atividade e o falecimento do
     // empregador individual são dispensa pelo empregador.
-    if (!['02', '03', '17', '47', '48', '26'].includes(r.tipo)) {
+    if (!MOTIVOS_SEGURO.includes(r.tipo)) {
         const porque = r.tipo === '33' ? 'acordo (art. 484-A, § 4º): não dá direito ao seguro-desemprego' : `${(TIPOS_RESCISAO as Record<string, string>)[r.tipo] ?? 'este motivo'} não dá direito ao seguro-desemprego`;
         return { ...base, cabe: false, motivo: porque, parcelas: 0 };
     }
@@ -98,7 +101,7 @@ export function passosDaEfetivacao(r: Pick<ResultadoRescisao, 'tipo' | 'data' | 
         { id: 's1210', titulo: 'S-1210 do pagamento transmitido', prazo: '', manual: false, aplica: true, detalhe: 'No mês do pagamento, antes do fechamento (S-1299).' },
         { id: 'fgts', titulo: 'Guia rescisória do FGTS paga (FGTS Digital)', prazo: prazo10, manual: true, aplica: true,
             detalhe: `FGTS do mês, 13º, aviso indenizado${saque && tipo !== '06' ? ' e a multa' : ''}: o FGTS Digital gera a guia a partir do S-2299. ${saque ? `O trabalhador ${tipo === '33' ? 'saca 80% do saldo' : 'saca o saldo'} pelo app FGTS.` : 'Sem saque neste motivo.'}` },
-        { id: 'seguro', titulo: 'Requerimento do seguro-desemprego (Empregador Web)', prazo: prazo10, manual: true, aplica: tipo === '02' || tipo === '03',
+        { id: 'seguro', titulo: 'Requerimento do seguro-desemprego (Empregador Web)', prazo: prazo10, manual: true, aplica: MOTIVOS_SEGURO.includes(tipo),
             detalhe: 'Feito no Empregador Web com certificado ICP-Brasil. Entregue ao trabalhador o número do requerimento e as orientações.' },
         { id: 'documentos', titulo: 'TRCT e documentos assinados e entregues', prazo: r.pagarAte ? diaUtilAnterior(r.pagarAte) : '', manual: true, aplica: true,
             detalhe: `TRCT, comprovante de pagamento${tipo === '33' ? ', termo do acordo (art. 484-A)' : tipo === '07' ? ', pedido de demissão' : ', aviso prévio'} e as orientações ao trabalhador.` },

@@ -749,6 +749,9 @@ service cloud.firestore {
                     && request.resource.data.resposta in ['pendente', 'aceita', 'recusada']
                     && request.resource.data.dias is list
                     && request.resource.data.valorHora is number
+                    && (!('dataPagamento' in request.resource.data) || request.resource.data.dataPagamento == '' || request.resource.data.dataPagamento.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'))
+                    && (!('eventos' in request.resource.data) || (request.resource.data.eventos is list && request.resource.data.eventos.size() <= 50))
+                    && (!('codigo' in request.resource.data) || request.resource.data.codigo is int)
                     && request.resource.data.atualizadoPor == request.auth.uid;
       allow delete: if podeEmpresa(resource.data.empresaId);
     }

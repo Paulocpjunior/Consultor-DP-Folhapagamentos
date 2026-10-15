@@ -48,6 +48,11 @@ describe('PLR', () => {
         // Já paga no ano fora do Consultor (8.000,00 com 26,94 retidos): o mesmo resultado.
         const fora = plrDoMes(FICHA, { '2026-10': { plr: { valor: 1000000, data: '2026-10-20', anteriorValor: 800000, anteriorIrrf: 2694 } } }, '2026-10', [PLR])!;
         expect(v(fora, 'IRRFPLR')).toBe(179928);
+        // A pensão descontada da PLR paga fora também deduz da base do ano.
+        const foraPensao = plrDoMes(FICHA, { '2026-10': { plr: { valor: 1000000, data: '2026-10-20', anteriorValor: 800000, anteriorIrrf: 2694, anteriorPensao: 100000 } } }, '2026-10', [PLR])!;
+        expect(foraPensao.plrAno.pensao).toBe(100000);
+        expect(v(foraPensao, 'IRRFPLR')).toBeLessThan(179928);
+        expect(validarMovimento({ plr: { valor: 100, data: '2026-10-20', anteriorValor: 50, anteriorPensao: 60 } })).toEqual(['PLR: a pensão sobre a PLR já paga não pode passar do valor já pago.']);
         expect(plrDoMes(FICHA, movs, '2026-09', [PLR])).toBeNull();
     });
 
@@ -76,5 +81,20 @@ describe('PLR', () => {
         const de10 = pagamentos1210(t).find(p => p.perApur === '2026-10')!;
         expect(de10.s1210!.xml).toContain('<dtPgto>2026-10-20</dtPgto><tpPgto>1</tpPgto><perRef>2026-10</perRef><ideDmDev>PLR20261020-M1</ideDmDev><vrLiq>9817.23</vrLiq>');
         expect(await validarPeloXsd(t.s1200!.xml, lerXsd)).toEqual({ valido: true, erros: [] });
+    });
+
+    it('eSocial: a pensão descontada da PLR vai no S-1210 (penAlim, tpRend 14); XSD', async () => {
+        const ficha: FichaFuncionario = { ...FICHA, dados: { ...FICHA.dados, dataDesligamento: '' },
+            dependentes: [{ cpf: '11144477735', nome: 'FILHA', nascimento: '2015-01-01', tipo: '03', irrf: 'N', salarioFamilia: 'N', pensao: 'S', pensaoPct: '100' }] } as unknown as FichaFuncionario;
+        const r = plrDoMes(ficha, { '2026-10': { plr: { valor: 1000000, pensao: 300000, data: '2026-10-20' } } }, '2026-10', [PLR])!;
+        const RUB: [string, string, string, '1' | '2', string, string, string][] = [['PLR', 'PARTICIPACAO NOS LUCROS', '1099', '1', '00', '14', '00'], ['PENPLR', 'PENSAO S/ PLR', '9213', '2', '00', '00', '00']];
+        const rubricas: Rubrica[] = RUB.map(([k, dsc, nat, tp, cp, ir, fg]) => ({ id: k, empresaId: 'E1', codRubr: k, ideTabRubr: 'T1', eventoIob: '', origem: '',
+            vigencias: [{ iniValid: '2020-01', fimValid: '', recibo: '', dados: { dscRubr: dsc, natRubr: nat, tpRubr: tp, codIncCP: cp, codIncIRRF: ir, codIncFGTS: fg, codIncCPRP: '', observacao: '' } }] }));
+        const params: ParametrosEsocialFolha = { nrInscEstab: CNPJ, codLotacao: 'LOT01', rubricas: { PLR: { codRubr: 'PLR', ideTabRubr: 'T1' }, PENSAOPLR: { codRubr: 'PENPLR', ideTabRubr: 'T1' } } };
+        const t = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-10', dataPagamento: '2026-11-05', fichas: [ficha], resultados: [], plr: [r], rubricas, parametros: params, agora: new Date('2026-10-15T12:00:00Z') }).trabalhadores[0];
+        expect(t.erros).toEqual([]);
+        const de10 = pagamentos1210(t).find(p => p.perApur === '2026-10')!;
+        expect(de10.s1210!.xml).toContain('<penAlim><tpRend>14</tpRend><cpfDep>11144477735</cpfDep><vlrDedPenAlim>3000.00</vlrDedPenAlim></penAlim>');
+        expect(await validarPeloXsd(de10.s1210!.xml, lerXsd)).toEqual({ valido: true, erros: [] });
     });
 });

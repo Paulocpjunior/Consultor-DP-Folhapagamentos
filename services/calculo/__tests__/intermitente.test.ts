@@ -102,3 +102,48 @@ describe('salário-família do intermitente', () => {
     });
 });
 });
+
+describe('recibo por convocação (data de pagamento própria, como o SAGE)', () => {
+    const c1 = conv({ id: 'c1', codigo: 1, dias: diasDoPeriodo('2026-03-02', '2026-03-07', [1, 2, 3, 4, 5, 6], 8), dataPagamento: '2026-03-09' });
+    const c2 = conv({ id: 'c2', codigo: 2, dias: [{ data: '2026-03-16', horas: 8 }, { data: '2026-03-17', horas: 8 }], dataPagamento: '2026-03-18',
+        eventos: [{ descricao: 'Ajuda de custo', tipo: 'provento', valor: 5000, inss: false, fgts: false, irrf: false }] });
+    const calc = (cs: Convocacao[]) => calcularMensal({ competencia: '2026-03', pagamento: '2026-04', afastamentos: [], tabelas: TABELAS, ficha: ficha(), convocacoes: cs });
+    it('um recibo por data, INSS sobre o acumulado da competência e a folha do mês = soma dos recibos', () => {
+        const r = calc([c2, c1]);
+        expect(r.situacao).toBe('calculado');
+        expect(r.recibosIntermitente!.map(x => [x.dataPagamento, x.convocacoes])).toEqual([['2026-03-09', ['c1']], ['2026-03-18', ['c2']]]);
+        const [a, b] = r.recibosIntermitente!.map(x => x.resultado);
+        // Sem datas, um recibo só: o INSS do mês é o mesmo (acumulado), dividido entre os recibos.
+        const junto = calc([{ ...c1, dataPagamento: '' }, { ...c2, dataPagamento: '' }]);
+        expect(junto.recibosIntermitente).toBeUndefined();
+        expect(valor(a, 'INSS') + valor(b, 'INSS')).toBe(valor(junto, 'INSS'));
+        expect(valor(a, 'INSS13') + valor(b, 'INSS13')).toBe(valor(junto, 'INSS13'));
+        expect(valor(r, 'INTERM')).toBe(valor(junto, 'INTERM'));
+        expect(r.totais.liquido).toBe(a.totais.liquido + b.totais.liquido);
+        expect(b.memoria.join(' ')).toMatch(/já descontado/);
+        // O evento digitado na convocação vai no recibo dela.
+        expect(b.verbas.find(v => v.descricao === 'Ajuda de custo')?.valor).toBe(5000);
+        expect(a.verbas.some(v => v.descricao === 'Ajuda de custo')).toBe(false);
+        // Bases da convocação e as acumuladas.
+        expect(b.basesIntermitente!.acumulado.inss.base).toBe(a.basesIntermitente!.recibo.inss.base + b.basesIntermitente!.recibo.inss.base);
+        expect(b.basesIntermitente!.acumulado.inss.valor).toBe(valor(a, 'INSS') + valor(b, 'INSS'));
+        expect(r.diasIntermitente!.map(x => x.dia)).toEqual([2, 3, 4, 5, 6, 7, 16, 17]);
+    });
+    it('valida a data do pagamento e os eventos da convocação', () => {
+        const v = (c: Partial<Convocacao>) => validarConvocacao(conv({ dias: [{ data: '2026-03-10', horas: 8 }], ...c }), ficha(), { valorHoraFicha: 1500 });
+        expect(v({ dataPagamento: '2026-03-09' }).erros.join()).toMatch(/antes do fim da convocação/);
+        expect(v({ dataPagamento: '2026-04-30' }).avisos.join()).toMatch(/5º dia útil/);
+        expect(v({ dataPagamento: '2026-03-11' })).toEqual({ erros: [], avisos: [] });
+        expect(v({ eventos: [{ descricao: '', tipo: 'provento', valor: 0, inss: true, fgts: true, irrf: true }] }).erros.join()).toMatch(/sem descrição.*sem valor/);
+    });
+});
+
+describe('convocação que atravessa o mês', () => {
+    it('os eventos da convocação são pagos uma vez, no mês do último dia dela', () => {
+        const c = conv({ id: 'cx', dias: [{ data: '2026-03-30', horas: 8 }, { data: '2026-04-01', horas: 8 }],
+            eventos: [{ descricao: 'Ajuda de custo', tipo: 'provento', valor: 50000, inss: false, fgts: false, irrf: false }] });
+        const mes = (competencia: string) => calcularMensal({ competencia, pagamento: competencia, afastamentos: [], tabelas: TABELAS, ficha: ficha(), convocacoes: [c] });
+        const ajuda = (r: ReturnType<typeof calcularMensal>) => r.verbas.filter(v => v.descricao === 'Ajuda de custo').reduce((t, v) => t + v.valor, 0);
+        expect([ajuda(mes('2026-03')), ajuda(mes('2026-04'))]).toEqual([0, 50000]);
+    });
+});

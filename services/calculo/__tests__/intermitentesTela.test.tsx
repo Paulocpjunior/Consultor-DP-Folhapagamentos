@@ -19,7 +19,10 @@ vi.mock('../convocacoesService', () => ({
     salvarConvocacao: async (c: unknown) => { srv.gravadas.push(c); },
     excluirConvocacao: async () => undefined,
     novoIdConvocacao: (f: string) => `${f}_k1`,
+    proximoCodigoConvocacao: (cs: { codigo?: number }[]) => cs.reduce((m, c) => Math.max(m, c.codigo ?? 0), 0) + 1,
 }));
+vi.mock('../movimentosService', () => ({ listarMovimentos: async () => [] }));
+vi.mock('../../empresas/empresasService', () => ({ listarEmpresasVisiveis: async () => [] }));
 import IntermitentesPanel from '../../../components/calculo/IntermitentesPanel';
 import { EmpresaAtivaProvider } from '../../empresaAtiva/empresaAtivaContext';
 
@@ -42,8 +45,18 @@ describe('trabalho intermitente (tela)', () => {
         expect(screen.getByText(/40 h × R\$ 15,00/)).toBeTruthy();
         fireEvent.change(screen.getByLabelText('Resposta'), { target: { value: 'aceita' } });
         fireEvent.change(screen.getByLabelText('Respondida em'), { target: { value: '2026-10-02' } });
+        fireEvent.change(screen.getByLabelText('Data do pagamento'), { target: { value: '2026-10-10' } });
+        fireEvent.change(screen.getByLabelText('Jornada'), { target: { value: '08:00 às 17:00' } });
+        fireEvent.click(screen.getByText('+ Evento'));
+        fireEvent.change(screen.getByLabelText('Descrição do evento 1'), { target: { value: 'Ajuda de custo' } });
+        fireEvent.blur(screen.getByLabelText('Valor do evento 1'), { target: { value: '50,00' } });
         fireEvent.click(screen.getByText('Gravar a convocação'));
         await screen.findByText('Convocação gravada.');
+        expect(srv.gravadas[0]).toMatchObject({ codigo: 1, dataPagamento: '2026-10-10', jornada: '08:00 às 17:00', eventos: [{ descricao: 'Ajuda de custo', tipo: 'provento', valor: 5000 }] });
+        // Listagem de convocação (como a do SAGE).
+        fireEvent.click(screen.getByText('Listagem de convocação'));
+        expect(await screen.findByText('05/10/2026 a 09/10/2026')).toBeTruthy();
+        expect(screen.getByText('10/10/2026')).toBeTruthy();
         expect(srv.gravadas[0]).toMatchObject({ id: 'E1_52998224725_M1_k1', fichaId: 'E1_52998224725_M1', resposta: 'aceita', funcao: 'Garçom', dias: [{ data: '2026-10-05', horas: 8 }, { data: '2026-10-06', horas: 8 }, { data: '2026-10-07', horas: 8 }, { data: '2026-10-08', horas: 8 }, { data: '2026-10-09', horas: 8 }] });
     });
     it('não grava sem dias e com resposta sem data', async () => {

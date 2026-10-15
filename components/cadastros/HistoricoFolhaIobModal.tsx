@@ -17,7 +17,7 @@ import { listarMovimentosDaEmpresa, salvarMovimentos } from '../../services/calc
 import { ROTULO_MOVIMENTO } from '../../services/calculo/movimento';
 import { lerParametros } from '../../services/iobSage/restaurarEmpresaService';
 import {
-    CAMPOS_HISTORICO, TABELAS_HISTORICO, mesclarMovimentos, movimentosDoHolerith, naturezasDosEventos,
+    CAMPOS_HISTORICO, ROTULO_CLASSE, TABELAS_HISTORICO, mesclarMovimentos, movimentosDoHolerith, naturezasDosEventos,
     type EventoResumo, type MesclaMovimento,
 } from '../../services/calculo/movimentosDoBackup';
 
@@ -116,7 +116,7 @@ const HistoricoFolhaIobModal: React.FC<Props> = ({ empresa, usuario, fichas, onF
                                 <tbody>{previa.eventos.map(e => (
                                     <tr key={`${e.codeven}|${e.natRubr}`} className="border-t border-slate-100 dark:border-slate-700">
                                         <td className="p-1 font-mono">{e.codeven}</td><td className="p-1">{e.descricao}</td><td className="p-1">{e.natRubr || 'pela descrição'}</td>
-                                        <td className="p-1">{e.classe ? ROTULO_MOVIMENTO[e.classe] : ''}{e.manual ? ' (acertado)' : ''}</td><td className="p-1 text-right">{e.linhas}</td><td className="p-1 text-right">{num(e.total)}</td>
+                                        <td className="p-1">{e.classe ? ROTULO_CLASSE[e.classe] : ''}{e.manual ? ' (acertado)' : ''}</td><td className="p-1 text-right">{e.linhas}</td><td className="p-1 text-right">{num(e.total)}</td>
                                     </tr>
                                 ))}</tbody>
                             </table>
@@ -130,18 +130,18 @@ const HistoricoFolhaIobModal: React.FC<Props> = ({ empresa, usuario, fichas, onF
                         {preservados.length > 0 && (
                             <details className="rounded-sm border border-amber-300 p-2 text-xs dark:border-amber-700 dark:text-amber-100">
                                 <summary className="cursor-pointer font-medium">{preservados.length} mês(es) já lançado(s) com outro valor: mantido o lançado</summary>
-                                <ul className="mt-1">{preservados.map(i => <li key={`${i.fichaId}_${i.competencia}`}>{nome.get(i.fichaId)} · {comp(i.competencia)} · {i.preservados.map(k => ROTULO_MOVIMENTO[k]).join(', ')}</li>)}</ul>
+                                <ul className="mt-1">{preservados.map(i => <li key={`${i.fichaId}_${i.competencia}`}>{nome.get(i.fichaId)} · {comp(i.competencia)} · {i.preservados.map(k => ROTULO_CLASSE[k]).join(', ')}</li>)}</ul>
                             </details>
                         )}
                         <div className="max-h-72 overflow-auto rounded-sm border border-slate-200 dark:border-slate-700">
                             <table className="w-full text-sm">
                                 <thead className="sticky top-0 bg-slate-50 text-left text-xs text-slate-500 dark:bg-slate-900">
-                                    <tr><th className="p-2">Funcionário</th><th className="p-2">Mês</th>{CAMPOS_HISTORICO.map(k => <th key={k} className="p-2 text-right">{ROTULO_MOVIMENTO[k]}</th>)}</tr>
+                                    <tr><th className="p-2">Funcionário</th><th className="p-2">Mês</th>{CAMPOS_HISTORICO.map(k => <th key={k} className="p-2 text-right">{ROTULO_MOVIMENTO[k]}</th>)}<th className="p-2 text-right">Fazem média (R$)</th></tr>
                                 </thead>
                                 <tbody>{gravar.map(i => (
                                     <tr key={`${i.fichaId}_${i.competencia}`} className="border-t border-slate-100 dark:border-slate-700 dark:text-slate-100">
                                         <td className="p-2">{nome.get(i.fichaId)}</td><td className="p-2">{comp(i.competencia)}</td>
-                                        {CAMPOS_HISTORICO.map(k => <td key={k} className="p-2 text-right">{i.depois[k] ? num(i.depois[k]!) : ''}</td>)}
+                                        {CAMPOS_HISTORICO.map(k => <td key={k} className="p-2 text-right">{i.depois[k] ? num(i.depois[k]!) : ''}</td>)}<td className="p-2 text-right">{(() => { const v = (i.depois.lancamentos ?? []).filter(l => l.media).reduce((t, l) => t + l.valor, 0); return v ? num(v / 100) : ''; })()}</td>
                                     </tr>
                                 ))}</tbody>
                             </table>

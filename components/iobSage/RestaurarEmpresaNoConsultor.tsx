@@ -12,8 +12,7 @@ import type { Restauracao } from '../../services/iobSage/restauracao';
 import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
 import { mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
 import { empresasDoBackup, planejarRestauracao, type Existentes, type ParametrosRestauracao, type PlanoRestauracao } from '../../services/iobSage/restaurarEmpresa';
-import { CAMPOS_HISTORICO, type ClasseManual, type EventoResumo } from '../../services/calculo/movimentosDoBackup';
-import { ROTULO_MOVIMENTO } from '../../services/calculo/movimento';
+import { CLASSES_HISTORICO, ROTULO_CLASSE, type ClasseManual, type EventoResumo } from '../../services/calculo/movimentosDoBackup';
 import { REGIMES, type RegimePatronal } from '../../services/cadastros/enquadramento';
 import { formatCnpj } from '../../services/brasilApiService';
 import { carregarExistentes, gravarRestauracao, lerParametros, salvarParametros } from '../../services/iobSage/restaurarEmpresaService';
@@ -171,8 +170,8 @@ const RestaurarEmpresaNoConsultor: React.FC<Props> = ({ restauracao, arquivos, u
                                     <td className="p-1 text-right">{e.linhas}</td><td className="p-1 text-right">{num(e.total)}</td>
                                     <td className="p-1">
                                         <select aria-label={`Classificação do evento ${e.codeven}`} className={inp} disabled={!!ocupado} value={param.eventos[e.codeven] ?? ''} onChange={ev => classificar(e.codeven, ev.target.value as ClasseManual | '')}>
-                                            <option value="">Automático: {e.automatica ? ROTULO_MOVIMENTO[e.automatica] : 'não entra'}</option>
-                                            {CAMPOS_HISTORICO.map(c => <option key={c} value={c}>{ROTULO_MOVIMENTO[c]}</option>)}
+                                            <option value="">Automático: {e.automatica ? ROTULO_CLASSE[e.automatica] : 'não entra'}</option>
+                                            {CLASSES_HISTORICO.map(c => <option key={c} value={c}>{ROTULO_CLASSE[c]}</option>)}
                                             <option value="ignorar">Não entra (ignorar)</option>
                                         </select>
                                     </td>

@@ -14,7 +14,8 @@ import {
     convocacaoVazia, diasDoPeriodo, ehIntermitente, fimDe, horasDe, inicioDe, periodosDeFerias, ROTULO_RESPOSTA, validarConvocacao, valorHoraDaFicha,
     type Convocacao, type RespostaConvocacao,
 } from '../../services/calculo/intermitente';
-import { excluirConvocacao, listarConvocacoes, novoIdConvocacao, salvarConvocacao } from '../../services/calculo/convocacoesService';
+import { excluirConvocacao, listarConvocacoes, novoIdConvocacao, proximoCodigoConvocacao, salvarConvocacao } from '../../services/calculo/convocacoesService';
+import IntermitenteRecibos, { type AbaRecibos } from './IntermitenteRecibos';
 
 const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const btn = 'rounded-sm border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-40 dark:border-slate-600';
@@ -46,6 +47,7 @@ const IntermitentesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
     const [erro, setErro] = useState('');
     const [msg, setMsg] = useState('');
     const [ocupado, setOcupado] = useState(false);
+    const [aba, setAba] = useState<'convocacoes' | AbaRecibos>('convocacoes');
 
     useEffect(() => {
         if (!ativa) return;
@@ -72,7 +74,7 @@ const IntermitentesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
     function nova() {
         if (!ficha) return;
         setErro(''); setMsg(''); setValorTxt('');
-        setC({ ...convocacaoVazia(ativa!.id, ficha.id, novoIdConvocacao(ficha.id)), enviadaEm: hoje() });
+        setC({ ...convocacaoVazia(ativa!.id, ficha.id, novoIdConvocacao(ficha.id)), enviadaEm: hoje(), codigo: proximoCodigoConvocacao(convs) });
     }
     function abrir(x: Convocacao) { setErro(''); setMsg(''); setC(x); setValorTxt(x.valorHora ? (x.valorHora / 100).toFixed(2).replace('.', ',') : ''); }
     async function gravar() {
@@ -80,7 +82,7 @@ const IntermitentesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
         if (v.erros.length) { setErro(v.erros.join(' ')); return; }
         setOcupado(true); setErro('');
         try {
-            await salvarConvocacao(c, usuario);
+            await salvarConvocacao(c.codigo ? c : { ...c, codigo: proximoCodigoConvocacao(convs) }, usuario);
             setConvs(await listarConvocacoes(ativa!.id));
             setMsg('Convocação gravada.');
         } catch (e) { setErro(mensagemErro(e)); } finally { setOcupado(false); }
@@ -111,6 +113,15 @@ const IntermitentesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
             {erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
             {msg && <p role="status" className="whitespace-pre-wrap rounded-sm bg-green-50 p-2 text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
 
+            <nav className="flex flex-wrap gap-1 border-b border-slate-200 dark:border-slate-700" aria-label="Trabalho intermitente">
+                {([['convocacoes', 'Convocações'], ['recibos', 'Recibos e holerites'], ['listagem', 'Listagem de convocação'], ['bancos', 'Valores para bancos']] as const).map(([k, t]) => (
+                    <button key={k} className={`px-3 py-1.5 text-sm ${aba === k ? 'border-b-2 border-blue-700 font-medium text-blue-800 dark:text-blue-300' : 'text-slate-600 dark:text-slate-300'}`} onClick={() => setAba(k)}>{t}</button>
+                ))}
+            </nav>
+            {aba !== 'convocacoes' && (
+                <IntermitenteRecibos aba={aba} empresaId={ativa.id} competenciaInicial={ativa.competencia} fichas={fichas} convocacoes={convs} afastamentos={afast} tabelas={tabelas} />
+            )}
+            {aba === 'convocacoes' && <>
             <div className="flex flex-wrap items-end gap-3">
                 <label>Empregado<select aria-label="Empregado intermitente" className={`block ${inp}`} value={fichaId} onChange={e => { setFichaId(e.target.value); setC(null); }}>
                     <option value="">{fichas.length ? 'Escolha…' : 'Nenhum intermitente (categoria 111) na empresa'}</option>
@@ -129,13 +140,13 @@ const IntermitentesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
 
             {ficha && !c && (
                 <table className="w-full text-left text-xs">
-                    <thead className="text-slate-500"><tr><th className="p-1">Período</th><th className="p-1">Dias</th><th className="p-1">Horas</th><th className="p-1">Função</th><th className="p-1">Enviada</th><th className="p-1">Resposta</th></tr></thead>
+                    <thead className="text-slate-500"><tr><th className="p-1">Cód.</th><th className="p-1">Período</th><th className="p-1">Dias</th><th className="p-1">Horas</th><th className="p-1">Função</th><th className="p-1">Enviada</th><th className="p-1">Resposta</th><th className="p-1">Pagamento</th></tr></thead>
                     <tbody>
-                        {!doEmpregado.length && <tr><td colSpan={6} className="p-1 text-slate-500">Nenhuma convocação.</td></tr>}
+                        {!doEmpregado.length && <tr><td colSpan={8} className="p-1 text-slate-500">Nenhuma convocação.</td></tr>}
                         {doEmpregado.map(x => (
                             <tr key={x.id} className="cursor-pointer border-t border-slate-100 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800" onClick={() => abrir(x)}>
-                                <td className="p-1">{br(inicioDe(x))} a {br(fimDe(x))}</td><td className="p-1">{x.dias.length}</td><td className="p-1">{horasDe(x).toLocaleString('pt-BR')}</td>
-                                <td className="p-1">{x.funcao || '—'}</td><td className="p-1">{br(x.enviadaEm)}</td><td className="p-1">{ROTULO_RESPOSTA[x.resposta]}</td>
+                                <td className="p-1">{x.codigo ?? '—'}</td><td className="p-1">{br(inicioDe(x))} a {br(fimDe(x))}</td><td className="p-1">{x.dias.length}</td><td className="p-1">{horasDe(x).toLocaleString('pt-BR')}</td>
+                                <td className="p-1">{x.funcao || '—'}</td><td className="p-1">{br(x.enviadaEm)}</td><td className="p-1">{ROTULO_RESPOSTA[x.resposta]}</td><td className="p-1">{x.dataPagamento ? br(x.dataPagamento) : 'com a folha'}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -145,6 +156,7 @@ const IntermitentesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
             {ficha && c && v && (
                 <section className="space-y-3 rounded-sm border border-slate-200 p-3 dark:border-slate-700">
                     <div className="flex flex-wrap items-end gap-3">
+                        <span className="self-center text-sm">Código <strong>{c.codigo ?? '—'}</strong></span>
                         <label>Enviada em<input aria-label="Enviada em" type="date" className={`block ${inp}`} value={c.enviadaEm} onChange={e => muda({ enviadaEm: e.target.value })} /></label>
                         <label>Função<input aria-label="Função" className={`block w-40 ${inp}`} value={c.funcao} onChange={e => muda({ funcao: e.target.value })} /></label>
                         <label>Local<input aria-label="Local" className={`block w-48 ${inp}`} value={c.local} onChange={e => muda({ local: e.target.value })} /></label>
@@ -177,6 +189,26 @@ const IntermitentesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
                     )}
                     <p className="text-xs text-slate-500">Depois do serviço, acerte aqui as horas efetivamente trabalhadas: é o que vai para a folha.</p>
                     <div className="flex flex-wrap items-end gap-3">
+                        <label title="Com data: recibo e demonstrativo do S-1200 próprios, pagos nessa data (ao fim da convocação). Vazio: paga com a folha do mês.">Data do pagamento<input aria-label="Data do pagamento" type="date" className={`block ${inp}`} value={c.dataPagamento ?? ''} onChange={e => muda({ dataPagamento: e.target.value })} /></label>
+                        <label className="grow">Jornada<input aria-label="Jornada" className={`block w-full ${inp}`} value={c.jornada ?? ''} placeholder="08:00 às 17:00, intervalo de 1 h" onChange={e => muda({ jornada: e.target.value })} /></label>
+                    </div>
+                    <div className="space-y-1">
+                        <p className="font-medium">Eventos da convocação <span className="text-xs font-normal text-slate-500">(Digitação de Eventos do SAGE: ajuda de custo, gratificação, desconto…; vão no recibo desta convocação)</span></p>
+                        {(c.eventos ?? []).map((ev, i) => {
+                            const mudaEv = (x: Partial<typeof ev>) => muda({ eventos: (c.eventos ?? []).map((y, j) => (j === i ? { ...y, ...x } : y)) });
+                            return (
+                                <div key={i} className="flex flex-wrap items-center gap-2 text-xs">
+                                    <input aria-label={`Descrição do evento ${i + 1}`} className={`w-56 ${inp}`} value={ev.descricao} placeholder="Descrição" onChange={e => mudaEv({ descricao: e.target.value })} />
+                                    <select aria-label={`Tipo do evento ${i + 1}`} className={inp} value={ev.tipo} onChange={e => mudaEv({ tipo: e.target.value as 'provento' | 'desconto' })}><option value="provento">Vencimento</option><option value="desconto">Desconto</option></select>
+                                    <input aria-label={`Valor do evento ${i + 1}`} inputMode="decimal" className={`w-24 text-right ${inp}`} defaultValue={ev.valor ? (ev.valor / 100).toFixed(2).replace('.', ',') : ''} onBlur={e => mudaEv({ valor: centavosDeTexto(e.target.value) ?? 0 })} />
+                                    {(['inss', 'fgts', 'irrf'] as const).map(k => <label key={k} className="flex items-center gap-0.5"><input type="checkbox" checked={!!ev[k]} onChange={e => mudaEv({ [k]: e.target.checked })} />{k.toUpperCase()}</label>)}
+                                    <button className="text-red-700" onClick={() => muda({ eventos: (c.eventos ?? []).filter((_, j) => j !== i) })}>Tirar</button>
+                                </div>
+                            );
+                        })}
+                        <button className={btn} onClick={() => muda({ eventos: [...(c.eventos ?? []), { descricao: '', tipo: 'provento', valor: 0, inss: true, fgts: true, irrf: true }] })}>+ Evento</button>
+                    </div>
+                    <div className="flex flex-wrap items-end gap-3">
                         <label>Resposta<select aria-label="Resposta" className={`block ${inp}`} value={c.resposta} onChange={e => muda({ resposta: e.target.value as RespostaConvocacao })}>
                             {Object.entries(ROTULO_RESPOSTA).map(([k, r]) => <option key={k} value={k}>{r}</option>)}
                         </select></label>
@@ -198,6 +230,7 @@ const IntermitentesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
                     </div>
                 </section>
             )}
+            </>}
         </div>
     );
 };

@@ -30,6 +30,12 @@ describe('convocacoes_intermitente', () => {
     await assertFails(setDoc(doc(fs('col'), 'convocacoes_intermitente/A_222_M1_k2'), conv('A_222_M1', 'outro')));
     await assertFails(setDoc(doc(fs('col'), 'convocacoes_intermitente/A_222_M1_k2'), conv('A_222_M1', 'col', { resposta: 'talvez' })));
     await assertFails(setDoc(doc(fs('col'), 'convocacoes_intermitente/A_222_M1_k2'), conv('A_222_M1', 'col', { dias: 'x' })));
+    // Data do pagamento (recibo próprio), código e eventos da convocação.
+    await assertSucceeds(setDoc(doc(fs('col'), 'convocacoes_intermitente/A_222_M1_k3'), conv('A_222_M1', 'col', { dataPagamento: '2026-03-06', codigo: 3, eventos: [{ descricao: 'Ajuda de custo', tipo: 'provento', valor: 5000 }] })));
+    await assertSucceeds(setDoc(doc(fs('col'), 'convocacoes_intermitente/A_222_M1_k3'), conv('A_222_M1', 'col', { dataPagamento: '' })));
+    await assertFails(setDoc(doc(fs('col'), 'convocacoes_intermitente/A_222_M1_k3'), conv('A_222_M1', 'col', { dataPagamento: '06/03/2026' })));
+    await assertFails(setDoc(doc(fs('col'), 'convocacoes_intermitente/A_222_M1_k3'), conv('A_222_M1', 'col', { eventos: 'x' })));
+    await assertFails(setDoc(doc(fs('col'), 'convocacoes_intermitente/A_222_M1_k3'), conv('A_222_M1', 'col', { codigo: '3' })));
     await assertSucceeds(getDocs(query(collection(fs('col'), 'convocacoes_intermitente'), where('empresaId', '==', 'A'))));
     await assertFails(getDocs(query(collection(fs('col2'), 'convocacoes_intermitente'), where('empresaId', '==', 'A'))));
     await assertSucceeds(deleteDoc(doc(fs('col'), 'convocacoes_intermitente/A_111_M1_k1')));

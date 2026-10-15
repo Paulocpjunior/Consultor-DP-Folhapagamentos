@@ -5740,3 +5740,18 @@ Pedido da colaboradora, pelo Paulo, com as telas do SAGE (Rescisão Contratual e
   - o fim do contrato pode ser informado na própria rescisão (tipos 03 e 04);
   - aviso "não cumprido" no contrato a termo avisa que não há aviso prévio a descontar (só com a cláusula do art. 481).
 - **Testes:** `plr.test.ts`, os novos casos de `complementar.test.ts` e `motorRescisao.test.ts`.
+
+## 15/10/2026 — Trabalho intermitente como o SAGE, médias do histórico e o seguro-desemprego na MIA
+
+- **Pedido do Paulo:**
+  - telas do SAGE do Trabalho Intermitente: Convocação, Digitação de Eventos, Recibos, Impressão de Holerite, Listagem de Convocação e Valores de Salários para Bancos;
+  - "Férias e férias coletivas: precisamos que calcule as médias; na SAGE clicamos em calcular e faz automático as médias do período aquisitivo";
+  - a MIA não achou exportação TXT para o Empregador Web.
+- **Intermitente:**
+  - a convocação ganhou código sequencial, data do pagamento, jornada e eventos digitados (regra do Firestore valida os novos campos);
+  - **recibo por data de pagamento** (`intermitente.ts`): cada data é um recibo, com INSS sobre o acumulado da competência e IRRF sobre o acumulado do mês do pagamento, menos o já descontado; sem data, o recibo vai com a folha. Sem nenhuma data, o cálculo é o mesmo de antes;
+  - **eSocial:** um demonstrativo por recibo no S-1200 (`INT{data}-{matrícula}`) e o pagamento no S-1210 da data (MOS, S-1200, item 3.3); as deduções do IRRF de cada mês vão no S-1210 dele. Validado pelo XSD;
+  - tela com abas: Recibos e holerites (PDF com as bases da convocação e as acumuladas), Listagem de convocação (PDF e Excel) e Valores para bancos (`recibosIntermitente.ts`).
+- **Médias:** o cálculo de férias já fazia a média do período aquisitivo, mas só com os movimentos do Consultor; do histórico do SAGE vinham só horas extras, faltas e DSR. Agora a restauração traz, pelo valor, os eventos que fazem média (adicional noturno, comissões e DSR sobre elas, gratificações, prêmios, produtividade, gorjetas, sobreaviso) como lançamento "Média" de cada mês; a equipe acerta evento a evento ("Faz média"). Férias coletivas usam o mesmo cálculo.
+- **Seguro-desemprego:** o Consultor não gera arquivo; a efetivação da rescisão tem os "Dados para o Empregador Web" para copiar e o atalho do site. A MIA agora sabe o caminho. A etapa do seguro passou a valer para todos os motivos com direito (02, 03, 17, 47, 48 e 26), não só 02 e 03.
+- **Testes:** `recibosIntermitente.test.ts`, os novos casos de `intermitente.test.ts`, `intermitenteEsocial.test.ts`, `intermitentesTela.test.tsx`, `movimentosDoBackup.test.ts` e a regra das convocações.

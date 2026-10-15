@@ -30,7 +30,7 @@ import { diaUtilAnterior, somarDias, somarMeses } from '../prazos/calendario';
 import { contarDiasDsr, diasNoMes, mesDaTabelaDsr, tabelaDsrDoAno, type Mes, type TabelaDsr } from '../cadastros/tabelaDsr';
 import { ehDomestico, indenizacaoCompensatoria } from '../domestico/domestico';
 import { descontosSindicais, type ContribuicaoConvencao } from '../sindicatos/contribuicoes';
-import { calcularIntermitente, type Convocacao } from './intermitente';
+import { calcularIntermitente, type BasesIntermitente, type Convocacao, type ReciboIntermitente } from './intermitente';
 
 export type TipoVerba = 'provento' | 'desconto';
 export interface Incidencias { inss: boolean; fgts: boolean; irrf: boolean }
@@ -120,7 +120,7 @@ export interface Movimento {
      * Processamento à parte da folha (IRRF exclusivo pela tabela anual da PLR, sem INSS e FGTS); `anterior*` é a PLR já paga
      * no ano fora do Consultor (o IRRF é refeito sobre o total do ano, menos o já retido).
      */
-    plr?: { valor: number; pensao?: number; data: string; anteriorValor?: number; anteriorIrrf?: number };
+    plr?: { valor: number; pensao?: number; data: string; anteriorValor?: number; anteriorIrrf?: number; /** Pensão descontada da PLR paga fora do Consultor no ano. */ anteriorPensao?: number };
     /**
      * Rateio entre obras (lotações tributárias) no mês: código da lotação → dias trabalhados nela. Sem o rateio, vale a
      * obra da ficha. Os proventos se dividem pelos dias no S-1200 e nos encargos por obra.
@@ -223,6 +223,10 @@ export interface ResultadoCalculo {
         ferias: { simplificado: boolean; dependentes: { cpf: string; nome: string }[]; porDependente: number };
         decimo: { simplificado: boolean; dependentes: { cpf: string; nome: string }[]; porDependente: number; pensao: number };
     };
+    /** Intermitente: bases e valores deste recibo e os acumulados do empregado no mês (Bases da Convocação do SAGE). */
+    basesIntermitente?: { recibo: BasesIntermitente; acumulado: BasesIntermitente };
+    /** Intermitente com convocações pagas em data própria: um recibo (e um demonstrativo no S-1200) por data de pagamento. */
+    recibosIntermitente?: ReciboIntermitente[];
 }
 
 /** FGTS: 8% (Lei 8.036/1990, art. 15); aprendiz 2% (§ 7º). */

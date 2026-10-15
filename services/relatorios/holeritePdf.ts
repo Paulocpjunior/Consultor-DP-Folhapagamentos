@@ -18,6 +18,8 @@ import { foraDoAdiantamento } from '../bancario/favorecidos';
 
 import { cabecalhoPadrao, finalizar, novoDocumento, textoPdf, type OpcoesPdf } from './layoutPdf';
 import { aniversarioNoHolerite } from './aniversarios';
+import type { ReciboDoMes } from '../calculo/recibosIntermitente';
+import { valorHoraDaFicha } from '../calculo/intermitente';
 export { textoPdf, type CabecalhoEmpresa, type OpcoesPdf } from './layoutPdf';
 
 const brl = (c: number) => (c / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -215,5 +217,69 @@ export function resumoPdf(resumo: ResumoFolha, o: OpcoesPdf, observacao: string)
     const y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
     doc.setFontSize(8);
     doc.text(doc.splitTextToSize(textoPdf(observacao), 182), 14, y);
+    return finalizar(doc, o);
+}
+
+/** Opções do Holerite do intermitente (Holerite Branco - Intermitente do SAGE). */
+export interface OpcoesReciboIntermitente { basesConvocacao: boolean; basesAcumuladas: boolean; dadosBancarios: boolean; funcao: boolean }
+
+/**
+ * Recibo da convocação do intermitente: um por página, com as convocações pagas nele (código, período, horas), as
+ * verbas, os totais e, como no SAGE, as bases da convocação (INSS, FGTS e IRRF do mês, das férias e do 13º) e as
+ * acumuladas do funcionário no mês.
+ */
+export function recibosIntermitentePdf(recibos: ReciboDoMes[], fichas: FichaFuncionario[], o: OpcoesPdf, op: OpcoesReciboIntermitente): jsPDF {
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    recibos.forEach((x, i) => {
+        if (i) doc.addPage();
+        const r = x.resultado;
+        const f = fichas.find(y => y.id === x.fichaId);
+        const d = f?.dados ?? {};
+        cabecalho(doc, o, `Pagamento: ${br(x.dataPagamento)}`);
+        dadosDoFuncionario(doc, r.nome, f);
+        doc.setFontSize(8.5);
+        const convs = x.convocacoes.map(c => `${c.codigo ? `nº ${c.codigo} · ` : ''}${br(c.dias.map(y => y.data).sort()[0])} a ${br(c.dias.map(y => y.data).sort().at(-1))}${op.funcao && c.funcao ? ` · ${c.funcao}` : ''}${c.jornada ? ` · jornada ${c.jornada}` : ''}`);
+        const extras = [
+            `Convocação: ${convs.join('; ') || '—'} · período trabalhado ${br(x.periodo[0])} a ${br(x.periodo[1])}`,
+            ...(op.dadosBancarios ? [`Banco ${d.banco || '—'} · agência ${d.agencia || '—'} · conta ${d.conta || (d.pix ? `PIX ${d.pix}` : '—')}`] : []),
+        ].flatMap(t => doc.splitTextToSize(textoPdf(t), 182) as string[]);
+        extras.forEach((t, j) => doc.text(t, 14, 51 + j * 4));
+        autoTable(doc, {
+            startY: 53 + extras.length * 4,
+            head: [['Cód.', 'Descrição', 'Referência', 'Vencimentos', 'Descontos']],
+            body: r.verbas.map(v => [v.codigo, textoPdf(v.descricao), textoPdf(v.referencia), v.tipo === 'provento' ? brl(v.valor) : '', v.tipo === 'desconto' ? brl(v.valor) : '']),
+            foot: [['', 'Totais', '', direita(brl(r.totais.proventos)), direita(brl(r.totais.descontos))], ['', 'Líquido a receber', '', '', direita(brl(r.totais.liquido))]],
+            styles: { fontSize: 8.5, cellPadding: 1.5 },
+            headStyles: { fillColor: [30, 64, 175] },
+            footStyles: { fillColor: [241, 245, 249], textColor: 20, fontStyle: 'bold' },
+            columnStyles: { 0: { cellWidth: 18 }, 2: { cellWidth: 26 }, 3: { halign: 'right', cellWidth: 30 }, 4: { halign: 'right', cellWidth: 30 } },
+            margin: { left: 14, right: 14 },
+        });
+        let y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+        const b = r.basesIntermitente;
+        const quadro = (titulo: string, x: NonNullable<typeof b>['recibo']) => {
+            autoTable(doc, {
+                startY: y,
+                head: [[textoPdf(titulo), 'Valor base', 'Valor', '', 'Valor base', 'Valor', '', 'Valor base', 'Valor']],
+                body: [
+                    ['INSS mensal', brl(x.inss.base), brl(x.inss.valor), 'FGTS mensal', brl(x.fgts.base), brl(x.fgts.valor), 'IRRF mensal', brl(x.irrf.base), brl(x.irrf.valor)],
+                    [textoPdf('INSS férias'), textoPdf('(no mensal)'), '', textoPdf('FGTS férias'), brl(x.fgtsFerias.base), brl(x.fgtsFerias.valor), textoPdf('IRRF férias'), brl(x.irrfFerias.base), brl(x.irrfFerias.valor)],
+                    ['INSS 13', brl(x.inss13.base), brl(x.inss13.valor), 'FGTS 13', brl(x.fgts13.base), brl(x.fgts13.valor), 'IRRF 13', brl(x.irrf13.base), brl(x.irrf13.valor)],
+                ],
+                styles: { fontSize: 7.5, cellPadding: 1 },
+                headStyles: { fillColor: [100, 116, 139] },
+                columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 7: { halign: 'right' }, 8: { halign: 'right' } },
+                margin: { left: 14, right: 14 },
+            });
+            y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 3;
+        };
+        if (b && op.basesConvocacao) quadro('Bases da convocação', b.recibo);
+        if (b && op.basesAcumuladas) quadro('Bases acumuladas no mês', b.acumulado);
+        if (y + 40 > doc.internal.pageSize.height - 10) { doc.addPage(); y = 20; }
+        doc.setFontSize(8.5);
+        doc.text(textoPdf(`Valor da hora na ficha ${brl(valorHoraDaFicha(d))} · as férias proporcionais com 1/3 e o 13º proporcional são pagos a cada convocação (CLT, art. 452-A, § 6º).`), 14, y + 2);
+        assinatura(doc, y, r.nome);
+    });
+    if (!recibos.length) { cabecalho(doc, o, ''); doc.text('Nenhum recibo de convocação no período.', 14, 40); }
     return finalizar(doc, o);
 }

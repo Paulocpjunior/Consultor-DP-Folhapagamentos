@@ -64,7 +64,7 @@ export function limparMovimento(m: Movimento): Movimento {
     if (plr && typeof plr.valor === 'number' && plr.valor > 0) {
         const c = (n: unknown) => (typeof n === 'number' && Number.isFinite(n) && n > 0 ? Math.round(n) : undefined);
         out.plr = { valor: Math.round(plr.valor), data: typeof plr.data === 'string' ? plr.data : '',
-            ...(c(plr.pensao) ? { pensao: c(plr.pensao) } : {}), ...(c(plr.anteriorValor) ? { anteriorValor: c(plr.anteriorValor) } : {}), ...(c(plr.anteriorIrrf) ? { anteriorIrrf: c(plr.anteriorIrrf) } : {}) };
+            ...(c(plr.pensao) ? { pensao: c(plr.pensao) } : {}), ...(c(plr.anteriorValor) ? { anteriorValor: c(plr.anteriorValor) } : {}), ...(c(plr.anteriorIrrf) ? { anteriorIrrf: c(plr.anteriorIrrf) } : {}), ...(c(plr.anteriorPensao) ? { anteriorPensao: c(plr.anteriorPensao) } : {}) };
     }
     // Rateio entre obras (lotações): dias em cada uma, códigos em ordem, sem os zerados.
     const rateio = Object.entries(m.rateioLotacao ?? {}).filter(([c, d]) => /^[A-Za-z0-9._-]{1,30}$/.test(c) && typeof d === 'number' && Number.isFinite(d) && d > 0)
@@ -97,6 +97,7 @@ export function validarMovimento(m: Movimento, diasNoMes = 31): string[] {
     if (m.plr) {
         if (!/^\d{4}-\d{2}-\d{2}$/.test(m.plr.data)) erros.push('PLR: informe a data do pagamento.');
         if ((m.plr.pensao ?? 0) > m.plr.valor) erros.push('PLR: a pensão sobre a PLR não pode passar do valor da PLR.');
+        if ((m.plr.anteriorPensao ?? 0) > (m.plr.anteriorValor ?? 0)) erros.push('PLR: a pensão sobre a PLR já paga não pode passar do valor já pago.');
     }
     const dias = Object.values(m.rateioLotacao ?? {});
     if (dias.some(d => d > diasNoMes)) erros.push(`Rateio por obra: no máximo ${diasNoMes} dias em cada obra.`);
