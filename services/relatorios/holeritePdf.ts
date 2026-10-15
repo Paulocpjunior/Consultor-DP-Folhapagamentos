@@ -75,13 +75,13 @@ function assinatura(doc: jsPDF, y: number, nome: string) {
 }
 
 /** Cabeçalho do funcionário (nome, CPF, matrícula, cargo e admissão), a partir de y = 34. */
-function dadosDoFuncionario(doc: jsPDF, nome: string, f: FichaFuncionario | undefined) {
+function dadosDoFuncionario(doc: jsPDF, nome: string, f: FichaFuncionario | undefined, departamento = false) {
     const d = f?.dados ?? {};
     doc.setFontSize(9);
     [
         `Funcionário: ${nome}`,
         `CPF ${cpfFmt(f?.cpf ?? '')} · matrícula ${f?.matriculaEsocial ?? ''}${d.codigoIob ? ` · código IOB ${d.codigoIob}` : ''}`,
-        `Cargo: ${d.cargo ?? ''}${d.cbo ? ` (CBO ${d.cbo})` : ''} · admissão ${br(d.admissao)}`,
+        `Cargo: ${d.cargo ?? ''}${d.cbo ? ` (CBO ${d.cbo})` : ''} · admissão ${br(d.admissao)}${departamento && (d.departamento || d.departamentoIob) ? ` · departamento ${d.departamento || d.departamentoIob}` : ''}`,
     ].forEach((t, j) => doc.text(textoPdf(t), 14, 34 + j * 5));
 }
 
@@ -92,8 +92,8 @@ export function holeritesPdf(resultados: ResultadoCalculo[], fichas: FichaFuncio
         if (i) doc.addPage();
         const f = fichas.find(x => x.id === r.fichaId);
         const d = f?.dados ?? {};
-        cabecalho(doc, o, `Pagamento: ${r.pagamento.split('-').reverse().join('/')}`);
-        dadosDoFuncionario(doc, r.nome, f);
+        cabecalho(doc, o, o.dataCredito ? `Crédito: ${br(o.dataCredito)}` : `Pagamento: ${r.pagamento.split('-').reverse().join('/')}`);
+        dadosDoFuncionario(doc, r.nome, f, o.departamento);
         autoTable(doc, {
             startY: 50,
             head: [['Cód.', 'Descrição', 'Referência', 'Vencimentos', 'Descontos']],

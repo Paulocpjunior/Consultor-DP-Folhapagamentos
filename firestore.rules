@@ -859,7 +859,7 @@ service cloud.firestore {
       return d.keys().hasOnly(['empresaId', 'fichaId', 'competencia', 'tipo', 'canais', 'atualizadoPor', 'atualizadoEm'])
         && d.empresaId is string && d.fichaId is string && d.fichaId.size() > 0 && d.fichaId.size() <= 200
         && d.competencia is string && d.competencia.matches('^[0-9]{4}-(0[1-9]|1[0-2])$')
-        && d.tipo in ['holerite', 'aniversario']
+        && d.tipo in ['holerite', 'aniversario', 'holerite-adiantamento', 'holerite-ferias', 'holerite-13-1a', 'holerite-13-2a', 'holerite-rescisao']
         && id == d.empresaId + '_' + d.competencia + '_' + d.tipo + '_' + d.fichaId
         && d.canais is map && d.canais.keys().hasOnly(['email', 'whatsapp'])
         && (!('email' in d.canais) || envioCanalValido(d.canais.email))

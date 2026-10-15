@@ -28,11 +28,17 @@ interface Props {
     mensagemAniversario?: string;
     /** Histórico dos envios da competência (holerite); sem ele, não grava nem filtra. */
     historico?: HistoricoDeEnvios;
+    /** Título do documento ("Holerite", "Recibo de férias"…), no assunto, no texto e no WhatsApp. */
+    titulo?: string;
+    /** Mensagem da tela (o campo Mensagem do SAGE), no fim do e-mail. */
+    mensagemExtra?: string;
+    /** Chave do tipo no envio pelo WhatsApp (referência única por documento): holerite, holerite-ferias… */
+    chave?: string;
 }
 
 const btn = 'rounded-lg px-3 py-1.5 text-white disabled:opacity-50';
 
-const HoleritePorEmail: React.FC<Props> = ({ empresa, competencia, folha, fichas, gerarPdf, mensagemAniversario, historico }) => {
+const HoleritePorEmail: React.FC<Props> = ({ empresa, competencia, folha, fichas, gerarPdf, mensagemAniversario, historico, titulo = 'Holerite', mensagemExtra = '', chave = 'holerite' }) => {
     const todosEmail = useMemo(() => destinatariosHolerite(folha, fichas), [folha, fichas]);
     const todosWhats = useMemo(() => destinatariosWhatsApp(folha, fichas), [folha, fichas]);
     const [hist, setHist] = useState<HistoricoEnvios | null>(null);
@@ -56,7 +62,7 @@ const HoleritePorEmail: React.FC<Props> = ({ empresa, competencia, folha, fichas
     const [erroWa, setErroWa] = useState('');
     const comp = `${competencia.slice(5, 7)}/${competencia.slice(0, 4)}`;
     const t = templates?.find(x => x.nome === template);
-    const faltando = t ? variaveisDoFuncionario(t, { nome: 'X', empresa: empresa.nome, titulo: 'Holerite', competencia }).faltando : [];
+    const faltando = t ? variaveisDoFuncionario(t, { nome: 'X', empresa: empresa.nome, titulo, competencia }).faltando : [];
 
     /** Grava o envio no histórico; se a gravação falhar, o envio vale e a tela avisa. */
     async function gravar(fichaId: string, canal: CanalEnvio, destino: string, erro?: string) {
@@ -73,16 +79,16 @@ const HoleritePorEmail: React.FC<Props> = ({ empresa, competencia, folha, fichas
     }
 
     async function enviar() {
-        if (!comEmail.length || !window.confirm(`Enviar ${comEmail.length} holerite(s) de ${comp}, cada um para o e-mail da ficha do funcionário?\n\nCada e-mail leva só o holerite da pessoa.`)) return;
+        if (!comEmail.length || !window.confirm(`Enviar ${comEmail.length} ${titulo.toLowerCase()}(s) de ${comp}, cada um para o e-mail da ficha do funcionário?\n\nCada e-mail leva só o documento da pessoa.`)) return;
         setResultado({});
         for (const [i, d] of comEmail.entries()) {
             setAndamento(`Enviando ${i + 1} de ${comEmail.length}: ${d.nome}…`);
             try {
                 const bytes = await gerarPdf(d.resultado);
                 await enviarEmailPeloEscritorio({
-                    empresaId: empresa.id, cnpj: empresa.cnpj, empresaNome: empresa.nome, titulo: 'Holerite', competencia,
-                    para: d.email, assunto: assuntoHolerite(competencia, empresa.nome),
-                    mensagem: mensagemHolerite(d.nome, competencia, empresa.nome, aniversarioNoHolerite(d.ficha, competencia, mensagemAniversario, empresa.nome)),
+                    empresaId: empresa.id, cnpj: empresa.cnpj, empresaNome: empresa.nome, titulo, competencia,
+                    para: d.email, assunto: assuntoHolerite(competencia, empresa.nome, titulo),
+                    mensagem: mensagemHolerite(d.nome, competencia, empresa.nome, aniversarioNoHolerite(d.ficha, competencia, mensagemAniversario, empresa.nome), titulo, mensagemExtra),
                     anexos: [{ nome: arquivoHolerite(d, competencia), bytes, mime: 'application/pdf' }],
                 });
                 setResultado(x => ({ ...x, [d.ficha.id]: `✓ e-mail para ${d.email}` }));
@@ -110,8 +116,8 @@ const HoleritePorEmail: React.FC<Props> = ({ empresa, competencia, folha, fichas
             setAndamento(`Enviando ${i + 1} de ${comWhatsApp.length}: ${d.nome}…`);
             try {
                 const bytes = await gerarPdf(d.resultado);
-                const { variaveis } = variaveisDoFuncionario(t, { nome: d.nome, empresa: empresa.nome, titulo: 'Holerite', competencia });
-                const r = await enviarPeloSpConnect({ para: d.numero, template: t.nome, variaveis, pdf: { nome: arquivoHolerite(d, competencia), bytes }, referencia: `holerite:${empresa.id}:${competencia}:${d.ficha.id}` });
+                const { variaveis } = variaveisDoFuncionario(t, { nome: d.nome, empresa: empresa.nome, titulo, competencia });
+                const r = await enviarPeloSpConnect({ para: d.numero, template: t.nome, variaveis, pdf: { nome: arquivoHolerite(d, competencia), bytes }, referencia: `${chave}:${empresa.id}:${competencia}:${d.ficha.id}` });
                 setResultado(x => ({ ...x, [d.ficha.id]: `✓ WhatsApp para ${r.numeroEnviado || d.numero}` }));
                 await gravar(d.ficha.id, 'whatsapp', d.numero);
             } catch (e) {

@@ -32,11 +32,11 @@ export function destinatariosHolerite(folha: ResultadoCalculo[], fichas: FichaFu
 const mesAno = (c: string) => `${c.slice(5, 7)}/${c.slice(0, 4)}`;
 /** Nome do arquivo: holerite-AAAA-MM-<matrícula ou CPF>.pdf, sem o nome da pessoa. */
 export const arquivoHolerite = (d: { ficha: FichaFuncionario }, competencia: string) => `holerite-${competencia}-${(d.ficha.matriculaEsocial || d.ficha.cpf).replace(/[^\w-]/g, '')}.pdf`;
-export const assuntoHolerite = (competencia: string, empresa: string) => `Holerite ${mesAno(competencia)} · ${empresa}`;
+export const assuntoHolerite = (competencia: string, empresa: string, titulo = 'Holerite') => `${titulo} ${mesAno(competencia)} · ${empresa}`;
 /** Texto do e-mail; no mês do aniversário, a mensagem de aniversário da empresa vem antes do holerite. */
-export function mensagemHolerite(nome: string, competencia: string, empresa: string, aniversario = ''): string {
+export function mensagemHolerite(nome: string, competencia: string, empresa: string, aniversario = '', titulo = 'holerite', extra = ''): string {
     const tratado = primeiroNome(nome);
-    return `${tratado ? `Olá, ${tratado}!` : 'Olá!'}\n\n${aniversario.trim() ? `${aniversario.trim()}\n\n` : ''}Segue em anexo o seu holerite de ${mesAno(competencia)} da ${empresa}.\n\nEste e-mail é pessoal: não o encaminhe. Dúvidas sobre os valores, fale com o RH da empresa.\n${ESCRITORIO.departamento} · ${ESCRITORIO.nome}`;
+    return `${tratado ? `Olá, ${tratado}!` : 'Olá!'}\n\n${aniversario.trim() ? `${aniversario.trim()}\n\n` : ''}Segue em anexo o seu ${titulo.charAt(0).toLowerCase()}${titulo.slice(1)} de ${mesAno(competencia)} da ${empresa}.${extra.trim() ? `\n\n${extra.trim().slice(0, 500)}` : ''}\n\nEste e-mail é pessoal: não o encaminhe. Dúvidas sobre os valores, fale com o RH da empresa.\n${ESCRITORIO.departamento} · ${ESCRITORIO.nome}`;
 }
 
 export interface DestinatarioWhatsApp { resultado: ResultadoCalculo; ficha: FichaFuncionario; numero: string; nome: string }
