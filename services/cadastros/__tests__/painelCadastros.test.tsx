@@ -9,7 +9,7 @@ import type { FichaFuncionario } from '../funcionarios';
 const svc = vi.hoisted(() => ({
     listarFuncionarios: vi.fn(), gravarImportacao: vi.fn(), salvarFuncionario: vi.fn(), excluirFuncionario: vi.fn(), historico: vi.fn(),
     listarSindicatos: vi.fn(), salvarSindicato: vi.fn(), excluirSindicato: vi.fn(),
-    listarTabelas: vi.fn(), salvarTabela: vi.fn(), gravarTabelaOficial: vi.fn(), excluirTabela: vi.fn(),
+    listarTabelas: vi.fn(), listarTabelasDsr: vi.fn(async () => []), salvarTabelaDsr: vi.fn(), excluirTabelaDsr: vi.fn(), salvarTabela: vi.fn(), gravarTabelaOficial: vi.fn(), excluirTabela: vi.fn(),
     listarHorarios: vi.fn(), salvarHorario: vi.fn(), excluirHorario: vi.fn(),
     listarAfastamentos: vi.fn(), salvarAfastamento: vi.fn(), gravarAfastamentosImportados: vi.fn(), excluirAfastamento: vi.fn(),
     listarRubricas: vi.fn(), gravarRubricasImportadas: vi.fn(), salvarVinculoRubrica: vi.fn(), excluirRubrica: vi.fn(),
@@ -34,6 +34,7 @@ beforeEach(() => {
     Object.values(svc).forEach(f => f.mockReset());
     svc.listarSindicatos.mockResolvedValue([]);
     svc.listarTabelas.mockResolvedValue([]);
+    svc.listarTabelasDsr.mockResolvedValue([]);
     svc.listarFuncionarios.mockResolvedValue([]);
     svc.gravarImportacao.mockResolvedValue(undefined);
     svc.salvarFuncionario.mockResolvedValue(undefined);

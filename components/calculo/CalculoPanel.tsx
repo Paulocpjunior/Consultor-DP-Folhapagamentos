@@ -17,13 +17,14 @@ import EmpresaAtivaFixa from '../empresaAtiva/EmpresaAtivaFixa';
 import FeriasColetivasModal from '../ferias/FeriasColetivasModal';
 import { conferirSalarioMinimo } from '../../services/conformidade/salarioMinimo';
 import { listarConvocacoes } from '../../services/calculo/convocacoesService';
+import type { TabelaDsr } from '../../services/cadastros/tabelaDsr';
 import { calcularFolhaMensal, criarArredondamento, criarFolhaPagaNoAdiantamento, type DadosFolhaEmpresa } from '../../services/calculo/folhaDaEmpresa';
 import { listarLotacoes } from '../../services/obras/lotacoesService';
 import { listarDepartamentos } from '../../services/departamentos/departamentosService';
 import { departamentoDa, type Departamento } from '../../services/departamentos/departamentos';
 import type { Lotacao } from '../../services/obras/lotacoes';
 import type { Convocacao } from '../../services/calculo/intermitente';
-import { listarAfastamentos, listarEnquadramentos, listarFuncionarios, listarRubricas, listarTabelas, mensagemErro, salvarAfastamento, type Usuario } from '../../services/cadastros/cadastrosService';
+import { listarAfastamentos, listarEnquadramentos, listarFuncionarios, listarRubricas, listarTabelas, listarTabelasDsr, mensagemErro, salvarAfastamento, type Usuario } from '../../services/cadastros/cadastrosService';
 import { incidenciasDaRubrica, type Rubrica } from '../../services/cadastros/rubricas';
 import { enquadramentoVigente, type Enquadramento } from '../../services/cadastros/enquadramento';
 import type { User } from '../../types';
@@ -108,6 +109,8 @@ const PagarAte: React.FC<{ data: string }> = ({ data }) => {
 
 interface Dados {
     fichas: FichaFuncionario[]; afastamentos: Afastamento[]; tabelas: TabelaLegal[];
+    /** Tabela para D.S.R. da empresa, por ano (Tabelas legais); sem ela, o DSR vai pelo calendário. */
+    tabelasDsr?: TabelaDsr[];
     /** Convocações do trabalho intermitente (categoria 111). */
     convocacoes?: Convocacao[];
 }
@@ -229,8 +232,9 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
         if (!empresaId) return;
         setErro('');
         // Convocações do intermitente: sem elas (erro de leitura), quem é da categoria 111 fica incompleto.
-        Promise.all([listarFuncionarios(empresaId), listarAfastamentos(empresaId), listarTabelas(), listarConvocacoes(empresaId).catch(() => undefined)])
-            .then(([fichas, afastamentos, tabelas, convocacoes]) => setDados({ fichas, afastamentos, tabelas, convocacoes }))
+        // Tabela de DSR: sem ela (ou sem leitura), o DSR das horas extras vai pelo calendário, como antes.
+        Promise.all([listarFuncionarios(empresaId), listarAfastamentos(empresaId), listarTabelas(), listarConvocacoes(empresaId).catch(() => undefined), listarTabelasDsr(empresaId).catch(() => undefined)])
+            .then(([fichas, afastamentos, tabelas, convocacoes, tabelasDsr]) => setDados({ fichas, afastamentos, tabelas, convocacoes, tabelasDsr }))
             .catch(e => { setErro(mensagemErro(e)); setDados({ fichas: [], afastamentos: [], tabelas: [] }); });
     }, [empresaId, recarga]);
     // Obras e lotações (Cadastros › Obras e lotações): rateio por obra no movimento e encargos por obra no resumo.
@@ -366,7 +370,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                     avisoConvencao: avisoDaConvencao(conv?.avisoPrevio, f, p.data), contribuicoesSindicais: conv?.contribuicoes,
                     afastamentos: dados.afastamentos.filter(a => a.fichaId === id), tabelas: dados.tabelas, movimentos,
                     // Paga no próprio mês: com a folha anterior paga nele (regime "mês seguinte"), o IRRF soma as duas.
-                    regimePagamento: m => mesDoPagamento(parametrosFolha, m), convocacoes: dados.convocacoes })] : [];
+                    regimePagamento: m => mesDoPagamento(parametrosFolha, m), convocacoes: dados.convocacoes, tabelasDsr: dados.tabelasDsr })] : [];
             });
         }
         if (ferias) {
@@ -376,7 +380,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
             const simulados = feriasSimuladas.filter(g => !gravados.has(g.id));
             return gozosNoMes([...dados.afastamentos, ...simulados], new Set(fichas.keys()), competencia).map(g => calcularFerias({
                 ficha: fichas.get(g.fichaId)!, gozo: g, afastamentos: dados.afastamentos.filter(a => a.fichaId === g.fichaId), tabelas: dados.tabelas,
-                movimentos: movsAno[g.fichaId] ?? {}, abonoDias: abonos[g.id], pensao: pensoesFerias[g.id], opcoes: opcoesFerias,
+                movimentos: movsAno[g.fichaId] ?? {}, abonoDias: abonos[g.id], pensao: pensoesFerias[g.id], opcoes: opcoesFerias, tabelasDsr: dados.tabelasDsr,
             }));
         }
         if (!mensal) {
@@ -384,7 +388,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
             const admitidosAte = folha === '13-1a' && /^\d{4}-\d{2}$/.test(pagamento) ? ultimoDiaDoMes(pagamento) : `${ano}-12-31`;
             return com13(dados.fichas, ano, admitidosAte).map(f => calcular13({
                 ano, parcela: folha === '13-1a' ? '1a' : '2a', pagamento, ficha: f, tabelas: dados.tabelas, opcoes: opcoes13,
-                afastamentos: dados.afastamentos.filter(a => a.fichaId === f.id), movimentos: movsAno[f.id] ?? {}, primeiraPaga: primeiras[f.id], parcelaUnica: parcelaUnica13,
+                afastamentos: dados.afastamentos.filter(a => a.fichaId === f.id), movimentos: movsAno[f.id] ?? {}, primeiraPaga: primeiras[f.id], parcelaUnica: parcelaUnica13, tabelasDsr: dados.tabelasDsr,
             }));
         }
         return baseFolha ? calcularFolhaMensal(baseFolha, competencia, pagamento, movs) : [];
@@ -500,7 +504,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
             const pag = movsEmpresa[f.id]?.[c]?.mesPagamento ?? movsEmpresa[f.id]?.[c]?.arredondamentoPagamento ?? mesDoPagamento(parametrosFolha, c);
             const r = calcularMensal({ competencia: c, pagamento: pag, ficha: f, tabelas: dados.tabelas, movimento: movsEmpresa[f.id]?.[c], afastamentos: afs,
                 feriasDoMes: feriasDaCompetencia(f, afs, dados.tabelas, movsEmpresa[f.id] ?? {}, c, opcoesFerias), folhaPagaNoAdiantamento: folhaPagaNoAdiantamento(f, c, pag), beneficios: parametrosFolha?.beneficios,
-                contribuicoesSindicais: convencaoDe(f, `${c}-01`)?.contribuicoes, convocacoes: dados.convocacoes });
+                contribuicoesSindicais: convencaoDe(f, `${c}-01`)?.contribuicoes, convocacoes: dados.convocacoes, tabelasDsr: dados.tabelasDsr });
             return arredondarDaEmpresa(r, f, c, movsEmpresa[f.id]?.[c]?.arredondamentoAnterior);
         });
     }, [dados, movsEmpresa, opcoesFerias, arredondarDaEmpresa, parametrosFolha, folhaPagaNoAdiantamento, convencaoDe]);
@@ -558,7 +562,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
     // 1ª parcela do 13º no S-1200 de novembro (paga no mês): calculada como na aba do 13º, com os movimentos gravados.
     const primeiras13Esocial = useMemo(() => (mensal && eventosFolha && dados && movsEmpresa && /^\d{4}-11$/.test(competencia)
         ? com13(dados.fichas, Number(competencia.slice(0, 4)), ultimoDiaDoMes(competencia)).map(f => calcular13({ ano: Number(competencia.slice(0, 4)), parcela: '1a', pagamento: competencia, ficha: f,
-            tabelas: dados.tabelas, opcoes: opcoes13, afastamentos: dados.afastamentos.filter(a => a.fichaId === f.id), movimentos: movsEmpresa[f.id] ?? {},
+            tabelas: dados.tabelas, opcoes: opcoes13, afastamentos: dados.afastamentos.filter(a => a.fichaId === f.id), movimentos: movsEmpresa[f.id] ?? {}, tabelasDsr: dados.tabelasDsr,
             parcelaUnica: (parametrosFolha?.parcelaUnica13 ?? []).includes(Number(competencia.slice(0, 4))) }))
         : undefined), [mensal, eventosFolha, dados, movsEmpresa, competencia, opcoes13, parametrosFolha]);
     const recibosFeriasEsocial = useMemo(() => (mensal && eventosFolha && dados && movsEmpresa && /^\d{4}-\d{2}$/.test(competencia)

@@ -11,7 +11,7 @@ const ficha = (id: string, nome: string, dados: Partial<FichaFuncionario['dados'
 const FICHAS = [ficha('M1', 'BRUNO'), ficha('M2', 'ANA'), ficha('M3', 'CAIO', { dataDesligamento: '2026-09-20' })];
 const srv = vi.hoisted(() => ({ gravadas: [] as unknown[], situacoes: [] as unknown[] }));
 vi.mock('../../empresas/empresasService', () => ({ listarEmpresasVisiveis: async () => [{ id: 'emp1', cnpj: '11222333000181', razaoSocial: 'EMPRESA UM LTDA', codigoSage: '1200' }], salvarContatoEnvio: vi.fn() }));
-vi.mock('../../cadastros/cadastrosService', () => ({ listarFuncionarios: async () => FICHAS, listarAfastamentos: async () => [], listarTabelas: async () => TABELAS_OFICIAIS_2026.map((t, i) => ({ ...t, id: `t${i}` })),
+vi.mock('../../cadastros/cadastrosService', () => ({ listarFuncionarios: async () => FICHAS, listarAfastamentos: async () => [], listarTabelas: async () => TABELAS_OFICIAIS_2026.map((t, i) => ({ ...t, id: `t${i}` })), listarTabelasDsr: async () => [],
     listarEnquadramentos: async () => [{ id: 'q', empresaId: 'emp1', vigencia: '2026-01', regime: 'normal', fpas: '515', codigoTerceiros: '0115', patronal: 20, rat: 2, fap: 1, terceiros: 5.8, observacao: '' }],
     listarSindicatos: async () => [], mensagemErro: (e: unknown) => String(e) }));
 vi.mock('../../calculo/movimentosService', () => ({ listarMovimentosDaEmpresa: async () => ({}) }));

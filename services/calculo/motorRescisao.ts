@@ -38,6 +38,7 @@
 import { fichaNaData, memoriaDoHistorico, type FichaFuncionario } from '../cadastros/funcionarios';
 import type { Afastamento } from '../cadastros/afastamentos';
 import { dataValida, reais } from '../cadastros/documentos';
+import type { TabelaDsr } from '../cadastros/tabelaDsr';
 import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros/tabelasLegais';
 import { aniversario, diasEntre, somarDias, somarMeses } from '../prazos/calendario';
 import { calcularMensal, competenciaAnterior, mediaDasVariaveis, percentualDaPensao, salarioContratual, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
@@ -162,6 +163,8 @@ export interface EntradaRescisao {
      * empregador pode abrir mão. Sem ela, nada é descontado.
      */
     indenizacao480?: boolean;
+    /** Tabela para D.S.R. da empresa (Tabelas legais): o DSR das horas extras na média. */
+    tabelasDsr?: TabelaDsr[];
 }
 
 export interface ResultadoRescisao extends ResultadoCalculo {
@@ -246,7 +249,7 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
         if (e.convocacoes === undefined) return erro('Intermitente: as convocações não foram carregadas. Abra a rescisão pela tela do cálculo.');
         const PARCELAS = ['FERINT', 'FERINT13', '13INT'];
         const porMes = ultimos12.filter(c => c >= d.admissao.slice(0, 7)).map(c => {
-            const m = calcularMensal({ competencia: c, pagamento: c, ficha, afastamentos: e.afastamentos, tabelas: e.tabelas, movimento: e.movimentos[c], convocacoes: e.convocacoes });
+            const m = calcularMensal({ competencia: c, pagamento: c, ficha, afastamentos: e.afastamentos, tabelas: e.tabelas, movimento: e.movimentos[c], convocacoes: e.convocacoes, tabelasDsr: e.tabelasDsr });
             return { c, valor: m.verbas.filter(v => v.tipo === 'provento' && v.inss && !PARCELAS.includes(v.codigo)).reduce((t, v) => t + v.valor, 0) };
         }).filter(x => x.valor > 0);
         remuneracao = porMes.length ? Math.round(porMes.reduce((t, x) => t + x.valor, 0) / porMes.length) : 0;
@@ -269,7 +272,7 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
         const salarioHora = (sc.mensal + adicional) / sc.horasMes;
         // Pelos meses de vínculo dentro dos 12 (admitido há menos de um ano: os meses trabalhados), como no 13º.
         const mesesMedia = Math.max(1, ultimos12.filter(c => c >= d.admissao.slice(0, 7)).length);
-        const mv = mediaDasVariaveis(salarioHora, e.movimentos, ultimos12, mesesMedia, `${mesesMedia}`);
+        const mv = mediaDasVariaveis(salarioHora, e.movimentos, ultimos12, mesesMedia, `${mesesMedia}`, e.tabelasDsr);
         const somaVar = mv.horasExtras + mv.outras;
         const media = mv.media;
         remuneracao = sc.mensal + adicional + media;
@@ -287,7 +290,7 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
         ? folhaPagaAntes(e.movimentos, comp, m => d.admissao.slice(0, 7) <= m, e.regimePagamento) : null;
     // O consignado sai uma vez só, no fim, sobre as verbas rescisórias (não no saldo de salário).
     const mes = calcularMensal({ competencia: comp, pagamento, ficha: { ...fichaDeslig, consignados: [] }, afastamentos: e.afastamentos, tabelas: e.tabelas, movimento: e.movimentos[comp], contribuicoesSindicais: e.contribuicoesSindicais,
-        feriasDoMes: feriasDaCompetencia(fichaDeslig, e.afastamentos, e.tabelas, e.movimentos, comp), folhaPagaAntesNoMes, convocacoes: e.convocacoes });
+        feriasDoMes: feriasDaCompetencia(fichaDeslig, e.afastamentos, e.tabelas, e.movimentos, comp), folhaPagaAntesNoMes, convocacoes: e.convocacoes, tabelasDsr: e.tabelasDsr });
     if (interm) r.diasIntermitente = mes.diasIntermitente ?? [];
     if (mes.situacao === 'erro') { r.erros.push(...mes.erros); r.situacao = 'erro'; }
     for (const v of mes.verbas) r.verbas.push(v.codigo === 'SAL' ? { ...v, descricao: 'Saldo de salário' } : v.codigo === 'INSS' ? { ...v, descricao: 'INSS sobre saldo de salário' } : v.codigo === 'IRRF' ? { ...v, descricao: 'IRRF sobre saldo de salário' } : v);

@@ -4,6 +4,7 @@
 //   cadastro_funcionarios/{empresaId_cpf_matrícula}
 //   cadastro_sindicatos/{cnpj}
 //   cadastro_tabelas_legais/{auto}  (oficiais: oficial_{tipo}_{vigência})
+//   cadastro_dsr/{empresaId_ano}  (Tabela para D.S.R. da empresa)
 //   cadastro_audit/{auto}   (só inclusão; ninguém altera nem apaga)
 // Toda gravação vai num lote junto com o registro de auditoria: ou grava os
 // dois, ou nenhum. As regras estão em firestore.rules.
@@ -16,6 +17,7 @@ import { diffFicha, type Alteracao, type FichaFuncionario, type ResultadoMescla 
 import { sindicatoVazio, type Sindicato } from './sindicatos';
 import { tabelaVazia, type TabelaLegal } from './tabelasLegais';
 import { horarioVazio, type Horario } from './horarios';
+import { MESES, idTabelaDsr, tabelaDsrPadrao, type TabelaDsr } from './tabelaDsr';
 import { afastamentoVazio, type Afastamento, type MesclaAfastamento } from './afastamentos';
 import { rubricaVazia, type MesclaRubrica, type Rubrica } from './rubricas';
 import { enquadramentoVazio, idEnquadramento, type Enquadramento } from './enquadramento';
@@ -30,6 +32,7 @@ const HOR = 'cadastro_horarios';
 const AFA = 'cadastro_afastamentos';
 const RUB = 'cadastro_rubricas';
 const ENQ = 'cadastro_enquadramentos';
+const DSR = 'cadastro_dsr';
 const AUDIT = 'cadastro_audit';
 
 export const COMANDO_REGRAS = 'firebase deploy --only firestore:rules --project consultor-dp-folha';
@@ -214,6 +217,39 @@ export async function excluirHorario(h: Horario, u: Usuario): Promise<void> {
     const lote = writeBatch(db);
     lote.delete(doc(db, HOR, h.id));
     auditar(lote, u, HOR, h.id, 'excluir', diffObjeto(soCampos(h, horarioVazio(h.empresaId)), {}), { empresaId: h.empresaId });
+    await lote.commit();
+}
+
+// ---------- Tabela para D.S.R. ----------
+
+/** Só os campos do modelo, com os 12 meses (lidos ou gravados). */
+function dsrDoDoc(id: string, x: Partial<TabelaDsr>, empresaId: string): TabelaDsr {
+    const base = tabelaDsrPadrao(empresaId, String(x.ano ?? ''));
+    return {
+        id, empresaId, ano: String(x.ano ?? ''), faltasPelosDiasDoMes: !!x.faltasPelosDiasDoMes, descontarDsrNaFalta: !!x.descontarDsrNaFalta, observacao: x.observacao ?? '',
+        meses: Object.fromEntries(MESES.map(m => [m, { uteis: Number(x.meses?.[m]?.uteis ?? base.meses[m].uteis), descanso: Number(x.meses?.[m]?.descanso ?? base.meses[m].descanso) }])) as TabelaDsr['meses'],
+    };
+}
+
+export async function listarTabelasDsr(empresaId: string): Promise<TabelaDsr[]> {
+    const snap = await getDocs(query(collection(db, DSR), where('empresaId', '==', empresaId)));
+    return snap.docs.map(d => dsrDoDoc(d.id, d.data() as Partial<TabelaDsr>, empresaId)).sort((a, b) => b.ano.localeCompare(a.ano));
+}
+
+export async function salvarTabelaDsr(antes: TabelaDsr | null, t: TabelaDsr, u: Usuario): Promise<void> {
+    const id = idTabelaDsr(t.empresaId, t.ano);
+    if (!antes && (await getDoc(doc(db, DSR, id))).exists()) throw new Error(`Já existe a Tabela de DSR de ${t.ano} nesta empresa: abra a do ano para alterar.`);
+    const { id: _id, ...dados } = dsrDoDoc(id, t, t.empresaId);
+    const lote = writeBatch(db);
+    lote.set(doc(db, DSR, id), { ...limpo(dados), atualizadoPor: u.id, atualizadoPorEmail: u.email, atualizadoEm: serverTimestamp() });
+    auditar(lote, u, DSR, id, antes ? 'editar' : 'criar', diffObjeto(antes && semId(dsrDoDoc(id, antes, t.empresaId)), dados), { empresaId: t.empresaId });
+    await lote.commit();
+}
+
+export async function excluirTabelaDsr(t: TabelaDsr, u: Usuario): Promise<void> {
+    const lote = writeBatch(db);
+    lote.delete(doc(db, DSR, t.id));
+    auditar(lote, u, DSR, t.id, 'excluir', diffObjeto(semId(t), {}), { empresaId: t.empresaId });
     await lote.commit();
 }
 

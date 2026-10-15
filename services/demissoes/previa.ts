@@ -71,6 +71,8 @@ export interface EntradaPrevia {
     sindicatosDaEmpresa?: string[];
     /** Intermitente: as convocações (média dos 12 meses e as do mês do desligamento). */
     convocacoes?: import('../calculo/intermitente').Convocacao[];
+    /** Tabela para D.S.R. da empresa, por ano (Tabelas legais). */
+    tabelasDsr?: import('../cadastros/tabelaDsr').TabelaDsr[];
 }
 
 const br = (d: string) => d.split('-').reverse().join('/');
@@ -147,7 +149,7 @@ export function calcularPrevia(e: EntradaPrevia): ResultadoCenario[] {
         const conv = e.convencoes ? convencaoDaFicha(e.convencoes, e.ficha, e.sindicatosDaEmpresa ?? [], c.data) : undefined;
         const r = calcularRescisao({ ficha: e.ficha, data: c.data, tipo: c.tipo, aviso: c.aviso, afastamentos: afs, tabelas: e.tabelas, movimentos: e.movimentos,
             saldoFgts: saldo || undefined, adiantamento13: e.adiantamento13, opcoes: e.opcoes, regimePagamento: e.regimePagamento,
-            avisoConvencao: avisoDaConvencao(conv?.avisoPrevio, e.ficha, c.data), contribuicoesSindicais: conv?.contribuicoes, convocacoes: e.convocacoes });
+            avisoConvencao: avisoDaConvencao(conv?.avisoPrevio, e.ficha, c.data), contribuicoesSindicais: conv?.contribuicoes, convocacoes: e.convocacoes, tabelasDsr: e.tabelasDsr });
         if (estimar) r.avisos = r.avisos.filter(x => !/saldo do FGTS/i.test(x));
         const patronal = e.enquadramento ? calcularPatronal(r.bases.inss, 0, e.enquadramento) : null;
         const db = indenizacaoDataBase(r, e.sindicato, salarioDoMes(e.ficha, c.data));

@@ -14,7 +14,7 @@ import { resumirFolha } from '../../relatorios/resumoFolha';
 const srv = vi.hoisted(() => ({ afast: {} as Record<string, unknown[]>, fichas: {} as Record<string, unknown[]>, encerradas: new Set<string>(), gravadas: [] as unknown[][], falha: new Set<string>() }));
 vi.mock('../../cadastros/cadastrosService', () => ({
     listarFuncionarios: async (id: string) => { if (srv.falha.has(id)) throw new Error('sem permissão'); return srv.fichas[id] ?? []; },
-    listarAfastamentos: async (id: string) => srv.afast[id] ?? [], listarEnquadramentos: async () => [], listarTabelas: async () => TAB,
+    listarAfastamentos: async (id: string) => srv.afast[id] ?? [], listarEnquadramentos: async () => [], listarTabelas: async () => TAB, listarTabelasDsr: async () => [],
     mensagemErro: (e: unknown) => (e as Error).message,
 }));
 vi.mock('../convocacoesService', () => ({ listarConvocacoes: async () => [] }));

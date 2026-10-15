@@ -27,7 +27,7 @@ vi.mock('../../cadastros/cadastrosService', () => ({
     listarAfastamentos: async () => cad.afastamentos,
     salvarAfastamento: (...a: unknown[]) => cad.salvar(...a),
     listarEnquadramentos: async () => { if (cad.erroEnq) throw new Error(cad.erroEnq); return cad.enquadramentos; },
-    listarTabelas: async () => [INSS, IR],
+    listarTabelas: async () => [INSS, IR], listarTabelasDsr: async () => [],
     listarRubricas: async () => [],
 }));
 
