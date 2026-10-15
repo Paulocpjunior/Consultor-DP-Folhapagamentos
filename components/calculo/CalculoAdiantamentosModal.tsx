@@ -10,7 +10,7 @@
 import React, { useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
-import { adiantamentoDoMes, type Movimento, type ResultadoCalculo } from '../../services/calculo/motorMensal';
+import { adiantamentoDoMes, eventosDoAdiantamento, type Movimento, type ResultadoCalculo } from '../../services/calculo/motorMensal';
 import { arredondamentoDoAdiantamento } from '../../services/calculo/arredondamento';
 import { foraDoAdiantamento, valorDoAdiantamento } from '../../services/bancario/favorecidos';
 import { reais } from '../../services/cadastros/documentos';
@@ -38,7 +38,7 @@ interface Props {
 
 export interface LinhaAdiantamento {
     fichaId: string; nome: string; matricula: string; percentual: string; informado: boolean;
-    adiantamento: number; irrf: number; irrfCpf: boolean; arredondamento: number; aPagar: number; situacao: string;
+    adiantamento: number; /** Eventos pagos com o adiantamento (proventos − descontos), com a descrição de cada um. */ eventos: number; descricaoEventos: string; irrf: number; irrfCpf: boolean; arredondamento: number; aPagar: number; situacao: string;
 }
 
 /** Linhas do adiantamento da competência: quem tem percentual na ficha ou valor no movimento. */
@@ -47,12 +47,12 @@ export function linhasDoAdiantamento(resultados: ResultadoCalculo[], fichas: Fic
     return resultados.flatMap(r => {
         const f = porId.get(r.fichaId);
         const pct = (f?.dados.adiantamentoPct ?? '').trim();
-        if (!(Number(pct.replace(',', '.')) > 0) && movs[r.fichaId]?.adiantamento === undefined && !adiantamentoDoMes(r)) return [];
+        if (!(Number(pct.replace(',', '.')) > 0) && movs[r.fichaId]?.adiantamento === undefined && !adiantamentoDoMes(r) && !r.verbasAdiantamento?.length) return [];
         const fora = r.situacao === 'calculado' ? foraDoAdiantamento(r, f, data) : undefined;
         const situacao = r.situacao === 'erro' ? `erro: ${r.erros.join(' ')}` : r.situacao === 'incompleto' ? `incompleto: ${r.avisos.slice(-1).join('')}` : fora ? `fora do arquivo: ${fora}` : 'ok';
         return [{
             fichaId: r.fichaId, nome: r.nome, matricula: f?.matriculaEsocial ?? '', percentual: pct ? `${pct}%` : '', informado: !!r.adiantamentoInformado,
-            adiantamento: adiantamentoDoMes(r), irrf: r.irrfAdiantamento ?? 0, irrfCpf: !!r.irrfAdiantamentoCpf, arredondamento: arredondamentoDoAdiantamento(r),
+            adiantamento: adiantamentoDoMes(r), eventos: eventosDoAdiantamento(r), descricaoEventos: (r.verbasAdiantamento ?? []).map(v => `${v.descricao} ${reais(v.valor)}`).join('; '), irrf: r.irrfAdiantamento ?? 0, irrfCpf: !!r.irrfAdiantamentoCpf, arredondamento: arredondamentoDoAdiantamento(r),
             aPagar: r.situacao === 'erro' ? 0 : valorDoAdiantamento(r), situacao,
         }];
     }).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
@@ -60,7 +60,7 @@ export function linhasDoAdiantamento(resultados: ResultadoCalculo[], fichas: Fic
 
 const CalculoAdiantamentosModal: React.FC<Props> = ({ empresaNome, competencia, dataAdiantamento, resultados, fichas, movs, pendentes, bloqueio, onFixar, onRecibos, onArquivo, onFechar }) => {
     const linhas = useMemo(() => linhasDoAdiantamento(resultados, fichas, movs, dataAdiantamento), [resultados, fichas, movs, dataAdiantamento]);
-    const soma = (k: 'adiantamento' | 'irrf' | 'arredondamento' | 'aPagar') => linhas.reduce((s, l) => s + l[k], 0);
+    const soma = (k: 'adiantamento' | 'eventos' | 'irrf' | 'arredondamento' | 'aPagar') => linhas.reduce((s, l) => s + l[k], 0);
     const aFixar = linhas.filter(l => !l.informado && l.adiantamento > 0 && !l.situacao.startsWith('erro'));
     const mes = `${competencia.slice(5)}/${competencia.slice(0, 4)}`;
     // Esc fecha, como nos outros modais.
@@ -74,7 +74,7 @@ const CalculoAdiantamentosModal: React.FC<Props> = ({ empresaNome, competencia, 
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(linhas.map(l => ({
             Nome: l.nome, Matrícula: l.matricula, Percentual: l.percentual, Origem: l.informado ? 'informado no movimento' : 'pela ficha',
-            Adiantamento: l.adiantamento / 100, 'IRRF do adiantamento': l.irrf / 100, Arredondamento: l.arredondamento / 100, 'A pagar': l.aPagar / 100, Situação: l.situacao,
+            Adiantamento: l.adiantamento / 100, Eventos: l.eventos / 100, 'Eventos (descrição)': l.descricaoEventos, 'IRRF do adiantamento': l.irrf / 100, Arredondamento: l.arredondamento / 100, 'A pagar': l.aPagar / 100, Situação: l.situacao,
         }))), 'Adiantamentos');
         XLSX.writeFile(wb, `adiantamentos-${competencia}.xlsx`);
     }
@@ -94,7 +94,7 @@ const CalculoAdiantamentosModal: React.FC<Props> = ({ empresaNome, competencia, 
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead className="text-left text-xs text-slate-500"><tr>
-                                <th className="py-1">Funcionário</th><th className="py-1">%</th><th className="py-1 text-right">Adiantamento</th><th className="py-1 text-right">IRRF</th>
+                                <th className="py-1">Funcionário</th><th className="py-1">%</th><th className="py-1 text-right">Adiantamento</th><th className="py-1 text-right" title='Lançamentos do movimento marcados "No adiantamento" (ajuda de custo, por exemplo)'>Eventos</th><th className="py-1 text-right">IRRF</th>
                                 <th className="py-1 text-right">Arredond.</th><th className="py-1 text-right">A pagar</th><th className="py-1">Situação</th>
                             </tr></thead>
                             <tbody>{linhas.map(l => (
@@ -102,6 +102,7 @@ const CalculoAdiantamentosModal: React.FC<Props> = ({ empresaNome, competencia, 
                                     <td className="py-1">{l.nome}{l.matricula ? <span className="text-xs text-slate-500"> · {l.matricula}</span> : null}</td>
                                     <td className="py-1 text-xs">{l.informado ? 'informado' : l.percentual}</td>
                                     <td className="py-1 text-right">{reais(l.adiantamento)}</td>
+                                    <td className="py-1 text-right" title={l.descricaoEventos || undefined}>{l.eventos ? reais(l.eventos) : '—'}</td>
                                     <td className="py-1 text-right" title={l.irrfCpf ? 'Somando os contratos do mesmo CPF' : undefined}>{l.irrf ? `${reais(l.irrf)}${l.irrfCpf ? ' (CPF)' : ''}` : '—'}</td>
                                     <td className="py-1 text-right">{l.arredondamento ? reais(l.arredondamento) : '—'}</td>
                                     <td className="py-1 text-right font-medium">{reais(l.aPagar)}</td>
@@ -110,13 +111,16 @@ const CalculoAdiantamentosModal: React.FC<Props> = ({ empresaNome, competencia, 
                             ))}</tbody>
                             <tfoot className="border-t-2 border-slate-200 font-medium dark:border-slate-600"><tr>
                                 <td className="py-1" colSpan={2}>Total ({linhas.length})</td>
-                                <td className="py-1 text-right">{reais(soma('adiantamento'))}</td><td className="py-1 text-right">{reais(soma('irrf'))}</td>
+                                <td className="py-1 text-right">{reais(soma('adiantamento'))}</td><td className="py-1 text-right">{reais(soma('eventos'))}</td><td className="py-1 text-right">{reais(soma('irrf'))}</td>
                                 <td className="py-1 text-right">{reais(soma('arredondamento'))}</td><td className="py-1 text-right">{reais(soma('aPagar'))}</td><td />
                             </tr></tfoot>
                         </table>
                     </div>
                 )}
 
+                <p className="rounded-sm bg-blue-50 p-2 text-xs text-blue-900 dark:bg-blue-900/20 dark:text-blue-100">
+                    <strong>Eventos no adiantamento</strong> (ajuda de custo paga no dia 20, por exemplo, como os eventos do processamento de adiantamento do SAGE): no movimento do mês, marque "No adiantamento" no lançamento; para todo mês, marque "Pago no adiantamento" no lançamento automático da ficha. O evento sai do holerite da folha e entra aqui, no recibo, no arquivo bancário e no demonstrativo do adiantamento no eSocial.
+                </p>
                 <div className="space-y-1 rounded-sm border border-slate-200 p-2 text-xs dark:border-slate-700">
                     <p><strong>Fixar o valor pago:</strong> grava o adiantamento de cada um como "Adiantamento pago" no movimento do mês. Depois disso, desligamento, afastamento ou reajuste lançados após o dia {br(dataAdiantamento).slice(0, 5)} não mudam o desconto na folha.{pendentes ? ` Há ${pendentes} funcionário(s) com movimento por salvar.` : ''}</p>
                     <div className="flex flex-wrap gap-2">

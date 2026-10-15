@@ -30,6 +30,15 @@ describe('lançamentos automáticos', () => {
         expect(textoMeses([12, 1])).toBe('jan, dez'); expect(textoMeses([])).toBe('todo mês');
         expect(chaveAutomatico(a({ codigoEvento: '0200' }))).toBe('200|150,00');
     });
+    it('"Pago no adiantamento": o lançamento entra no movimento marcado para o adiantamento', () => {
+        const r = aplicarAutomaticos({ fichas: [ficha('ana', [a({ codigoEvento: '200', referencia: '', valor: '500,00', noAdiantamento: true }), a({ codigoEvento: '300', referencia: '25,00' })])], movimentos: {}, competencia: '2026-10', eventos: EVENTOS, salarioDe: SAL });
+        expect(r.erros).toEqual([]);
+        expect(r.movimentos.ana.lancamentos).toEqual([
+            expect.objectContaining({ descricao: '0200 GRATIFICACAO', valor: 50000, noAdiantamento: true }),
+            expect.not.objectContaining({ noAdiantamento: true }),
+        ]);
+        expect(limparMovimento(r.movimentos.ana).lancamentos?.[0].noAdiantamento).toBe(true);
+    });
     it('aplica pelo "Lançar evento" uma vez por mês; erros por funcionário', () => {
         const fichas = [ficha('ana', [a({}), a({ codigoEvento: '300', referencia: '25,00' })]), ficha('bia', [a({ codigoEvento: '999' })]), ficha('caio', [a({ meses: [1] })])];
         const r = aplicarAutomaticos({ fichas, movimentos: { ana: { horasExtras50: 2 } }, competencia: '2026-10', eventos: EVENTOS, salarioDe: SAL });

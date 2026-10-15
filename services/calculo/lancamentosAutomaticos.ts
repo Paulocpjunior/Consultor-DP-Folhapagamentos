@@ -41,6 +41,11 @@ export interface LancamentoAutomatico {
     naRescisao?: 'proporcional' | 'integral';
     /** "Cópia para ano seguinte" do SAGE: false = vale só no ano do "A partir de"; vazio ou true = segue nos anos seguintes. */
     copiaAnoSeguinte?: boolean;
+    /**
+     * Pago no adiantamento (dia 20), como os eventos automáticos do processamento de adiantamento do SAGE (a ajuda de custo
+     * paga com o adiantamento): o lançamento entra no movimento marcado "No adiantamento", fora do holerite da folha.
+     */
+    noAdiantamento?: boolean;
     /** Meses do ano em que entra (1 a 12); vazio = todo mês. */
     meses: number[];
     /** Primeira e última competência (AAAA-MM); vazias = sem limite. */
@@ -210,6 +215,13 @@ export function aplicarAutomaticos(p: {
                 }
             }
             if ('erro' in res) { r.erros.push(`${nome}: ${res.erro}`); continue; }
+            if (a.noAdiantamento) {
+                // Pago no adiantamento: só lançamento avulso (o que vai para um campo do movimento, como horas, é da folha).
+                const lancs = res.movimento.lancamentos ?? [];
+                const i = lancs.findIndex(x => x.descricao.startsWith(`${ev.codigo} `));
+                if (i < 0) { r.erros.push(`${nome}: evento ${ev.codigo} vai para um campo do movimento (horas, faltas, pensão…), que é da folha: não pode ser pago no adiantamento.`); continue; }
+                res = { ...res, movimento: { ...res.movimento, lancamentos: lancs.map((x, j) => (j === i ? { ...x, noAdiantamento: true } : x)) } };
+            }
             mov = { ...res.movimento, automaticos: [...(mov.automaticos ?? []), chave] };
             mudou = true; r.aplicados++;
         }

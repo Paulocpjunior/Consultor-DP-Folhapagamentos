@@ -6,17 +6,18 @@
 // o valor de cada um é o adiantamento do mês (com o arredondamento dele).
 
 import type { FichaFuncionario } from '../cadastros/funcionarios';
-import { adiantamentoDoMes, dataSugeridaAdiantamento, type ResultadoCalculo } from '../calculo/motorMensal';
+import { dataSugeridaAdiantamento, totalDoAdiantamento, type ResultadoCalculo } from '../calculo/motorMensal';
 import { arredondamentoDoAdiantamento } from '../calculo/arredondamento';
 import type { Favorecido } from './cnab240';
 import { quintoDiaUtilSalario } from '../prazos/calendario';
 
 /**
- * O que se paga no dia do adiantamento: o adiantamento do mês, menos o IRRF dele (saldo da folha em outro mês) e,
- * se a empresa arredonda, mais o arredondamento (466,67 + 0,33 = 467,00 no caso do IOB). É o valor do S-1210 do adiantamento.
+ * O que se paga no dia do adiantamento: o adiantamento do mês e os eventos pagos com ele (ajuda de custo, por exemplo),
+ * menos o IRRF dele (saldo da folha em outro mês) e, se a empresa arredonda, mais o arredondamento (466,67 + 0,33 = 467,00
+ * no caso do IOB). É o valor do S-1210 do adiantamento.
  */
-export const valorDoAdiantamento = (r: Pick<ResultadoCalculo, 'verbas' | 'irrfAdiantamento'>) => {
-    const a = adiantamentoDoMes(r);
+export const valorDoAdiantamento = (r: Pick<ResultadoCalculo, 'verbas' | 'irrfAdiantamento' | 'verbasAdiantamento'>) => {
+    const a = totalDoAdiantamento(r);
     return a > 0 ? a - (r.irrfAdiantamento ?? 0) + arredondamentoDoAdiantamento(r) : 0;
 };
 

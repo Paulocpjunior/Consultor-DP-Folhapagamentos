@@ -3,8 +3,8 @@
 // conferidos com o caso real do IOB de 08 e 09/2026 (dados trocados; os eventos do IOB não vão ao repositório).
 import { describe, expect, it } from 'vitest';
 import { favorecidosDaFolha, foraDoAdiantamento, valorDoAdiantamento } from '../../bancario/favorecidos';
-import { dataSugeridaAdiantamento, gerarEventosFolha, recibosFeriasDaCompetencia, sugerirDePara, verbasDoAdiantamentoParaDePara, type ParametrosEsocialFolha } from '../eventosFolha';
-import { adiantamentoDoMes, calcularMensal } from '../../calculo/motorMensal';
+import { dataSugeridaAdiantamento, gerarEventosFolha, pagoNoAdiantamento, recibosFeriasDaCompetencia, verbasDoAdiantamento, sugerirDePara, verbasDoAdiantamentoParaDePara, type ParametrosEsocialFolha } from '../eventosFolha';
+import { adiantamentoDoMes, calcularMensal, totalDoAdiantamento } from '../../calculo/motorMensal';
 import { feriasDaCompetencia } from '../../calculo/motorFerias';
 import { limparMovimento, validarMovimento } from '../../calculo/movimento';
 import { arredondamentoAtual as arredondamentoAtualDe } from '../../calculo/arredondamento';
@@ -276,5 +276,44 @@ describe('adiantamento salarial e vale-transporte', () => {
         expect(['2026-09', '2026-12', '2027-03'].map(c => regimeNoMes(duas, c))).toEqual(['seguinte', 'mes', 'seguinte']);
         // Mudar num mês anterior a uma mudança gravada: vale daqui em diante, e a posterior sai.
         expect(mudarRegime(duas, '2026-11', 'seguinte').mudancasPagamento).toEqual([{ desde: '2026-10', de: 'seguinte', para: 'mes' }, { desde: '2026-11', de: 'mes', para: 'seguinte' }]);
+    });
+    it('evento pago no adiantamento (ajuda de custo, como o SAGE): fora do holerite da folha, no recibo, no arquivo e no demonstrativo do adiantamento', () => {
+        // O caso do SAGE de 10/2026 (dados trocados): 40% de 3.178,35 = 1.271,34 + ajuda de custo 500,00 + arredondamento 0,66 = 1.772,00.
+        const ficha: FichaFuncionario = { ...FICHA, dados: { ...FICHA.dados, salario: '3178.35', valeTransporte: 'N' } };
+        const ajuda = { descricao: '1100 AJUDA DE CUSTO', tipo: 'provento' as const, valor: 50000, inss: false, fgts: false, irrf: false, noAdiantamento: true };
+        // O movimento gravado guarda a marca.
+        expect(limparMovimento({ lancamentos: [ajuda] }).lancamentos).toEqual([ajuda]);
+        const r = arredondar(calcularMensal({ competencia: '2026-10', pagamento: '2026-10', ficha, tabelas: TAB, afastamentos: [], movimento: { lancamentos: [ajuda] } }), 0);
+        expect(r.verbas.some(x => /AJUDA/.test(x.descricao))).toBe(false);
+        expect(r.verbasAdiantamento).toEqual([expect.objectContaining({ codigo: 'LAN1', descricao: '1100 AJUDA DE CUSTO', valor: 50000 })]);
+        expect([adiantamentoDoMes(r), totalDoAdiantamento(r), v(r, 'ARREDADI')]).toEqual([127134, 177134, 66]);
+        expect(valorDoAdiantamento(r)).toBe(177200);
+        expect(pagoNoAdiantamento(r)).toBe(177200);
+        expect(verbasDoAdiantamento(r).map(x => [x.codigo, x.tipo, x.valor])).toEqual([['ADIANTPAG', 'provento', 127134], ['LAN1', 'provento', 50000], ['ARREDATU', 'provento', 66]]);
+        expect(r.memoria.join('\n')).toContain('Pago no adiantamento de 20/10/2026, fora deste holerite');
+        // No eSocial: a ajuda no demonstrativo do adiantamento (pago em 20/10), não no da folha.
+        const rub: Rubrica = { ...RUBRICAS[0], id: 'AJUDA', codRubr: 'AJUDA', vigencias: [{ ...RUBRICAS[0].vigencias[0], dados: { ...RUBRICAS[0].vigencias[0].dados, dscRubr: 'AJUDA DE CUSTO', natRubr: '1203', codIncCP: '00', codIncIRRF: '00', codIncFGTS: '00' } }] };
+        const params = { ...PARAMS, rubricas: { ...PARAMS.rubricas, 'LAN:1100 AJUDA DE CUSTO': { codRubr: 'AJUDA', ideTabRubr: 'T1' } } };
+        const t = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-10', dataPagamento: '2026-10-30', fichas: [ficha], resultados: [r], rubricas: [...RUBRICAS, rub], parametros: params, agora: new Date('2026-10-15T12:00:00Z') }).trabalhadores[0];
+        expect(t.erros).toEqual([]);
+        const dm = demonstrativos(t.s1200!.xml);
+        expect(dm['ADI202610-M1']).toEqual({ ADIPG: '1271.34', AJUDA: '500.00', ARRA: '0.66' });
+        expect(dm['FOLHA202610-M1']).not.toHaveProperty('AJUDA');
+        expect(dm['FOLHA202610-M1']).toMatchObject({ SAL: '3178.35', ADIDESC: '1271.34', ARRD: '0.66' });
+        const s1210 = doc(t.s1210!.xml);
+        expect(txt(s1210, 'ideDmDev').map((ide, i) => [ide, txt(s1210, 'vrLiq')[i]])).toEqual(expect.arrayContaining([['ADI202610-M1', '1772.00']]));
+    });
+
+    it('evento no adiantamento com incidências: INSS e FGTS nas bases do mês; IRRF na folha (mesmo mês) ou no adiantamento (saldo no mês seguinte)', () => {
+        const grat = { descricao: '0200 GRATIFICACAO', tipo: 'provento' as const, valor: 100000, inss: true, fgts: true, irrf: true, noAdiantamento: true };
+        const base = { competencia: '2026-10', ficha: FICHA, tabelas: TAB, afastamentos: [], movimento: { lancamentos: [grat] } };
+        const mesmo = calcularMensal({ ...base, pagamento: '2026-10' });
+        expect(mesmo.bases).toMatchObject({ inss: 450000, fgts: 450000, irrf: 450000 });
+        const seguinte = calcularMensal({ ...base, pagamento: '2026-11', folhaPagaNoAdiantamento: null });
+        // Saldo no mês seguinte: o adiantamento (1.400,00) e a gratificação paga com ele saem da base da folha.
+        expect(seguinte.bases).toMatchObject({ inss: 450000, fgts: 450000, irrf: 210000 });
+        expect(seguinte.irrfAdiantamentoApuracao?.adiantamento).toBe(240000);
+        // Plano de saúde fica na folha.
+        expect(validarMovimento(limparMovimento({ lancamentos: [{ ...grat, tipo: 'desconto', planoSaude: { cnpjOper: '11222333000181', regANS: '' } }] }))).toEqual([expect.stringMatching(/plano de saúde fica na folha/)]);
     });
 });

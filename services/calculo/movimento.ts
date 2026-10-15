@@ -56,7 +56,7 @@ export function limparMovimento(m: Movimento): Movimento {
     const plano = (l: Lancamento) => (l.planoSaude && /^\d{14}$/.test(l.planoSaude.cnpjOper) && /^(\d{6})?$/.test(l.planoSaude.regANS ?? '')
         ? { planoSaude: { cnpjOper: l.planoSaude.cnpjOper, regANS: l.planoSaude.regANS ?? '' } } : {});
     const lancs: Lancamento[] = (m.lancamentos ?? [])
-        .map(l => ({ descricao: l.descricao.trim().replace(/\s+/g, ' '), tipo: l.tipo, valor: Math.round(l.valor), inss: !!l.inss, fgts: !!l.fgts, irrf: !!l.irrf, ...(typeof l.media === 'boolean' ? { media: l.media } : {}), ...plano(l) }))
+        .map(l => ({ descricao: l.descricao.trim().replace(/\s+/g, ' '), tipo: l.tipo, valor: Math.round(l.valor), inss: !!l.inss, fgts: !!l.fgts, irrf: !!l.irrf, ...(typeof l.media === 'boolean' ? { media: l.media } : {}), ...(l.noAdiantamento ? { noAdiantamento: true } : {}), ...plano(l) }))
         .filter(l => l.descricao || l.valor);
     if (lancs.length) out.lancamentos = lancs;
     // Rateio entre obras (lotações): dias em cada uma, códigos em ordem, sem os zerados.
@@ -93,6 +93,7 @@ export function validarMovimento(m: Movimento, diasNoMes = 31): string[] {
         if (!l.descricao) erros.push(`Lançamento ${i + 1}: informe a descrição.`);
         if (!(l.valor > 0)) erros.push(`Lançamento ${i + 1}${l.descricao ? ` (${l.descricao})` : ''}: informe um valor maior que zero.`);
         if (l.tipo !== 'provento' && l.tipo !== 'desconto') erros.push(`Lançamento ${i + 1}: tipo inválido.`);
+        if (l.noAdiantamento && l.planoSaude) erros.push(`Lançamento ${i + 1}${l.descricao ? ` (${l.descricao})` : ''}: desconto de plano de saúde fica na folha, não no adiantamento.`);
     });
     return erros;
 }

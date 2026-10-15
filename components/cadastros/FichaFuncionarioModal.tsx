@@ -274,7 +274,7 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                     {aba === 'automaticos' && (
                         <div className="space-y-2 text-sm dark:text-slate-100">
                             <p className="text-xs text-slate-600 dark:text-slate-300">Eventos do IOB que entram no movimento do mês sozinhos, como os Eventos Automáticos do SAGE (ex.: triênio, gratificação fixa, desconto de convênio). No Cálculo, "Lançamentos automáticos" põe os do mês no movimento; cada um entra uma vez por mês. Sem meses marcados, entra todo mês.</p>
-                            <p className="text-xs text-slate-500 dark:text-slate-400"><strong>Valor</strong> preenchido: entra o valor, como está. <strong>Sal</strong> com o código de um evento (ex.: <strong>00001</strong>, o salário): a referência é o <strong>percentual</strong> sobre o valor desse evento no mês (ex.: pensão de 33% sobre o salário), como no SAGE; com um valor em R$ (ex.: 3138,45), é o salário-base da rotina do evento. Sem os dois: a rotina do evento com a referência e o salário da ficha. As incidências vêm da rubrica S-1010 da empresa ligada ao evento.</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400"><strong>Valor</strong> preenchido: entra o valor, como está. <strong>Sal</strong> com o código de um evento (ex.: <strong>00001</strong>, o salário): a referência é o <strong>percentual</strong> sobre o valor desse evento no mês (ex.: pensão de 33% sobre o salário), como no SAGE; com um valor em R$ (ex.: 3138,45), é o salário-base da rotina do evento. Sem os dois: a rotina do evento com a referência e o salário da ficha. As incidências vêm da rubrica S-1010 da empresa ligada ao evento. <strong>Pago no Adiantamento</strong>: entra no adiantamento do dia 20 (como a ajuda de custo paga com ele no SAGE), não no holerite da folha.</p>
                             {automaticos.map((a, i) => (
                                 <div key={i} role="group" aria-label={`Lançamento automático ${i + 1}`} className="space-y-1 rounded-sm border border-slate-200 p-2 text-xs dark:border-slate-700">
                                     <div className="flex flex-wrap items-end gap-2">
@@ -299,6 +299,11 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                                             <select aria-label={`Cópia para ano seguinte do lançamento automático ${i + 1}`} className="mt-0.5 block rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={a.copiaAnoSeguinte === false ? 'nao' : 'sim'}
                                                 onChange={e => setAutomatico(i, { copiaAnoSeguinte: e.target.value === 'nao' ? false : undefined })}>
                                                 <option value="sim">Sim</option><option value="nao">Não</option>
+                                            </select></label>
+                                        <label title="Como os eventos automáticos do adiantamento do SAGE: Adiantamento = pago no dia 20 com o adiantamento (recibo, arquivo bancário e demonstrativo dele), fora do holerite da folha.">Pago no
+                                            <select aria-label={`Pago na folha ou no adiantamento: lançamento automático ${i + 1}`} className="mt-0.5 block rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" value={a.noAdiantamento ? 'adiantamento' : 'folha'}
+                                                onChange={e => setAutomatico(i, { noAdiantamento: e.target.value === 'adiantamento' || undefined })}>
+                                                <option value="folha">Folha</option><option value="adiantamento">Adiantamento</option>
                                             </select></label>
                                     </div>
                                     <div className="flex flex-wrap items-center gap-2"><span className="text-slate-500">Meses ({textoMeses(a.meses)}):</span>
