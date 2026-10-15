@@ -100,7 +100,13 @@ Ponto de partida da próxima sessão. Atualizado em **15/10/2026**. O detalhe de
   - Tabela para D.S.R. por empresa e ano, em Tabelas legais (DSR das horas extras, faltas pelos dias do mês);
   - Cadastro de Cargos, ligado à ficha (nome e CBO pelo código do cargo; cargos da restauração do backup);
   - eventos pagos no adiantamento. Conferido na tela da colaboradora: EVANILDO e LEANDRO com 1.271,34 + 500,00 + 0,66 = 1.772,00, igual ao SAGE.
-- **Checagem completa no main (15/10, depois do #265):** `tsc` sem erros; 1537 testes; 130 testes das regras do Firestore no emulador; build de produção ok.
+- **15/10, noite (PRs #267 a #270):**
+  - duplo vínculo do empregado (INSS pelo teto com outras fontes, infoMV no S-1200) e a MIA no cadastro da empresa;
+  - Digitação PLR (IRRF exclusivo pela tabela anual, refeito no ano; pensão no S-1210 com tpRend 14), dissídio da folha complementar por sindicato e o desconto do art. 480 com o fim do contrato;
+  - trabalho intermitente como o SAGE: recibo por data de pagamento, eventos na convocação, holerite, listagem e valores para bancos; um demonstrativo por recibo no S-1200;
+  - médias de férias e 13º com os eventos que fazem média vindos do histórico do SAGE (adicional noturno, comissões, gratificações…);
+  - Holerite por e-mail e WhatsApp como o "Envio para email do Funcionário" (por código, departamento e tipo).
+- **Checagem completa no main (15/10, depois do #270):** `tsc` sem erros; 206 arquivos e 1562 testes; 38 arquivos e 130 testes das regras do Firestore no emulador; build de produção ok.
 - **O que ainda prende ao SAGE:**
   1. Homologação do motor por empresa: sai da prévia com 3 meses sem diferença na conferência × IOB. A 1200 depende do #61 (arquivos de 09/2026 da colaboradora).
   2. Tabela de eventos: o catálogo do Consultor veio de outro cliente do IOB (o triênio da SP é o 1015, que não está nele). Falta importar a tabela de eventos de cada empresa em Cadastros › Eventos IOB.
@@ -109,6 +115,9 @@ Ponto de partida da próxima sessão. Atualizado em **15/10/2026**. O detalhe de
      - marcar "Pago no: Adiantamento" nos que o SAGE paga no adiantamento. O lancauto do backup parece ter marcas por processamento; conferir num backup antes de importar com elas.
   3a. Tabela de DSR de cada empresa: cópia padrão e acerto dos feriados locais. Em 11/2026 o SAGE da 1200 não conta o 20/11, feriado nacional pela Lei 14.759/2023.
   3b. Cadastro de Cargos: criar pelas fichas (ou pela restauração) e acertar o CBO das fichas que a tela lista como diferentes.
+  3c. Tabela anual do IRRF da PLR: digitar em Tabelas legais pela norma (vem vazia) e o de/para das rubricas da PLR antes do primeiro pagamento.
+  3d. Médias do histórico: rodar de novo a restauração (ou o Histórico da folha do IOB) nas empresas já restauradas e conferir a classificação "Faz média" dos eventos.
+  3e. Fim do contrato a termo nas fichas de experiência prorrogadas (S-2206 da prorrogação): sem ele, o art. 479/480 dá erro na rescisão.
   4. O SAGE segue como origem dos dados (backup) e base de conferência até o corte de cada empresa.
   5. Integração com o CCI (escopo com o Paulo).
 
