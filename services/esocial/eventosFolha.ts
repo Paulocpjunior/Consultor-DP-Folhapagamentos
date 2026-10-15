@@ -249,11 +249,13 @@ export function sugerirDePara(resultados: ResultadoCalculo[], rubricas: Rubrica[
 export const ideDmDev = (perApur: string, matricula: string) => `${/^\d{4}$/.test(perApur) ? `13SAL${perApur}` : `FOLHA${perApur.replace('-', '')}`}-${matricula}`.slice(0, 30);
 /** Demonstrativo da 1ª parcela do 13º no S-1200 do mês em que foi paga. */
 export const ideDmDev13Adiantamento = (ano: string, matricula: string) => `13ADI${ano}-${matricula}`.slice(0, 30);
-/** Demonstrativo do adiantamento salarial da competência (MOS S-1200, item 3.4: parcela paga em data própria). */
+/** Demonstrativo do recibo do intermitente pago em data própria (uma ou mais convocações). */
+export const ideDmDevIntermitente = (dataPagamento: string, matricula: string) => `INT${dataPagamento.replace(/-/g, '')}-${matricula}`.slice(0, 30);
 /** Demonstrativo da PLR: pela data do pagamento (até 2 no ano). */
 export const ideDmDevPlr = (dataPagamento: string, matricula: string) => `PLR${dataPagamento.replace(/-/g, '')}-${matricula}`.slice(0, 30);
 /** Verbas da PLR: o IRRF é exclusivo (codIncIRRF 14 na rubrica), fora da conferência da base mensal. */
 const PLR_CODIGOS = new Set(['PLR', 'IRRFPLR', 'PENSAOPLR']);
+/** Demonstrativo do adiantamento salarial da competência (MOS S-1200, item 3.4: parcela paga em data própria). */
 export const ideDmDevAdiantamento = (perApur: string, matricula: string) => `ADI${perApur.replace('-', '')}-${matricula}`.slice(0, 30);
 export { dataSugeridaAdiantamento };
 /** Verbas do demonstrativo do adiantamento: o valor, como provento, e o arredondamento dele (sem INSS, FGTS e IRRF; o IRRF é na folha). */
@@ -723,9 +725,22 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             const ide = unico(doOriginal.length === 1 && !pagosNoMes.length ? doOriginal[0] : ideDmDev(e.competencia, mat));
             if (t.retifica1200 && !doOriginal.length && t.retifica1200.demonstrativos && Object.keys(t.retifica1200.demonstrativos).length)
                 t.avisos.push(`A matrícula ${mat} não está no S-1200 original: vai num demonstrativo novo.`);
-            dmDevs.push(dmDev(ide, categ, f, itens, r));
-            pagamentos.push({ mes: perPgto, xml: infoPgto(e.dataPagamento, ide, r.totais.liquido) });
-            t.liquido += r.totais.liquido;
+            if (r.recibosIntermitente?.length) {
+                // Intermitente com convocações pagas em data própria: um demonstrativo por data de pagamento (MOS, S-1200, item 3.3).
+                for (const rec of r.recibosIntermitente) {
+                    const x = rec.resultado;
+                    if (x.situacao !== 'calculado') { t.erros.push(`Recibo do intermitente${rec.dataPagamento ? ` pago em ${br(rec.dataPagamento)}` : ''}${quem} com erro: ${[...x.erros, ...x.avisos].join(' ') || 'confira'}.`); continue; }
+                    const ideR = rec.dataPagamento ? unico(ideDmDevIntermitente(rec.dataPagamento, mat)) : ide;
+                    dmDevs.push(dmDev(ideR, categ, f, itensDe(x.verbas), r));
+                    const dt = rec.dataPagamento || e.dataPagamento;
+                    pagamentos.push({ mes: dt.slice(0, 7), xml: infoPgto(dt, ideR, x.totais.liquido) });
+                    t.liquido += x.totais.liquido;
+                }
+            } else {
+                dmDevs.push(dmDev(ide, categ, f, itens, r));
+                pagamentos.push({ mes: perPgto, xml: infoPgto(e.dataPagamento, ide, r.totais.liquido) });
+                t.liquido += r.totais.liquido;
+            }
 
             // Folha complementar: diferenças de meses anteriores, paga com a folha (o IRRF dela somou o da folha).
             complementaresDe(f, categ, mat, quem);
@@ -842,8 +857,24 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
         const dedDep13 = new Map<string, number>(); const penAlim13 = new Map<string, number>();
         // Dependentes deduzidos no IRRF do adiantamento sem folha anterior no mês: vão no S-1210 do mês do adiantamento (Codex #118).
         const dedDepAdi = new Map<string, number>(); const infoDepAdi = new Map<string, Dependente>();
-        for (const { ficha: f, r } of contratos) {
-            if (!r) continue;
+        const dedDepFolha = dedDep; const dedDep13Folha = dedDep13; const penAlimFolha = penAlim; const penAlim13Folha = penAlim13; const infoDepFolha = infoDep;
+        // Intermitente com recibos pagos em outro mês que não o da folha: as deduções do IRRF de cada mês vão no S-1210 dele.
+        const irOutroMes = new Map<string, { dedDep: Map<string, number>; dedDep13: Map<string, number>; penAlim: Map<string, number>; penAlim13: Map<string, number>; infoDep: Map<string, Dependente> }>();
+        for (const { ficha: f, r: r0 } of contratos) {
+            if (!r0) continue;
+            // Recibos do intermitente: por mês do pagamento, o último (IRRF acumulado no mês) tem as deduções; a pensão soma.
+            const porMesInt = new Map<string, ResultadoCalculo[]>();
+            for (const rec of r0.recibosIntermitente ?? []) {
+                const m = rec.dataPagamento ? rec.dataPagamento.slice(0, 7) : perPgto;
+                porMesInt.set(m, [...(porMesInt.get(m) ?? []), rec.resultado]);
+            }
+            const fontes: [string, ResultadoCalculo][] = porMesInt.size
+                ? [...porMesInt].map(([m, rs]) => [m, { ...rs[rs.length - 1], verbas: rs.flatMap(x => x.verbas) }])
+                : [[perPgto, r0]];
+            for (const [mesIr, r] of fontes) {
+            const outro = mesIr === perPgto ? undefined : (irOutroMes.get(mesIr) ?? (irOutroMes.set(mesIr, { dedDep: new Map(), dedDep13: new Map(), penAlim: new Map(), penAlim13: new Map(), infoDep: new Map() }), irOutroMes.get(mesIr)!));
+            const dedDep = outro?.dedDep ?? dedDepFolha; const dedDep13 = outro?.dedDep13 ?? dedDep13Folha;
+            const penAlim = outro?.penAlim ?? penAlimFolha; const penAlim13 = outro?.penAlim13 ?? penAlim13Folha; const infoDep = outro?.infoDep ?? infoDepFolha;
             const d = r.deducoesIrrf;
             if (d && !d.simplificado && d.porDependente > 0) for (const dep of d.dependentes) {
                 const cpfDep = digitos(dep.cpf);
@@ -868,13 +899,13 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                     if (cpfDep.length !== 11) { t.avisos.push(`Dependente ${dep.nome || '?'} sem CPF: a dedução do IRRF ${rotulo === '13º' ? 'do 13º' : 'das férias'} do intermitente não vai no S-1210.`); continue; }
                     if (mapa) mapa.set(cpfDep, ded.porDependente);
                     else {
-                        const m = dedFerias.get(perPgto) ?? new Map<string, number>();
-                        m.set(cpfDep, (m.get(cpfDep) ?? 0) + ded.porDependente); dedFerias.set(perPgto, m);
+                        const m = dedFerias.get(mesIr) ?? new Map<string, number>();
+                        m.set(cpfDep, (m.get(cpfDep) ?? 0) + ded.porDependente); dedFerias.set(mesIr, m);
                     }
                     const fd = f.dependentes.find(x => digitos(x.cpf) === cpfDep);
                     if (fd && !depNoEsocial(f, fd)) {
                         if (mapa) infoDep.set(cpfDep, fd);
-                        else { const inf = infoDepFerias.get(perPgto) ?? new Map<string, Dependente>(); inf.set(cpfDep, fd); infoDepFerias.set(perPgto, inf); }
+                        else { const inf = infoDepFerias.get(mesIr) ?? new Map<string, Dependente>(); inf.set(cpfDep, fd); infoDepFerias.set(mesIr, inf); }
                     }
                 }
             }
@@ -889,6 +920,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                     if (v > 0) destino.set(cpfDep, (destino.get(cpfDep) ?? 0) + v);
                     if (!depNoEsocial(f, dep)) infoDep.set(cpfDep, dep);
                 }
+            }
             }
         }
         const semTipo = new Set<string>();
@@ -936,18 +968,22 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             const daFolha = m === perPgto;
             // Mês do adiantamento (antes do da folha): as deduções de dependentes usadas no IRRF dele.
             const doAdiant = !daFolha && m === e.competencia;
-            const dedDepMes = daFolha ? dedDep : doAdiant ? dedDepAdi : new Map<string, number>();
+            const outro = daFolha ? undefined : irOutroMes.get(m);
+            const dedDepMes = daFolha ? dedDep : new Map<string, number>([...(doAdiant ? dedDepAdi : []), ...(outro?.dedDep ?? [])]);
+            const ded13 = daFolha ? dedDep13 : outro?.dedDep13 ?? new Map<string, number>();
+            const pen = daFolha ? penAlim : outro?.penAlim ?? new Map<string, number>();
+            const pen13 = daFolha ? penAlim13 : outro?.penAlim13 ?? new Map<string, number>();
             const dedF = dedFerias.get(m) ?? new Map<string, number>();
             const irCR = [
                 ...[...dedDepMes].map(([c, v]) => `<dedDepen><tpRend>${daFolha ? tpRendFolha : '11'}</tpRend><cpfDep>${c}</cpfDep><vlrDedDep>${valor(v)}</vlrDedDep></dedDepen>`),
                 ...[...dedF].map(([c, v]) => `<dedDepen><tpRend>13</tpRend><cpfDep>${c}</cpfDep><vlrDedDep>${valor(v)}</vlrDedDep></dedDepen>`),
-                ...(daFolha ? [...dedDep13].map(([c, v]) => `<dedDepen><tpRend>12</tpRend><cpfDep>${c}</cpfDep><vlrDedDep>${valor(v)}</vlrDedDep></dedDepen>`) : []),
-                ...(daFolha ? [...penAlim].map(([c, v]) => `<penAlim><tpRend>${tpRendFolha}</tpRend><cpfDep>${c}</cpfDep><vlrDedPenAlim>${valor(v)}</vlrDedPenAlim></penAlim>`) : []),
-                ...(daFolha ? [...penAlim13].map(([c, v]) => `<penAlim><tpRend>12</tpRend><cpfDep>${c}</cpfDep><vlrDedPenAlim>${valor(v)}</vlrDedPenAlim></penAlim>`) : []),
+                ...[...ded13].map(([c, v]) => `<dedDepen><tpRend>12</tpRend><cpfDep>${c}</cpfDep><vlrDedDep>${valor(v)}</vlrDedDep></dedDepen>`),
+                ...[...pen].map(([c, v]) => `<penAlim><tpRend>${daFolha ? tpRendFolha : '11'}</tpRend><cpfDep>${c}</cpfDep><vlrDedPenAlim>${valor(v)}</vlrDedPenAlim></penAlim>`),
+                ...[...pen13].map(([c, v]) => `<penAlim><tpRend>12</tpRend><cpfDep>${c}</cpfDep><vlrDedPenAlim>${valor(v)}</vlrDedPenAlim></penAlim>`),
                 ...[...(penFerias.get(m) ?? [])].map(([c, v]) => `<penAlim><tpRend>13</tpRend><cpfDep>${c}</cpfDep><vlrDedPenAlim>${valor(v)}</vlrDedPenAlim></penAlim>`),
             ];
-            const deps = new Map<string, Dependente>([...(daFolha ? infoDep : doAdiant ? infoDepAdi : []), ...(infoDepFerias.get(m) ?? [])]);
-            const deduz = (c: string) => dedDepMes.has(c) || dedF.has(c) || (daFolha && dedDep13.has(c));
+            const deps = new Map<string, Dependente>([...(daFolha ? infoDep : doAdiant ? infoDepAdi : []), ...(outro?.infoDep ?? []), ...(infoDepFerias.get(m) ?? [])]);
+            const deduz = (c: string) => dedDepMes.has(c) || dedF.has(c) || ded13.has(c);
             const infoDepXml = [...deps].map(([c, dep]) => `<infoDep><cpfDep>${c}</cpfDep>${/^\d{4}-\d{2}-\d{2}$/.test(dep.nascimento) ? `<dtNascto>${dep.nascimento}</dtNascto>` : ''}`
                 + `${dep.nome ? `<nome>${esc(dep.nome.slice(0, 70))}</nome>` : ''}${deduz(c) ? `<depIRRF>S</depIRRF><tpDep>${dep.tipo}</tpDep>` : ''}</infoDep>`);
             const planosMes = daFolha ? planSaudeXml : '';

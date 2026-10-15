@@ -30,7 +30,7 @@ import { diaUtilAnterior, somarDias, somarMeses } from '../prazos/calendario';
 import { contarDiasDsr, diasNoMes, mesDaTabelaDsr, tabelaDsrDoAno, type Mes, type TabelaDsr } from '../cadastros/tabelaDsr';
 import { ehDomestico, indenizacaoCompensatoria } from '../domestico/domestico';
 import { descontosSindicais, type ContribuicaoConvencao } from '../sindicatos/contribuicoes';
-import { calcularIntermitente, type Convocacao } from './intermitente';
+import { calcularIntermitente, type BasesIntermitente, type Convocacao, type ReciboIntermitente } from './intermitente';
 
 export type TipoVerba = 'provento' | 'desconto';
 export interface Incidencias { inss: boolean; fgts: boolean; irrf: boolean }
@@ -223,6 +223,10 @@ export interface ResultadoCalculo {
         ferias: { simplificado: boolean; dependentes: { cpf: string; nome: string }[]; porDependente: number };
         decimo: { simplificado: boolean; dependentes: { cpf: string; nome: string }[]; porDependente: number; pensao: number };
     };
+    /** Intermitente: bases e valores deste recibo e os acumulados do empregado no mês (Bases da Convocação do SAGE). */
+    basesIntermitente?: { recibo: BasesIntermitente; acumulado: BasesIntermitente };
+    /** Intermitente com convocações pagas em data própria: um recibo (e um demonstrativo no S-1200) por data de pagamento. */
+    recibosIntermitente?: ReciboIntermitente[];
 }
 
 /** FGTS: 8% (Lei 8.036/1990, art. 15); aprendiz 2% (§ 7º). */

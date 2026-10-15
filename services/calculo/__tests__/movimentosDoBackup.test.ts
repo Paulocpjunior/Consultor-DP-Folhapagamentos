@@ -24,6 +24,15 @@ describe('o que cada evento do IOB é no movimento', () => {
         expect(classificarEvento('', 'FALTAS ABONADAS')).toBeNull();
         expect(classificarEvento('1000', 'SALARIO')).toBeNull();
         expect(classificarEvento('1004', 'HORAS EXTRAS BANCO')).toBeNull();
+        // Eventos que fazem média (pelo valor): adicional noturno, comissões e o DSR sobre elas, gratificação, prêmio.
+        expect(classificarEvento('1205', 'ADICIONAL NOTURNO 20%')).toBe('media');
+        expect(classificarEvento('', 'COMISSOES')).toBe('media');
+        expect(classificarEvento('', 'DSR S/ COMISSOES')).toBe('media');
+        expect(classificarEvento('', 'GRATIFICACAO')).toBe('media');
+        expect(classificarEvento('', 'PREMIO PRODUTIVIDADE')).toBe('media');
+        expect(classificarEvento('', 'MEDIA ADIC. NOTURNO FERIAS')).toBeNull();
+        expect(classificarEvento('', 'REFLEXO COMISSOES 13 SALARIO')).toBeNull();
+        expect(classificarEvento('9299', 'DESC. COMISSAO ADIANTADA')).toBeNull();
     });
 
     it('natureza pela rubrica do S-1010 ligada ao evento', () => {
@@ -75,6 +84,26 @@ describe('movimento mensal pelo holerith', () => {
         expect(r.avisos.join(' ')).toMatch(/1 lançamento\(s\) de funcionário sem ficha/);
         expect(r.avisos.join(' ')).toMatch(/falta em horas/);
         expect(movimentosDoHolerith(holerith, naturezas, [ana], { desde: '2022-01' }).movimentos.map(m => m.competencia)).toEqual(['2023-12', '2025-01', '2025-02']);
+    });
+
+    it('eventos que fazem média: pelo valor, num lançamento marcado "Média" do mês, somando o mesmo evento', () => {
+        const lv = (codfun: string, anomes: string, codeven: string, valor: string, descricao: string) => COLS.map(c => ({ codfun, anomes, codeven, ref: '', valor, descricao } as Record<string, string>)[c] ?? null);
+        const holerith = { colunas: COLS, linhas: [
+            lv('52', '202501', '210', '150,25', 'ADICIONAL NOTURNO'), lv('52', '202501', '210', '49,75', 'ADICIONAL NOTURNO'),
+            lv('52', '202501', '300', '1.200,00', 'COMISSOES'), lv('52', '202502', '300', '800', 'COMISSOES'),
+        ] };
+        const r = movimentosDoHolerith(holerith, naturezas, [ana], { desde: '2024-01' });
+        expect(r.movimentos).toEqual([
+            { fichaId: ana.id, competencia: '2025-01', movimento: { lancamentos: [
+                { descricao: '210 ADICIONAL NOTURNO', tipo: 'provento', valor: 20000, inss: true, fgts: true, irrf: true, media: true },
+                { descricao: '300 COMISSOES', tipo: 'provento', valor: 120000, inss: true, fgts: true, irrf: true, media: true }] } },
+            { fichaId: ana.id, competencia: '2025-02', movimento: { lancamentos: [{ descricao: '300 COMISSOES', tipo: 'provento', valor: 80000, inss: true, fgts: true, irrf: true, media: true }] } },
+        ]);
+        // Mescla: entra o que o mês não tem; o lançamento já lançado (mesma descrição) fica e é listado.
+        const [jan] = mesclarMovimentos(r.movimentos, { [ana.id]: { '2025-01': { lancamentos: [{ descricao: '300 COMISSOES', tipo: 'provento', valor: 100000, inss: true, fgts: true, irrf: true }] } } });
+        expect(jan.mudou).toBe(true);
+        expect(jan.preservados).toEqual(['media']);
+        expect(jan.depois.lancamentos!.map(x => [x.descricao, x.valor])).toEqual([['300 COMISSOES', 100000], ['210 ADICIONAL NOTURNO', 20000]]);
     });
 
     it('mescla: só preenche o que falta; lançado com outro valor fica e é listado', () => {

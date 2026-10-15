@@ -2,7 +2,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { gerarEventosFolha, type ParametrosEsocialFolha } from '../eventosFolha';
+import { gerarEventosFolha, pagamentos1210, type ParametrosEsocialFolha } from '../eventosFolha';
 import { validarPeloXsd } from '../validadorXsd';
 import { calcularMensal } from '../../calculo/motorMensal';
 import { convocacaoVazia, diasDoPeriodo } from '../../calculo/intermitente';
@@ -49,5 +49,28 @@ describe('intermitente no eSocial', () => {
         const t = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-11', dataPagamento: '2026-12-05', fichas: [FICHA], resultados: [r], rubricas: RUBRICAS, parametros: PARAMS }).trabalhadores[0];
         expect(t.s1200).toBeNull();
         expect(t.avisos.join()).toMatch(/sem convocação/);
+    });
+});
+
+describe('intermitente com recibos por data de pagamento', () => {
+    it('um demonstrativo por recibo no S-1200 e o pagamento de cada um no S-1210 da data dele; XSD', async () => {
+        const c1 = { ...conv, id: 'c1', dias: diasDoPeriodo('2026-09-01', '2026-09-05', [1, 2, 3, 4, 5, 6], 8), dataPagamento: '2026-09-08' };
+        const c2 = { ...conv, id: 'c2', dias: [{ data: '2026-09-15', horas: 6 }], dataPagamento: '' };
+        const r = calcularMensal({ competencia: '2026-09', pagamento: '2026-10', ficha: FICHA, tabelas: [INSS, IR], afastamentos: [], convocacoes: [c1, c2] });
+        expect(r.situacao).toBe('calculado');
+        expect(r.recibosIntermitente).toHaveLength(2);
+        const t = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-09', dataPagamento: '2026-10-05', fichas: [FICHA], resultados: [r], rubricas: RUBRICAS, parametros: PARAMS, agora: new Date('2026-10-05T12:00:00Z') }).trabalhadores[0];
+        expect(t.erros).toEqual([]);
+        expect(t.s1200!.xml).toContain('<ideDmDev>INT20260908-M1</ideDmDev>');
+        expect(t.s1200!.xml).toContain('<ideDmDev>FOLHA202609-M1</ideDmDev>');
+        expect(await validarPeloXsd(t.s1200!.xml, lerXsd)).toEqual({ valido: true, erros: [] });
+        const [set, out] = [pagamentos1210(t).find(p => p.perApur === '2026-09')!, pagamentos1210(t).find(p => p.perApur === '2026-10')!];
+        const liq = (x: (typeof r.recibosIntermitente)[number]) => (x.resultado.totais.liquido / 100).toFixed(2);
+        expect(set.s1210!.xml).toContain(`<dtPgto>2026-09-08</dtPgto><tpPgto>1</tpPgto><perRef>2026-09</perRef><ideDmDev>INT20260908-M1</ideDmDev><vrLiq>${liq(r.recibosIntermitente![0])}</vrLiq>`);
+        expect(out.s1210!.xml).toContain(`<ideDmDev>FOLHA202609-M1</ideDmDev><vrLiq>${liq(r.recibosIntermitente![1])}</vrLiq>`);
+        // Deduções do 13º e das férias: o recibo de setembro deduz no S-1210 de setembro; o da folha, no de outubro.
+        expect(set.s1210!.xml).toContain('<dedDepen><tpRend>12</tpRend><cpfDep>11144477735</cpfDep>');
+        expect(out.s1210!.xml).toContain('<dedDepen><tpRend>12</tpRend><cpfDep>11144477735</cpfDep>');
+        for (const p of [set, out]) expect(await validarPeloXsd(p.s1210!.xml, lerXsd)).toEqual({ valido: true, erros: [] });
     });
 });
