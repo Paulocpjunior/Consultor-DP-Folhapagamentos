@@ -443,7 +443,7 @@ export function diffFicha(antes: FichaFuncionario | null, depois: FichaFuncionar
     if (ben(antes) !== ben(depois)) r.push({ campo: 'beneficios', de: ben(antes), para: ben(depois) });
     const con = (f: Pick<FichaFuncionario, 'consignados'> | null) => (f?.consignados ?? []).map(c => `${c.instFinanc}/${c.nrDoc}: ${c.parcela} de ${c.inicio}${c.fim ? ` a ${c.fim}` : ''}${c.saldoRescisao !== undefined ? ` (saldo ${c.saldoRescisao})` : ''}`).join('; ');
     if (con(antes) !== con(depois)) r.push({ campo: 'consignados', de: con(antes), para: con(depois) });
-    const aut = (f: Pick<FichaFuncionario, 'lancamentosAutomaticos'> | null) => (f?.lancamentosAutomaticos ?? []).map(x => `${x.codigoEvento} ${x.referencia} (${textoMeses(x.meses)}${x.desde ? ` de ${x.desde}` : ''}${x.ate ? ` até ${x.ate}` : ''})`).join('; ');
+    const aut = (f: Pick<FichaFuncionario, 'lancamentosAutomaticos'> | null) => (f?.lancamentosAutomaticos ?? []).map(x => `${x.codigoEvento} ${x.referencia} (${textoMeses(x.meses)}${x.desde ? ` de ${x.desde}` : ''}${x.ate ? ` até ${x.ate}` : ''})${x.noAdiantamento ? ' no adiantamento' : ''}`).join('; ');
     if (aut(antes) !== aut(depois)) r.push({ campo: 'lancamentosAutomaticos', de: aut(antes), para: aut(depois) });
     const loc = (f: Pick<FichaFuncionario, 'locais'> | null) => (f?.locais ?? []).map(x => `${x.desde}: ${x.estabelecimento}`).join('; ');
     if (loc(antes) !== loc(depois)) r.push({ campo: 'locais', de: loc(antes), para: loc(depois) });

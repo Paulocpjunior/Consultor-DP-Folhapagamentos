@@ -51,6 +51,12 @@ export interface Lancamento extends Incidencias {
     planoSaude?: PlanoSaudeRef;
     /** Entra na média de férias, 13º e rescisão (comissão, adicional noturno…). Sem marcar: provento com INSS entra. */
     media?: boolean;
+    /**
+     * Pago no adiantamento (dia 20), como os eventos do processamento de adiantamento do SAGE (a ajuda de custo paga com
+     * o adiantamento, por exemplo): sai do holerite da folha e vai no recibo, no arquivo e no demonstrativo do adiantamento
+     * no S-1200; as incidências contam nas bases do mês.
+     */
+    noAdiantamento?: boolean;
 }
 
 /** Lançamento que entra nas médias: o marcado, ou o provento de natureza salarial (com INSS) quando não marcado. */
@@ -169,6 +175,8 @@ export interface ResultadoCalculo {
      * militar (MOS, S-1200, item 36.1). Não são pagas: ficam fora das verbas, do holerite e do líquido; só vão ao eSocial.
      */
     verbasInformativas?: Verba[];
+    /** Lançamentos do movimento pagos no adiantamento (fora das verbas e do líquido da folha; entram no recibo dele). */
+    verbasAdiantamento?: Verba[];
     bases: { inss: number; fgts: number; irrf: number };
     totais: { proventos: number; descontos: number; liquido: number };
     fgts: number;
@@ -545,7 +553,13 @@ function calcularMensalSemObras(e: EntradaCalculo): ResultadoCalculo {
         verba({ codigo: 'ATRASO', descricao: 'Faltas e atrasos (horas)', referencia: `${num(atrasos)} h`, tipo: 'desconto', valor: v, inss: true, fgts: true, irrf: true });
         r.memoria.push(`Faltas e atrasos: ${num(atrasos)} h × ${reais(Math.round(salarioHora))}/h (salário ÷ ${num(horasMes)} h) = ${reais(v)}.`);
     }
-    (mov.lancamentos ?? []).forEach((l, i) => verba({ ...l, codigo: `LAN${i + 1}`, referencia: '', valor: Math.round(l.valor) }));
+    // Lançamento marcado "pago no adiantamento": não entra no holerite da folha; vai para o demonstrativo do adiantamento.
+    const evAdi: Verba[] = [];
+    (mov.lancamentos ?? []).forEach((l, i) => {
+        const { noAdiantamento, ...resto } = l;
+        const v: Verba = { ...resto, codigo: `LAN${i + 1}`, referencia: '', valor: Math.round(l.valor) };
+        if (!noAdiantamento) verba(v); else if (v.valor > 0) evAdi.push(v);
+    });
     const ben = verbasDosBeneficios(e.beneficios, ficha.beneficios, competencia);
     // Sem salário no mês (afastado o mês todo pelo INSS, licença não remunerada): o desconto do benefício deixaria o
     // líquido negativo; fica de fora, com aviso, para ser cobrado à parte.
@@ -613,6 +627,10 @@ function calcularMensalSemObras(e: EntradaCalculo): ResultadoCalculo {
     const adiant = mov.adiantamento !== undefined ? Math.max(0, Math.round(mov.adiantamento)) : semVinculoNoDia ? 0 : Math.round(baseAdiant * pctAd / 100);
     if (mov.adiantamento !== undefined) r.adiantamentoInformado = true;
     if (pctAd > 0 && mov.adiantamento === undefined && semVinculoNoDia) r.memoria.push(`Adiantamento salarial: sem vínculo em ${brData(diaAdiant)} (dia do adiantamento), não calculado.`);
+    if (evAdi.length) {
+        r.verbasAdiantamento = evAdi;
+        r.memoria.push(`Pago no adiantamento de ${brData(diaAdiant)}, fora deste holerite (recibo, arquivo e demonstrativo do adiantamento): ${evAdi.map(v => `${v.descricao} ${v.tipo === 'desconto' ? '−' : ''}${reais(v.valor)}`).join('; ')}${evAdi.some(v => v.inss || v.fgts) ? '; as incidências de INSS e FGTS contam nas bases do mês' : ''}.`);
+    }
     if (adiant > 0) {
         verba({ codigo: 'ADIANT', descricao: 'Adiantamento salarial', referencia: mov.adiantamento !== undefined ? '' : `${num(pctAd)}%`, tipo: 'desconto', valor: adiant, inss: false, fgts: false, irrf: false });
         r.memoria.push(mov.adiantamento !== undefined ? `Adiantamento salarial: ${reais(adiant)} pagos no mês (informado no movimento).` : `Adiantamento salarial: ${num(pctAd)}% de ${reais(baseAdiant)} (salário do mês${mudouDepois ? ` como estava em ${brData(diaAdiant)}, dia do adiantamento` : ''}) = ${reais(adiant)}, descontado aqui.`);
@@ -634,11 +652,16 @@ function calcularMensalSemObras(e: EntradaCalculo): ResultadoCalculo {
 
     // 5. Bases.
     const soma = (f: (v: Verba) => boolean) => r.verbas.filter(f).reduce((s, v) => s + (v.tipo === 'provento' ? v.valor : -v.valor), 0);
-    r.bases.inss = Math.max(0, soma(v => v.inss));
+    // Eventos pagos no adiantamento: são remuneração do mês (INSS e FGTS nas bases da competência); no IRRF, pelo caixa.
+    const somaAdi = (f: (v: Verba) => boolean) => evAdi.filter(f).reduce((s, v) => s + (v.tipo === 'provento' ? v.valor : -v.valor), 0);
+    r.bases.inss = Math.max(0, soma(v => v.inss) + somaAdi(v => v.inss));
     r.bases.irrf = Math.max(0, soma(v => v.irrf));
     // Adiantamento pago em mês diferente do saldo: foi tributado no mês dele e sai da base da folha (Codex #115; IOB 08/2026).
-    const adiantSeparado = adiant > 0 && pagamento !== competencia;
-    if (adiantSeparado) {
+    const adiantSeparado = (adiant > 0 || evAdi.length > 0) && pagamento !== competencia;
+    // Pago no mesmo mês da folha: os eventos do adiantamento com IRRF somam na base da folha; em outro mês, no IRRF do adiantamento.
+    const evAdiIr = somaAdi(v => v.irrf);
+    if (!adiantSeparado && evAdiIr) r.bases.irrf = Math.max(0, r.bases.irrf + evAdiIr);
+    if (adiantSeparado && adiant > 0) {
         r.bases.irrf = Math.max(0, r.bases.irrf - adiant);
         r.memoria.push(`IRRF: o adiantamento de ${reais(adiant)} foi pago em ${rotuloCompetencia(competencia)} e tributado lá; sai dos rendimentos da folha paga em ${rotuloCompetencia(pagamento)}.`);
     }
@@ -656,7 +679,7 @@ function calcularMensalSemObras(e: EntradaCalculo): ResultadoCalculo {
             ...(militar > 0 ? [info('FGTSSM', 'Base do FGTS do serviço militar obrigatório (informativa)', diasMil, militar)] : []),
         ];
     }
-    r.bases.fgts = Math.max(0, soma(v => v.fgts)) + fgtsAcidente;
+    r.bases.fgts = Math.max(0, soma(v => v.fgts) + somaAdi(v => v.fgts)) + fgtsAcidente;
     if (diasMaternidadeDomestica) {
         const mensalComAdicional = mensal + (adicional?.mensal ?? 0);
         const v = mesInteiro && diasMaternidadeDomestica === dias.size ? mensalComAdicional : Math.min(mensalComAdicional, Math.round(diariaComAdicional * diasMaternidadeDomestica));
@@ -795,16 +818,16 @@ function calcularMensalSemObras(e: EntradaCalculo): ResultadoCalculo {
             // Sem folha paga antes no mês (admissão, mudança de regime): o adiantamento é o primeiro pagamento, e os
             // dependentes deduzem dele (Codex #118); INSS e pensão não há.
             const pagos = ant ?? { rendimentos: 0, deducoesLegais: nDep * (tA.tabela.valores.deducaoDependente ?? 0), valor: 0, competencia: '' };
-            const R = pagos.rendimentos + adiant;
+            const R = pagos.rendimentos + adiant + evAdiIr;
             const a = apurarIrrf(tA.tabela, R, pagos.deducoesLegais);
             let ir = Math.max(0, a.valor - pagos.valor);
             r.memoria.push(`IRRF do adiantamento (pago em ${rotuloCompetencia(competencia)}, tabela de ${rotuloCompetencia(tA.tabela.vigencia)}): `
-                + (ant ? `rendimentos pagos no mês ${reais(pagos.rendimentos)} (folha de ${rotuloCompetencia(ant.competencia)}) + adiantamento ${reais(adiant)} = ${reais(R)}` : `adiantamento ${reais(adiant)} (nenhuma folha paga antes no mês${nDep ? `; ${nDep} dependente(s)` : ''})`)
+                + (ant ? `rendimentos pagos no mês ${reais(pagos.rendimentos)} (folha de ${rotuloCompetencia(ant.competencia)}) + adiantamento ${reais(adiant)}${evAdiIr ? ` + eventos do adiantamento ${reais(evAdiIr)}` : ''} = ${reais(R)}` : `adiantamento ${reais(adiant + evAdiIr)}${evAdiIr ? ` (com ${reais(evAdiIr)} de eventos)` : ''} (nenhuma folha paga antes no mês${nDep ? `; ${nDep} dependente(s)` : ''})`)
                 + `; ${a.simplificado ? `desconto simplificado ${reais(a.deducao)}` : `deduções legais ${reais(pagos.deducoesLegais)}`}; base ${reais(a.base)} × ${pct(a.aliquota)} − ${reais(a.deducaoFaixa)} = ${reais(a.bruto)}`
                 + `${a.memoriaRedutor.length ? ` (${a.memoriaRedutor.join(' ')})` : ''}; menos ${reais(pagos.valor)} já retidos = ${reais(ir)}.`);
             if (ir > 0 && ir <= IRRF_MINIMO) { r.memoria.push(`IRRF do adiantamento de ${reais(ir)} não retido: até R$ 10,00 a retenção é dispensada (Lei 9.430/1996, art. 67).`); ir = 0; }
             r.irrfAdiantamento = ir;
-            r.irrfAdiantamentoApuracao = { rendimentos: pagos.rendimentos, deducoesLegais: pagos.deducoesLegais, jaRetido: pagos.valor, adiantamento: adiant, dependentes: nDep * (tA.tabela.valores.deducaoDependente ?? 0) };
+            r.irrfAdiantamentoApuracao = { rendimentos: pagos.rendimentos, deducoesLegais: pagos.deducoesLegais, jaRetido: pagos.valor, adiantamento: adiant + evAdiIr, dependentes: nDep * (tA.tabela.valores.deducaoDependente ?? 0) };
             if (ant) r.irrfAdiantamentoFolha = ant.competencia;
             else if (!a.simplificado && nDep) r.deducoesAdiantamento = { dependentes: depsIrrf.map(x => ({ cpf: x.cpf, nome: x.nome })), porDependente: tA.tabela.valores.deducaoDependente ?? 0 };
         }
@@ -880,6 +903,10 @@ export const dataSugeridaAdiantamento = (competencia: string) => (/^\d{4}-\d{2}$
 
 /** Adiantamento salarial do mês (desconto ADIANT da folha): o que foi pago antes, no demonstrativo próprio. */
 export const adiantamentoDoMes = (r: Pick<ResultadoCalculo, 'verbas'>) => r.verbas.find(v => v.codigo === 'ADIANT')?.valor ?? 0;
+/** Eventos do movimento pagos no adiantamento (proventos menos descontos), como a ajuda de custo paga com ele. */
+export const eventosDoAdiantamento = (r: Pick<ResultadoCalculo, 'verbasAdiantamento'>) => (r.verbasAdiantamento ?? []).reduce((s, v) => s + (v.tipo === 'provento' ? v.valor : -v.valor), 0);
+/** O que o adiantamento paga antes do IRRF e do arredondamento: o salário adiantado e os eventos pagos com ele. */
+export const totalDoAdiantamento = (r: Pick<ResultadoCalculo, 'verbas' | 'verbasAdiantamento'>) => adiantamentoDoMes(r) + eventosDoAdiantamento(r);
 
 /**
  * Mais de um contrato no mesmo CPF com IRRF do adiantamento: o imposto do mês é do CPF (a tabela e as deduções

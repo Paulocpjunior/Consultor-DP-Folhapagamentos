@@ -1526,11 +1526,12 @@ const Holerite: React.FC<{ r: ResultadoCalculo; comMovimento?: boolean; tituloMo
                             <input aria-label={`Valor do lançamento ${i + 1}`} className={`w-24 ${inp}`} defaultValue={l.valor ? (l.valor / 100).toFixed(2).replace('.', ',') : ''} onChange={e => setLanc(i, { valor: centavosDeTexto(e.target.value) ?? 0 })} />
                             {(['inss', 'fgts', 'irrf'] as const).map(k => <label key={k} className="flex items-center gap-0.5"><input type="checkbox" checked={l[k]} onChange={e => setLanc(i, { [k]: e.target.checked })} />{k.toUpperCase()}</label>)}
                             <label className="flex items-center gap-0.5" title="Entra na média de férias, 13º e rescisão (comissão, adicional noturno, gratificação habitual). Sem mexer: entra o provento com INSS."><input type="checkbox" aria-label={`Média do lançamento ${i + 1}`} checked={entraNaMedia(l)} onChange={e => setLanc(i, { media: e.target.checked })} />Média</label>
+                            <label className="flex items-center gap-0.5" title="Pago no adiantamento (dia 20), como os eventos do adiantamento do SAGE (ajuda de custo, por exemplo): sai deste holerite e vai no recibo, no arquivo bancário e no demonstrativo do adiantamento."><input type="checkbox" aria-label={`Pago no adiantamento: lançamento ${i + 1}`} checked={!!l.noAdiantamento} onChange={e => setLanc(i, { noAdiantamento: e.target.checked || undefined })} />No adiantamento</label>
                             <button aria-label={`Remover lançamento ${i + 1}`} className="text-red-700 dark:text-red-300" onClick={() => onMov({ ...mov, lancamentos: lancs.filter((_, j) => j !== i) })}>remover</button>
                         </div>
                     ))}
                     <button className="mt-1 rounded-sm border border-slate-300 px-2 py-1 text-xs dark:border-slate-600 dark:text-white" onClick={() => onMov({ ...mov, lancamentos: [...lancs, { descricao: '', tipo: 'provento', valor: 0, inss: true, fgts: true, irrf: true }] })}>Adicionar lançamento</button>
-                    <p className="mt-1 text-xs text-slate-500">Marque onde o lançamento incide (confira com a incidência da rubrica em Cadastros › Incidências) e se entra na média de férias, 13º e rescisão.</p>
+                    <p className="mt-1 text-xs text-slate-500">Marque onde o lançamento incide (confira com a incidência da rubrica em Cadastros › Incidências) e se entra na média de férias, 13º e rescisão. "No adiantamento": pago no dia 20 com o adiantamento (recibo, arquivo e eSocial do adiantamento), fora do holerite da folha.</p>
                 </div>
             </div>}
         </section>

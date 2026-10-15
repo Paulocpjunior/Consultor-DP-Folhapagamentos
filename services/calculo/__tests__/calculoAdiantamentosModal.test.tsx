@@ -41,4 +41,15 @@ describe('Cálculo de Adiantamentos', () => {
         expect((screen.getByText('Arquivo bancário') as HTMLButtonElement).disabled).toBe(true);
         expect(screen.getAllByText(/Salve o movimento antes/).length).toBeGreaterThan(0);
     });
+    it('eventos pagos no adiantamento (ajuda de custo): coluna própria e somados no que se paga, mesmo sem percentual', () => {
+        const ajuda = { descricao: '1100 AJUDA DE CUSTO', tipo: 'provento' as const, valor: 50000, inss: false, fgts: false, irrf: false, noAdiantamento: true };
+        const rs = [calc(fichas[0], { lancamentos: [ajuda] }), calc(fichas[1], { lancamentos: [ajuda] })];
+        const l = linhasDoAdiantamento(rs, fichas, {}, '2026-10-20');
+        expect(l.map(x => [x.nome, x.adiantamento, x.eventos, x.aPagar, x.descricaoEventos])).toEqual([
+            ['ANA', 120000, 50000, 170000, expect.stringMatching(/^1100 AJUDA DE CUSTO R\$\s500,00$/)], ['BRUNO', 0, 50000, 50000, expect.stringMatching(/^1100 AJUDA DE CUSTO R\$\s500,00$/)]]);
+        render(<CalculoAdiantamentosModal empresaNome="EMPRESA" competencia="2026-10" dataAdiantamento="2026-10-20" resultados={rs} fichas={fichas} movs={{}}
+            pendentes={0} onFixar={() => {}} onRecibos={() => {}} onArquivo={() => {}} onFechar={() => {}} />);
+        expect(screen.getByRole('columnheader', { name: 'Eventos' })).toBeTruthy();
+        expect(screen.getByText(/Eventos no adiantamento/)).toBeTruthy();
+    });
 });

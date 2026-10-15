@@ -12,7 +12,7 @@
 //   0,56 = 1.581,00; setembro: 490,00 − 0,33 − 0,56 + 0,89 = 490,00).
 // Nenhuma das verbas tem INSS, FGTS ou IRRF.
 
-import { competenciaAnterior, competenciaSeguinte, type IrrfApurado, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
+import { competenciaAnterior, competenciaSeguinte, totalDoAdiantamento, type IrrfApurado, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
 import { mesmoMovimento } from './movimento';
 import { reais } from '../cadastros/documentos';
 
@@ -99,8 +99,8 @@ const v = (codigo: string, descricao: string, tipo: Verba['tipo'], valor: number
 export function arredondar(r: ResultadoCalculo, anterior: number): ResultadoCalculo {
     if (r.situacao === 'erro') return r;
     const out: ResultadoCalculo = { ...r, verbas: r.verbas.filter(x => !/^ARRED/.test(x.codigo)), memoria: [...r.memoria], avisos: [...r.avisos], totais: { ...r.totais } };
-    const adiant = out.verbas.find(x => x.codigo === 'ADIANT')?.valor ?? 0;
-    // O adiantamento é pago líquido do IRRF dele (saldo da folha em outro mês): arredonda-se o que foi pago.
+    // O adiantamento (com os eventos pagos nele) é pago líquido do IRRF dele (saldo da folha em outro mês): arredonda-se o que foi pago.
+    const adiant = totalDoAdiantamento(out);
     const arredAdi = adiant > 0 ? aoRealSeguinte(adiant - (r.irrfAdiantamento ?? 0)) : 0;
     if (arredAdi) out.verbas.push(v('ARREDADI', 'Desconto do arredondamento do adiantamento', 'desconto', arredAdi));
     const ant = Math.max(0, Math.round(anterior));

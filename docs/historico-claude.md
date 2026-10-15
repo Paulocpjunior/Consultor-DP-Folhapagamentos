@@ -5675,3 +5675,16 @@ Pedido da colaboradora, pelo Paulo, com as telas do SAGE (Rescisão Contratual e
   - a restauração do backup traz a tabela `cargos` do SAGE: só os novos, e sem CBO válido fica de fora, com aviso.
 - **Funções e Carreiras Públicas** ficaram como texto (função) e nos campos de cargo público, porque o eSocial S-1.x não tem mais o S-1030/S-1040.
 - **Testes:** `cargos.test.ts`, telas em `painelCadastros.test.tsx`, restauração e `testes-regras/cargos.test.mjs`.
+
+## 15/10/2026 — Eventos pagos no adiantamento (ajuda de custo, como o SAGE)
+
+- **Pergunta da colaboradora (via Paulo):** dois funcionários recebem ajuda de custo no adiantamento. No SAGE é um evento automático do processamento de adiantamento (holerite tipo Adiantamento de 10/2026: ajuda 500,00 + adiantamento 40% 1.271,34 + arredondamento 0,66 = 1.772,00). No Consultor o adiantamento era só o percentual da ficha, sem lugar para eventos.
+- **Movimento:** o lançamento avulso ganhou "No adiantamento" (`Lancamento.noAdiantamento`):
+  - sai do holerite da folha (`verbasAdiantamento`);
+  - entra no Cálculo de Adiantamentos (coluna Eventos), no recibo, no arquivo bancário e no demonstrativo do adiantamento no S-1200, com o pagamento no S-1210;
+  - o arredondamento do adiantamento é sobre o total pago;
+  - INSS e FGTS contam nas bases do mês; IRRF entra na folha se ela é paga no mesmo mês, ou no IRRF do adiantamento se o saldo é no mês seguinte;
+  - plano de saúde não pode ir ao adiantamento.
+- **Ficha › Lanç. automático:** novo campo "Pago no" (Folha / Adiantamento). O lançamento automático marcado entra no movimento já com a marca. Evento que vai para um campo do movimento (horas, pensão) não pode, e dá erro.
+- **Dados já gravados não foram alterados.** A ajuda de custo dessas fichas está como lançamento da folha (importada do lancauto do SAGE). A colaboradora marca "Pago no: Adiantamento" na ficha e "No adiantamento" no lançamento do movimento de 10/2026. Sem isso, a folha de 10/2026 paga os 500,00 de novo.
+- **Testes:** em `adiantamentoVt.test.ts`, o caso do SAGE (1.772,00 no recibo, no arquivo e no S-1210; a ajuda no demonstrativo ADI) e as incidências; também `calculoAdiantamentosModal.test.tsx` e `lancamentosAutomaticos.test.tsx`.
