@@ -96,10 +96,19 @@ Ponto de partida da próxima sessão. Atualizado em **15/10/2026**. O detalhe de
   - lançamento automático com Referência, Sal, Valor, Lança na rescisão e Cópia para o ano seguinte;
   - pensão em % (bruto − INSS) no mensal, 13º, férias e rescisão;
   - relação de depósito bancário por tipo de movimento.
+- **15/10, tarde (PRs #263 a #265):**
+  - Tabela para D.S.R. por empresa e ano, em Tabelas legais (DSR das horas extras, faltas pelos dias do mês);
+  - Cadastro de Cargos, ligado à ficha (nome e CBO pelo código do cargo; cargos da restauração do backup);
+  - eventos pagos no adiantamento. Conferido na tela da colaboradora: EVANILDO e LEANDRO com 1.271,34 + 500,00 + 0,66 = 1.772,00, igual ao SAGE.
+- **Checagem completa no main (15/10, depois do #265):** `tsc` sem erros; 1537 testes; 130 testes das regras do Firestore no emulador; build de produção ok.
 - **O que ainda prende ao SAGE:**
   1. Homologação do motor por empresa: sai da prévia com 3 meses sem diferença na conferência × IOB. A 1200 depende do #61 (arquivos de 09/2026 da colaboradora).
   2. Tabela de eventos: o catálogo do Consultor veio de outro cliente do IOB (o triênio da SP é o 1015, que não está nele). Falta importar a tabela de eventos de cada empresa em Cadastros › Eventos IOB.
-  3. Lançamentos automáticos já gravados: marcar "Lança na rescisão" nos que devem ir para a rescisão.
+  3. Lançamentos automáticos já gravados:
+     - marcar "Lança na rescisão" nos que devem ir para a rescisão;
+     - marcar "Pago no: Adiantamento" nos que o SAGE paga no adiantamento. O lancauto do backup parece ter marcas por processamento; conferir num backup antes de importar com elas.
+  3a. Tabela de DSR de cada empresa: cópia padrão e acerto dos feriados locais. Em 11/2026 o SAGE da 1200 não conta o 20/11, feriado nacional pela Lei 14.759/2023.
+  3b. Cadastro de Cargos: criar pelas fichas (ou pela restauração) e acertar o CBO das fichas que a tela lista como diferentes.
   4. O SAGE segue como origem dos dados (backup) e base de conferência até o corte de cada empresa.
   5. Integração com o CCI (escopo com o Paulo).
 
