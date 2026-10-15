@@ -406,7 +406,7 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
         const tInss = tabelaVigente(e.tabelas, 'inss', data.slice(0, 7));
         let inss13 = 0;
         if ('erro' in tInss) erro(tInss.erro);
-        else if (prop + ind) { const x = inssDetalhado(prop + ind, tInss.tabela); inss13 = x.valor; r.memoria.push(`INSS do 13º (em separado, proporcional + aviso indenizado): ${x.memoria}.`); }
+        else if (prop + ind) { const x = inssDetalhado(prop + ind, tInss.tabela); inss13 = x.valor; r.memoria.push(`INSS do 13º (em separado, proporcional + aviso indenizado): ${x.memoria}.`); if ((e.ficha.outrosVinculos ?? []).some(v => v.remuneracao > 0)) r.avisos.push('Duplo vínculo na ficha: o INSS do 13º rescisório foi calculado só sobre o 13º desta empresa; confira o teto com o outro vínculo.'); }
         verba({ codigo: 'INSS13', descricao: 'INSS sobre 13º', referencia: '', tipo: 'desconto', valor: inss13, inss: false, fgts: false, irrf: false });
         const tIr = tabelaVigente(e.tabelas, 'irrf', pagamento);
         if ('erro' in tIr) erro(`IRRF: ${tIr.erro}`);

@@ -5700,3 +5700,24 @@ Pedido da colaboradora, pelo Paulo, com as telas do SAGE (Rescisão Contratual e
   - 38 arquivos e 130 testes das regras do Firestore no emulador;
   - `vite build` ok.
 - **Status:** a seção "Status × SAGE" do `docs/retomada.md` recebeu os PRs #263 a #265 e os pontos novos (DSR por empresa, cargos, automáticos pagos no adiantamento).
+
+## 15/10/2026 — Duplo vínculo do empregado e a MIA no cadastro da empresa
+
+- **Pedido do Paulo:**
+  - telas do SAGE com a tributação da empresa (Cadastro de Empresas › Folha de Pagto.: Simples/anexo, desoneração, FPAS, terceiros, RAT × FAP; Dados e-Social/REINF);
+  - a resposta da MIA, que não achou "Duplo Vínculo".
+- **O que faltava:** o duplo vínculo só existia para contribuinte individual (pró-labore e RPA). Para empregado, nem o cadastro nem o INSS pelo teto existiam.
+- **Ficha › aba Duplo vínculo (`duploVinculo.ts`):**
+  - CNPJ ou CPF do outro empregador (validados), categoria, remuneração mensal lá e período;
+  - histórico da ficha registra as mudanças.
+- **Motor:**
+  - INSS sobre o total (aqui + outras fontes) limitado ao teto, e a parte desta empresa proporcional à remuneração dela (IN RFB 2.110/2022);
+  - indMV 1, ou 2 acima do teto (base aqui = teto − outras), ou 3 com as outras já no teto;
+  - 13º e 13º rescisório avisam, porque o 13º do outro vínculo não está no cadastro.
+  - **Conferência pendente:** a regra proporcional está na memória do cálculo. Falta conferir com o "B. INSS com Duplo Vínculo" do SAGE num caso real.
+- **eSocial:** o S-1200 leva o infoMV logo após o cpfTrab, com cada outra fonte. Validado pelo XSD oficial S-1.3.
+- **Enquadramento:** mostra o RAT ajustado (RAT × FAP), como o "Configurar RAT e FAP" do SAGE.
+- **MIA:** o mapa diz onde ficam:
+  - tributação, desoneração, patronal, FPAS, terceiros, RAT e FAP: Cadastros › Enquadramento;
+  - duplo vínculo: ficha › Duplo vínculo.
+- **Testes:** `duploVinculo.test.ts`, com o cálculo, o motor, o XSD e o aviso do 13º, e a aba em `painelCadastros.test.tsx`.

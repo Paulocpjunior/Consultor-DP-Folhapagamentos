@@ -270,6 +270,7 @@ export function calcular13(e: Entrada13): ResultadoCalculo {
             const fx = faixaInss(base, t);
             verba({ codigo: 'INSS13', descricao: 'INSS sobre 13º', referencia: fx?.referencia ?? '', tipo: 'desconto', valor: inss, inss: false, fgts: false, irrf: false });
             r.memoria.push(`INSS do 13º (em separado, tabela de ${rotuloCompetencia(t.vigencia)}): ${partes.join(' + ')} = ${reais(inss)}${fx ? ` (pela faixa de ${fx.referencia}: ${fx.formula})` : ''}.`);
+            if ((ficha.outrosVinculos ?? []).some(v => v.remuneracao > 0)) r.avisos.push('Duplo vínculo na ficha: o INSS do 13º foi calculado só sobre o 13º desta empresa (o 13º do outro empregador não está no cadastro). Confira o teto com o outro vínculo.');
         }
 
         // Pensão em %: sobre o 13º integral menos o INSS dele, menos a pensão já descontada na 1ª parcela.

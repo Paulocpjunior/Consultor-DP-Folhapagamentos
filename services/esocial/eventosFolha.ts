@@ -918,10 +918,13 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             if (!irCR.length && !planosMes) return '';
             return `<infoIRComplem>${irCR.length ? `${infoDepXml.join('')}<infoIRCR><tpCR>056107</tpCR>${irCR.join('')}</infoIRCR>` : ''}${planosMes}</infoIRComplem>`;
         };
+        // Duplo vínculo (múltiplos vínculos): o indicador do desconto e a remuneração em cada outro empregador (MOS, S-1200, item 5).
+        const comMV = anual ? undefined : contratos.find(c => c.r?.infoMV)?.r?.infoMV;
+        const infoMV = comMV ? `<infoMV><indMV>${comMV.indMV}</indMV>${comMV.outras.map(o => `<remunOutrEmpr><tpInsc>${o.tpInsc}</tpInsc><nrInsc>${digitos(o.nrInsc)}</nrInsc><codCateg>${o.codCateg}</codCateg><vlrRemunOE>${valor(o.remuneracao)}</vlrRemunOE></remunOutrEmpr>`).join('')}</infoMV>` : '';
         const id1200 = idEvento(e.cnpj, agora, ++seq);
         t.s1200 = { id: id1200, xml: `<eSocial xmlns="${NS}/evtRemun/${VERSAO}"><evtRemun Id="${id1200}">`
             + `<ideEvento>${retif(t.retifica1200)}<indApuracao>${anual ? 2 : 1}</indApuracao><perApur>${e.competencia}</perApur><tpAmb>${e.tpAmb}</tpAmb><procEmi>1</procEmi><verProc>${VER_PROC}</verProc></ideEvento>`
-            + ideEmpregador + `<ideTrabalhador><cpfTrab>${cpf}</cpfTrab>${[...diasInterm.keys()].sort((a, b) => a - b).map(dia => `<infoInterm><dia>${dia}</dia></infoInterm>`).join('')}</ideTrabalhador>`
+            + ideEmpregador + `<ideTrabalhador><cpfTrab>${cpf}</cpfTrab>${infoMV}${[...diasInterm.keys()].sort((a, b) => a - b).map(dia => `<infoInterm><dia>${dia}</dia></infoInterm>`).join('')}</ideTrabalhador>`
             + dmDevs.join('') + '</evtRemun></eSocial>' };
         for (const pm of porMes) {
             const ex = pm.existente1210;

@@ -77,9 +77,9 @@ export async function listarFuncionarios(empresaId: string): Promise<FichaFuncio
 // Na alteração, update substitui cada mapa inteiro: campo apagado na ficha
 // some do documento, o que set com merge não faria.
 function setFicha(lote: WriteBatch, f: FichaFuncionario, u: Usuario, nova: boolean) {
-    const { empresaId, cnpj, cpf, matriculaEsocial, situacao, dados, dependentes, origens, pendenciasImportacao, historicoSalario, beneficios, locais, consignados, lancamentosAutomaticos } = f;
+    const { empresaId, cnpj, cpf, matriculaEsocial, situacao, dados, dependentes, origens, pendenciasImportacao, historicoSalario, beneficios, locais, consignados, lancamentosAutomaticos, outrosVinculos } = f;
     // Sem histórico na ficha em memória, o gravado fica como está (limpo tira o undefined).
-    const campos = { ...limpo({ empresaId, cnpj, cpf, matriculaEsocial, situacao, dados, dependentes, origens, pendenciasImportacao, historicoSalario, beneficios, locais, consignados, lancamentosAutomaticos }), atualizadoPor: u.id, atualizadoPorEmail: u.email, atualizadoEm: serverTimestamp() };
+    const campos = { ...limpo({ empresaId, cnpj, cpf, matriculaEsocial, situacao, dados, dependentes, origens, pendenciasImportacao, historicoSalario, beneficios, locais, consignados, lancamentosAutomaticos, outrosVinculos }), atualizadoPor: u.id, atualizadoPorEmail: u.email, atualizadoEm: serverTimestamp() };
     if (nova) lote.set(doc(db, FUNC, f.id), { ...campos, criadoPor: u.id, criadoEm: serverTimestamp() });
     else lote.update(doc(db, FUNC, f.id), campos);
 }
