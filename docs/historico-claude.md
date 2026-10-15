@@ -5721,3 +5721,22 @@ Pedido da colaboradora, pelo Paulo, com as telas do SAGE (Rescisão Contratual e
   - tributação, desoneração, patronal, FPAS, terceiros, RAT e FAP: Cadastros › Enquadramento;
   - duplo vínculo: ficha › Duplo vínculo.
 - **Testes:** `duploVinculo.test.ts`, com o cálculo, o motor, o XSD e o aviso do 13º, e a aba em `painelCadastros.test.tsx`.
+
+## 15/10/2026 — PLR (Digitação PLR), dissídio por sindicato e o desconto do art. 480
+
+- **Pedido do Paulo:**
+  - incluir a Digitação PLR do SAGE (Calcular Proporcional, Data de Pagamento da PLR, desligados);
+  - a Folha Complementar de dissídio, quando a CCT sai depois da data-base;
+  - "Rescisão: não está calculando o desconto" (término antecipado pelo empregado, tipo 04, com a indenização do art. 480 marcada).
+- **PLR (`plr.ts`, Folha do mês › PLR):**
+  - valor por funcionário no movimento do mês do pagamento (`Movimento.plr`), ou o valor do ano proporcional aos meses trabalhados (mês com 15 dias ou mais);
+  - sem INSS e sem FGTS; IRRF exclusivo pela tabela anual da PLR (nova tabela `irrf_plr` em Tabelas legais, **sem valores pré-preenchidos**: digitar da norma);
+  - mais de um pagamento no ano: o IRRF é refeito sobre o total menos o já retido; a pensão sobre a PLR deduz da base; PLR paga fora do Consultor entra como "já paga no ano";
+  - avisos de mais de 2 pagamentos e do mesmo trimestre civil (Lei 10.101/2000, art. 3º, § 2º);
+  - eSocial: demonstrativo próprio no S-1200 do mês do pagamento (também para desligado sem folha) e o S-1210 na data da PLR; de/para sugere IRRF 9203 e pensão 9213. Validado pelo XSD.
+- **Dissídio por sindicato (Folha complementar):** o reajuste ganhou o sindicato (`ReajusteRetroativo.sindicato`). "Usar a convenção" já escolhe o sindicato; só os funcionários com ele na ficha são reajustados (também na diferença do 13º e nas rescisões); sem sindicato na ficha entra com aviso; outro sindicato fica fora, com aviso.
+- **Rescisão, art. 480:** a causa era o "Fim do contrato" da ficha ausente ou desatualizado (o fim da experiência de 45 dias, sem a prorrogação). Antes o desconto sumia com um aviso; agora:
+  - é erro, com a sugestão do fim da prorrogação (admissão + 89 dias);
+  - o fim do contrato pode ser informado na própria rescisão (tipos 03 e 04);
+  - aviso "não cumprido" no contrato a termo avisa que não há aviso prévio a descontar (só com a cláusula do art. 481).
+- **Testes:** `plr.test.ts`, os novos casos de `complementar.test.ts` e `motorRescisao.test.ts`.

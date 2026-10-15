@@ -163,6 +163,11 @@ export interface EntradaRescisao {
      * empregador pode abrir mão. Sem ela, nada é descontado.
      */
     indenizacao480?: boolean;
+    /**
+     * Fim do contrato a termo informado na rescisão (arts. 479 e 480), no lugar do da ficha: o contrato de experiência
+     * prorrogado sem o fim novo na ficha, por exemplo. Vazio = o "Fim do contrato" da ficha.
+     */
+    fimContrato?: string;
     /** Tabela para D.S.R. da empresa (Tabelas legais): o DSR das horas extras na média. */
     tabelasDsr?: TabelaDsr[];
 }
@@ -204,6 +209,16 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
     const d = ficha.dados;
     const opcoes = e.opcoes ?? { simplificado: true, redutor: true };
     const pagarAte = dataValida(data) ? somarDias(data, 10) : '';
+    // Fim do contrato a termo (arts. 479 e 480): o informado na rescisão ou o da ficha, se for depois do desligamento.
+    const fimDoContrato = () => { const f = (e.fimContrato || e.ficha.dados.fimContrato || '').trim(); return dataValida(f) && f > data ? f : ''; };
+    const semFim = () => {
+        const f = (e.fimContrato || e.ficha.dados.fimContrato || '').trim();
+        const adm = e.ficha.dados.admissao ?? '';
+        if (!dataValida(f)) return 'a ficha está sem o "Fim do contrato" (Ident. Adm.). Informe o fim do contrato na rescisão ou na ficha.';
+        // Experiência de até 45 dias vencida antes do desligamento: provavelmente prorrogada (até 90 dias, art. 445, parágrafo único).
+        const prorrogado = dataValida(adm) && diasEntre(adm, f) + 1 <= 45 ? somarDias(adm, 89) : '';
+        return `o fim do contrato da ficha (${br(f)}) não é depois do desligamento (${br(data)}).${prorrogado ? ` Se a experiência foi prorrogada para 90 dias, o fim é ${br(prorrogado)}: informe na rescisão ou na ficha (e o S-2206 da prorrogação).` : ' Se o contrato foi prorrogado, informe o fim novo.'}`;
+    };
     const pagamento = e.pagamento && /^\d{4}-(0[1-9]|1[0-2])$/.test(e.pagamento) ? e.pagamento : pagarAte.slice(0, 7);
     const r: ResultadoRescisao = {
         fichaId: ficha.id, nome: d.nome || ficha.cpf, competencia: data.slice(0, 7), pagamento, situacao: 'calculado',
@@ -345,20 +360,25 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
         verba({ codigo: 'AVISODESC', descricao: 'Aviso prévio não cumprido (desconto)', referencia: '30 dias', tipo: 'desconto', valor: Math.round(diaria * 30), inss: false, fgts: false, irrf: false });
         r.memoria.push('Pedido de demissão sem cumprir o aviso: desconto de 30 dias (art. 487, § 2º).');
     } else if (tipo === '03') {
-        if (d.fimContrato && dataValida(d.fimContrato) && d.fimContrato > data) {
-            const restantes = diasEntre(data, d.fimContrato);
+        const fim = fimDoContrato();
+        if (fim) {
+            const restantes = diasEntre(data, fim);
             const v = Math.round(diaria * restantes / 2);
             verba({ codigo: 'ART479', descricao: 'Indenização do art. 479 da CLT', referencia: `${restantes} dias ÷ 2`, tipo: 'provento', valor: v, inss: false, fgts: false, irrf: false });
-            r.memoria.push(`Art. 479: metade da remuneração dos ${restantes} dias até o fim do contrato (${br(d.fimContrato)}) = ${reais(v)}.`);
-        } else r.avisos.push('Término antecipado: informe o fim do contrato na ficha para calcular a indenização do art. 479.');
+            r.memoria.push(`Art. 479: metade da remuneração dos ${restantes} dias até o fim do contrato (${br(fim)}${e.fimContrato ? ', informado na rescisão' : ''}) = ${reais(v)}.`);
+        } else erro(`Indenização do art. 479 sem o fim do contrato: ${semFim()}`);
     } else if (tipo === '04') {
+        if (e.aviso === 'nao-cumprido') r.avisos.push('Contrato a termo: não há aviso prévio a descontar (só com a cláusula assecuratória do art. 481). O desconto do término antecipado pelo empregado é a indenização do art. 480.');
         if (!e.indenizacao480) r.avisos.push('Término antecipado pelo empregado: a indenização do art. 480 não foi descontada. Para descontar (metade da remuneração dos dias que faltavam), marque "Indenização do art. 480".');
-        else if (d.fimContrato && dataValida(d.fimContrato) && d.fimContrato > data) {
-            const restantes = diasEntre(data, d.fimContrato);
-            const v = Math.round(diaria * restantes / 2);
-            verba({ codigo: 'ART480', descricao: 'Indenização do art. 480 da CLT', referencia: `${num(restantes / 2)} dias`, tipo: 'desconto', valor: v, inss: false, fgts: false, irrf: false });
-            r.memoria.push(`Art. 480: metade da remuneração dos ${restantes} dias até o fim do contrato (${br(d.fimContrato)}) = ${num(restantes / 2)} dias × ${reais(Math.round(diaria))} = ${reais(v)}, descontada (o teto do § 1º é o valor do art. 479).`);
-        } else r.avisos.push('Indenização do art. 480: informe o fim do contrato na ficha (Ident. Adm.) para calcular o desconto.');
+        else {
+            const fim = fimDoContrato();
+            if (fim) {
+                const restantes = diasEntre(data, fim);
+                const v = Math.round(diaria * restantes / 2);
+                verba({ codigo: 'ART480', descricao: 'Indenização do art. 480 da CLT', referencia: `${num(restantes / 2)} dias`, tipo: 'desconto', valor: v, inss: false, fgts: false, irrf: false });
+                r.memoria.push(`Art. 480: metade da remuneração dos ${restantes} dias até o fim do contrato (${br(fim)}${e.fimContrato ? ', informado na rescisão' : ''}) = ${num(restantes / 2)} dias × ${reais(Math.round(diaria))} = ${reais(v)}, descontada (o teto do § 1º é o valor do art. 479).`);
+            } else erro(`Indenização do art. 480 marcada, mas sem o fim do contrato: ${semFim()}`);
+        }
     }
     else if (tipo === '27') {
         r.memoria.push('Força maior (arts. 501 e 502): sem aviso prévio; 13º e férias proporcionais integrais; multa do FGTS de 20% (Lei 8.036/1990, art. 18, § 2º).');

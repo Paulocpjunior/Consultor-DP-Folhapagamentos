@@ -42,6 +42,7 @@ import { cpfValido, reais } from '../cadastros/documentos';
 import { idEvento, VER_PROC, type TpAmb } from './transmissao';
 import type { ReciboEvento } from './recibosEsocial';
 import type { Instrumento, ResultadoComplementar } from '../calculo/complementar';
+import type { ResultadoPlr } from '../calculo/plr';
 import { diaDoPeriodo, estabelecimentoNoDia } from '../cadastros/locaisTrabalho';
 import { estabelecimentoDa, ehObraPropria, type Lotacao } from '../obras/lotacoes';
 import { principal, repartir } from '../obras/folhaPorObra';
@@ -149,6 +150,10 @@ export const SUGESTAO: Record<string, { naturezas: string[]; dica?: RegExp; evit
     // Só adiantamento de salário (ou "vale", "quinzena"): comissão, gorjeta, férias e 13º têm rubricas próprias (Codex #115).
     ADIANTPAG: { naturezas: [], dica: /ADIANT.*\b(SAL|VALE|QUINZ)/, evita: /FERIAS|13|COMISS|GORJ/ },
     ADIANT: { naturezas: ['9200'] },
+    // PLR (Lei 10.101/2000): a natureza da rubrica varia no S-1010 de cada empresa; vai pela descrição. IRRF e pensão sobre ela.
+    PLR: { naturezas: [], dica: /PARTIC.*LUCR|\bPLR\b/, evita: /IRRF|IMPOSTO|PENS/ },
+    IRRFPLR: { naturezas: ['9203'], dica: /PLR|LUCR|PARTIC/ },
+    PENSAOPLR: { naturezas: ['9213'], dica: /PLR|LUCR|PARTIC/ },
     VT: { naturezas: ['9216'] },
     // Arredondamento do líquido: a natureza varia no S-1010 de cada empresa; vai pela descrição, como no IOB
     // ("ARREDONDAMENTO ATUAL", "ARREDONDAMENTO ANTERIOR", "DESC. ARREDONDAMENTO ADIANTAMENTO"), também truncada como
@@ -245,6 +250,10 @@ export const ideDmDev = (perApur: string, matricula: string) => `${/^\d{4}$/.tes
 /** Demonstrativo da 1ª parcela do 13º no S-1200 do mês em que foi paga. */
 export const ideDmDev13Adiantamento = (ano: string, matricula: string) => `13ADI${ano}-${matricula}`.slice(0, 30);
 /** Demonstrativo do adiantamento salarial da competência (MOS S-1200, item 3.4: parcela paga em data própria). */
+/** Demonstrativo da PLR: pela data do pagamento (até 2 no ano). */
+export const ideDmDevPlr = (dataPagamento: string, matricula: string) => `PLR${dataPagamento.replace(/-/g, '')}-${matricula}`.slice(0, 30);
+/** Verbas da PLR: o IRRF é exclusivo (codIncIRRF 14 na rubrica), fora da conferência da base mensal. */
+const PLR_CODIGOS = new Set(['PLR', 'IRRFPLR', 'PENSAOPLR']);
 export const ideDmDevAdiantamento = (perApur: string, matricula: string) => `ADI${perApur.replace('-', '')}-${matricula}`.slice(0, 30);
 export { dataSugeridaAdiantamento };
 /** Verbas do demonstrativo do adiantamento: o valor, como provento, e o arredondamento dele (sem INSS, FGTS e IRRF; o IRRF é na folha). */
@@ -384,6 +393,11 @@ export interface EntradaEventosFolha {
      */
     complementares?: { instrumento: Instrumento; resultados: ResultadoComplementar[] }[];
     /**
+     * PLR paga na competência (Digitação PLR; services/calculo/plr.ts): demonstrativo próprio no S-1200 e pagamento no
+     * S-1210 na data dela; vai também para quem não tem a folha do mês (desligado).
+     */
+    plr?: ResultadoPlr[];
+    /**
      * Obras e lotações da empresa (Cadastros › Obras e lotações). Quem tem obra na ficha ou rateio no movimento sai com um
      * ideEstabLot por obra (proventos pelos dias, descontos na principal); obra própria com CNO, com o CNO como estabelecimento.
      */
@@ -430,6 +444,12 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
         const f = porFicha.get(rc.fichaId);
         if (!f) { avisos.push(`Complementar de ${rc.nome}: ficha não encontrada, o demonstrativo não vai.`); continue; }
         soComplementar.add(rc.fichaId); agrupar(f, null);
+    }
+    for (const x of e.plr ?? []) {
+        if (e.resultados.some(r => r.fichaId === x.fichaId) || soComplementar.has(x.fichaId)) continue;
+        const f = porFicha.get(x.fichaId);
+        if (!f) { avisos.push(`PLR de ${x.nome}: ficha não encontrada, o demonstrativo não vai.`); continue; }
+        soComplementar.add(x.fichaId); agrupar(f, null);
     }
     const recibosDa = new Map<string, ReciboFeriasEsocial[]>();
     for (const x of e.recibosFerias ?? []) recibosDa.set(x.r.fichaId, [...(recibosDa.get(x.r.fichaId) ?? []), x]);
@@ -479,7 +499,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
         // Férias na folha do gozo: o MOS (S-1200, item 19) põe IRRF 13 nas férias, no 1/3 e no desconto do que foi
         // pago no recibo (1016, 1017 e 9221), que se anulam; o IRRF das férias é o do recibo.
         if (IRRF_FERIAS_DO_GOZO.has(v.codigo) && Number(d.codIncIRRF) === 13) return;
-        if (v.codigo !== 'ADIANTPAG' && cls !== 'suspensa' && cls !== 'outra' && (cls === 'tributavel') !== v.irrf) avisar('IRRF', v.irrf, rotuloIrrf(d.codIncIRRF));
+        if (v.codigo !== 'ADIANTPAG' && !PLR_CODIGOS.has(v.codigo) && cls !== 'suspensa' && cls !== 'outra' && (cls === 'tributavel') !== v.irrf) avisar('IRRF', v.irrf, rotuloIrrf(d.codIncIRRF));
     };
     for (const [cpf, contratos] of grupos) {
         const t: EventosDoTrabalhador = { cpf, nome: contratos[0].r?.nome ?? (contratos[0].ficha.dados.nome || cpf), fichaIds: contratos.map(c => c.ficha.id), s1200: null, liquido: 0, erros: [], avisos: [],
@@ -614,6 +634,20 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                 }
             }
         };
+        /** PLR paga na competência: demonstrativo próprio, pago na data dela (o IRRF é exclusivo, da tabela da PLR). */
+        const plrDe = (f: FichaFuncionario, categ: string, mat: string, quem: string) => {
+            for (const x of (e.plr ?? []).filter(p => p.fichaId === f.id)) {
+                const qual = `PLR${quem}`;
+                if (anual) { t.erros.push(`${qual}: vai no S-1200 mensal, não no do 13º.`); continue; }
+                if (x.situacao !== 'calculado') { t.erros.push(`${qual} ${x.situacao === 'erro' ? 'com erro' : 'incompleta'}: ${[...x.erros, ...x.avisos].join(' ') || 'confira o cálculo'}.`); continue; }
+                if (x.competencia !== e.competencia || x.dataPlr.slice(0, 7) !== e.competencia) { t.erros.push(`${qual} paga em ${br(x.dataPlr)}: vai no S-1200 de ${mes(x.dataPlr.slice(0, 7))}.`); continue; }
+                const ide = unico(ideDmDevPlr(x.dataPlr, mat));
+                dmDevs.push(dmDev(ide, categ, f, itensDe(x.verbas), undefined, true));
+                pagamentos.push({ mes: x.dataPlr.slice(0, 7), xml: infoPgto(x.dataPlr, ide, x.totais.liquido) });
+                t.liquido += x.totais.liquido;
+                if (x.verbas.some(v => v.codigo === 'PENSAOPLR')) t.avisos.push(`${qual} com pensão alimentícia: confira a dedução da pensão sobre a PLR no S-1210 (o Consultor informa só o pagamento).`);
+            }
+        };
         for (const { ficha: f, r } of contratos) {
             const quem = contratos.length > 1 ? ` (matrícula ${f.matriculaEsocial || '?'})` : '';
             if (!r) {
@@ -622,8 +656,9 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                 if (!f.matriculaEsocial.trim()) t.erros.push(`Sem matrícula do eSocial na ficha${quem}.`);
                 if (!/^\d{3}$/.test(categ)) { t.erros.push(`Categoria do eSocial (3 dígitos) em branco na ficha${quem}.`); continue; }
                 if (categ === '104') { t.erros.push(`Empregado doméstico${quem}: a folha vai pelo eSocial Doméstico (módulo web).`); continue; }
-                if (f.dependentes.some(x => x.irrf === 'S' && x.pensao !== 'S')) t.avisos.push(`Complementar sem a folha do mês${quem}: o IRRF dela deduziu os dependentes, e a dedução não vai no S-1210. Confira o IRRF no S-5002.`);
+                if ((e.complementares ?? []).some(c => c.resultados.some(x => x.fichaId === f.id)) && f.dependentes.some(x => x.irrf === 'S' && x.pensao !== 'S')) t.avisos.push(`Complementar sem a folha do mês${quem}: o IRRF dela deduziu os dependentes, e a dedução não vai no S-1210. Confira o IRRF no S-5002.`);
                 complementaresDe(f, categ, f.matriculaEsocial.trim(), quem);
+                plrDe(f, categ, f.matriculaEsocial.trim(), quem);
                 continue;
             }
             if (r.situacao !== 'calculado') { t.erros.push(`Cálculo ${r.situacao === 'erro' ? 'com erro' : 'incompleto'}${quem}: ${[...r.erros, ...r.avisos].join(' ') || 'confira o holerite'}.`); continue; }
@@ -694,6 +729,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
 
             // Folha complementar: diferenças de meses anteriores, paga com a folha (o IRRF dela somou o da folha).
             complementaresDe(f, categ, mat, quem);
+            plrDe(f, categ, mat, quem);
 
             // Adiantamento salarial: demonstrativo próprio, pago na data do adiantamento (MOS S-1200, item 3.4).
             const adiant = totalDoAdiantamento(r);

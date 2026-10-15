@@ -84,7 +84,7 @@ Ponto de partida da próxima sessão. Atualizado em **15/10/2026**. O detalhe de
 
 ## Status × SAGE (15/10/2026)
 
-- **Catálogo IOB × Consultor** (IOB SAGE › menus, `catalogoMenus.ts`): 58 itens, **55 disponíveis**, 1 parcial e 2 fora do escopo (a Tabela para D.S.R., o Cadastro de Cargos e o Duplo Vínculo entraram em 15/10).
+- **Catálogo IOB × Consultor** (IOB SAGE › menus, `catalogoMenus.ts`): 59 itens, **56 disponíveis**, 1 parcial e 2 fora do escopo (a Tabela para D.S.R., o Cadastro de Cargos, o Duplo Vínculo e a Digitação PLR entraram em 15/10).
   - Parcial: a integração contábil, que falta importar direto no CCI.
   - Fora do escopo: SEFIP/GRRF, substituídos pelo eSocial e pelo FGTS Digital, e SST.
 - **Retorno da colaboradora, 14 e 15/10 (PRs #254 a #261):**

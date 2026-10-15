@@ -67,7 +67,24 @@ export interface LancamentoComplementar extends Incidencias {
     valor: number;
 }
 
-export interface ReajusteRetroativo { pct: number; de: string; ate: string }
+export interface ReajusteRetroativo {
+    pct: number; de: string; ate: string;
+    /** CNPJ do sindicato da convenção (Folha complementar › Dissídio do SAGE): só os funcionários dele são reajustados. */
+    sindicato?: string;
+}
+
+const soDigitos = (t?: string) => (t ?? '').replace(/\D/g, '');
+/**
+ * O funcionário entra no reajuste do sindicato? Sem filtro, todos. Com filtro, os da ficha com o mesmo CNPJ e os com o
+ * sindicato em branco na ficha (entram, com aviso: melhor conferir do que deixar alguém sem a diferença).
+ */
+export function noSindicatoDoReajuste(f: FichaFuncionario | undefined, r: Pick<ReajusteRetroativo, 'sindicato'> | undefined): 'sim' | 'nao' | 'sem' {
+    const alvo = soDigitos(r?.sindicato);
+    if (!alvo) return 'sim';
+    const da = soDigitos(f?.dados.sindicato);
+    if (!da) return 'sem';
+    return da === alvo ? 'sim' : 'nao';
+}
 
 /** Diferenças calculadas pelos motores (13º complementar, diferença do 13º, rescisão complementar), por funcionário e mês. */
 export interface DiferencaCalculada { fichaId: string; perRef: string; verbas: Verba[]; avisos?: string[] }
@@ -197,6 +214,7 @@ export function validarComplementar(e: Pick<EntradaComplementar, 'perApur' | 'pa
         if (!competenciaValida(r.de) || !competenciaValida(r.ate)) erros.push('Informe os meses do reajuste retroativo.');
         else if (r.de > r.ate) erros.push('O mês inicial do reajuste é depois do final.');
         else if (competenciaValida(e.perApur) && r.ate >= e.perApur) erros.push(`O reajuste retroativo vai até o mês anterior a ${rotuloCompetencia(e.perApur)}; a própria competência entra na folha do mês.`);
+        if (r.sindicato && soDigitos(r.sindicato).length !== 14) erros.push('CNPJ do sindicato do reajuste inválido.');
     }
     (e.lancamentos ?? []).forEach((l, i) => {
         const q = `Lançamento ${i + 1}`;
@@ -249,11 +267,17 @@ export function calcularComplementar(e: EntradaComplementar): { resultados: Resu
     if (e.reajuste) {
         const { pct, de, ate } = e.reajuste;
         const semFolha: string[] = [];
+        const fichasPorId = new Map(e.fichas.map(f => [f.id, f]));
+        const outroSindicato = new Set<string>();
+        const semSindicato = new Set<string>();
         for (const perRef of mesesEntre(de, ate)) {
             const hs = e.gravadas[perRef];
             if (!hs?.length) { semFolha.push(rotuloCompetencia(perRef)); continue; }
             for (const h of hs) {
                 if (h.situacao === 'erro') continue;
+                const no = noSindicatoDoReajuste(fichasPorId.get(h.fichaId), e.reajuste);
+                if (no === 'nao') { outroSindicato.add(h.nome || h.fichaId); continue; }
+                if (no === 'sem') semSindicato.add(h.nome || h.fichaId);
                 const d = diferencasDoReajuste(h, pct);
                 if (!d.verbas.length) continue;
                 const x = pegar(h.fichaId, perRef);
@@ -261,6 +285,8 @@ export function calcularComplementar(e: EntradaComplementar): { resultados: Resu
             }
         }
         if (semFolha.length) avisos.push(`Sem folha gravada em ${semFolha.join(', ')}: as diferenças desses meses não foram calculadas. Grave a folha (Cálculo mensal › Gravar) ou lance as diferenças.`);
+        if (outroSindicato.size) avisos.push(`Fora do reajuste (outro sindicato na ficha): ${[...outroSindicato].sort().join(', ')}.`);
+        if (semSindicato.size) avisos.push(`Sem o sindicato na ficha, reajustados mesmo assim: ${[...semSindicato].sort().join(', ')}. Confira e preencha o sindicato na ficha (Ident. Adm.).`);
         const dif13 = (e.diferencas ?? []).some(d => d.verbas.some(v => v.codigo === '13DIF'));
         if ((de.slice(0, 4) !== ate.slice(0, 4) || ate.slice(5) === '12') && !dif13) avisos.push('O reajuste abrange dezembro: inclua a diferença do 13º (na tela) ou lance-a no mês de referência de dezembro.');
     }
@@ -294,7 +320,7 @@ export function calcularComplementar(e: EntradaComplementar): { resultados: Resu
         const aprendiz = f.dados.categoria === '103';
         const aliqFgts = aprendiz ? 2 : 8;
         r.memoria.push(`${rotuloTpAcConv(e.instrumento.tpAcConv)}: ${e.instrumento.dsc.trim()}${e.instrumento.dtAcConv ? ` (${brData(e.instrumento.dtAcConv)})` : ''}.`);
-        if (e.reajuste) r.memoria.push(`Reajuste de ${num(e.reajuste.pct)}% de ${rotuloCompetencia(e.reajuste.de)} a ${rotuloCompetencia(e.reajuste.ate)} sobre as verbas das folhas gravadas.`);
+        if (e.reajuste) r.memoria.push(`Reajuste de ${num(e.reajuste.pct)}% de ${rotuloCompetencia(e.reajuste.de)} a ${rotuloCompetencia(e.reajuste.ate)} sobre as verbas das folhas gravadas${e.reajuste.sindicato ? ` (funcionários do sindicato ${e.reajuste.sindicato})` : ''}.`);
         // Tipo F: só verbas devidas depois do desligamento, nos meses do contrato (MOS, S-1200, item 18.12; S-2299, item 7.3).
         if (e.instrumento.tpAcConv === 'F') {
             const deslig = f.dados.dataDesligamento && dataValida(f.dados.dataDesligamento) ? f.dados.dataDesligamento : '';
@@ -473,11 +499,11 @@ export function totaisComplementar(rs: ResultadoComplementar[]) {
  * Sugestão a partir da convenção ou do acordo cadastrado no sindicato: o tipo (C ou A), a descrição e o reajuste
  * retroativo do mês "a partir de" até o mês anterior à competência. A data da celebração fica para a equipe.
  */
-export function sugestaoDaConvencao(c: { tipo: 'CCT' | 'ACT'; registroMte: string; vigenciaInicio: string; vigenciaFim: string; reajuste: { percentual: number | null; aPartirDe: string } }, perApur: string, sindicato = ''): { instrumento: Instrumento; reajuste: ReajusteRetroativo } | null {
+export function sugestaoDaConvencao(c: { tipo: 'CCT' | 'ACT'; registroMte: string; vigenciaInicio: string; vigenciaFim: string; reajuste: { percentual: number | null; aPartirDe: string } }, perApur: string, sindicato = '', cnpjSindicato = ''): { instrumento: Instrumento; reajuste: ReajusteRetroativo } | null {
     const pct = c.reajuste.percentual;
     if (!pct || !competenciaValida(c.reajuste.aPartirDe) || !competenciaValida(perApur) || c.reajuste.aPartirDe >= perApur) return null;
     const ate = somarMeses(`${perApur}-01`, -1).slice(0, 7);
     const ano = (d: string) => d.slice(0, 4);
     const dsc = `${c.tipo === 'CCT' ? 'Convenção coletiva' : 'Acordo coletivo'}${sindicato ? ` ${sindicato}` : ''} ${ano(c.vigenciaInicio)}/${ano(c.vigenciaFim)}${c.registroMte ? `, registro MTE ${c.registroMte}` : ''}`.slice(0, 255);
-    return { instrumento: { tpAcConv: c.tipo === 'CCT' ? 'C' : 'A', dsc }, reajuste: { pct, de: c.reajuste.aPartirDe, ate } };
+    return { instrumento: { tpAcConv: c.tipo === 'CCT' ? 'C' : 'A', dsc }, reajuste: { pct, de: c.reajuste.aPartirDe, ate, ...(cnpjSindicato ? { sindicato: soDigitos(cnpjSindicato) } : {}) } };
 }

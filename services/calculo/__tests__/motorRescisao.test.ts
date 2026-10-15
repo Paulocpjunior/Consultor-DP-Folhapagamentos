@@ -202,6 +202,21 @@ describe('término antecipado pelo empregado (art. 480) e insuficiência de sald
         expect([v(r, 'SAL'), v(r, '13PROP'), v(r, 'FP'), v(r, 'FP13')]).toEqual([130667, 23333, 46667, 15556]);
     });
 
+    it('ficha com a experiência de 45 dias (fim 02/10) não prorrogada: erro com a sugestão do fim em 16/11; informado na rescisão, desconta R$ 1.540,00', () => {
+        // O caso da RAFAELA (10/2026): a ficha ficou com o fim da 1ª etapa da experiência e o 480 não descontava.
+        const ficha45 = ficha({ admissao: '2026-08-19', salario: '2800.00', tipoContrato: '2', fimContrato: '2026-10-02' });
+        const semFim = calc({ ...base, ficha: ficha45, indenizacao480: true, aviso: 'nao-cumprido' });
+        expect(semFim.situacao).toBe('erro');
+        expect(semFim.erros.join(' ')).toMatch(/fim do contrato da ficha \(02\/10\/2026\) não é depois do desligamento.*o fim é 16\/11\/2026/);
+        expect(semFim.avisos.join(' ')).toMatch(/não há aviso prévio a descontar/);
+        const informado = calc({ ...base, ficha: ficha45, indenizacao480: true, fimContrato: '2026-11-16' });
+        expect(informado.situacao).not.toBe('erro');
+        expect(v(informado, 'ART480')).toBe(154000);
+        expect(informado.memoria.join(' ')).toMatch(/16\/11\/2026, informado na rescisão/);
+        const nenhum = calc({ ...base, ficha: ficha({ admissao: '2026-08-19', salario: '2800.00' }), indenizacao480: true });
+        expect(nenhum.erros.join(' ')).toMatch(/sem o "Fim do contrato"/);
+    });
+
     it('descontos maiores que os proventos: a insuficiência de saldo completa e o líquido fica zero', () => {
         const movimentos = { '2026-10': { lancamentos: [
             { descricao: 'VALE TRANSPORTE NÃO UTILIZADO', tipo: 'desconto' as const, valor: 45280, inss: false, fgts: false, irrf: false },

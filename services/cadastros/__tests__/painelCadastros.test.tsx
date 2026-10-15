@@ -106,7 +106,7 @@ describe('Cadastros na interface', () => {
         svc.listarTabelas.mockRejectedValue(Object.assign(new Error('x'), { code: 'permission-denied' }));
         render(<CadastrosPanel currentUser={usuario} subInicial="tabelas" />);
         expect((await screen.findByRole('alert')).textContent).toContain('firebase deploy --only firestore:rules --project consultor-dp-folha');
-        fireEvent.click(screen.getAllByText('Nova vigência')[2]);
+        fireEvent.click(screen.getAllByText('Nova vigência')[3]);
         const dlg = screen.getByRole('dialog', { name: 'Tabela legal' });
         fireEvent.change(within(dlg).getByLabelText('Vigência'), { target: { value: '2026-01' } });
         fireEvent.change(within(dlg).getByLabelText('Salário mínimo mensal'), { target: { value: '1.000,00' } });

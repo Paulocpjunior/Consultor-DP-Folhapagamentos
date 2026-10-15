@@ -4,7 +4,7 @@
 // depois os cadastros, a folha do mês, as conferências, o eSocial, os prazos e o fim de mês;
 // as configurações ficam à direita. Cada item leva a uma tela (aba) e, quando há, à sub-aba dela.
 
-export type Aba = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin' | 'fimdemes' | 'relatorios' | 'servicos' | 'demissoes' | 'beneficios' | 'contribuintes' | 'dctfweb' | 'processos' | 'intermitentes' | 'obras' | 'departamentos' | 'agrupado' | 'transferencia' | 'contabil' | 'processosjud' | 'sindicalpatronal' | 'importacao';
+export type Aba = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin' | 'fimdemes' | 'relatorios' | 'servicos' | 'demissoes' | 'beneficios' | 'contribuintes' | 'dctfweb' | 'processos' | 'intermitentes' | 'obras' | 'departamentos' | 'agrupado' | 'transferencia' | 'contabil' | 'processosjud' | 'sindicalpatronal' | 'importacao' | 'plr';
 
 export type SubFolha = 'eventos' | 'apontamento' | 'validador-ponto' | 'implantacao' | 'conferencia';
 export type SubCadastroMenu = 'funcionarios' | 'cargos' | 'horarios' | 'afastamentos' | 'incidencias' | 'enquadramento' | 'sindicatos' | 'tabelas' | 'conformidade';
@@ -18,7 +18,7 @@ export type Destino =
     | { aba: 'calculo'; folha: FolhaCalculo }
     | { aba: 'fimdemes'; sub: 'fechamento' | 'pedidos' }
     | { aba: 'relatorios'; sub: 'central' | 'modelos'; /** Relatório já escolhido na central (id do catálogo). */ relatorio?: string }
-    | { aba: 'empresas' | 'certificados' | 'prazos' | 'iobsage' | 'admin' | 'servicos' | 'demissoes' | 'beneficios' | 'contribuintes' | 'dctfweb' | 'processos' | 'intermitentes' | 'obras' | 'departamentos' | 'agrupado' | 'transferencia' | 'contabil' | 'processosjud' | 'sindicalpatronal' | 'importacao' }
+    | { aba: 'empresas' | 'certificados' | 'prazos' | 'iobsage' | 'admin' | 'servicos' | 'demissoes' | 'beneficios' | 'contribuintes' | 'dctfweb' | 'processos' | 'intermitentes' | 'obras' | 'departamentos' | 'agrupado' | 'transferencia' | 'contabil' | 'processosjud' | 'sindicalpatronal' | 'importacao' | 'plr' }
     | { aba: 'trocar' };
 
 import type { NomeIcone } from '../../components/layout/icones';
@@ -57,6 +57,7 @@ export const MENU: GrupoMenu[] = [
         { id: 'adiantamento', rotulo: 'Adiantamento', descricao: 'Cálculo, recibos e arquivo do banco', icone: 'dinheiro', destino: { aba: 'calculo', folha: 'adiantamento' } },
         { id: 'mensal', rotulo: 'Cálculo mensal', descricao: 'Movimento, holerites e resumo da folha', icone: 'calculadora', destino: { aba: 'calculo', folha: 'mensal' } },
         { id: 'agrupado', rotulo: 'Processamento agrupado', descricao: 'A folha mensal de várias empresas da carteira de uma vez: situação, totais, adiantamento, encargos e provisões, com a gravação da folha e a planilha', icone: 'camadas', destino: { aba: 'agrupado' } },
+        { id: 'plr', rotulo: 'PLR', descricao: 'Participação nos lucros ou resultados (Digitação PLR do SAGE): valor por funcionário, proporcional aos meses, IRRF exclusivo pela tabela anual, recibos e o demonstrativo no S-1200', icone: 'moeda', destino: { aba: 'plr' } },
         { id: 'intermitentes', rotulo: 'Trabalho intermitente', descricao: 'Convocações (prazo de 3 dias, resposta em 1 dia útil), dias e horas trabalhados, e a folha da convocação com DSR, férias + 1/3 e 13º proporcionais', icone: 'calendarioX', destino: { aba: 'intermitentes' } },
         { id: 'ferias', rotulo: 'Férias', descricao: 'Programar e calcular o recibo de férias', icone: 'sol', destino: { aba: 'calculo', folha: 'ferias' } },
         { id: 'rescisao', rotulo: 'Rescisão', descricao: 'Simular e calcular o TRCT', icone: 'saida', destino: { aba: 'calculo', folha: 'rescisao' } },
