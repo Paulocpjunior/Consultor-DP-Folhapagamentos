@@ -5688,3 +5688,15 @@ Pedido da colaboradora, pelo Paulo, com as telas do SAGE (Rescisão Contratual e
 - **Ficha › Lanç. automático:** novo campo "Pago no" (Folha / Adiantamento). O lançamento automático marcado entra no movimento já com a marca. Evento que vai para um campo do movimento (horas, pensão) não pode, e dá erro.
 - **Dados já gravados não foram alterados.** A ajuda de custo dessas fichas está como lançamento da folha (importada do lancauto do SAGE). A colaboradora marca "Pago no: Adiantamento" na ficha e "No adiantamento" no lançamento do movimento de 10/2026. Sem isso, a folha de 10/2026 paga os 500,00 de novo.
 - **Testes:** em `adiantamentoVt.test.ts`, o caso do SAGE (1.772,00 no recibo, no arquivo e no S-1210; a ajuda no demonstrativo ADI) e as incidências; também `calculoAdiantamentosModal.test.tsx` e `lancamentosAutomaticos.test.tsx`.
+
+## 15/10/2026 — Mata-burros e status × SAGE
+
+- **Pedido do Paulo:** "pode travar e passar o mata-burros, atualiza o status com relação a SAGE", com o print do Cálculo de Adiantamentos (EVANILDO e LEANDRO com 1.772,00, igual ao SAGE).
+- **Travado:** o caso do SAGE (1.271,34 + 500,00 + 0,66 = 1.772,00) já está no teste `adiantamentoVt.test.ts`; qualquer mudança que mexa nele quebra a esteira.
+- **Fixar os valores no movimento:** é o botão "Fixar os valores no movimento" no Cálculo de Adiantamentos, ação da colaboradora com o login dela.
+- **Mata-burros no main depois do #265:**
+  - `tsc` sem erros;
+  - 201 arquivos e 1537 testes;
+  - 38 arquivos e 130 testes das regras do Firestore no emulador;
+  - `vite build` ok.
+- **Status:** a seção "Status × SAGE" do `docs/retomada.md` recebeu os PRs #263 a #265 e os pontos novos (DSR por empresa, cargos, automáticos pagos no adiantamento).
