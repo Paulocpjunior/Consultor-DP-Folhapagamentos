@@ -5773,3 +5773,11 @@ Pedido da colaboradora, pelo Paulo, com as telas do SAGE (Rescisão Contratual e
 - **No main (0c8cb81):** `tsc` sem erros; 206 arquivos e 1562 testes; 38 arquivos e 130 testes das regras do Firestore no emulador; `vite build` ok.
 - **Catálogo IOB × Consultor:** 59 itens, 56 disponíveis, 1 parcial e 2 fora do escopo.
 - **Status:** o `docs/retomada.md` recebeu os PRs #267 a #270 e os pontos que ainda dependem da equipe (tabela anual da PLR, médias do histórico, fim do contrato a termo nas fichas).
+
+## 15/10/2026 — Estudo do Crédito do Trabalhador (e-Consignado)
+
+- **Pedido do Paulo:** estudar na íntegra o empréstimo consignado do Crédito do Trabalhador (gov.br) e como incorporá-lo à folha e ao desconto dos trabalhadores, conforme a legislação.
+- **Lido na íntegra:** o Manual de Orientação do Empregador v2.1 (26/06/2026, 61 páginas), com a Portaria MTE 435/2025 (arts. 20, 24, 25 e 30) e a Portaria MTE 506/2026 (atraso pelo FGTS Digital). O leiaute oficial do arquivo do Portal Emprega Brasil não abre deste ambiente.
+- **Resultado:** `docs/estudo-credito-do-trabalhador.md`, com o fluxo, as regras e o plano. Diferenças achadas no que foi entregue em 11/10: a remuneração disponível soma proventos sem INSS e ignora faltas (D1); o desconto para no líquido em vez de gerar insuficiência de saldo (D2); a rescisão desconta a parcela até 35%, mas pela v2.1 só desconta com percentual de garantia, até o saldo devedor (D3); o contrato fixo na ficha não segue o arquivo de cada competência (D4); falta a mensagem no holerite (D5).
+- **Plano em PRs:** correções do cálculo; rescisão com garantia; importação do arquivo do Portal (pelo leiaute oficial 1.4 e seus exemplos fictícios, sem arquivo real); repasse, prazo do dia 20 e conferência com o S-5003; provisão no adiantamento e nas férias; API da Dataprev (a documentação técnica já existe; depende do certificado da empresa).
+- **Revisão do Codex no #272:** a contratação também pode ser feita pelos canais dos bancos desde 25/04/2025 (corrigido no fluxo); a importação não precisa de arquivo real com dados pessoais; a API da Dataprev já tem documentação publicada. Os sites do MTE e da Dataprev não abrem deste ambiente, então o leiaute e a API serão conferidos com o texto oficial que o Paulo copiar pelo chat.
