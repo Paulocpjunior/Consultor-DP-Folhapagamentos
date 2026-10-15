@@ -20,7 +20,7 @@ import { listarConvencoes } from '../../services/sindicatos/convencoesService';
 import { convencaoDoDia } from '../../services/sindicatos/convencao';
 import { excluirComplementar, gravarComplementar, listarComplementares, type FolhaComplementarGravada } from '../../services/calculo/folhaComplementarService';
 import {
-    calcularComplementar, DSC_TIPO_J, exigeDataAcConv, FGTS_CONVERSAO, mesesEntre, rotuloTpAcConv, sugestaoDaConvencao, TIPOS_AC_CONV, totaisComplementar, VERBAS_LANCAVEIS,
+    calcularComplementar, DSC_TIPO_J, noSindicatoDoReajuste, exigeDataAcConv, FGTS_CONVERSAO, mesesEntre, rotuloTpAcConv, sugestaoDaConvencao, TIPOS_AC_CONV, totaisComplementar, VERBAS_LANCAVEIS,
     type Instrumento, type LancamentoComplementar, type ResultadoComplementar, type TpAcConv,
 } from '../../services/calculo/complementar';
 
@@ -66,6 +66,9 @@ const FolhaComplementarModal: React.FC<Props> = ({ empresa, competencia, pagamen
     const [pct, setPct] = useState('');
     const [de, setDe] = useState('');
     const [ate, setAte] = useState(anterior(competencia));
+    // Dissídio por sindicato (como o SAGE): só os funcionários com o sindicato da convenção na ficha. Vazio = todos.
+    const [sindicato, setSindicato] = useState('');
+    const [nomesSindicatos, setNomesSindicatos] = useState<Record<string, string>>({});
     const [linhas, setLinhas] = useState<LinhaLancamento[]>([]);
     // 13º e rescisões pelos motores: a diferença do 13º e as rescisões no reajuste; em janeiro, o 13º complementar do ano anterior.
     const [com13Dif, setCom13Dif] = useState(false);
@@ -94,9 +97,10 @@ const FolhaComplementarModal: React.FC<Props> = ({ empresa, competencia, pagamen
         let vivo = true;
         Promise.all([listarConvencoes(), listarSindicatos()]).then(([convs, sinds]) => {
             if (!vivo) return;
+            setNomesSindicatos(Object.fromEntries(sinds.map(x => [x.cnpj.replace(/\D/g, ''), x.nome])));
             for (const cnpj of cnpjs) {
                 const c = convencaoDoDia(convs, cnpj, `${competencia}-01`);
-                const s = c && sugestaoDaConvencao(c, competencia, sinds.find(x => x.cnpj === cnpj)?.nome ?? '');
+                const s = c && sugestaoDaConvencao(c, competencia, sinds.find(x => x.cnpj === cnpj)?.nome ?? '', cnpj);
                 if (s) { setSugestao(s); return; }
             }
         }).catch(() => { /* sem convenção: preenche à mão */ });
@@ -121,7 +125,14 @@ const FolhaComplementarModal: React.FC<Props> = ({ empresa, competencia, pagamen
     }, [meses, gravadas, empresa.id]);
 
     const instrumento: Instrumento = { tpAcConv: tipo, dtAcConv: dtAcConv || undefined, dsc };
-    const reajuste = comReajuste ? { pct: Number(pct.replace(',', '.')) || 0, de, ate } : undefined;
+    const reajuste = comReajuste ? { pct: Number(pct.replace(',', '.')) || 0, de, ate, ...(sindicato ? { sindicato } : {}) } : undefined;
+    // Sindicatos para o filtro: os da empresa e os que aparecem nas fichas; a contagem de quem entra no reajuste.
+    const opcoesSindicato = useMemo(() => [...new Set([...(empresa.sindicatos ?? []), ...fichas.map(f => f.dados.sindicato ?? '')].map(c => c.replace(/\D/g, '')).filter(c => c.length === 14))].sort(), [empresa.sindicatos, fichas]);
+    const contagemSindicato = useMemo(() => {
+        const n = { sim: 0, nao: 0, sem: 0 };
+        for (const f of fichas) n[noSindicatoDoReajuste(f, { sindicato })]++;
+        return n;
+    }, [fichas, sindicato]);
     const precisaMotores = (comComplemento13 && janeiro) || (comReajuste && (com13Dif || comRescisoes));
     useEffect(() => {
         if (!precisaMotores || movimentos) return;
@@ -137,8 +148,9 @@ const FolhaComplementarModal: React.FC<Props> = ({ empresa, competencia, pagamen
         const partes: DiferencasDosMotores[] = [];
         if (comComplemento13 && janeiro) partes.push(complemento13(d, anoAnterior));
         if (reajuste && reajuste.pct > 0 && /^\d{4}-\d{2}$/.test(reajuste.de) && /^\d{4}-\d{2}$/.test(reajuste.ate)) {
-            if (com13Dif) for (const ano of dezembros) partes.push(diferenca13DoReajuste(d, ano, reajuste.pct));
-            if (comRescisoes) partes.push(diferencasDaRescisao(d, reajuste, gravadas));
+            const doSindicato = { ...d, fichas: fichas.filter(f => noSindicatoDoReajuste(f, reajuste) !== 'nao') };
+            if (com13Dif) for (const ano of dezembros) partes.push(diferenca13DoReajuste(doSindicato, ano, reajuste.pct));
+            if (comRescisoes) partes.push(diferencasDaRescisao(doSindicato, reajuste, gravadas));
         }
         return juntarDiferencas(...partes);
     }, [precisaMotores, movimentos, fichas, afastamentos, tabelas, comComplemento13, janeiro, anoAnterior, JSON.stringify(reajuste), com13Dif, comRescisoes, gravadas]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -160,14 +172,14 @@ const FolhaComplementarModal: React.FC<Props> = ({ empresa, competencia, pagamen
     function aplicarSugestao() {
         if (!sugestao) return;
         setTipo(sugestao.instrumento.tpAcConv); setDsc(sugestao.instrumento.dsc);
-        setComReajuste(true); setPct(String(sugestao.reajuste.pct).replace('.', ',')); setDe(sugestao.reajuste.de); setAte(sugestao.reajuste.ate);
+        setComReajuste(true); setPct(String(sugestao.reajuste.pct).replace('.', ',')); setDe(sugestao.reajuste.de); setAte(sugestao.reajuste.ate); setSindicato(sugestao.reajuste.sindicato ?? '');
         setMsg('Preenchido pela convenção: confira e informe a data da celebração.');
     }
     function abrir(c: FolhaComplementarGravada) {
         setTipo(c.instrumento.tpAcConv); setDtAcConv(c.instrumento.dtAcConv ?? ''); setDsc(c.instrumento.dsc); setPag(c.pagamento);
         setComReajuste(!!c.reajuste);
         setCom13Dif(!!c.opcoes?.decimo); setComRescisoes(!!c.opcoes?.rescisoes); setComComplemento13(!!c.opcoes?.complemento13);
-        if (c.reajuste) { setPct(String(c.reajuste.pct).replace('.', ',')); setDe(c.reajuste.de); setAte(c.reajuste.ate); }
+        if (c.reajuste) { setPct(String(c.reajuste.pct).replace('.', ',')); setDe(c.reajuste.de); setAte(c.reajuste.ate); setSindicato(c.reajuste.sindicato ?? ''); }
         setLinhas(c.lancamentos.map(l => ({ fichaId: l.fichaId, perRef: l.perRef, codigo: l.codigo, descricao: l.codigo === 'LAN' || l.descricao !== VERBAS_LANCAVEIS.find(v => v.codigo === l.codigo)?.descricao ? l.descricao : '', valor: (l.valor / 100).toFixed(2).replace('.', ','), inss: l.inss, fgts: l.fgts, irrf: l.irrf })));
         setMsg(`Complementar ${c.instrumento.tpAcConv} aberta para conferir ou regravar.`);
     }
@@ -241,6 +253,13 @@ const FolhaComplementarModal: React.FC<Props> = ({ empresa, competencia, pagamen
                             <label>Percentual (%)<input aria-label="Percentual do reajuste" inputMode="decimal" className={`block w-full ${inp}`} value={pct} onChange={e => setPct(e.target.value.replace(/[^\d,.]/g, ''))} /></label>
                             <label>De<input aria-label="Reajuste de" type="month" className={`block w-full ${inp}`} value={de} onChange={e => setDe(e.target.value)} /></label>
                             <label>Até<input aria-label="Reajuste até" type="month" className={`block w-full ${inp}`} value={ate} onChange={e => setAte(e.target.value)} /></label>
+                            <label className="sm:col-span-2">Sindicato<select aria-label="Sindicato do reajuste" className={`block w-full ${inp}`} value={sindicato} onChange={e => setSindicato(e.target.value)}>
+                                <option value="">Todos os funcionários</option>
+                                {opcoesSindicato.map(c => <option key={c} value={c}>{nomesSindicatos[c] ? `${nomesSindicatos[c]} — ` : ''}{c.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')}</option>)}
+                            </select></label>
+                            <p className="self-end text-xs text-slate-500 sm:col-span-2">{sindicato
+                                ? `${contagemSindicato.sim} funcionário(s) com este sindicato na ficha${contagemSindicato.sem ? `, ${contagemSindicato.sem} sem sindicato na ficha (entram, com aviso)` : ''}${contagemSindicato.nao ? `; ${contagemSindicato.nao} de outro sindicato ficam fora` : ''}.`
+                                : 'O reajuste vale para todos os funcionários com folha gravada nos meses.'}</p>
                             <p className="self-end text-xs text-slate-500">Reajusta salário, periculosidade, maternidade, horas extras, DSR, férias do mês e faltas, no mesmo código (o de/para do eSocial vale).</p>
                             <label className="flex items-center gap-2 sm:col-span-2" title={dezembros.length ? 'O 13º é pela remuneração de dezembro: o percentual sobre o 13º do ano, no mês de referência de dezembro.' : 'O reajuste não pega dezembro.'}>
                                 <input type="checkbox" disabled={!dezembros.length} checked={com13Dif && dezembros.length > 0} onChange={e => setCom13Dif(e.target.checked)} />Diferença do 13º{dezembros.length ? ` de ${dezembros.join(', ')}` : ' (o reajuste não pega dezembro)'}</label>

@@ -13,6 +13,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
 import type { ResultadoCalculo } from '../../services/calculo/motorMensal';
+import type { ResultadoPlr } from '../../services/calculo/plr';
 import { vigenciaEm, type Rubrica } from '../../services/cadastros/rubricas';
 import { listarRubricas, mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
 import { listarLotacoes } from '../../services/obras/lotacoesService';
@@ -44,13 +45,15 @@ interface Props {
     recibosFerias?: ReciboFeriasEsocial[];
     /** 1ª parcela do 13º calculada para a competência (novembro): demonstrativo próprio, se marcada. */
     primeirasParcelas13?: ResultadoCalculo[];
+    /** PLR paga na competência (Digitação PLR): demonstrativo próprio, na data dela. */
+    plr?: ResultadoPlr[];
     dataSugerida: string;
     usuario: Usuario;
     onFechar: () => void;
     onParametrosSalvos?: (p: ParametrosEsocialFolha) => void;
 }
 
-const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resultados, recibosFerias, primeirasParcelas13, dataSugerida, usuario, onFechar, onParametrosSalvos }) => {
+const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resultados, recibosFerias, primeirasParcelas13, plr, dataSugerida, usuario, onFechar, onParametrosSalvos }) => {
     const [gravados, setGravados] = useState<ParametrosEsocialFolha>(() => empresa.esocialFolha ?? parametrosVazios(empresa.cnpj));
     // O gravado no banco quando a tela abriu (ou na última gravação dela): outro usuário gravou depois, a gravação é recusada.
     const lido = useRef(empresa.esocialFolha);
@@ -95,7 +98,7 @@ const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resu
         return () => { vivo = false; };
     }, [empresa.id]);
 
-    const dePara = useMemo(() => (rubricas ? sugerirDePara([...resultados.filter(r => r.situacao === 'calculado'), ...verbasDoAdiantamentoParaDePara(resultados), ...verbasDosRecibosParaDePara(recibosFerias ?? [], competencia), ...(primeiras13 ?? []).map(x => x.r), ...complementares.flatMap(c => c.resultados.filter(r => r.situacao === 'calculado'))], rubricas, competencia) : []), [rubricas, resultados, recibosFerias, competencia, primeiras13, complementares]);
+    const dePara = useMemo(() => (rubricas ? sugerirDePara([...resultados.filter(r => r.situacao === 'calculado'), ...verbasDoAdiantamentoParaDePara(resultados), ...verbasDosRecibosParaDePara(recibosFerias ?? [], competencia), ...(primeiras13 ?? []).map(x => x.r), ...complementares.flatMap(c => c.resultados.filter(r => r.situacao === 'calculado')), ...(plr ?? []).filter(r => r.situacao === 'calculado')], rubricas, competencia) : []), [rubricas, resultados, recibosFerias, competencia, primeiras13, complementares, plr]);
     // Vazio no de/para gravado = a sugestão entra até a equipe gravar.
     const efetivos = useMemo<ParametrosEsocialFolha>(() => {
         const r = { ...params.rubricas };
@@ -127,7 +130,7 @@ const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resu
         } catch (e) { setErro(`Não foi possível ler os arquivos: ${(e as Error).message}`); }
         finally { setLendoRecibos(false); }
     }
-    const geracao = useMemo(() => (rubricas ? gerarEventosFolha({ cnpj: empresa.cnpj, tpAmb, competencia, dataPagamento: data, dataAdiantamento: dataAdiant, fichas, resultados, rubricas, parametros: efetivos, retificacao, recibosFerias, primeiraParcela13: primeiras13, complementares, lotacoes }) : null), [rubricas, empresa.cnpj, tpAmb, competencia, data, dataAdiant, fichas, resultados, efetivos, retificacao, recibosFerias, primeiras13, complementares, lotacoes]);
+    const geracao = useMemo(() => (rubricas ? gerarEventosFolha({ cnpj: empresa.cnpj, tpAmb, competencia, dataPagamento: data, dataAdiantamento: dataAdiant, fichas, resultados, rubricas, parametros: efetivos, retificacao, recibosFerias, primeiraParcela13: primeiras13, complementares, plr, lotacoes }) : null), [rubricas, empresa.cnpj, tpAmb, competencia, data, dataAdiant, fichas, resultados, efetivos, retificacao, recibosFerias, primeiras13, complementares, plr, lotacoes]);
     const prontos = geracao?.trabalhadores.filter(t => t.s1200) ?? [];
     // Cada S-1210 do trabalhador (o do mês da folha e o dos recibos de férias, se for outro mês).
     const s1210s = prontos.flatMap(t => pagamentos1210(t).map(pm => ({ t, pm })));

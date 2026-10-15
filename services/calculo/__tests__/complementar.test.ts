@@ -264,3 +264,22 @@ describe('tipo E: conversão do auxílio-doença em acidentário (só FGTS, rubr
     });
 });
 
+
+describe('dissídio por sindicato (Folha complementar › Dissídio do SAGE)', () => {
+    const SIND_A = '11222333000181'; const SIND_B = '11444777000161';
+    const a = ficha('ana', { sindicato: SIND_A }); const b = ficha('bia', { sindicato: SIND_B }); const c = ficha('caio', { sindicato: '' });
+    it('só os do sindicato da convenção; sem sindicato na ficha entra com aviso; outro sindicato fica fora', () => {
+        const x = calcularComplementar(entrada([a, b, c], { reajuste: { pct: 5, de: '2026-01', ate: '2026-03', sindicato: SIND_A } }));
+        expect(x.resultados.map(r => r.fichaId).sort()).toEqual(['ana', 'caio']);
+        expect(x.avisos.join(' ')).toMatch(/Fora do reajuste \(outro sindicato na ficha\): BIA/);
+        expect(x.avisos.join(' ')).toMatch(/Sem o sindicato na ficha, reajustados mesmo assim: CAIO/);
+        expect(x.resultados.find(r => r.fichaId === 'ana')!.memoria.join(' ')).toMatch(/funcionários do sindicato 11222333000181/);
+        // Sem filtro: todos.
+        expect(calcularComplementar(entrada([a, b, c])).resultados).toHaveLength(3);
+    });
+    it('a sugestão leva o CNPJ do sindicato; CNPJ inválido no reajuste é erro', () => {
+        const conv = { tipo: 'CCT' as const, registroMte: '', vigenciaInicio: '2026-01-01', vigenciaFim: '2026-12-31', reajuste: { percentual: 5, aPartirDe: '2026-01' } };
+        expect(sugestaoDaConvencao(conv, '2026-04', 'X', '11.222.333/0001-81')!.reajuste.sindicato).toBe(SIND_A);
+        expect(validarComplementar({ perApur: '2026-04', pagamento: '2026-04', instrumento: CCT, reajuste: { pct: 5, de: '2026-01', ate: '2026-03', sindicato: '123' } })).toContain('CNPJ do sindicato do reajuste inválido.');
+    });
+});

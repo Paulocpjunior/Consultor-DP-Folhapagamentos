@@ -58,6 +58,7 @@ import { calcular13, com13, OPCOES_13_PADRAO, ultimoDiaDoMes, type Opcoes13 } fr
 import ConferenciaHolerites, { conferirTodos, type LeituraHolerites } from './ConferenciaHolerites';
 import ConferenciaEsocialIob from './ConferenciaEsocialIob';
 import EventosFolhaModal from '../esocial/EventosFolhaModal';
+import { plrDoMes } from '../../services/calculo/plr';
 import { ehAdmin, ehMaster } from '../../services/auth/papeis';
 import CalculoAdiantamentosModal from './CalculoAdiantamentosModal';
 import FolhaComplementarModal from './FolhaComplementarModal';
@@ -94,7 +95,7 @@ const v = (r: ResultadoCalculo, c: string) => r.verbas.find(x => x.codigo === c)
 const inssDe = (r: ResultadoCalculo) => v(r, 'INSS') + v(r, 'INSS13') + v(r, 'INSSFER') + v(r, 'INSSFERRET');
 const irrfDe = (r: ResultadoCalculo) => v(r, 'IRRF') + v(r, 'IRRF13') + v(r, 'IRRFFER') + v(r, 'IRRFFERRET');
 type Folha = 'mensal' | '13-1a' | '13-2a' | 'ferias' | 'rescisao';
-interface ParamRescisao { data: string; tipo: TipoRescisao | ''; aviso: AvisoPrevio; pagamento?: string; saldoFgts?: number; adiantamento13?: number; simulada: boolean; amparo?: AmparoMotivo; indenizacao480?: boolean }
+interface ParamRescisao { data: string; tipo: TipoRescisao | ''; aviso: AvisoPrevio; pagamento?: string; saldoFgts?: number; adiantamento13?: number; simulada: boolean; amparo?: AmparoMotivo; indenizacao480?: boolean; /** Fim do contrato a termo informado na rescisão (arts. 479 e 480), no lugar do da ficha. */ fimContrato?: string }
 /** Chave da linha: o gozo nas férias (pode haver dois no mês), a ficha nas demais. */
 const chave = (r: ResultadoCalculo) => (r as Partial<ResultadoFerias>).gozoId || r.fichaId;
 const br = (d: string) => d.split('-').reverse().join('/');
@@ -366,7 +367,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                 const conv = f ? convencaoDe(f, p.data) : undefined;
                 // Eventos digitados na rescisão (proventos e descontos): o movimento do mês do desligamento na tela, mesmo antes de salvar.
                 const movimentos = p.data.startsWith(competencia) && movs[id] ? { ...(movsAno[id] ?? {}), [competencia]: movs[id] } : movsAno[id] ?? {};
-                return f ? [calcularRescisao({ ficha: f, data: p.data, tipo: p.tipo, aviso: p.aviso, pagamento: p.pagamento, saldoFgts: p.saldoFgts, adiantamento13: p.adiantamento13, amparo: p.amparo, indenizacao480: p.indenizacao480, opcoes: opcoesFerias,
+                return f ? [calcularRescisao({ ficha: f, data: p.data, tipo: p.tipo, aviso: p.aviso, pagamento: p.pagamento, saldoFgts: p.saldoFgts, adiantamento13: p.adiantamento13, amparo: p.amparo, indenizacao480: p.indenizacao480, fimContrato: p.fimContrato, opcoes: opcoesFerias,
                     avisoConvencao: avisoDaConvencao(conv?.avisoPrevio, f, p.data), contribuicoesSindicais: conv?.contribuicoes,
                     afastamentos: dados.afastamentos.filter(a => a.fichaId === id), tabelas: dados.tabelas, movimentos,
                     // Paga no próprio mês: com a folha anterior paga nele (regime "mês seguinte"), o IRRF soma as duas.
@@ -565,6 +566,10 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
             tabelas: dados.tabelas, opcoes: opcoes13, afastamentos: dados.afastamentos.filter(a => a.fichaId === f.id), movimentos: movsEmpresa[f.id] ?? {}, tabelasDsr: dados.tabelasDsr,
             parcelaUnica: (parametrosFolha?.parcelaUnica13 ?? []).includes(Number(competencia.slice(0, 4))) }))
         : undefined), [mensal, eventosFolha, dados, movsEmpresa, competencia, opcoes13, parametrosFolha]);
+    // PLR paga na competência (Digitação PLR): vai no S-1200 do mês, em demonstrativo próprio, também para o desligado.
+    const plrEsocial = useMemo(() => (mensal && eventosFolha && dados && movsEmpresa && /^\d{4}-\d{2}$/.test(competencia)
+        ? dados.fichas.flatMap(f => { const doMes = movs[f.id] ?? movsEmpresa[f.id]?.[competencia]; const m = { ...(movsEmpresa[f.id] ?? {}), ...(doMes ? { [competencia]: doMes } : {}) }; const r = plrDoMes(f, m, competencia, dados.tabelas); return r ? [r] : []; })
+        : undefined), [mensal, eventosFolha, dados, movsEmpresa, movs, competencia]);
     const recibosFeriasEsocial = useMemo(() => (mensal && eventosFolha && dados && movsEmpresa && /^\d{4}-\d{2}$/.test(competencia)
         ? recibosFeriasDaCompetencia(dados.fichas, dados.afastamentos, dados.tabelas, movsEmpresa, competencia, opcoesFerias) : undefined), [mensal, eventosFolha, dados, movsEmpresa, competencia, opcoesFerias]);
     const rotuloFiltro = !filtro ? '' : filtro.startsWith('depto:')
@@ -1070,7 +1075,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                 // 2ª parcela do 13º: o S-1200 anual (AAAA) e o pagamento no S-1210 do mês dela (até 20/12).
                 if (folha === '13-2a') return <EventosFolhaModal empresa={empresa} competencia={String(ano)} fichas={dados.fichas} resultados={resultados} dataSugerida={diaUtilAnterior(`${ano}-12-20`)} usuario={usuario}
                     onFechar={() => setEventosFolha(false)} onParametrosSalvos={esocialFolha => setEmpresas(l => l?.map(e => (e.id === empresa.id ? { ...e, esocialFolha } : e)) ?? l)} />;
-                return <EventosFolhaModal empresa={empresa} competencia={competencia} fichas={dados.fichas} resultados={resultados} recibosFerias={recibosFeriasEsocial} primeirasParcelas13={primeiras13Esocial} dataSugerida={quintoDiaUtilSalario(pa, pm)} usuario={usuario}
+                return <EventosFolhaModal empresa={empresa} competencia={competencia} fichas={dados.fichas} resultados={resultados} recibosFerias={recibosFeriasEsocial} primeirasParcelas13={primeiras13Esocial} plr={plrEsocial} dataSugerida={quintoDiaUtilSalario(pa, pm)} usuario={usuario}
                     onFechar={() => setEventosFolha(false)} onParametrosSalvos={esocialFolha => setEmpresas(l => l?.map(e => (e.id === empresa.id ? { ...e, esocialFolha } : e)) ?? l)} />;
             })()}
             {mensal && conferirEsocial && empresa && dados && movsEmpresa && (
@@ -1132,9 +1137,18 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                             {p.tipo === '04' && (
                                 <label className="flex items-start gap-2 rounded-sm border border-slate-200 p-2 dark:border-slate-700" title="CLT, art. 480: o empregado que sai antes do fim do contrato a termo indeniza o empregador, até a metade da remuneração dos dias que faltavam (§ 1º).">
                                     <input type="checkbox" aria-label="Indenização do art. 480" className="mt-0.5" checked={!!p.indenizacao480} onChange={e => mudar({ indenizacao480: e.target.checked || undefined })} />
-                                    <span><strong>Indenização do art. 480</strong> (desconto): metade da remuneração dos dias até o fim do contrato da ficha. Desmarcado, o empregador abre mão e nada é descontado.</span>
+                                    <span><strong>Indenização do art. 480</strong> (desconto): metade da remuneração dos dias até o fim do contrato. Desmarcado, o empregador abre mão e nada é descontado.</span>
                                 </label>
                             )}
+                            {(p.tipo === '03' || p.tipo === '04') && (() => {
+                                const daFicha = dados?.fichas.find(x => x.id === t.fichaId)?.dados.fimContrato ?? '';
+                                return (
+                                    <label className="block" title="Arts. 479 e 480: a indenização é sobre os dias que faltavam até o fim do contrato a termo. Experiência prorrogada: informe o fim novo (até 90 dias da admissão).">Fim do contrato a termo
+                                        <input aria-label="Fim do contrato a termo" type="date" className={`mt-0.5 block ${inp}`} value={p.fimContrato ?? daFicha} onChange={e => mudar({ fimContrato: e.target.value && e.target.value !== daFicha ? e.target.value : undefined })} />
+                                        <span className="text-[11px] text-slate-500 dark:text-slate-400">{daFicha ? `Na ficha: ${br(daFicha)}.` : 'A ficha está sem o fim do contrato.'}{p.fimContrato ? ' Usando o informado aqui (atualize também a ficha e envie o S-2206 da prorrogação, se for o caso).' : ''}</span>
+                                    </label>
+                                );
+                            })()}
                             {p.simulada && <label className="block">Data do desligamento<input aria-label="Data do desligamento simulado" type="date" className={`mt-0.5 block ${inp}`} value={p.data} onChange={e => mudar({ data: e.target.value })} /></label>}
                             <label className="block">Mês do pagamento (tabela do IRRF)
                                 <input aria-label="Mês do pagamento da rescisão" type="month" className={`mt-0.5 block ${inp}`} value={mesPagamento} onChange={e => mudar({ pagamento: e.target.value || undefined })} />

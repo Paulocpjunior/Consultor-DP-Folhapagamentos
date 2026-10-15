@@ -42,6 +42,7 @@ const ROTULO_DESTINO: Record<Destino, string> = {
     processos: 'Abrir eSocial › Processos trabalhistas',
     contribuintes: 'Abrir Folha do mês › Pró-labore e autônomos (RPA)',
     intermitentes: 'Abrir Folha do mês › Trabalho intermitente',
+    plr: 'Abrir Folha do mês › PLR',
     obras: 'Abrir Cadastros › Obras e lotações',
     departamentos: 'Abrir Cadastros › Departamentos',
     agrupado: 'Abrir Folha do mês › Processamento agrupado',

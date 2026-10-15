@@ -59,6 +59,13 @@ export function limparMovimento(m: Movimento): Movimento {
         .map(l => ({ descricao: l.descricao.trim().replace(/\s+/g, ' '), tipo: l.tipo, valor: Math.round(l.valor), inss: !!l.inss, fgts: !!l.fgts, irrf: !!l.irrf, ...(typeof l.media === 'boolean' ? { media: l.media } : {}), ...(l.noAdiantamento ? { noAdiantamento: true } : {}), ...plano(l) }))
         .filter(l => l.descricao || l.valor);
     if (lancs.length) out.lancamentos = lancs;
+    // PLR do mês: só com valor; centavos inteiros.
+    const plr = m.plr;
+    if (plr && typeof plr.valor === 'number' && plr.valor > 0) {
+        const c = (n: unknown) => (typeof n === 'number' && Number.isFinite(n) && n > 0 ? Math.round(n) : undefined);
+        out.plr = { valor: Math.round(plr.valor), data: typeof plr.data === 'string' ? plr.data : '',
+            ...(c(plr.pensao) ? { pensao: c(plr.pensao) } : {}), ...(c(plr.anteriorValor) ? { anteriorValor: c(plr.anteriorValor) } : {}), ...(c(plr.anteriorIrrf) ? { anteriorIrrf: c(plr.anteriorIrrf) } : {}) };
+    }
     // Rateio entre obras (lotações): dias em cada uma, códigos em ordem, sem os zerados.
     const rateio = Object.entries(m.rateioLotacao ?? {}).filter(([c, d]) => /^[A-Za-z0-9._-]{1,30}$/.test(c) && typeof d === 'number' && Number.isFinite(d) && d > 0)
         .sort((a, b) => a[0].localeCompare(b[0])).map(([c, d]) => [c, Math.round(d * 100) / 100] as const);
@@ -86,6 +93,10 @@ export function validarMovimento(m: Movimento, diasNoMes = 31): string[] {
         else if (!(n > 0 && n <= 300)) erros.push(`Horas extras: adicional de ${p}% inválido (de 1% a 300%).`);
         if (h < 0) erros.push(`Horas extras ${p}%: não pode ser negativo.`);
         else if (h > 300) erros.push(`Horas extras ${p}%: no máximo 300.`);
+    }
+    if (m.plr) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(m.plr.data)) erros.push('PLR: informe a data do pagamento.');
+        if ((m.plr.pensao ?? 0) > m.plr.valor) erros.push('PLR: a pensão sobre a PLR não pode passar do valor da PLR.');
     }
     const dias = Object.values(m.rateioLotacao ?? {});
     if (dias.some(d => d > diasNoMes)) erros.push(`Rateio por obra: no máximo ${diasNoMes} dias em cada obra.`);

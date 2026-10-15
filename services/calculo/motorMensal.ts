@@ -116,6 +116,12 @@ export interface Movimento {
     irrfPagamento?: string;
     lancamentos?: Lancamento[];
     /**
+     * PLR paga no mês (Digitação PLR, Lei 10.101/2000): valor, pensão alimentícia sobre ela e a data do pagamento.
+     * Processamento à parte da folha (IRRF exclusivo pela tabela anual da PLR, sem INSS e FGTS); `anterior*` é a PLR já paga
+     * no ano fora do Consultor (o IRRF é refeito sobre o total do ano, menos o já retido).
+     */
+    plr?: { valor: number; pensao?: number; data: string; anteriorValor?: number; anteriorIrrf?: number };
+    /**
      * Rateio entre obras (lotações tributárias) no mês: código da lotação → dias trabalhados nela. Sem o rateio, vale a
      * obra da ficha. Os proventos se dividem pelos dias no S-1200 e nos encargos por obra.
      */

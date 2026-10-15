@@ -1,7 +1,7 @@
 // services/cadastros/tabelasLegais.ts
 //
 // Tabelas legais com vigência (Cadastros › Genéricos › Tabelas Legais do SGC):
-// INSS do segurado, IRRF mensal, salário mínimo federal, salário mínimo estadual
+// INSS do segurado, IRRF mensal, IRRF da PLR (tabela anual exclusiva), salário mínimo federal, salário mínimo estadual
 // (piso regional da LC 103/2000, por UF, com os pisos de cada categoria) e salário-família.
 //
 // Nenhum valor vem pré-carregado: quem cadastra digita a tabela da norma
@@ -12,7 +12,7 @@
 // tabela do IRRF, como campos opcionais: tabela anterior a 2026 não tem.
 // O cálculo em si fica no motor (services/calculo).
 
-export type TipoTabela = 'inss' | 'irrf' | 'salario_minimo' | 'salario_minimo_estadual' | 'salario_familia';
+export type TipoTabela = 'inss' | 'irrf' | 'irrf_plr' | 'salario_minimo' | 'salario_minimo_estadual' | 'salario_familia';
 export type ChaveValor = 'deducaoDependente' | 'descontoSimplificado' | 'salarioMinimo' | 'cotaSalarioFamilia' | 'limiteSalarioFamilia'
     | 'redutorAte' | 'redutorMaximo' | 'redutorLimite' | 'redutorConstante' | 'redutorCoeficiente';
 
@@ -57,6 +57,8 @@ export const DEF_TABELAS: Record<TipoTabela, DefTabela> = {
             { chave: 'redutorCoeficiente', rotulo: 'Redutor parcial: coeficiente sobre os rendimentos', formato: 'coeficiente', grupo: 'redutor' },
         ],
     },
+    // PLR (Lei 10.101/2000, art. 3º, § 5º, e Anexo): tributação exclusiva na fonte pela tabela anual própria, em separado.
+    irrf_plr: { titulo: 'IRRF da PLR (tabela anual exclusiva, Lei 10.101/2000)', faixas: { deducao: true, ultimaAberta: true }, valores: [] },
     salario_minimo: { titulo: 'Salário mínimo federal (todo o território nacional)', faixas: false, valores: [{ chave: 'salarioMinimo', rotulo: 'Salário mínimo mensal' }] },
     salario_minimo_estadual: { titulo: 'Salário mínimo estadual (piso regional da UF)', faixas: false, valores: [], estadual: true },
     salario_familia: {
