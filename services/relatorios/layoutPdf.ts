@@ -20,6 +20,10 @@ export interface OpcoesPdf {
     mensagemHolerite?: string;
     /** Texto da mensagem de aniversário (parâmetros da folha): undefined = o padrão; vazio = desligada. */
     mensagemAniversario?: string;
+    /** Holerite: imprimir o departamento do funcionário (Imprimir Informação Depto do SAGE). */
+    departamento?: boolean;
+    /** Holerite: data do crédito no cabeçalho (no lugar do mês do pagamento). */
+    dataCredito?: string;
 }
 
 export const ESCRITORIO = { nome: 'SP Assessoria Contábil', departamento: 'Departamento Pessoal' };

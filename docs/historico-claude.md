@@ -5755,3 +5755,14 @@ Pedido da colaboradora, pelo Paulo, com as telas do SAGE (Rescisão Contratual e
 - **Médias:** o cálculo de férias já fazia a média do período aquisitivo, mas só com os movimentos do Consultor; do histórico do SAGE vinham só horas extras, faltas e DSR. Agora a restauração traz, pelo valor, os eventos que fazem média (adicional noturno, comissões e DSR sobre elas, gratificações, prêmios, produtividade, gorjetas, sobreaviso) como lançamento "Média" de cada mês; a equipe acerta evento a evento ("Faz média"). Férias coletivas usam o mesmo cálculo.
 - **Seguro-desemprego:** o Consultor não gera arquivo; a efetivação da rescisão tem os "Dados para o Empregador Web" para copiar e o atalho do site. A MIA agora sabe o caminho. A etapa do seguro passou a valer para todos os motivos com direito (02, 03, 17, 47, 48 e 26), não só 02 e 03.
 - **Testes:** `recibosIntermitente.test.ts`, os novos casos de `intermitente.test.ts`, `intermitenteEsocial.test.ts`, `intermitentesTela.test.tsx`, `movimentosDoBackup.test.ts` e a regra das convocações.
+
+## 15/10/2026 — Holerite por e-mail e WhatsApp (como o SAGE)
+
+- **Pedido do Paulo:** a tela "Holerite por E-mail" do SAGE (Impressos › Holerite › Envio para email do Funcionário) e "ativar a opção de envio de holerite por e-mail e/ou WhatsApp". O envio já existia, mas só dentro da Central de relatórios › Holerites, só para a folha mensal gravada e sem seleção.
+- **Relatórios › Holerite por e-mail e WhatsApp** (`HoleriteEnvioPanel.tsx`, `holeriteEnvio.ts`):
+  - código inicial e final (o do IOB, sem os zeros), departamento, imprimir demitidos e a informação do departamento no holerite;
+  - tipo: mensal e adiantamento (folha gravada), férias, 13º 1ª e 2ª parcelas e rescisão (processos gravados);
+  - crédito (no cabeçalho do holerite), período e mensagem (no holerite e no e-mail);
+  - Vídeo (abre o PDF), Gerar holerite (baixa) e Enviar (e-mail do escritório ou WhatsApp do SP Connect, cada um só com o documento dele).
+- O histórico de quem já recebeu passou a ser por tipo (`holerite-ferias`, `holerite-13-2a`…), com a regra do Firestore e o teste das regras.
+- **PLR:** Paulo confirmou que a PLR (até duas vezes no ano) não é paga ao mesmo CPF em dois contratos; o achado da revisão sobre CPF com duas fichas fica sem mudança.

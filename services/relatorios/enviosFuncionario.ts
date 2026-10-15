@@ -6,7 +6,7 @@
 //   envios_funcionario/{empresaId}_{AAAA-MM}_{tipo}_{fichaId} { empresaId, fichaId, competencia, tipo, canais: { email?, whatsapp? } }
 // Cada canal guarda só o último envio. Puro, sem Firebase.
 
-export type TipoEnvio = 'holerite' | 'aniversario';
+export type TipoEnvio = 'holerite' | 'aniversario' | 'holerite-adiantamento' | 'holerite-ferias' | 'holerite-13-1a' | 'holerite-13-2a' | 'holerite-rescisao';
 export type CanalEnvio = 'email' | 'whatsapp';
 export interface RegistroCanal { ok: boolean; destino: string; em: string; porEmail: string; erro?: string }
 export type EnviosDaFicha = Partial<Record<CanalEnvio, RegistroCanal>>;

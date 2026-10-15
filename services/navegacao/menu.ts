@@ -4,7 +4,7 @@
 // depois os cadastros, a folha do mês, as conferências, o eSocial, os prazos e o fim de mês;
 // as configurações ficam à direita. Cada item leva a uma tela (aba) e, quando há, à sub-aba dela.
 
-export type Aba = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin' | 'fimdemes' | 'relatorios' | 'servicos' | 'demissoes' | 'beneficios' | 'contribuintes' | 'dctfweb' | 'processos' | 'intermitentes' | 'obras' | 'departamentos' | 'agrupado' | 'transferencia' | 'contabil' | 'processosjud' | 'sindicalpatronal' | 'importacao' | 'plr';
+export type Aba = 'folha' | 'cadastros' | 'calculo' | 'prazos' | 'certificados' | 'empresas' | 'esocial' | 'iobsage' | 'admin' | 'fimdemes' | 'relatorios' | 'servicos' | 'demissoes' | 'beneficios' | 'contribuintes' | 'dctfweb' | 'processos' | 'intermitentes' | 'obras' | 'departamentos' | 'agrupado' | 'transferencia' | 'contabil' | 'processosjud' | 'sindicalpatronal' | 'importacao' | 'plr' | 'envioholerite';
 
 export type SubFolha = 'eventos' | 'apontamento' | 'validador-ponto' | 'implantacao' | 'conferencia';
 export type SubCadastroMenu = 'funcionarios' | 'cargos' | 'horarios' | 'afastamentos' | 'incidencias' | 'enquadramento' | 'sindicatos' | 'tabelas' | 'conformidade';
@@ -18,7 +18,7 @@ export type Destino =
     | { aba: 'calculo'; folha: FolhaCalculo }
     | { aba: 'fimdemes'; sub: 'fechamento' | 'pedidos' }
     | { aba: 'relatorios'; sub: 'central' | 'modelos'; /** Relatório já escolhido na central (id do catálogo). */ relatorio?: string }
-    | { aba: 'empresas' | 'certificados' | 'prazos' | 'iobsage' | 'admin' | 'servicos' | 'demissoes' | 'beneficios' | 'contribuintes' | 'dctfweb' | 'processos' | 'intermitentes' | 'obras' | 'departamentos' | 'agrupado' | 'transferencia' | 'contabil' | 'processosjud' | 'sindicalpatronal' | 'importacao' | 'plr' }
+    | { aba: 'empresas' | 'certificados' | 'prazos' | 'iobsage' | 'admin' | 'servicos' | 'demissoes' | 'beneficios' | 'contribuintes' | 'dctfweb' | 'processos' | 'intermitentes' | 'obras' | 'departamentos' | 'agrupado' | 'transferencia' | 'contabil' | 'processosjud' | 'sindicalpatronal' | 'importacao' | 'plr' | 'envioholerite' }
     | { aba: 'trocar' };
 
 import type { NomeIcone } from '../../components/layout/icones';
@@ -75,6 +75,7 @@ export const MENU: GrupoMenu[] = [
     ] },
     { id: 'relatorios', rotulo: 'Relatórios', icone: 'grafico', itens: [
         { id: 'central', rotulo: 'Central de relatórios', descricao: 'Folha, holerites, resumo, relação bancária, funcionários, férias: imprimir, PDF, Excel, e-mail e WhatsApp', icone: 'grafico', destino: { aba: 'relatorios', sub: 'central' } },
+        { id: 'envioholerite', rotulo: 'Holerite por e-mail e WhatsApp', descricao: 'Envio do holerite a cada funcionário (SAGE: Envio para email do Funcionário), por tipo e departamento', icone: 'enviar', destino: { aba: 'envioholerite' } },
         { id: 'contabil', rotulo: 'Integração contábil', descricao: 'Lote de lançamentos da folha gravada para a contabilidade: plano de contas por verba e encargo, centro de custo pelo departamento, provisões, conferência e arquivo', icone: 'tabela', destino: { aba: 'contabil' } },
         { id: 'modelos', rotulo: 'Contratos e modelos', descricao: 'Contrato de experiência, prorrogação, advertência, suspensão, aviso, declarações: personalizar, importar do SAGE e enviar', icone: 'contrato', destino: { aba: 'relatorios', sub: 'modelos' } },
     ] },

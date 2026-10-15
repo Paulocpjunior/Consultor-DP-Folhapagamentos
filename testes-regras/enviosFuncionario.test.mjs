@@ -38,6 +38,10 @@ describe('envios_funcionario', () => {
   it('formato: id, tipo, canais conhecidos, autor, empresa não muda', async () => {
     await assertFails(setDoc(doc(fs('col'), 'envios_funcionario/outro'), env1('col')));
     await assertFails(setDoc(doc(fs('col'), 'envios_funcionario/A_2026-10_ferias_f1'), env1('col', { tipo: 'ferias' })));
+    // Holerite por e-mail por tipo (férias, 13º, adiantamento, rescisão).
+    await assertSucceeds(setDoc(doc(fs('col'), 'envios_funcionario/A_2026-10_holerite-ferias_f1'), env1('col', { tipo: 'holerite-ferias' })));
+    await assertSucceeds(setDoc(doc(fs('col'), 'envios_funcionario/A_2026-10_holerite-13-2a_f1'), env1('col', { tipo: 'holerite-13-2a' })));
+    await assertFails(setDoc(doc(fs('col'), 'envios_funcionario/A_2026-10_holerite-plr_f1'), env1('col', { tipo: 'holerite-plr' })));
     await assertFails(setDoc(doc(fs('col'), `envios_funcionario/${ID}`), env1('col', { canais: { sms: canal } })));
     await assertFails(setDoc(doc(fs('col'), `envios_funcionario/${ID}`), env1('col', { canais: { email: { ...canal, cpf: '1' } } })));
     await assertFails(setDoc(doc(fs('col'), `envios_funcionario/${ID}`), env1('outro')));
