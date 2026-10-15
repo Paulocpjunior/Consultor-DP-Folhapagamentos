@@ -23,7 +23,7 @@ import type { Movimento } from '../../services/calculo/motorMensal';
 import { mesesTrabalhadosNoAno, plrDoMes, plrProporcional, type ResultadoPlr } from '../../services/calculo/plr';
 
 interface Props { usuario: Usuario }
-interface Linha { integral: string; pensao: string; anteriorValor: string; anteriorIrrf: string }
+interface Linha { integral: string; pensao: string; anteriorValor: string; anteriorIrrf: string; anteriorPensao: string }
 
 const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const btn = 'rounded-sm border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
@@ -68,7 +68,7 @@ const PlrPanel: React.FC<Props> = ({ usuario }) => {
             if (!vivo) return;
             const m = Object.fromEntries(gs.map(g => [g.fichaId, g.movimento]));
             setGravados(m);
-            setLinhas(Object.fromEntries(gs.filter(g => g.movimento.plr).map(g => [g.fichaId, { integral: txt(g.movimento.plr!.valor), pensao: txt(g.movimento.plr!.pensao), anteriorValor: txt(g.movimento.plr!.anteriorValor), anteriorIrrf: txt(g.movimento.plr!.anteriorIrrf) }])));
+            setLinhas(Object.fromEntries(gs.filter(g => g.movimento.plr).map(g => [g.fichaId, { integral: txt(g.movimento.plr!.valor), pensao: txt(g.movimento.plr!.pensao), anteriorValor: txt(g.movimento.plr!.anteriorValor), anteriorIrrf: txt(g.movimento.plr!.anteriorIrrf), anteriorPensao: txt(g.movimento.plr!.anteriorPensao) }])));
             const d = gs.find(g => g.movimento.plr?.data)?.movimento.plr?.data;
             setData(d && d.startsWith(competencia) ? d : '');
         }).catch(e => { if (vivo) { setErro(`Movimentos do mês não lidos: ${mensagemErro(e)}`); setGravados(null); } });
@@ -81,7 +81,7 @@ const PlrPanel: React.FC<Props> = ({ usuario }) => {
     const visiveis = useMemo(() => fichas
         .filter(f => (f.dados.admissao ?? '') <= (fimMes || '9999') && (comDesligados || !f.dados.dataDesligamento || f.dados.dataDesligamento >= `${competencia}-01` || !!linhas[f.id]))
         .sort((a, b) => (a.dados.nome ?? '').localeCompare(b.dados.nome ?? '', 'pt-BR')), [fichas, fimMes, comDesligados, competencia, linhas]);
-    const set = (id: string, m: Partial<Linha>) => setLinhas(x => ({ ...x, [id]: { integral: '', pensao: '', anteriorValor: '', anteriorIrrf: '', ...x[id], ...m } }));
+    const set = (id: string, m: Partial<Linha>) => setLinhas(x => ({ ...x, [id]: { integral: '', pensao: '', anteriorValor: '', anteriorIrrf: '', anteriorPensao: '', ...x[id], ...m } }));
 
     // PLR de cada um: o valor (integral ou proporcional aos meses do ano) no movimento do mês, com o IRRF do ano.
     const calculo = useMemo(() => {
@@ -93,7 +93,7 @@ const PlrPanel: React.FC<Props> = ({ usuario }) => {
             const valor = proporcional ? plrProporcional(integral, meses) : integral;
             const base = gravados?.[f.id] ?? {};
             const { plr: _p, ...sem } = base;
-            const movimento: Movimento = valor > 0 ? { ...sem, plr: { valor, data, ...(centavos(l!.pensao) ? { pensao: centavos(l!.pensao) } : {}), ...(centavos(l!.anteriorValor) ? { anteriorValor: centavos(l!.anteriorValor) } : {}), ...(centavos(l!.anteriorIrrf) ? { anteriorIrrf: centavos(l!.anteriorIrrf) } : {}) } } : sem;
+            const movimento: Movimento = valor > 0 ? { ...sem, plr: { valor, data, ...(centavos(l!.pensao) ? { pensao: centavos(l!.pensao) } : {}), ...(centavos(l!.anteriorValor) ? { anteriorValor: centavos(l!.anteriorValor) } : {}), ...(centavos(l!.anteriorIrrf) ? { anteriorIrrf: centavos(l!.anteriorIrrf) } : {}), ...(centavos(l!.anteriorPensao) ? { anteriorPensao: centavos(l!.anteriorPensao) } : {}) } } : sem;
             const r = valor > 0 ? plrDoMes(f, { ...(movsEmpresa?.[f.id] ?? {}), [competencia]: movimento }, competencia, tabelas) : null;
             out.push({ f, meses, valor, r, movimento });
         }
@@ -159,7 +159,7 @@ const PlrPanel: React.FC<Props> = ({ usuario }) => {
             <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
                 <table className="w-full text-sm">
                     <thead className="bg-slate-50 text-left text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                        <tr><th className="p-2">Funcionário</th><th className="p-2">Meses no ano</th><th className="p-2">{proporcional ? 'Valor integral do ano (R$)' : 'PLR (R$)'}</th><th className="p-2">Pensão sobre a PLR (R$)</th><th className="p-2" title="PLR paga no ano fora do Consultor (o IRRF é refeito sobre o total)">Já paga no ano / IRRF (R$)</th><th className="p-2 text-right">PLR</th><th className="p-2 text-right">IRRF</th><th className="p-2 text-right">Líquido</th><th className="p-2">Situação</th></tr>
+                        <tr><th className="p-2">Funcionário</th><th className="p-2">Meses no ano</th><th className="p-2">{proporcional ? 'Valor integral do ano (R$)' : 'PLR (R$)'}</th><th className="p-2">Pensão sobre a PLR (R$)</th><th className="p-2" title="PLR paga no ano fora do Consultor (o IRRF é refeito sobre o total)">Já paga no ano / IRRF / pensão (R$)</th><th className="p-2 text-right">PLR</th><th className="p-2 text-right">IRRF</th><th className="p-2 text-right">Líquido</th><th className="p-2">Situação</th></tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                         {calculo.map(({ f, meses, valor, r }) => {
@@ -172,7 +172,8 @@ const PlrPanel: React.FC<Props> = ({ usuario }) => {
                                     <td className="p-2"><input aria-label={`PLR de ${nome}`} className={`w-28 ${inp}`} inputMode="decimal" disabled={encerrado} value={l?.integral ?? ''} onChange={e => set(f.id, { integral: e.target.value })} /></td>
                                     <td className="p-2"><input aria-label={`Pensão sobre a PLR de ${nome}`} className={`w-24 ${inp}`} inputMode="decimal" disabled={encerrado || !l?.integral} value={l?.pensao ?? ''} onChange={e => set(f.id, { pensao: e.target.value })} /></td>
                                     <td className="p-2"><input aria-label={`PLR já paga no ano de ${nome}`} className={`w-24 ${inp}`} inputMode="decimal" disabled={encerrado || !l?.integral} value={l?.anteriorValor ?? ''} onChange={e => set(f.id, { anteriorValor: e.target.value })} />{' '}
-                                        <input aria-label={`IRRF já retido no ano de ${nome}`} className={`w-20 ${inp}`} inputMode="decimal" disabled={encerrado || !l?.integral} value={l?.anteriorIrrf ?? ''} onChange={e => set(f.id, { anteriorIrrf: e.target.value })} /></td>
+                                        <input aria-label={`IRRF já retido no ano de ${nome}`} className={`w-20 ${inp}`} inputMode="decimal" disabled={encerrado || !l?.integral} value={l?.anteriorIrrf ?? ''} onChange={e => set(f.id, { anteriorIrrf: e.target.value })} />{' '}
+                                        <input aria-label={`Pensão sobre a PLR já paga de ${nome}`} title="Pensão alimentícia descontada da PLR paga fora do Consultor (deduz da base do ano)" placeholder="pensão" className={`w-20 ${inp}`} inputMode="decimal" disabled={encerrado || !l?.integral} value={l?.anteriorPensao ?? ''} onChange={e => set(f.id, { anteriorPensao: e.target.value })} /></td>
                                     <td className="p-2 text-right tabular-nums">{valor ? reais(valor) : '—'}</td>
                                     <td className="p-2 text-right tabular-nums">{r ? reais(r.verbas.find(v => v.codigo === 'IRRFPLR')?.valor ?? 0) : '—'}</td>
                                     <td className="p-2 text-right tabular-nums">{r ? reais(r.totais.liquido) : '—'}</td>

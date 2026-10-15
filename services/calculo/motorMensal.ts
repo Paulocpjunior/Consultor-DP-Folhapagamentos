@@ -120,7 +120,7 @@ export interface Movimento {
      * Processamento à parte da folha (IRRF exclusivo pela tabela anual da PLR, sem INSS e FGTS); `anterior*` é a PLR já paga
      * no ano fora do Consultor (o IRRF é refeito sobre o total do ano, menos o já retido).
      */
-    plr?: { valor: number; pensao?: number; data: string; anteriorValor?: number; anteriorIrrf?: number };
+    plr?: { valor: number; pensao?: number; data: string; anteriorValor?: number; anteriorIrrf?: number; /** Pensão descontada da PLR paga fora do Consultor no ano. */ anteriorPensao?: number };
     /**
      * Rateio entre obras (lotações tributárias) no mês: código da lotação → dias trabalhados nela. Sem o rateio, vale a
      * obra da ficha. Os proventos se dividem pelos dias no S-1200 e nos encargos por obra.

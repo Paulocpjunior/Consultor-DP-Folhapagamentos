@@ -517,6 +517,8 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
         const dedFerias = new Map<string, Map<string, number>>(); const infoDepFerias = new Map<string, Map<string, Dependente>>();
         // Pensão alimentícia descontada nos recibos de férias (tpRend 13), por mês do pagamento e alimentando.
         const penFerias = new Map<string, Map<string, number>>();
+        // Pensão alimentícia descontada da PLR (tpRend 14), por mês do pagamento e alimentando: deduz da base do IRRF da PLR.
+        const penPlr = new Map<string, Map<string, number>>();
         const unico = (base: string) => { let ide = base; for (let n = 2; ides.has(ide); n++) ide = `${base.slice(0, 30 - String(n).length - 1)}-${n}`; ides.add(ide); return ide; };
         const avisoNatureza = new Set<string>();
         /** Itens por rubrica (a mesma rubrica não se repete no demonstrativo). */
@@ -647,7 +649,20 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                 dmDevs.push(dmDev(ide, categ, f, itensDe(x.verbas), undefined, true));
                 pagamentos.push({ mes: x.dataPlr.slice(0, 7), xml: infoPgto(x.dataPlr, ide, x.totais.liquido) });
                 t.liquido += x.totais.liquido;
-                if (x.verbas.some(v => v.codigo === 'PENSAOPLR')) t.avisos.push(`${qual} com pensão alimentícia: confira a dedução da pensão sobre a PLR no S-1210 (o Consultor informa só o pagamento).`);
+                const pensaoPlr = x.verbas.find(v => v.codigo === 'PENSAOPLR')?.valor ?? 0;
+                if (pensaoPlr > 0) {
+                    const rateio = ratearPensao(f, pensaoPlr);
+                    const m = x.dataPlr.slice(0, 7);
+                    const pen = penPlr.get(m) ?? new Map<string, number>(); const inf = infoDepFerias.get(m) ?? new Map<string, Dependente>();
+                    if (rateio.erro) t.erros.push(`${qual}: ${rateio.erro}`);
+                    else for (const { dependente: dep, valor: v } of rateio.itens) {
+                        const cpfDep = digitos(dep.cpf);
+                        if (cpfDep.length !== 11 || cpfDep === t.cpf) { t.erros.push(`Alimentando ${dep.nome || '?'} sem CPF válido na ficha.`); continue; }
+                        if (v > 0) pen.set(cpfDep, (pen.get(cpfDep) ?? 0) + v);
+                        if (!depNoEsocial(f, dep)) inf.set(cpfDep, dep);
+                    }
+                    penPlr.set(m, pen); infoDepFerias.set(m, inf);
+                }
             }
         };
         for (const { ficha: f, r } of contratos) {
@@ -981,6 +996,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
                 ...[...pen].map(([c, v]) => `<penAlim><tpRend>${daFolha ? tpRendFolha : '11'}</tpRend><cpfDep>${c}</cpfDep><vlrDedPenAlim>${valor(v)}</vlrDedPenAlim></penAlim>`),
                 ...[...pen13].map(([c, v]) => `<penAlim><tpRend>12</tpRend><cpfDep>${c}</cpfDep><vlrDedPenAlim>${valor(v)}</vlrDedPenAlim></penAlim>`),
                 ...[...(penFerias.get(m) ?? [])].map(([c, v]) => `<penAlim><tpRend>13</tpRend><cpfDep>${c}</cpfDep><vlrDedPenAlim>${valor(v)}</vlrDedPenAlim></penAlim>`),
+                ...[...(penPlr.get(m) ?? [])].map(([c, v]) => `<penAlim><tpRend>14</tpRend><cpfDep>${c}</cpfDep><vlrDedPenAlim>${valor(v)}</vlrDedPenAlim></penAlim>`),
             ];
             const deps = new Map<string, Dependente>([...(daFolha ? infoDep : doAdiant ? infoDepAdi : []), ...(outro?.infoDep ?? []), ...(infoDepFerias.get(m) ?? [])]);
             const deduz = (c: string) => dedDepMes.has(c) || dedF.has(c) || ded13.has(c);
