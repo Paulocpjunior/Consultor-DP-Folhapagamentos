@@ -99,6 +99,9 @@ describe('movimento mensal pelo holerith', () => {
                 { descricao: '300 COMISSOES', tipo: 'provento', valor: 120000, inss: true, fgts: true, irrf: true, media: true }] } },
             { fichaId: ana.id, competencia: '2025-02', movimento: { lancamentos: [{ descricao: '300 COMISSOES', tipo: 'provento', valor: 80000, inss: true, fgts: true, irrf: true, media: true }] } },
         ]);
+        // Sem a coluna valor (ou vazia): o valor de vencimento (vl_ven).
+        const lv2 = (valor: string, vlVen: string) => COLS.map(c => ({ codfun: '52', anomes: '202503', codeven: '210', ref: '', valor, vl_ven: vlVen, descricao: 'ADICIONAL NOTURNO' } as Record<string, string>)[c] ?? null);
+        expect(movimentosDoHolerith({ colunas: COLS, linhas: [lv2('', '75,50')] }, naturezas, [ana], { desde: '2024-01' }).movimentos[0].movimento.lancamentos![0].valor).toBe(7550);
         // Mescla: entra o que o mês não tem; o lançamento já lançado (mesma descrição) fica e é listado.
         const [jan] = mesclarMovimentos(r.movimentos, { [ana.id]: { '2025-01': { lancamentos: [{ descricao: '300 COMISSOES', tipo: 'provento', valor: 100000, inss: true, fgts: true, irrf: true }] } } });
         expect(jan.mudou).toBe(true);

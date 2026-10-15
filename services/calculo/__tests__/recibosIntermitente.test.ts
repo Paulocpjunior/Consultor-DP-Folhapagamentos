@@ -34,6 +34,10 @@ describe('recibos do intermitente no mês', () => {
         ]);
         expect(recibos.every(x => x.resultado.basesIntermitente)).toBe(true);
     });
+    it('cálculo incompleto não vira recibo nem pagamento', () => {
+        const incompleto = resultados.map(r => (r.fichaId === 'fb' ? { ...r, situacao: 'incompleto' as const } : r));
+        expect(recibosDoMes(incompleto, CONVS, '2026-10', '2026-11-06').map(x => x.nome)).toEqual(['ANA', 'ANA']);
+    });
     it('seleção por funcionário, por convocação e por data de convocação ou de pagamento', () => {
         expect(filtrarRecibos(recibos, { fichaIds: ['fb'], por: 'convocacao', de: '', ate: '' })).toHaveLength(1);
         expect(filtrarRecibos(recibos, { convocacaoId: 'a2', por: 'convocacao', de: '', ate: '' }).map(x => x.dataPagamento)).toEqual(['2026-11-06']);

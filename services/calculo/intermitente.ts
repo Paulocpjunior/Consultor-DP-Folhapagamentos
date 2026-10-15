@@ -363,7 +363,8 @@ function parcela(e: EntradaCalculo, r: ResultadoCalculo, ficha: FichaFuncionario
         r.memoria.push(`Horas extras ${pct}%: ${num(h)} h × ${reais(Math.round(vhExtra))}/h × ${num(1 + pct / 100)} = ${reais(v)}.`);
     }
     let salariais = 0;
-    for (const l of [...(mov.lancamentos ?? []), ...conv.flatMap(x => x.convocacao.eventos ?? [])]) {
+    // Os eventos da convocação são pagos uma vez: no mês do último dia dela (a convocação que atravessa o mês não os repete).
+    for (const l of [...(mov.lancamentos ?? []), ...conv.filter(x => fimDe(x.convocacao).slice(0, 7) === competencia).flatMap(x => x.convocacao.eventos ?? [])]) {
         ac.lan++;
         verba({ ...l, codigo: `LAN${ac.lan}`, referencia: '', valor: Math.round(l.valor) });
         if (l.tipo === 'provento' && l.inss) salariais += Math.round(l.valor);

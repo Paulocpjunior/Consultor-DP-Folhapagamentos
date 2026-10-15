@@ -157,7 +157,7 @@ export type ClasseManual = Classe | 'ignorar';
 export function movimentosDoHolerith(holerith: TabelaLida, naturezas: NaturezasEventos, fichas: FichaFuncionario[], opcoes: { desde?: string; sexagesimal?: boolean; eventos?: Record<string, ClasseManual> } = {}): HistoricoDaFolha {
     const r: HistoricoDaFolha = { movimentos: [], eventos: [], todos: [], avisos: [], linhas: 0 };
     const i = (n: string) => holerith.colunas.findIndex(c => chaveColuna(c) === n);
-    const [iCod, iAno, iEv, iRef, iDesc, iValor] = ['codfun', 'anomes', 'codeven', 'ref', 'descricao', 'valor'].map(i);
+    const [iCod, iAno, iEv, iRef, iDesc, iValor, iVen] = ['codfun', 'anomes', 'codeven', 'ref', 'descricao', 'valor', 'vlven'].map(i);
     if ([iCod, iAno, iEv, iRef].some(x => x < 0)) { r.avisos.push('holerith sem as colunas codfun, anomes, codeven e ref.'); return r; }
     const porCodigo = fichasPorCodigoIob(fichas);
     const resumo = new Map<string, EventoResumo>();
@@ -174,7 +174,9 @@ export function movimentosDoHolerith(holerith: TabelaLida, naturezas: NaturezasE
         const automatica = classificarEvento(natRubr, descricao);
         const classe = manual ? (manual === 'ignorar' ? null : manual) : automatica;
         // Média: o valor do evento (R$); os demais, a quantidade da referência.
-        const q = classe === 'media' ? (iValor >= 0 ? Math.round(Math.abs(quantidade(l[iValor])) * 100) / 100 : 0)
+        // O valor vem da coluna valor ou, vazia, da de vencimento (vl_ven), como no histórico financeiro.
+        const valorDe = (k: number) => (k >= 0 ? Math.abs(quantidade(l[k])) : 0);
+        const q = classe === 'media' ? Math.round((valorDe(iValor) || valorDe(iVen)) * 100) / 100
             : Math.abs(quantidade(l[iRef], opcoes.sexagesimal && (classe === 'horasExtras50' || classe === 'horasExtras100' || classe === 'atrasosHoras')));
         const chaveResumo = `${ev}|${natRubr}`;
         const res = resumo.get(chaveResumo) ?? { codeven: ev, descricao, natRubr, classe, automatica, manual: !!manual, linhas: 0, total: 0 };

@@ -30,7 +30,8 @@ export interface ReciboDoMes {
 export function recibosDoMes(resultados: ResultadoCalculo[], convocacoes: Convocacao[], competencia: string, dataFolha: string): ReciboDoMes[] {
     const out: ReciboDoMes[] = [];
     for (const r of resultados) {
-        if (!r.diasIntermitente || r.situacao === 'erro' || !r.verbas.length) continue;
+        // Recibo e banco só com o cálculo completo (o incompleto deixou parcela de fora), como o holerite da folha.
+        if (!r.diasIntermitente || r.situacao !== 'calculado' || !r.verbas.length) continue;
         const doMes = diasNaCompetencia(convocacoes, r.fichaId, competencia);
         const periodo = (ids: string[]): [string, string] => {
             const dias = doMes.filter(x => ids.includes(x.convocacao.id)).flatMap(x => x.dias.map(d => d.data)).sort();

@@ -69,7 +69,7 @@ const IntermitenteRecibos: React.FC<Props> = ({ aba, empresaId, competenciaInici
     const resultados = useMemo(() => (movs ? fichas.map(f => calcularMensal({
         competencia, pagamento: dataFolha.slice(0, 7), ficha: f, afastamentos: afastamentos.filter(a => a.fichaId === f.id), tabelas, movimento: movs[f.id], convocacoes,
     })) : []), [movs, fichas, competencia, dataFolha, afastamentos, tabelas, convocacoes]);
-    const comErro = resultados.filter(r => r.situacao === 'erro' && convocacoes.some(c => c.fichaId === r.fichaId && c.resposta === 'aceita' && c.dias.some(d => d.data.startsWith(competencia))));
+    const comErro = resultados.filter(r => r.situacao !== 'calculado' && convocacoes.some(c => c.fichaId === r.fichaId && c.resposta === 'aceita' && c.dias.some(d => d.data.startsWith(competencia))));
     const recibos = useMemo(() => recibosDoMes(resultados, convocacoes, competencia, dataFolha), [resultados, convocacoes, competencia, dataFolha]);
     const filtro: FiltroIntermitente = { fichaIds: fichaId ? [fichaId] : undefined, convocacaoId: convocacaoId || undefined, por, de, ate };
     const selecionados = filtrarRecibos(recibos, filtro);
@@ -120,7 +120,7 @@ const IntermitenteRecibos: React.FC<Props> = ({ aba, empresaId, competenciaInici
                 <label>De<input aria-label="De" type="date" className={`block ${inp}`} value={de} onChange={e => setDe(e.target.value)} /></label>
                 <label>Até<input aria-label="Até" type="date" className={`block ${inp}`} value={ate} onChange={e => setAte(e.target.value)} /></label>
             </div>
-            {comErro.length > 0 && <p className="text-xs text-red-700 dark:text-red-300">Com erro no cálculo: {comErro.map(r => `${r.nome} (${r.erros[0] ?? 'erro'})`).join('; ')}.</p>}
+            {comErro.length > 0 && <p className="text-xs text-red-700 dark:text-red-300">Fora dos recibos (cálculo com erro ou incompleto): {comErro.map(r => `${r.nome} (${r.erros[0] ?? r.avisos[0] ?? r.situacao})`).join('; ')}.</p>}
 
             {aba === 'recibos' && (
                 <>

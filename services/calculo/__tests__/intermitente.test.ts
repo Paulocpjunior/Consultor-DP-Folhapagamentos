@@ -137,3 +137,13 @@ describe('recibo por convocação (data de pagamento própria, como o SAGE)', ()
         expect(v({ eventos: [{ descricao: '', tipo: 'provento', valor: 0, inss: true, fgts: true, irrf: true }] }).erros.join()).toMatch(/sem descrição.*sem valor/);
     });
 });
+
+describe('convocação que atravessa o mês', () => {
+    it('os eventos da convocação são pagos uma vez, no mês do último dia dela', () => {
+        const c = conv({ id: 'cx', dias: [{ data: '2026-03-30', horas: 8 }, { data: '2026-04-01', horas: 8 }],
+            eventos: [{ descricao: 'Ajuda de custo', tipo: 'provento', valor: 50000, inss: false, fgts: false, irrf: false }] });
+        const mes = (competencia: string) => calcularMensal({ competencia, pagamento: competencia, afastamentos: [], tabelas: TABELAS, ficha: ficha(), convocacoes: [c] });
+        const ajuda = (r: ReturnType<typeof calcularMensal>) => r.verbas.filter(v => v.descricao === 'Ajuda de custo').reduce((t, v) => t + v.valor, 0);
+        expect([ajuda(mes('2026-03')), ajuda(mes('2026-04'))]).toEqual([0, 50000]);
+    });
+});
