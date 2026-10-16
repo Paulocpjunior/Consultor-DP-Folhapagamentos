@@ -1,6 +1,6 @@
 # Retomada do trabalho
 
-Ponto de partida da próxima sessão. Atualizado em **15/10/2026**. O detalhe de cada entrega está em `docs/historico-claude.md`.
+Ponto de partida da próxima sessão. Atualizado em **16/10/2026**. O detalhe de cada entrega está em `docs/historico-claude.md`.
 
 ## App
 
