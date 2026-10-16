@@ -45,6 +45,8 @@ export interface Verba extends Incidencias {
     informativa?: boolean;
     /** Desconto do Crédito do Trabalhador: o grupo descFolha do eSocial (instituição e contrato), rubrica de natureza 9253. */
     descFolha?: { instFinanc: string; nrDoc: string; observacao?: string };
+    /** Desconto compulsório (pensão, retenção judicial, FIES…): sai da remuneração disponível do consignado. */
+    compulsorio?: boolean;
 }
 export interface Lancamento extends Incidencias {
     descricao: string; tipo: TipoVerba; valor: number;
@@ -52,6 +54,11 @@ export interface Lancamento extends Incidencias {
     planoSaude?: PlanoSaudeRef;
     /** Entra na média de férias, 13º e rescisão (comissão, adicional noturno…). Sem marcar: provento com INSS entra. */
     media?: boolean;
+    /**
+     * Desconto compulsório (pensão 9213, retenção judicial 9218, FIES 9260…): sai da remuneração disponível do Crédito do
+     * Trabalhador. Marcado pela natureza da rubrica ligada ao evento ou na tela; sem marca, vale a descrição.
+     */
+    compulsorio?: boolean;
     /**
      * Pago no adiantamento (dia 20), como os eventos do processamento de adiantamento do SAGE (a ajuda de custo paga com
      * o adiantamento, por exemplo): sai do holerite da folha e vai no recibo, no arquivo e no demonstrativo do adiantamento

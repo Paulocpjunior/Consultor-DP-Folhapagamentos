@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import catalogo from '../../../data/eventos-iob-sage.json';
 import type { EventoIobSage } from '../../folha/folhaTypes';
-import { eventoPorCodigo, lancarEvento, lerReferencia, tipoDaReferencia, type Lancado } from '../lancarEvento';
+import { eventoPorCodigo, lancarEvento, lancarPorValor, lerReferencia, tipoDaReferencia, type Lancado } from '../lancarEvento';
 import { calcularMensal, salarioContratual } from '../motorMensal';
 import { fichaVazia } from '../../cadastros/funcionarios';
 import type { TabelaLegal } from '../../cadastros/tabelasLegais';
@@ -182,6 +182,15 @@ describe('Lançar evento: incidências da rubrica S-1010 e INSS pela faixa (caso
         const fixo = calcularMensal({ competencia: '2026-09', pagamento: '2026-09', ficha, afastamentos: [], tabelas, movimento: { ...tri.movimento, pensaoPercentual: 33, pensaoAlimenticia: 3000 } });
         expect(fixo.verbas.find(v => v.codigo === 'PENSAO')!.valor).toBe(3000);
         expect(fixo.avisos.join()).toMatch(/vale sobre o percentual/);
+    });
+
+    it('desconto ligado a rubrica de natureza compulsória (9218) sai marcado como compulsório para o consignado (Codex #273)', () => {
+        const desc = eventos.find(e => e.tipo === 'D')!;
+        const r = ok(lancarPorValor(desc, 5000, {}, 'teste', { inss: false, fgts: false, irrf: false, origem: 'rubrica', natureza: '9218' }, 'Bloqueio de valores'));
+        expect(r.movimento.lancamentos?.[0]).toMatchObject({ tipo: 'desconto', compulsorio: true });
+        const outro = ok(lancarPorValor(desc, 5000, {}, 'teste', { inss: false, fgts: false, irrf: false, origem: 'rubrica', natureza: '9258' }, 'Convênio'));
+        expect(outro.movimento.lancamentos?.[0].compulsorio).toBeUndefined();
+        expect(incidenciasDaRubrica([rubrica], '1108', '2026-09')?.natureza).toBe('1003');
     });
 
     it('rubrica fora da vigência ou de outro evento não vale', () => {

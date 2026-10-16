@@ -44,6 +44,7 @@ import { afastamentoVazio, idAfastamento, validarAfastamento, type Afastamento }
 import type { TabelaLegal } from '../../services/cadastros/tabelasLegais';
 import { centavosDeTexto, reais } from '../../services/cadastros/documentos';
 import { calcularMensal, entraNaMedia, salarioContratual, competenciaSeguinte, dataSugeridaAdiantamento, noMes, type Lancamento, type Movimento, type ResultadoCalculo } from '../../services/calculo/motorMensal';
+import { avulsoCompulsorio } from '../../services/calculo/consignado';
 import { foraDoAdiantamento, valorDoAdiantamento } from '../../services/bancario/favorecidos';
 import { diaUtilAnterior, diaUtilSeguinte, quintoDiaUtilSalario, somarMeses } from '../../services/prazos/calendario';
 import ArquivoBancarioModal from '../bancario/ArquivoBancarioModal';
@@ -1541,6 +1542,7 @@ const Holerite: React.FC<{ r: ResultadoCalculo; comMovimento?: boolean; tituloMo
                             {(['inss', 'fgts', 'irrf'] as const).map(k => <label key={k} className="flex items-center gap-0.5"><input type="checkbox" checked={l[k]} onChange={e => setLanc(i, { [k]: e.target.checked })} />{k.toUpperCase()}</label>)}
                             <label className="flex items-center gap-0.5" title="Entra na média de férias, 13º e rescisão (comissão, adicional noturno, gratificação habitual). Sem mexer: entra o provento com INSS."><input type="checkbox" aria-label={`Média do lançamento ${i + 1}`} checked={entraNaMedia(l)} onChange={e => setLanc(i, { media: e.target.checked })} />Média</label>
                             <label className="flex items-center gap-0.5" title="Pago no adiantamento (dia 20), como os eventos do adiantamento do SAGE (ajuda de custo, por exemplo): sai deste holerite e vai no recibo, no arquivo bancário e no demonstrativo do adiantamento."><input type="checkbox" aria-label={`Pago no adiantamento: lançamento ${i + 1}`} checked={!!l.noAdiantamento} onChange={e => setLanc(i, { noAdiantamento: e.target.checked || undefined })} />No adiantamento</label>
+                            {l.tipo === 'desconto' && <label className="flex items-center gap-0.5" title="Desconto compulsório (pensão alimentícia, retenção judicial, FIES): sai da remuneração disponível do Crédito do Trabalhador. Vem marcado pela natureza da rubrica (9213, 9214, 9218, 9260) ou pela descrição; confira."><input type="checkbox" aria-label={`Compulsório: lançamento ${i + 1}`} checked={avulsoCompulsorio(l)} onChange={e => setLanc(i, { compulsorio: e.target.checked })} />Compulsório</label>}
                             <button aria-label={`Remover lançamento ${i + 1}`} className="text-red-700 dark:text-red-300" onClick={() => onMov({ ...mov, lancamentos: lancs.filter((_, j) => j !== i) })}>remover</button>
                         </div>
                     ))}

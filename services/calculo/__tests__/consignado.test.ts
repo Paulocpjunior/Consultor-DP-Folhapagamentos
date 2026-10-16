@@ -50,6 +50,13 @@ describe('contratos e margem', () => {
             v('LAN4', 'desconto', 9000, false, 'Convênio farmácia'), { ...v('FGTSSM', 'provento', 50000, true), informativa: true }]);
         expect(d).toEqual({ vencimentos: 300000, descontosInss: 10000, compulsorios: 66000, disponivel: 224000 });
     });
+    it('a marca do lançamento vale sobre a descrição (Codex #273): bloqueio judicial marcado entra, convênio desmarcado sai', () => {
+        const base = [v('SAL', 'provento', 300000, true)];
+        const bloqueio = { ...v('LAN1', 'desconto', 50000, false, 'Bloqueio de valores'), compulsorio: true };
+        const fiesNao = { ...v('LAN2', 'desconto', 20000, false, 'FIES (conferido: voluntário)'), compulsorio: false };
+        expect(remuneracaoDisponivel([...base, bloqueio, fiesNao]).compulsorios).toBe(50000);
+        expect(remuneracaoDisponivel([...base, { ...bloqueio, compulsorio: undefined }]).compulsorios).toBe(0);
+    });
     it('ficha: valida e audita os contratos', () => {
         expect(validarFicha(ficha([{ ...C1, instFinanc: '1' }])).erros.join(' ')).toMatch(/Tabela 37/);
         expect(diffFicha(ficha([]), ficha([C1])).map(a => a.campo)).toContain('consignados');

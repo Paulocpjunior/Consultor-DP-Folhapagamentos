@@ -57,9 +57,13 @@ export const contratosNoMes = (cs: ContratoConsignado[] | undefined, competencia
 /** Descontos compulsórios pela natureza das verbas do motor: INSS e IRRF (9201, 9203, também os das férias retidos no
  * recibo), pensão alimentícia (9213) e o desconto da 1ª parcela do 13º (9214). */
 export const COMPULSORIO = (codigo: string) => /^(INSS|IRRF|PENSAO|13ADT)/.test(codigo);
-/** Lançamento avulso compulsório pela descrição: pensão, retenção judicial (9218) e FIES (9260). */
+/** Naturezas compulsórias da Tabela 03 (Manual do Empregador, item 5.2): pensão, adiantamento do 13º, retenção judicial, FIES. */
+export const NATUREZAS_COMPULSORIAS = ['9213', '9214', '9218', '9260'];
+/** Avulso sem marca: compulsório pela descrição (pensão, retenção judicial, FIES). */
 const AVULSO_COMPULSORIO = /PENS[AÃ]O|JUDICI|FIES/i;
-const compulsorio = (v: Verba) => COMPULSORIO(v.codigo) || (/^LAN\d+$/.test(v.codigo) && AVULSO_COMPULSORIO.test(v.descricao));
+/** Lançamento avulso compulsório: a marca, quando há (pela natureza da rubrica ou na tela); senão, a descrição. */
+export const avulsoCompulsorio = (l: { descricao: string; compulsorio?: boolean }) => l.compulsorio ?? AVULSO_COMPULSORIO.test(l.descricao);
+const compulsorio = (v: Verba) => v.compulsorio ?? (COMPULSORIO(v.codigo) || (/^LAN\d+$/.test(v.codigo) && avulsoCompulsorio(v)));
 
 /** Mensagem ao trabalhador quando a parcela não pôde ser descontada inteira (modelo do Manual do Empregador, MTE, v2.1). */
 export const MENSAGEM_CONSIGNADO = 'ATENÇÃO TRABALHADOR: não foi possível realizar o desconto total ou parcial do seu empréstimo consignado, por exceder o percentual (35%) da remuneração disponível prevista na Lei nº 10.820/2003 e Portaria MTE nº 435/2025. Procure sua instituição financeira para regularizar o pagamento desse empréstimo.';
