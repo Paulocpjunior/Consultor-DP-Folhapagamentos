@@ -5865,3 +5865,25 @@ Pedido da colaboradora, pelo Paulo, com as telas do SAGE (Rescisão Contratual e
 - **Falta:**
   - a primeira chamada real, depois de publicar a plataforma;
   - nada do Paulo: todas as empresas têm o A1 no cofre, então o padrão das telas é o certificado da empresa (o do escritório fica como opção).
+
+## 16/10/2026 — Extrato da Dataprev na ficha: o que voltou e os contratos que faltam
+
+- **O que o Paulo viu:** o primeiro uso real do "Consultar extrato na Dataprev" (empresa 1200, funcionária com 3 empréstimos no arquivo do Portal) mostrou "Nenhum contrato da ficha para atualizar". A conexão com a Dataprev funcionou, mas nada apareceu.
+- **Causas no Consultor:**
+  - o botão só aparecia com contrato na ficha (foi criada uma linha em branco para ele aparecer);
+  - o extrato só atualizava contratos já lançados e listava os outros num aviso;
+  - um formato de resposta diferente do manual (lista de vínculos ou envelope) zerava a lista sem avisar;
+  - `garantia.temGarantias` é a garantia do **FGTS** (manual v1.7, 3.2.3), e era lida como "0% das verbas rescisórias".
+- **Correções (`creditoTrabalhadorDataprev.ts`):**
+  - `emprestimosDoExtrato`: acha os empréstimos (objeto com `contrato`) em qualquer formato;
+  - `conferirExtrato`:
+    - devolve o total e aplica só o que veio, sem o percentual a garantia fica como estava, com aviso;
+    - ignora as linhas em branco;
+    - lista os contratos só da Dataprev com parcela, competências, saldo e garantia;
+    - com uma resposta fora do formato, mostra só os nomes dos campos recebidos (nenhum valor);
+  - `acrescentarDoExtrato`: acrescenta esses contratos à ficha, a partir do início do desconto mas nunca antes do mês atual, e grava ao salvar.
+- **Tela:**
+  - o botão aparece com ou sem contrato;
+  - o título diz quantos empréstimos ativos voltaram, ou "nenhum empréstimo ativo para este CPF nesta empresa" (LF);
+  - novo botão "Acrescentar N contrato(s) à ficha".
+- **SAGE (print do Paulo):** a importação do SAGE consulta o Portal por Mês/Ano e lista por trabalhador. No Consultor, o equivalente é "Buscar na Dataprev" em Folha do mês › Crédito do Trabalhador, que traz a competência inteira para a prévia.
