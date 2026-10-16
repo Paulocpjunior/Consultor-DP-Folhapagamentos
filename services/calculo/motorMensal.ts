@@ -45,6 +45,8 @@ export interface Verba extends Incidencias {
     informativa?: boolean;
     /** Desconto do Crédito do Trabalhador: o grupo descFolha do eSocial (instituição e contrato), rubrica de natureza 9253. */
     descFolha?: { instFinanc: string; nrDoc: string; observacao?: string };
+    /** Desconto compulsório (pensão, retenção judicial, FIES…): sai da remuneração disponível do consignado. */
+    compulsorio?: boolean;
 }
 export interface Lancamento extends Incidencias {
     descricao: string; tipo: TipoVerba; valor: number;
@@ -52,6 +54,11 @@ export interface Lancamento extends Incidencias {
     planoSaude?: PlanoSaudeRef;
     /** Entra na média de férias, 13º e rescisão (comissão, adicional noturno…). Sem marcar: provento com INSS entra. */
     media?: boolean;
+    /**
+     * Desconto compulsório (pensão 9213, retenção judicial 9218, FIES 9260…): sai da remuneração disponível do Crédito do
+     * Trabalhador. Marcado pela natureza da rubrica ligada ao evento ou na tela; sem marca, vale a descrição.
+     */
+    compulsorio?: boolean;
     /**
      * Pago no adiantamento (dia 20), como os eventos do processamento de adiantamento do SAGE (a ajuda de custo paga com
      * o adiantamento, por exemplo): sai do holerite da folha e vai no recibo, no arquivo e no demonstrativo do adiantamento
@@ -191,6 +198,8 @@ export interface ResultadoCalculo {
     fgts: number;
     memoria: string[];
     avisos: string[];
+    /** Mensagens do cálculo para o holerite do trabalhador (hoje, o aviso do Crédito do Trabalhador). */
+    mensagensHolerite?: string[];
     erros: string[];
     /** Adiantamento salarial informado no movimento (vale como foi, sem a regra da data). */
     adiantamentoInformado?: boolean;
@@ -853,11 +862,25 @@ function calcularMensalSemObras(e: EntradaCalculo): ResultadoCalculo {
         }
     }
 
-    // 10. Crédito do Trabalhador (consignado): depois dos descontos obrigatórios, dentro da margem e do líquido.
+    // 10. Crédito do Trabalhador (consignado): depois dos descontos obrigatórios, dentro da margem de 35% da remuneração
+    // disponível. A parcela dentro da margem é descontada mesmo que o líquido não comporte: a insuficiência de saldo
+    // (natureza 2930) completa o líquido até zero e o trabalhador fica devendo a diferença (Manual do Empregador, ex. 03 e 04).
     const consig = descontosConsignado(ficha.consignados, competencia, r.verbas);
     for (const v of consig.verbas) verba(v);
     if (consig.memoria.length) r.memoria.push(...consig.memoria);
     r.avisos.push(...consig.avisos);
+    if (consig.mensagens.length) r.mensagensHolerite = [...(r.mensagensHolerite ?? []), ...consig.mensagens];
+    const totalConsig = consig.verbas.reduce((s, v) => s + v.valor, 0);
+    if (totalConsig) {
+        const pagas = r.verbas.filter(v => !v.informativa);
+        const liq = pagas.filter(v => v.tipo === 'provento').reduce((s, v) => s + v.valor, 0) - pagas.filter(v => v.tipo === 'desconto').reduce((s, v) => s + v.valor, 0);
+        const falta = Math.min(totalConsig, -liq);
+        if (falta > 0) {
+            verba({ codigo: 'INSUFSALDO', descricao: 'Insuficiência de saldo', referencia: '', tipo: 'provento', valor: falta, inss: false, fgts: false, irrf: false });
+            r.memoria.push(`Insuficiência de saldo: o consignado dentro da margem passou do líquido em ${reais(falta)}; a verba completa o líquido e o desconto vai inteiro ao eSocial e ao FGTS Digital.`);
+            r.avisos.push(`Insuficiência de saldo de ${reais(falta)} pelo Crédito do Trabalhador: a parcela é recolhida inteira e o empregado fica devendo esse valor à empresa (lance o desconto num mês seguinte). Para evitar, provisione a parcela no adiantamento.`);
+        }
+    }
 
     // 11. FGTS e totais.
     const aliqFgts = aprendiz ? ALIQUOTA_FGTS_APRENDIZ : ALIQUOTA_FGTS;

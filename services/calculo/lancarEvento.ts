@@ -11,6 +11,7 @@ import { reais } from '../cadastros/documentos';
 import type { EventoIobSage } from '../folha/folhaTypes';
 import type { CampoNumerico } from './movimento';
 import type { Lancamento, Movimento } from './motorMensal';
+import { NATUREZAS_COMPULSORIAS } from './consignado';
 import { avaliarFormula, variaveisDaFormula, type FormulaEvento } from './formulaEvento';
 
 export interface SalarioDoMes { mensal: number; horasMes: number }
@@ -132,7 +133,7 @@ function valorPelaRotina(ev: EventoIobSage, ref: number, sal: SalarioDoMes | nul
  * o lançamento avulso do mesmo código também.
  */
 /** Incidências que valem sobre as do catálogo: as da rubrica S-1010 da empresa ligada ao evento (incidenciasDaRubrica). */
-export interface IncidenciasLancamento { inss: boolean; fgts: boolean; irrf: boolean; origem: string }
+export interface IncidenciasLancamento { inss: boolean; fgts: boolean; irrf: boolean; origem: string; /** Natureza da rubrica S-1010 ligada ao evento. */ natureza?: string }
 
 export function lancarEvento(ev: EventoIobSage, ref: number, sal: SalarioDoMes | null, mov: Movimento, formula?: FormulaEvento, incidencias?: IncidenciasLancamento | null): Lancado {
     const titulo = `${ev.codigo} ${ev.descricao}`;
@@ -206,7 +207,8 @@ export function lancarEvento(ev: EventoIobSage, ref: number, sal: SalarioDoMes |
 function avulso(ev: EventoIobSage, titulo: string, valor: number, memoria: string, mov: Movimento, incidencias?: IncidenciasLancamento | null): Lancado {
     const doCatalogo = { inss: ev.incidencias.in === 'S', fgts: ev.incidencias.fg === 'S', irrf: ev.incidencias.ir === 'S' };
     const inc = incidencias ?? doCatalogo;
-    const l: Lancamento = { descricao: titulo, tipo: ev.tipo === 'V' ? 'provento' : 'desconto', valor, inss: inc.inss, fgts: inc.fgts, irrf: inc.irrf };
+    const l: Lancamento = { descricao: titulo, tipo: ev.tipo === 'V' ? 'provento' : 'desconto', valor, inss: inc.inss, fgts: inc.fgts, irrf: inc.irrf,
+        ...(ev.tipo === 'D' && incidencias?.natureza && NATUREZAS_COMPULSORIAS.includes(incidencias.natureza) ? { compulsorio: true } : {}) };
     const lancs = mov.lancamentos ?? [];
     const i = lancs.findIndex(x => x.descricao.startsWith(`${ev.codigo} `));
     const lista = (x: { inss: boolean; fgts: boolean; irrf: boolean }) => (['inss', 'fgts', 'irrf'] as const).filter(k => x[k]).map(k => k.toUpperCase()).join(', ') || 'sem incidências';

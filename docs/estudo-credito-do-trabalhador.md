@@ -79,7 +79,7 @@ Estudo de 15/10/2026, pedido pelo Paulo: analisar na íntegra o empréstimo cons
 
 ## 6. Plano proposto (em PRs, cada um com testes e o mata-burro)
 
-1. **Correções de cálculo (D1, D2, D5 e F4):** remuneração disponível pelas incidências de INSS e os compulsórios; parcela dentro dos 35% mesmo sem líquido (insuficiência de saldo, como já existe na rescisão); mensagem no holerite; testes com os 7 exemplos do manual (valores conferidos com o manual).
+1. **Correções de cálculo (D1, D2, D5 e F4):** remuneração disponível pelas incidências de INSS e os compulsórios; parcela dentro dos 35% mesmo sem líquido (insuficiência de saldo, como já existe na rescisão); mensagem no holerite; testes com os 7 exemplos do manual (valores conferidos com o manual). **Feita em 16/10/2026:** testes com os exemplos 01, 02, 03, 04, 06 e 07 (o 05 é rescisão, etapa 2); o limite de 35% é truncado no centavo (o exemplo 04 do manual arredonda para R$ 1.330,85; o Consultor dá R$ 1.330,84).
 2. **Rescisão com garantia (D3 e F2):** percentual e saldo devedor no contrato; base da rescisão do § 5º; sem garantia, nenhum desconto; testes com os 2 exemplos do item 5.7.
 3. **Importação do arquivo do Portal (D4 e F1):** pelo leiaute oficial 1.4 (cabeçalho e tabela de campos) e pelos exemplos fictícios do guia, que servem de testes. Um arquivo real não é necessário; se o Paulo quiser uma validação extra, só anonimizado e pelo chat, nunca no repositório.
 4. **Repasse, prazo e conferência (F5, F6 e F8):** relatório, dia 20 no calendário, comparação com o S-5003.

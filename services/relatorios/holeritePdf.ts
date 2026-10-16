@@ -108,7 +108,7 @@ export function holeritesPdf(resultados: ResultadoCalculo[], fichas: FichaFuncio
         });
         let y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
         doc.setFontSize(8.5);
-        const irrf: string[] = [...linhasIrrfFerias(r), ...mensagensDoHolerite(f, o.mensagemHolerite, aniversarioNoHolerite(f, r.competencia, o.mensagemAniversario, o.empresa.razaoSocial))].flatMap(t => doc.splitTextToSize(textoPdf(t), 182) as string[]);
+        const irrf: string[] = [...linhasIrrfFerias(r), ...(r.mensagensHolerite ?? []), ...mensagensDoHolerite(f, o.mensagemHolerite, aniversarioNoHolerite(f, r.competencia, o.mensagemAniversario, o.empresa.razaoSocial))].flatMap(t => doc.splitTextToSize(textoPdf(t), 182) as string[]);
         const extra = irrf.length * 4;
         // Bases + IRRF + declaração + assinatura: se não couber, vão para a página seguinte.
         if (y + 40 + extra > doc.internal.pageSize.height - 10) { doc.addPage(); y = 20; }

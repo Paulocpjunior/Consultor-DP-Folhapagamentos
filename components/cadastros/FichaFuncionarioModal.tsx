@@ -278,7 +278,7 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                     )}
                     {aba === 'consignado' && (
                         <div className="space-y-2 text-sm dark:text-slate-100">
-                            <p className="text-xs text-slate-600 dark:text-slate-300">Contratos do Crédito do Trabalhador (consignado CLT, Lei 10.820/2003), como a instituição informa ao empregador. A folha desconta a parcela de cada contrato nos meses dele, até {PCT_MARGEM_CONSIGNADO}% da remuneração disponível (menos INSS, IRRF e pensão) e sem deixar o líquido negativo; na rescisão, das verbas rescisórias, pelo saldo informado ou pela parcela. No eSocial vai na rubrica de natureza 9253 com a instituição e o contrato (descFolha). O limite de {PCT_MARGEM_CONSIGNADO}% é o da Lei 10.820/2003, art. 2º, § 2º, I: confira a norma vigente (alterada pela Lei 15.179/2025 e pela MP 1.355/2026).</p>
+                            <p className="text-xs text-slate-600 dark:text-slate-300">Contratos do Crédito do Trabalhador (consignado CLT, Lei 10.820/2003), digitados e conferidos com o arquivo de empréstimos do Portal Emprega Brasil de cada competência (dias 21 a 25). A folha desconta a parcela de cada contrato nos meses dele, até {PCT_MARGEM_CONSIGNADO}% da remuneração disponível (vencimentos com INSS menos faltas, INSS, IRRF e compulsórios; Portaria MTE 435/2025, art. 30); dentro da margem, desconta inteira mesmo sem líquido (insuficiência de saldo); na rescisão, das verbas rescisórias, pelo saldo informado ou pela parcela. No eSocial vai na rubrica de natureza 9253 com a instituição e o contrato (descFolha). O limite de {PCT_MARGEM_CONSIGNADO}% é o da Lei 10.820/2003, art. 2º, § 2º, I: confira a norma vigente (alterada pela Lei 15.179/2025 e pela MP 1.355/2026).</p>
                             {contratos.length > 0 && (
                                 <table className="w-full text-xs">
                                     <thead className="text-left text-slate-500"><tr><th className="p-1">Instituição (Tab. 37)</th><th className="p-1">Contrato</th><th className="p-1">Parcela (R$)</th><th className="p-1">1º mês</th><th className="p-1">Último mês</th><th className="p-1">Saldo na rescisão (R$)</th><th /></tr></thead>
@@ -296,7 +296,7 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                                 </table>
                             )}
                             <button className="rounded-sm border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600" onClick={() => setF(x => ({ ...x, consignados: [...(x.consignados ?? []), { instFinanc: '', nrDoc: '', parcela: 0, inicio: '' }] }))}>Adicionar contrato</button>
-                            <p className="text-[11px] text-slate-500 dark:text-slate-400">Quitado ou suspenso pela instituição: preencha o último mês. O que não couber na margem fica com aviso no cálculo; a instituição cobra a diferença do empregado.</p>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400">Quitado ou suspenso pela instituição: preencha o último mês. O que passar da margem sai parcial, com aviso no cálculo e mensagem no holerite; o trabalhador paga a diferença direto à instituição.</p>
                         </div>
                     )}
 
