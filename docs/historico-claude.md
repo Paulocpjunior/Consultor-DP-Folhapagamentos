@@ -5791,3 +5791,11 @@ Pedido da colaboradora, pelo Paulo, com as telas do SAGE (Rescisão Contratual e
 - **Testes:** exemplos 01, 02, 03, 04, 06 e 07 do Manual do Empregador v2.1 conferidos centavo a centavo (o 04 tem o limite arredondado no manual; o Consultor trunca); S-1200 com a insuficiência de saldo validado no XSD.
 - **Resumo de uso:** documento compartilhável "Crédito do Trabalhador (e-Consignado): como usar no Consultor DP" (Claude Docs), com o calendário do mês, o passo a passo, o cálculo, os casos especiais e o checklist.
 
+## 16/10/2026 — Crédito do Trabalhador, etapa 2 (rescisão)
+
+- **Pedido do Paulo:** "pode começar a etapa 2".
+- **Regra (Manual do Empregador v2.1, item 5.7; Portaria MTE 435/2025, art. 30, § 5º):** `descontosConsignadoRescisao` desconta, por contrato, o menor entre o percentual de garantia × a remuneração disponível na rescisão e o saldo devedor; com 0%, nada, nem a parcela do mês. A base da rescisão (`remuneracaoDisponivelRescisao`) soma ao mês o aviso indenizado e as férias indenizadas (vencidas, em dobro e proporcionais, com 1/3) e tira também o aviso não cumprido (6901) e o art. 480 (6904); art. 479 e prêmios não entram.
+- **Ficha › Consignado:** colunas "Garantia na rescisão (%)", "Saldo devedor (R$)" e "Consulta ao Portal" (`garantiaRescisao`, `saldoRescisao`, `consultaRescisao`), validadas e auditadas. Sem a garantia ou, com garantia, sem o saldo, nada é descontado e a rescisão fica incompleta, o que segura o S-2299 até a consulta.
+- **Testes:** exemplos 1 (25% de R$ 17.245,00 = R$ 4.311,25) e 2 (15% de R$ 5.663,33 = R$ 849,49, limitado ao saldo de R$ 700,00) do item 5.7.3; rescisão pelo motor com garantia, 0%, saldo menor e sem consulta; S-2299 no XSD.
+- **Conflito no manual:** o exemplo 05 do item 5.2.1 desconta a parcela até 35% na rescisão sem falar em garantia; o item 5.7.2 proíbe qualquer desconto sem garantia. Seguido o 5.7.2.
+

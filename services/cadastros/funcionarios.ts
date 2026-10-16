@@ -446,7 +446,7 @@ export function diffFicha(antes: FichaFuncionario | null, depois: FichaFuncionar
     if (hist(antes) !== hist(depois)) r.push({ campo: 'historicoSalario', de: hist(antes), para: hist(depois) });
     const ben = (f: Pick<FichaFuncionario, 'beneficios'> | null) => (f?.beneficios ?? []).map(x => `${x.beneficioId} × ${x.vidas}${x.desde ? ` desde ${x.desde}` : ''}${x.ate ? ` até ${x.ate}` : ''}`).join('; ');
     if (ben(antes) !== ben(depois)) r.push({ campo: 'beneficios', de: ben(antes), para: ben(depois) });
-    const con = (f: Pick<FichaFuncionario, 'consignados'> | null) => (f?.consignados ?? []).map(c => `${c.instFinanc}/${c.nrDoc}: ${c.parcela} de ${c.inicio}${c.fim ? ` a ${c.fim}` : ''}${c.saldoRescisao !== undefined ? ` (saldo ${c.saldoRescisao})` : ''}`).join('; ');
+    const con = (f: Pick<FichaFuncionario, 'consignados'> | null) => (f?.consignados ?? []).map(c => `${c.instFinanc}/${c.nrDoc}: ${c.parcela} de ${c.inicio}${c.fim ? ` a ${c.fim}` : ''}${c.saldoRescisao !== undefined ? ` (saldo ${c.saldoRescisao})` : ''}${c.garantiaRescisao !== undefined ? ` (garantia ${c.garantiaRescisao}%)` : ''}${c.consultaRescisao ? ` (consulta ${c.consultaRescisao})` : ''}`).join('; ');
     if (con(antes) !== con(depois)) r.push({ campo: 'consignados', de: con(antes), para: con(depois) });
     const aut = (f: Pick<FichaFuncionario, 'lancamentosAutomaticos'> | null) => (f?.lancamentosAutomaticos ?? []).map(x => `${x.codigoEvento} ${x.referencia} (${textoMeses(x.meses)}${x.desde ? ` de ${x.desde}` : ''}${x.ate ? ` até ${x.ate}` : ''})${x.noAdiantamento ? ' no adiantamento' : ''}`).join('; ');
     if (aut(antes) !== aut(depois)) r.push({ campo: 'lancamentosAutomaticos', de: aut(antes), para: aut(depois) });

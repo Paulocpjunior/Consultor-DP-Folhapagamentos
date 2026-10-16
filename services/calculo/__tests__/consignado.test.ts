@@ -3,7 +3,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { contratosNoMes, descontosConsignado, MENSAGEM_CONSIGNADO, remuneracaoDisponivel, validarContratos, type ContratoConsignado } from '../consignado';
+import { contratosNoMes, descontosConsignado, descontosConsignadoRescisao, MENSAGEM_CONSIGNADO, remuneracaoDisponivelRescisao, remuneracaoDisponivel, validarContratos, type ContratoConsignado } from '../consignado';
 import { calcularMensal, type Verba } from '../motorMensal';
 import { calcularRescisao } from '../motorRescisao';
 import { fichaVazia, diffFicha, validarFicha, type FichaFuncionario } from '../../cadastros/funcionarios';
@@ -35,7 +35,7 @@ describe('contratos e margem', () => {
         const a = descontosConsignado([C2, C1], '2026-09', verbas);
         expect([a.disponivel, a.margem]).toEqual([275000, 96250]);
         expect(a.verbas.map(x => [x.descFolha?.nrDoc, x.valor])).toEqual([['CT-2026/001', 45000], ['X9', 51250]]);
-        expect(a.avisos.join(' ')).toMatch(/contrato X9: descontado R\$\s?512,50 de R\$\s?900,00 \(margem de 35% esgotado\)/);
+        expect(a.avisos.join(' ')).toMatch(/contrato X9: descontado R\$\s?512,50 de R\$\s?900,00 \(margem de 35% esgotada\)/);
         expect(a.mensagens).toEqual([MENSAGEM_CONSIGNADO]);
         expect(a.verbas[0]).toMatchObject({ codigo: 'CONSIG', tipo: 'desconto', inss: false, fgts: false, irrf: false, descFolha: { instFinanc: '341', nrDoc: 'CT-2026/001' } });
         // O líquido não limita mais: dentro da margem, a parcela é descontada (insuficiência de saldo no motor).
@@ -60,6 +60,8 @@ describe('contratos e margem', () => {
     it('ficha: valida e audita os contratos', () => {
         expect(validarFicha(ficha([{ ...C1, instFinanc: '1' }])).erros.join(' ')).toMatch(/Tabela 37/);
         expect(diffFicha(ficha([]), ficha([C1])).map(a => a.campo)).toContain('consignados');
+        expect(diffFicha(ficha([C1]), ficha([{ ...C1, garantiaRescisao: 25 }]))[0].para).toMatch(/garantia 25%/);
+        expect(validarContratos([{ ...C1, garantiaRescisao: 120, consultaRescisao: '05/10/2026' }]).join(' ')).toMatch(/0% a 100%.*data da consulta/);
     });
 });
 
@@ -135,13 +137,49 @@ describe('motor e rescisão', () => {
         expect(r.verbas.find(x => x.codigo === 'CONSIG')!.valor).toBeLessThan(200000);
         expect(r.mensagensHolerite).toEqual([MENSAGEM_CONSIGNADO]);
     });
-    it('rescisão: uma vez só, sobre as verbas rescisórias, pelo saldo informado', () => {
-        const r = calcularRescisao({ ficha: ficha([C1, C2], { dataDesligamento: '2026-10-05' }), data: '2026-10-05', tipo: '02', aviso: 'indenizado', afastamentos: [], tabelas: TAB, movimentos: {} });
-        const cons = r.verbas.filter(x => x.codigo === 'CONSIG');
-        expect(cons.map(x => x.descFolha?.nrDoc)).toEqual(['CT-2026/001', 'X9']);
-        expect(cons[0].valor).toBe(45000);
-        expect(cons[1].valor).toBeLessThanOrEqual(500000);
-        expect(r.memoria.join(' ')).toMatch(/verba rescisória disponível/);
+    it('rescisão: só com garantia, o menor entre garantia × disponível e o saldo devedor; sem garantia, nada', () => {
+        const calc = (cs: ContratoConsignado[]) => calcularRescisao({ ficha: ficha(cs, { dataDesligamento: '2026-10-05' }), data: '2026-10-05', tipo: '02', aviso: 'indenizado', afastamentos: [], tabelas: TAB, movimentos: {} });
+        const com = calc([{ ...C1, garantiaRescisao: 10, saldoRescisao: 900000, consultaRescisao: '2026-10-05' }, { ...C2, garantiaRescisao: 0 }]);
+        const cons = com.verbas.filter(x => x.codigo === 'CONSIG');
+        expect(cons.map(x => [x.descFolha?.nrDoc, x.referencia])).toEqual([['CT-2026/001', '10%']]);
+        const disp = remuneracaoDisponivelRescisao(com.verbas.filter(x => x.codigo !== 'CONSIG')).disponivel;
+        expect(cons[0].valor).toBe(Math.floor(disp * 10 / 100));
+        expect(com.situacao).toBe('calculado');
+        expect(com.memoria.join(' ')).toMatch(/contrato X9.*sem garantia das verbas rescisórias \(0%\); nada descontado, nem a parcela do mês/i);
+        // Saldo devedor menor que a garantia: limita ao saldo.
+        expect(calc([{ ...C1, garantiaRescisao: 50, saldoRescisao: 12345 }]).verbas.find(x => x.codigo === 'CONSIG')?.valor).toBe(12345);
+        // Sem a consulta ao Portal na ficha: nada descontado e a rescisão fica incompleta (o S-2299 não sai).
+        const sem = calc([C1]);
+        expect([sem.verbas.some(x => x.codigo === 'CONSIG'), sem.situacao]).toEqual([false, 'incompleto']);
+        expect(sem.avisos.join(' ')).toMatch(/percentual de garantia das verbas rescisórias e o saldo devedor/);
+        expect(calc([{ ...C1, garantiaRescisao: 20 }]).situacao).toBe('incompleto');
+    });
+});
+
+// Manual do Empregador (MTE, v2.1), item 5.7.3: os dois exemplos de desconto nas verbas rescisórias.
+describe('rescisão: exemplos do item 5.7.3 do Manual do Empregador', () => {
+    const contrato = (garantiaRescisao: number, saldoRescisao: number): ContratoConsignado[] => [{ instFinanc: '341', nrDoc: 'EX-RESC', parcela: 50000, inicio: '2025-01', garantiaRescisao, saldoRescisao }];
+    it('exemplo 1: 25% de R$ 17.245,00 = R$ 4.311,25, abaixo do saldo de R$ 15.600,00', () => {
+        const vs = [v('SAL', 'provento', 550000, true), v('HE50', 'provento', 90000, true), v('AVISO', 'provento', 600000), v('FP', 'provento', 66500),
+            v('FV2025-03-01', 'provento', 800000), v('LAN1', 'provento', 150000, false, 'Prêmio'), v('LAN2', 'provento', 38000, false, 'Vale-transporte'),
+            v('FALTA', 'desconto', 20000, true), v('VT', 'desconto', 15000), v('IRRF', 'desconto', 45000), v('INSS', 'desconto', 67000), v('PENSAO', 'desconto', 250000)];
+        const d = remuneracaoDisponivelRescisao(vs);
+        expect([d.vencimentos + d.indenizadas, d.descontosInss + d.compulsorios, d.disponivel]).toEqual([2106500, 382000, 1724500]);
+        const a = descontosConsignadoRescisao(contrato(25, 1560000), '2026-10', vs);
+        expect(a.verbas.map(x => x.valor)).toEqual([431125]);
+        expect(a.memoria.join(' ')).toMatch(/limitado à garantia/);
+    });
+    it('exemplo 2: 15% de R$ 5.663,33 = R$ 849,49, limitado ao saldo de R$ 700,00', () => {
+        const vs = [v('SAL', 'provento', 250000, true), v('FP', 'provento', 75000), v('FV2025-03-01', 'provento', 250000), v('FV132025-03-01', 'provento', 108333),
+            v('LAN1', 'desconto', 25000, false, 'Convênio farmácia'), v('INSS', 'desconto', 67000), v('PENSAO', 'desconto', 50000)];
+        expect(remuneracaoDisponivelRescisao(vs).disponivel).toBe(566333);
+        const a = descontosConsignadoRescisao(contrato(15, 70000), '2026-10', vs);
+        expect(a.verbas.map(x => x.valor)).toEqual([70000]);
+        expect(a.memoria.join(' ')).toMatch(/R\$\s?849,49; saldo devedor R\$\s?700,00.*limitado ao saldo devedor/);
+    });
+    it('aviso não cumprido e art. 480 saem da base; art. 479 não entra', () => {
+        const d = remuneracaoDisponivelRescisao([v('SAL', 'provento', 300000, true), v('ART479', 'provento', 100000), v('AVISODESC', 'desconto', 300000), v('ART480', 'desconto', 50000)]);
+        expect([d.indenizadas, d.compulsorios, d.disponivel]).toEqual([0, 350000, 0]);
     });
 });
 
@@ -182,7 +220,7 @@ describe('eSocial: descFolha (XSD S-1.3)', () => {
     });
 
     it('S-2299: detVerbas do consignado com o descFolha; passa no XSD', async () => {
-        const f = { ...ficha([C1], { dataDesligamento: '2026-10-05', motivoDesligamento: '02' }), situacao: 'desligado' as const };
+        const f = { ...ficha([{ ...C1, garantiaRescisao: 10, saldoRescisao: 900000 }], { dataDesligamento: '2026-10-05', motivoDesligamento: '02' }), situacao: 'desligado' as const };
         const r = calcularRescisao({ ficha: f, data: '2026-10-05', tipo: '02', aviso: 'indenizado', afastamentos: [], tabelas: TAB, movimentos: {} });
         const RESC = [...RUBRICAS, rub('0480', 'SALDO DE SALARIO', '6000', '1'), rub('0950', 'AVISO PREVIO INDENIZADO', '6003', '1'), rub('0951', '13 SALARIO PROPORCIONAL', '6002', '1'),
             rub('0952', '13 SALARIO S/ AVISO INDENIZADO', '6001', '1'), rub('0955', 'FERIAS PROPORCIONAIS', '6006', '1'), rub('0956', '1/3 FERIAS PROPORCIONAIS', '6006', '1'),
