@@ -32,9 +32,10 @@ const EventosDaEmpresa: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
     useEffect(() => {
         if (!ativa) return;
         let vivo = true;
-        setTabela(undefined); setLida(null); setErro(''); setMsg('');
+        // Outra empresa: nada da anterior fica na tela, nem as fichas da lista de ausentes (Codex #279).
+        setTabela(undefined); setFichas([]); setLida(null); setErro(''); setMsg('');
         lerTabelaEventosEmpresa(ativa.id).then(t => { if (vivo) setTabela(t); }).catch(e => { if (vivo) { setTabela(null); setErro(mensagemErro(e)); } });
-        listarFuncionarios(ativa.id).then(f => { if (vivo) setFichas(f); }).catch(() => { /* sem as fichas, sem a lista de ausentes */ });
+        listarFuncionarios(ativa.id).then(f => { if (vivo) setFichas(f); }).catch(() => { if (vivo) setFichas([]); /* sem as fichas, sem a lista de ausentes */ });
         return () => { vivo = false; };
     }, [ativa]);
 
