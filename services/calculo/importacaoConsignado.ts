@@ -43,7 +43,7 @@ const NOMES: Record<CampoArquivo, string[]> = {
     competencia: ['competencia', 'competenciadesconto', 'mescompetencia', 'perapur', 'mesreferencia'],
     nome: ['nome', 'nometrabalhador', 'nomeempregado', 'nomedotrabalhador'],
     admissao: ['dataadmissao', 'dtadmissao', 'admissao', 'datadeadmissao'],
-    cnpj: ['cnpj', 'cnpjempregador', 'cnpjempresa', 'inscricaoempregador', 'nrinscempregador'],
+    cnpj: ['cnpj', 'cnpjempregador', 'cnpjempresa', 'inscricaoempregador', 'nrinscempregador', 'numeroinscricaoempregador'],
 };
 
 /** Sugere a coluna de cada campo pelo nome; o que não for reconhecido fica para o usuário escolher na tela. */
@@ -159,6 +159,15 @@ export function dataDoArquivo(s: string): string | null {
 }
 /** CNPJ só com letras e números, em maiúsculas: a partir de 07/2026 o CNPJ pode ser alfanumérico (IN RFB 2.229/2024). */
 const inscricao = (s: string) => s.toUpperCase().replace(/[^0-9A-Z]/g, '');
+/**
+ * Raízes possíveis da inscrição do arquivo: CNPJ completo (14) ou raiz (8); com 15 posições (o "numeroInscricaoEmpregador"
+ * da Dataprev é texto de 15), o CNPJ completo ou a raiz com zeros à esquerda.
+ */
+const raizesDaInscricao = (d: string): string[] => {
+    if (d.length === 14 || d.length === 8) return [d.slice(0, 8)];
+    if (d.length === 15) return [d.slice(1, 9), d.slice(-8)];
+    return [d.padStart(14, '0').slice(0, 8), d.slice(-8)];
+};
 const mesAnterior = (c: string) => { const [a, m] = c.split('-').map(Number); return m === 1 ? `${a - 1}-12` : `${a}-${String(m - 1).padStart(2, '0')}`; };
 const reais = (c: number) => (c / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const br = (c: string) => c.split('-').reverse().join('/');
@@ -214,7 +223,7 @@ export function previaImportacao(arq: ArquivoLido, mapa: MapaColunas, competenci
             if (c !== competencia) { outraComp++; return p(`Linha da competência ${br(c)}, não de ${br(competencia)}.`); }
         }
         const cnpj = inscricao(val(l, 'cnpj'));
-        if (cnpj && raiz && cnpj.slice(0, 8) !== raiz) return p('CNPJ de outro empregador.');
+        if (cnpj && raiz && !raizesDaInscricao(cnpj).includes(raiz)) return p('CNPJ de outro empregador.');
         const inst = digitos(val(l, 'instFinanc'));
         if (!inst || inst.length > 3) return p(`Instituição "${val(l, 'instFinanc')}" fora do código de 3 dígitos da Tabela 37.`);
         if (!NR_DOC_CONSIGNADO.test(nrDoc)) return p('Número do contrato fora do padrão do eSocial (2 a 15 caracteres: letras, números e . / - _ no meio).');

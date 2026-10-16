@@ -5842,3 +5842,26 @@ Pedido da colaboradora, pelo Paulo, com as telas do SAGE (Rescisão Contratual e
 - **3. Automáticos em lote:** Cadastros › Funcionários › Automáticos em lote marca "Lança na rescisão" e "Pago no adiantamento" por evento para todas as fichas, com prévia, confirmação e auditoria (`services/calculo/automaticosEmLote.ts`); a auditoria da ficha passa a registrar também a marca de rescisão, o valor, o Sal e a cópia.
 - **Regras:** `conferencias_motor` e `eventos_empresa`, com testes no emulador.
 - **Nenhum dado gravado foi alterado:** as três telas só gravam o que a equipe confirmar.
+
+## 16/10/2026 — Crédito do Trabalhador, etapa 6: API da Dataprev
+
+- **Por quê:** buscar as consignações e o extrato direto na Dataprev, sem baixar o arquivo do Portal. Especificação: manual "Dados de consignações para empregadores" v1.7. O acesso é por mTLS com um A1 ICP-Brasil do empregador, ou do escritório com procuração no e-CAC (códigos 00137, 00142 ou 88888); não há cadastro nem token.
+- **Plataforma (sp-plataforma #13):**
+  - rotas `/credito-trabalhador/consignacoes` e `/credito-trabalhador/extrato`;
+  - carteira do DP conferida com o CNPJ exato;
+  - A1 do cofre (escritório por padrão);
+  - produção como padrão;
+  - auditoria sem CPF.
+  As rotas não existem no CFI.
+- **`services/folha/creditoTrabalhadorDataprev.ts`:**
+  - `buscarConsignacoesDataprev` e `consultarExtratoDataprev`, que chamam `callFiscal`, roteadas a `governo` em `SERVICO_DA_ROTA`;
+  - `arquivoDaDataprev`: as consignações no formato do arquivo lido, para a mesma prévia da importação;
+  - `conferirExtrato` e `aplicarExtrato`: casam pela instituição e pelo contrato, aceitando o contrato com zeros à esquerda; mudam só garantia, saldo e data da consulta.
+- **`importacaoConsignado.ts`:** `numeroInscricaoEmpregador` reconhecido como CNPJ. A inscrição de 15 posições confere com a raiz, seja o CNPJ com um zero à esquerda, seja a raiz com zeros.
+- **Telas:**
+  - Importar ganha "Buscar na Dataprev", com a escolha do certificado. A gravação leva na auditoria "Consignações da Dataprev (API do Crédito do Trabalhador)".
+  - A ficha, na aba Consignado, ganha "Consultar extrato na Dataprev": mostra antes e depois, avisa contratos só na Dataprev ou só na ficha, aplica na ficha e grava ao salvar.
+- **Testes:** `creditoTrabalhadorDataprev.test.ts` e a rota no `servicos.test.ts`.
+- **Falta:**
+  - a primeira chamada real, depois de publicar a plataforma;
+  - nada do Paulo: todas as empresas têm o A1 no cofre, então o padrão das telas é o certificado da empresa (o do escritório fica como opção).

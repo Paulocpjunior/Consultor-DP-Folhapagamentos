@@ -83,6 +83,7 @@ describe('rotas do túnel', () => {
     it('cada trecho tem dono', () => {
         expect(servicoDaRota('/esocial/envio/lote')).toBe('governo');
         expect(servicoDaRota('/empresa-completo')).toBe('governo');
+        expect(servicoDaRota('/credito-trabalhador/consignacoes')).toBe('governo');
         expect(servicoDaRota('/email/enviar')).toBe('email');
         expect(servicoDaRota('/holerites/extrair')).toBe('ia');
         expect(servicoDaRota('/nova-rota')).toBeNull();

@@ -30,7 +30,7 @@ export const PAINEL_MENSAGENS_CFI = `${HOST_CFI_INTEGRACAO}/?painel=comunicacao&
 export const SERVICOS: Record<Servico, { titulo: string; descricao: string; variavel: string }> = {
     cadastro: { titulo: 'Cadastro central', descricao: 'Departamento e horário de acesso de cada pessoa; empresas do escritório', variavel: 'VITE_SERVICO_CADASTRO_URL' },
     cofre: { titulo: 'Cofre de certificados', descricao: 'Panorama do A1 de cada empresa (vencimento e renovação)', variavel: 'VITE_SERVICO_COFRE_URL' },
-    governo: { titulo: 'Governo', descricao: 'eSocial (envio, consulta e download), FGTS Digital, DCTFWeb e SERPRO, assinados com o A1 do cofre', variavel: 'VITE_SERVICO_GOVERNO_URL' },
+    governo: { titulo: 'Governo', descricao: 'eSocial (envio, consulta e download), FGTS Digital, DCTFWeb, SERPRO e Crédito do Trabalhador (Dataprev), com o A1 do cofre', variavel: 'VITE_SERVICO_GOVERNO_URL' },
     email: { titulo: 'E-mail', descricao: 'E-mail pelo escritório (Microsoft 365), com anexos e auditoria', variavel: 'VITE_SERVICO_EMAIL_URL' },
     whatsapp: { titulo: 'WhatsApp', descricao: 'WhatsApp oficial (SP Connect): templates do DP e envio com PDF', variavel: 'VITE_SERVICO_WHATSAPP_URL' },
     ia: { titulo: 'Inteligência artificial', descricao: 'MIA (Gemini) e leitura dos holerites do IOB', variavel: 'VITE_SERVICO_IA_URL' },
@@ -43,7 +43,7 @@ export const ROTULO_ORIGEM: Record<Origem, string> = { cfi: 'CFI', plataforma: '
  * Rota nova entra aqui — o teste confere que toda chamada do código tem dono.
  */
 export const SERVICO_DA_ROTA: Record<string, Servico> = {
-    esocial: 'governo', fgts: 'governo', dctfweb: 'governo', 'empresa-completo': 'governo', pagamentos: 'governo',
+    esocial: 'governo', fgts: 'governo', dctfweb: 'governo', 'empresa-completo': 'governo', pagamentos: 'governo', 'credito-trabalhador': 'governo',
     email: 'email',
     assistente: 'ia', holerites: 'ia',
 };
