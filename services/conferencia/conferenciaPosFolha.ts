@@ -62,6 +62,10 @@ export interface CreditoDarf { tpCR: string; valor: number; suspenso: number; aR
 export interface LinhaIrrf { cpf: string; crMen: string; rendTrib: number; rendTrib13: number; prevOficial: number; irrf: number; irrf13: number }
 export interface ConsolidacaoIrrf { crMen: string; descricao: string; somaTrabalhadores: number; empresa: number | null; diferenca: number | null }
 
+/** Consignado por trabalhador e contrato: o S-5003 (que vai à guia) e, quando informado, o desconto da folha do Consultor. */
+export interface LinhaConsignado { cpf: string; matricula: string; instFinanc: string; nrContrato: string; s5003: number; folha: number | null; diferenca: number | null }
+export interface ConsignadoFolha { cpf: string; instFinanc: string; nrDoc: string; valor: number }
+
 export interface ResultadoConferencia {
     empregador: string;
     perApur: string;
@@ -75,7 +79,9 @@ export interface ResultadoConferencia {
     };
     consolidacaoFgts: ConsolidacaoFgts[];
     dctfweb: { creditos: CreditoDarf[]; totalARecolher: number; informado: number | null; diferenca: number | null };
-    fgtsDigital: { mensal: number; rescisorio: number; total: number; informado: number | null; diferenca: number | null };
+    /** Guia do FGTS Digital: o FGTS (S-5013) e o Crédito do Trabalhador (soma do eConsignado dos S-5003), que vai na mesma guia. */
+    fgtsDigital: { mensal: number; rescisorio: number; total: number; consignado: number; informado: number | null; diferenca: number | null };
+    consignado: { linhas: LinhaConsignado[]; total: number };
     /** IRRF (regime de caixa): por trabalhador (S-5002) e consolidado da empresa (S-5012). */
     irrf: { linhas: LinhaIrrf[]; consolidacao: ConsolidacaoIrrf[]; totalEmpresa: number | null };
     serpro: ConsultaSerpro | null;
@@ -95,6 +101,8 @@ export interface OpcoesConferencia {
     serpro?: ConsultaSerpro | null;
     /** Funcionários lidos do relatório da folha exportado do IOB. */
     resumoIob?: { arquivo: string; funcionarios: FuncionarioResumo[] } | null;
+    /** Descontos do Crédito do Trabalhador na folha e nas rescisões gravadas do Consultor (rubrica 9253), para comparar com o S-5003. */
+    consignadoFolha?: ConsignadoFolha[] | null;
 }
 
 /** CR de empréstimo consignado: vem em infoCpCalc, mas não é INSS. */
@@ -263,15 +271,48 @@ export function conferirPosFolha(g: GrupoApuracao, op: OpcoesConferencia = {}): 
         pendencias.push({ gravidade: 'critica', regra: 'DCTFWeb', diferenca: dctfDif, mensagem: `Débitos previdenciários informados da DCTFWeb (${reais(dctfInformado!)}) diferentes do S-5011 (${reais(totalARecolher)}). Confira se a DCTFWeb foi gerada depois do último fechamento (S-1299) e se o valor informado exclui IRRF, multa e juros.` });
     }
 
+    // ── 5a. Crédito do Trabalhador: eConsignado do S-5003 × folha do Consultor ──
+    const chaveC = (cpf: string, inst: string, nr: string) => `${cpf}|${inst}|${nr}`;
+    const doS5003 = new Map<string, LinhaConsignado>();
+    for (const t of s5003) for (const c of t.consignados) {
+        const k = chaveC(t.cpf, c.instFinanc, c.nrContrato);
+        const l = doS5003.get(k) ?? { cpf: t.cpf, matricula: c.matricula, instFinanc: c.instFinanc, nrContrato: c.nrContrato, s5003: 0, folha: null, diferenca: null };
+        l.s5003 += c.valor;
+        doS5003.set(k, l);
+    }
+    if (op.consignadoFolha) {
+        const daFolha = new Map<string, number>();
+        for (const c of op.consignadoFolha) { const k = chaveC(c.cpf, c.instFinanc, c.nrDoc); daFolha.set(k, (daFolha.get(k) ?? 0) + c.valor); }
+        const cpfsNoLote = new Set(s5003.map(t => t.cpf));
+        for (const [k, valorFolha] of daFolha) {
+            const [cpf, inst, nr] = k.split('|');
+            if (!cpfsNoLote.has(cpf)) continue; // sem o S-5003 do trabalhador no lote: a pendência de FGTS já avisa
+            const l = doS5003.get(k) ?? { cpf, matricula: '', instFinanc: inst, nrContrato: nr, s5003: 0, folha: null, diferenca: null };
+            l.folha = valorFolha;
+            doS5003.set(k, l);
+        }
+        for (const l of doS5003.values()) {
+            if (!cpfsNoLote.has(l.cpf)) continue;
+            l.folha ??= 0;
+            l.diferenca = l.s5003 - l.folha;
+            if (l.diferenca) pendencias.push({ gravidade: 'critica', regra: 'Consignado', cpf: l.cpf, matricula: l.matricula || undefined, diferenca: l.diferenca,
+                mensagem: `Crédito do Trabalhador, contrato ${l.nrContrato} (instituição ${l.instFinanc}): o S-5003 traz ${reais(l.s5003)} e a folha do Consultor descontou ${reais(l.folha)}. A guia do FGTS Digital sai pelo S-5003: confira a rubrica 9253 (descFolha) e retifique o S-1200 antes de pagar.` });
+        }
+    }
+    const linhasConsignado = [...doS5003.values()].sort((a, b) => a.cpf.localeCompare(b.cpf) || a.nrContrato.localeCompare(b.nrContrato));
+    const totalConsignado = linhasConsignado.reduce((s, l) => s + l.s5003, 0);
+
     // ── 5. FGTS Digital ────────────────────────────────────────────────────
     let mensal = 0, rescisorio = 0;
     for (const b of fg?.bases ?? []) (FGTS_RESCISORIO.has(b.tpValor) ? (rescisorio += b.valorFgts) : (mensal += b.valorFgts));
     const fgtsInformado = op.fgtsDigitalInformado ?? null;
     // A guia mensal é a comparação padrão; se o valor informado bater com o
-    // total (mensal + rescisório), a guia juntou as duas e está certa.
-    const fgtsDif = fgtsInformado === null || !fg ? null : (fgtsInformado === mensal + rescisorio ? 0 : fgtsInformado - mensal);
+    // total (mensal + rescisório), a guia juntou as duas e está certa. A guia
+    // também leva o Crédito do Trabalhador do S-5003: com ele, também confere.
+    const aceitos = [mensal, mensal + rescisorio, mensal + totalConsignado, mensal + rescisorio + totalConsignado];
+    const fgtsDif = fgtsInformado === null || !fg ? null : (aceitos.includes(fgtsInformado) ? 0 : fgtsInformado - mensal);
     if (fgtsDif) {
-        pendencias.push({ gravidade: 'critica', regra: 'FGTS Digital', diferenca: fgtsDif, mensagem: `Guia do FGTS Digital informada (${reais(fgtsInformado!)}) diferente do S-5013: mensal ${reais(mensal)}${rescisorio ? `, rescisório ${reais(rescisorio)}, total ${reais(mensal + rescisorio)}` : ''}. Confira se a guia foi emitida depois do último fechamento e se o valor informado exclui multa e juros.` });
+        pendencias.push({ gravidade: 'critica', regra: 'FGTS Digital', diferenca: fgtsDif, mensagem: `Guia do FGTS Digital informada (${reais(fgtsInformado!)}) diferente do S-5013: mensal ${reais(mensal)}${rescisorio ? `, rescisório ${reais(rescisorio)}, total ${reais(mensal + rescisorio)}` : ''}${totalConsignado ? `; mais o Crédito do Trabalhador dos S-5003, ${reais(totalConsignado)}, que vai na mesma guia` : ''}. Confira se a guia foi emitida depois do último fechamento e se o valor informado exclui multa e juros.` });
     }
 
     // ── 8. IRRF: S-5002 × S-5012 ────────────────────────────────────────────
@@ -342,7 +383,7 @@ export function conferirPosFolha(g: GrupoApuracao, op: OpcoesConferencia = {}): 
         if (!sp.fgts.ok) pendencias.push({ gravidade: 'info', regra: 'SERPRO', mensagem: `FGTS Digital: consulta indisponível (${sp.fgts.erro}). Informe o valor da guia à mão.` });
         else if (sp.fgts.devido === null) pendencias.push({ gravidade: 'info', regra: 'SERPRO', mensagem: 'FGTS Digital: o SERPRO respondeu sem valor devido para a competência. Informe o valor da guia à mão.' });
         else {
-            if (fg && sp.fgts.devido !== mensal && sp.fgts.devido !== mensal + rescisorio) {
+            if (fg && !aceitos.includes(sp.fgts.devido)) {
                 pendencias.push({ gravidade: 'critica', regra: 'SERPRO', diferenca: sp.fgts.devido - mensal, mensagem: `FGTS Digital: o valor devido no SERPRO (${reais(sp.fgts.devido)}) é diferente do S-5013 (mensal ${reais(mensal)}${rescisorio ? `, total ${reais(mensal + rescisorio)}` : ''}). Confira se houve novo fechamento depois da emissão da guia.` });
             }
             if ((sp.fgts.realizado ?? 0) < sp.fgts.devido) {
@@ -366,7 +407,8 @@ export function conferirPosFolha(g: GrupoApuracao, op: OpcoesConferencia = {}): 
         consolidacaoInss: { descontadoTrabalhadores, calculadoTrabalhadores, descontadoEmpresa, calculadoEmpresa },
         consolidacaoFgts,
         dctfweb: { creditos, totalARecolher, informado: dctfInformado, diferenca: dctfDif },
-        fgtsDigital: { mensal, rescisorio, total: mensal + rescisorio, informado: fgtsInformado, diferenca: fgtsDif },
+        fgtsDigital: { mensal, rescisorio, total: mensal + rescisorio, consignado: totalConsignado, informado: fgtsInformado, diferenca: fgtsDif },
+        consignado: { linhas: linhasConsignado, total: totalConsignado },
         irrf: { linhas: linhasIrrf, consolidacao: consolidacaoIrrf, totalEmpresa: ir ? ir.creditos.reduce((t, c) => t + c.valor, 0) : null },
         serpro: sp,
         resumoIob,

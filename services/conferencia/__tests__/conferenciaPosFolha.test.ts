@@ -26,7 +26,8 @@ function s5001(cpf: string, o: { per?: string; id?: string; matricula?: string; 
 </infoCategIncid></ideEstabLot></infoCp></evtBasesTrab></eSocial>`;
 }
 
-function s5003(cpf: string, o: { rem?: string; dps?: string; tp?: string; id?: string } = {}) {
+function s5003(cpf: string, o: { rem?: string; dps?: string; tp?: string; id?: string; consig?: [string, string, string][] } = {}) {
+    const ec = (o.consig ?? []).map(([i, n, v]) => `<eConsignado><instFinanc>${i}</instFinanc><nrContrato>${n}</nrContrato><vreConsignado>${v}</vreConsignado></eConsignado>`).join('');
     return `<eSocial xmlns="${NS}/evtBasesFGTS/v_S_01_03_00"><evtBasesFGTS Id="${o.id ?? 'ID5003' + cpf}">
 <ideEvento><nrRecArqBase>1.1.000${cpf}</nrRecArqBase><indApuracao>1</indApuracao><perApur>2026-09</perApur></ideEvento>
 <ideEmpregador><tpInsc>1</tpInsc><nrInsc>29463877</nrInsc></ideEmpregador>
@@ -34,7 +35,7 @@ function s5003(cpf: string, o: { rem?: string; dps?: string; tp?: string; id?: s
 <infoFGTS><ideEstab><tpInsc>1</tpInsc><nrInsc>29463877000109</nrInsc><ideLotacao><codLotacao>001</codLotacao>
 <infoTrabFGTS><matricula>836292</matricula><codCateg>101</codCateg><infoBaseFGTS>
 <basePerApur><tpValor>${o.tp ?? '11'}</tpValor><indIncid>1</indIncid><remFGTS>${o.rem ?? '3243.65'}</remFGTS><dpsFGTS>${o.dps ?? '259.49'}</dpsFGTS></basePerApur>
-</infoBaseFGTS></infoTrabFGTS></ideLotacao></ideEstab></infoFGTS></evtBasesFGTS></eSocial>`;
+</infoBaseFGTS>${ec}</infoTrabFGTS></ideLotacao></ideEstab></infoFGTS></evtBasesFGTS></eSocial>`;
 }
 
 function s5011(desc: string, calc: string, creditos: [string, string, string?][] = [['108201', '600.00'], ['109901', '1500.00']]) {
@@ -449,3 +450,36 @@ describe('IRRF: S-5002 × S-5012', () => {
         expect(conferirPosFolha(g, { serpro: sem }).pendencias.filter(p => p.regra === 'SERPRO')).toEqual([expect.objectContaining({ mensagem: expect.stringContaining('sem saldo a pagar de IRRF trabalho assalariado') })]);
     });
 });
+
+describe('Crédito do Trabalhador no S-5003 (eConsignado)', () => {
+    const lote = () => grupo(
+        s5001('1'), s5003('1', { dps: '259.49', consig: [['341', 'CT-001', '450.00'], ['104', 'X9', '100.00']] }),
+        s5011('300.00', '300.00', [['108201', '300.00']]), s5013([['11', '3243.65', '259.49']]),
+    );
+    it('lê o eConsignado por trabalhador e soma o que vai na guia', async () => {
+        const g = await lote();
+        expect(g.s5003[0].consignados).toEqual([{ matricula: '836292', instFinanc: '341', nrContrato: 'CT-001', valor: 45000 }, { matricula: '836292', instFinanc: '104', nrContrato: 'X9', valor: 10000 }]);
+        const r = conferirPosFolha(g);
+        expect([r.consignado.total, r.fgtsDigital.consignado]).toEqual([55000, 55000]);
+        expect(r.consignado.linhas.map(l => [l.nrContrato, l.s5003, l.folha])).toEqual([['CT-001', 45000, null], ['X9', 10000, null]]);
+    });
+    it('guia do FGTS Digital com o consignado confere; sem ele também; outro valor, não', async () => {
+        const g = await lote();
+        expect(conferirPosFolha(g, { fgtsDigitalInformado: 25949 + 55000 }).fgtsDigital.diferenca).toBe(0);
+        expect(conferirPosFolha(g, { fgtsDigitalInformado: 25949 }).fgtsDigital.diferenca).toBe(0);
+        const errado = conferirPosFolha(g, { fgtsDigitalInformado: 50000 });
+        expect(errado.fgtsDigital.diferenca).not.toBe(0);
+        expect(errado.pendencias.find(p => p.regra === 'FGTS Digital')?.mensagem).toMatch(/mais o Crédito do Trabalhador dos S-5003, R\$\s?550,00, que vai na mesma guia/);
+    });
+    it('compara com a folha do Consultor por CPF e contrato', async () => {
+        const g = await lote();
+        const igual = conferirPosFolha(g, { consignadoFolha: [{ cpf: '1', instFinanc: '341', nrDoc: 'CT-001', valor: 45000 }, { cpf: '1', instFinanc: '104', nrDoc: 'X9', valor: 10000 }] });
+        expect(igual.pendencias.filter(p => p.regra === 'Consignado')).toEqual([]);
+        expect(igual.consignado.linhas.every(l => l.diferenca === 0)).toBe(true);
+        const dif = conferirPosFolha(g, { consignadoFolha: [{ cpf: '1', instFinanc: '341', nrDoc: 'CT-001', valor: 40000 }, { cpf: '1', instFinanc: '001', nrDoc: 'NOVO', valor: 5000 }] });
+        const p = dif.pendencias.filter(x => x.regra === 'Consignado');
+        expect(p.map(x => [x.gravidade, x.diferenca]).sort((a, b) => Number(a[1]) - Number(b[1]))).toEqual([['critica', -5000], ['critica', 5000], ['critica', 10000]]);
+        expect(p.find(x => x.diferenca === 5000)!.mensagem).toMatch(/contrato CT-001 .*S-5003 traz R\$\s?450,00 e a folha do Consultor descontou R\$\s?400,00/);
+    });
+});
+

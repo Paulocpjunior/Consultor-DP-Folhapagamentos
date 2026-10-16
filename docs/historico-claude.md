@@ -5799,3 +5799,12 @@ Pedido da colaboradora, pelo Paulo, com as telas do SAGE (Rescisão Contratual e
 - **Testes:** exemplos 1 (25% de R$ 17.245,00 = R$ 4.311,25) e 2 (15% de R$ 5.663,33 = R$ 849,49, limitado ao saldo de R$ 700,00) do item 5.7.3; rescisão pelo motor com garantia, 0%, saldo menor e sem consulta; S-2299 no XSD.
 - **Conflito no manual:** o exemplo 05 do item 5.2.1 desconta a parcela até 35% na rescisão sem falar em garantia; o item 5.7.2 proíbe qualquer desconto sem garantia. Seguido o 5.7.2.
 
+## 16/10/2026 — Crédito do Trabalhador, etapa 4 (repasse, prazo e conferência)
+
+- **Pedido do Paulo:** "pode começar a etapa 4".
+- **Repasse (F5):** `services/calculo/repasseConsignado.ts` e a tela Folha do mês › Crédito do Trabalhador (aba `consignado`). Pela folha e pelas rescisões gravadas: por trabalhador e contrato, devido, descontado, situação (inteiro, parcial, não descontado, rescisão, sem cálculo gravado, fora dos contratos da ficha) e motivo; total por instituição; vencimento da guia do FGTS Digital (dia 20, antecipado; 20/11 é feriado, vai a 19/11) e aviso de vencida com os encargos da Portaria MTE 506/2026; exportação em Excel.
+- **Conferência com o S-5003 (F6):** o leitor dos totalizadores passa a ler o `eConsignado` (instituição, contrato, valor). A conferência pós-folha mostra o consignado por CPF e contrato, compara com a folha e as rescisões gravadas do Consultor (pendência crítica na diferença) e aceita a guia do FGTS Digital com ou sem o consignado (antes, a guia com o consignado dava diferença falsa).
+- **Prazos:** novo item "Crédito do Trabalhador: arquivo de empréstimos da competência seguinte no Portal Emprega Brasil (21 a 25)", e a guia do FGTS Digital avisa que leva o consignado.
+- **Casos especiais (F8):** aviso próprio para o mês sem remuneração com INSS (afastado ou maternidade paga pelo INSS) e para o doméstico (o eSocial Doméstico lança e o DAE recolhe); transferência e retificação ficam nos avisos do repasse.
+- **Testes:** repasse (7 situações, vencimento, feriado, doméstico), tela do repasse, eConsignado no S-5003, guia com e sem consignado, comparação com a folha.
+

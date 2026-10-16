@@ -11,6 +11,8 @@
 // - Salário: 5º dia útil do mês seguinte (CLT art. 459, §1º).
 // - 13º: 1ª parcela até 30/11 e 2ª até 20/12 (Lei 4.749/1965), antecipando
 //   quando não há expediente; S-1299 anual e DARF do 13º até 20/12.
+// - Crédito do Trabalhador: arquivo de empréstimos da competência seguinte no Portal
+//   Emprega Brasil de 21 a 25 (Portaria MTE 435/2025, art. 20); repasse na guia do FGTS Digital.
 
 import { diaUtilAnterior, diaUtilSeguinte, feriado, quintoDiaUtilSalario, type Data } from './calendario';
 
@@ -39,7 +41,9 @@ export function vencimentosDaCompetencia(competencia: string): Vencimento[] {
         venc('s1299', competencia, 'eSocial: fechamento dos periódicos (S-1299)', `${seg}-15`, 'posterga', 'Manual do eSocial S-1.3; IN RFB 2.162/2023'),
         venc('dctfweb', competencia, 'DCTFWeb: transmissão', `${seg}-15`, 'posterga', 'IN RFB 2.162/2023'),
         venc('darf', competencia, 'DARF da DCTFWeb (INSS e IRRF)', `${seg}-20`, 'antecipa', 'Lei 8.212/1991 art. 30; Lei 11.196/2005 art. 70'),
-        venc('fgts', competencia, 'FGTS Digital: guia mensal', `${seg}-20`, 'antecipa', 'Lei 8.036/1990 art. 15 (Lei 14.438/2022)'),
+        venc('fgts', competencia, 'FGTS Digital: guia mensal', `${seg}-20`, 'antecipa', 'Lei 8.036/1990 art. 15 (Lei 14.438/2022)', 'a guia leva também o Crédito do Trabalhador descontado na folha (S-5003)'),
+        // A consulta é do mês seguinte, mas cai no próprio mês: a competência ${seg} sai no Portal de 21 a 25 deste mês.
+        venc('consignado', competencia, `Crédito do Trabalhador: arquivo de empréstimos da competência ${seg.slice(5)}/${seg.slice(0, 4)} no Portal Emprega Brasil (21 a 25)`, `${competencia}-25`, 'antecipa', 'Portaria MTE 435/2025, art. 20', 'consulta mensal obrigatória; o aviso do DET é só lembrete'),
     ];
     if (m === 11) r.push(venc('13-1', competencia, '13º salário: 1ª parcela', `${a}-11-30`, 'antecipa', 'Lei 4.749/1965 art. 2º'));
     if (m === 12) {

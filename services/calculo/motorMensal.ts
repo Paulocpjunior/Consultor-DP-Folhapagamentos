@@ -870,6 +870,7 @@ function calcularMensalSemObras(e: EntradaCalculo): ResultadoCalculo {
     if (consig.memoria.length) r.memoria.push(...consig.memoria);
     r.avisos.push(...consig.avisos);
     if (consig.mensagens.length) r.mensagensHolerite = [...(r.mensagensHolerite ?? []), ...consig.mensagens];
+    if (consig.verbas.length && domestico) r.avisos.push('Crédito do Trabalhador do doméstico: o eSocial Doméstico lança o desconto e aplica os 35% sozinho, e o valor vai no DAE. Confira lá para não descontar em dobro.');
     const totalConsig = consig.verbas.reduce((s, v) => s + v.valor, 0);
     if (totalConsig) {
         const pagas = r.verbas.filter(v => !v.informativa);

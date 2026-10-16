@@ -63,7 +63,7 @@ describe('vencimentos mensais', () => {
 
     it('vencimentos no período juntam as competências certas', () => {
         const v = vencimentosNoPeriodo('2026-11-01', '2026-11-30');
-        expect(v.map(x => x.id)).toEqual(['salario-2026-10', 's1299-2026-10', 'dctfweb-2026-10', 'darf-2026-10', 'fgts-2026-10', '13-1-2026-11']);
+        expect(v.map(x => x.id)).toEqual(['salario-2026-10', 's1299-2026-10', 'dctfweb-2026-10', 'darf-2026-10', 'fgts-2026-10', 'consignado-2026-11', '13-1-2026-11']);
     });
 });
 
