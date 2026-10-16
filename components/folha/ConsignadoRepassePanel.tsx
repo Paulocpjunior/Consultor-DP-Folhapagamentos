@@ -2,17 +2,18 @@
 //
 // Folha do mês › Crédito do Trabalhador: o repasse do consignado da competência (etapa 4 do estudo). Lê a folha e as
 // rescisões gravadas, mostra por trabalhador e contrato o devido, o descontado e o motivo, o total por instituição e o
-// vencimento da guia do FGTS Digital; exporta em Excel.
+// vencimento da guia do FGTS Digital; exporta em Excel. Acima, a importação do arquivo do Portal (etapa 3).
 
 import React, { useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
-import { listarFuncionarios, mensagemErro } from '../../services/cadastros/cadastrosService';
+import { listarFuncionarios, mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
 import type { ResultadoCalculo } from '../../services/calculo/motorMensal';
 import { lerFolhaGravada } from '../../services/calculo/folhaGravadaService';
 import { lerProcesso } from '../../services/calculo/processosGravadosService';
 import { repasseConsignado, ROTULO_SITUACAO_REPASSE } from '../../services/calculo/repasseConsignado';
+import ConsignadoImportacao from './ConsignadoImportacao';
 
 const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const btn = 'rounded-sm border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-40 dark:border-slate-600';
@@ -23,13 +24,14 @@ const br = (d: string) => d.split('-').reverse().join('/');
 /** Hoje na data local (não em UTC): à noite, no Brasil, o UTC já é o dia seguinte e daria a guia por vencida antes da hora. */
 const hojeLocal = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-const ConsignadoRepassePanel: React.FC = () => {
+const ConsignadoRepassePanel: React.FC<{ usuario?: Usuario }> = ({ usuario }) => {
     const { ativa } = useEmpresaAtiva();
     const [periodo, setPeriodo] = useState(ativa?.competencia ?? '');
     // Fichas e cálculos marcados com a empresa (e a competência) de origem: o relatório só sai quando os dois são da empresa ativa.
     const [fichas, setFichas] = useState<{ empresaId: string; lista: FichaFuncionario[] } | null>(null);
     const [dados, setDados] = useState<{ empresaId: string; periodo: string; folha: ResultadoCalculo[]; rescisoes: ResultadoCalculo[] } | null>(null);
     const [erro, setErro] = useState('');
+    const [recarga, setRecarga] = useState(0);
 
     useEffect(() => { if (ativa?.competencia) setPeriodo(ativa.competencia); }, [ativa?.competencia]);
     useEffect(() => {
@@ -39,7 +41,7 @@ const ConsignadoRepassePanel: React.FC = () => {
         setFichas(null);
         listarFuncionarios(id).then(fs => { if (vivo) setFichas({ empresaId: id, lista: fs }); }).catch(e => { if (vivo) setErro(mensagemErro(e)); });
         return () => { vivo = false; };
-    }, [ativa]);
+    }, [ativa, recarga]);
     useEffect(() => {
         if (!ativa || !/^\d{4}-\d{2}$/.test(periodo)) return;
         let vivo = true;
@@ -80,6 +82,9 @@ const ConsignadoRepassePanel: React.FC = () => {
                 <label>Competência<input aria-label="Competência do repasse" type="month" className={`block ${inp}`} value={periodo} onChange={e => setPeriodo(e.target.value)} /></label>
                 <button className={btn} disabled={!repasse?.linhas.length} onClick={exportar}>Exportar Excel</button>
             </div>
+            {/^\d{4}-\d{2}$/.test(periodo) && fichas?.empresaId === ativa.id && (
+                <ConsignadoImportacao empresaId={ativa.id} cnpj={ativa.cnpj} competencia={periodo} fichas={fichas.lista} usuario={usuario} onGravado={() => setRecarga(n => n + 1)} />
+            )}
             {!repasse ? <p className="text-slate-500">Carregando…</p> : !repasse.linhas.length ? (
                 <p className="text-slate-500">Nenhum contrato do Crédito do Trabalhador vigente nem desconto de consignado na competência.</p>
             ) : (

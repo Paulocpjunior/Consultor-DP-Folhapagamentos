@@ -502,7 +502,7 @@ const MainTabs: React.FC<{ children?: React.ReactNode }> = () => {
                 {activeTab === 'intermitentes' && <IntermitentesPanel usuario={{ id: uidAtual, email: currentUser?.email ?? '' }} />}
                 {activeTab === 'plr' && <PlrPanel usuario={{ id: uidAtual, email: currentUser?.email ?? '' }} />}
                 {activeTab === 'envioholerite' && <HoleriteEnvioPanel usuario={{ id: uidAtual, email: currentUser?.email ?? '' }} />}
-                {activeTab === 'consignado' && <ConsignadoRepassePanel />}
+                {activeTab === 'consignado' && <ConsignadoRepassePanel usuario={currentUser ? { id: uidAtual, email: currentUser.email ?? '' } : undefined} />}
                 {activeTab === 'obras' && <ObrasLotacoesPanel usuario={{ id: uidAtual, email: currentUser?.email ?? '' }} />}
                 {activeTab === 'departamentos' && <DepartamentosPanel usuario={{ id: uidAtual, email: currentUser?.email ?? '' }} />}
                 {activeTab === 'agrupado' && <ProcessamentoAgrupadoPanel usuario={{ id: uidAtual, email: currentUser?.email ?? '' }} />}

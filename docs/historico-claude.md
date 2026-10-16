@@ -5817,3 +5817,11 @@ Pedido da colaboradora, pelo Paulo, com as telas do SAGE (Rescisão Contratual e
 - **eSocial:** de/para e modelos do S-1010 para 9299 e 1629; S-1200 com o demonstrativo do adiantamento e a folha validado no XSD.
 - **Revisão do Codex (#276):** (1) a opção agora tem vigência por competência (`VigenciaProvisaoConsignado[]`): ligar ou desligar vale a partir da competência da tela, e o recibo de férias segue a vigência no mês do início do gozo, então um recibo já pago não muda quando a opção muda depois; (2) adiantamento com líquido zero porque a provisão consumiu tudo continua no demonstrativo do S-1200 (`temAdiantamento`: bruto ou líquido), com ADIANTPAG e a 9299, e no envio dos recibos.
 
+## 16/10/2026 — Crédito do Trabalhador, etapa 3 (importação do arquivo do Portal)
+
+- **Pedido do Paulo:** "pode começar a etapa 3". O guia oficial do leiaute 1.4 e as páginas de apoio (TOTVS, IOB, Domínio) não abrem deste ambiente; por isso a coluna de cada campo é sugerida pelo nome e conferida na tela, sem depender de nomes não confirmados.
+- **Leitura (`services/calculo/importacaoConsignado.ts`):** CSV (separador detectado, aspas, BOM), XLS/XLSX (texto como na célula, CPF com zero à esquerda) e JSON (lista em qualquer nível, objetos aninhados viram `ifConcessora.codigo`); valores em "1.234,56", "1234.56" e afins; competência em AAAA-MM, AAAAMM, MM/AAAA.
+- **Prévia:** liga pelo CPF (matrícula no duplo vínculo; senão, o vínculo ativo); recusa CPF sem ficha, outra competência, CNPJ de outra raiz, instituição fora de 3 dígitos, contrato fora do TS_nrDoc e o mesmo contrato com duas parcelas. Classifica contrato novo, parcela alterada, contrato de volta, fora do arquivo (só de quem está ativo na competência) e sem mudança.
+- **Gravação:** só o marcado e confirmado; a partir da competência (o período anterior termina no mês anterior, o lançado para começar depois sai), garantia, saldo e consulta da rescisão seguem; `gravarImportacao` com a origem "Arquivo de empréstimos do Portal Emprega Brasil" na auditoria; competência encerrada no Fim de mês não grava. `validarContratos` aceita o mesmo contrato em períodos sem sobreposição.
+- **Tela:** Folha do mês › Crédito do Trabalhador, acima do repasse; o repasse recarrega as fichas depois de gravar.
+- **Falta:** conferir colunas e exemplos com o guia 1.4 (texto colado pelo Paulo) e virar testes.
