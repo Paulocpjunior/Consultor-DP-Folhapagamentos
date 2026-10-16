@@ -25,6 +25,8 @@ export interface LinhaRepasse {
     descontado: number;
     situacao: SituacaoRepasse;
     motivo: string;
+    /** Doméstico: o eSocial Doméstico lança o desconto e o valor vai no DAE, fora da guia do FGTS Digital. */
+    dae?: boolean;
 }
 export interface RepassePorInstituicao { instFinanc: string; contratos: number; valor: number }
 export interface RepasseConsignado {
@@ -34,7 +36,10 @@ export interface RepasseConsignado {
     vencido: boolean;
     linhas: LinhaRepasse[];
     porInstituicao: RepassePorInstituicao[];
+    /** Total da guia do FGTS Digital (sem os domésticos). */
     total: number;
+    /** Descontado de domésticos: vai no DAE do eSocial Doméstico. */
+    totalDae: number;
     avisos: string[];
 }
 
@@ -64,12 +69,13 @@ export function repasseConsignado(competencia: string, fichas: FichaFuncionario[
         for (const c of contratos) {
             const descontado = soma(r.verbas.filter(doContrato(c)));
             const situacao: SituacaoRepasse = descontado >= c.parcela ? 'total' : descontado > 0 ? 'parcial' : 'nao-descontado';
-            const motivo = situacao === 'total' ? ''
+            const dae = f?.dados.categoria === '104';
+            const motivo = dae ? 'Doméstico: o eSocial Doméstico lança o desconto e aplica os 35%; o valor vai no DAE, fora da guia do FGTS Digital. Confira lá.'
+                : situacao === 'total' ? ''
                 : rescindidos.has(r.fichaId) ? 'Desligado no mês: o desconto vai pela rescisão (garantia e saldo devedor).'
-                : f?.dados.categoria === '104' ? 'Doméstico: o eSocial Doméstico lança o desconto e recolhe no DAE; confira lá.'
                 : !temSalario(r) ? 'Sem remuneração com INSS no mês (afastado o mês todo ou salário-maternidade pago pelo INSS): nada a descontar; o trabalhador paga direto à instituição.'
                 : `Margem de 35% esgotada: ${reais(c.parcela - descontado)} ficam com o trabalhador, avisado no holerite.`;
-            linhas.push({ ...base(f, r), instFinanc: c.instFinanc, nrDoc: c.nrDoc, devido: c.parcela, descontado, situacao, motivo });
+            linhas.push({ ...base(f, r), instFinanc: c.instFinanc, nrDoc: c.nrDoc, devido: c.parcela, descontado, situacao, motivo, ...(dae ? { dae } : {}) });
         }
         // Desconto do consignado sem contrato correspondente na ficha (contrato apagado ou alterado depois do cálculo).
         for (const v of r.verbas.filter(v => v.codigo === 'CONSIG' && v.descFolha && !contratos.some(c => doContrato(c)(v)))) {
@@ -103,13 +109,14 @@ export function repasseConsignado(competencia: string, fichas: FichaFuncionario[
 
     linhas.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR') || a.nrDoc.localeCompare(b.nrDoc));
     const mapa = new Map<string, RepassePorInstituicao>();
-    for (const l of linhas.filter(l => l.descontado > 0)) {
+    for (const l of linhas.filter(l => l.descontado > 0 && !l.dae)) {
         const i = mapa.get(l.instFinanc) ?? { instFinanc: l.instFinanc, contratos: 0, valor: 0 };
         i.contratos += 1; i.valor += l.descontado;
         mapa.set(l.instFinanc, i);
     }
     const porInstituicao = [...mapa.values()].sort((a, b) => a.instFinanc.localeCompare(b.instFinanc));
     const total = porInstituicao.reduce((s, i) => s + i.valor, 0);
+    const totalDae = linhas.filter(l => l.dae).reduce((s, l) => s + l.descontado, 0);
 
     const semCalculo = linhas.filter(l => l.situacao === 'sem-calculo').length;
     if (semCalculo) avisos.push(`${semCalculo} contrato(s) vigente(s) sem folha ou rescisão gravada na competência: grave os cálculos antes de conferir a guia.`);
@@ -119,8 +126,9 @@ export function repasseConsignado(competencia: string, fichas: FichaFuncionario[
         avisos.push(`Total de ${reais(total)} a recolher na guia do FGTS Digital da competência até ${br(vencimento)} (dia 20, antecipado se não for dia útil). O FGTS Digital lê o consignado do S-5003: confira a guia com este relatório.`);
         if (vencido) avisos.push(`Guia vencida em ${br(vencimento)}: se o consignado não foi pago, regularize só pelo FGTS Digital, com IPCA, juros de 0,033% ao dia e multa de 2% (Portaria MTE 506/2026, a partir da competência 02/2026). A empresa responde como devedora solidária pelo que não repassar.`);
     }
+    if (totalDae) avisos.push(`Domésticos: ${reais(totalDae)} descontados vão no DAE do eSocial Doméstico, fora da guia do FGTS Digital e do total acima.`);
     avisos.push('Retificação de mês já pago ou vencido não muda o débito no FGTS Digital: acerte com a instituição. Transferência no grupo ou sucessão: a nova empresa só desconta quando o Portal mostrar o contrato no CNPJ dela.');
-    return { competencia, vencimento, vencido, linhas, porInstituicao, total, avisos };
+    return { competencia, vencimento, vencido, linhas, porInstituicao, total, totalDae, avisos };
 }
 
 /** Descontos do consignado (rubrica CONSIG, com descFolha) da folha e das rescisões gravadas, por CPF e contrato, para a conferência com o S-5003. */

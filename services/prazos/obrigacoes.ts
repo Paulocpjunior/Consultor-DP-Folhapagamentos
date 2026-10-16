@@ -16,7 +16,7 @@
 
 import { diaUtilAnterior, diaUtilSeguinte, feriado, quintoDiaUtilSalario, type Data } from './calendario';
 
-export type Ajuste = 'antecipa' | 'posterga' | 'quinto-dia-util';
+export type Ajuste = 'antecipa' | 'posterga' | 'quinto-dia-util' | 'corrido';
 export interface Vencimento { id: string; competencia: string; nome: string; data: Data; original: Data; ajuste: Ajuste; base: string; observacao?: string }
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -43,7 +43,7 @@ export function vencimentosDaCompetencia(competencia: string): Vencimento[] {
         venc('darf', competencia, 'DARF da DCTFWeb (INSS e IRRF)', `${seg}-20`, 'antecipa', 'Lei 8.212/1991 art. 30; Lei 11.196/2005 art. 70'),
         venc('fgts', competencia, 'FGTS Digital: guia mensal', `${seg}-20`, 'antecipa', 'Lei 8.036/1990 art. 15 (Lei 14.438/2022)', 'a guia leva também o Crédito do Trabalhador descontado na folha (S-5003)'),
         // A consulta é do mês seguinte, mas cai no próprio mês: a competência ${seg} sai no Portal de 21 a 25 deste mês.
-        venc('consignado', competencia, `Crédito do Trabalhador: arquivo de empréstimos da competência ${seg.slice(5)}/${seg.slice(0, 4)} no Portal Emprega Brasil (21 a 25)`, `${competencia}-25`, 'antecipa', 'Portaria MTE 435/2025, art. 20', 'consulta mensal obrigatória; o aviso do DET é só lembrete'),
+        venc('consignado', competencia, `Crédito do Trabalhador: arquivo de empréstimos da competência ${seg.slice(5)}/${seg.slice(0, 4)} no Portal Emprega Brasil (21 a 25)`, `${competencia}-25`, 'corrido', 'Portaria MTE 435/2025, art. 20', 'consulta mensal obrigatória, no Portal (dias corridos); o aviso do DET é só lembrete'),
     ];
     if (m === 11) r.push(venc('13-1', competencia, '13º salário: 1ª parcela', `${a}-11-30`, 'antecipa', 'Lei 4.749/1965 art. 2º'));
     if (m === 12) {

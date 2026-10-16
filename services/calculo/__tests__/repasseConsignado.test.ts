@@ -65,8 +65,12 @@ describe('repasse do Crédito do Trabalhador', () => {
 
     it('doméstico: o motivo aponta o eSocial Doméstico e o DAE', () => {
         const f = [ficha('7', 'GIL', [C('341', 'G1', 10000)], { categoria: '104' })];
-        const r = repasseConsignado('2026-10', f, [res('7', [v('SAL', 'provento', 150000, true)])], [], '2026-11-01');
-        expect(r.linhas[0].motivo).toMatch(/eSocial Doméstico .* DAE/);
+        const r = repasseConsignado('2026-10', f, [res('7', [v('SAL', 'provento', 150000, true), consig('341', 'G1', 10000)])], [], '2026-11-01');
+        expect(r.linhas[0]).toMatchObject({ situacao: 'total', dae: true });
+        expect(r.linhas[0].motivo).toMatch(/eSocial Doméstico .* DAE, fora da guia do FGTS Digital/);
+        // Fora da guia do FGTS Digital (Codex #275): o total e as instituições não contam o doméstico.
+        expect([r.total, r.totalDae, r.porInstituicao]).toEqual([0, 10000, []]);
+        expect(r.avisos.join(' ')).toMatch(/Domésticos: R\$\s?100,00 descontados vão no DAE/);
     });
 
     it('consignado da folha por CPF e contrato, para a conferência com o S-5003', () => {

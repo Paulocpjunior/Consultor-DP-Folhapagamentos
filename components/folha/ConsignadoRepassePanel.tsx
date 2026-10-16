@@ -20,33 +20,39 @@ const th = 'px-2 py-1 text-left font-medium text-slate-600 dark:text-slate-300';
 const td = 'px-2 py-1 align-top';
 const reais = (c: number | null) => (c === null ? '—' : (c / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
 const br = (d: string) => d.split('-').reverse().join('/');
-const hojeIso = () => new Date().toISOString().slice(0, 10);
+/** Hoje na data local (não em UTC): à noite, no Brasil, o UTC já é o dia seguinte e daria a guia por vencida antes da hora. */
+const hojeLocal = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 const ConsignadoRepassePanel: React.FC = () => {
     const { ativa } = useEmpresaAtiva();
     const [periodo, setPeriodo] = useState(ativa?.competencia ?? '');
-    const [fichas, setFichas] = useState<FichaFuncionario[]>([]);
-    const [dados, setDados] = useState<{ folha: ResultadoCalculo[]; rescisoes: ResultadoCalculo[] } | null>(null);
+    // Fichas e cálculos marcados com a empresa (e a competência) de origem: o relatório só sai quando os dois são da empresa ativa.
+    const [fichas, setFichas] = useState<{ empresaId: string; lista: FichaFuncionario[] } | null>(null);
+    const [dados, setDados] = useState<{ empresaId: string; periodo: string; folha: ResultadoCalculo[]; rescisoes: ResultadoCalculo[] } | null>(null);
     const [erro, setErro] = useState('');
 
     useEffect(() => { if (ativa?.competencia) setPeriodo(ativa.competencia); }, [ativa?.competencia]);
     useEffect(() => {
         if (!ativa) return;
         let vivo = true;
-        listarFuncionarios(ativa.id).then(fs => { if (vivo) setFichas(fs); }).catch(e => { if (vivo) setErro(mensagemErro(e)); });
+        const id = ativa.id;
+        setFichas(null);
+        listarFuncionarios(id).then(fs => { if (vivo) setFichas({ empresaId: id, lista: fs }); }).catch(e => { if (vivo) setErro(mensagemErro(e)); });
         return () => { vivo = false; };
     }, [ativa]);
     useEffect(() => {
         if (!ativa || !/^\d{4}-\d{2}$/.test(periodo)) return;
         let vivo = true;
         setDados(null); setErro('');
-        Promise.all([lerFolhaGravada(ativa.id, periodo), lerProcesso(ativa.id, 'rescisao', periodo)])
-            .then(([f, r]) => { if (vivo) setDados({ folha: f?.holerites ?? [], rescisoes: r?.holerites ?? [] }); })
-            .catch(e => { if (vivo) { setErro(mensagemErro(e)); setDados({ folha: [], rescisoes: [] }); } });
+        const id = ativa.id;
+        Promise.all([lerFolhaGravada(id, periodo), lerProcesso(id, 'rescisao', periodo)])
+            .then(([f, r]) => { if (vivo) setDados({ empresaId: id, periodo, folha: f?.holerites ?? [], rescisoes: r?.holerites ?? [] }); })
+            .catch(e => { if (vivo) setErro(mensagemErro(e)); });
         return () => { vivo = false; };
     }, [ativa, periodo]);
 
-    const repasse = useMemo(() => (dados && /^\d{4}-\d{2}$/.test(periodo) ? repasseConsignado(periodo, fichas, dados.folha, dados.rescisoes, hojeIso()) : null), [dados, fichas, periodo]);
+    const repasse = useMemo(() => (ativa && dados && fichas && dados.empresaId === ativa.id && fichas.empresaId === ativa.id && dados.periodo === periodo
+        ? repasseConsignado(periodo, fichas.lista, dados.folha, dados.rescisoes, hojeLocal()) : null), [ativa, dados, fichas, periodo]);
     if (!ativa) return <p className="text-sm text-slate-500">Ative uma empresa.</p>;
 
     function exportar() {
@@ -79,7 +85,7 @@ const ConsignadoRepassePanel: React.FC = () => {
             ) : (
                 <>
                     <div className="grid gap-3 sm:grid-cols-3">
-                        <div className="rounded-sm border border-slate-200 p-3 dark:border-slate-700"><p className="text-xs text-slate-500">Total a repassar</p><p className="text-lg font-semibold">{reais(repasse.total)}</p></div>
+                        <div className="rounded-sm border border-slate-200 p-3 dark:border-slate-700"><p className="text-xs text-slate-500">Total na guia do FGTS Digital</p><p className="text-lg font-semibold">{reais(repasse.total)}</p>{repasse.totalDae > 0 && <p className="text-xs text-slate-500">Domésticos (DAE): {reais(repasse.totalDae)}</p>}</div>
                         <div className="rounded-sm border border-slate-200 p-3 dark:border-slate-700"><p className="text-xs text-slate-500">Guia do FGTS Digital até</p><p className={`text-lg font-semibold ${repasse.vencido ? 'text-red-700 dark:text-red-300' : ''}`}>{br(repasse.vencimento)}{repasse.vencido ? ' (vencida)' : ''}</p></div>
                         <div className="rounded-sm border border-slate-200 p-3 dark:border-slate-700"><p className="text-xs text-slate-500">Por instituição</p>
                             {repasse.porInstituicao.length ? repasse.porInstituicao.map(i => <p key={i.instFinanc}>{i.instFinanc}: {reais(i.valor)} ({i.contratos} contrato{i.contratos > 1 ? 's' : ''})</p>) : <p>—</p>}</div>
