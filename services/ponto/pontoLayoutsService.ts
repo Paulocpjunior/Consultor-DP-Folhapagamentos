@@ -16,6 +16,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import type { LayoutPonto } from '../../types/ponto';
+import { normalizarCnpj } from '../cadastros/documentos';
 
 const COLLECTION = 'ponto_layouts';
 
@@ -26,7 +27,7 @@ export function soDigitos(s: string): string {
 
 /** Monta o id composto: 14 digitos do CNPJ + '_' + cadastro SAGE. */
 export function montarIdLayout(cnpj: string, cadastroSAGE: string): string {
-  const cnpjLimpo = soDigitos(cnpj);
+  const cnpjLimpo = normalizarCnpj(cnpj);
   const sage = String(cadastroSAGE ?? '').trim();
   if (cnpjLimpo.length !== 14) {
     throw new Error(`CNPJ invalido: "${cnpj}" (esperado 14 digitos, recebeu ${cnpjLimpo.length})`);
@@ -49,7 +50,7 @@ export async function buscarLayout(cnpj: string, cadastroSAGE: string): Promise<
 export async function salvarLayout(layout: LayoutPonto): Promise<void> {
   const id = montarIdLayout(layout.cnpj, layout.cadastroSAGE);
   // CNPJ só com dígitos: as regras conferem a empresa dona pelo CNPJ do id.
-  const payload = { ...layout, cnpj: soDigitos(layout.cnpj), updatedAt: Date.now() };
+  const payload = { ...layout, cnpj: normalizarCnpj(layout.cnpj), updatedAt: Date.now() };
   await setDoc(doc(db, COLLECTION, id), payload, { merge: false });
 }
 
@@ -73,7 +74,7 @@ export async function adicionarMatriculaPorPIS(
 
 /** Lista todos os layouts de uma empresa (pode ter mais de um cadastro SAGE). */
 export async function listarLayoutsPorCnpj(cnpj: string): Promise<LayoutPonto[]> {
-  const cnpjLimpo = soDigitos(cnpj);
+  const cnpjLimpo = normalizarCnpj(cnpj);
   const q = query(collection(db, COLLECTION), where('cnpj', '==', cnpjLimpo));
   const snap = await getDocs(q);
   return snap.docs.map((d) => d.data() as LayoutPonto);

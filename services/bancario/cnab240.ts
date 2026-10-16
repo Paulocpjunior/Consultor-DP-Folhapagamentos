@@ -18,7 +18,7 @@
 // conferido byte a byte com o arquivo da SAGE (ITAU_10.TXT, 10/2026).
 
 import type { Data } from '../prazos/calendario';
-import { cnpjValido, cpfValido } from '../cadastros/documentos';
+import { cnpjValido, cpfValido, limparCnpj } from '../cadastros/documentos';
 
 export type FormaCredito = 'conta' | 'poupanca' | 'ted' | 'pix';
 export const FORMA_LANCAMENTO: Record<FormaCredito, string> = { conta: '01', poupanca: '05', ted: '41', pix: '45' };
@@ -309,6 +309,8 @@ export function gerarRemessa(p: { conta: ContaPagamento; cnpj: string; razaoSoci
     if (!perfil) throw new Error(`Banco ${p.conta.banco || '(vazio)'} ainda sem layout no Consultor: ${BANCOS_SUPORTADOS.join(', ')}.`);
     const ct = separarDv(p.conta.conta); const ag = separarDv(p.conta.agencia);
     if (!ag.numero || !ct.numero || !(p.conta.contaDv || ct.dv)) throw new Error('Conta da empresa incompleta: agência, conta e dígito.');
+    // O CNPJ da empresa no CNAB 240 é numérico (14 posições com zeros): o alfanumérico sairia sem as letras.
+    if (/[A-Z]/.test(limparCnpj(p.cnpj))) throw new Error('CNPJ alfanumérico: o arquivo CNAB 240 do banco ainda tem o CNPJ numérico. Confira com o banco o leiaute para o CNPJ com letras.');
     const x: Ctx = { perfil, conta: p.conta, cnpj: p.cnpj.replace(/\D/g, ''), razaoSocial: p.razaoSocial };
     const agora = p.agora ?? new Date();
     const nsa = Math.max(1, Math.floor(p.conta.proximoNsa || 1));

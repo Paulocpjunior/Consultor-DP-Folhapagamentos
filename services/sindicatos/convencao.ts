@@ -14,7 +14,7 @@
 // O texto do PDF sugere vigência, data-base, registro, reajuste e pisos (lerTextoConvencao): a equipe confirma.
 
 import { fichaNaData, type FichaFuncionario } from '../cadastros/funcionarios';
-import { dataValida, reais } from '../cadastros/documentos';
+import { dataValida, normalizarCnpj, reais } from '../cadastros/documentos';
 import { salarioContratual, type Movimento } from '../calculo/motorMensal';
 import type { AlertaConformidade } from '../conformidade/salarioMinimo';
 import { minimoProporcional } from '../conformidade/salarioMinimo';
@@ -60,7 +60,7 @@ const pct = (n: number) => `${n.toLocaleString('pt-BR', { maximumFractionDigits:
 
 export function validarConvencao(c: ConvencaoColetiva, existentes: ConvencaoColetiva[] = []): string[] {
     const e: string[] = [];
-    if (!/^\d{14}$/.test(c.sindicatoCnpj)) e.push('Sindicato sem CNPJ.');
+    if (!/^[0-9A-Z]{12}\d{2}$/.test(c.sindicatoCnpj)) e.push('Sindicato sem CNPJ.');
     if (!dataValida(c.vigenciaInicio)) e.push('Início da vigência: data inválida.');
     if (!dataValida(c.vigenciaFim)) e.push('Fim da vigência: data inválida.');
     else if (dataValida(c.vigenciaInicio) && c.vigenciaFim < c.vigenciaInicio) e.push('Fim da vigência antes do início.');
@@ -199,7 +199,7 @@ export function conferirConvencao(e: EntradaConformidade): ResultadoConformidade
 
     // Vigência e obrigações de cada sindicato da empresa.
     const usados = new Set(e.sindicatosDaEmpresa);
-    for (const f of e.fichas) { const s = (f.dados.sindicato ?? '').replace(/\D/g, ''); if (s.length === 14) usados.add(s); }
+    for (const f of e.fichas) { const s = normalizarCnpj(f.dados.sindicato); if (s.length === 14) usados.add(s); }
     for (const cnpj of usados) {
         const c = convencaoDoDia(e.convencoes, cnpj, fim);
         if (!c) { geral('aviso', 'sem-convencao', `${nomeSind(cnpj)}: nenhuma convenção cadastrada (Cadastros › Sindicatos › Convenções).`); continue; }
@@ -222,7 +222,7 @@ export function conferirConvencao(e: EntradaConformidade): ResultadoConformidade
         const d0 = f0.dados;
         if (!d0.admissao || d0.admissao > fim || (d0.dataDesligamento && d0.dataDesligamento < ini)) continue;
         if (d0.categoria && !/^1\d\d$/.test(d0.categoria)) continue;
-        const cnpj = ((d0.sindicato ?? '').replace(/\D/g, '').length === 14 ? (d0.sindicato ?? '').replace(/\D/g, '') : e.sindicatosDaEmpresa.length === 1 ? e.sindicatosDaEmpresa[0] : '');
+        const cnpj = (normalizarCnpj(d0.sindicato).length === 14 ? normalizarCnpj(d0.sindicato) : e.sindicatosDaEmpresa.length === 1 ? e.sindicatosDaEmpresa[0] : '');
         const nome = d0.nome || f0.cpf;
         if (!cnpj) { if (e.sindicatosDaEmpresa.length > 1) alertas.push({ fichaId: f0.id, nome, nivel: 'aviso', regra: 'ficha-sem-sindicato', mensagem: 'A empresa tem mais de um sindicato e a ficha não diz qual: informe o sindicato na ficha (Ident. Adm.).' }); continue; }
         const c = convencaoDoDia(e.convencoes, cnpj, fim);
@@ -307,7 +307,7 @@ export function lerTextoConvencao(texto: string): SugestaoConvencao {
  * não vale (não há ultratividade: CLT, art. 614, § 3º).
  */
 export function convencaoDaFicha(convencoes: ConvencaoColetiva[], ficha: FichaFuncionario, sindicatosDaEmpresa: string[], dia: string): ConvencaoColetiva | undefined {
-    const daFicha = (ficha.dados.sindicato ?? '').replace(/\D/g, '');
+    const daFicha = normalizarCnpj(ficha.dados.sindicato);
     const cnpj = daFicha.length === 14 ? daFicha : sindicatosDaEmpresa.length === 1 ? sindicatosDaEmpresa[0] : '';
     if (!cnpj) return undefined;
     const c = convencaoDoDia(convencoes, cnpj, dia);

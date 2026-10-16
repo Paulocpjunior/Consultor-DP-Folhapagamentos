@@ -18,7 +18,7 @@
 // Os códigos de IRRF são os do XSD (593656, 056152 e 188951); os das contribuições, da Tabela 29 vigente — a tela
 // pede o código de 6 dígitos, como na guia.
 
-import { cnpjValido, cpfValido, UFS } from '../cadastros/documentos';
+import { cnpjValido, cpfValido, normalizarCnpj, UFS } from '../cadastros/documentos';
 import { idEvento, VER_PROC, type TpAmb } from '../esocial/transmissao';
 
 const NS = 'http://www.esocial.gov.br/schema/evt';
@@ -346,14 +346,14 @@ export function validarProcesso(p: ProcessoTrabalhista, hoje: string): Validacao
         if (!/^\d{15}$|^\d{20}$/.test(nr)) erros.push('Número da ata ou da conciliação: 15 ou 20 dígitos.');
         if (!data.test(p.dtCCP) || p.dtCCP > hoje) erros.push('Data do acordo na CCP/NINTER: obrigatória e não futura.');
         if (!TIPOS_CCP[p.tpCCP]) erros.push('Âmbito do acordo: CCP de empresa, CCP de sindicato ou NINTER.');
-        if (p.cnpjCCP && !cnpjValido(digitos(p.cnpjCCP))) erros.push('CNPJ do sindicato da CCP inválido.');
+        if (p.cnpjCCP && !cnpjValido(normalizarCnpj(p.cnpjCCP))) erros.push('CNPJ do sindicato da CCP inválido.');
     }
     // Responsabilidade indireta: o responsável direto (ideResp), com contrato 8 (obrigatório) ou 6 (opcional).
     const tipos = new Set(p.trabalhadores.map(tpContrDe));
     const r = p.ideResp;
     if (tipos.has('8') && !r) erros.push('Responsabilidade indireta (tipo 8): informe o responsável direto (CNPJ ou CPF do empregador de origem).');
     if (r) {
-        const n = digitos(r.nrInsc);
+        const n = normalizarCnpj(r.nrInsc);
         if (![...tipos].every(x => x === '6' || x === '8')) erros.push('O responsável direto só vai com contrato do tipo 6 ou 8.');
         if (r.tpInsc === '1' && !cnpjValido(n)) erros.push('Responsável direto: CNPJ inválido (14 dígitos).');
         if (r.tpInsc === '2' && !cpfValido(n)) erros.push('Responsável direto: CPF inválido.');
@@ -432,7 +432,7 @@ export function validarPagamento(p: ProcessoTrabalhista, g: PagamentoProcesso): 
 
 const v = (centavos: number) => (Math.round(centavos) / 100).toFixed(2);
 const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-const raiz = (cnpj: string) => digitos(cnpj).slice(0, 8);
+const raiz = (cnpj: string) => normalizarCnpj(cnpj).slice(0, 8);
 const ideEvento = (tpAmb: TpAmb, nrRecibo?: string) =>
     `<ideEvento><indRetif>${nrRecibo ? 2 : 1}</indRetif>${nrRecibo ? `<nrRecibo>${esc(nrRecibo)}</nrRecibo>` : ''}<tpAmb>${tpAmb}</tpAmb><procEmi>1</procEmi><verProc>${VER_PROC}</verProc></ideEvento>`;
 
@@ -476,12 +476,12 @@ export function gerarS2500(p: { cnpj: string; tpAmb: TpAmb; processo: ProcessoTr
     const pr = p.processo;
     const t = pr.trabalhadores.find(x => digitos(x.cpf) === digitos(p.cpf));
     if (!t) throw new Error('S-2500: trabalhador fora do processo.');
-    const cnpj = digitos(p.cnpj);
+    const cnpj = normalizarCnpj(p.cnpj);
     const id = p.id ?? idEvento(cnpj);
     const dados = ehJudicial(pr.origem)
         ? `<infoProcJud><dtSent>${pr.dtSent}</dtSent><ufVara>${pr.ufVara}</ufVara><codMunic>${pr.codMunic}</codMunic><idVara>${Number(pr.idVara)}</idVara>`
             + (pr.origem === '3' ? `<infoPatPrec>${v(pr.infoPatPrec ?? 0)}</infoPatPrec>` : '') + '</infoProcJud>'
-        : `<infoCCP><dtCCP>${pr.dtCCP}</dtCCP><tpCCP>${pr.tpCCP}</tpCCP>${pr.cnpjCCP ? `<cnpjCCP>${digitos(pr.cnpjCCP)}</cnpjCCP>` : ''}</infoCCP>`;
+        : `<infoCCP><dtCCP>${pr.dtCCP}</dtCCP><tpCCP>${pr.tpCCP}</tpCCP>${pr.cnpjCCP ? `<cnpjCCP>${normalizarCnpj(pr.cnpjCCP)}</cnpjCCP>` : ''}</infoCCP>`;
     const tp = tpContrDe(t);
     const ind = indContrDe(t);
     const matr = t.matricula.trim();
@@ -521,7 +521,7 @@ export function gerarS2500(p: { cnpj: string; tpAmb: TpAmb; processo: ProcessoTr
     const xml = `<eSocial xmlns="${NS}/evtProcTrab/${VERSAO}"><evtProcTrab Id="${id}">`
         + ideEvento(p.tpAmb, p.nrRecibo)
         + `<ideEmpregador><tpInsc>1</tpInsc><nrInsc>${raiz(cnpj)}</nrInsc>`
-        + (pr.ideResp && (tp === '6' || tp === '8') ? `<ideResp><tpInsc>${pr.ideResp.tpInsc}</tpInsc><nrInsc>${digitos(pr.ideResp.nrInsc)}</nrInsc>`
+        + (pr.ideResp && (tp === '6' || tp === '8') ? `<ideResp><tpInsc>${pr.ideResp.tpInsc}</tpInsc><nrInsc>${normalizarCnpj(pr.ideResp.nrInsc)}</nrInsc>`
             + (pr.ideResp.dtAdmRespDir && !pr.ideResp.matRespDir.trim() ? `<dtAdmRespDir>${pr.ideResp.dtAdmRespDir}</dtAdmRespDir>` : '')
             + (pr.ideResp.matRespDir.trim() ? `<matRespDir>${esc(pr.ideResp.matRespDir.trim())}</matRespDir>` : '') + '</ideResp>' : '')
         + '</ideEmpregador>'
@@ -538,7 +538,7 @@ export function gerarS2500(p: { cnpj: string; tpAmb: TpAmb; processo: ProcessoTr
 /** S-2501 de um pagamento (sem assinatura; o CFI assina). `nrRecibo` = retificação. */
 export function gerarS2501(p: { cnpj: string; tpAmb: TpAmb; processo: ProcessoTrabalhista; pagamento: PagamentoProcesso; nrRecibo?: string; id?: string }): { id: string; xml: string } {
     const pr = p.processo; const g = p.pagamento;
-    const cnpj = digitos(p.cnpj);
+    const cnpj = normalizarCnpj(p.cnpj);
     const id = p.id ?? idEvento(cnpj);
     const trabs = g.trabalhadores.map(t => {
         const tp = pr.trabalhadores.find(x => digitos(x.cpf) === digitos(t.cpf));

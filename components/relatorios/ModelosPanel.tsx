@@ -17,6 +17,7 @@ import { ehBase, excluirModelo, listarModelos, salvarModelo } from '../../servic
 import type { OpcoesPdf } from '../../services/relatorios/layoutPdf';
 import EntregaRelatorio, { type ArquivoRelatorio } from './EntregaRelatorio';
 import ImportarTextosSageModal from './ImportarTextosSageModal';
+import { normalizarCnpj } from '../../services/cadastros/documentos';
 
 const modeloPdf = () => import('../../services/modelos/modeloPdf');
 const inp = 'mt-0.5 block w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100';
@@ -75,7 +76,7 @@ const ModelosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
     const sel = modelos?.find(m => m.id === selId) ?? null;
     const ficha = fichas.find(f => f.id === fichaId) ?? null;
     const ctx = useMemo((): ContextoModelo | null => (ativa ? {
-        ficha, empresa: { razaoSocial: empresa?.razaoSocial || ativa.nome, nomeFantasia: empresa?.nomeFantasia, cnpj: ativa.cnpj.replace(/\D/g, ''), codigoSage: ativa.codigoSage },
+        ficha, empresa: { razaoSocial: empresa?.razaoSocial || ativa.nome, nomeFantasia: empresa?.nomeFantasia, cnpj: normalizarCnpj(ativa.cnpj), codigoSage: ativa.codigoSage },
         hoje: new Date().toLocaleDateString('sv-SE'), extras,
     } : null), [ativa, empresa, ficha, extras]);
     const preenchido = useMemo(() => (sel && ctx ? preencherModelo(sel.corpo, ctx) : null), [sel, ctx]);
@@ -227,7 +228,7 @@ const ModelosPanel: React.FC<{ currentUser: User }> = ({ currentUser }) => {
                             <button className={primario} disabled={!fichaId} aria-pressed={enviar} onClick={() => setEnviar(x => !x)}>Enviar ao cliente</button>
                         </div>
                         {enviar && fichaId && (
-                            <EntregaRelatorio key={`${sel.id}-${fichaId}`} empresa={{ id: ativa.id, cnpj: ativa.cnpj.replace(/\D/g, ''), nome: empresa?.nomeFantasia || empresa?.razaoSocial || ativa.nome, codigoSage: ativa.codigoSage, contatoEnvio: empresa?.contatoEnvio }}
+                            <EntregaRelatorio key={`${sel.id}-${fichaId}`} empresa={{ id: ativa.id, cnpj: normalizarCnpj(ativa.cnpj), nome: empresa?.nomeFantasia || empresa?.razaoSocial || ativa.nome, codigoSage: ativa.codigoSage, contatoEnvio: empresa?.contatoEnvio }}
                                 titulo={`${sel.titulo} – ${ficha?.dados.nome ?? ''}`} competencia={ativa.competencia} gerar={arquivo} />
                         )}
                         {preenchido && (

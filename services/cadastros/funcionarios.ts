@@ -21,7 +21,7 @@ import { validarContratos, type ContratoConsignado } from '../calculo/consignado
 import type { FaixaLocal } from './locaisTrabalho';
 import { textoMeses, validarAutomaticos, type LancamentoAutomatico } from '../calculo/lancamentosAutomaticos';
 import { validarOutrosVinculos, type OutroVinculo } from './duploVinculo';
-import { UFS, cnpjValido, cpfValido, dataValida, centavosDeTexto, pisValido } from './documentos';
+import { centavosDeTexto, cnpjValido, cpfValido, dataValida, normalizarCnpj, pisValido, UFS } from './documentos';
 
 export type { Dependente };
 export type CampoExtra = 'codigoIob' | 'horario' | 'banco' | 'agencia' | 'conta' | 'tipoConta' | 'pix' | 'observacoes' | 'dataDesligamento' | 'motivoDesligamento' | 'dataProjetadaAviso' | 'grauExp'
@@ -247,7 +247,7 @@ export function historicoDosEventos(c: Pick<Cadastro, 'eventos'>): FaixaSalarial
  */
 export function locaisDosEventos(c: Pick<Cadastro, 'eventos'>): FaixaLocal[] {
     const r: FaixaLocal[] = [];
-    const eventos = c.eventos.filter(e => (e.tipo === 'S-2200' || e.tipo === 'S-2206') && /^\d{14}$/.test(e.dados.estabelecimento ?? '') && dataValida(e.data))
+    const eventos = c.eventos.filter(e => (e.tipo === 'S-2200' || e.tipo === 'S-2206') && /^[0-9A-Z]{12}\d{2}$/.test(e.dados.estabelecimento ?? '') && dataValida(e.data))
         .sort((a, b) => a.data.localeCompare(b.data) || (a.tipo === 'S-2200' ? -1 : b.tipo === 'S-2200' ? 1 : 0));
     for (const e of eventos) {
         const faixa: FaixaLocal = { desde: e.data, estabelecimento: e.dados.estabelecimento!, origem: `${e.tipo} · ${e.recibo || e.id}` };
@@ -322,7 +322,7 @@ export function normalizarFicha(f: FichaFuncionario): FichaFuncionario {
         ...f, cpf: f.cpf.replace(/\D/g, ''), matriculaEsocial: f.matriculaEsocial.trim(), dados,
         dependentes: f.dependentes.map(d => ({ ...d, nome: d.nome.trim(), cpf: d.cpf.replace(/\D/g, ''), nascimento: d.nascimento.trim(), noEsocial: d.noEsocial || (depNoEsocial(f, d) ? 'S' : 'N'),
             ...(d.pensao === 'S' ? { cotaPensao: (d.cotaPensao ?? '').trim().replace(',', '.') } : { pensao: 'N', cotaPensao: '' }) })),
-        ...(f.outrosVinculos ? { outrosVinculos: f.outrosVinculos.map(v => ({ ...v, nrInsc: v.nrInsc.replace(/\D/g, ''), codCateg: v.codCateg.trim(), observacao: (v.observacao ?? '').trim() })) } : {}),
+        ...(f.outrosVinculos ? { outrosVinculos: f.outrosVinculos.map(v => ({ ...v, nrInsc: normalizarCnpj(v.nrInsc), codCateg: v.codCateg.trim(), observacao: (v.observacao ?? '').trim() })) } : {}),
     };
 }
 

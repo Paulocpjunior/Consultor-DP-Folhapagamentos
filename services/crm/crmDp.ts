@@ -5,6 +5,7 @@
 // (scripts/crm). Aqui: ligar o CRM às empresas do Consultor e sugerir a carteira de cada pessoa.
 
 import type { Empresa } from '../empresas/empresasTypes';
+import { normalizarCnpj } from '../cadastros/documentos';
 
 export interface ColaboradorCrm { jotformId: string; nome: string; email: string; empresas?: number; exemplos?: string[] }
 
@@ -33,7 +34,7 @@ const codigo = (t: string | undefined) => digitos(t).replace(/^0+/, '');
 
 /** Empresa do Consultor que corresponde à do CRM: pelo CNPJ ou CPF; sem ele, pelo código SAGE. */
 export function empresaDoCrm(c: Pick<EmpresaCrm, 'documento' | 'codigoSage'>, empresas: Empresa[]): Empresa | undefined {
-    return empresas.find(e => digitos(e.cnpj) === c.documento)
+    return empresas.find(e => normalizarCnpj(e.cnpj) === c.documento)
         ?? (c.codigoSage ? empresas.find(e => codigo(e.codigoSage) === codigo(c.codigoSage)) : undefined);
 }
 

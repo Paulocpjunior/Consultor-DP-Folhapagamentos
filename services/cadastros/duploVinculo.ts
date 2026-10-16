@@ -11,6 +11,8 @@
 //   total não passa do teto, indMV 2 quando passa (base aqui = teto − outras).
 // O S-1200 leva o infoMV com cada outra fonte (tpInsc, nrInsc, codCateg, vlrRemunOE).
 
+import { cnpjValido, normalizarCnpj } from './cnpj';
+
 /** Remuneração do trabalhador em outro empregador, por período (AAAA-MM). */
 export interface OutroVinculo {
     /** 1 = CNPJ, 2 = CPF (empregador pessoa física). */
@@ -29,13 +31,6 @@ export interface OutroVinculo {
 export const outroVinculoVazio = (): OutroVinculo => ({ tpInsc: '1', nrInsc: '', codCateg: '101', remuneracao: 0, desde: '', ate: '', observacao: '' });
 
 const mes = /^\d{4}-(0[1-9]|1[0-2])$/;
-const digitos = (t: string) => (t ?? '').replace(/\D/g, '');
-
-function cnpjValido(c: string): boolean {
-    if (!/^\d{14}$/.test(c) || /^(\d)\1{13}$/.test(c)) return false;
-    const dv = (n: number) => { let s = 0; let p = n - 7; for (let i = 0; i < n; i++) { s += Number(c[i]) * p--; if (p < 2) p = 9; } const r = s % 11; return r < 2 ? 0 : 11 - r; };
-    return dv(12) === Number(c[12]) && dv(13) === Number(c[13]);
-}
 function cpfValido(c: string): boolean {
     if (!/^\d{11}$/.test(c) || /^(\d)\1{10}$/.test(c)) return false;
     const dv = (n: number) => { let s = 0; for (let i = 0; i < n; i++) s += Number(c[i]) * (n + 1 - i); const r = (s * 10) % 11; return r === 10 ? 0 : r; };
@@ -46,7 +41,7 @@ export function validarOutrosVinculos(lista: OutroVinculo[]): string[] {
     const erros: string[] = [];
     lista.forEach((v, i) => {
         const n = `Duplo vínculo ${i + 1}`;
-        const nr = digitos(v.nrInsc);
+        const nr = normalizarCnpj(v.nrInsc);
         if (v.tpInsc === '1' ? !cnpjValido(nr) : !cpfValido(nr)) erros.push(`${n}: ${v.tpInsc === '1' ? 'CNPJ' : 'CPF'} do outro empregador inválido.`);
         if (!/^\d{3}$/.test(v.codCateg)) erros.push(`${n}: categoria do eSocial com 3 dígitos (ex.: 101).`);
         if (!Number.isInteger(v.remuneracao) || v.remuneracao <= 0) erros.push(`${n}: informe a remuneração mensal no outro empregador.`);

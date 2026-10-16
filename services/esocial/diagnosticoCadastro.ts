@@ -6,7 +6,7 @@
 // e os afastamentos do mês. Com erro, "não apto": o evento seria recusado pelo pré-voo ou pelo governo; os avisos não
 // impedem. Junta as validações que já existem em cada cadastro, sem regra nova. Puro, sem Firebase.
 
-import { cnpjValido } from '../cadastros/documentos';
+import { cnpjValido, normalizarCnpj } from '../cadastros/documentos';
 import { validarFicha, type FichaFuncionario } from '../cadastros/funcionarios';
 import { conferirHorasSemanais, validarHorario, type Horario } from '../cadastros/horarios';
 import { validarAfastamento, type Afastamento } from '../cadastros/afastamentos';
@@ -49,10 +49,10 @@ export function diagnosticarCadastro(e: EntradaDiagnostico): DiagnosticoCadastro
 
     // Empresa: CNPJ, parâmetros do eSocial da folha, enquadramento (S-1000/S-1005) e a tabela de rubricas.
     porArea.Empresa.verificados = 1;
-    const cnpj = e.empresa.cnpj.replace(/\D/g, '');
+    const cnpj = normalizarCnpj(e.empresa.cnpj);
     if (!cnpjValido(cnpj)) add('Empresa', 'CNPJ', 'erro', [`CNPJ ${e.empresa.cnpj} inválido.`]);
     const p = e.empresa.esocialFolha;
-    if (!p || !/^\d{14}$/.test(p.nrInscEstab ?? '') || !(p.codLotacao ?? '').trim()) add('Empresa', 'Parâmetros do eSocial da folha', 'erro', ['Estabelecimento e lotação do S-1200 não gravados (Cálculo › S-1200 e S-1210 › parâmetros).']);
+    if (!p || !/^[0-9A-Z]{12}\d{2}$/.test(p.nrInscEstab ?? '') || !(p.codLotacao ?? '').trim()) add('Empresa', 'Parâmetros do eSocial da folha', 'erro', ['Estabelecimento e lotação do S-1200 não gravados (Cálculo › S-1200 e S-1210 › parâmetros).']);
     // Início da DCTFWeb e do FGTS Digital (Cadastros › Enquadramento).
     const inicios = validarInicios(e.empresa.inicios ?? {});
     add('Empresa', 'Início das obrigações', 'erro', inicios.erros);

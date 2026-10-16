@@ -24,6 +24,7 @@ import { foraDaVigencia } from './vigenciaTabelas';
 import { COD_INC_CP, COD_INC_FGTS, CP_PATERNIDADE, vigenciaEm, consolidarRubricas, idRubrica, type DadosRubrica, type EventoRubrica, type Rubrica } from '../cadastros/rubricas';
 import { PREFIXO_RESC } from './desligamento';
 import { idEvento, VER_PROC, type TpAmb } from './transmissao';
+import { normalizarCnpj } from '../cadastros/documentos';
 
 const NS = 'http://www.esocial.gov.br/schema/evt/evtTabRubrica/v_S_01_03_00';
 const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -338,7 +339,7 @@ export function gerarS1010(e: { cnpj: string; tpAmb: TpAmb; pedido: PedidoS1010;
     const corpo = p.acao === 'exclusao' ? `<exclusao>${ide}</exclusao>` : `<${p.acao}>${ide}${xmlDados(p.dados!)}${nova}</${p.acao}>`;
     const xml = `<eSocial xmlns="${NS}"><evtTabRubrica Id="${id}">`
         + `<ideEvento><tpAmb>${e.tpAmb}</tpAmb><procEmi>1</procEmi><verProc>${VER_PROC}</verProc></ideEvento>`
-        + `<ideEmpregador><tpInsc>1</tpInsc><nrInsc>${e.cnpj.replace(/\D/g, '').slice(0, 8)}</nrInsc></ideEmpregador>`
+        + `<ideEmpregador><tpInsc>1</tpInsc><nrInsc>${normalizarCnpj(e.cnpj).slice(0, 8)}</nrInsc></ideEmpregador>`
         + `<infoRubrica>${corpo}</infoRubrica></evtTabRubrica></eSocial>`;
     return { id, xml };
 }

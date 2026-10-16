@@ -1,25 +1,11 @@
 // services/cadastros/documentos.ts
 //
 // Validação de documentos usada pelos cadastros. CPF vem da implantação;
-// CNPJ aceita o formato alfanumérico da Receita (IN RFB 2.229/2024), em que
-// cada caractere vale o código ASCII menos 48 e os dígitos verificadores
-// continuam numéricos.
+// CNPJ (numérico ou alfanumérico) vem de ./cnpj.
 
 export { cpfValido, dataValida, digitos } from '../implantacao/implantacao';
 
-export const limparCnpj = (v: string) => v.toUpperCase().replace(/[.\-/\s]/g, '');
-
-export function cnpjValido(valor: string): boolean {
-    const c = limparCnpj(valor);
-    if (!/^[0-9A-Z]{12}\d{2}$/.test(c) || /^(\d)\1+$/.test(c)) return false;
-    const v = [...c].map(ch => ch.charCodeAt(0) - 48);
-    const dv = (n: number) => {
-        const pesos = n === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
-        const resto = pesos.reduce((s, p, i) => s + p * v[i], 0) % 11;
-        return resto < 2 ? 0 : 11 - resto;
-    };
-    return dv(12) === v[12] && dv(13) === v[13];
-}
+export { cnpjValido, formatarCnpj, limparCnpj, normalizarCnpj, raizCnpj } from './cnpj';
 
 /** PIS/PASEP/NIT: pesos 3,2,9,8,7,6,5,4,3,2; resto menor que 2 dá dígito 0. */
 export function pisValido(valor: string): boolean {

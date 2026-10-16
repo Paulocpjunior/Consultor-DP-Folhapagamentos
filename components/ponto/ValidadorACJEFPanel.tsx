@@ -24,6 +24,7 @@ import type {
   ModeloPonto,
   LayoutPonto,
 } from '../../types/ponto';
+import { normalizarCnpj } from '../../services/cadastros/documentos';
 
 const MODELO_ID_PADRAO = 'acjef_p1510_v1';
 
@@ -107,7 +108,7 @@ const ValidadorACJEFPanel: React.FC<Props> = ({ currentUser }) => {
       const conteudo = decodeBuffer(buf, modelo.encoding ?? 'iso-8859-1');
       const r = parsearArquivoFixedWidth(conteudo, modelo, layout, {
         nomeArquivo: arquivo.name,
-        cnpjEsperado: empresaCnpj.replace(/\D/g, ''),
+        cnpjEsperado: normalizarCnpj(empresaCnpj),
       });
       setResultado(r);
     } catch (e: any) {

@@ -9,6 +9,12 @@ describe('código SAGE e CNPJ únicos', () => {
         expect(chaveSage('272')).toBe('sage_0272');
         expect(chaveCnpj('44.388.152/0001-89')).toBe('cnpj_44388152000189');
     });
+    it('CNPJ alfanumérico: a chave fica com as letras, em maiúsculas, e a repetição é achada', () => {
+        expect(chaveCnpj('12.abc.345/01de-35')).toBe('cnpj_12ABC34501DE35');
+        expect(chaveCnpj('12.abc.345/01de-35')).not.toBe(chaveCnpj('12.345.010-35'));
+        const r = repetidas([e('A', '0001', '12ABC34501DE35'), e('B', '0002', '12.abc.345/01de-35'), e('C', '0003', 'A1B2C3D4000193')]);
+        expect(r.map(d => [d.tipo, d.valor, d.empresas.map(x => x.id)])).toEqual([['cnpj', '12ABC34501DE35', ['A', 'B']]]);
+    });
     it('aponta as repetidas (o caso do 1200 no print do Paulo)', () => {
         const r = repetidas([e('SP', '1200', '44388152000189'), e('SPA', '1200', '04896300000151'), e('ABA', '0272', '26444489000184'), e('ABA2', '272', '26444489000184')]);
         expect(r.map(d => [d.tipo, d.valor, d.empresas.map(x => x.id)])).toEqual([

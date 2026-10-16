@@ -6,7 +6,7 @@
 
 import React, { useState } from 'react';
 import { comHistorico, edicaoRetroativa, novoBeneficio, validarBeneficios, type Beneficio } from '../../services/calculo/beneficios';
-import { centavosDeTexto } from '../../services/cadastros/documentos';
+import { centavosDeTexto, normalizarCnpj } from '../../services/cadastros/documentos';
 
 const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const reaisTexto = (c: number) => (c ? (c / 100).toFixed(2).replace('.', ',') : '');
@@ -19,7 +19,7 @@ const BeneficiosEmpresa: React.FC<{ beneficios: Beneficio[]; competencia: string
     const salvar = () => {
         // Sem plano de saúde, a chave sai (o Firestore não grava undefined).
         const limpa = lista.map(({ planoSaude, ...b }) => ({ ...b, nome: b.nome.trim().replace(/\s+/g, ' '), codigoIob: (b.codigoIob ?? '').trim(),
-            ...(planoSaude && (planoSaude.cnpjOper.trim() || planoSaude.regANS) ? { planoSaude: { cnpjOper: planoSaude.cnpjOper.replace(/\D/g, ''), regANS: planoSaude.regANS } } : {}) }));
+            ...(planoSaude && (planoSaude.cnpjOper.trim() || planoSaude.regANS) ? { planoSaude: { cnpjOper: normalizarCnpj(planoSaude.cnpjOper), regANS: planoSaude.regANS } } : {}) }));
         const e = [...validarBeneficios(limpa), ...edicaoRetroativa(beneficios, limpa, competencia)];
         setErros(e);
         // Mudança de valor, tipo, incidência ou ativo vale desta competência em diante; os meses anteriores ficam com a de antes.

@@ -15,7 +15,7 @@
 // Tabela padrão: a do comércio (CNC) de 2026, publicada pelos sindicatos da categoria. Outras confederações (CNI, CNT,
 // CNS…) têm tabelas próprias: a empresa informa as faixas. Puro, sem Firebase.
 
-import { cnpjValido, reais } from '../cadastros/documentos';
+import { cnpjValido, normalizarCnpj, reais } from '../cadastros/documentos';
 
 export interface FaixaPatronal {
     /** Capital até este valor (centavos); null = acima da última. */
@@ -116,11 +116,11 @@ export function calcularSindicalPatronal(e: EntradaPatronal): ResultadoPatronal 
     if (tabela.ano !== e.ano && c.tabelaId !== 'propria') r.avisos.push(`Tabela de ${tabela.ano} usada para ${e.ano}: confira se a confederação já publicou a de ${e.ano} (o reajuste é anual).`);
     if (!(c.capitalSocial > 0)) r.erros.push('Informe o capital social.');
     if (!c.entidade.trim() || !c.codigoSindical.trim()) r.erros.push('Informe a entidade sindical e o código dela na guia (GRCSU).');
-    if (c.cnpjEntidade && !cnpjValido(c.cnpjEntidade.replace(/\D/g, ''))) r.erros.push('CNPJ da entidade sindical inválido.');
+    if (c.cnpjEntidade && !cnpjValido(normalizarCnpj(c.cnpjEntidade))) r.erros.push('CNPJ da entidade sindical inválido.');
     const soma = c.filiais.reduce((s, f) => s + f.percentual, 0);
     if (soma >= 100) r.erros.push('A parte do capital das filiais tem de ser menor que 100% (o resto fica com a matriz).');
     c.filiais.forEach((f, i) => {
-        if (!cnpjValido(f.cnpj.replace(/\D/g, ''))) r.erros.push(`Filial ${i + 1}: CNPJ.`);
+        if (!cnpjValido(normalizarCnpj(f.cnpj))) r.erros.push(`Filial ${i + 1}: CNPJ.`);
         if (!(f.percentual > 0)) r.erros.push(`Filial ${i + 1}: a parte do capital (%).`);
         if (!f.entidade.trim() || !f.codigoSindical.trim()) r.erros.push(`Filial ${i + 1}: a entidade sindical e o código dela.`);
     });
@@ -134,7 +134,7 @@ export function calcularSindicalPatronal(e: EntradaPatronal): ResultadoPatronal 
     r.memoria.push(`${c.filiais.length ? 'Matriz' : 'Capital social'}: ${matriz.memoria}.`);
     for (const p of partes) {
         const v = valorPelaTabela(p.capital, tabela.faixas);
-        r.guias.push({ estabelecimento: p.cnpj.replace(/\D/g, ''), entidade: p.entidade.trim(), codigoSindical: p.codigoSindical.trim(), capital: p.capital, valor: v.valor });
+        r.guias.push({ estabelecimento: normalizarCnpj(p.cnpj), entidade: p.entidade.trim(), codigoSindical: p.codigoSindical.trim(), capital: p.capital, valor: v.valor });
         r.memoria.push(`Filial ${p.cnpj} (${p.percentual.toLocaleString('pt-BR')}% do capital, CLT art. 581): ${v.memoria}.`);
     }
     r.valor = r.guias.reduce((s, g) => s + g.valor, 0);

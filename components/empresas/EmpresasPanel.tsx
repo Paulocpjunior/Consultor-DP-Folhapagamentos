@@ -10,6 +10,7 @@ import EmpresaForm from './EmpresaForm';
 import { ROTULO_SITUACAO, cofreDaMinhaCarteira, diasDaLinha, precisaAtencao, type LinhaCofre } from '../../services/certificados/cofreCertificados';
 import { buscarCadastroCentral, conferirEmpresas, type ConferenciaCadastroCentral } from '../../services/cadastroCentralConferencia';
 import { tokenParaCfi } from '../../services/auth/tokenCfi';
+import { normalizarCnpj } from '../../services/cadastros/documentos';
 
 interface Props { currentUser: User; /** Aberto pelo menu do app: o título vem do cabeçalho da página. */ embutido?: boolean }
 
@@ -210,7 +211,7 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser, embutido = false }) => {
                                         <td className="px-3 py-2 text-center">
                                             {(() => {
                                                 // Situação no cofre único (CFI + Legal); só leitura.
-                                                const l = cofre?.get(e.cnpj.replace(/\D/g, ''));
+                                                const l = cofre?.get(normalizarCnpj(e.cnpj));
                                                 if (!cofre) return <span className="text-xs text-slate-500 dark:text-slate-400" title={erroCofre || 'Carregando o cofre…'}>{erroCofre ? '—' : '…'}</span>;
                                                 const cls = !l || !l.apto ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200'
                                                     : precisaAtencao(l) ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
@@ -240,7 +241,7 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser, embutido = false }) => {
                                     {expandedCert === e.id && (
                                         <tr>
                                             <td colSpan={6} className="px-3 py-2 bg-slate-50 dark:bg-slate-800/50">
-                                                <DetalheCofre linha={cofre?.get(e.cnpj.replace(/\D/g, ''))} />
+                                                <DetalheCofre linha={cofre?.get(normalizarCnpj(e.cnpj))} />
                                             </td>
                                         </tr>
                                     )}

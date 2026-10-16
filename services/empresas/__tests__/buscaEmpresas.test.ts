@@ -6,6 +6,7 @@ const E = [
     { id: 'aba', nomeFantasia: 'ABA', razaoSocial: 'ASSOCIACAO BRASILEIRA DE DESENVOLVIMENTO', cnpj: '26444489000184', codigoSage: '0272' },
     { id: 'sp', nomeFantasia: 'SP', razaoSocial: 'S&P ASSESSORIA CONTÁBIL S/S', cnpj: '44388152000189', codigoSage: '1200' },
     { id: 'vita', nomeFantasia: 'VITA', razaoSocial: 'VITA SERVIÇOS DE DIGITALIZAÇÃO LTDA', cnpj: '04144798000104', codigoSage: '0358' },
+    { id: 'nova', nomeFantasia: 'NOVA', razaoSocial: 'NOVA COMÉRCIO LTDA', cnpj: '12ABC34501DE35', codigoSage: '1300' },
 ];
 const ids = (f: string) => filtrarEmpresas(E, f).map(e => e.id);
 
@@ -17,11 +18,17 @@ describe('busca de empresa (Folha e ativação)', () => {
         expect(ids('26.444.489')).toEqual(['aba']);
         expect(ids('44388152000189')).toEqual(['sp']);
     });
+    it('CNPJ alfanumérico com ou sem máscara, em maiúsculas ou não', () => {
+        expect(ids('12.ABC.345/01DE-35')).toEqual(['nova']);
+        expect(ids('12abc345')).toEqual(['nova']);
+        expect(ids('01de')).toEqual(['nova']);
+        expect(ids('1300')).toEqual(['nova']);
+    });
     it('nome e razão social sem acento nem maiúscula; vazio traz todas', () => {
         expect(ids('contabil')).toEqual(['sp']);
         expect(ids('servicos de digitalizacao')).toEqual(['vita']);
         expect(ids('Vita')).toEqual(['vita']);
-        expect(ids('  ')).toEqual(['aba', 'sp', 'vita']);
+        expect(ids('  ')).toEqual(['aba', 'sp', 'vita', 'nova']);
         expect(ids('xyz')).toEqual([]);
     });
     it('competência do modal da Folha para a empresa ativa', () => {

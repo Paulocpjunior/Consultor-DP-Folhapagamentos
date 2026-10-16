@@ -7,6 +7,7 @@ import { filtrarEmpresas } from '../../services/empresas/buscaEmpresas';
 import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
 import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
 import { baixarTemplateApontamento } from '../../services/folha/templateApontamentoIobSage';
+import { normalizarCnpj } from '../../services/cadastros/documentos';
 
 const EventosIobSagePanel = lazy(() => import('./EventosIobSagePanel'));
 const ApontamentoFolhaPanel = lazy(() => import('./ApontamentoFolhaPanel'));
@@ -538,7 +539,7 @@ function iniciais(s?: string): string {
 
 function formatCnpj(cnpj?: string): string {
     if (!cnpj) return '—';
-    const d = cnpj.replace(/\D/g, '');
+    const d = normalizarCnpj(cnpj);
     if (d.length !== 14) return cnpj;
     return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8,12)}-${d.slice(12)}`;
 }

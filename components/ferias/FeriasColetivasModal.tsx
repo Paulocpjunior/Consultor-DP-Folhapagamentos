@@ -11,6 +11,7 @@ import type { Afastamento } from '../../services/cadastros/afastamentos';
 import type { Movimento } from '../../services/calculo/motorMensal';
 import { gravarAfastamentosColetiva, mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
 import { afastamentosParaGravar, planejarColetiva, setoresDasFichas, type FiltroSetor, type Restante, type SituacaoItem } from '../../services/ferias/feriasColetivas';
+import { normalizarCnpj } from '../../services/cadastros/documentos';
 
 const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const btn = 'rounded-sm border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
@@ -67,8 +68,8 @@ const FeriasColetivasModal: React.FC<Props> = ({ empresa, fichas, afastamentos, 
         setOcupado('Gerando a comunicação…'); setErro('');
         try {
             const { comunicacaoColetivaPdf } = await import('../../services/ferias/comunicacaoColetivaPdf');
-            const doc = comunicacaoColetivaPdf(plano, r, { razaoSocial: empresa.razaoSocial, cnpj: empresa.cnpj.replace(/\D/g, ''), cidade, sindicato, setor: setor.tipo === 'todos' ? '' : setor.valor },
-                { empresa: { razaoSocial: empresa.razaoSocial, cnpj: empresa.cnpj.replace(/\D/g, ''), codigoSage: empresa.codigoSage }, emitidoPor: usuario.email });
+            const doc = comunicacaoColetivaPdf(plano, r, { razaoSocial: empresa.razaoSocial, cnpj: normalizarCnpj(empresa.cnpj), cidade, sindicato, setor: setor.tipo === 'todos' ? '' : setor.valor },
+                { empresa: { razaoSocial: empresa.razaoSocial, cnpj: normalizarCnpj(empresa.cnpj), codigoSage: empresa.codigoSage }, emitidoPor: usuario.email });
             doc.save(`ferias-coletivas-${empresa.codigoSage || 'empresa'}-${inicio}.pdf`);
         } catch (e) { setErro((e as Error).message); }
         finally { setOcupado(''); }

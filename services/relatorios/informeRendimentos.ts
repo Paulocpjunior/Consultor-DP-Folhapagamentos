@@ -9,6 +9,7 @@
 // as folhas calculadas no Consultor.
 
 import type { ComplementoIrrf, S5002 } from '../conferencia/totalizadores';
+import { limparCnpj, normalizarCnpj } from '../cadastros/documentos';
 
 export interface LinhaInforme { rotulo: string; valor: number }
 export interface Informe {
@@ -40,13 +41,13 @@ const comp = (p: string) => `${p.slice(5, 7)}/${p.slice(0, 4)}`;
 
 /** Um S-5002 por trabalhador e mês: retificado, vale o de recibo mais recente (com aviso). */
 export function s5002sValidos(lista: S5002[], ano: string, cnpj: string): { validos: S5002[]; avisos: string[] } {
-    const raiz = cnpj.replace(/\D/g, '').slice(0, 8);
+    const raiz = normalizarCnpj(cnpj).slice(0, 8);
     const avisos: string[] = [];
     const porChave = new Map<string, S5002[]>();
     const vistos = new Set<string>();
     for (const s of lista) {
         if (!s.perApur.startsWith(`${ano}-`) || !s.cpf) continue;
-        if (s.empregador && !s.empregador.replace(/\D/g, '').startsWith(raiz)) continue;
+        if (s.empregador && !limparCnpj(s.empregador).startsWith(raiz)) continue;
         if (s.id && vistos.has(s.id)) continue;
         if (s.id) vistos.add(s.id);
         const k = `${s.cpf}|${s.perApur}`;

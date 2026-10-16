@@ -9,8 +9,8 @@
 
 import { comTokenCfi, ehErroEmailNaoVerificado, erroCfi } from '../auth/tokenCfi';
 import { urlDoServico } from '../plataforma/servicos';
+import { normalizarCnpj } from '../cadastros/documentos';
 
-const soDigitos = (v: unknown) => String(v ?? '').replace(/\D/g, '');
 
 export type SituacaoCofre = 'apto-proprio' | 'apto-pela-raiz' | 'sem-certificado' | 'a3-nao-assina-em-nuvem' | 'cadastro-incompleto' | 'vencido';
 export type DivergenciaLegal = 'renovado-sem-upload' | 'legal-desatualizado' | null;
@@ -86,9 +86,9 @@ export function filtrarCofre(linhas: LinhaCofre[], filtro: FiltroCofre): LinhaCo
  */
 export function cofreDaCarteira(linhas: LinhaCofre[], cnpjs: string[] | null): { linhas: LinhaCofre[]; foraDoCfi: string[] } {
     if (!cnpjs) return { linhas: ordenar(linhas), foraDoCfi: [] };
-    const alvo = new Set(cnpjs.map(soDigitos).filter(c => c.length === 14));
-    const doCfi = linhas.filter(l => alvo.has(soDigitos(l.cnpj)));
-    const conhecidos = new Set(doCfi.map(l => soDigitos(l.cnpj)));
+    const alvo = new Set(cnpjs.map(c => normalizarCnpj(c)).filter(c => c.length === 14));
+    const doCfi = linhas.filter(l => alvo.has(normalizarCnpj(l.cnpj)));
+    const conhecidos = new Set(doCfi.map(l => normalizarCnpj(l.cnpj)));
     return { linhas: ordenar(doCfi), foraDoCfi: [...alvo].filter(c => !conhecidos.has(c)) };
 }
 
@@ -117,7 +117,7 @@ export function contagemCofre(linhas: LinhaCofre[]) {
 export async function buscarCofre(getToken: () => Promise<string>, deps: { fetchImpl?: typeof fetch; cnpjs?: string[] | null } = {}): Promise<PanoramaCofre> {
     const doFetch = deps.fetchImpl ?? fetch;
     const token = await getToken();
-    const lista = deps.cnpjs ? [...new Set(deps.cnpjs.map(soDigitos).filter(c => c.length === 14))] : null;
+    const lista = deps.cnpjs ? [...new Set(deps.cnpjs.map(c => normalizarCnpj(c)).filter(c => c.length === 14))] : null;
     if (lista && !lista.length) return { linhas: [], avisos: [] };
     const query = lista ? `?cnpjs=${lista.join(',')}` : '';
     let resp: Response;
@@ -145,6 +145,6 @@ export async function cofreDaMinhaCarteira(): Promise<PanoramaCofre & { foraDoCf
     const cnpjs = escopo.todas ? null : empresas.map(e => e.cnpj);
     const cofre = await comTokenCfi(token => buscarCofre(async () => token, { cnpjs }));
     const r = cofreDaCarteira(cofre.linhas, cnpjs);
-    const nomes = new Map(empresas.map(e => [soDigitos(e.cnpj), `${e.codigoSage} · ${e.nomeFantasia || e.razaoSocial}`]));
+    const nomes = new Map(empresas.map(e => [normalizarCnpj(e.cnpj), `${e.codigoSage} · ${e.nomeFantasia || e.razaoSocial}`]));
     return { ...r, avisos: cofre.avisos, nomes };
 }

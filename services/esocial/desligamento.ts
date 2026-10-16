@@ -18,7 +18,7 @@ import type { FichaFuncionario } from '../cadastros/funcionarios';
 import type { Verba } from '../calculo/motorMensal';
 import type { ResultadoRescisao } from '../calculo/motorRescisao';
 import { AVISO_PELA_METADE, PERMITE_SAQUE_FGTS } from '../calculo/motorRescisao';
-import { cpfValido } from '../cadastros/documentos';
+import { cpfValido, normalizarCnpj } from '../cadastros/documentos';
 import { emAberto, rotuloMotivo, type Afastamento } from '../cadastros/afastamentos';
 import { vigenciaEm, type Rubrica } from '../cadastros/rubricas';
 import { diaUtilAnterior, somarDias } from '../prazos/calendario';
@@ -163,7 +163,7 @@ export function gerarS2299(e: EntradaS2299): ResultadoS2299 {
     const erros: string[] = []; const avisos: string[] = [];
     const cpf = digitos(f.cpf);
     const mat = f.matriculaEsocial.trim();
-    const estab = digitos(p.nrInscEstab);
+    const estab = normalizarCnpj(p.nrInscEstab);
     const categ = digitos(d.categoria);
     const ide = ideDmDevRescisao(r.data, mat);
     const prazo = prazoS2299(r.data);
@@ -252,7 +252,7 @@ export function gerarS2299(e: EntradaS2299): ResultadoS2299 {
     const id = idEvento(e.cnpj, agora, e.agora ? 1 : agora.getMilliseconds() * 10 + 1);
     const xml = `<eSocial xmlns="${NS}/evtDeslig/${VERSAO}"><evtDeslig Id="${id}">`
         + `<ideEvento>${e.retificaRecibo ? `<indRetif>2</indRetif><nrRecibo>${esc(e.retificaRecibo)}</nrRecibo>` : '<indRetif>1</indRetif>'}<tpAmb>${e.tpAmb}</tpAmb><procEmi>1</procEmi><verProc>${VER_PROC}</verProc></ideEvento>`
-        + `<ideEmpregador><tpInsc>1</tpInsc><nrInsc>${digitos(e.cnpj).slice(0, 8)}</nrInsc></ideEmpregador>`
+        + `<ideEmpregador><tpInsc>1</tpInsc><nrInsc>${normalizarCnpj(e.cnpj).slice(0, 8)}</nrInsc></ideEmpregador>`
         + `<ideVinculo><cpfTrab>${cpf}</cpfTrab><matricula>${esc(mat)}</matricula></ideVinculo>`
         + `<infoDeslig><mtvDeslig>${r.tipo}</mtvDeslig><dtDeslig>${r.data}</dtDeslig>${dtAv ? `<dtAvPrv>${dtAv}</dtAvPrv>` : ''}`
         + `<indPagtoAPI>${indenizado ? 'S' : 'N'}</indPagtoAPI>${indenizado ? `<dtProjFimAPI>${r.dataProjetada}</dtProjFimAPI>` : ''}`

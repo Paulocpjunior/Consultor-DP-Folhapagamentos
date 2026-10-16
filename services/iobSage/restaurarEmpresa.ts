@@ -35,6 +35,7 @@ import { mesclarMovimentos, movimentosDoHolerith, naturezasDosEventos, type Clas
 import type { Movimento } from '../calculo/motorMensal';
 import { historicoDoHolerith, type HistoricoSageAno } from '../relatorios/historicoSage';
 import { cargosDoBackup, type Cargo } from '../cadastros/cargos';
+import { normalizarCnpj } from '../cadastros/documentos';
 
 export interface ParametrosRestauracao {
     /** FPAS padrão para enquadramento normal sem FPAS no backup (vazio = não aplica). */
@@ -115,7 +116,7 @@ export async function planejarRestauracao(rest: Leitor, empresa: Empresa, existe
     const origem: string[] = [];
     const originais = new Map(existentes.fichas.map(f => [f.id, f]));
     // Empresa que mudou de CNPJ (cadastro corrigido): as fichas passam para o CNPJ atual.
-    const cnpjEmpresa = empresa.cnpj.replace(/\D/g, '');
+    const cnpjEmpresa = normalizarCnpj(empresa.cnpj);
     const atuais = new Map(existentes.fichas.map(f => [f.id, cnpjEmpresa && f.cnpj !== cnpjEmpresa ? { ...f, cnpj: cnpjEmpresa } : f]));
     const cnpjAntigo = existentes.fichas.filter(f => cnpjEmpresa && f.cnpj !== cnpjEmpresa);
     const fichas = () => [...atuais.values()];

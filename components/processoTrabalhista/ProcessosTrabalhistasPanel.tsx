@@ -9,7 +9,7 @@ import React, { useEffect, useState } from 'react';
 import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
 import { listarFuncionarios, mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
-import { centavosDeTexto, reais, UFS } from '../../services/cadastros/documentos';
+import { centavosDeTexto, limparCnpj, normalizarCnpj, reais, UFS } from '../../services/cadastros/documentos';
 import {
     comBases, contratoVazio, CR_IRRF, ehJudicial, indContrDe, gerarS2500, gerarS2501, mesesEntre, processoVazio, REPERCUSSOES, ROTULO_ORIGEM, TIPOS_CCP, totaisDoPagamento, validarPagamento, validarProcesso,
     type IrrfProcesso, type OrigemProcesso, type PagamentoProcesso, type ResponsavelDireto, type PagamentoTrabalhador, type ProcessoTrabalhista, type TrabalhadorProcesso,
@@ -54,7 +54,7 @@ const ProcessosTrabalhistasPanel: React.FC<{ usuario: Usuario }> = ({ usuario })
     }, [ativa]);
 
     if (!ativa) return <p className="text-sm text-slate-500">Ative uma empresa.</p>;
-    const empresa = { id: ativa.id, cnpj: ativa.cnpj.replace(/\D/g, '') };
+    const empresa = { id: ativa.id, cnpj: normalizarCnpj(ativa.cnpj) };
     const muda = (x: Partial<ProcessoTrabalhista>) => setP(a => (a ? { ...a, ...x } : a));
     const mudaTrab = (i: number, x: Partial<TrabalhadorProcesso>) => setP(a => (a ? { ...a, trabalhadores: a.trabalhadores.map((t, j) => (j === i ? { ...t, ...x } : t)) } : a));
     const mudaPag = (i: number, x: Partial<PagamentoProcesso>) => setP(a => (a ? { ...a, pagamentos: a.pagamentos.map((g, j) => (j === i ? { ...g, ...x } : g)) } : a));
@@ -177,7 +177,7 @@ const ProcessosTrabalhistasPanel: React.FC<{ usuario: Usuario }> = ({ usuario })
                                     return (
                                         <>
                                             <label>Inscrição<select aria-label="Tipo de inscrição do responsável" className={`block ${inp}`} value={r.tpInsc} onChange={e => mudaR({ tpInsc: e.target.value as '1' | '2' })}><option value="1">CNPJ</option><option value="2">CPF</option></select></label>
-                                            <label>Número<input aria-label="Inscrição do responsável" className={`block w-40 ${inp}`} value={r.nrInsc} onChange={e => mudaR({ nrInsc: e.target.value.replace(/\D/g, '').slice(0, 14) })} /></label>
+                                            <label>Número<input aria-label="Inscrição do responsável" className={`block w-40 ${inp}`} value={r.nrInsc} onChange={e => mudaR({ nrInsc: limparCnpj(e.target.value).slice(0, 14) })} /></label>
                                             <label>Matrícula lá<input aria-label="Matrícula no responsável" className={`block w-32 ${inp}`} value={r.matRespDir} onChange={e => mudaR({ matRespDir: e.target.value })} /></label>
                                             {!r.matRespDir.trim() && <label>Admissão lá (sem matrícula)<input aria-label="Admissão no responsável" type="date" className={`block ${inp}`} value={r.dtAdmRespDir} onChange={e => mudaR({ dtAdmRespDir: e.target.value })} /></label>}
                                         </>

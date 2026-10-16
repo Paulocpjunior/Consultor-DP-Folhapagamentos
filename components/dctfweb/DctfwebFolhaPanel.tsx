@@ -23,6 +23,7 @@ import { br } from '../../services/prazos/calendario';
 import { vencimentosDaCompetencia } from '../../services/prazos/obrigacoes';
 import { registrarGuiaEmitida } from '../../services/guias/pagamentoGuiasService';
 import type { Usuario } from '../../services/cadastros/cadastrosService';
+import { normalizarCnpj } from '../../services/cadastros/documentos';
 
 const reais = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const btn = 'rounded-lg px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40';
@@ -58,7 +59,7 @@ const DctfwebFolhaPanel: React.FC<{ usuario?: Usuario }> = ({ usuario }) => {
         return () => { vivo = false; };
     }, [ativa]);
     if (!ativa) return <p className="text-sm text-slate-500">Ative uma empresa e um período.</p>;
-    const cnpj = ativa.cnpj.replace(/\D/g, '');
+    const cnpj = normalizarCnpj(ativa.cnpj);
     const comp = ativa.competencia;
 
     async function consultar() {

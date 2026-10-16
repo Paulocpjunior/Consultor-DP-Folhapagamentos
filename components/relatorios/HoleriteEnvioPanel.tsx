@@ -24,6 +24,7 @@ import {
 } from '../../services/relatorios/holeriteEnvio';
 import { quintoDiaUtilSalario, somarMeses } from '../../services/prazos/calendario';
 import HoleritePorEmail from './HoleritePorEmail';
+import { normalizarCnpj } from '../../services/cadastros/documentos';
 
 const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const btn = 'rounded-sm border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-40 dark:border-slate-600';
@@ -74,7 +75,7 @@ const HoleriteEnvioPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
     if (!ativa) return <p className="text-sm text-slate-500">Ative uma empresa.</p>;
 
     const opcoes: OpcoesPdf = {
-        empresa: { razaoSocial: empresa?.razaoSocial || ativa.nome, cnpj: ativa.cnpj.replace(/\D/g, ''), codigoSage: ativa.codigoSage },
+        empresa: { razaoSocial: empresa?.razaoSocial || ativa.nome, cnpj: normalizarCnpj(ativa.cnpj), codigoSage: ativa.codigoSage },
         titulo: info.titulo, previa: !motorHomologadoNoMes(empresa?.parametrosFolha, periodo), emitidoPor: usuario.email,
         mensagemHolerite: [empresa?.parametrosFolha?.mensagemHolerite, mensagem].filter(x => x?.trim()).join('\n'),
         mensagemAniversario: empresa?.parametrosFolha?.mensagemAniversario, departamento: comDepto, dataCredito: credito || undefined,
@@ -135,7 +136,7 @@ const HoleriteEnvioPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
             </div>
             {resultados !== null && !resultados.length && <p className="text-amber-800 dark:text-amber-200">Nada de {info.rotulo.toLowerCase()} em {periodo.slice(5)}/{periodo.slice(0, 4)}: o envio usa {fonte}.</p>}
             {enviar && selecionados.length > 0 && (
-                <HoleritePorEmail key={`${tipo}-${periodo}`} empresa={{ id: ativa.id, cnpj: ativa.cnpj.replace(/\D/g, ''), nome: empresa?.nomeFantasia || empresa?.razaoSocial || ativa.nome }}
+                <HoleritePorEmail key={`${tipo}-${periodo}`} empresa={{ id: ativa.id, cnpj: normalizarCnpj(ativa.cnpj), nome: empresa?.nomeFantasia || empresa?.razaoSocial || ativa.nome }}
                     competencia={periodo} folha={selecionados} fichas={fichas} titulo={info.titulo} mensagemExtra={mensagem} chave={tipoDoHistorico(tipo)}
                     mensagemAniversario={tipo === 'mensal' ? empresa?.parametrosFolha?.mensagemAniversario : ''} historico={historico}
                     gerarPdf={async r => new Uint8Array((await pdfDe([r])).output('arraybuffer'))} />

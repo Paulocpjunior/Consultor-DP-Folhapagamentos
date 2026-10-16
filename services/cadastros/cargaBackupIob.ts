@@ -18,6 +18,7 @@ import type { Valor } from '../iobSage/backupPostgres';
 import { centavosDeTexto, cpfValido, dataValida } from './documentos';
 import type { LancamentoAutomatico } from '../calculo/lancamentosAutomaticos';
 import { ROTULO, ehManual, idFuncionario, fichaVazia, diffFicha, temReajusteEsocial, type CampoFicha, type FaixaSalarial, type FichaFuncionario, type ResultadoMescla } from './funcionarios';
+import { normalizarCnpj } from './cnpj';
 
 export type CampoCarga = 'cpf' | 'matriculaEsocial' | CampoFicha;
 
@@ -501,7 +502,7 @@ export function complementosFolhaWin(salarios: TabelaLida | null, funcdoc: Tabel
         if (cat) c.categoria = cat;
         if (cb && !c.cbo) c.cbo = cb;
     }
-    for (const [k, [cnpj]] of maisRecente(esocial.contribSind, 'anomes', ['cnpjsindic'], ([a]) => a.replace(/\D/g, '').length === 14)) pegar(k).sindicato = cnpj.replace(/\D/g, '');
+    for (const [k, [cnpj]] of maisRecente(esocial.contribSind, 'anomes', ['cnpjsindic'], ([a]) => normalizarCnpj(a).length === 14)) pegar(k).sindicato = normalizarCnpj(cnpj);
     // Horas semanais pelo horário vigente do funcionário.
     if (esocial.cadHorarios) {
         const [iCod, iHrs] = ['codhorario', 'hrsemanal'].map(n => col(esocial.cadHorarios!, n));

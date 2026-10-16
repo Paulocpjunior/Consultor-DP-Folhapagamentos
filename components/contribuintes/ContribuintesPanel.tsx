@@ -14,7 +14,7 @@ import { listarEnquadramentos, listarRubricas, listarTabelas, mensagemErro, type
 import { enquadramentoVigente, type Enquadramento } from '../../services/cadastros/enquadramento';
 import type { TabelaLegal } from '../../services/cadastros/tabelasLegais';
 import { vigenciaEm, type Rubrica } from '../../services/cadastros/rubricas';
-import { centavosDeTexto, reais } from '../../services/cadastros/documentos';
+import { centavosDeTexto, normalizarCnpj, reais } from '../../services/cadastros/documentos';
 import { normalizar, parametrosVazios, type ParametrosEsocialFolha } from '../../services/esocial/eventosFolha';
 import { CHAVES_CI, gerarEventosCI, tpRubrDoTipo } from '../../services/esocial/eventosCI';
 import { listarEnvios, type Envio } from '../../services/esocial/transmissaoService';
@@ -44,7 +44,7 @@ interface Linha { contribuinteId: string; valor: string; descricao: string; data
 const paraLinha = (l: LancamentoCI): Linha => ({ contribuinteId: l.contribuinteId, valor: txt(l.valor), descricao: l.descricao, dataPagamento: l.dataPagamento, iss: l.issAliquota ? String(l.issAliquota).replace('.', ',') : '',
     outras: l.outrasFontes.map(o => ({ tpInsc: o.tpInsc, nrInsc: o.nrInsc, codCateg: o.codCateg, valor: txt(o.valor) })) });
 const deLinha = (l: Linha): LancamentoCI => ({ contribuinteId: l.contribuinteId, valor: centavosDeTexto(l.valor) ?? 0, descricao: l.descricao.trim(), dataPagamento: l.dataPagamento,
-    issAliquota: Number(l.iss.replace(',', '.')) || 0, outrasFontes: l.outras.map((o): OutraFonte => ({ tpInsc: o.tpInsc, nrInsc: o.nrInsc.replace(/\D/g, ''), codCateg: o.codCateg, valor: centavosDeTexto(o.valor) ?? 0 })) });
+    issAliquota: Number(l.iss.replace(',', '.')) || 0, outrasFontes: l.outras.map((o): OutraFonte => ({ tpInsc: o.tpInsc, nrInsc: normalizarCnpj(o.nrInsc), codCateg: o.codCateg, valor: centavosDeTexto(o.valor) ?? 0 })) });
 
 const ContribuintesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
     const { ativa } = useEmpresaAtiva();
@@ -133,7 +133,7 @@ const ContribuintesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
         if (!ativa) return;
         try {
             const { recibosCIPdf } = await import('../../services/contribuintes/recibosCIPdf');
-            recibosCIPdf(resultados, cadastro, { empresa: { razaoSocial: empresa?.razaoSocial || ativa.nome, cnpj: ativa.cnpj.replace(/\D/g, ''), codigoSage: ativa.codigoSage }, titulo: 'Recibos', previa: false, emitidoPor: usuario.email })
+            recibosCIPdf(resultados, cadastro, { empresa: { razaoSocial: empresa?.razaoSocial || ativa.nome, cnpj: normalizarCnpj(ativa.cnpj), codigoSage: ativa.codigoSage }, titulo: 'Recibos', previa: false, emitidoPor: usuario.email })
                 .save(`recibos-prolabore-rpa-${ativa.codigoSage || 'empresa'}-${competencia}.pdf`);
         } catch (x) { setErro(`PDF não gerado: ${(x as Error).message}`); }
     }

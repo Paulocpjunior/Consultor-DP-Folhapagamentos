@@ -2,6 +2,7 @@ import * as XLSX from 'xlsx';
 import { HEADERS_LANCAMENTOS, montarTemplateApontamento } from '../folha/templateApontamentoIobSage';
 import { CAMPOS, type Cadastro, type Campo } from './implantacao';
 import type { Dossie } from './dossie';
+import { normalizarCnpj } from '../cadastros/documentos';
 
 /** Modelo preenchido para conferência no app; não é um layout cadastral homologado pela SAGE. */
 export function gerarModeloCadastroXlsx(dossie: Dossie, cadastros: Cadastro[], avisos: string[]): ArrayBuffer {
@@ -63,7 +64,7 @@ export function baixarModeloCadastro(dossie: Dossie, cadastros: Cadastro[], avis
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `conferencia-cadastro-${dossie.cnpj.replace(/\D/g, '') || 'empresa'}.xlsx`;
+    a.download = `conferencia-cadastro-${normalizarCnpj(dossie.cnpj) || 'empresa'}.xlsx`;
     document.body.appendChild(a);
     a.click();
     a.remove();

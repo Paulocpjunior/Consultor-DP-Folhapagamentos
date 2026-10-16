@@ -9,7 +9,7 @@ import { noMes } from '../calculo/motorMensal';
 import type { FichaFuncionario } from '../cadastros/funcionarios';
 import { MOTIVOS_DESLIGAMENTO } from '../cadastros/funcionarios';
 import type { Afastamento } from '../cadastros/afastamentos';
-import { centavosDeTexto } from '../cadastros/documentos';
+import { centavosDeTexto, normalizarCnpj } from '../cadastros/documentos';
 import { periodosFerias, prazosFuncionarios } from '../prazos/prazosFuncionarios';
 import type { TabelaRelatorio } from './layoutPdf';
 import type { TabelaLegal } from '../cadastros/tabelasLegais';
@@ -166,8 +166,8 @@ function listagemSindicatos(c: ContextoRelatorio): TabelaRelatorio {
     const fichas = ativosNoFim(c);
     const porCnpj = new Map<string, FichaFuncionario[]>();
     for (const cnpj of c.sindicatosDaEmpresa ?? []) porCnpj.set(cnpj, []);
-    for (const f of fichas) { const k = (f.dados.sindicato ?? '').replace(/\D/g, ''); porCnpj.set(k, [...(porCnpj.get(k) ?? []), f]); }
-    const cad = new Map((c.sindicatos ?? []).map(x => [x.cnpj.replace(/\D/g, ''), x]));
+    for (const f of fichas) { const k = normalizarCnpj(f.dados.sindicato); porCnpj.set(k, [...(porCnpj.get(k) ?? []), f]); }
+    const cad = new Map((c.sindicatos ?? []).map(x => [normalizarCnpj(x.cnpj), x]));
     const conta = (l: FichaFuncionario[], campo: 'associadoSindicato' | 'contribuicaoSindical' | 'oposicaoAssistencial') => String(l.filter(f => f.dados[campo] === 'S').length);
     const linhas = [...porCnpj.entries()].map(([cnpj, l]) => {
         const s = cad.get(cnpj);

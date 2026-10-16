@@ -9,6 +9,7 @@ import React, { useEffect, useState } from 'react';
 import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext';
 import { CONSULTAS_COBRADAS, ROTAS_COMPARADAS, compararGoverno, hostDaPlataforma, type Comparacao, type RespostaHost } from '../../services/plataforma/comparadorGoverno';
 import { HOST_CFI_INTEGRACAO } from '../../services/plataforma/servicos';
+import { normalizarCnpj } from '../../services/cadastros/documentos';
 
 const btn = 'rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700';
 const valor = (v: unknown) => (v === undefined ? '(ausente)' : JSON.stringify(v));
@@ -33,7 +34,7 @@ const ComparadorGoverno: React.FC<{ env?: Record<string, string | undefined>; on
     const host = hostDaPlataforma(colado, env);
     const coladoValido = !host.doBuild && host.url ? host.url : '';
     useEffect(() => { if (coladoValido) onColado?.(coladoValido); }, [coladoValido, onColado]);
-    const cnpj = (ativa?.cnpj ?? '').replace(/\D/g, '');
+    const cnpj = normalizarCnpj(ativa?.cnpj);
     const compOk = /^\d{4}-(0[1-9]|1[0-2])$/.test(competencia);
     const pronto = !!host.url && !!ativa && cnpj.length === 14 && compOk && ciente && !rodando;
 

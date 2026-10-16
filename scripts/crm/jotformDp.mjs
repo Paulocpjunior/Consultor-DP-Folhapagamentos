@@ -10,6 +10,8 @@ export const FORM_DP = '213255365041650';
 const texto = v => (typeof v === 'string' ? v.trim() : Array.isArray(v) ? v.map(texto).filter(Boolean).join(', ') : '');
 const lista = v => (Array.isArray(v) ? v.map(x => texto(x)).filter(Boolean) : typeof v === 'string' && v.trim() ? [v.trim()] : []);
 const digitos = v => texto(v).replace(/\D/g, '');
+/** CNPJ alfanumérico (IN RFB 2.229/2024) fica com as letras, em maiúsculas; o resto (CNPJ numérico, CPF), só os dígitos. */
+const documentoDe = v => { const c = texto(v).toUpperCase().replace(/[^0-9A-Z]/g, ''); return /^[0-9A-Z]{12}\d{2}$/.test(c) ? c : digitos(v); };
 
 /** As respostas vêm como objeto (API) ou texto JSON (algumas integrações). */
 export function respostas(sub) {
@@ -42,7 +44,7 @@ export function colaboradoresDasOpcoes(subs) {
 export function empresaDaLinha(sub, conhecidos = {}) {
     if (sub.status === 'DELETED' || sub.status === 'ARCHIVED') return null;
     const r = respostas(sub);
-    const documento = digitos(r.insiraUma?.answer) || digitos(r.cnpjcpfcei?.answer);
+    const documento = documentoDe(r.insiraUma?.answer) || documentoDe(r.cnpjcpfcei?.answer);
     if (![11, 14].includes(documento.length)) return null;
     const ids = lista(r.colaborador?.answer).map(x => x.replace(/[{}]/g, ''));
     const id = ids.find(i => i !== '__OWNER__') ?? ids[0] ?? '';

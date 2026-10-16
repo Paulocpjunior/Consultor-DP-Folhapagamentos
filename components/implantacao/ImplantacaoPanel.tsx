@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CAMPOS, consolidar, digitos, lerXml, type Cadastro, type Campo } from '../../services/implantacao/implantacao';
+import { CAMPOS, consolidar, lerXml, type Cadastro, type Campo } from '../../services/implantacao/implantacao';
 import { csvConferencia, pacoteCadastral, hashArquivo, lerDossie, novoDossie, type Dossie } from '../../services/implantacao/dossie';
 import { baixarModeloCadastro } from '../../services/implantacao/modeloExcel';
 import { downloadFile } from '../../services/folha/apontamentoExporter';
@@ -11,6 +11,7 @@ import { lerFichaPdf } from '../../services/implantacao/lerPdf';
 import type { FichaExtraida } from '../../services/implantacao/fichaPdf';
 
 import { guardarSessao, lerSessao } from '../../services/implantacao/sessao';
+import { limparCnpj } from '../../services/cadastros/cnpj';
 
 const input = 'w-full rounded-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 p-2 text-sm';
 const button = 'rounded-sm bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-40';
@@ -114,7 +115,7 @@ export default function ImplantacaoPanel({ usuario, onModo }: { usuario: string;
         {ocupado && <p role="status">{progresso || 'Lendo e verificando arquivos…'}</p>}
         <fieldset disabled={ocupado} className="space-y-4 disabled:opacity-60">
             <div className="grid gap-4 sm:grid-cols-2">
-                <label className="text-sm font-medium">CNPJ da empresa na implantação<input className={input} value={dossie.cnpj} maxLength={18} placeholder="14 dígitos" onChange={e => atualizar({ ...dossie, cnpj: digitos(e.target.value) })} /></label>
+                <label className="text-sm font-medium">CNPJ da empresa na implantação<input className={input} value={dossie.cnpj} maxLength={18} placeholder="14 posições" onChange={e => atualizar({ ...dossie, cnpj: limparCnpj(e.target.value) })} /></label>
                 <label className="text-sm font-medium">Data da implantação<input className={input} type="date" value={dossie.corte} onChange={e => atualizar({ ...dossie, corte: e.target.value })} /></label>
             </div>
             <p className="text-xs text-slate-500">O eSocial pode identificar o empregador pela raiz do CNPJ. O estabelecimento é conferido separadamente na ficha.</p>

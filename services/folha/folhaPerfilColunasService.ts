@@ -6,6 +6,7 @@
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { normalizarHeader, chaveComparacaoHeader } from './apontamentoParser';
+import { normalizarCnpj } from '../cadastros/cnpj';
 
 const COL = 'folha_perfis_colunas';
 
@@ -28,7 +29,7 @@ function userInfo() {
 }
 
 function normalizeCnpj(cnpj: string): string {
-    return String(cnpj || '').replace(/\D/g, '');
+    return normalizarCnpj(cnpj);
 }
 
 /**

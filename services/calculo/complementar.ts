@@ -23,7 +23,7 @@
 //   mês (IN RFB 1.500/2014, art. 36, §§ 1º e 2º), com o INSS do 13º deduzido.
 
 import type { FichaFuncionario } from '../cadastros/funcionarios';
-import { dataValida, reais } from '../cadastros/documentos';
+import { dataValida, normalizarCnpj, reais } from '../cadastros/documentos';
 import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros/tabelasLegais';
 import { somarMeses } from '../prazos/calendario';
 import { apurarIrrf, type Incidencias, type IrrfApurado, type ResultadoCalculo, type TipoVerba, type Verba } from './motorMensal';
@@ -73,15 +73,14 @@ export interface ReajusteRetroativo {
     sindicato?: string;
 }
 
-const soDigitos = (t?: string) => (t ?? '').replace(/\D/g, '');
 /**
  * O funcionário entra no reajuste do sindicato? Sem filtro, todos. Com filtro, os da ficha com o mesmo CNPJ e os com o
  * sindicato em branco na ficha (entram, com aviso: melhor conferir do que deixar alguém sem a diferença).
  */
 export function noSindicatoDoReajuste(f: FichaFuncionario | undefined, r: Pick<ReajusteRetroativo, 'sindicato'> | undefined): 'sim' | 'nao' | 'sem' {
-    const alvo = soDigitos(r?.sindicato);
+    const alvo = normalizarCnpj(r?.sindicato);
     if (!alvo) return 'sim';
-    const da = soDigitos(f?.dados.sindicato);
+    const da = normalizarCnpj(f?.dados.sindicato);
     if (!da) return 'sem';
     return da === alvo ? 'sim' : 'nao';
 }
@@ -214,7 +213,7 @@ export function validarComplementar(e: Pick<EntradaComplementar, 'perApur' | 'pa
         if (!competenciaValida(r.de) || !competenciaValida(r.ate)) erros.push('Informe os meses do reajuste retroativo.');
         else if (r.de > r.ate) erros.push('O mês inicial do reajuste é depois do final.');
         else if (competenciaValida(e.perApur) && r.ate >= e.perApur) erros.push(`O reajuste retroativo vai até o mês anterior a ${rotuloCompetencia(e.perApur)}; a própria competência entra na folha do mês.`);
-        if (r.sindicato && soDigitos(r.sindicato).length !== 14) erros.push('CNPJ do sindicato do reajuste inválido.');
+        if (r.sindicato && normalizarCnpj(r.sindicato).length !== 14) erros.push('CNPJ do sindicato do reajuste inválido.');
     }
     (e.lancamentos ?? []).forEach((l, i) => {
         const q = `Lançamento ${i + 1}`;
@@ -505,5 +504,5 @@ export function sugestaoDaConvencao(c: { tipo: 'CCT' | 'ACT'; registroMte: strin
     const ate = somarMeses(`${perApur}-01`, -1).slice(0, 7);
     const ano = (d: string) => d.slice(0, 4);
     const dsc = `${c.tipo === 'CCT' ? 'Convenção coletiva' : 'Acordo coletivo'}${sindicato ? ` ${sindicato}` : ''} ${ano(c.vigenciaInicio)}/${ano(c.vigenciaFim)}${c.registroMte ? `, registro MTE ${c.registroMte}` : ''}`.slice(0, 255);
-    return { instrumento: { tpAcConv: c.tipo === 'CCT' ? 'C' : 'A', dsc }, reajuste: { pct, de: c.reajuste.aPartirDe, ate, ...(cnpjSindicato ? { sindicato: soDigitos(cnpjSindicato) } : {}) } };
+    return { instrumento: { tpAcConv: c.tipo === 'CCT' ? 'C' : 'A', dsc }, reajuste: { pct, de: c.reajuste.aPartirDe, ate, ...(cnpjSindicato ? { sindicato: normalizarCnpj(cnpjSindicato) } : {}) } };
 }

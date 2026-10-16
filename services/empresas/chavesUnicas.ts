@@ -8,11 +8,13 @@
 // lista (empresas visíveis) só serve para a mensagem chegar antes.
 
 import type { Empresa } from './empresasTypes';
+import { limparCnpj } from '../cadastros/documentos';
 
 /** Código SAGE como é gravado na empresa: 4 dígitos com zeros à esquerda. */
 export const normalizarSage = (c: string) => String(c ?? '').replace(/\D/g, '').padStart(4, '0').slice(0, 4);
 export const chaveSage = (c: string) => `sage_${normalizarSage(c)}`;
-export const chaveCnpj = (c: string) => `cnpj_${String(c ?? '').replace(/\D/g, '')}`;
+/** CNPJ com as letras do alfanumérico, em maiúsculas: "12.abc.345/01de-35" e "12ABC34501DE35" são a mesma chave. */
+export const chaveCnpj = (c: string) => `cnpj_${limparCnpj(c)}`;
 
 export interface ChaveUnica { chave: string; empresaId: string; criadoPor: string }
 

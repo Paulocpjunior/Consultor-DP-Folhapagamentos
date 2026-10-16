@@ -23,6 +23,9 @@ beforeEach(async () => {
     await setDoc(doc(db, `empresas_unicos/cnpj_${CNPJ2}`), { chave: `cnpj_${CNPJ2}`, empresaId: OUTRA, criadoPor: 'ges' });
     await setDoc(doc(db, `folha_mapeamentos/${CNPJ}`), { cliente: CNPJ, matriculas: { ANA: '1' } });
     await setDoc(doc(db, 'folha_mapeamentos/EDUCATI'), { cliente: 'EDUCATI' });
+    // CNPJ alfanumérico (IN RFB 2.229/2024) da empresa da carteira de col.
+    await setDoc(doc(db, 'empresas_unicos/cnpj_12ABC34501DE35'), { chave: 'cnpj_12ABC34501DE35', empresaId: EMP, criadoPor: 'ges' });
+    await setDoc(doc(db, 'folha_mapeamentos/12ABC34501DE35'), { cliente: '12ABC34501DE35' });
     await setDoc(doc(db, `ponto_layouts/${CNPJ}_0001`), { cnpj: CNPJ, cadastroSAGE: '0001' });
     await setDoc(doc(db, `cadastro_sindicatos/${CNPJ2}`), { cnpj: CNPJ2, nome: 'SIND', atualizadoPor: 'ges' });
     await setDoc(doc(db, 'esocial_audit/l1'), { empresaId: EMP, acao: 'x' });
@@ -51,6 +54,12 @@ describe('folha por CNPJ: só da carteira', () => {
     await assertSucceeds(getDoc(doc(fs('ata'), 'folha_mapeamentos/EDUCATI')));
     await assertFails(setDoc(doc(fs('ata'), 'folha_mapeamentos/EDUCATI'), { cliente: 'EDUCATI' }));
     await assertSucceeds(setDoc(doc(fs('adm'), 'folha_mapeamentos/EDUCATI'), { cliente: 'EDUCATI' }));
+  });
+  it('CNPJ alfanumérico: pela empresa dona, como o numérico (não vira "modelo com nome")', async () => {
+    await assertSucceeds(getDoc(doc(fs('col'), 'folha_mapeamentos/12ABC34501DE35')));
+    await assertSucceeds(setDoc(doc(fs('col'), 'folha_perfis_colunas/12ABC34501DE35'), { cnpj: '12ABC34501DE35' }));
+    await assertFails(getDoc(doc(fs('ata'), 'folha_mapeamentos/12ABC34501DE35')));
+    await assertFails(setDoc(doc(fs('ata'), 'folha_perfis_colunas/12ABC34501DE35'), { cnpj: '12ABC34501DE35' }));
   });
   it('layouts de ponto pela empresa dona do CNPJ', async () => {
     await assertSucceeds(getDoc(doc(fs('col'), `ponto_layouts/${CNPJ}_0001`)));
