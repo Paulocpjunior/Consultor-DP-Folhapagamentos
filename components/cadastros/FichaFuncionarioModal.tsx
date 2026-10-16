@@ -21,6 +21,7 @@ import type { AdesaoBeneficio, Beneficio } from '../../services/calculo/benefici
 import { PCT_MARGEM_CONSIGNADO, type ContratoConsignado } from '../../services/calculo/consignado';
 import { ehDomestico, FUNCOES_DOMESTICAS } from '../../services/domestico/domestico';
 import { outroVinculoVazio, type OutroVinculo } from '../../services/cadastros/duploVinculo';
+import { aplicarExtrato, conferirExtrato, consultarExtratoDataprev, type CertificadoDataprev, type ConferenciaExtrato } from '../../services/folha/creditoTrabalhadorDataprev';
 import { camposDoCargo, cargoDaFicha, cboFormatado, normalizarCbo, normalizarCodigoCargo, type Cargo } from '../../services/cadastros/cargos';
 
 interface Props {
@@ -33,6 +34,8 @@ interface Props {
     afastamentos?: Afastamento[];
     /** Benefícios da empresa (parâmetros da folha): a ficha marca a adesão e as vidas. */
     beneficios?: Beneficio[];
+    /** CNPJ da empresa: o extrato do Crédito do Trabalhador na Dataprev é pedido em nome dela. */
+    cnpjEmpresa?: string;
     usuario: Usuario;
     isAdmin: boolean;
     onFechar: () => void;
@@ -43,7 +46,7 @@ const inp = 'w-full rounded-sm border border-slate-300 bg-white px-2 py-1.5 text
 const DEP_VAZIO: Dependente = { tipo: '', nome: '', nascimento: '', cpf: '', irrf: 'N', salarioFamilia: 'N', pensao: 'N', cotaPensao: '', noEsocial: 'N' };
 const formatarCpf = (c: string) => (c.length === 11 ? `${c.slice(0, 3)}.${c.slice(3, 6)}.${c.slice(6, 9)}-${c.slice(9)}` : c);
 
-const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horarios = [], cargos = [], afastamentos = [], beneficios = [], usuario, isAdmin, onFechar, onSalvo }) => {
+const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horarios = [], cargos = [], afastamentos = [], beneficios = [], cnpjEmpresa, usuario, isAdmin, onFechar, onSalvo }) => {
     const [f, setF] = useState<FichaFuncionario>(ficha);
     const [aba, setAba] = useState<string>(ABAS[0].id);
     const [erros, setErros] = useState<string[]>([]);
@@ -148,6 +151,24 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
         const atual = x.consignados ?? [];
         return { ...x, consignados: m === null ? atual.filter((_, k) => k !== i) : atual.map((c, k) => (k === i ? { ...c, ...m } : c)) };
     });
+    // Extrato na Dataprev (etapa 6): garantia, saldo devedor e data da consulta para a rescisão, conferidos antes de aplicar.
+    const [extrato, setExtrato] = useState<{ carregando: boolean; erro: string; conferencia: ConferenciaExtrato | null; certificado: CertificadoDataprev }>({ carregando: false, erro: '', conferencia: null, certificado: 'escritorio' });
+    const [versaoContratos, setVersaoContratos] = useState(0);
+    async function consultarExtrato() {
+        if (!cnpjEmpresa) return;
+        setExtrato(x => ({ ...x, carregando: true, erro: '', conferencia: null }));
+        try {
+            const r = await consultarExtratoDataprev({ empresaId: ficha.empresaId, cnpj: cnpjEmpresa, cpf: f.cpf, certificado: extrato.certificado });
+            const hoje = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+            setExtrato(x => ({ ...x, carregando: false, conferencia: conferirExtrato(contratos, r.extrato, hoje) }));
+        } catch (e) { setExtrato(x => ({ ...x, carregando: false, erro: `Dataprev: ${mensagemErro(e)}` })); }
+    }
+    function aplicarConferencia() {
+        if (!extrato.conferencia?.atualizacoes.length) return;
+        setF(x => ({ ...x, consignados: aplicarExtrato(x.consignados ?? [], extrato.conferencia!.atualizacoes) }));
+        setVersaoContratos(v => v + 1);
+        setExtrato(x => ({ ...x, conferencia: null }));
+    }
     const vinculos = f.outrosVinculos ?? [];
     const setVinculo = (i: number, m: Partial<OutroVinculo> | null) => setF(x => {
         const atual = x.outrosVinculos ?? [];
@@ -283,7 +304,7 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                                 <table className="w-full text-xs">
                                     <thead className="text-left text-slate-500"><tr><th className="p-1">Instituição (Tab. 37)</th><th className="p-1">Contrato</th><th className="p-1">Parcela (R$)</th><th className="p-1">1º mês</th><th className="p-1">Último mês</th><th className="p-1" title="Só no desligamento: do Consultar Contrato ou do Extrato no Portal Emprega Brasil">Garantia na rescisão (%)</th><th className="p-1">Saldo devedor (R$)</th><th className="p-1">Consulta ao Portal</th><th /></tr></thead>
                                     <tbody>{contratos.map((c, i) => (
-                                        <tr key={i} className="border-t border-slate-100 dark:border-slate-700">
+                                        <tr key={`${i}-${versaoContratos}`} className="border-t border-slate-100 dark:border-slate-700">
                                             <td className="p-1"><input aria-label={`Instituição do contrato ${i + 1}`} className="w-16 rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" inputMode="numeric" maxLength={3} value={c.instFinanc} onChange={e => setContrato(i, { instFinanc: e.target.value.replace(/\D/g, '') })} /></td>
                                             <td className="p-1"><input aria-label={`Número do contrato ${i + 1}`} className="w-32 rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" maxLength={15} value={c.nrDoc} onChange={e => setContrato(i, { nrDoc: e.target.value.trim() })} /></td>
                                             <td className="p-1"><input aria-label={`Parcela do contrato ${i + 1}`} className="w-24 rounded-sm border border-slate-300 px-1 py-0.5 dark:border-slate-600 dark:bg-slate-900" inputMode="decimal" defaultValue={emReais(c.parcela || undefined)} onChange={e => setContrato(i, { parcela: centavos(e.target.value) })} /></td>
@@ -297,7 +318,27 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                                     ))}</tbody>
                                 </table>
                             )}
-                            <button className="rounded-sm border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600" onClick={() => setF(x => ({ ...x, consignados: [...(x.consignados ?? []), { instFinanc: '', nrDoc: '', parcela: 0, inicio: '' }] }))}>Adicionar contrato</button>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <button className="rounded-sm border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600" onClick={() => setF(x => ({ ...x, consignados: [...(x.consignados ?? []), { instFinanc: '', nrDoc: '', parcela: 0, inicio: '' }] }))}>Adicionar contrato</button>
+                                {!nova && cnpjEmpresa && contratos.length > 0 && <>
+                                    <select aria-label="Certificado para a Dataprev" className="rounded-sm border border-slate-300 px-1 py-1 text-xs dark:border-slate-600 dark:bg-slate-900" value={extrato.certificado} onChange={e => setExtrato(x => ({ ...x, certificado: e.target.value as CertificadoDataprev }))}>
+                                        <option value="escritorio">certificado do escritório</option><option value="empresa">certificado da empresa</option>
+                                    </select>
+                                    <button className="rounded-sm border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-40 dark:border-slate-600" disabled={extrato.carregando} onClick={() => void consultarExtrato()}>{extrato.carregando ? 'Consultando…' : 'Consultar extrato na Dataprev'}</button>
+                                </>}
+                            </div>
+                            {extrato.erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-xs text-red-800 dark:bg-red-900/30 dark:text-red-200">{extrato.erro}</p>}
+                            {extrato.conferencia && (
+                                <div className="space-y-1 rounded-sm border border-slate-200 p-2 text-xs dark:border-slate-700">
+                                    <p className="font-medium">Extrato da Dataprev (contratos ativos)</p>
+                                    {extrato.conferencia.atualizacoes.length ? <ul className="list-disc pl-5">{extrato.conferencia.atualizacoes.map(a => (
+                                        <li key={a.indice}>Contrato {a.nrDoc} ({a.instFinanc}): garantia {a.antes.garantiaRescisao ?? '—'}% → <strong>{a.depois.garantiaRescisao}%</strong>; saldo devedor {a.antes.saldoRescisao === undefined ? '—' : `R$ ${emReais(a.antes.saldoRescisao)}`} → <strong>R$ {emReais(a.depois.saldoRescisao)}</strong>; consulta em {a.depois.consultaRescisao.split('-').reverse().join('/')}.</li>))}</ul>
+                                        : <p>Nenhum contrato da ficha para atualizar.</p>}
+                                    {extrato.conferencia.soNaFicha.length > 0 && <p className="text-amber-800 dark:text-amber-200">Na ficha, sem fim, mas não ativos na Dataprev: {extrato.conferencia.soNaFicha.map(c => c.nrDoc).join(', ')}. Confira se foram quitados ou portados.</p>}
+                                    {extrato.conferencia.avisos.map((a, k) => <p key={k} className="text-amber-800 dark:text-amber-200">{a}</p>)}
+                                    {extrato.conferencia.atualizacoes.length > 0 && <button className="rounded-sm bg-blue-700 px-3 py-1 text-white" onClick={aplicarConferencia}>Aplicar na ficha (grava ao salvar)</button>}
+                                </div>
+                            )}
                             <p className="text-[11px] text-slate-500 dark:text-slate-400">Quitado ou suspenso pela instituição: preencha o último mês. No desligamento, consulte o contrato no Portal Emprega Brasil e preencha a garantia (0% se não houver), o saldo devedor e a data da consulta: sem eles, a rescisão fica incompleta e o S-2299 não sai. O que passar da margem sai parcial, com aviso no cálculo e mensagem no holerite; o trabalhador paga a diferença direto à instituição.</p>
                         </div>
                     )}

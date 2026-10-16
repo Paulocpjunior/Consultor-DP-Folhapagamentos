@@ -3,6 +3,7 @@
 // Folha do mês › Crédito do Trabalhador › Importar o arquivo do Portal (etapa 3 do estudo): lê o arquivo de empréstimos
 // da competência (CSV, XLS/XLSX ou JSON), sugere a coluna de cada campo (conferida e ajustável na tela), mostra a prévia
 // por ficha e só grava nas fichas o que o usuário marcar e confirmar, com auditoria. Competência encerrada não grava.
+// Etapa 6: "Buscar na Dataprev" traz as mesmas consignações pela API (plataforma do DP, A1 do cofre) para a mesma prévia.
 
 import React, { useEffect, useMemo, useState } from 'react';
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
@@ -12,6 +13,7 @@ import { validarContratos } from '../../services/calculo/consignado';
 import { aplicarImportacao, CAMPOS_ARQUIVO, lerArquivoEmprestimos, previaImportacao, ROTULO_ACAO, sugerirColunas, type ArquivoLido, type MapaColunas } from '../../services/calculo/importacaoConsignado';
 import { lerFechamento } from '../../services/fimDeMes/fechamentoService';
 import { MSG_ENCERRADO, situacaoDe } from '../../services/fimDeMes/fechamento';
+import { arquivoDaDataprev, buscarConsignacoesDataprev, type CertificadoDataprev } from '../../services/folha/creditoTrabalhadorDataprev';
 
 const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const btn = 'rounded-sm border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-40 dark:border-slate-600';
@@ -28,7 +30,9 @@ interface Props {
 }
 
 const ConsignadoImportacao: React.FC<Props> = ({ empresaId, cnpj, competencia, fichas, usuario, onGravado }) => {
-    const [arquivo, setArquivo] = useState<{ nome: string; lido: ArquivoLido } | null>(null);
+    const [arquivo, setArquivo] = useState<{ nome: string; lido: ArquivoLido; dataprev?: boolean } | null>(null);
+    const [certificado, setCertificado] = useState<CertificadoDataprev>('escritorio');
+    const [buscando, setBuscando] = useState(false);
     const [mapa, setMapa] = useState<MapaColunas>({});
     const [desmarcadas, setDesmarcadas] = useState<Set<string>>(new Set());
     const [encerrada, setEncerrada] = useState<boolean | null>(null);
@@ -62,6 +66,16 @@ const ConsignadoImportacao: React.FC<Props> = ({ empresaId, cnpj, competencia, f
         } catch (e) { setArquivo(null); setErro(`Não consegui ler o arquivo: ${mensagemErro(e)}`); }
     }
 
+    async function buscarNaDataprev() {
+        setErro(''); setMsg(''); setBuscando(true);
+        try {
+            const r = await buscarConsignacoesDataprev({ empresaId, cnpj, competencia, certificado });
+            const lido = arquivoDaDataprev(r.consignacoes);
+            setArquivo({ nome: `Dataprev, competência ${br(competencia)}`, lido, dataprev: true }); setMapa(sugerirColunas(lido.colunas)); setDesmarcadas(new Set());
+            if (r.semRegistros) setMsg(`A Dataprev não tem consignações da empresa em ${br(competencia)}.`);
+        } catch (e) { setArquivo(null); setErro(`Dataprev: ${mensagemErro(e)}`); } finally { setBuscando(false); }
+    }
+
     async function gravar() {
         if (!usuario || !arquivo || !escolhidas.length) return;
         if (encerrada !== false) { setErro(encerrada ? MSG_ENCERRADO(competencia) : 'A situação da competência no Fim de mês ainda não foi lida.'); return; }
@@ -72,7 +86,7 @@ const ConsignadoImportacao: React.FC<Props> = ({ empresaId, cnpj, competencia, f
         setGravando(true); setErro('');
         try {
             const antes = new Map(fichas.map(f => [f.id, f]));
-            await gravarImportacao(mudadas.map(f => ({ ficha: f, novo: false, alteracoes: diffFicha(antes.get(f.id)!, f), preservados: [] })), usuario, [arquivo.nome], undefined, 'Arquivo de empréstimos do Portal Emprega Brasil');
+            await gravarImportacao(mudadas.map(f => ({ ficha: f, novo: false, alteracoes: diffFicha(antes.get(f.id)!, f), preservados: [] })), usuario, [arquivo.nome], undefined, arquivo.dataprev ? 'Consignações da Dataprev (API do Crédito do Trabalhador)' : 'Arquivo de empréstimos do Portal Emprega Brasil');
             setMsg(`Gravado: ${escolhidas.length} alteração(ões) em ${mudadas.length} ficha(s). Recalcule a folha da competência.`);
             setArquivo(null);
             onGravado();
@@ -89,11 +103,19 @@ const ConsignadoImportacao: React.FC<Props> = ({ empresaId, cnpj, competencia, f
             {msg && <p className="rounded-sm bg-green-50 p-2 text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
             {erroFechamento && <p role="alert" className="rounded-sm bg-amber-50 p-2 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">{erroFechamento} <button className="underline" onClick={() => setReleitura(n => n + 1)}>Tentar de novo</button></p>}
             {encerrada && <p className="rounded-sm bg-amber-50 p-2 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">{MSG_ENCERRADO(competencia)}</p>}
-            <label className="block">Arquivo<input aria-label="Arquivo de empréstimos" type="file" accept=".csv,.txt,.json,.xls,.xlsx" className={`block ${inp}`}
-                onChange={e => { const f = e.target.files?.[0]; if (f) void ler(f); e.target.value = ''; }} /></label>
+            <div className="flex flex-wrap items-end gap-3">
+                <label className="block">Arquivo<input aria-label="Arquivo de empréstimos" type="file" accept=".csv,.txt,.json,.xls,.xlsx" className={`block ${inp}`}
+                    onChange={e => { const f = e.target.files?.[0]; if (f) void ler(f); e.target.value = ''; }} /></label>
+                <span className="pb-1 text-xs text-slate-500">ou</span>
+                <label className="text-xs">Certificado<select aria-label="Certificado para a Dataprev" className={`block ${inp}`} value={certificado} onChange={e => setCertificado(e.target.value as CertificadoDataprev)}>
+                    <option value="escritorio">do escritório (procuração no e-CAC)</option><option value="empresa">da empresa</option>
+                </select></label>
+                <button className={btn} disabled={buscando || !cnpj} onClick={() => void buscarNaDataprev()}>{buscando ? 'Buscando…' : 'Buscar na Dataprev'}</button>
+            </div>
+            <p className="text-xs text-slate-500">A Dataprev libera a competência do dia 21 ao 25. Com o certificado do escritório, a empresa precisa ter dado procuração no e-CAC ao escritório (códigos 00137, 00142 ou 88888).</p>
             {arquivo && previa && <>
                 <div>
-                    <p className="text-xs text-slate-500">{arquivo.nome}: {previa.lidas} linha(s). Confira a coluna de cada campo: o Consultor sugere pelo nome, e o leiaute oficial ainda não foi conferido.</p>
+                    <p className="text-xs text-slate-500">{arquivo.nome}: {previa.lidas} linha(s). {arquivo.dataprev ? 'Campos da API da Dataprev (manual v1.7), já ligados a cada coluna.' : 'Confira a coluna de cada campo: o Consultor sugere pelo nome, e o leiaute oficial ainda não foi conferido.'}</p>
                     <div className="mt-1 grid gap-2 sm:grid-cols-4">
                         {CAMPOS_ARQUIVO.map(c => (
                             <label key={c.campo} className="text-xs">{c.rotulo}{c.obrigatorio ? ' *' : ''}

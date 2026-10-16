@@ -17,7 +17,7 @@ endereços públicos, por isso não são segredos.
 | `VITE_PLATAFORMA_URL` | Todos os serviços passam para a plataforma comum, menos o WhatsApp |
 | `VITE_SERVICO_CADASTRO_URL` | Só o cadastro central |
 | `VITE_SERVICO_COFRE_URL` | Só o cofre de certificados |
-| `VITE_SERVICO_GOVERNO_URL` | Só o governo (eSocial, FGTS, DCTFWeb, SERPRO) |
+| `VITE_SERVICO_GOVERNO_URL` | Só o governo (eSocial, FGTS, DCTFWeb, SERPRO, Crédito do Trabalhador na Dataprev) |
 | `VITE_SERVICO_EMAIL_URL` | Só o e-mail |
 | `VITE_SERVICO_WHATSAPP_URL` | Só o WhatsApp (destino: o SP Connect, nunca a plataforma) |
 | `VITE_SERVICO_IA_URL` | Só a MIA e a leitura de holerites |
@@ -75,6 +75,8 @@ Precedência: a variável do serviço, depois `VITE_PLATAFORMA_URL`, depois o CF
 | `/api/dp-integration/dctfweb/status` | Situação da DCTFWeb |
 | `/api/dp-integration/dctfweb/debitos` | Débitos da DCTFWeb |
 | `/api/dp-integration/empresa-completo` | Dados da empresa (SERPRO) |
+| `/api/dp-integration/credito-trabalhador/consignacoes` | Consignações da competência na Dataprev, `{ empresaId, cnpj, competencia, certificado? }` (só na plataforma do DP) |
+| `/api/dp-integration/credito-trabalhador/extrato` | Extrato do trabalhador na Dataprev, `{ empresaId, cnpj, cpf, certificado? }` (só na plataforma do DP) |
 
 Toda rota do governo leva o `empresaId` (a empresa do DP da tela) junto com o `cnpj`, inclusive as seis consultas
 por CNPJ (eSocial status, FGTS recolhimento e CRF, DCTFWeb status e débitos, empresa-completo). O CFI ignora o campo
