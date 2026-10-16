@@ -6,7 +6,8 @@
 // portado). Nada é gravado aqui: a tela mostra a prévia e só grava o que o usuário confirmar.
 //
 // O guia oficial do leiaute (versão 1.4) não abre do ambiente em que isto foi escrito; os nomes de coluna abaixo vêm de
-// fontes secundárias (ifConcessora.codigo, contrato, cpf, matricula, valorParcela, competencia). Por isso a coluna de
+// fontes secundárias (ifConcessora.codigo, contrato, cpf, matricula, valorParcela, competencia e, na 1.4, dataAdmissao
+// em dd/mm/aaaa e o CNPJ alfanumérico). Por isso a coluna de
 // cada campo é sugerida pelo nome e conferida na tela, e um arquivo com outros nomes funciona escolhendo as colunas. Puro.
 
 import * as XLSX from 'xlsx';
@@ -14,7 +15,7 @@ import type { FichaFuncionario } from '../cadastros/funcionarios';
 import { NR_DOC_CONSIGNADO, type ContratoConsignado } from './consignado';
 import { cpfValido } from '../implantacao/implantacao';
 
-export type CampoArquivo = 'cpf' | 'matricula' | 'instFinanc' | 'nrDoc' | 'parcela' | 'competencia' | 'nome' | 'cnpj';
+export type CampoArquivo = 'cpf' | 'matricula' | 'admissao' | 'instFinanc' | 'nrDoc' | 'parcela' | 'competencia' | 'nome' | 'cnpj';
 export const CAMPOS_ARQUIVO: { campo: CampoArquivo; rotulo: string; obrigatorio: boolean }[] = [
     { campo: 'cpf', rotulo: 'CPF do trabalhador', obrigatorio: true },
     { campo: 'instFinanc', rotulo: 'Instituição (código da Tabela 37)', obrigatorio: true },
@@ -22,6 +23,7 @@ export const CAMPOS_ARQUIVO: { campo: CampoArquivo; rotulo: string; obrigatorio:
     { campo: 'parcela', rotulo: 'Valor da parcela', obrigatorio: true },
     { campo: 'competencia', rotulo: 'Competência', obrigatorio: false },
     { campo: 'matricula', rotulo: 'Matrícula', obrigatorio: false },
+    { campo: 'admissao', rotulo: 'Data de admissão', obrigatorio: false },
     { campo: 'cnpj', rotulo: 'CNPJ do empregador', obrigatorio: false },
     { campo: 'nome', rotulo: 'Nome do trabalhador', obrigatorio: false },
 ];
@@ -40,6 +42,7 @@ const NOMES: Record<CampoArquivo, string[]> = {
     parcela: ['valorparcela', 'valordaparcela', 'vlparcela', 'parcela', 'valorparcelamensal'],
     competencia: ['competencia', 'competenciadesconto', 'mescompetencia', 'perapur', 'mesreferencia'],
     nome: ['nome', 'nometrabalhador', 'nomeempregado', 'nomedotrabalhador'],
+    admissao: ['dataadmissao', 'dtadmissao', 'admissao', 'datadeadmissao'],
     cnpj: ['cnpj', 'cnpjempregador', 'cnpjempresa', 'inscricaoempregador', 'nrinscempregador'],
 };
 
@@ -145,6 +148,17 @@ export function competenciaDoArquivo(s: string): string | null {
     if (m) return Number(m[1]) >= 1 && Number(m[1]) <= 12 ? `${m[2]}-${m[1].padStart(2, '0')}` : null;
     return null;
 }
+/** AAAA-MM-DD de "14/02/2020" ou "2020-02-14". */
+export function dataDoArquivo(s: string): string | null {
+    const t = s.trim();
+    const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(t) ?? /^(\d{4})-(\d{2})-(\d{2})/.exec(t);
+    if (!m) return null;
+    const iso = m[1].length === 4 ? `${m[1]}-${m[2]}-${m[3]}` : `${m[3]}-${m[2]}-${m[1]}`;
+    const d = new Date(`${iso}T00:00:00Z`);
+    return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === iso ? iso : null;
+}
+/** CNPJ só com letras e números, em maiúsculas: a partir de 07/2026 o CNPJ pode ser alfanumérico (IN RFB 2.229/2024). */
+const inscricao = (s: string) => s.toUpperCase().replace(/[^0-9A-Z]/g, '');
 const mesAnterior = (c: string) => { const [a, m] = c.split('-').map(Number); return m === 1 ? `${a - 1}-12` : `${a}-${String(m - 1).padStart(2, '0')}`; };
 const reais = (c: number) => (c / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const br = (c: string) => c.split('-').reverse().join('/');
@@ -177,7 +191,7 @@ export function previaImportacao(arq: ArquivoLido, mapa: MapaColunas, competenci
     const faltam = CAMPOS_ARQUIVO.filter(c => c.obrigatorio && !mapa[c.campo]).map(c => c.rotulo);
     if (faltam.length) return { competencia, acoes, pendencias, avisos: [`Escolha a coluna de: ${faltam.join(', ')}.`], lidas: 0 };
     const val = (l: Record<string, string>, c: CampoArquivo) => (mapa[c] ? l[mapa[c]!] ?? '' : '').trim();
-    const raiz = digitos(cnpjEmpresa).slice(0, 8);
+    const raiz = inscricao(cnpjEmpresa).slice(0, 8);
 
     // Linhas válidas do arquivo, por ficha.
     const porFicha = new Map<string, { ficha: FichaFuncionario; contratos: Map<string, { instFinanc: string; nrDoc: string; parcela: number; linha: number }> }>();
@@ -199,7 +213,7 @@ export function previaImportacao(arq: ArquivoLido, mapa: MapaColunas, competenci
             if (!c) return p(`Competência "${compTxt}" não reconhecida.`);
             if (c !== competencia) { outraComp++; return p(`Linha da competência ${br(c)}, não de ${br(competencia)}.`); }
         }
-        const cnpj = digitos(val(l, 'cnpj'));
+        const cnpj = inscricao(val(l, 'cnpj'));
         if (cnpj && raiz && cnpj.slice(0, 8) !== raiz) return p('CNPJ de outro empregador.');
         const inst = digitos(val(l, 'instFinanc'));
         if (!inst || inst.length > 3) return p(`Instituição "${val(l, 'instFinanc')}" fora do código de 3 dígitos da Tabela 37.`);
@@ -210,8 +224,13 @@ export function previaImportacao(arq: ArquivoLido, mapa: MapaColunas, competenci
         if (!cand.length) return p('CPF sem ficha nesta empresa.');
         const mat = val(l, 'matricula');
         if (cand.length > 1 && mat) cand = cand.filter(f => f.matriculaEsocial === mat || f.dados.codigoIob === mat);
+        // Leiaute 1.4: a data de admissão separa os vínculos do mesmo CPF (readmissão, duplo vínculo).
+        const admTxt = val(l, 'admissao');
+        const adm = admTxt ? dataDoArquivo(admTxt) : null;
+        if (admTxt && !adm) return p(`Data de admissão "${admTxt}" não reconhecida.`);
+        if (cand.length > 1 && adm) cand = cand.filter(f => f.dados.admissao === adm || f.dados.inicioNaEmpresa === adm);
         if (cand.length > 1) cand = cand.filter(f => ativaNaCompetencia(f, competencia));
-        if (cand.length !== 1) return p(cand.length ? 'Mais de um vínculo ativo no CPF: informe a coluna da matrícula.' : 'Nenhum vínculo ativo do CPF na competência.');
+        if (cand.length !== 1) return p(cand.length ? 'Mais de um vínculo ativo no CPF: informe a coluna da matrícula ou da admissão.' : 'Nenhum vínculo ativo do CPF na competência.');
         const f = cand[0];
         const reg = porFicha.get(f.id) ?? { ficha: f, contratos: new Map() };
         const k = `${inst.padStart(3, '0')}|${nrDoc}`;
