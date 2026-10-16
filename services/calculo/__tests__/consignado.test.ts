@@ -224,6 +224,22 @@ describe('eSocial: descFolha (XSD S-1.3)', () => {
         expect(await validarPeloXsd(t.s1200!.xml, lerXsd)).toEqual({ valido: true, erros: [] });
     });
 
+    it('S-1200: provisão no demonstrativo do adiantamento (9299) e devolução na folha (1629); passa no XSD', async () => {
+        const f = ficha([C1], { adiantamentoPct: '40' });
+        const r = calcularMensal({ competencia: '2026-09', pagamento: '2026-09', ficha: f, tabelas: TAB, afastamentos: [], provisaoConsignado: true });
+        const rubs = [...RUBRICAS, rub('6000', 'DESCONTO ADIANTAMENTO', '9200', '2'), rub('0100', 'ADIANTAMENTO SALARIAL', '5501', '1'),
+            rub('7100', 'PROVISAO EMPRESTIMO CONSIGNADO', '9299', '2'), rub('0200', 'DEVOLUCAO PROVISAO CONSIGNADO', '1629', '1')];
+        const p = PARAMS();
+        const ger = gerarEventosFolha({ cnpj: CNPJ, tpAmb: 2, competencia: '2026-09', dataPagamento: '2026-09-30', dataAdiantamento: '2026-09-18', fichas: [f], resultados: [r], rubricas: rubs,
+            parametros: { ...p, rubricas: { ...p.rubricas, ADIANT: { codRubr: '6000', ideTabRubr: 'T1' }, ADIANTPAG: { codRubr: '0100', ideTabRubr: 'T1' }, CONSIGPROV: { codRubr: '7100', ideTabRubr: 'T1' }, CONSIGDEV: { codRubr: '0200', ideTabRubr: 'T1' } } },
+            agora: new Date('2026-10-06T12:00:00Z') }).trabalhadores[0];
+        expect(ger.erros).toEqual([]);
+        const xml = ger.s1200!.xml;
+        expect(xml).toContain('<codRubr>7100</codRubr><ideTabRubr>T1</ideTabRubr><vrRubr>180.00</vrRubr>');
+        expect(xml).toContain('<codRubr>0200</codRubr><ideTabRubr>T1</ideTabRubr><vrRubr>180.00</vrRubr>');
+        expect(await validarPeloXsd(xml, lerXsd)).toEqual({ valido: true, erros: [] });
+    });
+
     it('S-2299: detVerbas do consignado com o descFolha; passa no XSD', async () => {
         const f = { ...ficha([{ ...C1, garantiaRescisao: 10, saldoRescisao: 900000 }], { dataDesligamento: '2026-10-05', motivoDesligamento: '02' }), situacao: 'desligado' as const };
         const r = calcularRescisao({ ficha: f, data: '2026-10-05', tipo: '02', aviso: 'indenizado', afastamentos: [], tabelas: TAB, movimentos: {} });

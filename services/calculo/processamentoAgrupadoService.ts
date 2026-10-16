@@ -61,7 +61,7 @@ export async function processarEmpresa(e: Empresa, o: OpcoesAgrupado): Promise<L
         if (!convocacoes) avisos.push('Convocações do intermitente não lidas: a categoria 111 fica incompleta.');
         const resultados = calcularFolhaMensal({
             fichas, afastamentos, tabelas: o.tabelas, convocacoes, movimentosEmpresa: daEmpresa, parametrosFolha: e.parametrosFolha,
-            convencaoDe: (f, dia) => convencaoDaFicha(o.convencoes, f, e.sindicatos ?? [], dia), opcoesFerias: OPCOES_FERIAS_PADRAO, tabelasDsr,
+            convencaoDe: (f, dia) => convencaoDaFicha(o.convencoes, f, e.sindicatos ?? [], dia), opcoesFerias: { ...OPCOES_FERIAS_PADRAO, provisaoConsignado: !!e.parametrosFolha?.provisaoConsignado }, tabelasDsr,
         }, c, pagamento, movs);
         let enq;
         if (enquadramentos === null) avisos.push('Enquadramento não lido: sem a parte patronal.');

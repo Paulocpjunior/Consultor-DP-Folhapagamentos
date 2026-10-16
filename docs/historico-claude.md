@@ -5808,3 +5808,11 @@ Pedido da colaboradora, pelo Paulo, com as telas do SAGE (Rescisão Contratual e
 - **Casos especiais (F8):** aviso próprio para o mês sem remuneração com INSS (afastado ou maternidade paga pelo INSS) e para o doméstico (o eSocial Doméstico lança e o DAE recolhe); transferência e retificação ficam nos avisos do repasse.
 - **Testes:** repasse (7 situações, vencimento, feriado, doméstico), tela do repasse, eConsignado no S-5003, guia com e sem consignado, comparação com a folha.
 
+## 16/10/2026 — Crédito do Trabalhador, etapa 5 (provisão no adiantamento e nas férias)
+
+- **Pedido do Paulo:** "pode começar etapa 5". A pergunta "provisão ou insuficiência de saldo" segue em aberto, por isso a opção nasce desligada, por empresa.
+- **Opção:** `parametrosFolha.provisaoConsignado`, na tela do Cálculo mensal ("Provisionar o consignado"), ao lado do arredondamento; vai ao motor mensal (`EntradaCalculo.provisaoConsignado`) e às opções do recibo de férias (`OpcoesFerias.provisaoConsignado`), também no processamento agrupado.
+- **Adiantamento (exemplo 03):** a provisão de cada contrato, na proporção do adiantamento (% da ficha ou valor informado ÷ salário), sai do recibo (`CONSIGPROV`, natureza 9299) e volta na folha (`CONSIGDEV`, 1629), com a parcela inteira na 9253; não passa do adiantamento. O trabalhador recebe no mês o mesmo total; só muda a distribuição.
+- **Férias (exemplo 04):** provisão da parcela de cada mês do gozo pelos dias dele (18 dias = 60%) no recibo (`CONSIGPROV`), só se couber no líquido; `feriasDaCompetencia` leva o valor à folha, que abate do líquido das férias pago (FERPAGO) e desconta a parcela inteira.
+- **eSocial:** de/para e modelos do S-1010 para 9299 e 1629; S-1200 com o demonstrativo do adiantamento e a folha validado no XSD.
+

@@ -18,7 +18,7 @@
 import { faixaInss } from './tributos';
 import { inssComOutrosVinculos, vinculosDoMes, type OutroVinculo } from '../cadastros/duploVinculo';
 import { verbasDosBeneficios, type Beneficio } from './beneficios';
-import { descontosConsignado } from './consignado';
+import { contratosNoMes, descontosConsignado } from './consignado';
 import { estabelecimentosNoMes } from '../cadastros/locaisTrabalho';
 import { fichaNaCompetencia, inicioNaEmpresa, memoriaDoHistorico, type FichaFuncionario } from '../cadastros/funcionarios';
 import type { Afastamento } from '../cadastros/afastamentos';
@@ -148,7 +148,7 @@ export interface EntradaCalculo {
      * base do INSS e do FGTS do mês, e o INSS já retido no recibo é abatido.
      * Sem isto, o mês com férias fica "incompleto".
      */
-    feriasDoMes?: { dias: number; ferias: number; terco: number; inss: number; irrf?: number };
+    feriasDoMes?: { dias: number; ferias: number; terco: number; inss: number; irrf?: number; /** Crédito do Trabalhador provisionado no recibo para esta competência. */ consignado?: number };
     /**
      * Folha paga no mês do adiantamento, antes dele (a da competência anterior, quando a empresa paga no mês seguinte),
      * com o IRRF apurado nela; `null` se não houve. Só é usada quando o adiantamento é pago num mês e o saldo da folha
@@ -171,6 +171,8 @@ export interface EntradaCalculo {
     convocacoes?: Convocacao[];
     /** Tabela para D.S.R. da empresa (Tabelas legais), por ano: dias úteis e domingos/feriados de cada mês e as opções de falta. */
     tabelasDsr?: TabelaDsr[];
+    /** Crédito do Trabalhador: provisionar a parcela no adiantamento (parâmetro da empresa; Manual do Empregador, exemplo 03). */
+    provisaoConsignado?: boolean;
 }
 
 /** O IRRF de um pagamento da folha: rendimentos tributáveis, deduções legais (INSS, dependentes, pensão) e o retido. */
@@ -649,9 +651,26 @@ function calcularMensalSemObras(e: EntradaCalculo): ResultadoCalculo {
     const adiant = mov.adiantamento !== undefined ? Math.max(0, Math.round(mov.adiantamento)) : semVinculoNoDia ? 0 : Math.round(baseAdiant * pctAd / 100);
     if (mov.adiantamento !== undefined) r.adiantamentoInformado = true;
     if (pctAd > 0 && mov.adiantamento === undefined && semVinculoNoDia) r.memoria.push(`Adiantamento salarial: sem vínculo em ${brData(diaAdiant)} (dia do adiantamento), não calculado.`);
+    // Crédito do Trabalhador: provisão da parcela no adiantamento, na proporção dele (Manual do Empregador, exemplo 03). Sai do
+    // recibo do adiantamento (natureza 9299) e volta na folha como devolução (1629); a parcela inteira sai na folha, na 9253.
+    let provisaoConsig = 0;
+    if (e.provisaoConsignado && adiant > 0) {
+        const prop = mov.adiantamento !== undefined ? Math.min(1, mensal > 0 ? adiant / mensal : 0) : Math.min(1, pctAd / 100);
+        const livre = adiant + evAdi.reduce((s, v) => s + (v.tipo === 'provento' ? v.valor : -v.valor), 0);
+        for (const c of contratosNoMes(ficha.consignados, competencia)) {
+            const v = Math.min(Math.round(c.parcela * prop), livre - provisaoConsig);
+            if (v <= 0) continue;
+            evAdi.push({ codigo: 'CONSIGPROV', descricao: `Provisão do Crédito do Trabalhador (contrato ${c.nrDoc})`, referencia: `${num(Math.round(prop * 10000) / 100)}%`, tipo: 'desconto', valor: v, inss: false, fgts: false, irrf: false });
+            provisaoConsig += v;
+        }
+    }
     if (evAdi.length) {
         r.verbasAdiantamento = evAdi;
         r.memoria.push(`Pago no adiantamento de ${brData(diaAdiant)}, fora deste holerite (recibo, arquivo e demonstrativo do adiantamento): ${evAdi.map(v => `${v.descricao} ${v.tipo === 'desconto' ? '−' : ''}${reais(v.valor)}`).join('; ')}${evAdi.some(v => v.inss || v.fgts) ? '; as incidências de INSS e FGTS contam nas bases do mês' : ''}.`);
+    }
+    if (provisaoConsig > 0) {
+        verba({ codigo: 'CONSIGDEV', descricao: 'Devolução da provisão do Crédito do Trabalhador', referencia: '', tipo: 'provento', valor: provisaoConsig, inss: false, fgts: false, irrf: false });
+        r.memoria.push(`Crédito do Trabalhador: ${reais(provisaoConsig)} provisionados no adiantamento voltam como devolução (natureza 1629); a parcela do mês sai inteira no desconto do consignado.`);
     }
     if (adiant > 0) {
         verba({ codigo: 'ADIANT', descricao: 'Adiantamento salarial', referencia: mov.adiantamento !== undefined ? '' : `${num(pctAd)}%`, tipo: 'desconto', valor: adiant, inss: false, fgts: false, irrf: false });
@@ -666,7 +685,10 @@ function calcularMensalSemObras(e: EntradaCalculo): ResultadoCalculo {
         verba({ codigo: 'FERMES13', descricao: '1/3 de férias do mês (pago no recibo)', referencia: '', tipo: 'provento', valor: fm.terco, inss: true, fgts: true, irrf: false });
         // O que o recibo já pagou e reteve (parte desta competência): líquido, INSS e IRRF, como no holerite do IOB.
         const irrfFer = fm.irrf ?? 0;
-        verba({ codigo: 'FERPAGO', descricao: 'Líquido das férias pago no recibo', referencia: '', tipo: 'desconto', valor: Math.max(0, fm.ferias + fm.terco - fm.inss - irrfFer), inss: false, fgts: false, irrf: false });
+        // A provisão do consignado no recibo (opção da empresa) saiu do líquido pago: a folha abate só o que foi pago e desconta
+        // a parcela inteira (Manual do Empregador, exemplo 04).
+        verba({ codigo: 'FERPAGO', descricao: 'Líquido das férias pago no recibo', referencia: '', tipo: 'desconto', valor: Math.max(0, fm.ferias + fm.terco - fm.inss - irrfFer - (fm.consignado ?? 0)), inss: false, fgts: false, irrf: false });
+        if (fm.consignado) r.memoria.push(`Crédito do Trabalhador: ${reais(fm.consignado)} provisionados no recibo de férias saem do líquido pago; a parcela do mês sai inteira no desconto do consignado.`);
         verba({ codigo: 'INSSFERRET', descricao: 'INSS das férias (retido no recibo)', referencia: '', tipo: 'desconto', valor: fm.inss, inss: false, fgts: false, irrf: false });
         verba({ codigo: 'IRRFFERRET', descricao: 'IRRF das férias (retido no recibo)', referencia: '', tipo: 'desconto', valor: irrfFer, inss: false, fgts: false, irrf: false });
         r.memoria.push(`Férias do mês: ${reais(fm.ferias + fm.terco)} (${fm.dias} dias, pagos no recibo) somados às bases do INSS e do FGTS; o IRRF das férias foi em separado. Saem o líquido pago no recibo e o INSS e o IRRF já retidos nele.`);

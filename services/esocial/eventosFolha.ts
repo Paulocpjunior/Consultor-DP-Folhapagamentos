@@ -145,6 +145,9 @@ export const SUGESTAO: Record<string, { naturezas: string[]; dica?: RegExp; evit
     PENSAOFER: { naturezas: ['9213'] },
     // Crédito do Trabalhador (consignado CLT): natureza 9253, com o grupo descFolha.
     CONSIG: { naturezas: ['9253'] },
+    // Provisão do consignado no adiantamento e no recibo de férias (9299) e a devolução na folha (1629): Manual do Empregador, ex. 03.
+    CONSIGPROV: { naturezas: ['9299'], dica: /CONSIG|EMPREST/ },
+    CONSIGDEV: { naturezas: ['1629'] },
     // Adiantamento salarial: no demonstrativo próprio, a rubrica de provento do adiantamento (a natureza varia
     // no S-1010 de cada empresa: vai pela descrição); na folha, o desconto (9200). Vale-transporte: 9216.
     // Só adiantamento de salário (ou "vale", "quinzena"): comissão, gorjeta, férias e 13º têm rubricas próprias (Codex #115).
