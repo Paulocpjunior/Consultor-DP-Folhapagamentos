@@ -53,7 +53,7 @@ export function limparMovimento(m: Movimento): Movimento {
         .sort((a, b) => Number(a[0]) - Number(b[0])).map(([p, h]) => [p, Math.round(h * 10000) / 10000] as const);
     if (pct.length) out.horasExtrasPct = Object.fromEntries(pct);
     // O plano de saúde do lançamento (coparticipação) vai para o S-1210: fica gravado (antes, a limpeza o tirava).
-    const plano = (l: Lancamento) => (l.planoSaude && /^\d{14}$/.test(l.planoSaude.cnpjOper) && /^(\d{6})?$/.test(l.planoSaude.regANS ?? '')
+    const plano = (l: Lancamento) => (l.planoSaude && /^[0-9A-Z]{12}\d{2}$/.test(l.planoSaude.cnpjOper) && /^(\d{6})?$/.test(l.planoSaude.regANS ?? '')
         ? { planoSaude: { cnpjOper: l.planoSaude.cnpjOper, regANS: l.planoSaude.regANS ?? '' } } : {});
     const lancs: Lancamento[] = (m.lancamentos ?? [])
         .map(l => ({ descricao: l.descricao.trim().replace(/\s+/g, ' '), tipo: l.tipo, valor: Math.round(l.valor), inss: !!l.inss, fgts: !!l.fgts, irrf: !!l.irrf, ...(typeof l.media === 'boolean' ? { media: l.media } : {}), ...(l.noAdiantamento ? { noAdiantamento: true } : {}), ...plano(l) }))

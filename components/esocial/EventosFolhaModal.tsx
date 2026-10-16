@@ -27,7 +27,7 @@ import { avisos, textoAchados, type Achado } from '../../services/esocial/preVoo
 import AchadosPreVoo from './AchadosPreVoo';
 import { exclusoesDosEnvios, lerRecibosArquivos, recibosDosEnvios, recibosVigentes, type ReciboEvento } from '../../services/esocial/recibosEsocial';
 import { baixarBytes, gerarZip } from '../../services/implantacao/zip';
-import { reais } from '../../services/cadastros/documentos';
+import { limparCnpj, normalizarCnpj, reais } from '../../services/cadastros/documentos';
 import { diaUtilAnterior } from '../../services/prazos/calendario';
 import { listarComplementares, type FolhaComplementarGravada } from '../../services/calculo/folhaComplementarService';
 import { rotuloTpAcConv } from '../../services/calculo/complementar';
@@ -242,7 +242,7 @@ const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resu
                 </div>
 
                 <section className="grid gap-2 rounded-sm border border-slate-200 p-2 text-xs sm:grid-cols-4 dark:border-slate-700">
-                    <label>CNPJ do estabelecimento<input aria-label="CNPJ do estabelecimento" className={`block w-full ${inp}`} value={params.nrInscEstab} onChange={e => setParams(p => ({ ...p, nrInscEstab: e.target.value.replace(/\D/g, '').slice(0, 14) }))} /></label>
+                    <label>CNPJ do estabelecimento<input aria-label="CNPJ do estabelecimento" className={`block w-full ${inp}`} value={params.nrInscEstab} onChange={e => setParams(p => ({ ...p, nrInscEstab: limparCnpj(e.target.value).slice(0, 14) }))} /></label>
                     <label>Código da lotação (S-1020)<input aria-label="Código da lotação" className={`block w-full ${inp}`} maxLength={30} value={params.codLotacao} onChange={e => setParams(p => ({ ...p, codLotacao: e.target.value }))} /></label>
                     <label>Simples com classTrib 03<select aria-label="indSimples" className={`block w-full ${inp}`} value={params.indSimples ?? ''} onChange={e => setParams(p => ({ ...p, indSimples: e.target.value as ParametrosEsocialFolha['indSimples'] }))}>
                         <option value="">Não se aplica</option><option value="1">1 - CPP substituída</option><option value="2">2 - CPP não substituída</option><option value="3">3 - Substituída e não substituída</option>
@@ -256,8 +256,8 @@ const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resu
 
                 {(() => {
                     // Filiais: quem trabalha noutro estabelecimento da empresa (local de trabalho da ficha) sai nele; a lotação é a da filial, se informada.
-                    const daEmpresa = params.nrInscEstab.replace(/\D/g, '');
-                    const naFolha = [...new Set(fichas.map(f => (f.dados.estabelecimento ?? '').replace(/\D/g, '')).filter(x => x.length === 14 && x !== daEmpresa))];
+                    const daEmpresa = normalizarCnpj(params.nrInscEstab);
+                    const naFolha = [...new Set(fichas.map(f => normalizarCnpj(f.dados.estabelecimento)).filter(x => x.length === 14 && x !== daEmpresa))];
                     const lista = params.estabelecimentos ?? [];
                     const muda = (l: { nrInsc: string; codLotacao: string }[]) => setParams(p => ({ ...p, estabelecimentos: l }));
                     if (!naFolha.length && !lista.length) return null;
@@ -268,7 +268,7 @@ const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resu
                             {naFolha.filter(x => !lista.some(l => l.nrInsc === x)).map(x => <p key={x}>Filial {x}: lotação {params.codLotacao || '—'} <button className="text-blue-700 underline dark:text-blue-300" onClick={() => muda([...lista, { nrInsc: x, codLotacao: '' }])}>informar lotação própria</button></p>)}
                             {lista.map((l, i) => (
                                 <div key={i} className="flex flex-wrap items-center gap-2">
-                                    <input aria-label={`CNPJ da filial ${i + 1}`} className={inp} value={l.nrInsc} placeholder="CNPJ" onChange={e => muda(lista.map((y, j) => (j === i ? { ...y, nrInsc: e.target.value.replace(/\D/g, '').slice(0, 14) } : y)))} />
+                                    <input aria-label={`CNPJ da filial ${i + 1}`} className={inp} value={l.nrInsc} placeholder="CNPJ" onChange={e => muda(lista.map((y, j) => (j === i ? { ...y, nrInsc: limparCnpj(e.target.value).slice(0, 14) } : y)))} />
                                     <input aria-label={`Lotação da filial ${i + 1}`} className={inp} value={l.codLotacao} placeholder="código da lotação" maxLength={30} onChange={e => muda(lista.map((y, j) => (j === i ? { ...y, codLotacao: e.target.value } : y)))} />
                                     <button className="text-red-600" aria-label={`Remover a filial ${i + 1}`} onClick={() => muda(lista.filter((_, j) => j !== i))}>×</button>
                                 </div>

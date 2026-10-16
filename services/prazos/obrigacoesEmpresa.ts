@@ -21,6 +21,7 @@
 
 import { diaUtilAnterior, diaUtilSeguinte, feriado, type Data } from './calendario';
 import { proximaCompetencia, vencimentosDaCompetencia, type Ajuste, type Vencimento } from './obrigacoes';
+import { normalizarCnpj } from '../cadastros/documentos';
 
 export type Responsavel = 'DP' | 'Fiscal';
 export type StatusObrigacao = 'pendente' | 'entregue' | 'nao-se-aplica';
@@ -110,7 +111,7 @@ export const idMarcacao = (empresaId: string, obrigacaoId: string) => `${empresa
 
 /** Sindicatos dos empregados ativos da empresa (CNPJ da ficha). */
 export function cnpjsSindicatosDaEmpresa(fichas: { empresaId: string; situacao?: string; dados?: { sindicato?: string } }[], empresaId: string): string[] {
-    return [...new Set(fichas.filter(f => f.empresaId === empresaId && f.situacao !== 'desligado').map(f => (f.dados?.sindicato ?? '').replace(/\D/g, '')).filter(c => c.length === 14))];
+    return [...new Set(fichas.filter(f => f.empresaId === empresaId && f.situacao !== 'desligado').map(f => normalizarCnpj(f.dados?.sindicato)).filter(c => c.length === 14))];
 }
 
 export { proximaCompetencia };

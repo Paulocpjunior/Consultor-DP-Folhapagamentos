@@ -18,6 +18,7 @@ import type {
     LayoutPonto,
     EventoApurado as EventoPonto,
 } from '../../types/ponto';
+import { normalizarCnpj } from '../../services/cadastros/documentos';
 
 const MODELO_ID = 'acjef_p1510_v1';
 
@@ -90,7 +91,7 @@ const PontoEditorPanel: React.FC<Props> = ({ currentUser }) => {
         try {
             const buf = await arquivo.arrayBuffer();
             const conteudo = decodeBuffer(buf, modelo.encoding ?? 'iso-8859-1');
-            const cnpj = ((empresa as any).cnpj || '').replace(/\D/g, '');
+            const cnpj = normalizarCnpj((empresa as any).cnpj);
             const r = parsearArquivoFixedWidth(conteudo, modelo, layout, {
                 nomeArquivo: arquivo.name,
                 cnpjEsperado: cnpj,
@@ -115,7 +116,7 @@ const PontoEditorPanel: React.FC<Props> = ({ currentUser }) => {
         if (!empresa) return;
         setSalvando(true);
         try {
-            const cnpj = ((empresa as any).cnpj || '').replace(/\D/g, '');
+            const cnpj = normalizarCnpj((empresa as any).cnpj);
             const sage = String((empresa as any).codigoSage || (empresa as any).cadastroSAGE || '');
             const validMappings = Object.fromEntries(
                 Object.entries(pisMapping).filter(([_, v]) => v.trim())

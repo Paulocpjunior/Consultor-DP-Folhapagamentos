@@ -7,6 +7,7 @@ import * as XLSX from 'xlsx';
 import { CAMPOS, type Campo } from './implantacao';
 import { formatarData, posicoes, TIPOS_CAMPO, type LayoutCadastroIob } from './layoutCadastroIob';
 import type { FichaSemVinculo, FuncionarioUnificado } from './unificacao';
+import { normalizarCnpj } from '../cadastros/documentos';
 
 export const HEADERS_FIXOS_CADASTRO = ['Matrícula eSocial (código IOB)', 'Nome do Funcionário', 'CPF'];
 
@@ -16,8 +17,8 @@ function valorPlanilha(f: FuncionarioUnificado, origem: string, constante: strin
     switch (origem) {
         case 'codigoIob': return f.dados.matriculaIob || f.matricula;
         case 'cpf': return f.cpf;
-        case 'cnpj': return cnpj.replace(/\D/g, '');
-        case 'cnpjRaiz': return cnpj.replace(/\D/g, '').slice(0, 8);
+        case 'cnpj': return normalizarCnpj(cnpj);
+        case 'cnpjRaiz': return normalizarCnpj(cnpj).slice(0, 8);
         case 'constante': return constante || '';
         case 'branco': return '';
         default: {
@@ -166,5 +167,5 @@ export function gerarModeloCadastroIobXlsx(cnpj: string, corte: string, funciona
 }
 
 export function nomeArquivoModeloCadastro(cnpj: string): string {
-    return `template-cadastro-iob-sage-${cnpj.replace(/\D/g, '') || 'EMPRESA'}.xlsx`;
+    return `template-cadastro-iob-sage-${normalizarCnpj(cnpj) || 'EMPRESA'}.xlsx`;
 }

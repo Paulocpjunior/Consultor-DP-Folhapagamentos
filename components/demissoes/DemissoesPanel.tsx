@@ -15,7 +15,7 @@ import type { Afastamento } from '../../services/cadastros/afastamentos';
 import type { TabelaLegal } from '../../services/cadastros/tabelasLegais';
 import type { Sindicato } from '../../services/cadastros/sindicatos';
 import { enquadramentoVigente, type Enquadramento } from '../../services/cadastros/enquadramento';
-import { centavosDeTexto, reais } from '../../services/cadastros/documentos';
+import { centavosDeTexto, normalizarCnpj, reais } from '../../services/cadastros/documentos';
 import { listarMovimentosDaEmpresa } from '../../services/calculo/movimentosService';
 import type { Movimento } from '../../services/calculo/motorMensal';
 import { mesDoPagamento } from '../../services/calculo/arredondamento';
@@ -81,7 +81,7 @@ const DemissoesPanel: React.FC<Props> = ({ usuario }) => {
             if (!ficha) return [];
             const comp = cenarios[0].data.slice(0, 7);
             const vig = /^\d{4}-\d{2}$/.test(comp) ? enquadramentoVigente(dados.enquadramentos, ficha.empresaId, comp) : null;
-            const sindicato = dados.sindicatos.find(s => s.cnpj.replace(/\D/g, '') && s.cnpj.replace(/\D/g, '') === (ficha.dados.sindicato ?? '').replace(/\D/g, ''));
+            const sindicato = dados.sindicatos.find(s => normalizarCnpj(s.cnpj) && normalizarCnpj(s.cnpj) === normalizarCnpj(ficha.dados.sindicato));
             const saldo = centavosDeTexto(saldos[id] ?? '') ?? undefined;
             const cs = calcularPrevia({ ficha, convocacoes: dados.convocacoes, tabelasDsr: dados.tabelasDsr, afastamentos: dados.afastamentos, tabelas: dados.tabelas, movimentos: dados.movimentos[id] ?? {}, cenarios: cenarios.filter(c => /^\d{4}-\d{2}-\d{2}$/.test(c.data)),
                 saldoFgts: saldo, adiantamento13: centavosDeTexto(adiant13[id] ?? '') ?? undefined, enquadramento: vig && 'enquadramento' in vig ? vig.enquadramento : undefined, sindicato,
@@ -92,7 +92,7 @@ const DemissoesPanel: React.FC<Props> = ({ usuario }) => {
 
     if (!ativa) return <p className="rounded-sm border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">Ative uma empresa para simular demissões.</p>;
     const nomeEmpresa = dados?.empresa?.nomeFantasia || dados?.empresa?.razaoSocial || ativa.nome;
-    const opcoesPdf = () => ({ empresa: { razaoSocial: dados?.empresa?.razaoSocial || ativa.nome, cnpj: ativa.cnpj.replace(/\D/g, ''), codigoSage: ativa.codigoSage }, titulo: 'Prévia de rescisão', emitidoPor: usuario.email });
+    const opcoesPdf = () => ({ empresa: { razaoSocial: dados?.empresa?.razaoSocial || ativa.nome, cnpj: normalizarCnpj(ativa.cnpj), codigoSage: ativa.codigoSage }, titulo: 'Prévia de rescisão', emitidoPor: usuario.email });
     const nomeArquivo = `previa-rescisao-${ativa.codigoSage || 'empresa'}-${hojeSp()}.pdf`;
     const gerarPdf = async () => (await import('../../services/demissoes/previaPdf')).previaRescisaoPdf(resultados, opcoesPdf());
     const mudarCenario = (i: number, m: Partial<CenarioDemissao>) => setCenarios(l => l.map((c, j) => (j === i ? { ...c, ...m } : c)));
@@ -208,7 +208,7 @@ const DemissoesPanel: React.FC<Props> = ({ usuario }) => {
                         <button className={btn} onClick={baixarPdf}>Prévia de rescisão (PDF)</button>
                         <button className="rounded-lg bg-blue-700 px-3 py-1.5 text-sm text-white disabled:opacity-50" disabled={!!ocupado} onClick={gravar}>Gravar no histórico</button>
                     </div>
-                    <EntregaRelatorio key={selecionados.join(',')} empresa={{ id: ativa.id, cnpj: ativa.cnpj.replace(/\D/g, ''), nome: nomeEmpresa, codigoSage: ativa.codigoSage, contatoEnvio: dados?.empresa?.contatoEnvio }}
+                    <EntregaRelatorio key={selecionados.join(',')} empresa={{ id: ativa.id, cnpj: normalizarCnpj(ativa.cnpj), nome: nomeEmpresa, codigoSage: ativa.codigoSage, contatoEnvio: dados?.empresa?.contatoEnvio }}
                         titulo="Prévia de rescisão" competencia={(cenarios[0]?.data || hojeSp()).slice(0, 7)}
                         gerar={async () => ({ nome: nomeArquivo, bytes: new Uint8Array((await gerarPdf()).output('arraybuffer')) })} />
                 </section>

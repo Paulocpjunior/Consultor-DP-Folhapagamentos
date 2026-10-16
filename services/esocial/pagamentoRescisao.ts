@@ -12,7 +12,7 @@
 
 import { depNoEsocial, ratearPensao, type FichaFuncionario } from '../cadastros/funcionarios';
 import type { ResultadoRescisao } from '../calculo/motorRescisao';
-import { cpfValido } from '../cadastros/documentos';
+import { cpfValido, normalizarCnpj } from '../cadastros/documentos';
 import type { Dependente } from '../implantacao/unificacao';
 import { mesclarIRFerias, type EventoGerado } from './eventosFolha';
 import type { ReciboEvento } from './recibosEsocial';
@@ -146,7 +146,7 @@ export function gerarS1210Rescisao(e: EntradaS1210Rescisao): ResultadoS1210Resci
 
     const agora = e.agora ?? new Date();
     let seq = e.agora ? 0 : agora.getMilliseconds() * 10;
-    const ideEmpregador = `<ideEmpregador><tpInsc>1</tpInsc><nrInsc>${digitos(e.cnpj).slice(0, 8)}</nrInsc></ideEmpregador>`;
+    const ideEmpregador = `<ideEmpregador><tpInsc>1</tpInsc><nrInsc>${normalizarCnpj(e.cnpj).slice(0, 8)}</nrInsc></ideEmpregador>`;
     let exclusao: EventoGerado | null = null;
     if (ex && !ex.excluidoEm) {
         const id = idEvento(e.cnpj, agora, ++seq);

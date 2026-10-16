@@ -406,7 +406,9 @@ export function gerarArquivoRais(
     const erros: string[] = [];
     const avisos: string[] = [];
 
-    if (digitos(opcoes.empresa.cnpj).length !== 14) {
+    if (/[A-Z]/i.test(opcoes.empresa.cnpj ?? '')) {
+        erros.push('CNPJ alfanumérico: o leiaute da RAIS só tem CNPJ numérico.');
+    } else if (digitos(opcoes.empresa.cnpj).length !== 14) {
         erros.push('CNPJ da empresa inválido: informe os 14 dígitos.');
     }
     if (!opcoes.empresa.razaoSocial?.trim()) {

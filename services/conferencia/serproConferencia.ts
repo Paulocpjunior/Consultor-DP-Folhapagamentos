@@ -16,6 +16,7 @@
 
 import type { Empresa } from '../empresas/empresasTypes';
 import type { GrupoApuracao } from './totalizadores';
+import { normalizarCnpj, raizCnpj } from '../cadastros/documentos';
 
 export interface SituacaoSerpro { ok: boolean; entregue: boolean; situacao: string; dataEntrega: string | null; erro?: string }
 export interface FgtsSerpro {
@@ -108,23 +109,21 @@ export async function consultarSerproConferencia(cliente: ClienteSerpro, cnpj: s
     return { cnpj, competencia, consultadoEm: agora.toISOString(), fgts, esocial: situacao(e), dctfweb: situacao(d), dctfwebDebitos };
 }
 
-const digitos = (s: string) => s.replace(/\D/g, '');
-
 /**
  * CNPJ de 14 dígitos para consultar o SERPRO. Os totalizadores trazem só a
  * raiz no ideEmpregador. Ordem: cadastro de empresas (matriz primeiro) e,
  * sem cadastro, o estabelecimento informado nos próprios totalizadores.
  */
 export function cnpjParaSerpro(g: GrupoApuracao, empresas: Empresa[] | null): string | null {
-    const raiz = digitos(g.empregador).slice(0, 8);
+    const raiz = raizCnpj(g.empregador);
     if (raiz.length !== 8) return null;
-    const doCadastro = (empresas ?? []).map(e => digitos(e.cnpj)).filter(c => c.length === 14 && c.startsWith(raiz));
+    const doCadastro = (empresas ?? []).map(e => normalizarCnpj(e.cnpj)).filter(c => c.length === 14 && c.startsWith(raiz));
     const matriz = doCadastro.find(c => c.slice(8, 12) === '0001');
     if (matriz || doCadastro[0]) return matriz ?? doCadastro[0];
     const dosArquivos = [
         ...g.s5001.flatMap(t => t.vinculos.map(v => v.estab)),
         ...g.s5003.flatMap(t => t.itens.map(i => i.estab)),
-    ].map(digitos).filter(c => c.length === 14 && c.startsWith(raiz));
+    ].map(c => normalizarCnpj(c)).filter(c => c.length === 14 && c.startsWith(raiz));
     return dosArquivos.find(c => c.slice(8, 12) === '0001') ?? dosArquivos[0] ?? null;
 }
 
@@ -134,13 +133,13 @@ export function cnpjParaSerpro(g: GrupoApuracao, empresas: Empresa[] | null): st
  * (a plataforma recusa consulta sem a empresa da carteira).
  */
 export function empresaIdParaSerpro(cnpj: string | null, empresas: Empresa[] | null, ativa?: { id: string; cnpj: string } | null): string | null {
-    const alvo = digitos(cnpj ?? '');
+    const alvo = normalizarCnpj(cnpj ?? '');
     if (alvo.length !== 14) return null;
     const raiz = alvo.slice(0, 8);
-    const daRaiz = (empresas ?? []).filter(e => digitos(e.cnpj).length === 14 && digitos(e.cnpj).startsWith(raiz));
-    const exata = daRaiz.find(e => digitos(e.cnpj) === alvo);
-    const matriz = daRaiz.find(e => digitos(e.cnpj).slice(8, 12) === '0001');
+    const daRaiz = (empresas ?? []).filter(e => normalizarCnpj(e.cnpj).length === 14 && normalizarCnpj(e.cnpj).startsWith(raiz));
+    const exata = daRaiz.find(e => normalizarCnpj(e.cnpj) === alvo);
+    const matriz = daRaiz.find(e => normalizarCnpj(e.cnpj).slice(8, 12) === '0001');
     const escolhida = exata ?? matriz ?? daRaiz[0];
     if (escolhida) return escolhida.id;
-    return ativa && digitos(ativa.cnpj).slice(0, 8) === raiz ? ativa.id : null;
+    return ativa && normalizarCnpj(ativa.cnpj).slice(0, 8) === raiz ? ativa.id : null;
 }

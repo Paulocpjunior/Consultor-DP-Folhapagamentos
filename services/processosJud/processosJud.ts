@@ -13,7 +13,7 @@
 // permitidos para cada tipo; depósito integral (02, 03) é sempre "S" e decisão definitiva (90) é "N".
 // Puro, sem Firebase.
 
-import { dataValida } from '../cadastros/documentos';
+import { dataValida, normalizarCnpj } from '../cadastros/documentos';
 import { idEvento, VER_PROC, type TpAmb } from '../esocial/transmissao';
 
 export type TpProc = '1' | '2' | '4';
@@ -139,7 +139,7 @@ export function gerarS1070(x: EntradaS1070): { evento: { id: string; xml: string
             : `<exclusao>${ideProcesso(p)}</exclusao>`;
     return { erros: [], evento: { id, xml: `<eSocial xmlns="http://www.esocial.gov.br/schema/evt/evtTabProcesso/v_S_01_03_00"><evtTabProcesso Id="${id}">`
         + `<ideEvento><tpAmb>${x.tpAmb}</tpAmb><procEmi>1</procEmi><verProc>${VER_PROC}</verProc></ideEvento>`
-        + `<ideEmpregador><tpInsc>1</tpInsc><nrInsc>${digitos(x.cnpj).slice(0, 8)}</nrInsc></ideEmpregador>`
+        + `<ideEmpregador><tpInsc>1</tpInsc><nrInsc>${normalizarCnpj(x.cnpj).slice(0, 8)}</nrInsc></ideEmpregador>`
         + `<infoProcesso>${corpo}</infoProcesso></evtTabProcesso></eSocial>` } };
 }
 

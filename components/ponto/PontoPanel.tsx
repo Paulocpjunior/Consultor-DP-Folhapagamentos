@@ -29,6 +29,7 @@ import type {
     EventoApurado,
 } from '../../types/ponto';
 import type { User } from '../../types';
+import { normalizarCnpj } from '../../services/cadastros/documentos';
 
 // ===== Types for Firestore ponto records =====
 
@@ -214,7 +215,7 @@ const TabImportar: React.FC<{ currentUser: User }> = ({ currentUser }) => {
         setProcessando(true);
         setErro('');
         try {
-            const cnpj = ((empresa as any).cnpj || '').replace(/\D/g, '');
+            const cnpj = normalizarCnpj((empresa as any).cnpj);
             const r = parsearArquivoFixedWidth(conteudo, modelo, layout, {
                 nomeArquivo: arquivo.name,
                 cnpjEsperado: cnpj,

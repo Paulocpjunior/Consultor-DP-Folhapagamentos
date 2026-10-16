@@ -12,6 +12,7 @@ import {
 import { gerarArquivoRais, VARIANTES_RAIS, type VarianteRais, type EmpresaRais, type PadroesRais, type ResponsavelRais } from '../../services/implantacao/geradorRais';
 import { gerarModeloCadastroIobXlsx, nomeArquivoModeloCadastro } from '../../services/implantacao/modeloCadastroExcel';
 import { baixarBytes, gerarZip } from '../../services/implantacao/zip';
+import { normalizarCnpj } from '../../services/cadastros/documentos';
 
 const input = 'w-full rounded-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 p-2 text-sm text-slate-900 dark:text-white';
 const botao = 'rounded-sm bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-40';
@@ -121,20 +122,20 @@ export default function CadastroIobModal({ usuario, dossie, cadastros, avisos, o
     function baixarXmls() {
         const r = xmlsAdmissao(unificacao.funcionarios, dossie.fontes);
         if (!r.arquivos.length) { setErros(r.avisos.length ? r.avisos : ['Nenhum S-2200 aceito para exportar.']); return; }
-        baixarBytes(`esocial-s2200-${dossie.cnpj.replace(/\D/g, '') || 'empresa'}.zip`, gerarZip(r.arquivos), 'application/zip');
+        baixarBytes(`esocial-s2200-${normalizarCnpj(dossie.cnpj) || 'empresa'}.zip`, gerarZip(r.arquivos), 'application/zip');
         setErros(r.avisos);
         setMensagem(`${r.arquivos.length} XML(s) S-2200 no ZIP, um por vínculo, com assinatura original. Use na rotina "Importação de Dados por XML" da IOB, se disponível na sua versão.`);
     }
     function aplicarRais(novo: ConfigRais) { setRais(novo); salvarRaisLocal(usuario, novo); }
     function baixarRais(variante: VarianteRais) {
-        const temResp = rais.responsavel.cnpj.replace(/\D/g, '').length === 14 && rais.responsavel.razaoSocial.trim();
+        const temResp = normalizarCnpj(rais.responsavel.cnpj).length === 14 && rais.responsavel.razaoSocial.trim();
         const r = gerarArquivoRais(unificacao.funcionarios, {
             variante, anoBase: rais.anoBase, empresa: { ...rais.empresa, cnpj: dossie.cnpj }, padroes: rais.padroes,
             responsavel: temResp ? rais.responsavel : undefined,
         });
         setErros([...r.erros, ...r.avisos]);
         if (r.erros.length) { setMensagem(''); return; }
-        const cnpj = dossie.cnpj.replace(/\D/g, '') || 'empresa';
+        const cnpj = normalizarCnpj(dossie.cnpj) || 'empresa';
         baixarBytes(`rais-${variante}-${rais.anoBase}-${cnpj}.txt`,
             codificar(r.conteudo, { ...layout, codificacao: 'ANSI' }), 'text/plain;charset=windows-1252');
         setMensagem(`RAIS ${VARIANTES_RAIS[variante].rotulo}: ${r.totalVinculos} vinculo(s), ${r.linhas.length} registro(s) de ${r.tamanhoRegistro} posicoes. Leia os avisos antes de importar.`);

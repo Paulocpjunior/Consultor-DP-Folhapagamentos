@@ -6,6 +6,7 @@ import type { FgtsDigitalRegistro, FgtsStatus } from '../../services/esocial/eso
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { consultarFgtsRecolhimento, consultarCrfFgts } from '../../services/serpro/serproIntegrationService';
 import PainelFgts from '../fgts/PainelFgts';
+import { normalizarCnpj } from '../../services/cadastros/documentos';
 
 const FGTS_STATUS_BADGE: Record<FgtsStatus, { label: string; cls: string }> = {
     em_dia:   { label: 'Em dia',   cls: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' },
@@ -107,7 +108,7 @@ const ESocialFgts: React.FC = () => {
         setSerproError(null);
         setSerproResult(null);
         try {
-            const cnpj = empresa.cnpj.replace(/\D/g, '');
+            const cnpj = normalizarCnpj(empresa.cnpj);
             const [recolhimento, crf] = await Promise.all([
                 consultarFgtsRecolhimento(empresa.id, cnpj, serproCompetencia),
                 consultarCrfFgts(empresa.id, cnpj),

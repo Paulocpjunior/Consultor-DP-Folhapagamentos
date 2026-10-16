@@ -18,7 +18,7 @@ import { consultarCrfFgts, consultarFgtsRecolhimento, type CrfFgtsResult } from 
 import { gravarFgtsComId } from '../../services/esocial/esocialService';
 import { competenciasAte, extratoDoFuncionario, fgtsDasFolhas, registroDoPopup, ROTULO_SITUACAO_FGTS, situacaoDoMes, situacaoProcuracao, vencimentoFgts, type MesFgts, type ProcuracaoFgts, type SituacaoFgts } from '../../services/fgts/consultaFgts';
 import { LINK_FGTS_DIGITAL } from '../../services/demissoes/efetivacao';
-import { reais } from '../../services/cadastros/documentos';
+import { normalizarCnpj, raizCnpj, reais } from '../../services/cadastros/documentos';
 
 const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const btn = 'rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700';
@@ -71,7 +71,7 @@ const PainelFgts: React.FC = () => {
     const ordenadas = useMemo(() => [...fichas].sort((a, b) => (a.dados.nome ?? '').localeCompare(b.dados.nome ?? '', 'pt-BR')), [fichas]);
 
     if (!ativa) return <p className="rounded-sm border border-dashed border-slate-300 p-4 text-center text-sm text-slate-500">Ative uma empresa para consultar o FGTS dela.</p>;
-    const cnpj = ativa.cnpj.replace(/\D/g, '');
+    const cnpj = normalizarCnpj(ativa.cnpj);
     const sp = situacaoProcuracao(empresa?.procuracaoFgts, hoje);
 
     async function consultar() {
@@ -107,7 +107,7 @@ const PainelFgts: React.FC = () => {
         setErro('');
         try {
             const l = await lerTotalizadores(await Promise.all(arquivos.map(async f => ({ nome: f.name, bytes: new Uint8Array(await f.arrayBuffer()) }))));
-            const s = l.totalizadores.filter((t): t is S5003 => t.tipo === 'S-5003' && t.empregador.replace(/\D/g, '').slice(0, 8) === cnpj.slice(0, 8));
+            const s = l.totalizadores.filter((t): t is S5003 => t.tipo === 'S-5003' && raizCnpj(t.empregador) === cnpj.slice(0, 8));
             setS5003(s); setMsg(`${s.length} S-5003 da empresa lido(s).`);
         } catch (e) { setErro(`Arquivos não lidos: ${(e as Error).message}`); }
     }

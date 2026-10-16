@@ -16,6 +16,7 @@
 
 import { CAMPOS, type Campo } from './implantacao';
 import type { FuncionarioUnificado } from './unificacao';
+import { normalizarCnpj } from '../cadastros/documentos';
 
 export type TipoCampo = 'A' | 'N' | 'D' | 'V';
 export type OrigemCampo = Campo | 'codigoIob' | 'cpf' | 'cnpj' | 'cnpjRaiz' | 'constante' | 'branco';
@@ -111,8 +112,8 @@ function valorOrigem(f: FuncionarioUnificado, campo: CampoLayout, cnpj: string):
     switch (campo.origem) {
         case 'codigoIob': return f.dados.matriculaIob || f.matricula;
         case 'cpf': return f.cpf;
-        case 'cnpj': return cnpj.replace(/\D/g, '');
-        case 'cnpjRaiz': return cnpj.replace(/\D/g, '').slice(0, 8);
+        case 'cnpj': return normalizarCnpj(cnpj);
+        case 'cnpjRaiz': return normalizarCnpj(cnpj).slice(0, 8);
         case 'constante': return campo.constante || '';
         case 'branco': return '';
         default: return f.dados[campo.origem] || '';
@@ -155,6 +156,8 @@ export function formatarCampo(campo: CampoLayout, bruto: string, layout: LayoutC
         if (texto.length > campo.tamanho) return { texto: texto.slice(-campo.tamanho), erro: `${rotulo}: valor ${valor} não cabe em ${campo.tamanho} posições.` };
         return { texto: fixo ? texto.padStart(campo.tamanho, '0') : texto };
     }
+    // CNPJ alfanumérico em campo numérico perderia as letras: o campo do layout tem de ser alfanumérico.
+    if ((campo.origem === 'cnpj' || campo.origem === 'cnpjRaiz') && /[A-Z]/i.test(valor)) return { texto: ''.padStart(campo.tamanho, '0'), erro: `${rotulo}: CNPJ alfanumérico (${valor}) em campo numérico: marque o campo como alfanumérico (A) no layout.` };
     // Numérico: somente dígitos, alinhado à direita com zeros.
     const digitos = valor.replace(/\D/g, '');
     if (valor && !digitos) return { texto: ''.padStart(campo.tamanho, '0'), erro: `${rotulo}: "${valor}" não é numérico.` };
@@ -239,5 +242,5 @@ export function salvarLayoutLocal(usuario: string, layout: LayoutCadastroIob | n
 }
 
 export function nomeArquivoTxtCadastro(cnpj: string, layout: LayoutCadastroIob): string {
-    return `cadastro-funcionarios-iob-${cnpj.replace(/\D/g, '') || 'empresa'}.${layout.extensao.replace(/[^a-z0-9]/gi, '') || 'txt'}`;
+    return `cadastro-funcionarios-iob-${normalizarCnpj(cnpj) || 'empresa'}.${layout.extensao.replace(/[^a-z0-9]/gi, '') || 'txt'}`;
 }

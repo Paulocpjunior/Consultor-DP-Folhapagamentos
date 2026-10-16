@@ -1,4 +1,5 @@
 import { cpfValido, digitos, type Cadastro, type Campo, type Dados } from './implantacao';
+import { normalizarCnpj } from '../cadastros/documentos';
 
 export interface ItemFicha { texto: string; x: number; y: number; largura: number }
 export interface FichaExtraida { cnpj: string; cpf: string; matricula: string; dados: Dados; avisos: string[] }
@@ -37,12 +38,12 @@ export function extrairFicha(itens: ItemFicha[]): FichaExtraida {
     const telefone = digitos(abaixo('Telefone Celular')); if (/^\d{10,11}$/.test(telefone)) dados.telefone = telefone;
     const salario = abaixo('Salário', 'Data de Admissão').replace(/R\$\s*/g, '').trim();
     if (/^\d{1,3}(\.\d{3})*,\d{2}$|^\d+,\d{2}$/.test(salario)) dados.salario = salario.replace(/\./g, '').replace(',', '.');
-    return { cnpj: digitos(abaixo('CNPJ')), cpf: digitos(abaixo('CPF')), matricula: abaixo('Matrícula eSocial'), dados,
+    return { cnpj: normalizarCnpj(abaixo('CNPJ')), cpf: digitos(abaixo('CPF')), matricula: abaixo('Matrícula eSocial'), dados,
         avisos: ['Extração do modelo Registro de Empregado. Confira os campos antes de aplicar.', 'Número de registro na ficha não é convertido em código interno IOB.'] };
 }
 export function conferirIdentidade(f: FichaExtraida, c: Cadastro, cnpj: string): string[] {
     const problemas: string[] = [];
-    if (f.cnpj.length !== 14 || f.cnpj !== digitos(cnpj) || f.cnpj.slice(0, 8) !== c.empregador) problemas.push('CNPJ da ficha não corresponde à empresa selecionada.');
+    if (f.cnpj.length !== 14 || f.cnpj !== normalizarCnpj(cnpj) || f.cnpj.slice(0, 8) !== c.empregador) problemas.push('CNPJ da ficha não corresponde à empresa selecionada.');
     if (!cpfValido(f.cpf) || f.cpf !== c.cpf) problemas.push('CPF da ficha não corresponde ao funcionário.');
     if (!f.matricula || f.matricula !== c.matricula) problemas.push('Matrícula eSocial da ficha não corresponde ao vínculo.');
     return problemas;

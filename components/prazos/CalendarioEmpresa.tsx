@@ -15,7 +15,7 @@ import {
     type GuiaSindical, type MarcacaoObrigacao, type ObrigacaoEmpresa,
 } from '../../services/prazos/obrigacoesEmpresa';
 import { desmarcarObrigacao, listarMarcacoes, marcarObrigacao } from '../../services/prazos/obrigacoesStatusService';
-import { centavosDeTexto } from '../../services/cadastros/documentos';
+import { centavosDeTexto, normalizarCnpj } from '../../services/cadastros/documentos';
 import {
     baixaPelaReceita, conferenciaNaReceita, ehGuia, nomeArquivoComprovante, numerosParaConferir, observacaoDaBaixa, resumoGuias, ROTULO_GUIA, ROTULO_NA_RECEITA, situacaoDaGuia, validarBaixa, valorPagoNoFgts,
     type BaixaGuia, type GuiaRegistrada, type LinhaConferenciaReceita,
@@ -69,7 +69,7 @@ const CalendarioEmpresa: React.FC<Props> = ({ empresa, fichas, sindicatos, usuar
     useEffect(() => {
         let vivo = true;
         setAvisosDarf([]);
-        const cnpj = (empresa.cnpj ?? '').replace(/\D/g, '');
+        const cnpj = normalizarCnpj(empresa.cnpj);
         if (!temUsuario || cnpj.length !== 14) return;
         (async () => {
             const r = await situacaoDarfsNaReceita(empresa.id, cnpj);
@@ -127,7 +127,7 @@ const CalendarioEmpresa: React.FC<Props> = ({ empresa, fichas, sindicatos, usuar
         if (!empresa.cnpj) return;
         setAviso('Consultando o FGTS Digital…'); setErro('');
         try {
-            const r = valorPagoNoFgts(await consultarFgtsRecolhimento(empresa.id, empresa.cnpj.replace(/\D/g, ''), empresa.competencia));
+            const r = valorPagoNoFgts(await consultarFgtsRecolhimento(empresa.id, normalizarCnpj(empresa.cnpj), empresa.competencia));
             // SERPRO sem a consulta: a baixa segue manual, pelo comprovante (nada é preenchido como se tivesse sido consultado).
             if ('erro' in r) { if (r.manual) { setAviso(r.erro); mudaBaixa({ fonte: 'manual' }); } else { setAviso(''); setErro(r.erro); } return; }
             mudaBaixa({ valorPago: texto(r.valorPago), valorDevido: texto(r.valorDevido), fonte: 'fgts-digital' });
@@ -140,7 +140,7 @@ const CalendarioEmpresa: React.FC<Props> = ({ empresa, fichas, sindicatos, usuar
         const numero = baixa.f.numeroDocumento;
         setAviso('Consultando o pagamento na Receita…'); setErro('');
         try {
-            const r = baixaPelaReceita(await consultarPagamentosReceita(empresa.id, empresa.cnpj.replace(/\D/g, ''), [numero]), numero);
+            const r = baixaPelaReceita(await consultarPagamentosReceita(empresa.id, normalizarCnpj(empresa.cnpj), [numero]), numero);
             if ('erro' in r) { setAviso(''); setErro(r.erro); return; }
             mudaBaixa({ data: r.data, valorPago: texto(r.valorPago), fonte: 'receita' });
             setAviso(`${r.detalhe} Informe a autenticação do comprovante, se tiver.`);
@@ -156,7 +156,7 @@ const CalendarioEmpresa: React.FC<Props> = ({ empresa, fichas, sindicatos, usuar
         if (!numeros.length) { setNaReceita(conferenciaNaReceita(itens, { ok: true, fonte: 'serpro', situacoes: [] })); return; }
         setConferindo(true);
         try {
-            const r = await consultarPagamentosReceita(empresa.id, empresa.cnpj.replace(/\D/g, ''), numeros);
+            const r = await consultarPagamentosReceita(empresa.id, normalizarCnpj(empresa.cnpj), numeros);
             if (!r.ok) { setErro(r.error || 'A Receita não respondeu.'); setNaReceita(null); return; }
             setNaReceita(conferenciaNaReceita(itens, r));
         } catch (e) { setErro(mensagemErro(e)); }
@@ -193,7 +193,7 @@ const CalendarioEmpresa: React.FC<Props> = ({ empresa, fichas, sindicatos, usuar
         if (!empresa.cnpj) return;
         setGravando(`comprovante-${o.id}`); setErro(''); setAviso('');
         try {
-            const r = await emitirComprovanteReceita(empresa.id, empresa.cnpj.replace(/\D/g, ''), g.numeroDocumento);
+            const r = await emitirComprovanteReceita(empresa.id, normalizarCnpj(empresa.cnpj), g.numeroDocumento);
             if (!r.ok || r.fonte !== 'serpro' || !r.pdfBase64) { setErro(r.error || 'A Receita não devolveu o comprovante.'); return; }
             baixarBytes(nomeArquivoComprovante(o.id, g.numeroDocumento), bytesDoBase64(r.pdfBase64), 'application/pdf');
         } catch (e) { setErro(mensagemErro(e)); }

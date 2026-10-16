@@ -57,9 +57,10 @@ export function lerReciboDoGoverno(rec: string): { dhRecepcao: string; dhProcess
     return { dhRecepcao: tag(rec, 'dhRecepcao'), dhProcessamento: tag(rec, 'dhProcessamento'), cdResposta: cd ? Number(cd) : null, tpAmb: amb ? Number(amb) : null, nrRecibo: tag(rec, 'nrRecibo') };
 }
 
-/** Data e hora de geração gravadas no Id do evento (ID + tpInsc + 14 dígitos + AAAAMMDDHHMMSS + sequencial), Brasília. */
+/** Data e hora de geração gravadas no Id do evento (ID + tpInsc + inscrição com 14 posições, letras do CNPJ alfanumérico
+ * nas 12 primeiras + AAAAMMDDHHMMSS + sequencial), Brasília. */
 export function dataDoId(id: string): string | null {
-    const m = /^ID\d{15}(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})\d{5}$/.exec(id ?? '');
+    const m = /^ID\d[A-Z0-9]{12}\d{2}(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})\d{5}$/.exec(id ?? '');
     if (!m) return null;
     const ms = instante(`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}`);
     return ms ? new Date(ms).toISOString() : null;

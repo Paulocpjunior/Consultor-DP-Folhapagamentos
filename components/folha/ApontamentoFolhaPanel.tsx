@@ -112,6 +112,7 @@ import { acharEmpresaPorNome } from '../../services/empresas/matchEmpresa';
 // downloadFile vem de apontamentoExporter
 // FolhaFlag e FLAG_LABELS vem de apontamentoExporter; tipoParaFlag definida abaixo
 import type { SessaoFolha } from './FolhaPanel';
+import { normalizarCnpj } from '../../services/cadastros/documentos';
 
 interface Props {
     currentUser: User;
@@ -300,7 +301,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                 let lancamentosFinais = r.lancamentos;
                 let alertasFinais = r.alertas;
                 try {
-                    const cnpjDigits = (sessao.empresa.cnpj ?? '').replace(/\D/g, '');
+                    const cnpjDigits = normalizarCnpj(sessao.empresa.cnpj);
                     if (cnpjDigits) {
                         const mapaCliente = await getMapeamento(cnpjDigits);
                         if (mapaCliente?.valoresHoraAula
@@ -441,7 +442,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
         try {
             let total = 0;
             const avisos: string[] = [];
-            const clienteDigits = (cliente ?? '').replace(/\D/g, '');
+            const clienteDigits = normalizarCnpj(cliente);
             // matriculasEdit e chaveado por NOME DA ABA. Para cada aba,
             // resolve (a) o doc Firestore correto via CNPJ da empresa e
             // (b) a chave-no-mapa que o montarLancamentos usa para ler.
@@ -451,7 +452,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                 );
                 if (Object.keys(filtradas).length === 0) continue;
                 const empCad = acharEmpresaPorNome(nomeAba, empresasCadastradas);
-                const cnpjDigits = empCad ? (empCad.cnpj ?? '').replace(/\D/g, '') : '';
+                const cnpjDigits = empCad ? normalizarCnpj(empCad.cnpj) : '';
                 const docId = cnpjDigits || clienteDigits;
                 const empObjAba = parsed?.empresas.find((e) => e.nome === nomeAba) ?? null;
                 const mapaEmp = mapasPorEmpresa[nomeAba] ?? mapa;
@@ -468,7 +469,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                 const acc: Record<string, MapeamentoApontamento | null> = {};
                 for (const emp of parsed.empresas) {
                     const empCad = acharEmpresaPorNome(emp.nome, empresasCadastradas);
-                    const cnpjDigits = empCad ? (empCad.cnpj ?? '').replace(/\D/g, '') : '';
+                    const cnpjDigits = empCad ? normalizarCnpj(empCad.cnpj) : '';
                     try {
                         acc[emp.nome] = cnpjDigits ? await getMapeamento(cnpjDigits) : null;
                     } catch { acc[emp.nome] = null; }
@@ -695,7 +696,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                 if (ehMultiEmpresaArquivo) {
                     r = { lancamentos: [], alertas: [], funcionariosSemMatricula: [] };
                     const mapaCache = new Map<string, MapeamentoApontamento>();
-                    const clienteDigits = (cliente ?? '').replace(/\D/g, '');
+                    const clienteDigits = normalizarCnpj(cliente);
                     for (const emp of parsedExport.empresas) {
                         const empresaCad = acharEmpresaPorNome(emp.nome, empresasCadastradas);
                         if (!empresaCad) {
@@ -705,7 +706,7 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
                             );
                             continue;
                         }
-                        const cnpjDigits = (empresaCad.cnpj ?? '').replace(/\D/g, '');
+                        const cnpjDigits = normalizarCnpj(empresaCad.cnpj);
                         let mapaEmp = mapaCache.get(cnpjDigits) ?? null;
                         if (!mapaEmp) {
                             if (cnpjDigits === clienteDigits) {
@@ -881,11 +882,11 @@ const ApontamentoFolhaPanel: React.FC<Props> = ({ currentUser, sessao, onTrocarE
         if (!parsed) { setMapasPorEmpresa({}); return; }
         let cancelado = false;
         (async () => {
-            const clienteDigits = (cliente ?? '').replace(/\D/g, '');
+            const clienteDigits = normalizarCnpj(cliente);
             const acc: Record<string, MapeamentoApontamento | null> = {};
             for (const emp of parsed.empresas) {
                 const empCad = acharEmpresaPorNome(emp.nome, empresasCadastradas);
-                const cnpjDigits = empCad ? (empCad.cnpj ?? '').replace(/\D/g, '') : '';
+                const cnpjDigits = empCad ? normalizarCnpj(empCad.cnpj) : '';
                 try {
                     if (cnpjDigits && cnpjDigits === clienteDigits) {
                         acc[emp.nome] = mapa;
@@ -1554,7 +1555,7 @@ function iniciaisDe(s: string): string {
 
 function formatCnpjBr(cnpj?: string): string {
     if (!cnpj) return '—';
-    const d = cnpj.replace(/\D/g, '');
+    const d = normalizarCnpj(cnpj);
     if (d.length !== 14) return cnpj;
     return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8,12)}-${d.slice(12)}`;
 }

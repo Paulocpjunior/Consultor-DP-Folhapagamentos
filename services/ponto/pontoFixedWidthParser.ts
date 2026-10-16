@@ -19,6 +19,7 @@ import type {
   ResultadoParsingPonto,
   FonteEvento,
 } from '../../types/ponto';
+import { normalizarCnpj } from '../cadastros/documentos';
 
 // -------- Decoder de bytes -> string --------
 
@@ -192,7 +193,7 @@ export function parsearArquivoFixedWidth(
     if (tipo === '1') {
       const campoCnpj = opts.nomeCampoCnpjHeader ?? 'cnpj';
       const campoRazao = opts.nomeCampoRazaoHeader ?? 'razaoSocial';
-      cnpjHeader = String(registro[campoCnpj] ?? '').replace(/\D/g, '');
+      cnpjHeader = normalizarCnpj(String(registro[campoCnpj] ?? ''));
       razaoHeader = registro[campoRazao] ? String(registro[campoRazao]) : null;
       continue;
     }
@@ -253,7 +254,7 @@ export function parsearArquivoFixedWidth(
   // Validacao cruzada: CNPJ do header tem que bater com o esperado
   if (cnpjHeader) {
     resultado.empresaCnpj = cnpjHeader;
-    if (cnpjHeader !== opts.cnpjEsperado.replace(/\D/g, '')) {
+    if (cnpjHeader !== normalizarCnpj(opts.cnpjEsperado)) {
       resultado.erros.push(
         `CNPJ do arquivo (${cnpjHeader}) nao bate com a empresa selecionada (${opts.cnpjEsperado}). ` +
           `Confirme que voce esta importando o arquivo da empresa certa.`,

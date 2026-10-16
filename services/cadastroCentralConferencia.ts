@@ -20,9 +20,7 @@
  */
 
 import { urlDoServico } from './plataforma/servicos';
-
-
-const soDigitos = (v: unknown) => String(v ?? '').replace(/\D/g, '');
+import { normalizarCnpj } from './cadastros/documentos';
 
 export interface EmpresaCentralMin { cnpj: string; nome: string | null }
 
@@ -41,7 +39,7 @@ export function conferirEmpresas(
 ): ConferenciaCadastroCentral {
     const porCnpj = new Map<string, EmpresaCentralMin>();
     for (const e of central) {
-        const c = soDigitos(e?.cnpj);
+        const c = normalizarCnpj(e?.cnpj);
         if (c.length === 14) porCnpj.set(c, e);
     }
 
@@ -51,7 +49,7 @@ export function conferirEmpresas(
     let conferidas = 0;
 
     for (const e of daqui) {
-        const cnpj = soDigitos(e?.cnpj);
+        const cnpj = normalizarCnpj(String(e?.cnpj ?? ''));
         const nomeAqui = String(e?.razaoSocial || e?.nomeFantasia || '').trim();
         if (cnpj.length !== 14) { semCnpj += 1; continue; }
         const c = porCnpj.get(cnpj);

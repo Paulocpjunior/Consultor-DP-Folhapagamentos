@@ -38,6 +38,7 @@ import AniversariantesEnvio from './AniversariantesEnvio';
 import { baixarBytes } from '../../services/implantacao/zip';
 import { historicoDeEnvios } from '../../services/relatorios/enviosFuncionarioService';
 import EntregaRelatorio, { type ArquivoRelatorio } from './EntregaRelatorio';
+import { normalizarCnpj } from '../../services/cadastros/documentos';
 
 const relatoriosPdf = () => import('../../services/relatorios/holeritePdf');
 const anuaisPdf = () => import('../../services/relatorios/relatoriosAnuaisPdf');
@@ -141,7 +142,7 @@ const RelatoriosPanel: React.FC<{ currentUser: User; /** Abre com este relatóri
         return f ? [`Matrícula ${f.matriculaEsocial}`, `CPF ${f.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}`, f.dados.admissao && `admissão ${brData(f.dados.admissao)}`, f.dados.cargo, f.dados.dataDesligamento && `desligamento ${brData(f.dados.dataDesligamento)}`].filter(Boolean).join(' · ') : '';
     };
     const opcoes = (d: DefRelatorio): OpcoesPdf => ({
-        empresa: { razaoSocial: dados?.empresa?.razaoSocial || ativa.nome, cnpj: ativa.cnpj.replace(/\D/g, ''), codigoSage: ativa.codigoSage },
+        empresa: { razaoSocial: dados?.empresa?.razaoSocial || ativa.nome, cnpj: normalizarCnpj(ativa.cnpj), codigoSage: ativa.codigoSage },
         titulo: d.titulo, previa: d.precisaFolha && !motorHomologadoNoMes(dados?.empresa?.parametrosFolha, ativa.competencia), emitidoPor: currentUser.email,
         orientacao: orientacao === 'auto' ? d.orientacao ?? 'retrato' : orientacao,
         mensagemHolerite: dados?.empresa?.parametrosFolha?.mensagemHolerite,
@@ -309,17 +310,17 @@ const RelatoriosPanel: React.FC<{ currentUser: User; /** Abre com este relatóri
                     <button className="rounded-lg bg-teal-600 px-3 py-2 text-sm font-medium text-white shadow-xs hover:bg-teal-500 disabled:opacity-50" disabled={!dados || faltaFolha} aria-pressed={enviar} onClick={() => setEnviar(x => !x)}>Enviar ao cliente</button>
                 </div>
                 {enviar && dados && !faltaFolha && (
-                    <EntregaRelatorio key={sel.id} empresa={{ id: ativa.id, cnpj: ativa.cnpj.replace(/\D/g, ''), nome: dados.empresa?.nomeFantasia || dados.empresa?.razaoSocial || ativa.nome, codigoSage: ativa.codigoSage, contatoEnvio: dados.empresa?.contatoEnvio }}
+                    <EntregaRelatorio key={sel.id} empresa={{ id: ativa.id, cnpj: normalizarCnpj(ativa.cnpj), nome: dados.empresa?.nomeFantasia || dados.empresa?.razaoSocial || ativa.nome, codigoSage: ativa.codigoSage, contatoEnvio: dados.empresa?.contatoEnvio }}
                         titulo={sel.titulo} competencia={sel.tipo === 'ficha-financeira' || sel.tipo === 'informe' ? `${ano}-12` : ativa.competencia} gerar={arquivo} />
                 )}
                 {sel.id === 'aniversariantes' && dados && (
-                    <AniversariantesEnvio empresa={{ id: ativa.id, cnpj: ativa.cnpj.replace(/\D/g, ''), nome: dados.empresa?.nomeFantasia || dados.empresa?.razaoSocial || ativa.nome }}
+                    <AniversariantesEnvio empresa={{ id: ativa.id, cnpj: normalizarCnpj(ativa.cnpj), nome: dados.empresa?.nomeFantasia || dados.empresa?.razaoSocial || ativa.nome }}
                         competencia={ativa.competencia} fichas={dados.fichas} mensagem={dados.empresa?.parametrosFolha?.mensagemAniversario}
                         gerarCartao={async (nome, msg) => new Uint8Array((await relatoriosPdf()).cartaoAniversarioPdf(nome, msg, opcoes(sel)).output('arraybuffer'))}
                         baixar={(nome, bytes) => baixarBytes(nome, bytes, 'application/pdf')} historico={histAniversario} />
                 )}
                 {sel.tipo === 'holerites' && dados?.folha && (
-                    <HoleritePorEmail empresa={{ id: ativa.id, cnpj: ativa.cnpj.replace(/\D/g, ''), nome: dados.empresa?.nomeFantasia || dados.empresa?.razaoSocial || ativa.nome }}
+                    <HoleritePorEmail empresa={{ id: ativa.id, cnpj: normalizarCnpj(ativa.cnpj), nome: dados.empresa?.nomeFantasia || dados.empresa?.razaoSocial || ativa.nome }}
                         competencia={ativa.competencia} folha={dados.folha.holerites} fichas={dados.fichas}
                         mensagemAniversario={dados.empresa?.parametrosFolha?.mensagemAniversario}
                         historico={histHolerite}

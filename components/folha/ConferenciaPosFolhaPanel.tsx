@@ -20,6 +20,7 @@ import type { Empresa } from '../../services/empresas/empresasTypes';
 import { clienteDaEmpresa, cnpjParaSerpro, consultarSerproConferencia, empresaIdParaSerpro, type ConsultaSerpro } from '../../services/conferencia/serproConferencia';
 import { extrairFuncionarios, lerPlanilhaResumo, ROTULO_CAMPO, type CampoResumo, type Mapeamento, type PlanilhaResumo } from '../../services/conferencia/resumoFolhaIob';
 import { consultarDctfWebDebitos, consultarDctfWebStatus, consultarESocialFechamento, consultarFgtsRecolhimento } from '../../services/serpro/serproIntegrationService';
+import { normalizarCnpj, raizCnpj } from '../../services/cadastros/documentos';
 
 const botao = 'rounded-sm bg-blue-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-40';
 const botaoSec = 'rounded-sm border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:text-slate-200 disabled:opacity-40';
@@ -102,8 +103,8 @@ const ConferenciaPosFolhaPanel: React.FC = () => {
     }
 
     const nomeEmpresa = (inscricao: string) => {
-        const raiz = inscricao.replace(/\D/g, '').slice(0, 8);
-        const e = empresas?.find(x => x.cnpj.replace(/\D/g, '').startsWith(raiz));
+        const raiz = raizCnpj(inscricao);
+        const e = empresas?.find(x => normalizarCnpj(x.cnpj).startsWith(raiz));
         return e ? `${e.codigoSage ? e.codigoSage + ' — ' : ''}${e.nomeFantasia || e.razaoSocial}` : '';
     };
 
@@ -187,7 +188,7 @@ const ConferenciaPosFolhaPanel: React.FC = () => {
                 <div className={cartao}><p className="text-sm text-slate-700 dark:text-slate-200">Nenhum totalizador encontrado nos arquivos carregados. Veja os avisos de leitura.</p></div>
             )}
 
-            {resultado && grupo && ativa && grupo.empregador.replace(/\D/g, '').slice(0, 8) !== ativa.cnpj.replace(/\D/g, '').slice(0, 8) && (
+            {resultado && grupo && ativa && raizCnpj(grupo.empregador) !== raizCnpj(ativa.cnpj) && (
                 <p role="alert" className="rounded-sm bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-900/20 dark:text-amber-100">
                     Estes totalizadores são de outra empresa (inscrição {grupo.empregador}), não da empresa ativa ({ativa.nome}, CNPJ {ativa.cnpj}). Confira os arquivos ou troque a empresa ativa.
                 </p>

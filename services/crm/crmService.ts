@@ -6,11 +6,12 @@
 import { collection, doc, getDoc, getDocs, setDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import type { ColaboradorCrm, EmpresaCrm, MapaColaboradores } from './crmDp';
+import { normalizarCnpj } from '../cadastros/documentos';
 
 const data = (t: unknown) => (t as { toDate?: () => Date } | null)?.toDate?.();
 
 export async function lerCrmDaEmpresa(cnpj: string): Promise<EmpresaCrm | null> {
-    const d = cnpj.replace(/\D/g, '');
+    const d = normalizarCnpj(cnpj);
     if (d.length !== 14) return null;
     const s = await getDoc(doc(db, 'crm_dp', d));
     return s.exists() ? (s.data() as EmpresaCrm) : null;

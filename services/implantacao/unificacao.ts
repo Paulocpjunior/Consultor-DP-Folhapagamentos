@@ -7,6 +7,7 @@
 
 import { CAMPOS, digitos, type Cadastro, type Campo, type Complemento, type Dados, type FonteXml } from './implantacao';
 import { compararFicha, conferirIdentidade, type FichaExtraida } from './fichaPdf';
+import { normalizarCnpj } from '../cadastros/documentos';
 
 export interface FichaLida { nome: string; hash: string; tamanho: number; ficha: FichaExtraida }
 export interface Divergencia { campo: Campo; rotulo: string; xml: string; pdf: string }
@@ -58,7 +59,7 @@ export function unificar(cadastros: Cadastro[], fichas: FichaLida[], cnpj: strin
         }
         if (candidatos.length > 1) { fichasSemVinculo.push({ nome: f.nome, motivo: 'Mais de um vínculo com a mesma identidade; revisar matrícula.' }); continue; }
         const cnpjFicha = f.ficha.cnpj;
-        const motivo = cnpjFicha.length !== 14 || cnpjFicha !== digitos(cnpj) ? `CNPJ da ficha (${cnpjFicha || 'não identificado'}) difere da empresa da implantação.`
+        const motivo = cnpjFicha.length !== 14 || cnpjFicha !== normalizarCnpj(cnpj) ? `CNPJ da ficha (${cnpjFicha || 'não identificado'}) difere da empresa da implantação.`
             : !cadastros.some(c => c.cpf === f.ficha.cpf) ? `CPF ${f.ficha.cpf || 'não identificado'} não localizado nos XMLs importados.`
                 : `Matrícula eSocial da ficha (${f.ficha.matricula || 'não identificada'}) não corresponde ao vínculo do CPF.`;
         fichasSemVinculo.push({ nome: f.nome, motivo });

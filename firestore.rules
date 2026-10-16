@@ -73,7 +73,7 @@ service cloud.firestore {
                     && idEmpresaValido(empresaId)
                     && request.resource.data.criadoPor == request.auth.uid
                     && request.resource.data.cnpj is string
-                    && request.resource.data.cnpj.matches('^[0-9]{14}$')
+                    && request.resource.data.cnpj.matches('^[0-9A-Z]{12}[0-9]{2}$')
                     && request.resource.data.codigoSage.matches('^[0-9]{1,6}$')
                     && request.resource.data.razaoSocial is string
                     && request.resource.data.nomeFantasia is string
@@ -95,7 +95,7 @@ service cloud.firestore {
                     // Quem cadastrou não muda (dá acesso permanente; auditoria de 10/2026), a não ser pelo gestor.
                     && (request.resource.data.get('criadoPor', null) == resource.data.get('criadoPor', null) || isGestor())
                     // Trocar o código SAGE ou o CNPJ exige reservar a chave nova, no formato certo.
-                    && (request.resource.data.cnpj == resource.data.cnpj || request.resource.data.cnpj.matches('^[0-9]{14}$'))
+                    && (request.resource.data.cnpj == resource.data.cnpj || request.resource.data.cnpj.matches('^[0-9A-Z]{12}[0-9]{2}$'))
                     && (request.resource.data.codigoSage == resource.data.codigoSage
                         || chaveDaEmpresa('sage_' + request.resource.data.codigoSage, empresaId))
                     && (request.resource.data.cnpj == resource.data.cnpj
@@ -103,13 +103,15 @@ service cloud.firestore {
       allow delete: if isGestor();
     }
 
+    // CNPJ gravado sem pontuação: 14 dígitos ou o alfanumérico da Receita (IN RFB 2.229/2024: 12 letras ou
+    // números, em maiúsculas, e 2 dígitos verificadores).
     // Documento por CNPJ (folha_*, ponto_layouts): a empresa dona do CNPJ pela chave única (empresas_unicos/cnpj_…).
     // Sem a chave reservada, só o admin. Chave que não é CNPJ (modelos como "EDUCATI"): lê quem é aprovado, grava o admin.
     function unicoCnpj(c) { return /databases/$(database)/documents/empresas_unicos/$('cnpj_' + c); }
-    function podeCnpj(c) { return isGestor() || (isApproved() && c is string && c.matches('^[0-9]{14}$') && exists(unicoCnpj(c)) && podeEmpresa(get(unicoCnpj(c)).data.empresaId))
-                                  || (isAdmin() && c is string && c.matches('^[0-9]{14}$') && !exists(unicoCnpj(c))); }
-    function leCliente(c) { return c.matches('^[0-9]{14}$') ? podeCnpj(c) : isApproved(); }
-    function gravaCliente(c) { return c.matches('^[0-9]{14}$') ? podeCnpj(c) : isAdmin(); }
+    function podeCnpj(c) { return isGestor() || (isApproved() && c is string && c.matches('^[0-9A-Z]{12}[0-9]{2}$') && exists(unicoCnpj(c)) && podeEmpresa(get(unicoCnpj(c)).data.empresaId))
+                                  || (isAdmin() && c is string && c.matches('^[0-9A-Z]{12}[0-9]{2}$') && !exists(unicoCnpj(c))); }
+    function leCliente(c) { return c.matches('^[0-9A-Z]{12}[0-9]{2}$') ? podeCnpj(c) : isApproved(); }
+    function gravaCliente(c) { return c.matches('^[0-9A-Z]{12}[0-9]{2}$') ? podeCnpj(c) : isAdmin(); }
 
     // Código SAGE e CNPJ únicos (06/10/2026): empresas_unicos/{sage_0000 | cnpj_…}
     // aponta a empresa dona. A chave nasce no mesmo lote da empresa, não troca
@@ -760,7 +762,7 @@ service cloud.firestore {
     // Gravado só pelo job de sincronização (conta de serviço). A empresa: quem pode no CNPJ; o CRM inteiro e o resumo:
     // gestor e admin (montam as carteiras). A ligação responsável do CRM → usuário: gestor e admin.
     match /crm_dp/{documento} {
-      allow get: if isAdmin() || (documento.matches('^[0-9]{14}$') && podeCnpj(documento));
+      allow get: if isAdmin() || (documento.matches('^[0-9A-Z]{12}[0-9]{2}$') && podeCnpj(documento));
       allow list: if isAdmin();
       allow write: if false;
     }
@@ -900,7 +902,7 @@ service cloud.firestore {
     // apagar só o admin. O PDF fica no Storage (convencoes/{cnpj}/...).
     function convencaoValida(id) {
       let d = request.resource.data;
-      return d.sindicatoCnpj is string && d.sindicatoCnpj.matches('^[0-9]{14}$')
+      return d.sindicatoCnpj is string && d.sindicatoCnpj.matches('^[0-9A-Z]{12}[0-9]{2}$')
         && d.vigenciaInicio is string && d.vigenciaInicio.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
         && d.vigenciaFim is string && d.vigenciaFim.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
         && id == d.sindicatoCnpj + '_' + d.vigenciaInicio

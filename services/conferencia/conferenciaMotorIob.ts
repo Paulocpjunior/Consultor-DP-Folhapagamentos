@@ -19,6 +19,7 @@ import { consolidarRubricas, lerXmlRubricas, vigenciaEm, type EventoRubrica, typ
 import { centavos, lerTotalizadoresXml, type S5001, type S5003 } from './totalizadores';
 import { lerZip } from '../implantacao/zip';
 import { CR_NAO_INSS } from './conferenciaPosFolha';
+import { normalizarCnpj } from '../cadastros/documentos';
 
 // ─── leitura do S-1200 ──────────────────────────────────────────────────────
 
@@ -103,7 +104,7 @@ function decodificar(bytes: Uint8Array): string {
 
 /** Lê .xml e .zip (o do "Download de eventos" ou um com os XMLs): S-1200, S-1010, S-5001 e S-5003. */
 export async function lerEsocialIob(arquivos: { nome: string; bytes: Uint8Array }[], cnpj: string): Promise<LeituraEsocialIob> {
-    const raiz = cnpj.replace(/\D/g, '').slice(0, 8);
+    const raiz = normalizarCnpj(cnpj).slice(0, 8);
     const r: LeituraEsocialIob = { remuneracoes: [], rubricasDoArquivo: [], s5001: [], s5003: [], avisos: [] };
     const fila = [...arquivos]; let abertos = 0; let semNada = 0;
     while (fila.length) {

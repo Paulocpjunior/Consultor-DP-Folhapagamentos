@@ -13,7 +13,7 @@ import type { Movimento } from '../../services/calculo/motorMensal';
 import { listarMovimentosDaEmpresa } from '../../services/calculo/movimentosService';
 import { complemento13, diferenca13DoReajuste, diferencasDaRescisao, juntarDiferencas, type DiferencasDosMotores } from '../../services/calculo/complementaresMotores';
 import type { ResultadoCalculo } from '../../services/calculo/motorMensal';
-import { centavosDeTexto, reais } from '../../services/cadastros/documentos';
+import { centavosDeTexto, normalizarCnpj, reais } from '../../services/cadastros/documentos';
 import { listarSindicatos, mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
 import { lerFolhaGravada } from '../../services/calculo/folhaGravadaService';
 import { listarConvencoes } from '../../services/sindicatos/convencoesService';
@@ -97,7 +97,7 @@ const FolhaComplementarModal: React.FC<Props> = ({ empresa, competencia, pagamen
         let vivo = true;
         Promise.all([listarConvencoes(), listarSindicatos()]).then(([convs, sinds]) => {
             if (!vivo) return;
-            setNomesSindicatos(Object.fromEntries(sinds.map(x => [x.cnpj.replace(/\D/g, ''), x.nome])));
+            setNomesSindicatos(Object.fromEntries(sinds.map(x => [normalizarCnpj(x.cnpj), x.nome])));
             for (const cnpj of cnpjs) {
                 const c = convencaoDoDia(convs, cnpj, `${competencia}-01`);
                 const s = c && sugestaoDaConvencao(c, competencia, sinds.find(x => x.cnpj === cnpj)?.nome ?? '', cnpj);
@@ -127,7 +127,7 @@ const FolhaComplementarModal: React.FC<Props> = ({ empresa, competencia, pagamen
     const instrumento: Instrumento = { tpAcConv: tipo, dtAcConv: dtAcConv || undefined, dsc };
     const reajuste = comReajuste ? { pct: Number(pct.replace(',', '.')) || 0, de, ate, ...(sindicato ? { sindicato } : {}) } : undefined;
     // Sindicatos para o filtro: os da empresa e os que aparecem nas fichas; a contagem de quem entra no reajuste.
-    const opcoesSindicato = useMemo(() => [...new Set([...(empresa.sindicatos ?? []), ...fichas.map(f => f.dados.sindicato ?? '')].map(c => c.replace(/\D/g, '')).filter(c => c.length === 14))].sort(), [empresa.sindicatos, fichas]);
+    const opcoesSindicato = useMemo(() => [...new Set([...(empresa.sindicatos ?? []), ...fichas.map(f => f.dados.sindicato ?? '')].map(c => normalizarCnpj(c)).filter(c => c.length === 14))].sort(), [empresa.sindicatos, fichas]);
     const contagemSindicato = useMemo(() => {
         const n = { sim: 0, nao: 0, sem: 0 };
         for (const f of fichas) n[noSindicatoDoReajuste(f, { sindicato })]++;

@@ -14,6 +14,7 @@
 import { comTokenCfi, erroCfi } from '../auth/tokenCfi';
 import { callFiscal } from '../serpro/serproIntegrationService';
 import { urlDoServico } from '../plataforma/servicos';
+import { normalizarCnpj } from '../cadastros/documentos';
 
 /** Departamento do Pessoal no SP Connect (fila "Gestão - Departamento Pessoal"). */
 export const DEPARTAMENTO_DP = 'dp-folha';
@@ -113,7 +114,7 @@ export interface ResultadoEmail { remetente: string; fonteRemetente: 'colaborado
 export async function enviarEmailPeloEscritorio(e: EnvioEmail, chamar: typeof callFiscal = callFiscal): Promise<ResultadoEmail> {
     try {
         return await chamar<ResultadoEmail>('/email/enviar', {
-            empresaId: e.empresaId, cnpj: e.cnpj.replace(/\D/g, ''), empresaNome: e.empresaNome, titulo: e.titulo, competencia: e.competencia,
+            empresaId: e.empresaId, cnpj: normalizarCnpj(e.cnpj), empresaNome: e.empresaNome, titulo: e.titulo, competencia: e.competencia,
             para: e.para, assunto: e.assunto, mensagem: e.mensagem,
             anexos: e.anexos.map(a => ({ nome: a.nome, base64: paraBase64(a.bytes), mime: a.mime })),
         });

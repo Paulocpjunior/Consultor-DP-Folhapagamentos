@@ -9,7 +9,7 @@ import { useEmpresaAtiva } from '../../services/empresaAtiva/empresaAtivaContext
 import { atualizarParametrosFolha, listarEmpresasVisiveis } from '../../services/empresas/empresasService';
 import { listarEnquadramentos, listarFuncionarios, mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
 import { enquadramentoVigente, type Enquadramento } from '../../services/cadastros/enquadramento';
-import { centavosDeTexto, reais } from '../../services/cadastros/documentos';
+import { centavosDeTexto, limparCnpj, reais } from '../../services/cadastros/documentos';
 import { TABELAS_PATRONAIS, calcularSindicalPatronal, configPatronalVazia, type ConfigSindicalPatronal, type FaixaPatronal } from '../../services/sindicatos/sindicalPatronal';
 
 const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
@@ -70,7 +70,7 @@ const SindicalPatronalPanel: React.FC<{ usuario: Usuario }> = ({ usuario: _u }) 
                 <label>Ano<input aria-label="Ano da contribuição" type="number" className={`block w-full ${inp}`} value={ano} onChange={e => setAno(Number(e.target.value))} /></label>
                 <label>Pago em (atraso)<input aria-label="Data do pagamento" type="date" className={`block w-full ${inp}`} value={pagamento} onChange={e => setPagamento(e.target.value)} /></label>
                 <label className="sm:col-span-2">Entidade sindical<input aria-label="Entidade sindical" className={`block w-full ${inp}`} value={config.entidade} onChange={e => muda({ entidade: e.target.value })} /></label>
-                <label>CNPJ da entidade<input aria-label="CNPJ da entidade" className={`block w-full ${inp}`} value={config.cnpjEntidade} onChange={e => muda({ cnpjEntidade: e.target.value.replace(/\D/g, '').slice(0, 14) })} /></label>
+                <label>CNPJ da entidade<input aria-label="CNPJ da entidade" className={`block w-full ${inp}`} value={config.cnpjEntidade} onChange={e => muda({ cnpjEntidade: limparCnpj(e.target.value).slice(0, 14) })} /></label>
                 <label>Código sindical (GRCSU)<input aria-label="Código sindical" className={`block w-full ${inp}`} value={config.codigoSindical} onChange={e => muda({ codigoSindical: e.target.value.slice(0, 20) })} /></label>
                 {config.tabelaId === 'propria' && <div className="space-y-1 sm:col-span-4">
                     <p className="text-xs font-medium">Faixas da confederação (capital até; alíquota; parcela a adicionar; ou valor fixo para o mínimo e o máximo)</p>
@@ -91,7 +91,7 @@ const SindicalPatronalPanel: React.FC<{ usuario: Usuario }> = ({ usuario: _u }) 
                         const mf = (x: Partial<typeof f>) => muda({ filiais: config.filiais.map((y, j) => (j === i ? { ...y, ...x } : y)) });
                         return (
                             <div key={i} className="grid grid-cols-2 gap-1 text-xs sm:grid-cols-[10rem_5rem_1fr_8rem_auto]">
-                                <input aria-label={`CNPJ da filial ${i + 1}`} className={inp} placeholder="CNPJ" value={f.cnpj} onChange={e => mf({ cnpj: e.target.value.replace(/\D/g, '').slice(0, 14) })} />
+                                <input aria-label={`CNPJ da filial ${i + 1}`} className={inp} placeholder="CNPJ" value={f.cnpj} onChange={e => mf({ cnpj: limparCnpj(e.target.value).slice(0, 14) })} />
                                 <input aria-label={`Parte do capital ${i + 1}`} className={inp} placeholder="%" value={f.percentual || ''} onChange={e => mf({ percentual: Number(e.target.value.replace(',', '.')) || 0 })} />
                                 <input aria-label={`Entidade da filial ${i + 1}`} className={inp} placeholder="sindicato da filial" value={f.entidade} onChange={e => mf({ entidade: e.target.value })} />
                                 <input aria-label={`Código sindical da filial ${i + 1}`} className={inp} placeholder="código" value={f.codigoSindical} onChange={e => mf({ codigoSindical: e.target.value.slice(0, 20) })} />

@@ -1,3 +1,5 @@
+import { cnpjValido, limparCnpj } from '../services/cadastros/cnpj';
+
 export function validarCPF(cpf: string): boolean {
     const digits = cpf.replace(/\D/g, '');
     if (digits.length !== 11) return false;
@@ -16,24 +18,8 @@ export function validarCPF(cpf: string): boolean {
     return parseInt(digits[10]) === check;
 }
 
-export function validarCNPJ(cnpj: string): boolean {
-    const digits = cnpj.replace(/\D/g, '');
-    if (digits.length !== 14) return false;
-    if (/^(\d)\1{13}$/.test(digits)) return false;
-
-    const weights1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
-    const weights2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
-
-    let sum = 0;
-    for (let i = 0; i < 12; i++) sum += parseInt(digits[i]) * weights1[i];
-    let check = sum % 11 < 2 ? 0 : 11 - (sum % 11);
-    if (parseInt(digits[12]) !== check) return false;
-
-    sum = 0;
-    for (let i = 0; i < 13; i++) sum += parseInt(digits[i]) * weights2[i];
-    check = sum % 11 < 2 ? 0 : 11 - (sum % 11);
-    return parseInt(digits[13]) === check;
-}
+/** CNPJ numérico ou alfanumérico (IN RFB 2.229/2024). */
+export const validarCNPJ = (cnpj: string): boolean => cnpjValido(cnpj);
 
 export function formatarCPF(cpf: string): string {
     const d = cpf.replace(/\D/g, '').slice(0, 11);
@@ -43,8 +29,9 @@ export function formatarCPF(cpf: string): string {
     return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
 }
 
+/** Máscara do CNPJ enquanto se digita; aceita as letras do CNPJ alfanumérico. */
 export function formatarCNPJ(cnpj: string): string {
-    const d = cnpj.replace(/\D/g, '').slice(0, 14);
+    const d = limparCnpj(cnpj).slice(0, 14);
     if (d.length <= 2) return d;
     if (d.length <= 5) return `${d.slice(0, 2)}.${d.slice(2)}`;
     if (d.length <= 8) return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5)}`;

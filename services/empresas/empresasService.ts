@@ -8,6 +8,7 @@ import app, { db } from '../firebaseConfig';
 import type { Empresa, EmpresaInput } from './empresasTypes';
 import { escopoAtual, esquecerEscopo, lerEmpresasPorId } from '../carteira/carteiraService';
 import { chaveCnpj, chaveSage, mensagemConflito, normalizarSage, repetidas, type ChaveUnica } from './chavesUnicas';
+import { limparCnpj } from '../cadastros/documentos';
 
 // Código SAGE e CNPJ únicos: cada empresa reserva as suas chaves aqui, no mesmo
 // lote da gravação; as regras do Firestore recusam a chave já reservada.
@@ -29,7 +30,7 @@ async function donoDaChave(chave: string): Promise<string | null> {
 async function conferirLivre(tipo: 'sage' | 'cnpj', valor: string, empresaId: string | null, visiveis: Empresa[]): Promise<void> {
     const chave = tipo === 'sage' ? chaveSage(valor) : chaveCnpj(valor);
     const dono = await donoDaChave(chave);
-    const igual = visiveis.find(e => e.id !== empresaId && (tipo === 'sage' ? normalizarSage(e.codigoSage) === normalizarSage(valor) : e.cnpj === valor));
+    const igual = visiveis.find(e => e.id !== empresaId && (tipo === 'sage' ? normalizarSage(e.codigoSage) === normalizarSage(valor) : limparCnpj(e.cnpj) === valor));
     if ((dono && dono !== empresaId) || igual) throw new Error(mensagemConflito(tipo, valor, visiveis.find(e => e.id === dono) ?? igual));
 }
 
@@ -64,7 +65,8 @@ export async function listarEmpresasVisiveis(): Promise<Empresa[]> {
 }
 
 export async function criarEmpresa(uid: string, input: EmpresaInput): Promise<string> {
-    const cnpjLimpo = input.cnpj.replace(/\D/g, '');
+    // Letras do CNPJ alfanumérico (IN RFB 2.229/2024) ficam, em maiúsculas.
+    const cnpjLimpo = limparCnpj(input.cnpj);
     const codigoSage = normalizarSage(input.codigoSage);
     const visiveis = await listarEmpresasVisiveis();
     await conferirLivre('cnpj', cnpjLimpo, null, visiveis);
@@ -96,7 +98,7 @@ export async function atualizarEmpresa(id: string, input: Partial<EmpresaInput> 
     const atual = await buscarEmpresa(id);
     if (!atual) throw new Error('Empresa não encontrada.');
     const patch: any = { atualizadoEm: serverTimestamp() };
-    if (input.cnpj         !== undefined) patch.cnpj         = input.cnpj.replace(/\D/g, '');
+    if (input.cnpj         !== undefined) patch.cnpj         = limparCnpj(input.cnpj);
     if (input.razaoSocial  !== undefined) patch.razaoSocial  = input.razaoSocial.trim();
     if (input.nomeFantasia !== undefined) patch.nomeFantasia = input.nomeFantasia.trim();
     if (input.codigoSage   !== undefined) patch.codigoSage   = normalizarSage(input.codigoSage);
@@ -147,7 +149,7 @@ async function reservarChaves(e: Pick<Empresa, 'id' | 'cnpj' | 'codigoSage'>, ui
  * empresa (cadastro repetido) fica para a equipe corrigir.
  */
 async function protegerUma(e: Empresa, uid: string): Promise<{ reservadas: number; normalizada: boolean }> {
-    const valores = { codigoSage: e.codigoSage ? normalizarSage(e.codigoSage) : '', cnpj: String(e.cnpj ?? '').replace(/\D/g, '') };
+    const valores = { codigoSage: e.codigoSage ? normalizarSage(e.codigoSage) : '', cnpj: limparCnpj(e.cnpj) };
     const lote = writeBatch(db);
     const patch: Partial<Record<'codigoSage' | 'cnpj', string>> = {};
     let reservadas = 0;

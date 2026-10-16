@@ -22,7 +22,7 @@
 // - IRRF sobre 10% do frete (carga) ou 60% (passageiros) (Lei 7.713/1988, art. 9º, com a Lei 12.794/2013);
 // - sem ISS retido (frete intermunicipal é ICMS; o municipal fica fora desta tela).
 
-import { cpfValido, dataValida, reais } from '../cadastros/documentos';
+import { cpfValido, dataValida, normalizarCnpj, reais } from '../cadastros/documentos';
 import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros/tabelasLegais';
 import type { Enquadramento } from '../cadastros/enquadramento';
 import { apurarIrrf, type ResultadoCalculo, type Verba } from '../calculo/motorMensal';
@@ -184,7 +184,7 @@ export function validarLancamentos(competencia: string, ls: LancamentoCI[], cont
         if (l.issAliquota < 0 || l.issAliquota > 5) e.push(`${q}: ISS entre 0% e 5% (LC 116/2003, art. 8º).`);
         if (c && CATEGORIAS_CI[c.categoria]?.transportador && l.issAliquota > 0) e.push(`${q}: transportador autônomo sem ISS retido nesta tela.`);
         l.outrasFontes.forEach((o, j) => {
-            const n = o.nrInsc.replace(/\D/g, '');
+            const n = normalizarCnpj(o.nrInsc);
             if (!(o.tpInsc === '1' ? n.length === 14 : n.length === 11)) e.push(`${q}, outra fonte ${j + 1}: CNPJ ou CPF inválido.`);
             if (!/^\d{3}$/.test(o.codCateg)) e.push(`${q}, outra fonte ${j + 1}: categoria (3 dígitos).`);
             if (!(o.valor > 0)) e.push(`${q}, outra fonte ${j + 1}: informe a remuneração.`);

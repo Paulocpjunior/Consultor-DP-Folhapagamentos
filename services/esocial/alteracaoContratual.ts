@@ -5,7 +5,7 @@
 // evento, com o novo local de trabalho (localTrabGeral) e a data da alteração. O contrato sai da ficha e dos dados que
 // ela não guarda (services/esocial/admissao.ts: regime e tipo de jornada, natureza, data-base, descrição da jornada).
 
-import { cpfValido, dataValida } from '../cadastros/documentos';
+import { cpfValido, dataValida, normalizarCnpj } from '../cadastros/documentos';
 import type { FichaFuncionario } from '../cadastros/funcionarios';
 import { celetistaXml, contratoXml, validarContrato, type ContratoS2200 } from './admissao';
 import { idEvento, VER_PROC, type TpAmb } from './transmissao';
@@ -41,7 +41,7 @@ export function gerarS2206(e: EntradaS2206): { evento: { id: string; xml: string
     const dsc = (e.dscAlt ?? '').trim();
     return { erros: [], evento: { id, xml: `<eSocial xmlns="http://www.esocial.gov.br/schema/evt/evtAltContratual/v_S_01_03_00"><evtAltContratual Id="${id}">`
         + `<ideEvento>${retif}<tpAmb>${e.tpAmb}</tpAmb><procEmi>1</procEmi><verProc>${VER_PROC}</verProc></ideEvento>`
-        + `<ideEmpregador><tpInsc>1</tpInsc><nrInsc>${digitos(e.cnpj).slice(0, 8)}</nrInsc></ideEmpregador>`
+        + `<ideEmpregador><tpInsc>1</tpInsc><nrInsc>${normalizarCnpj(e.cnpj).slice(0, 8)}</nrInsc></ideEmpregador>`
         + `<ideVinculo><cpfTrab>${digitos(f.cpf)}</cpfTrab><matricula>${esc(f.matriculaEsocial.trim())}</matricula></ideVinculo>`
         + `<altContratual><dtAlteracao>${e.dtAlteracao}</dtAlteracao>${dsc ? `<dscAlt>${esc(dsc.slice(0, 150))}</dscAlt>` : ''}`
         + `<vinculo><tpRegPrev>${/^[1-3]$/.test(f.dados.regimePrevidenciario ?? '') ? f.dados.regimePrevidenciario : '1'}</tpRegPrev>`

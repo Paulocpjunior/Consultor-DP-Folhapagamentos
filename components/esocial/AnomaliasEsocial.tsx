@@ -11,6 +11,7 @@ import { cofreDaMinhaCarteira, diasDaLinha } from '../../services/certificados/c
 import { registrarVerificacao, type Envio } from '../../services/esocial/transmissaoService';
 import { anomaliasDaEmpresa, ocorrenciasFrequentes, prazoPeriodicos, type Anomalia, type Conciliacao } from '../../services/esocial/anomalias';
 import { conciliarComEsocial } from '../../services/esocial/vigiaEsocial';
+import { normalizarCnpj } from '../../services/cadastros/documentos';
 
 interface Props {
     empresa: { id: string; cnpj: string; nome: string; competencia: string };
@@ -56,8 +57,8 @@ const AnomaliasEsocial: React.FC<Props> = ({ empresa, envios, usuario, onMudou, 
             });
         cofreDaMinhaCarteira().then(p => {
             if (!vivo) return;
-            const d = empresa.cnpj.replace(/\D/g, '');
-            const linha = p.linhas.find(l => l.cnpj.replace(/\D/g, '') === d);
+            const d = normalizarCnpj(empresa.cnpj);
+            const linha = p.linhas.find(l => normalizarCnpj(l.cnpj) === d);
             setCertDias(linha ? diasDaLinha(linha) : null);
         }).catch(() => { /* cofre fora do ar: sem o indicador */ });
         return () => { vivo = false; };

@@ -16,6 +16,7 @@ import { PERMITE_SAQUE_FGTS, type ResultadoRescisao } from '../calculo/motorResc
 import type { ResumoFolha } from '../relatorios/resumoFolha';
 import type { EventoAgenda } from '../agenda/convite';
 import { ROTULO_FORMA, type ResultadoRemessa } from '../bancario/cnab240';
+import { normalizarCnpj } from '../cadastros/documentos';
 
 export type TipoFolha = 'mensal' | '13-1a' | '13-2a' | 'ferias' | 'rescisao';
 
@@ -56,7 +57,7 @@ export function eventosDaFolha(p: ParamsEventosFolha): EventoAgenda[] {
     if (!calculados.length) return [];
     const e = p.encargos;
     const liquido = calculados.reduce((s, r) => s + r.totais.liquido, 0);
-    const chave = `${p.empresa.cnpj.replace(/\D/g, '')}-${p.folha}-${p.folha.startsWith('13') ? p.ano : p.competencia}`;
+    const chave = `${normalizarCnpj(p.empresa.cnpj)}-${p.folha}-${p.folha.startsWith('13') ? p.ano : p.competencia}`;
     const uid = (s: string) => `folha-${chave}-${s}@consultor-dp`;
     const base = `${p.empresa.nome}`;
     const ev: EventoAgenda[] = [];

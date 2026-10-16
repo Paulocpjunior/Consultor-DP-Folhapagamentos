@@ -11,6 +11,7 @@
 // ou outro sistema — e o CFI troca a assinatura pela do cofre.
 
 import { callFiscal } from '../serpro/serproIntegrationService';
+import { normalizarCnpj } from '../cadastros/documentos';
 
 export type TpAmb = 1 | 2;
 export const ROTULO_AMBIENTE: Record<TpAmb, string> = { 1: 'Produção', 2: 'Produção restrita (testes)' };
@@ -18,8 +19,9 @@ export const VER_PROC = 'ConsultorDP_1.0';
 const NS = 'http://www.esocial.gov.br/schema/evt';
 const VERSAO_LEIAUTE = 'v_S_01_03_00';
 
+// Raiz com as letras do CNPJ alfanumérico: o S-1.3 aceita [A-Z0-9]{8} no nrInsc e [A-Z0-9]{12} no Id.
 const raiz = (cnpj: string) => {
-    const d = cnpj.replace(/\D/g, '');
+    const d = normalizarCnpj(cnpj);
     if (d.length !== 14) throw new Error('CNPJ inválido.');
     return d.slice(0, 8);
 };
@@ -33,7 +35,7 @@ function carimbo(agora: Date): string {
 
 /**
  * Id do evento: "ID" + tipo de inscrição (1 = CNPJ) + inscrição com 14
- * posições (raiz do CNPJ completada com zeros à direita) + data e hora
+ * posições (raiz do CNPJ, com as letras do alfanumérico, completada com zeros à direita) + data e hora
  * (AAAAMMDDHHMMSS) + sequencial de 5 dígitos.
  */
 export function idEvento(cnpj: string, agora = new Date(), seq = 1): string {
@@ -166,10 +168,10 @@ export function lerEventoXml(nome: string, xml: string, empresa: { cnpj: string 
     let erro = '';
     if (!m) erro = 'não é um evento do eSocial (<eSocial><evt… Id="…">)';
     else if (!tipo) erro = `<${elemento}> não é um evento que se transmite`;
-    else if (!/^ID[12]\d{33}$/.test(base.id)) erro = 'Id fora do formato do eSocial';
+    else if (!/^ID[12][A-Z0-9]{12}\d{21}$/.test(base.id)) erro = 'Id fora do formato do eSocial';
     else {
         const nrInsc = pegar((texto.match(/<(?:\w+:)?ideEmpregador>([\s\S]*?)<\/(?:\w+:)?ideEmpregador>/) || [])[1] ?? '', 'nrInsc');
-        const d = empresa.cnpj.replace(/\D/g, '');
+        const d = normalizarCnpj(empresa.cnpj);
         const amb = pegar(texto, 'tpAmb');
         if (nrInsc !== d.slice(0, 8) && nrInsc !== d) erro = `empregador ${nrInsc || '?'} não é a empresa ativa`;
         else if (amb !== String(tpAmb)) erro = `evento de ${amb === '1' ? 'produção' : amb === '2' ? 'produção restrita' : 'ambiente desconhecido'}; o envio está em ${ROTULO_AMBIENTE[tpAmb].toLowerCase()}`;

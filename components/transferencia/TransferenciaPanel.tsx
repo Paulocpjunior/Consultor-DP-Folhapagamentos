@@ -26,12 +26,13 @@ import type { TpAmb } from '../../services/esocial/transmissao';
 import { baixarBytes } from '../../services/implantacao/zip';
 import { fichaNoDestino, gerarS2299Transferencia, refTransferenciaEntrada, refTransferenciaSaida, ultimoDiaNaOrigem, validarTransferencia, type Transferencia } from '../../services/transferencia/transferencia';
 import { efetivarTransferencia, listarTransferencias, type RegistroTransferencia } from '../../services/transferencia/transferenciaService';
+import { limparCnpj, normalizarCnpj, raizCnpj } from '../../services/cadastros/documentos';
 
 const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const btn = 'rounded-sm border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
 const br = (d: string) => d.split('-').reverse().join('/');
 const nomeDe = (e: Empresa) => e.nomeFantasia || e.razaoSocial;
-const raiz = (c: string) => c.replace(/\D/g, '').slice(0, 8);
+const raiz = (c: string) => raizCnpj(c);
 const cor = (s: StatusEvento) => (s.situacao === 'aceito' ? 'text-green-700 dark:text-green-300' : s.situacao === 'recusado' ? 'text-red-700 dark:text-red-300' : s.situacao === 'aguardando' ? 'text-amber-700 dark:text-amber-300' : 'text-slate-500');
 const proximoDia1 = () => { const d = new Date(); return `${d.getMonth() === 11 ? d.getFullYear() + 1 : d.getFullYear()}-${String((d.getMonth() + 1) % 12 + 1).padStart(2, '0')}-01`; };
 
@@ -85,7 +86,7 @@ const TransferenciaPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
     const t: Transferencia | null = ficha && origem && destino ? { ficha, origem: { id: origem.id, cnpj: origem.cnpj, nome: nomeDe(origem) }, destino: { id: destino.id, cnpj: destino.cnpj, nome: nomeDe(destino) }, data, matricula, estabelecimento: estab } : null;
     // Troca de estabelecimento: o novo local (outro CNPJ da mesma raiz) e a data (qualquer dia).
     const estabsConhecidos = useMemo(() => [...new Set([origem?.cnpj ?? '', origem?.esocialFolha?.nrInscEstab ?? '', ...(origem?.esocialFolha?.estabelecimentos ?? []).map(x => x.nrInsc), ...fichas.map(f => f.dados.estabelecimento ?? '')]
-        .map(x => x.replace(/\D/g, '')).filter(x => x.length === 14 && origem && x.slice(0, 8) === raiz(origem.cnpj)))], [origem, fichas]);
+        .map(x => normalizarCnpj(x)).filter(x => x.length === 14 && origem && x.slice(0, 8) === raiz(origem.cnpj)))], [origem, fichas]);
     const errosTroca = useMemo(() => (modo === 'estab' && ficha && origem ? [...validarTrocaDeEstabelecimento(ficha, estab, data, origem.cnpj), ...validarContrato(ficha, contrato, estab).map(x => `S-2206: ${x}`)] : []), [modo, ficha, origem, estab, data, contrato]);
     const erros = useMemo(() => {
         if (!t) return [];
@@ -137,7 +138,7 @@ const TransferenciaPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
 
     function escolherDestino(id: string) {
         setDestinoId(id);
-        setEstab(empresas.find(e => e.id === id)?.cnpj.replace(/\D/g, '') ?? '');
+        setEstab(normalizarCnpj(empresas.find(e => e.id === id)?.cnpj));
     }
     async function efetivar() {
         if (!t || erros.length) return;
@@ -253,7 +254,7 @@ const TransferenciaPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
                     <div className="grid gap-2 sm:grid-cols-4">
                         <label className="sm:col-span-2">Funcionário<select aria-label="Funcionário da troca" className={`block w-full ${inp}`} value={fichaId} onChange={e => escolherFicha(e.target.value)}>
                             <option value="">— escolha —</option>{ativos.map(f => <option key={f.id} value={f.id}>{f.dados.nome} · {f.matriculaEsocial} · {estabelecimentoNoDia(f, data) || 'sem estabelecimento'}</option>)}</select></label>
-                        <label>Novo estabelecimento (CNPJ)<input aria-label="Novo estabelecimento" list="estabs-empresa" className={`block w-full ${inp}`} value={estab} onChange={e => setEstab(e.target.value.replace(/\D/g, '').slice(0, 14))} />
+                        <label>Novo estabelecimento (CNPJ)<input aria-label="Novo estabelecimento" list="estabs-empresa" className={`block w-full ${inp}`} value={estab} onChange={e => setEstab(limparCnpj(e.target.value).slice(0, 14))} />
                             <datalist id="estabs-empresa">{estabsConhecidos.map(x => <option key={x} value={x} />)}</datalist></label>
                         <label>A partir de<input aria-label="Data da troca" type="date" className={`block w-full ${inp}`} value={data} onChange={e => setData(e.target.value)} /></label>
                     </div>
@@ -295,7 +296,7 @@ const TransferenciaPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
                         <option value="">— escolha —</option>{doGrupo.map(e => <option key={e.id} value={e.id}>{e.codigoSage} · {nomeDe(e)}</option>)}</select></label>
                     <label>Data (1º dia no destino)<input aria-label="Data da transferência" type="date" className={`block w-full ${inp}`} value={data} onChange={e => setData(e.target.value)} /></label>
                     <label>Matrícula no destino<input aria-label="Matrícula no destino" className={`block w-full ${inp}`} value={matricula} onChange={e => setMatricula(e.target.value.slice(0, 30))} /></label>
-                    <label className="sm:col-span-2">Estabelecimento de destino (CNPJ)<input aria-label="Estabelecimento de destino" className={`block w-full ${inp}`} value={estab} onChange={e => setEstab(e.target.value.replace(/\D/g, '').slice(0, 14))} /></label>
+                    <label className="sm:col-span-2">Estabelecimento de destino (CNPJ)<input aria-label="Estabelecimento de destino" className={`block w-full ${inp}`} value={estab} onChange={e => setEstab(limparCnpj(e.target.value).slice(0, 14))} /></label>
                 </div>
                 {ficha && contratoCampos}
                 {t && erros.length > 0 && <ul role="alert" className="list-disc rounded-sm bg-amber-50 p-2 pl-6 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">{erros.map(x => <li key={x}>{x}</li>)}</ul>}
