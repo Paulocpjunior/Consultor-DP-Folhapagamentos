@@ -12,6 +12,7 @@
 import * as XLSX from 'xlsx';
 import type { FichaFuncionario } from '../cadastros/funcionarios';
 import { NR_DOC_CONSIGNADO, type ContratoConsignado } from './consignado';
+import { cpfValido } from '../implantacao/implantacao';
 
 export type CampoArquivo = 'cpf' | 'matricula' | 'instFinanc' | 'nrDoc' | 'parcela' | 'competencia' | 'nome' | 'cnpj';
 export const CAMPOS_ARQUIVO: { campo: CampoArquivo; rotulo: string; obrigatorio: boolean }[] = [
@@ -181,12 +182,17 @@ export function previaImportacao(arq: ArquivoLido, mapa: MapaColunas, competenci
     // Linhas válidas do arquivo, por ficha.
     const porFicha = new Map<string, { ficha: FichaFuncionario; contratos: Map<string, { instFinanc: string; nrDoc: string; parcela: number; linha: number }> }>();
     let outraComp = 0;
+    // Linha recusada de um CPF: os contratos dele não podem ser dados como fora do arquivo (Codex #277). Linha sem CPF
+    // legível pode ser de qualquer um: nenhum contrato sai por ausência.
+    const cpfsRecusados = new Set<string>();
+    let cpfIlegivel = false;
     arq.linhas.forEach((l, i) => {
         const linha = i + 2; // 1 = cabeçalho
         const cpf = digitos(val(l, 'cpf')).padStart(11, '0');
         const nrDoc = val(l, 'nrDoc');
-        const p = (motivo: string) => pendencias.push({ linha, cpf, nrDoc, motivo });
-        if (!/^\d{11}$/.test(cpf) || /^0+$/.test(cpf)) return p('CPF inválido.');
+        const p = (motivo: string) => { pendencias.push({ linha, cpf, nrDoc, motivo }); cpfsRecusados.add(cpf); };
+        // O Excel tira o zero à esquerda: completa até 11 e confere os dígitos verificadores.
+        if (!cpfValido(cpf)) { cpfIlegivel = true; return p('CPF inválido.'); }
         const compTxt = val(l, 'competencia');
         if (compTxt) {
             const c = competenciaDoArquivo(compTxt);
@@ -214,7 +220,12 @@ export function previaImportacao(arq: ArquivoLido, mapa: MapaColunas, competenci
         if (!ja) reg.contratos.set(k, { instFinanc: inst.padStart(3, '0'), nrDoc, parcela, linha });
         porFicha.set(f.id, reg);
     });
-    if (outraComp && outraComp === arq.linhas.length) avisos.push(`O arquivo não é da competência ${br(competencia)}: confira a competência da tela ou baixe o arquivo certo.`);
+    if (outraComp && outraComp === arq.linhas.length) {
+        avisos.push(`O arquivo não é da competência ${br(competencia)}: confira a competência da tela ou baixe o arquivo certo. Nada a gravar.`);
+        return { competencia, acoes, pendencias, avisos, lidas: arq.linhas.length };
+    }
+    if (cpfIlegivel) avisos.push('Há linha com CPF ilegível: nenhum contrato foi dado como fora do arquivo. Corrija o arquivo (baixe de novo no Portal) para tratar quitações e portabilidades.');
+    else if (cpfsRecusados.size) avisos.push('Os contratos de quem teve linha recusada não foram dados como fora do arquivo: confira essas linhas.');
 
     // Ações por ficha: o que o arquivo traz e o que a ficha tem vigente na competência.
     const base = (f: FichaFuncionario) => ({ fichaId: f.id, nome: f.dados.nome || f.cpf, cpf: f.cpf });
@@ -229,7 +240,7 @@ export function previaImportacao(arq: ArquivoLido, mapa: MapaColunas, competenci
             else if (atual.parcela !== a.parcela) acoes.push({ id, tipo: 'parcela', ...base(f), ...a, parcelaAntes: atual.parcela, descricao: `Parcela de ${reais(atual.parcela)} para ${reais(a.parcela)} a partir de ${br(competencia)} (renegociação ou portabilidade); o valor anterior fica nos meses passados.` });
             else acoes.push({ id, tipo: 'igual', ...base(f), ...a, parcelaAntes: atual.parcela, descricao: 'Igual ao da ficha.' });
         }
-        if (!ativaNaCompetencia(f, competencia)) continue;
+        if (!ativaNaCompetencia(f, competencia) || cpfIlegivel || cpfsRecusados.has(f.cpf)) continue;
         for (const c of (f.consignados ?? []).filter(c => vigente(c, competencia) && !doArquivo.has(`${c.instFinanc}|${c.nrDoc}`))) {
             acoes.push({ id: `${f.id}|${c.instFinanc}|${c.nrDoc}`, tipo: 'ausente', ...base(f), instFinanc: c.instFinanc, nrDoc: c.nrDoc, parcelaAntes: c.parcela,
                 descricao: c.inicio >= competencia ? `Não está no arquivo: o contrato lançado para começar em ${br(c.inicio)} sai da ficha.` : `Não está no arquivo (quitado, suspenso ou portado): o desconto termina em ${br(mesAnterior(competencia))}.` });

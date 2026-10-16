@@ -35,13 +35,17 @@ const ConsignadoImportacao: React.FC<Props> = ({ empresaId, cnpj, competencia, f
     const [erro, setErro] = useState('');
     const [msg, setMsg] = useState('');
     const [gravando, setGravando] = useState(false);
+    const [erroFechamento, setErroFechamento] = useState('');
+    const [releitura, setReleitura] = useState(0);
 
+    // Sem saber se a competência está encerrada, não grava: a ficha não tem trava por mês nas regras (Codex #277).
     useEffect(() => {
         let vivo = true;
-        setEncerrada(null);
-        lerFechamento(empresaId, competencia).then(f => { if (vivo) setEncerrada(situacaoDe(f) === 'encerrado'); }).catch(() => { if (vivo) setEncerrada(false); });
+        setEncerrada(null); setErroFechamento('');
+        lerFechamento(empresaId, competencia).then(f => { if (vivo) setEncerrada(situacaoDe(f) === 'encerrado'); })
+            .catch(e => { if (vivo) setErroFechamento(`Não consegui ler a situação da competência no Fim de mês (${mensagemErro(e)}): a gravação fica bloqueada até ler.`); });
         return () => { vivo = false; };
-    }, [empresaId, competencia]);
+    }, [empresaId, competencia, releitura]);
     // Outra empresa ou competência: o arquivo lido não vale mais.
     useEffect(() => { setArquivo(null); setMapa({}); setDesmarcadas(new Set()); setMsg(''); setErro(''); }, [empresaId, competencia]);
 
@@ -60,7 +64,7 @@ const ConsignadoImportacao: React.FC<Props> = ({ empresaId, cnpj, competencia, f
 
     async function gravar() {
         if (!usuario || !arquivo || !escolhidas.length) return;
-        if (encerrada) { setErro(MSG_ENCERRADO(competencia)); return; }
+        if (encerrada !== false) { setErro(encerrada ? MSG_ENCERRADO(competencia) : 'A situação da competência no Fim de mês ainda não foi lida.'); return; }
         const mudadas = aplicarImportacao(fichas, escolhidas, competencia);
         const invalidas = mudadas.flatMap(f => validarContratos(f.consignados ?? []).map(e => `${f.dados.nome || f.cpf}: ${e}`));
         if (invalidas.length) { setErro(invalidas.join(' ')); return; }
@@ -83,6 +87,7 @@ const ConsignadoImportacao: React.FC<Props> = ({ empresaId, cnpj, competencia, f
             </div>
             {erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
             {msg && <p className="rounded-sm bg-green-50 p-2 text-green-800 dark:bg-green-900/30 dark:text-green-200">{msg}</p>}
+            {erroFechamento && <p role="alert" className="rounded-sm bg-amber-50 p-2 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">{erroFechamento} <button className="underline" onClick={() => setReleitura(n => n + 1)}>Tentar de novo</button></p>}
             {encerrada && <p className="rounded-sm bg-amber-50 p-2 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">{MSG_ENCERRADO(competencia)}</p>}
             <label className="block">Arquivo<input aria-label="Arquivo de empréstimos" type="file" accept=".csv,.txt,.json,.xls,.xlsx" className={`block ${inp}`}
                 onChange={e => { const f = e.target.files?.[0]; if (f) void ler(f); e.target.value = ''; }} /></label>

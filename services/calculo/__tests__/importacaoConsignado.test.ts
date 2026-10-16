@@ -42,28 +42,28 @@ describe('leitura do arquivo', () => {
 
 describe('prévia e aplicação', () => {
     const fichas = [
-        ficha('a', '11111111111', 'ANA', [C('341', 'A1', 40000)]),
-        ficha('b', '22222222222', 'BRUNO', [C('341', 'B1', 30000, { garantiaRescisao: 10, saldoRescisao: 500000, consultaRescisao: '2026-09-30', fim: '2027-06' })]),
-        ficha('c', '33333333333', 'CARLA'),
-        ficha('d', '44444444444', 'DIEGO', [C('104', 'D1', 20000), C('001', 'D2', 15000, { inicio: '2026-10' })]),
-        ficha('e', '55555555555', 'ELIS', [C('341', 'E1', 10000)], { dataDesligamento: '2026-08-31' }),
-        ficha('f1', '66666666666', 'FABIO (contrato 1)', [], {}, 'X1'),
-        ficha('f2', '66666666666', 'FABIO (contrato 2)', [], {}, 'X2'),
-        ficha('g', '77777777777', 'GIL', [C('033', 'G1', 9000, { inicio: '2026-01', fim: '2026-05' })]),
+        ficha('a', '11144477735', 'ANA', [C('341', 'A1', 40000)]),
+        ficha('b', '22255588846', 'BRUNO', [C('341', 'B1', 30000, { garantiaRescisao: 10, saldoRescisao: 500000, consultaRescisao: '2026-09-30', fim: '2027-06' })]),
+        ficha('c', '33366699957', 'CARLA'),
+        ficha('d', '44477700083', 'DIEGO', [C('104', 'D1', 20000), C('001', 'D2', 15000, { inicio: '2026-10' })]),
+        ficha('e', '55588811194', 'ELIS', [C('341', 'E1', 10000)], { dataDesligamento: '2026-08-31' }),
+        ficha('f1', '66699922203', 'FABIO (contrato 1)', [], {}, 'X1'),
+        ficha('f2', '66699922203', 'FABIO (contrato 2)', [], {}, 'X2'),
+        ficha('g', '77700033340', 'GIL', [C('033', 'G1', 9000, { inicio: '2026-01', fim: '2026-05' })]),
     ];
     const csv = ['cpf;matricula;cnpj;ifConcessora.codigo;contrato;valorParcela;competencia',
-        '11111111111;;29463877000109;341;A1;400,00;2026-10', // igual
-        '22222222222;;29463877000280;341;B1;350,00;10/2026', // parcela nova; CNPJ de filial (mesma raiz)
-        '33333333333;;;1;C1;250,00;2026-10', // novo (instituição 001)
-        '66666666666;X2;;237;F1;100,00;2026-10', // duplo vínculo resolvido pela matrícula
-        '77777777777;;;033;G1;90,00;2026-10', // contrato encerrado que volta
-        '88888888888;;;341;Z1;100,00;2026-10', // CPF sem ficha
-        '11111111111;;;341;A9;100,00;2026-09', // outra competência
-        '11111111111;;;3410;A8;100,00;2026-10', // instituição inválida
-        '11111111111;;;341;A;100,00;2026-10', // contrato fora do padrão
-        '11111111111;;11222333000181;341;A7;100,00;2026-10', // outro empregador
-        '33333333333;;;001;C1;260,00;2026-10', // repetido com outra parcela
-        '66666666666;;;237;F2;100,00;2026-10', // dois vínculos ativos, sem matrícula
+        '11144477735;;29463877000109;341;A1;400,00;2026-10', // igual
+        '22255588846;;29463877000280;341;B1;350,00;10/2026', // parcela nova; CNPJ de filial (mesma raiz)
+        '33366699957;;;1;C1;250,00;2026-10', // novo (instituição 001)
+        '66699922203;X2;;237;F1;100,00;2026-10', // duplo vínculo resolvido pela matrícula
+        '77700033340;;;033;G1;90,00;2026-10', // contrato encerrado que volta
+        '12345678909;;;341;Z1;100,00;2026-10', // CPF sem ficha
+        '11144477735;;;341;A9;100,00;2026-09', // outra competência
+        '11144477735;;;3410;A8;100,00;2026-10', // instituição inválida
+        '11144477735;;;341;A;100,00;2026-10', // contrato fora do padrão
+        '11144477735;;11222333000181;341;A7;100,00;2026-10', // outro empregador
+        '33366699957;;;001;C1;260,00;2026-10', // repetido com outra parcela
+        '66699922203;;;237;F2;100,00;2026-10', // dois vínculos ativos, sem matrícula
     ].join('\n');
     const arq = lerArquivoEmprestimos('e.csv', buf(csv));
     const p = previaImportacao(arq, sugerirColunas(arq.colunas), '2026-10', fichas, '29.463.877/0001-09');
@@ -106,9 +106,23 @@ describe('prévia e aplicação', () => {
         expect(aplicarImportacao(fichas, p.acoes.filter(a => a.fichaId !== 'd'), '2026-10').some(f => f.id === 'd')).toBe(false);
     });
 
-    it('arquivo de outra competência inteiro: aviso', () => {
-        const outro = lerArquivoEmprestimos('e.csv', buf('cpf;ifConcessora.codigo;contrato;valorParcela;competencia\n11111111111;341;A1;400,00;2026-09'));
-        expect(previaImportacao(outro, sugerirColunas(outro.colunas), '2026-10', fichas, '').avisos.join(' ')).toMatch(/não é da competência 10\/2026/);
+    it('arquivo de outra competência inteiro: aviso e nada a gravar (nem os contratos como fora do arquivo)', () => {
+        const outro = lerArquivoEmprestimos('e.csv', buf('cpf;ifConcessora.codigo;contrato;valorParcela;competencia\n11144477735;341;A1;400,00;2026-09'));
+        const q = previaImportacao(outro, sugerirColunas(outro.colunas), '2026-10', fichas, '');
+        expect(q.avisos.join(' ')).toMatch(/não é da competência 10\/2026.*Nada a gravar/);
+        expect(q.acoes).toEqual([]);
+    });
+
+    it('linha recusada de um CPF não faz os contratos dele saírem como fora do arquivo (Codex #277)', () => {
+        const cab = 'cpf;ifConcessora.codigo;contrato;valorParcela;competencia\n';
+        const q = previaImportacao(lerArquivoEmprestimos('e.csv', buf(`${cab}44477700083;104;D1;abc;2026-10\n11144477735;341;A1;400,00;2026-10`)), sugerirColunas(['cpf', 'ifConcessora.codigo', 'contrato', 'valorParcela', 'competencia']), '2026-10', fichas, '');
+        expect(q.acoes.filter(a => a.fichaId === 'd')).toEqual([]);
+        expect(q.acoes.find(a => a.nrDoc === 'B1')?.tipo).toBe('ausente'); // quem não teve linha recusada segue a regra
+        expect(q.avisos.join(' ')).toMatch(/linha recusada não foram dados como fora do arquivo/);
+        // CPF ilegível: a linha pode ser de qualquer um, nenhum contrato sai por ausência.
+        const r = previaImportacao(lerArquivoEmprestimos('e.csv', buf(`${cab}123;104;D1;200,00;2026-10\n11144477735;341;A1;400,00;2026-10`)), sugerirColunas(['cpf', 'ifConcessora.codigo', 'contrato', 'valorParcela', 'competencia']), '2026-10', fichas, '');
+        expect(r.acoes.some(a => a.tipo === 'ausente')).toBe(false);
+        expect(r.avisos.join(' ')).toMatch(/CPF ilegível/);
     });
 
     it('validação: o mesmo contrato em períodos que não se sobrepõem é aceito; sobrepostos, não', () => {
