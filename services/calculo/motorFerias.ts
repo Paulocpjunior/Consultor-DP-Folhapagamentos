@@ -29,8 +29,13 @@ import { aniversario, diaUtilAnterior, diasEntre, somarDias, somarMeses } from '
 import { mediaDasVariaveis, percentualDaPensao, salarioContratual, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
 import { ehDomestico } from '../domestico/domestico';
 import { calcular13 } from './motor13';
+import { contratosNoMes, provisaoConsignadoVigente, type ContratoConsignado, type VigenciaProvisaoConsignado } from './consignado';
 
-export interface OpcoesFerias { simplificado: boolean; redutor: boolean }
+export interface OpcoesFerias {
+    simplificado: boolean; redutor: boolean;
+    /** Provisionar o Crédito do Trabalhador no recibo, pelos dias de gozo de cada mês (parâmetro da empresa, pela vigência no mês do início do gozo). */
+    provisaoConsignado?: VigenciaProvisaoConsignado[];
+}
 export const OPCOES_FERIAS_PADRAO: OpcoesFerias = { simplificado: true, redutor: true };
 
 export interface EntradaFerias {
@@ -52,7 +57,11 @@ export interface EntradaFerias {
     tabelasDsr?: TabelaDsr[];
 }
 
-export interface CompetenciaFerias { competencia: string; dias: number; ferias: number; terco: number; inss: number; fgts: number }
+export interface CompetenciaFerias {
+    competencia: string; dias: number; ferias: number; terco: number; inss: number; fgts: number;
+    /** Crédito do Trabalhador provisionado no recibo para a parcela desta competência. */
+    consignado?: number;
+}
 export interface ResultadoFerias extends ResultadoCalculo {
     gozoId: string;
     periodo: { inicio: string; fim: string; fimConcessivo: string } | null;
@@ -418,6 +427,27 @@ export function calcularFerias(e: EntradaFerias): ResultadoFerias {
     }
 
     r.memoria.push(`FGTS: ${r.porCompetencia.map(x => `${rotuloCompetencia(x.competencia)} ${reais(x.fgts)}`).join('; ')} (recolhido com a folha de cada mês).`);
+    // Crédito do Trabalhador: provisão da parcela de cada mês do gozo, na proporção dos dias gozados nele (Manual do
+    // Empregador, exemplo 04). Vai no recibo como desconto (natureza 9299) e a folha do mês abate do líquido das férias
+    // pago; a parcela inteira sai lá, na 9253. Só quando cabe no líquido do recibo. A opção vale pela vigência no mês do
+    // início do gozo: ligar ou desligar depois não muda o recibo já pago (Codex #276).
+    if (provisaoConsignadoVigente(opcoes.provisaoConsignado, e.gozo.dtInicio.slice(0, 7))) {
+        const liquido = r.verbas.reduce((s, v) => s + (v.tipo === 'provento' ? v.valor : -v.valor), 0);
+        const porContrato = new Map<string, { c: ContratoConsignado; valor: number }>();
+        let total = 0;
+        for (const pc of r.porCompetencia) {
+            for (const c of contratosNoMes(e.ficha.consignados, pc.competencia)) {
+                const v = Math.round(c.parcela * Math.min(30, pc.dias) / 30);
+                if (v <= 0 || total + v > liquido) continue;
+                pc.consignado = (pc.consignado ?? 0) + v;
+                const k = `${c.instFinanc}|${c.nrDoc}`;
+                porContrato.set(k, { c, valor: (porContrato.get(k)?.valor ?? 0) + v });
+                total += v;
+            }
+        }
+        for (const { c, valor } of porContrato.values()) verba({ codigo: 'CONSIGPROV', descricao: `Provisão do Crédito do Trabalhador (contrato ${c.nrDoc})`, referencia: '', tipo: 'desconto', valor, inss: false, fgts: false, irrf: false });
+        if (total) r.memoria.push(`Crédito do Trabalhador: provisão de ${reais(total)} no recibo (${r.porCompetencia.filter(x => x.consignado).map(x => `${rotuloCompetencia(x.competencia)} ${reais(x.consignado!)}, ${x.dias} dias`).join('; ')}), abatida do líquido das férias na folha de cada mês, onde sai a parcela inteira.`);
+    }
     r.totais.proventos = r.verbas.filter(v => v.tipo === 'provento').reduce((s, v) => s + v.valor, 0);
     r.totais.descontos = r.verbas.filter(v => v.tipo === 'desconto').reduce((s, v) => s + v.valor, 0);
     r.totais.liquido = r.totais.proventos - r.totais.descontos;
@@ -436,7 +466,7 @@ export function gozosNoMes(afastamentos: Afastamento[], fichaIds: Set<string>, c
  * cada recibo cujo gozo toca o mês. Se algum recibo der erro, devolve
  * undefined (a folha fica "incompleto" e aponta o recibo).
  */
-export interface ParteDaCompetencia { dias: number; ferias: number; terco: number; inss: number; irrf: number }
+export interface ParteDaCompetencia { dias: number; ferias: number; terco: number; inss: number; irrf: number; /** Crédito do Trabalhador provisionado no recibo para esta competência. */ consignado?: number }
 
 /**
  * Parte de um recibo de férias numa competência do gozo: dias, férias, 1/3 e
@@ -448,7 +478,7 @@ export function parteDaCompetencia(r: ResultadoFerias, competencia: string): Par
     if (!c) return undefined;
     const irrf = r.verbas.find(v => v.codigo === 'IRRFFER')?.valor ?? 0;
     const total = r.porCompetencia.reduce((s, x) => s + x.ferias + x.terco, 0);
-    return { dias: c.dias, ferias: c.ferias, terco: c.terco, inss: c.inss, irrf: irrf && total ? Math.round(irrf * (c.ferias + c.terco) / total) : 0 };
+    return { dias: c.dias, ferias: c.ferias, terco: c.terco, inss: c.inss, irrf: irrf && total ? Math.round(irrf * (c.ferias + c.terco) / total) : 0, ...(c.consignado ? { consignado: c.consignado } : {}) };
 }
 
 /** `opcoes`: as mesmas do recibo entregue (desconto simplificado, redutor), para a folha abater o que ele de fato reteve. */
@@ -456,13 +486,14 @@ export function feriasDaCompetencia(ficha: FichaFuncionario, afastamentos: Afast
     const ini = `${competencia}-01`;
     const gozos = afastamentos.filter(a => a.fichaId === ficha.id && a.motivo === '15' && a.dtInicio.slice(0, 7) <= competencia && (!a.dtFim || a.dtFim >= ini));
     if (!gozos.length) return undefined;
-    const soma = { dias: 0, ferias: 0, terco: 0, inss: 0, irrf: 0 };
+    const soma = { dias: 0, ferias: 0, terco: 0, inss: 0, irrf: 0, consignado: 0 };
     for (const gozo of gozos) {
         const r = calcularFerias({ ficha, gozo, afastamentos, tabelas, movimentos, opcoes });
         if (r.situacao === 'erro') return undefined;
         const c = parteDaCompetencia(r, competencia);
         if (!c) continue;
-        soma.dias += c.dias; soma.ferias += c.ferias; soma.terco += c.terco; soma.inss += c.inss; soma.irrf += c.irrf;
+        soma.dias += c.dias; soma.ferias += c.ferias; soma.terco += c.terco; soma.inss += c.inss; soma.irrf += c.irrf; soma.consignado += c.consignado ?? 0;
     }
-    return soma;
+    const { consignado, ...resto } = soma;
+    return consignado ? { ...resto, consignado } : resto;
 }

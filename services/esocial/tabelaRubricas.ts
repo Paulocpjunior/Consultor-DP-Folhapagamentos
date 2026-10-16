@@ -118,6 +118,9 @@ export const MODELOS: ModeloRubrica[] = [
     m('VT', 'Desconto de vale-transporte', '9216', '2', '00', '9', '00'),
     // Crédito do Trabalhador: a parcela dentro da margem que passa do líquido (Manual do Empregador, MTE, ex. 03 e 04).
     m('INSUFSALDO', 'Insuficiência de saldo', '2930', '1', '00', '9', '00'),
+    // Provisão do consignado no adiantamento e no recibo de férias, e a devolução na folha (Manual do Empregador, ex. 03).
+    m('CONSIGPROV', 'Provisão para desconto de empréstimo consignado', '9299', '2', '00', '9', '00'),
+    m('CONSIGDEV', 'Devolução de provisão de empréstimo consignado', '1629', '1', '00', '9', '00'),
     // 13º: o FGTS incide sobre a 1ª parcela no mês do pagamento; CP e IRRF só na folha anual (MOS, cap. I).
     m('13A', '13º salário - 1ª parcela', '5504', '1', '00', '9', '12', 'A 1ª parcela não é base de CP nem de IRRF no mês: confira o codIncIRRF com a contabilidade.'),
     m('13', '13º salário', '5001', '1', '12', '12', '12'),

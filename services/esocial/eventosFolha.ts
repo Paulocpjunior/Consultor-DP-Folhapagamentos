@@ -28,7 +28,7 @@
 // e o INSS e o IRRF retidos no recibo, como o holerite. Vale também quando o
 // pagamento é no próprio mês do gozo.
 
-import { adiantamentoDoMes, dataSugeridaAdiantamento, totalDoAdiantamento, type Movimento, type ResultadoCalculo, type Verba } from '../calculo/motorMensal';
+import { adiantamentoDoMes, dataSugeridaAdiantamento, temAdiantamento, type Movimento, type ResultadoCalculo, type Verba } from '../calculo/motorMensal';
 import { arredondamentoDoAdiantamento } from '../calculo/arredondamento';
 import { quintoDiaUtilSalario } from '../prazos/calendario';
 import { calcularFerias, parteDaCompetencia, type OpcoesFerias, type ResultadoFerias } from '../calculo/motorFerias';
@@ -145,6 +145,9 @@ export const SUGESTAO: Record<string, { naturezas: string[]; dica?: RegExp; evit
     PENSAOFER: { naturezas: ['9213'] },
     // Crédito do Trabalhador (consignado CLT): natureza 9253, com o grupo descFolha.
     CONSIG: { naturezas: ['9253'] },
+    // Provisão do consignado no adiantamento e no recibo de férias (9299) e a devolução na folha (1629): Manual do Empregador, ex. 03.
+    CONSIGPROV: { naturezas: ['9299'], dica: /CONSIG|EMPREST/ },
+    CONSIGDEV: { naturezas: ['1629'] },
     // Adiantamento salarial: no demonstrativo próprio, a rubrica de provento do adiantamento (a natureza varia
     // no S-1010 de cada empresa: vai pela descrição); na folha, o desconto (9200). Vale-transporte: 9216.
     // Só adiantamento de salário (ou "vale", "quinzena"): comissão, gorjeta, férias e 13º têm rubricas próprias (Codex #115).
@@ -265,7 +268,7 @@ export const verbasDoAdiantamento = (r: Pick<ResultadoCalculo, 'verbas' | 'irrfA
     const arred = arredondamentoDoAdiantamento(r);
     const ir = r.irrfAdiantamento ?? 0;
     // Eventos do movimento pagos no adiantamento (a ajuda de custo paga com ele, como no SAGE): no demonstrativo dele.
-    return totalDoAdiantamento(r) > 0 ? [...(v > 0 ? [{ codigo: 'ADIANTPAG', descricao: 'Adiantamento salarial (pagamento)', referencia: ref, tipo: 'provento' as const, valor: v, inss: false, fgts: false, irrf: false }] : []),
+    return temAdiantamento(r) ? [...(v > 0 ? [{ codigo: 'ADIANTPAG', descricao: 'Adiantamento salarial (pagamento)', referencia: ref, tipo: 'provento' as const, valor: v, inss: false, fgts: false, irrf: false }] : []),
         ...(r.verbasAdiantamento ?? []),
         // Saldo da folha em outro mês: o IRRF do adiantamento é retido nele, na mesma rubrica do IRRF da folha (IOB 08/2026).
         ...(ir ? [{ codigo: 'IRRF', descricao: 'IRRF do adiantamento', referencia: '', tipo: 'desconto' as const, valor: ir, inss: false, fgts: false, irrf: false }] : []),
@@ -275,7 +278,7 @@ export const verbasDoAdiantamento = (r: Pick<ResultadoCalculo, 'verbas' | 'irrfA
 export const pagoNoAdiantamento = (r: Pick<ResultadoCalculo, 'verbas' | 'irrfAdiantamento' | 'verbasAdiantamento'>) => verbasDoAdiantamento(r).reduce((s, v) => s + (v.tipo === 'provento' ? v.valor : -v.valor), 0);
 /** Para o de/para: a rubrica de provento do adiantamento, que não está nas verbas da folha. */
 export const verbasDoAdiantamentoParaDePara = (resultados: ResultadoCalculo[]): ResultadoCalculo[] =>
-    resultados.filter(r => r.situacao === 'calculado' && totalDoAdiantamento(r) > 0).map(r => ({ ...r, verbas: verbasDoAdiantamento(r) }));
+    resultados.filter(r => r.situacao === 'calculado' && temAdiantamento(r)).map(r => ({ ...r, verbas: verbasDoAdiantamento(r) }));
 
 /** Demonstrativo da folha complementar (infoPerAnt) escriturada na competência, pelo tipo do instrumento. */
 export const ideDmDevComplementar = (perApur: string, tpAcConv: string, matricula: string, rra = false) => `COMP${perApur.replace('-', '')}${tpAcConv}${rra ? 'R' : ''}-${matricula}`.slice(0, 30);
@@ -426,7 +429,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
     if (!anual && !/^\d{4}-(0[1-9]|1[0-2])$/.test(e.competencia)) erros.push('Competência inválida.');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(e.dataPagamento)) erros.push('Informe a data do pagamento.');
     const dataAdiant = e.dataAdiantamento || dataSugeridaAdiantamento(e.competencia);
-    const comAdiantamento = e.resultados.some(r => totalDoAdiantamento(r) > 0);
+    const comAdiantamento = e.resultados.some(r => temAdiantamento(r));
     if (comAdiantamento && !/^\d{4}-\d{2}-\d{2}$/.test(dataAdiant)) erros.push('Informe a data do adiantamento salarial.');
     else if (comAdiantamento && /^\d{4}-\d{2}-\d{2}$/.test(e.dataPagamento) && dataAdiant > e.dataPagamento) erros.push('O adiantamento salarial é pago antes da folha: confira as datas.');
     if (erros.length) return { trabalhadores: [], erros, avisos };
@@ -762,7 +765,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             plrDe(f, categ, mat, quem);
 
             // Adiantamento salarial: demonstrativo próprio, pago na data do adiantamento (MOS S-1200, item 3.4).
-            const adiant = totalDoAdiantamento(r);
+            const adiant = temAdiantamento(r);
             // Adiantamento num mês e saldo em outro: o IRRF do adiantamento é calculado de imediato, no mês dele
             // (RIR/1999, art. 621), e o motor ainda não separa. Gerar assim mandaria o IRRF no mês errado (Codex #115).
             // O cálculo decide quem recebe o adiantamento automático pela data sugerida; com outra data na tela, quem foi
@@ -772,14 +775,14 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             const comVinculo = (dia: string) => (f.dados.admissao ?? '') <= dia && !(f.dados.dataDesligamento && f.dados.dataDesligamento < dia);
             if (!r.adiantamentoInformado && dataAdiant !== sugerida && Number((f.dados.adiantamentoPct ?? '').replace(',', '.')) > 0 && comVinculo(dataAdiant) !== comVinculo(sugerida))
                 t.erros.push(`Adiantamento em ${br(dataAdiant)}, mas o cálculo usou ${br(sugerida)}, e a admissão ou o desligamento${quem} fica entre as duas datas: informe no movimento o adiantamento pago (ou 0) e recalcule.`);
-            else if (adiant > 0 && (f.dados.admissao ?? '') > dataAdiant) t.erros.push(`Adiantamento salarial em ${br(dataAdiant)}, antes da admissão (${br(f.dados.admissao ?? '')})${quem}: informe adiantamento 0 no movimento ou corrija a data.`);
+            else if (adiant && (f.dados.admissao ?? '') > dataAdiant) t.erros.push(`Adiantamento salarial em ${br(dataAdiant)}, antes da admissão (${br(f.dados.admissao ?? '')})${quem}: informe adiantamento 0 no movimento ou corrija a data.`);
             // Saldo da folha em outro mês: o IRRF do adiantamento foi calculado no mês da competência (regime de caixa).
-            else if (adiant > 0 && dataAdiant.slice(0, 7) !== perPgto && r.irrfAdiantamento === undefined) t.erros.push(`Adiantamento pago em ${mes(dataAdiant.slice(0, 7))} e saldo da folha em ${mes(perPgto)}${quem}: o IRRF do adiantamento não foi calculado. Recalcule a competência na tela do cálculo.`);
+            else if (adiant && dataAdiant.slice(0, 7) !== perPgto && r.irrfAdiantamento === undefined) t.erros.push(`Adiantamento pago em ${mes(dataAdiant.slice(0, 7))} e saldo da folha em ${mes(perPgto)}${quem}: o IRRF do adiantamento não foi calculado. Recalcule a competência na tela do cálculo.`);
             // O IRRF do adiantamento somou a folha anterior, paga no mês até o 5º dia útil (CLT, art. 459, § 1º): antes
             // disso ela pode não ter sido paga ainda (Codex #118).
-            else if (adiant > 0 && r.irrfAdiantamentoFolha && dataAdiant <= quintoDiaUtilDe(e.competencia)) t.erros.push(`Adiantamento em ${br(dataAdiant)}${quem}: o IRRF dele somou a folha de ${mes(r.irrfAdiantamentoFolha)}, paga no mês até o 5º dia útil (${br(quintoDiaUtilDe(e.competencia))}). Use uma data depois dela.`);
-            else if (adiant > 0 && r.irrfAdiantamento !== undefined && dataAdiant.slice(0, 7) !== e.competencia) t.erros.push(`Adiantamento em ${br(dataAdiant)}${quem}: com o saldo da folha em ${mes(perPgto)}, o IRRF do adiantamento foi calculado para pagamento em ${mes(e.competencia)}. Use uma data de ${mes(e.competencia)}.`);
-            else if (adiant > 0) {
+            else if (adiant && r.irrfAdiantamentoFolha && dataAdiant <= quintoDiaUtilDe(e.competencia)) t.erros.push(`Adiantamento em ${br(dataAdiant)}${quem}: o IRRF dele somou a folha de ${mes(r.irrfAdiantamentoFolha)}, paga no mês até o 5º dia útil (${br(quintoDiaUtilDe(e.competencia))}). Use uma data depois dela.`);
+            else if (adiant && r.irrfAdiantamento !== undefined && dataAdiant.slice(0, 7) !== e.competencia) t.erros.push(`Adiantamento em ${br(dataAdiant)}${quem}: com o saldo da folha em ${mes(perPgto)}, o IRRF do adiantamento foi calculado para pagamento em ${mes(e.competencia)}. Use uma data de ${mes(e.competencia)}.`);
+            else if (adiant) {
                 const ideA = unico(ideDmDevAdiantamento(e.competencia, mat));
                 dmDevs.push(dmDev(ideA, categ, f, itensDe(verbasDoAdiantamento(r)), r, true));
                 const pago = pagoNoAdiantamento(r);

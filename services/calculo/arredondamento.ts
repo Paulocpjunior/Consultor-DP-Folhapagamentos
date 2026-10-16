@@ -41,6 +41,13 @@ export interface ParametrosFolha {
     beneficios?: import('./beneficios').Beneficio[];
     /** Contribuição sindical patronal: adesão, capital social, tabela, entidade e filiais (services/sindicatos/sindicalPatronal.ts). */
     sindicalPatronal?: import('../sindicatos/sindicalPatronal').ConfigSindicalPatronal;
+    /**
+     * Crédito do Trabalhador: provisionar a parcela no adiantamento salarial (na proporção dele) e no recibo de férias
+     * (pelos dias de gozo do mês), devolvida na folha (Manual do Empregador, exemplos 03 e 04). Sem ela, a parcela sai
+     * inteira na folha e o que faltar de líquido vira insuficiência de saldo. Por vigência: ligar ou desligar não muda os
+     * meses anteriores (o adiantamento e o recibo de férias pagos com ou sem ela).
+     */
+    provisaoConsignado?: import('./consignado').VigenciaProvisaoConsignado[];
     /** Mensagem geral impressa nos holerites da empresa (a tabela `mensa` do IOB). */
     mensagemHolerite?: string;
     /** Mensagem de aniversário (com {nome} e {empresa}) no holerite e no cartão do mês do aniversário; sem gravar vale o padrão, vazia desliga. */

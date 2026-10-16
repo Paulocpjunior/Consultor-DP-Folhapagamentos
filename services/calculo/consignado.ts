@@ -62,6 +62,23 @@ export const contratosNoMes = (cs: ContratoConsignado[] | undefined, competencia
 
 /** Descontos compulsórios pela natureza das verbas do motor: INSS e IRRF (9201, 9203, também os das férias retidos no
  * recibo), pensão alimentícia (9213) e o desconto da 1ª parcela do 13º (9214). */
+/**
+ * Vigência da provisão do Crédito do Trabalhador (parâmetro da empresa), por competência (AAAA-MM). Ligar ou desligar vale
+ * a partir da competência da tela: recibo de férias e adiantamento de meses anteriores ficam como foram pagos (Codex #276).
+ */
+export interface VigenciaProvisaoConsignado { inicio: string; fim?: string }
+export const provisaoConsignadoVigente = (v: VigenciaProvisaoConsignado[] | undefined, competencia: string) =>
+    !!v?.some(p => p.inicio <= competencia && (!p.fim || competencia <= p.fim));
+const mesAnterior = (c: string) => { const [a, m] = c.split('-').map(Number); return m === 1 ? `${a - 1}-12` : `${a}-${String(m - 1).padStart(2, '0')}`; };
+/** Liga ou desliga a provisão a partir da competência, sem mexer nos meses anteriores. */
+export function alterarProvisaoConsignado(v: VigenciaProvisaoConsignado[] | undefined, competencia: string, ligar: boolean): VigenciaProvisaoConsignado[] {
+    const antes = mesAnterior(competencia);
+    const ate = (v ?? []).filter(p => p.inicio < competencia).map(p => (!p.fim || p.fim > antes ? { inicio: p.inicio, fim: antes } : p));
+    if (!ligar) return ate;
+    const ultimo = ate[ate.length - 1];
+    return ultimo?.fim === antes ? [...ate.slice(0, -1), { inicio: ultimo.inicio }] : [...ate, { inicio: competencia }];
+}
+
 export const COMPULSORIO = (codigo: string) => /^(INSS|IRRF|PENSAO|13ADT)/.test(codigo);
 /** Naturezas compulsórias da Tabela 03 (Manual do Empregador, item 5.2): pensão, adiantamento do 13º, retenção judicial, FIES. */
 export const NATUREZAS_COMPULSORIAS = ['9213', '9214', '9218', '9260'];
