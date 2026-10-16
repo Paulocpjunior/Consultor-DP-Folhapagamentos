@@ -30,7 +30,9 @@ export function carregarEventosIob(empresaId?: string): Promise<EventoIobSage[]>
     if (!empresaId) return catalogoGeral();
     let p = porEmpresa.get(empresaId);
     if (!p) {
-        p = Promise.all([catalogoGeral(), lerTabelaEventosEmpresa(empresaId).catch(() => null)]).then(([g, t]) => eventosDaEmpresa(g, t));
+        // Só a tabela inexistente cai no catálogo geral: falha de leitura rejeita (e sai do cache), para o cálculo não usar
+        // em silêncio os eventos de outro cliente (Codex #279).
+        p = Promise.all([catalogoGeral(), lerTabelaEventosEmpresa(empresaId)]).then(([g, t]) => eventosDaEmpresa(g, t));
         p.catch(() => porEmpresa.delete(empresaId));
         porEmpresa.set(empresaId, p);
     }
