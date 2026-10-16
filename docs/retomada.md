@@ -121,8 +121,11 @@ Ponto de partida da próxima sessão. Atualizado em **15/10/2026**. O detalhe de
 - **Checagem completa no main (15/10, depois do #270):** `tsc` sem erros; 206 arquivos e 1562 testes; 38 arquivos e 130 testes das regras do Firestore no emulador; build de produção ok.
 - **O que ainda prende ao SAGE:**
   1. Homologação do motor por empresa: sai da prévia com 3 meses sem diferença na conferência × IOB. A 1200 depende do #61 (arquivos de 09/2026 da colaboradora).
-  2. Tabela de eventos: o catálogo do Consultor veio de outro cliente do IOB (o triênio da SP é o 1015, que não está nele). Falta importar a tabela de eventos de cada empresa em Cadastros › Eventos IOB.
+     - **16/10:** o resultado da conferência agora é gravado por competência (Conferir com o eSocial do IOB › Gravar o resultado), a faixa do cálculo mostra a homologação e a ativação sem o critério pede confirmação reforçada e fica registrada. Falta: conferir 3 meses de cada empresa.
+  2. Tabela de eventos: o catálogo do Consultor veio de outro cliente do IOB (o triênio da SP é o 1015, que não está nele).
+     - **16/10:** Cadastros › Eventos IOB › Tabela de eventos da empresa (modelo em Excel ou o JSON do PDF da Relação de Eventos; substitui ou completa o geral), usada no Lançar evento, nos automáticos e na importação de valores. Falta: importar a tabela de cada empresa.
   3. Lançamentos automáticos já gravados:
+     - **16/10:** Cadastros › Funcionários › Automáticos em lote marca as duas coisas por evento, com prévia e auditoria. Falta: a equipe marcar em cada empresa.
      - marcar "Lança na rescisão" nos que devem ir para a rescisão;
      - marcar "Pago no: Adiantamento" nos que o SAGE paga no adiantamento. O lancauto do backup parece ter marcas por processamento; conferir num backup antes de importar com elas.
   3a. Tabela de DSR de cada empresa: cópia padrão e acerto dos feriados locais. Em 11/2026 o SAGE da 1200 não conta o 20/11, feriado nacional pela Lei 14.759/2023.

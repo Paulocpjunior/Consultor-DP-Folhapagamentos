@@ -5833,3 +5833,12 @@ Pedido da colaboradora, pelo Paulo, com as telas do SAGE (Rescisão Contratual e
 - **O que deu para levantar:** o guia oficial e os espelhos (Quarta, TDN da TOTVS, Alterdata, Domínio) não abrem daqui. O resumo de uma busca diz que o CSV da 1.4 termina em `dataAdmissao` (dd/mm/aaaa) e o CNPJ vem entre aspas; a TOTVS informa a admissão e o CNPJ alfanumérico como novidades da 1.4.
 - **Mudança:** campo opcional "Data de admissão" (sugerido por `dataAdmissao`), que separa os vínculos do mesmo CPF antes de olhar quem está ativo; CNPJ comparado pela raiz com letras e números (CNPJ alfanumérico); data inválida recusa a linha. Testes novos.
 - **Falta:** a tabela de campos e os exemplos fictícios do guia 1.4, colados pelo Paulo, para virar testes.
+
+## 16/10/2026 — O que ainda prende ao SAGE, itens 1 a 3
+
+- **Pedido do Paulo:** "ataque do item 1 ao 3" (lista "O que ainda prende ao SAGE" do `docs/retomada.md`).
+- **1. Homologação do motor:** a conferência motor × S-1200 do IOB já contava a sequência sem diferença, mas não gravava nada, e a ativação era manual. Agora `conferencias_motor/{empresa}_{AAAA-MM}` guarda o resumo de cada competência ("Gravar o resultado"); a faixa da prévia mostra a maior sequência e as últimas conferências; ativar sem 3 seguidas sem diferença pede confirmação reforçada e grava `semCriterio`, com o critério grava a sequência (`services/conferencia/homologacaoMotor.ts`).
+- **2. Tabela de eventos por empresa:** `eventos_empresa/{empresa}` substitui ou completa o catálogo geral; Cadastros › Eventos IOB exporta o modelo, importa a planilha (ou o JSON do script do PDF) com prévia contra o geral e lista os códigos dos automáticos fora do catálogo; `carregarEventosIob(empresaId)` no Lançar evento, nos automáticos, na ficha e na importação de valores (`services/calculo/eventosEmpresa.ts`). O backup não tem tabela de eventos conhecida no código: a fonte é a tabela do SAGE da empresa.
+- **3. Automáticos em lote:** Cadastros › Funcionários › Automáticos em lote marca "Lança na rescisão" e "Pago no adiantamento" por evento para todas as fichas, com prévia, confirmação e auditoria (`services/calculo/automaticosEmLote.ts`); a auditoria da ficha passa a registrar também a marca de rescisão, o valor, o Sal e a cópia.
+- **Regras:** `conferencias_motor` e `eventos_empresa`, com testes no emulador.
+- **Nenhum dado gravado foi alterado:** as três telas só gravam o que a equipe confirmar.
