@@ -29,12 +29,12 @@ import { aniversario, diaUtilAnterior, diasEntre, somarDias, somarMeses } from '
 import { mediaDasVariaveis, percentualDaPensao, salarioContratual, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
 import { ehDomestico } from '../domestico/domestico';
 import { calcular13 } from './motor13';
-import { contratosNoMes, type ContratoConsignado } from './consignado';
+import { contratosNoMes, provisaoConsignadoVigente, type ContratoConsignado, type VigenciaProvisaoConsignado } from './consignado';
 
 export interface OpcoesFerias {
     simplificado: boolean; redutor: boolean;
-    /** Provisionar o Crédito do Trabalhador no recibo, pelos dias de gozo de cada mês (parâmetro da empresa). */
-    provisaoConsignado?: boolean;
+    /** Provisionar o Crédito do Trabalhador no recibo, pelos dias de gozo de cada mês (parâmetro da empresa, pela vigência no mês do início do gozo). */
+    provisaoConsignado?: VigenciaProvisaoConsignado[];
 }
 export const OPCOES_FERIAS_PADRAO: OpcoesFerias = { simplificado: true, redutor: true };
 
@@ -429,8 +429,9 @@ export function calcularFerias(e: EntradaFerias): ResultadoFerias {
     r.memoria.push(`FGTS: ${r.porCompetencia.map(x => `${rotuloCompetencia(x.competencia)} ${reais(x.fgts)}`).join('; ')} (recolhido com a folha de cada mês).`);
     // Crédito do Trabalhador: provisão da parcela de cada mês do gozo, na proporção dos dias gozados nele (Manual do
     // Empregador, exemplo 04). Vai no recibo como desconto (natureza 9299) e a folha do mês abate do líquido das férias
-    // pago; a parcela inteira sai lá, na 9253. Só quando cabe no líquido do recibo.
-    if (opcoes.provisaoConsignado) {
+    // pago; a parcela inteira sai lá, na 9253. Só quando cabe no líquido do recibo. A opção vale pela vigência no mês do
+    // início do gozo: ligar ou desligar depois não muda o recibo já pago (Codex #276).
+    if (provisaoConsignadoVigente(opcoes.provisaoConsignado, e.gozo.dtInicio.slice(0, 7))) {
         const liquido = r.verbas.reduce((s, v) => s + (v.tipo === 'provento' ? v.valor : -v.valor), 0);
         const porContrato = new Map<string, { c: ContratoConsignado; valor: number }>();
         let total = 0;

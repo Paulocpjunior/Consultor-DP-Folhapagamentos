@@ -44,7 +44,7 @@ import { afastamentoVazio, idAfastamento, validarAfastamento, type Afastamento }
 import type { TabelaLegal } from '../../services/cadastros/tabelasLegais';
 import { centavosDeTexto, reais } from '../../services/cadastros/documentos';
 import { calcularMensal, entraNaMedia, salarioContratual, competenciaSeguinte, dataSugeridaAdiantamento, noMes, type Lancamento, type Movimento, type ResultadoCalculo } from '../../services/calculo/motorMensal';
-import { avulsoCompulsorio } from '../../services/calculo/consignado';
+import { alterarProvisaoConsignado, avulsoCompulsorio, provisaoConsignadoVigente } from '../../services/calculo/consignado';
 import { foraDoAdiantamento, valorDoAdiantamento } from '../../services/bancario/favorecidos';
 import { diaUtilAnterior, diaUtilSeguinte, quintoDiaUtilSalario, somarMeses } from '../../services/prazos/calendario';
 import ArquivoBancarioModal from '../bancario/ArquivoBancarioModal';
@@ -344,7 +344,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
     const convencaoDe = useCallback((f: FichaFuncionario, dia: string) => convencaoDaFicha(convencoes, f, sindicatosDaEmpresa ?? [], dia), [convencoes, sindicatosDaEmpresa]);
     const parametrosFolha = empresa?.parametrosFolha;
     // As opções do recibo de férias da tela, com a provisão do Crédito do Trabalhador do parâmetro da empresa.
-    const opcoesFerias = useMemo<OpcoesFerias>(() => ({ ...opcoesFeriasTela, provisaoConsignado: !!parametrosFolha?.provisaoConsignado }), [opcoesFeriasTela, parametrosFolha?.provisaoConsignado]);
+    const opcoesFerias = useMemo<OpcoesFerias>(() => ({ ...opcoesFeriasTela, provisaoConsignado: parametrosFolha?.provisaoConsignado }), [opcoesFeriasTela, parametrosFolha?.provisaoConsignado]);
     const parcelaUnica13 = (parametrosFolha?.parcelaUnica13 ?? []).includes(ano);
     // Empresa carregada ou trocada (ou regime alterado): o mês do pagamento da folha mensal segue o regime salvo dela,
     // senão o IRRF sairia pela tabela do mês errado até alguém mexer na competência (Codex #116).
@@ -508,7 +508,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
             const pag = movsEmpresa[f.id]?.[c]?.mesPagamento ?? movsEmpresa[f.id]?.[c]?.arredondamentoPagamento ?? mesDoPagamento(parametrosFolha, c);
             const r = calcularMensal({ competencia: c, pagamento: pag, ficha: f, tabelas: dados.tabelas, movimento: movsEmpresa[f.id]?.[c], afastamentos: afs,
                 feriasDoMes: feriasDaCompetencia(f, afs, dados.tabelas, movsEmpresa[f.id] ?? {}, c, opcoesFerias), folhaPagaNoAdiantamento: folhaPagaNoAdiantamento(f, c, pag), beneficios: parametrosFolha?.beneficios,
-                contribuicoesSindicais: convencaoDe(f, `${c}-01`)?.contribuicoes, convocacoes: dados.convocacoes, tabelasDsr: dados.tabelasDsr, provisaoConsignado: parametrosFolha?.provisaoConsignado });
+                contribuicoesSindicais: convencaoDe(f, `${c}-01`)?.contribuicoes, convocacoes: dados.convocacoes, tabelasDsr: dados.tabelasDsr, provisaoConsignado: provisaoConsignadoVigente(parametrosFolha?.provisaoConsignado, c) });
             return arredondarDaEmpresa(r, f, c, movsEmpresa[f.id]?.[c]?.arredondamentoAnterior);
         });
     }, [dados, movsEmpresa, opcoesFerias, arredondarDaEmpresa, parametrosFolha, folhaPagaNoAdiantamento, convencaoDe]);
@@ -790,8 +790,8 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                         onChange={e => { const ligar = e.target.checked; gravarParametrosFolha(p => ({ ...p, arredondarLiquido: ligar, arredondarDesde: p?.arredondarDesde || competencia })); }} />Arredondar o líquido</label>
                     {parametrosFolha?.arredondarLiquido && <label>desde<input aria-label="Arredondamento desde" type="month" className={`ml-1 ${inp}`} value={parametrosFolha.arredondarDesde ?? ''}
                         onChange={e => { const d = e.target.value; if (/^\d{4}-\d{2}$/.test(d)) gravarParametrosFolha(p => ({ ...p, arredondarDesde: d })); }} /></label>}
-                    <label className="flex items-center gap-1" title="Crédito do Trabalhador (parâmetro da empresa): provisiona a parcela no adiantamento, na proporção dele, e no recibo de férias, pelos dias de gozo do mês; a folha devolve a provisão e desconta a parcela inteira (Manual do Empregador, exemplos 03 e 04). Desligado, a parcela sai inteira na folha e o que faltar de líquido vira insuficiência de saldo."><input type="checkbox" aria-label="Provisionar o consignado" checked={!!parametrosFolha?.provisaoConsignado}
-                        onChange={e => { const ligar = e.target.checked; gravarParametrosFolha(p => ({ ...p, provisaoConsignado: ligar })); }} />Provisionar o consignado</label>
+                    <label className="flex items-center gap-1" title="Crédito do Trabalhador (parâmetro da empresa): provisiona a parcela no adiantamento, na proporção dele, e no recibo de férias, pelos dias de gozo do mês; a folha devolve a provisão e desconta a parcela inteira (Manual do Empregador, exemplos 03 e 04). Desligado, a parcela sai inteira na folha e o que faltar de líquido vira insuficiência de saldo. Ligar ou desligar vale a partir desta competência; os meses anteriores ficam como foram pagos."><input type="checkbox" aria-label="Provisionar o consignado" checked={provisaoConsignadoVigente(parametrosFolha?.provisaoConsignado, competencia)}
+                        onChange={e => { const ligar = e.target.checked; gravarParametrosFolha(p => ({ ...p, provisaoConsignado: alterarProvisaoConsignado(p?.provisaoConsignado, competencia, ligar) })); }} />Provisionar o consignado</label>
                     {/* Regime da empresa: os meses passados do encadeamento são calculados com ele (o da tela vale só para a competência). */}
                     <label title="Mês em que a empresa paga a folha, a partir desta competência (os meses anteriores ficam com o regime que valia neles). Vale para o mês do pagamento sugerido e para o encadeamento do arredondamento.">folha paga
                         <select aria-label="Folha paga" className={`ml-1 ${inp}`} value={regimePagamento ?? 'seguinte'} disabled={!regimePagamento}

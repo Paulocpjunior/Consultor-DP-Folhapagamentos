@@ -1,9 +1,10 @@
 // Crédito do Trabalhador, etapa 5: provisão da parcela no adiantamento e no recibo de férias (Manual do Empregador,
 // MTE, v2.1, exemplos 03 e 04), opção da empresa. Dados fictícios.
 import { describe, expect, it } from 'vitest';
-import { calcularMensal, totalDoAdiantamento, type ResultadoCalculo } from '../motorMensal';
+import { calcularMensal, temAdiantamento, totalDoAdiantamento, type ResultadoCalculo } from '../motorMensal';
 import { calcularFerias, feriasDaCompetencia, OPCOES_FERIAS_PADRAO } from '../motorFerias';
-import type { ContratoConsignado } from '../consignado';
+import { alterarProvisaoConsignado, provisaoConsignadoVigente, type ContratoConsignado } from '../consignado';
+import { verbasDoAdiantamento, verbasDoAdiantamentoParaDePara } from '../../esocial/eventosFolha';
 import { fichaVazia, type FichaFuncionario } from '../../cadastros/funcionarios';
 import { afastamentoVazio, type Afastamento } from '../../cadastros/afastamentos';
 import { TABELAS_OFICIAIS_2026 } from '../../cadastros/tabelasOficiais';
@@ -38,13 +39,17 @@ describe('provisão no adiantamento (exemplo 03)', () => {
         const r = calc(true, 900000);
         expect(r.verbasAdiantamento?.find(x => x.codigo === 'CONSIGPROV')?.valor).toBe(200000);
         expect(totalDoAdiantamento(r)).toBe(0);
+        // Líquido zero, mas o recibo existe: o adiantamento e a provisão vão ao demonstrativo do S-1200 (Codex #276).
+        expect(temAdiantamento(r)).toBe(true);
+        expect(verbasDoAdiantamento(r).map(x => [x.codigo, x.valor])).toEqual([['ADIANTPAG', 200000], ['CONSIGPROV', 200000]]);
+        expect(verbasDoAdiantamentoParaDePara([{ ...r, situacao: 'calculado' }])).toHaveLength(1);
     });
 });
 
 describe('provisão no recibo de férias (exemplo 04)', () => {
     const gozo: Afastamento = { ...afastamentoVazio(), id: 'g1', fichaId: 'f1', motivo: '15', dtInicio: '2026-06-01', dtFim: '2026-06-18' };
     const f = ficha([C(70000)], { salario: '3500.00' });
-    const opcoes = { ...OPCOES_FERIAS_PADRAO, provisaoConsignado: true };
+    const opcoes = { ...OPCOES_FERIAS_PADRAO, provisaoConsignado: [{ inicio: '2026-01' }] };
 
     it('18 dias de gozo no mês: 60% da parcela de R$ 700,00 = R$ 420,00 no recibo', () => {
         const sem = calcularFerias({ ficha: f, gozo, afastamentos: [gozo], tabelas: TAB, movimentos: {} });
@@ -65,5 +70,29 @@ describe('provisão no recibo de férias (exemplo 04)', () => {
         expect(v(sem, 'FERPAGO') - v(com, 'FERPAGO')).toBe(42000);
         expect([v(com, 'CONSIG'), v(sem, 'CONSIG')]).toEqual([70000, 70000]);
         expect(com.totais.liquido - sem.totais.liquido).toBe(42000);
+    });
+});
+
+describe('vigência da provisão (Codex #276)', () => {
+    it('ligar e desligar valem a partir da competência; os meses anteriores ficam como estavam', () => {
+        const ligada = alterarProvisaoConsignado(undefined, '2026-06', true);
+        expect(ligada).toEqual([{ inicio: '2026-06' }]);
+        const desligada = alterarProvisaoConsignado(ligada, '2026-09', false);
+        expect(desligada).toEqual([{ inicio: '2026-06', fim: '2026-08' }]);
+        expect(['2026-05', '2026-06', '2026-08', '2026-09'].map(c => provisaoConsignadoVigente(desligada, c))).toEqual([false, true, true, false]);
+        expect(alterarProvisaoConsignado(desligada, '2026-11', true)).toEqual([{ inicio: '2026-06', fim: '2026-08' }, { inicio: '2026-11' }]);
+        // Religar no mês seguinte ao fim emenda o período; desligar no próprio início some com ele.
+        expect(alterarProvisaoConsignado(desligada, '2026-09', true)).toEqual([{ inicio: '2026-06' }]);
+        expect(alterarProvisaoConsignado(ligada, '2026-06', false)).toEqual([]);
+        expect(alterarProvisaoConsignado([{ inicio: '2025-12' }], '2026-01', false)).toEqual([{ inicio: '2025-12', fim: '2025-12' }]);
+    });
+
+    it('o recibo de férias segue a vigência no mês do início do gozo: ligar depois não muda o recibo já pago', () => {
+        const gozo: Afastamento = { ...afastamentoVazio(), id: 'g1', fichaId: 'f1', motivo: '15', dtInicio: '2026-06-01', dtFim: '2026-06-18' };
+        const f = ficha([C(70000)], { salario: '3500.00' });
+        const depois = calcularFerias({ ficha: f, gozo, afastamentos: [gozo], tabelas: TAB, movimentos: {}, opcoes: { ...OPCOES_FERIAS_PADRAO, provisaoConsignado: [{ inicio: '2026-07' }] } });
+        expect(v(depois, 'CONSIGPROV')).toBe(0);
+        const antes = calcularFerias({ ficha: f, gozo, afastamentos: [gozo], tabelas: TAB, movimentos: {}, opcoes: { ...OPCOES_FERIAS_PADRAO, provisaoConsignado: [{ inicio: '2026-01', fim: '2026-06' }] } });
+        expect(v(antes, 'CONSIGPROV')).toBe(42000);
     });
 });

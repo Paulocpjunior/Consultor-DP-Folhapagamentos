@@ -16,7 +16,7 @@ import { lerProcesso } from '../../services/calculo/processosGravadosService';
 import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { motorHomologadoNoMes } from '../../services/calculo/arredondamento';
-import { totalDoAdiantamento } from '../../services/calculo/motorMensal';
+import { temAdiantamento } from '../../services/calculo/motorMensal';
 import { historicoDeEnvios } from '../../services/relatorios/enviosFuncionarioService';
 import type { OpcoesPdf } from '../../services/relatorios/layoutPdf';
 import {
@@ -62,7 +62,7 @@ const HoleriteEnvioPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
         const ler = tipo === 'mensal' || tipo === 'adiantamento'
             ? lerFolhaGravada(ativa.id, periodo).then(f => f?.holerites ?? [])
             : lerProcesso(ativa.id, tipo, periodo).then(p => p?.holerites ?? []);
-        ler.then(rs => { if (vivo) setResultados(tipo === 'adiantamento' ? rs.filter(r => totalDoAdiantamento(r) > 0) : rs); })
+        ler.then(rs => { if (vivo) setResultados(tipo === 'adiantamento' ? rs.filter(r => temAdiantamento(r)) : rs); })
             .catch(e => { if (vivo) { setErro(mensagemErro(e)); setResultados([]); } });
         return () => { vivo = false; };
     }, [ativa, periodo, tipo]);

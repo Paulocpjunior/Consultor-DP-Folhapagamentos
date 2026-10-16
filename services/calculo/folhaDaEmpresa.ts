@@ -11,6 +11,7 @@
 
 import { anteriorEncadeado, arredondaNoMes, arredondar, folhaPagaAntes, mesDoPagamento, type ParametrosFolha } from './arredondamento';
 import { calcularMensal, competenciaAnterior, noMes, travarAdiantamentoEntreContratos, type EntradaCalculo, type Movimento, type ResultadoCalculo } from './motorMensal';
+import { provisaoConsignadoVigente } from './consignado';
 import { feriasDaCompetencia, type OpcoesFerias } from './motorFerias';
 import type { Convocacao } from './intermitente';
 import { inicioNaEmpresa, type FichaFuncionario } from '../cadastros/funcionarios';
@@ -76,7 +77,7 @@ export function criarArredondamento(d: DadosFolhaEmpresa, folhaPaga = criarFolha
                 const pag = salvos[m]?.mesPagamento ?? salvos[m]?.arredondamentoPagamento ?? mesDoPagamento(p, m);
                 return calcularMensal({ competencia: m, pagamento: pag, ficha: f, tabelas: d.tabelas, movimento: salvos[m], afastamentos: afs,
                     feriasDoMes: feriasDaCompetencia(f, afs, d.tabelas, salvos, m, d.opcoesFerias), folhaPagaNoAdiantamento: folhaPaga(f, m, pag), beneficios: p.beneficios,
-                    contribuicoesSindicais: d.convencaoDe(f, `${m}-01`)?.contribuicoes, convocacoes: d.convocacoes, tabelasDsr: d.tabelasDsr, provisaoConsignado: p.provisaoConsignado });
+                    contribuicoesSindicais: d.convencaoDe(f, `${m}-01`)?.contribuicoes, convocacoes: d.convocacoes, tabelasDsr: d.tabelasDsr, provisaoConsignado: provisaoConsignadoVigente(p.provisaoConsignado, m) });
             },
             // O atual gravado só vale se foi encadeado do mesmo mês de início. O mês do pagamento gravado com ele é o que foi
             // usado de fato: mudar o regime depois não reescreve mês fechado (para isso, reabra o mês e salve de novo; Codex #116).
@@ -100,7 +101,7 @@ export function calcularFolhaMensal(d: DadosFolhaEmpresa, competencia: string, p
             feriasDoMes: d.movimentosEmpresa ? feriasDaCompetencia(f, afs, d.tabelas, d.movimentosEmpresa[f.id] ?? {}, competencia, d.opcoesFerias) : undefined,
             folhaPagaNoAdiantamento: folhaPaga(f, competencia, pagamento), beneficios: d.parametrosFolha?.beneficios,
             contribuicoesSindicais: d.convencaoDe(f, `${competencia}-01`)?.contribuicoes, convocacoes: d.convocacoes, tabelasDsr: d.tabelasDsr,
-            provisaoConsignado: d.parametrosFolha?.provisaoConsignado,
+            provisaoConsignado: provisaoConsignadoVigente(d.parametrosFolha?.provisaoConsignado, competencia),
         });
     }), d.fichas, pagamento !== competencia
         // Só os contratos da competência anterior com folha paga neste mês (pelo mês gravado ou pelo regime) e com valor:

@@ -973,6 +973,8 @@ export const adiantamentoDoMes = (r: Pick<ResultadoCalculo, 'verbas'>) => r.verb
 export const eventosDoAdiantamento = (r: Pick<ResultadoCalculo, 'verbasAdiantamento'>) => (r.verbasAdiantamento ?? []).reduce((s, v) => s + (v.tipo === 'provento' ? v.valor : -v.valor), 0);
 /** O que o adiantamento paga antes do IRRF e do arredondamento: o salário adiantado e os eventos pagos com ele. */
 export const totalDoAdiantamento = (r: Pick<ResultadoCalculo, 'verbas' | 'verbasAdiantamento'>) => adiantamentoDoMes(r) + eventosDoAdiantamento(r);
+/** Há recibo do adiantamento: o valor bruto ou o líquido dele. A provisão do consignado pode zerar o líquido, e o recibo (com a 9299) continua no S-1200 (Codex #276). */
+export const temAdiantamento = (r: Pick<ResultadoCalculo, 'verbas' | 'verbasAdiantamento'>) => adiantamentoDoMes(r) > 0 || totalDoAdiantamento(r) > 0;
 
 /**
  * Mais de um contrato no mesmo CPF com IRRF do adiantamento: o imposto do mês é do CPF (a tabela e as deduções
