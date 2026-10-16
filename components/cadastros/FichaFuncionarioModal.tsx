@@ -63,8 +63,8 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
     const setCampo = (c: CampoFicha, v: string) => setF(x => ({ ...x, dados: { ...x.dados, [c]: v } }));
     const setDep = (i: number, campo: keyof Dependente, v: string) => setF(x => ({ ...x, dependentes: x.dependentes.map((d, j) => (j === i ? { ...d, [campo]: v } : d)) }));
 
-    async function salvar() {
-        const n = normalizarFicha(f);
+    async function salvar(base: FichaFuncionario = f) {
+        const n = normalizarFicha(base);
         const v = validarFicha(n);
         if (v.erros.length) { setErros(v.erros); return; }
         const pronta = aplicarEdicao(nova ? null : ficha, { ...n, id: nova ? idFuncionario(n.empresaId, n.cpf, n.matriculaEsocial) : ficha.id }, usuario.email, new Date().toISOString().slice(0, 10));
@@ -165,15 +165,20 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
     }
     // Mudou a lista de contratos: a prévia do extrato não vale mais (o aplicar casa por contrato, mas a tela tem de bater).
     useEffect(() => { setExtrato(x => (x.conferencia ? { ...x, conferencia: null } : x)); }, [f.consignados]);
-    // Garantia e saldo dos contratos da ficha e os contratos que só a Dataprev tem, juntos: aplicar um grupo não pode
-    // sumir com o outro (Codex #282). Grava ao salvar a ficha.
-    function aplicarConferencia() {
+    // Garantia e saldo dos contratos da ficha e os contratos que só a Dataprev tem, juntos (aplicar um grupo não pode sumir
+    // com o outro, Codex #282), gravados na ficha com a confirmação: daí a folha da competência já desconta ao recalcular.
+    async function gravarExtrato() {
         const c = extrato.conferencia;
-        if (!c || !extrato.hoje || (!c.atualizacoes.length && !c.soNoExtrato.length)) return;
+        if (!c || !extrato.hoje) return;
         const hoje = extrato.hoje;
-        setF(x => ({ ...x, consignados: acrescentarDoExtrato(aplicarExtrato(x.consignados ?? [], c.atualizacoes), c.soNoExtrato, hoje.slice(0, 7), hoje) }));
+        const consignados = acrescentarDoExtrato(aplicarExtrato(f.consignados ?? [], c.atualizacoes), c.soNoExtrato, hoje.slice(0, 7), hoje);
+        const novos = consignados.length - (f.consignados ?? []).filter(x => x.instFinanc.trim() || x.nrDoc.trim()).length;
+        if (!window.confirm(`Gravar na ficha de ${f.dados.nome || f.cpf}${novos > 0 ? ` ${novos} contrato(s) da Dataprev, com desconto a partir de ${hoje.slice(0, 7).split('-').reverse().join('/')}` : ''}${c.atualizacoes.length ? `${novos > 0 ? ' e' : ''} a garantia e o saldo de ${c.atualizacoes.length} contrato(s)` : ''}? Fica no histórico da ficha; recalcule a folha da competência.`)) return;
+        // Na tela também: se a gravação recusar (validação, rede), os contratos ficam para corrigir e gravar de novo.
+        setF(x => ({ ...x, consignados }));
         setVersaoContratos(v => v + 1);
         setExtrato(x => ({ ...x, conferencia: null }));
+        await salvar({ ...f, consignados });
     }
     const vinculos = f.outrosVinculos ?? [];
     const setVinculo = (i: number, m: Partial<OutroVinculo> | null) => setF(x => {
@@ -343,12 +348,12 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                                     {extrato.conferencia.soNoExtrato.length > 0 && <>
                                         <p>Na Dataprev, fora da ficha:</p>
                                         <ul className="list-disc pl-5">{extrato.conferencia.soNoExtrato.map(n => (
-                                            <li key={`${n.instFinanc}|${n.nrDoc}`}>Contrato {n.nrDoc} ({n.instFinanc}{n.instituicao ? ` ${n.instituicao}` : ''}): parcela {n.parcela === undefined ? '—' : `R$ ${emReais(n.parcela)}`}, de {n.inicio ? n.inicio.split('-').reverse().join('/') : '—'} a {n.fim ? n.fim.split('-').reverse().join('/') : '—'}; saldo devedor {n.saldo === undefined ? '—' : `R$ ${emReais(n.saldo)}`}; garantia {n.garantia === undefined ? '—' : `${n.garantia}%`}.</li>))}</ul>
+                                            <li key={`${n.instFinanc}|${n.nrDoc}`}>Contrato {n.nrDoc} ({n.instFinanc || 'sem código da instituição'}{n.instituicao ? ` ${n.instituicao}` : ''}): parcela {n.parcela === undefined ? '—' : `R$ ${emReais(n.parcela)}`}, de {n.inicio ? n.inicio.split('-').reverse().join('/') : '—'} a {n.fim ? n.fim.split('-').reverse().join('/') : '—'}; saldo devedor {n.saldo === undefined ? '—' : `R$ ${emReais(n.saldo)}`}; garantia {n.garantia === undefined ? '—' : `${n.garantia}%`}.</li>))}</ul>
                                     </>}
                                     {!extrato.conferencia.atualizacoes.length && !extrato.conferencia.soNoExtrato.length && extrato.conferencia.total > 0 && <p>Os contratos da ficha já estão como na Dataprev.</p>}
                                     {extrato.conferencia.soNaFicha.length > 0 && <p className="text-amber-800 dark:text-amber-200">Na ficha, sem fim, mas não ativos na Dataprev: {extrato.conferencia.soNaFicha.map(c => c.nrDoc).join(', ')}. Confira se foram quitados ou portados.</p>}
                                     {extrato.conferencia.avisos.map((a, k) => <p key={k} className="text-amber-800 dark:text-amber-200">{a}</p>)}
-                                    {(extrato.conferencia.atualizacoes.length > 0 || extrato.conferencia.soNoExtrato.length > 0) && <button className="rounded-sm bg-blue-700 px-3 py-1 text-white" onClick={aplicarConferencia}>Aplicar na ficha{[extrato.conferencia.atualizacoes.length ? ` garantia e saldo de ${extrato.conferencia.atualizacoes.length} contrato(s)` : '', extrato.conferencia.soNoExtrato.length ? ` ${extrato.conferencia.soNoExtrato.length} contrato(s) novo(s)` : ''].filter(Boolean).join(' e')} (grava ao salvar)</button>}
+                                    {(extrato.conferencia.atualizacoes.length > 0 || extrato.conferencia.soNoExtrato.some(n => n.instFinanc)) && <button className="rounded-sm bg-blue-700 px-3 py-1 text-white disabled:opacity-50" disabled={salvando} onClick={() => void gravarExtrato()}>{salvando ? 'Gravando…' : 'Gravar na ficha'}</button>}
                                 </div>
                             )}
                             <p className="text-[11px] text-slate-500 dark:text-slate-400">Quitado ou suspenso pela instituição: preencha o último mês. No desligamento, use "Consultar extrato na Dataprev" (ou o Portal Emprega Brasil) para a garantia (0% se não houver), o saldo devedor e a data da consulta: sem eles, a rescisão fica incompleta e o S-2299 não sai. O que passar da margem sai parcial, com aviso no cálculo e mensagem no holerite; o trabalhador paga a diferença direto à instituição.</p>
@@ -481,7 +486,7 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                         <div>{!nova && isAdmin && <button className="rounded-sm border border-red-300 px-3 py-2 text-sm text-red-700 dark:text-red-300" disabled={salvando} onClick={excluir}>Excluir ficha</button>}</div>
                         <div className="flex gap-2">
                             <button className="rounded-sm border border-slate-300 px-4 py-2 text-sm dark:border-slate-600 dark:text-white" onClick={onFechar}>Cancelar</button>
-                            <button className="rounded-sm bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={salvando} onClick={salvar}>{salvando ? 'Gravando…' : 'Gravar'}</button>
+                            <button className="rounded-sm bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={salvando} onClick={() => void salvar()}>{salvando ? 'Gravando…' : 'Gravar'}</button>
                         </div>
                     </div>
                 </div>

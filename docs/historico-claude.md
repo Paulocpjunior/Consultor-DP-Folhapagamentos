@@ -5887,3 +5887,18 @@ Pedido da colaboradora, pelo Paulo, com as telas do SAGE (Rescisão Contratual e
   - o título diz quantos empréstimos ativos voltaram, ou "nenhum empréstimo ativo para este CPF nesta empresa" (LF);
   - novo botão "Acrescentar N contrato(s) à ficha".
 - **SAGE (print do Paulo):** a importação do SAGE consulta o Portal por Mês/Ano e lista por trabalhador. No Consultor, o equivalente é "Buscar na Dataprev" em Folha do mês › Crédito do Trabalhador, que traz a competência inteira para a prévia.
+
+## 16/10/2026 — Extrato da Dataprev grava na ficha com um clique; instituição lida de forma tolerante
+
+- **O que o Paulo viu (segundo uso real):** o extrato trouxe os 3 empréstimos (parcela, competências, saldo), mas com a instituição "(000)". Além disso, nada chegou à folha de 10/2026: o fluxo era "Aplicar" e depois "Gravar", e a ficha ficou com Consignado (0).
+- **Instituição:**
+  - a resposta real do extrato não trouxe o código onde o manual v1.7 indica (`emprestimos[].ifConcessora.codigo`);
+  - `instituicaoDoEmprestimo` procura o código (1 a 3 dígitos, também no começo de "908 - NOME") em qualquer campo de instituição ou banco;
+  - sem código, o contrato é listado com aviso (com os nomes dos campos recebidos, para diagnóstico) e não entra na ficha, porque o descFolha do eSocial exige o código;
+  - contratos da ficha agora casam com o extrato pelo número do contrato, sem zeros à esquerda.
+- **Gravar:**
+  - "Gravar na ficha" aplica a garantia e o saldo e acrescenta os contratos novos;
+  - depois da confirmação, grava a ficha direto, com auditoria no histórico;
+  - a folha da competência desconta ao recalcular;
+  - se a gravação recusar, os contratos ficam na tela para corrigir.
+- **Também:** o botão Gravar do rodapé passava o evento do clique como ficha (`onClick={salvar}`). Agora chama `salvar()`.

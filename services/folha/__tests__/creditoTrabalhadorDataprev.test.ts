@@ -2,7 +2,7 @@
 // importação do arquivo do Portal, e o extrato do trabalhador preenche garantia, saldo e data da consulta da rescisão.
 // Dados fictícios.
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { acrescentarDoExtrato, aplicarExtrato, arquivoDaDataprev, buscarConsignacoesDataprev, conferirExtrato, consultarExtratoDataprev } from '../creditoTrabalhadorDataprev';
+import { acrescentarDoExtrato, aplicarExtrato, arquivoDaDataprev, buscarConsignacoesDataprev, conferirExtrato, consultarExtratoDataprev, instituicaoDoEmprestimo } from '../creditoTrabalhadorDataprev';
 import { previaImportacao, sugerirColunas } from '../../calculo/importacaoConsignado';
 import { validarContratos, type ContratoConsignado } from '../../calculo/consignado';
 import { fichaVazia, type FichaFuncionario } from '../../cadastros/funcionarios';
@@ -144,5 +144,24 @@ describe('extrato do trabalhador na ficha', () => {
         expect(tudo[1]).toMatchObject({ nrDoc: 'CX-9', garantiaRescisao: 5, saldoRescisao: 150000 });
         expect(tudo.at(-1)).toMatchObject({ nrDoc: 'NOVO-1', parcela: 8000 });
         expect(validarContratos(tudo)).toEqual([]);
+    });
+
+    it('instituição fora do nome do manual: acha o código em outro campo; sem código, avisa e não grava (uso real 16/10/2026)', () => {
+        expect(instituicaoDoEmprestimo({ ifConcessora: { codigo: 908, descricao: 'PARATI' } })).toEqual({ codigo: '908', descricao: 'PARATI' });
+        expect(instituicaoDoEmprestimo({ instituicaoFinanceira: { codigo: '329', nome: 'QI' } })).toEqual({ codigo: '329', descricao: 'QI' });
+        expect(instituicaoDoEmprestimo({ codigoIfConcessora: '908' })).toEqual({ codigo: '908' });
+        expect(instituicaoDoEmprestimo({ ifConcessora: '908 - PARATI CFI' })).toEqual({ codigo: '908' });
+        expect(instituicaoDoEmprestimo({ contrato: 'X', valorParcela: 10 })).toEqual({});
+        // O extrato do primeiro uso real: contratos sem a instituição. Casam pelo número; os novos não entram na ficha.
+        const real = { emprestimos: [
+            { contrato: 'PKT447854676', valorParcela: 126.31, competenciaInicioDesconto: '07/2026', competenciaFimDesconto: '06/2027', valorSaldoDevedor: 977.04 },
+            { contrato: '701924670', valorParcela: 190.79, competenciaInicioDesconto: '10/2026', competenciaFimDesconto: '12/2027', valorSaldoDevedor: 2085.1 },
+        ] };
+        const c = conferirExtrato([{ instFinanc: '908', nrDoc: '701924670', parcela: 19079, inicio: '2026-10' }], real, '2026-10-16');
+        expect(c.atualizacoes).toEqual([{ indice: 0, instFinanc: '908', nrDoc: '701924670', antes: { garantiaRescisao: undefined, saldoRescisao: undefined, consultaRescisao: undefined },
+            depois: { saldoRescisao: 208510, consultaRescisao: '2026-10-16' } }]);
+        expect(c.soNoExtrato).toEqual([expect.objectContaining({ instFinanc: '', nrDoc: 'PKT447854676', parcela: 12631 })]);
+        expect(c.avisos.join(' ')).toMatch(/1 contrato\(s\) sem o código da instituição.*PKT447854676.*Campos recebidos: contrato, valorParcela/);
+        expect(acrescentarDoExtrato([], c.soNoExtrato, '2026-10', '2026-10-16')).toEqual([]);
     });
 });
