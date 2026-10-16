@@ -152,6 +152,10 @@ describe('extrato do trabalhador na ficha', () => {
         expect(instituicaoDoEmprestimo({ codigoIfConcessora: '908' })).toEqual({ codigo: '908' });
         expect(instituicaoDoEmprestimo({ ifConcessora: '908 - PARATI CFI' })).toEqual({ codigo: '908' });
         expect(instituicaoDoEmprestimo({ contrato: 'X', valorParcela: 10 })).toEqual({});
+        // Nomes abreviados que a importação já reconhece; valor financiado não é código de banco (Codex #283).
+        expect(instituicaoDoEmprestimo({ instFinanc: '908' })).toEqual({ codigo: '908' });
+        expect(instituicaoDoEmprestimo({ codigoIf: 329 })).toEqual({ codigo: '329' });
+        expect(instituicaoDoEmprestimo({ valorFinanciado: 150.5, contrato: 'X' })).toEqual({});
         // O extrato do primeiro uso real: contratos sem a instituição. Casam pelo número; os novos não entram na ficha.
         const real = { emprestimos: [
             { contrato: 'PKT447854676', valorParcela: 126.31, competenciaInicioDesconto: '07/2026', competenciaFimDesconto: '06/2027', valorSaldoDevedor: 977.04 },
@@ -163,5 +167,21 @@ describe('extrato do trabalhador na ficha', () => {
         expect(c.soNoExtrato).toEqual([expect.objectContaining({ instFinanc: '', nrDoc: 'PKT447854676', parcela: 12631 })]);
         expect(c.avisos.join(' ')).toMatch(/1 contrato\(s\) sem o código da instituição.*PKT447854676.*Campos recebidos: contrato, valorParcela/);
         expect(acrescentarDoExtrato([], c.soNoExtrato, '2026-10', '2026-10-16')).toEqual([]);
+    });
+
+    it('o mesmo número em dois bancos não se mistura: casa por instituição + número (Codex #283)', () => {
+        const ficha: ContratoConsignado[] = [{ instFinanc: '908', nrDoc: '123', parcela: 1000, inicio: '2026-10' }];
+        const dois = { emprestimos: [
+            { ifConcessora: { codigo: 329 }, contrato: '123', valorParcela: 50, valorSaldoDevedor: 999 },
+            { ifConcessora: { codigo: 908 }, contrato: '123', valorParcela: 10, valorSaldoDevedor: 100 },
+        ] };
+        const c = conferirExtrato(ficha, dois, '2026-10-16');
+        expect(c.atualizacoes).toEqual([expect.objectContaining({ instFinanc: '908', depois: { saldoRescisao: 10000, consultaRescisao: '2026-10-16' } })]);
+        expect(c.soNoExtrato).toEqual([expect.objectContaining({ instFinanc: '329', nrDoc: '123' })]);
+        // Outro banco com o mesmo número, sem o da ficha: não casa.
+        expect(conferirExtrato(ficha, { emprestimos: [dois.emprestimos[0]] }, '2026-10-16').atualizacoes).toEqual([]);
+        // Sem instituição na resposta e dois empréstimos com o número: ambíguo, não casa.
+        const ambiguo = { emprestimos: [{ contrato: '123', valorSaldoDevedor: 1 }, { contrato: '0123', valorSaldoDevedor: 2 }] };
+        expect(conferirExtrato(ficha, ambiguo, '2026-10-16').atualizacoes).toEqual([]);
     });
 });
