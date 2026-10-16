@@ -2,7 +2,7 @@
 // das colunas, prévia por ficha e aplicação nos contratos sem mexer nos meses anteriores (dados fictícios).
 import { describe, expect, it } from 'vitest';
 import * as XLSX from 'xlsx';
-import { aplicarImportacao, centavos, competenciaDoArquivo, lerArquivoEmprestimos, previaImportacao, sugerirColunas } from '../importacaoConsignado';
+import { aplicarImportacao, centavos, competenciaDoArquivo, dataDoArquivo, lerArquivoEmprestimos, previaImportacao, sugerirColunas } from '../importacaoConsignado';
 import { validarContratos, type ContratoConsignado } from '../consignado';
 import { fichaVazia, type FichaFuncionario } from '../../cadastros/funcionarios';
 
@@ -123,6 +123,17 @@ describe('prévia e aplicação', () => {
         const r = previaImportacao(lerArquivoEmprestimos('e.csv', buf(`${cab}123;104;D1;200,00;2026-10\n11144477735;341;A1;400,00;2026-10`)), sugerirColunas(['cpf', 'ifConcessora.codigo', 'contrato', 'valorParcela', 'competencia']), '2026-10', fichas, '');
         expect(r.acoes.some(a => a.tipo === 'ausente')).toBe(false);
         expect(r.avisos.join(' ')).toMatch(/CPF ilegível/);
+    });
+
+    it('leiaute 1.4: a data de admissão separa os vínculos do mesmo CPF; CNPJ alfanumérico pela raiz', () => {
+        expect(['14/02/2020', '2020-02-14', '31/02/2020', '2020'].map(dataDoArquivo)).toEqual(['2020-02-14', '2020-02-14', null, null]);
+        expect(sugerirColunas(['cpf', 'dataAdmissao']).admissao).toBe('dataAdmissao');
+        const dois = [ficha('h1', '12345678909', 'HELENA (1)', [], { admissao: '2024-01-02' }), ficha('h2', '12345678909', 'HELENA (2)', [], { admissao: '2026-05-04' })];
+        const cols = ['cpf', 'ifConcessora.codigo', 'contrato', 'valorParcela', 'competencia', 'cnpj', 'dataAdmissao'];
+        const arq2 = lerArquivoEmprestimos('e.csv', buf(`${cols.join(';')}\n12345678909;341;H1;100,00;2026-10;"12ABC34501DE35";04/05/2026\n12345678909;341;H2;100,00;2026-10;"12ABC34501DE35";\n12345678909;341;H3;100,00;2026-10;"99XYZ34501DE35";04/05/2026\n12345678909;341;H4;100,00;2026-10;;99/99/2026`));
+        const q = previaImportacao(arq2, sugerirColunas(cols), '2026-10', dois, '12.ABC.345/01DE-35');
+        expect(q.acoes.map(a => [a.nrDoc, a.fichaId])).toEqual([['H1', 'h2']]);
+        expect(q.pendencias.map(x => x.motivo)).toEqual([expect.stringMatching(/matrícula ou da admissão/), 'CNPJ de outro empregador.', 'Data de admissão "99/99/2026" não reconhecida.']);
     });
 
     it('validação: o mesmo contrato em períodos que não se sobrepõem é aceito; sobrepostos, não', () => {

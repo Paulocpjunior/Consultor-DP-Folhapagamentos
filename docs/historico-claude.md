@@ -5826,3 +5826,10 @@ Pedido da colaboradora, pelo Paulo, com as telas do SAGE (Rescisão Contratual e
 - **Tela:** Folha do mês › Crédito do Trabalhador, acima do repasse; o repasse recarrega as fichas depois de gravar.
 - **Revisão do Codex (#277):** (1) CPF com linha recusada não tem contratos dados como fora do arquivo, CPF ilegível (dígitos verificadores) bloqueia a ausência para todos, e o arquivo inteiro de outra competência não tem nada a gravar; (2) sem ler a situação da competência no Fim de mês, a gravação fica bloqueada, com "Tentar de novo".
 - **Falta:** conferir colunas e exemplos com o guia 1.4 (texto colado pelo Paulo) e virar testes.
+
+## 16/10/2026 — Crédito do Trabalhador, etapa 3 (leiaute 1.4: admissão e CNPJ alfanumérico)
+
+- **Pedido do Paulo:** "atualize o guia pdf e comece a etapa 3". O guia em PDF (fora do repositório) ganhou a página "7.1 Importar o arquivo do Portal". A etapa 3 já estava no main (#277); o que faltava era conferir com o leiaute 1.4.
+- **O que deu para levantar:** o guia oficial e os espelhos (Quarta, TDN da TOTVS, Alterdata, Domínio) não abrem daqui. O resumo de uma busca diz que o CSV da 1.4 termina em `dataAdmissao` (dd/mm/aaaa) e o CNPJ vem entre aspas; a TOTVS informa a admissão e o CNPJ alfanumérico como novidades da 1.4.
+- **Mudança:** campo opcional "Data de admissão" (sugerido por `dataAdmissao`), que separa os vínculos do mesmo CPF antes de olhar quem está ativo; CNPJ comparado pela raiz com letras e números (CNPJ alfanumérico); data inválida recusa a linha. Testes novos.
+- **Falta:** a tabela de campos e os exemplos fictícios do guia 1.4, colados pelo Paulo, para virar testes.
