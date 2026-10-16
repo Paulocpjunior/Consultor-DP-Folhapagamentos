@@ -43,7 +43,7 @@ import { rotuloCompetencia, tabelaVigente, type TabelaLegal } from '../cadastros
 import { aniversario, diasEntre, somarDias, somarMeses } from '../prazos/calendario';
 import { calcularMensal, competenciaAnterior, mediaDasVariaveis, percentualDaPensao, salarioContratual, type Movimento, type ResultadoCalculo, type Verba } from './motorMensal';
 import { avosDoAno, primeiraParcelaNasFerias } from './motor13';
-import { descontosConsignado } from './consignado';
+import { descontosConsignadoRescisao } from './consignado';
 import { folhaPagaAntes } from './arredondamento';
 import { diasDeDireito, feriasDaCompetencia, mesesDoPeriodo, periodosAquisitivos } from './motorFerias';
 import { inssDetalhado, irrfDetalhado, type OpcoesIrrf } from './tributos';
@@ -528,12 +528,13 @@ export function calcularRescisao(e: EntradaRescisao): ResultadoRescisao {
     }
     r.memoria.push(r.saqueFgts);
 
-    // Crédito do Trabalhador: a parcela do mês (ou o saldo informado pela instituição) das verbas rescisórias, até 35%
-    // da verba disponível (Lei 10.820/2003); o que não couber a instituição cobra do ex-empregado.
-    const consig = descontosConsignado(ficha.consignados, comp, r.verbas, { rescisao: true });
+    // Crédito do Trabalhador: só com garantia das verbas rescisórias, o menor entre o percentual sobre a remuneração
+    // disponível do § 5º e o saldo devedor (Manual do Empregador v2.1, item 5.7). Sem a consulta ao Portal, fica pendente.
+    const consig = descontosConsignadoRescisao(ficha.consignados, comp, r.verbas);
     for (const v of consig.verbas) r.verbas.push(v);
     if (consig.memoria.length) r.memoria.push(...consig.memoria);
     r.avisos.push(...consig.avisos);
+    if (consig.pendente && r.situacao === 'calculado') r.situacao = 'incompleto';
 
     // Falecimento: os valores vão aos dependentes ou sucessores; sem IRRF na rescisão do falecido (MOS, S-2299, item 11.1).
     if (tipo === '10') {
