@@ -82,7 +82,19 @@ Ponto de partida da próxima sessão. Atualizado em **15/10/2026**. O detalhe de
 - **Para voltar** um serviço ao CFI: apagar a variável dele e rodar `gh workflow run deploy.yml`.
 - **Próximo passo (P5):** tirar do CFI as rotas do DP, um PR por serviço, quando o DP tiver passado pelas primeiras transmissões reais pela plataforma. Até lá, o CFI é a volta.
 
-## Status × SAGE (15/10/2026)
+## Crédito do Trabalhador (16/10/2026, PRs #272 a #278)
+
+- Estudo (`docs/estudo-credito-do-trabalhador.md`) e etapas 1 a 5 no main:
+  - margem de 35% pela remuneração disponível, insuficiência de saldo e mensagem no holerite;
+  - rescisão pela garantia e pelo saldo devedor;
+  - importação do arquivo do Portal Emprega Brasil, com prévia, data de admissão e CNPJ alfanumérico do leiaute 1.4;
+  - repasse com o vencimento da guia e a conferência com o S-5003;
+  - provisão no adiantamento e nas férias, com vigência por competência.
+- Guia didático em PDF (fora do repositório) e resumo de uso (documento no Claude) atualizados.
+- Falta: conferir as colunas com o guia oficial do leiaute 1.4 (texto colado pelo Paulo) e a etapa 6 (API da Dataprev).
+- Fora do Crédito do Trabalhador: o cadastro de empresas ainda não aceita CNPJ alfanumérico (tarefa sugerida no app).
+
+## Status × SAGE (15/10/2026; sem mudança de status em 16/10)
 
 - **Catálogo IOB × Consultor** (IOB SAGE › menus, `catalogoMenus.ts`): 59 itens, **56 disponíveis**, 1 parcial e 2 fora do escopo (a Tabela para D.S.R., o Cadastro de Cargos, o Duplo Vínculo e a Digitação PLR entraram em 15/10).
   - Parcial: a integração contábil, que falta importar direto no CCI.
@@ -129,7 +141,11 @@ Ponto de partida da próxima sessão. Atualizado em **15/10/2026**. O detalhe de
 4. Integração com o CCI: definir o que passa de um sistema para o outro.
 5. E-mail verificado no login, CSP e App Check: mudam o login de quem já usa, então combinar antes.
 6. Avisar quando a primeira transmissão real pela plataforma passar (eSocial ou DCTFWeb), para eu começar a P5 no CFI.
-7. Colaboradora:
+7. Crédito do Trabalhador:
+   - colar a tabela de campos e os exemplos fictícios do guia do leiaute 1.4;
+   - etapa 6 (API da Dataprev): certificado A1 da empresa ou procuração do escritório;
+   - decidir, por cliente, provisão no adiantamento ou insuficiência de saldo.
+8. Colaboradora:
    - testar a MIA;
    - arquivos do IOB do #61 e do caso do 13º;
    - lotações e obras com recibo antes de 26/10.
