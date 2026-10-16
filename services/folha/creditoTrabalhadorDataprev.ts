@@ -82,6 +82,7 @@ export interface AtualizacaoRescisao {
     depois: Pick<ContratoConsignado, 'garantiaRescisao' | 'saldoRescisao'> & { consultaRescisao: string };
 }
 export interface ContratoSoNoExtrato {
+    /** Código de 3 dígitos da Tabela 37; vazio quando a resposta não trouxe (não grava: o descFolha exige). */
     instFinanc: string; nrDoc: string; instituicao?: string;
     parcela?: number; inicio?: string; fim?: string; saldo?: number; garantia?: number;
 }
@@ -112,6 +113,32 @@ export function emprestimosDoExtrato(dados: unknown, profundidade = 0): Empresti
     return Object.values(dados).flatMap(v => (v && typeof v === 'object' ? emprestimosDoExtrato(v, profundidade + 1) : []));
 }
 
+/**
+ * A instituição do empréstimo: `ifConcessora.codigo` no manual v1.7, mas a resposta real do extrato pode trazer outro nome
+ * (o primeiro uso, 16/10/2026, veio sem ele). Procura um campo de instituição/banco com código numérico de até 3 dígitos.
+ */
+export function instituicaoDoEmprestimo(e: Record<string, unknown>): { codigo?: string; descricao?: string } {
+    // Número, "908" ou "908 - PARATI": os 1 a 3 dígitos do começo.
+    const cod = (v: unknown) => { const m = (typeof v === 'number' || typeof v === 'string') ? /^\s*(\d{1,3})(?!\d)/.exec(String(v)) : null; return m ? m[1].padStart(3, '0') : undefined; };
+    const desc = (o: Record<string, unknown>) => { const d = o.descricao ?? o.nome ?? o.razaoSocial ?? o.description; return typeof d === 'string' ? d : undefined; };
+    // instFinanc e codigoIf são os nomes que a importação do arquivo já reconhece (Codex #283); valores e datas ficam de fora.
+    const nome = /concess|instituic|banco|credor|financ|^if|^inst|codigoif|codif/i;
+    const naoE = /^(valor|vl|qtd|quantidade|total|perc|data|dt|competencia|saldo)/i;
+    const entradas = Object.entries(e).sort(([a], [b]) => (a === 'ifConcessora' ? -1 : b === 'ifConcessora' ? 1 : 0));
+    for (const [k, v] of entradas) {
+        if (!nome.test(k) || naoE.test(k)) continue;
+        if (ehObjeto(v)) { const c = cod(v.codigo ?? v.code ?? v.cod ?? v.id ?? v.numero); if (c) return { codigo: c, descricao: desc(v) }; }
+        else { const c = cod(v); if (c) return { codigo: c }; }
+    }
+    const d = entradas.find(([k, v]) => nome.test(k) && !naoE.test(k) && ehObjeto(v));
+    return d ? { descricao: desc(d[1] as Record<string, unknown>) } : {};
+}
+/** Percentual da garantia das verbas rescisórias, onde quer que venha (`garantia.percVerbaRescisoriaGarantia` no manual). */
+const percGarantia = (e: EmprestimoExtrato & Record<string, unknown>): number | undefined =>
+    pct(e.garantia?.percVerbaRescisoriaGarantia ?? e.percVerbaRescisoriaGarantia ?? (ehObjeto(e.garantia) ? Object.entries(e.garantia).find(([k]) => /perc/i.test(k))?.[1] : undefined));
+/** Número do contrato para casar: maiúsculo, sem espaços e sem zeros à esquerda (a Dataprev usa 15 posições). */
+const nrCasar = (nr: unknown) => String(nr ?? '').trim().toUpperCase().replace(/^0+(?=.)/, '');
+
 /** "10/2026" ou "2026-10" → "2026-10". */
 const competencia = (v: unknown): string | undefined => {
     const t = String(v ?? '').trim();
@@ -129,26 +156,28 @@ const chaveContrato = (inst: string, nr: string) => `${inst.replace(/\D/g, '').p
 export function conferirExtrato(contratos: ContratoConsignado[], extrato: unknown, hoje: string): ConferenciaExtrato {
     const emprestimos = emprestimosDoExtrato(extrato);
     const avisos: string[] = [];
-    const doExtrato = new Map<string, EmprestimoExtrato>();
-    for (const e of emprestimos) {
-        const inst = String(e.ifConcessora?.codigo ?? '');
-        const nr = String(e.contrato ?? '');
-        if (inst && nr) doExtrato.set(chaveContrato(inst, nr), e);
-    }
-    // Contrato com zeros à esquerda na Dataprev (15 posições) e sem eles na ficha: casa também pelo número sem os zeros.
-    const semZeros = (k: string) => k.replace(/\|0+(?=.)/, '|');
-    const achar = (k: string) => doExtrato.get(k) ?? [...doExtrato.entries()].find(([x]) => semZeros(x) === semZeros(k))?.[1];
+    // A identidade do contrato é instituição + número (o mesmo número pode existir em dois bancos). Com a instituição na
+    // resposta, casa pelos dois; sem ela, só pelo número e só quando um único empréstimo tem aquele número (Codex #283).
+    const lidos = emprestimos.map(e => ({ e, inst: instituicaoDoEmprestimo(e as Record<string, unknown>).codigo, nr: nrCasar(e.contrato) })).filter(x => x.nr);
+    const achar = (c: ContratoConsignado): EmprestimoExtrato | undefined => {
+        const inst = c.instFinanc.replace(/\D/g, '').padStart(3, '0');
+        const mesmoNr = lidos.filter(x => x.nr === nrCasar(c.nrDoc));
+        const exato = mesmoNr.find(x => x.inst === inst);
+        if (exato) return exato.e;
+        const semInst = mesmoNr.filter(x => !x.inst);
+        return semInst.length === 1 && mesmoNr.length === 1 ? semInst[0].e : undefined;
+    };
 
     const atualizacoes: AtualizacaoRescisao[] = [];
     const usados = new Set<EmprestimoExtrato>();
     const soNaFicha: ConferenciaExtrato['soNaFicha'] = [];
     contratos.forEach((c, indice) => {
         if (!c.instFinanc.trim() && !c.nrDoc.trim()) return; // linha em branco da ficha
-        const e = achar(chaveContrato(c.instFinanc, c.nrDoc));
+        const e = achar(c);
         if (!e) { if (!c.fim) soNaFicha.push({ instFinanc: c.instFinanc, nrDoc: c.nrDoc }); return; }
         usados.add(e);
         const saldo = emCentavos(e.valorSaldoDevedor);
-        const garantia = pct(e.garantia?.percVerbaRescisoriaGarantia);
+        const garantia = percGarantia(e as EmprestimoExtrato & Record<string, unknown>);
         if (saldo === undefined && garantia === undefined) {
             avisos.push(`Contrato ${c.nrDoc}: o extrato não trouxe o saldo devedor nem a garantia; preencha pelo Portal.`);
             return;
@@ -159,12 +188,19 @@ export function conferirExtrato(contratos: ContratoConsignado[], extrato: unknow
             antes: { garantiaRescisao: c.garantiaRescisao, saldoRescisao: c.saldoRescisao, consultaRescisao: c.consultaRescisao },
             depois: { ...(garantia !== undefined ? { garantiaRescisao: garantia } : {}), ...(saldo !== undefined ? { saldoRescisao: saldo } : {}), consultaRescisao: hoje } });
     });
-    const soNoExtrato: ContratoSoNoExtrato[] = emprestimos.filter(e => !usados.has(e) && e.contrato).map(e => ({
-        instFinanc: String(e.ifConcessora?.codigo ?? '').replace(/\D/g, '').padStart(3, '0'), nrDoc: String(e.contrato).trim(),
-        instituicao: e.ifConcessora?.descricao, parcela: emCentavos(e.valorParcela),
-        inicio: competencia(e.competenciaInicioDesconto), fim: competencia(e.competenciaFimDesconto),
-        saldo: emCentavos(e.valorSaldoDevedor), garantia: pct(e.garantia?.percVerbaRescisoriaGarantia),
-    }));
+    const soNoExtrato: ContratoSoNoExtrato[] = emprestimos.filter(e => !usados.has(e) && e.contrato).map(e => {
+        const inst = instituicaoDoEmprestimo(e as Record<string, unknown>);
+        return {
+            instFinanc: inst.codigo ?? '', nrDoc: String(e.contrato).trim(), instituicao: inst.descricao ?? e.ifConcessora?.descricao,
+            parcela: emCentavos(e.valorParcela), inicio: competencia(e.competenciaInicioDesconto), fim: competencia(e.competenciaFimDesconto),
+            saldo: emCentavos(e.valorSaldoDevedor), garantia: percGarantia(e as EmprestimoExtrato & Record<string, unknown>),
+        };
+    });
+    const semInstituicao = soNoExtrato.filter(n => !n.instFinanc);
+    if (semInstituicao.length) {
+        const campos = [...new Set(emprestimos.flatMap(e => Object.keys(e)))].join(', ');
+        avisos.push(`${semInstituicao.length} contrato(s) sem o código da instituição na resposta da Dataprev (${semInstituicao.map(n => n.nrDoc).join(', ')}): não entram na ficha, porque o eSocial exige o código no descFolha. Lance a instituição à mão ou importe o arquivo da competência. Campos recebidos: ${campos}.`);
+    }
     const vazio = extrato === null || extrato === undefined || (Array.isArray(extrato) && !extrato.length);
     return {
         total: emprestimos.length, atualizacoes, soNoExtrato, soNaFicha, avisos,
@@ -187,9 +223,11 @@ export function aplicarExtrato(contratos: ContratoConsignado[], atualizacoes: At
  * consulta. As linhas em branco da ficha saem.
  */
 export function acrescentarDoExtrato(contratos: ContratoConsignado[], novos: ContratoSoNoExtrato[], competenciaTela: string, hoje: string): ContratoConsignado[] {
-    const ja = new Set(contratos.map(c => chaveContrato(c.instFinanc, c.nrDoc)));
+    // Instituição + número (sem zeros à esquerda): o mesmo número em outro banco é outro contrato (Codex #283).
+    const id = (inst: string, nr: string) => `${inst.replace(/\D/g, '').padStart(3, '0')}|${nrCasar(nr)}`;
+    const ja = new Set(contratos.map(c => id(c.instFinanc, c.nrDoc)));
     const preenchidos = contratos.filter(c => c.instFinanc.trim() || c.nrDoc.trim());
-    const mais = novos.filter(n => n.parcela && !ja.has(chaveContrato(n.instFinanc, n.nrDoc))).map((n): ContratoConsignado => ({
+    const mais = novos.filter(n => n.parcela && /^\d{3}$/.test(n.instFinanc) && n.instFinanc !== '000' && !ja.has(id(n.instFinanc, n.nrDoc))).map((n): ContratoConsignado => ({
         instFinanc: n.instFinanc, nrDoc: n.nrDoc, parcela: n.parcela!, inicio: n.inicio && n.inicio > competenciaTela ? n.inicio : competenciaTela,
         ...(n.fim ? { fim: n.fim } : {}),
         ...(n.garantia !== undefined ? { garantiaRescisao: n.garantia } : {}),
