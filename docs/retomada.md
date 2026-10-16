@@ -96,7 +96,7 @@ Ponto de partida da próxima sessão. Atualizado em **15/10/2026**. O detalhe de
 - Guia didático em PDF (fora do repositório) e resumo de uso (documento no Claude) atualizados.
 - Falta:
   - conferir as colunas com o guia oficial do leiaute 1.4 (texto colado pelo Paulo);
-  - a primeira chamada real à Dataprev (precisa da plataforma publicada e da procuração).
+  - a primeira chamada real à Dataprev, com o A1 da empresa (todas têm no cofre).
 - Fora do Crédito do Trabalhador: o cadastro de empresas ainda não aceita CNPJ alfanumérico (tarefa sugerida no app).
 
 ## Status × SAGE (15/10/2026; sem mudança de status em 16/10)
@@ -151,7 +151,6 @@ Ponto de partida da próxima sessão. Atualizado em **15/10/2026**. O detalhe de
 6. Avisar quando a primeira transmissão real pela plataforma passar (eSocial ou DCTFWeb), para eu começar a P5 no CFI.
 7. Crédito do Trabalhador:
    - colar a tabela de campos e os exemplos fictícios do guia do leiaute 1.4;
-   - API da Dataprev: procuração no e-CAC de cada cliente para o escritório (códigos 00137, 00142 ou 88888), ou o A1 da empresa no cofre;
    - decidir, por cliente, provisão no adiantamento ou insuficiência de saldo.
 8. Colaboradora:
    - testar a MIA;

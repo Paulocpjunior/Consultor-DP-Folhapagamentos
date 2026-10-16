@@ -11,7 +11,7 @@ import type { ContratoConsignado } from '../calculo/consignado';
 import { centavos, type ArquivoLido } from '../calculo/importacaoConsignado';
 
 export type AmbienteDataprev = 'producao' | 'homologacao';
-/** O A1 do escritório (procurador no e-CAC: códigos 00137, 00142 ou 88888) ou o da própria empresa. */
+/** O A1 da própria empresa (padrão nas telas: todas têm o certificado no cofre) ou o do escritório (procurador no e-CAC: códigos 00137, 00142 ou 88888). */
 export type CertificadoDataprev = 'escritorio' | 'empresa';
 
 export interface RespostaConsignacoes {

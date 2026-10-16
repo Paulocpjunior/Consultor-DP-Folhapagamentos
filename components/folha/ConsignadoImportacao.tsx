@@ -31,7 +31,7 @@ interface Props {
 
 const ConsignadoImportacao: React.FC<Props> = ({ empresaId, cnpj, competencia, fichas, usuario, onGravado }) => {
     const [arquivo, setArquivo] = useState<{ nome: string; lido: ArquivoLido; dataprev?: boolean } | null>(null);
-    const [certificado, setCertificado] = useState<CertificadoDataprev>('escritorio');
+    const [certificado, setCertificado] = useState<CertificadoDataprev>('empresa');
     const [buscando, setBuscando] = useState(false);
     const [mapa, setMapa] = useState<MapaColunas>({});
     const [desmarcadas, setDesmarcadas] = useState<Set<string>>(new Set());
@@ -108,11 +108,11 @@ const ConsignadoImportacao: React.FC<Props> = ({ empresaId, cnpj, competencia, f
                     onChange={e => { const f = e.target.files?.[0]; if (f) void ler(f); e.target.value = ''; }} /></label>
                 <span className="pb-1 text-xs text-slate-500">ou</span>
                 <label className="text-xs">Certificado<select aria-label="Certificado para a Dataprev" className={`block ${inp}`} value={certificado} onChange={e => setCertificado(e.target.value as CertificadoDataprev)}>
-                    <option value="escritorio">do escritório (procuração no e-CAC)</option><option value="empresa">da empresa</option>
+                    <option value="empresa">da empresa (cofre)</option><option value="escritorio">do escritório (procuração no e-CAC)</option>
                 </select></label>
                 <button className={btn} disabled={buscando || !cnpj} onClick={() => void buscarNaDataprev()}>{buscando ? 'Buscando…' : 'Buscar na Dataprev'}</button>
             </div>
-            <p className="text-xs text-slate-500">A Dataprev libera a competência do dia 21 ao 25. Com o certificado do escritório, a empresa precisa ter dado procuração no e-CAC ao escritório (códigos 00137, 00142 ou 88888).</p>
+            <p className="text-xs text-slate-500">A Dataprev libera a competência do dia 21 ao 25. Usa o A1 da própria empresa no cofre; o do escritório só serve com procuração da empresa no e-CAC (códigos 00137, 00142 ou 88888).</p>
             {arquivo && previa && <>
                 <div>
                     <p className="text-xs text-slate-500">{arquivo.nome}: {previa.lidas} linha(s). {arquivo.dataprev ? 'Campos da API da Dataprev (manual v1.7), já ligados a cada coluna.' : 'Confira a coluna de cada campo: o Consultor sugere pelo nome, e o leiaute oficial ainda não foi conferido.'}</p>

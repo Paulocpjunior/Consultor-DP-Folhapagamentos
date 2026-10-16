@@ -152,7 +152,7 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
         return { ...x, consignados: m === null ? atual.filter((_, k) => k !== i) : atual.map((c, k) => (k === i ? { ...c, ...m } : c)) };
     });
     // Extrato na Dataprev (etapa 6): garantia, saldo devedor e data da consulta para a rescisão, conferidos antes de aplicar.
-    const [extrato, setExtrato] = useState<{ carregando: boolean; erro: string; conferencia: ConferenciaExtrato | null; certificado: CertificadoDataprev }>({ carregando: false, erro: '', conferencia: null, certificado: 'escritorio' });
+    const [extrato, setExtrato] = useState<{ carregando: boolean; erro: string; conferencia: ConferenciaExtrato | null; certificado: CertificadoDataprev }>({ carregando: false, erro: '', conferencia: null, certificado: 'empresa' });
     const [versaoContratos, setVersaoContratos] = useState(0);
     async function consultarExtrato() {
         if (!cnpjEmpresa) return;
@@ -324,7 +324,7 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                                 <button className="rounded-sm border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600" onClick={() => setF(x => ({ ...x, consignados: [...(x.consignados ?? []), { instFinanc: '', nrDoc: '', parcela: 0, inicio: '' }] }))}>Adicionar contrato</button>
                                 {!nova && cnpjEmpresa && contratos.length > 0 && <>
                                     <select aria-label="Certificado para a Dataprev" className="rounded-sm border border-slate-300 px-1 py-1 text-xs dark:border-slate-600 dark:bg-slate-900" value={extrato.certificado} onChange={e => setExtrato(x => ({ ...x, certificado: e.target.value as CertificadoDataprev }))}>
-                                        <option value="escritorio">certificado do escritório</option><option value="empresa">certificado da empresa</option>
+                                        <option value="empresa">certificado da empresa</option><option value="escritorio">certificado do escritório</option>
                                     </select>
                                     <button className="rounded-sm border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-40 dark:border-slate-600" disabled={extrato.carregando} onClick={() => void consultarExtrato()}>{extrato.carregando ? 'Consultando…' : 'Consultar extrato na Dataprev'}</button>
                                 </>}

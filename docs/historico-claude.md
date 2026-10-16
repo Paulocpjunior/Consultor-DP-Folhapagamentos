@@ -5864,4 +5864,4 @@ Pedido da colaboradora, pelo Paulo, com as telas do SAGE (Rescisão Contratual e
 - **Testes:** `creditoTrabalhadorDataprev.test.ts` e a rota no `servicos.test.ts`.
 - **Falta:**
   - a primeira chamada real, depois de publicar a plataforma;
-  - a procuração de cada cliente (Paulo).
+  - nada do Paulo: todas as empresas têm o A1 no cofre, então o padrão das telas é o certificado da empresa (o do escritório fica como opção).

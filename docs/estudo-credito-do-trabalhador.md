@@ -73,7 +73,7 @@ Estudo de 15/10/2026, pedido pelo Paulo: analisar na íntegra o empréstimo cons
 | F4 | Mensagem no holerite. | Texto do manual quando houver desconto parcial ou nenhum desconto. |
 | F5 | Relatório de repasse e prazo. | Relatório por competência (trabalhador, instituição, contrato, devido, descontado, motivo) e o vencimento do dia 20 no Prazos do DP e no calendário da empresa; aviso de atraso com os encargos da Portaria 506/2026. |
 | F6 | Conferência com o eSocial/FGTS Digital. | Na conferência pós-folha, comparar o consignado do S-5003 com o da folha. |
-| F7 | API da Dataprev (fase 2). | Buscar consignações, empréstimos e extratos direto pelo serviço da plataforma comum. A Dataprev publica a documentação técnica para empregadores desde 06/2026 (manual, autenticação por certificado ou procuração, estruturas JSON, homologação e produção; outros sistemas de folha já a usam). Especificação: manual "Dados de consignações para empregadores" v1.7 (mTLS com A1 ICP-Brasil, sem cadastro nem token). A dependência real é o A1 do empregador ou a procuração do escritório no e-CAC (códigos 00137, 00142 ou 88888). |
+| F7 | API da Dataprev (fase 2). | Buscar consignações, empréstimos e extratos direto pelo serviço da plataforma comum. A Dataprev publica a documentação técnica para empregadores desde 06/2026 (manual, autenticação por certificado ou procuração, estruturas JSON, homologação e produção; outros sistemas de folha já a usam). Especificação: manual "Dados de consignações para empregadores" v1.7 (mTLS com A1 ICP-Brasil, sem cadastro nem token). Usa o A1 da própria empresa, que todas têm no cofre; o do escritório fica como opção, com procuração no e-CAC (códigos 00137, 00142 ou 88888). |
 | F8 | Avisos de casos especiais. | Transferência no grupo (só após o Portal mostrar o novo CNPJ), doméstico/MEI (o eSocial lança e recolhe por DAE), afastado o mês todo, salário-maternidade pago pelo INSS, e retificação de mês já pago ou vencido. |
 | F9 | MIA e catálogo. | A MIA explica o fluxo mensal e onde importar; o catálogo SAGE ganha o item. |
 
@@ -88,13 +88,12 @@ Estudo de 15/10/2026, pedido pelo Paulo: analisar na íntegra o empréstimo cons
    - **Feita em 16/10/2026,** pelo manual v1.7: plataforma do DP (sp-plataforma #13) e Consultor DP.
    - **Botão "Buscar na Dataprev":** fica na importação. Traz as consignações da competência para a mesma prévia do arquivo, e só grava o que for marcado.
    - **Extrato na ficha:** "Consultar extrato na Dataprev", na aba Consignado, mostra a garantia, o saldo devedor e a data da consulta de cada contrato, com antes e depois. Os valores entram na ficha ao aplicar e ficam gravados quando a ficha é salva.
-   - **Certificado:** o A1 do escritório (padrão) ou o da empresa, sempre do cofre. A chave não passa pelo navegador.
-   - **Ainda não testado com a Dataprev de verdade:** a primeira chamada real vai dizer se a procuração de cada cliente está ok.
+   - **Certificado:** o padrão é o A1 da própria empresa, que todas têm no cofre (16/10/2026); o do escritório fica como opção. A chave não passa pelo navegador.
+   - **Ainda não testado com a Dataprev de verdade:** falta a primeira chamada real.
 
 ## 7. Dependências do Paulo
 
 - O site do MTE não abre deste ambiente: copiar pelo chat o texto do guia do leiaute 1.4 (cabeçalho, tabela de campos e exemplos fictícios). Não é preciso enviar arquivo com dados reais. O manual da API da Dataprev já foi lido (v1.7).
-- Para a API da Dataprev: procuração no e-CAC de cada cliente para o escritório (códigos 00137, 00142 ou 88888), ou o A1 da própria empresa no cofre.
 - Se o escritório acessa o Portal Emprega Brasil e o DET por procuração eletrônica (SPE) para os clientes.
 - Se as empresas querem a provisão no adiantamento (F3) ou preferem a insuficiência de saldo.
 
