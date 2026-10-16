@@ -11,6 +11,7 @@ vi.mock('../../cadastros/cadastrosService', () => ({
     mensagemErro: (e: unknown) => String(e),
 }));
 vi.mock('../folhaGravadaService', () => ({ lerFolhaGravada: async (_e: string, c: string) => { lidos.push(`folha ${c}`); return { holerites: [{ fichaId: 'f1', nome: 'ANA', competencia: c, verbas: [verba('SAL', 'provento', 200000, true), verba('CONSIG', 'desconto', 61250, false, { instFinanc: '341', nrDoc: 'CT-1' })] }] }; } }));
+vi.mock('../../fimDeMes/fechamentoService', () => ({ lerFechamento: async () => null }));
 vi.mock('../processosGravadosService', () => ({ lerProcesso: async (_e: string, tipo: string, c: string) => { lidos.push(`${tipo} ${c}`); return null; } }));
 import ConsignadoRepassePanel from '../../../components/folha/ConsignadoRepassePanel';
 import { EmpresaAtivaProvider } from '../../empresaAtiva/empresaAtivaContext';

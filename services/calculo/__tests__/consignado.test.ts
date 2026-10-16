@@ -25,7 +25,7 @@ const v = (codigo: string, tipo: 'provento' | 'desconto', valor: number, inss = 
 describe('contratos e margem', () => {
     it('validação pelo XSD (instituição de 3 dígitos, contrato de 2 a 15) e meses', () => {
         expect(validarContratos([C1, C2])).toEqual([]);
-        const e = validarContratos([{ instFinanc: '34', nrDoc: '-AB', parcela: 0, inicio: '2026-13' }, { ...C1, fim: '2026-01' }, C1]).join(' ');
+        const e = validarContratos([{ instFinanc: '34', nrDoc: '-AB', parcela: 0, inicio: '2026-13' }, { ...C1, fim: '2026-01' }, C1, C1]).join(' ');
         for (const m of [/3 dígitos/, /2 a 15 caracteres/, /parcela mensal/, /primeiro desconto/, /último mês inválido/, /contrato repetido/]) expect(e).toMatch(m);
         expect(contratosNoMes([C1, C2], '2026-08').map(c => c.nrDoc)).toEqual(['CT-2026/001']);
         expect(contratosNoMes([C1, C2], '2027-05').map(c => c.nrDoc)).toEqual(['X9']);

@@ -39,7 +39,6 @@ const reais = (c: number) => (c / 100).toLocaleString('pt-BR', { style: 'currenc
 
 export function validarContratos(cs: ContratoConsignado[]): string[] {
     const erros: string[] = [];
-    const vistos = new Set<string>();
     cs.forEach((c, i) => {
         const q = `Consignado ${i + 1}${c.nrDoc ? ` (contrato ${c.nrDoc})` : ''}`;
         if (!/^\d{3}$/.test(c.instFinanc)) erros.push(`${q}: instituição com o código de 3 dígitos da Tabela 37 do eSocial.`);
@@ -50,9 +49,9 @@ export function validarContratos(cs: ContratoConsignado[]): string[] {
         if (c.saldoRescisao !== undefined && !(Number.isInteger(c.saldoRescisao) && c.saldoRescisao >= 0)) erros.push(`${q}: saldo devedor inválido.`);
         if (c.garantiaRescisao !== undefined && !(Number.isFinite(c.garantiaRescisao) && c.garantiaRescisao >= 0 && c.garantiaRescisao <= 100)) erros.push(`${q}: garantia das verbas rescisórias de 0% a 100%.`);
         if (c.consultaRescisao && !/^\d{4}-\d{2}-\d{2}$/.test(c.consultaRescisao)) erros.push(`${q}: data da consulta ao Portal inválida.`);
-        const k = `${c.instFinanc}|${c.nrDoc}`;
-        if (vistos.has(k)) erros.push(`${q}: contrato repetido.`);
-        vistos.add(k);
+        // O mesmo contrato pode ter mais de um período (parcela renegociada a partir de um mês), sem sobrepor.
+        const sobrepoe = cs.slice(0, i).some(o => o.instFinanc === c.instFinanc && o.nrDoc === c.nrDoc && o.inicio <= (c.fim ?? '9999-12') && c.inicio <= (o.fim ?? '9999-12'));
+        if (sobrepoe) erros.push(`${q}: contrato repetido no mesmo período.`);
     });
     return erros;
 }
