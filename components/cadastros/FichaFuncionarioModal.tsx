@@ -165,17 +165,13 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
     }
     // Mudou a lista de contratos: a prévia do extrato não vale mais (o aplicar casa por contrato, mas a tela tem de bater).
     useEffect(() => { setExtrato(x => (x.conferencia ? { ...x, conferencia: null } : x)); }, [f.consignados]);
+    // Garantia e saldo dos contratos da ficha e os contratos que só a Dataprev tem, juntos: aplicar um grupo não pode
+    // sumir com o outro (Codex #282). Grava ao salvar a ficha.
     function aplicarConferencia() {
-        if (!extrato.conferencia?.atualizacoes.length) return;
-        setF(x => ({ ...x, consignados: aplicarExtrato(x.consignados ?? [], extrato.conferencia!.atualizacoes) }));
-        setVersaoContratos(v => v + 1);
-        setExtrato(x => ({ ...x, conferencia: null }));
-    }
-    function acrescentarContratos() {
-        const novos = extrato.conferencia?.soNoExtrato ?? [];
-        if (!novos.length || !extrato.hoje) return;
+        const c = extrato.conferencia;
+        if (!c || !extrato.hoje || (!c.atualizacoes.length && !c.soNoExtrato.length)) return;
         const hoje = extrato.hoje;
-        setF(x => ({ ...x, consignados: acrescentarDoExtrato(x.consignados ?? [], novos, hoje.slice(0, 7), hoje) }));
+        setF(x => ({ ...x, consignados: acrescentarDoExtrato(aplicarExtrato(x.consignados ?? [], c.atualizacoes), c.soNoExtrato, hoje.slice(0, 7), hoje) }));
         setVersaoContratos(v => v + 1);
         setExtrato(x => ({ ...x, conferencia: null }));
     }
@@ -348,12 +344,11 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
                                         <p>Na Dataprev, fora da ficha:</p>
                                         <ul className="list-disc pl-5">{extrato.conferencia.soNoExtrato.map(n => (
                                             <li key={`${n.instFinanc}|${n.nrDoc}`}>Contrato {n.nrDoc} ({n.instFinanc}{n.instituicao ? ` ${n.instituicao}` : ''}): parcela {n.parcela === undefined ? '—' : `R$ ${emReais(n.parcela)}`}, de {n.inicio ? n.inicio.split('-').reverse().join('/') : '—'} a {n.fim ? n.fim.split('-').reverse().join('/') : '—'}; saldo devedor {n.saldo === undefined ? '—' : `R$ ${emReais(n.saldo)}`}; garantia {n.garantia === undefined ? '—' : `${n.garantia}%`}.</li>))}</ul>
-                                        <button className="rounded-sm bg-blue-700 px-3 py-1 text-white" onClick={acrescentarContratos}>Acrescentar {extrato.conferencia.soNoExtrato.length} contrato(s) à ficha (grava ao salvar)</button>
                                     </>}
                                     {!extrato.conferencia.atualizacoes.length && !extrato.conferencia.soNoExtrato.length && extrato.conferencia.total > 0 && <p>Os contratos da ficha já estão como na Dataprev.</p>}
                                     {extrato.conferencia.soNaFicha.length > 0 && <p className="text-amber-800 dark:text-amber-200">Na ficha, sem fim, mas não ativos na Dataprev: {extrato.conferencia.soNaFicha.map(c => c.nrDoc).join(', ')}. Confira se foram quitados ou portados.</p>}
                                     {extrato.conferencia.avisos.map((a, k) => <p key={k} className="text-amber-800 dark:text-amber-200">{a}</p>)}
-                                    {extrato.conferencia.atualizacoes.length > 0 && <button className="rounded-sm bg-blue-700 px-3 py-1 text-white" onClick={aplicarConferencia}>Aplicar garantia e saldo na ficha (grava ao salvar)</button>}
+                                    {(extrato.conferencia.atualizacoes.length > 0 || extrato.conferencia.soNoExtrato.length > 0) && <button className="rounded-sm bg-blue-700 px-3 py-1 text-white" onClick={aplicarConferencia}>Aplicar na ficha{[extrato.conferencia.atualizacoes.length ? ` garantia e saldo de ${extrato.conferencia.atualizacoes.length} contrato(s)` : '', extrato.conferencia.soNoExtrato.length ? ` ${extrato.conferencia.soNoExtrato.length} contrato(s) novo(s)` : ''].filter(Boolean).join(' e')} (grava ao salvar)</button>}
                                 </div>
                             )}
                             <p className="text-[11px] text-slate-500 dark:text-slate-400">Quitado ou suspenso pela instituição: preencha o último mês. No desligamento, use "Consultar extrato na Dataprev" (ou o Portal Emprega Brasil) para a garantia (0% se não houver), o saldo devedor e a data da consulta: sem eles, a rescisão fica incompleta e o S-2299 não sai. O que passar da margem sai parcial, com aviso no cálculo e mensagem no holerite; o trabalhador paga a diferença direto à instituição.</p>

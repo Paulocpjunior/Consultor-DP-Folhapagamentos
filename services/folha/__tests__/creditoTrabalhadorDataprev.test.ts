@@ -136,4 +136,13 @@ describe('extrato do trabalhador na ficha', () => {
         // De novo: nada duplica.
         expect(acrescentarDoExtrato(novos, c.soNoExtrato, '2026-10', '2026-10-16')).toHaveLength(5);
     });
+
+    it('aplicar e acrescentar juntos, como faz a ficha: nenhum grupo se perde (Codex #282)', () => {
+        const c = conferirExtrato(contratos, extrato, '2026-10-16');
+        const tudo = acrescentarDoExtrato(aplicarExtrato(contratos, c.atualizacoes), c.soNoExtrato, '2026-10', '2026-10-16');
+        expect(tudo[0]).toMatchObject({ nrDoc: '12345', garantiaRescisao: 10, saldoRescisao: 410025 });
+        expect(tudo[1]).toMatchObject({ nrDoc: 'CX-9', garantiaRescisao: 5, saldoRescisao: 150000 });
+        expect(tudo.at(-1)).toMatchObject({ nrDoc: 'NOVO-1', parcela: 8000 });
+        expect(validarContratos(tudo)).toEqual([]);
+    });
 });
