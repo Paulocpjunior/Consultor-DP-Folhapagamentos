@@ -163,6 +163,8 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
             setExtrato(x => ({ ...x, carregando: false, conferencia: conferirExtrato(contratos, r.extrato, hoje) }));
         } catch (e) { setExtrato(x => ({ ...x, carregando: false, erro: `Dataprev: ${mensagemErro(e)}` })); }
     }
+    // Mudou a lista de contratos: a prévia do extrato não vale mais (o aplicar casa por contrato, mas a tela tem de bater).
+    useEffect(() => { setExtrato(x => (x.conferencia ? { ...x, conferencia: null } : x)); }, [f.consignados]);
     function aplicarConferencia() {
         if (!extrato.conferencia?.atualizacoes.length) return;
         setF(x => ({ ...x, consignados: aplicarExtrato(x.consignados ?? [], extrato.conferencia!.atualizacoes) }));

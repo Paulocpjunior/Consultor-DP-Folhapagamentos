@@ -51,9 +51,12 @@ describe('consignações da Dataprev na prévia da importação', () => {
         expect(previaImportacao(outro, sugerirColunas(outro.colunas), '2026-10', fichas, CNPJ).pendencias[0].motivo).toBe('CNPJ de outro empregador.');
     });
 
-    it('sem registros (LF): lista vazia, e os contratos vigentes aparecem como fora da lista', () => {
+    it('sem registros (LF): as colunas do manual vêm mesmo assim, e o contrato vigente aparece como fora da lista (Codex #281)', () => {
         const arq = arquivoDaDataprev([]);
-        expect(arq).toEqual({ colunas: [], linhas: [] });
+        expect(arq.linhas).toEqual([]);
+        const fichas = [ficha('a', '11144477735', 'ANA', [{ instFinanc: '341', nrDoc: 'A1', parcela: 40000, inicio: '2026-03' }])];
+        const p = previaImportacao(arq, sugerirColunas(arq.colunas), '2026-10', fichas, CNPJ);
+        expect(p.acoes.map(a => [a.nome, a.tipo, a.nrDoc])).toEqual([['ANA', 'ausente', 'A1']]);
     });
 });
 
@@ -101,5 +104,13 @@ describe('extrato do trabalhador na ficha', () => {
         expect(novos[0]).toEqual({ ...contratos[0], garantiaRescisao: 10, saldoRescisao: 410025, consultaRescisao: '2026-10-16' });
         expect(novos[1]).toEqual({ ...contratos[1], garantiaRescisao: 0, saldoRescisao: 150000, consultaRescisao: '2026-10-16' });
         expect(novos.slice(2)).toEqual(contratos.slice(2));
+    });
+
+    it('aplica pelo contrato, não pela posição: a lista mudou entre a consulta e o aplicar (Codex #281)', () => {
+        const c = conferirExtrato(contratos, extrato, '2026-10-16');
+        const semOPrimeiro = contratos.slice(1);
+        const novos = aplicarExtrato(semOPrimeiro, c.atualizacoes);
+        expect(novos[0]).toEqual({ ...contratos[1], garantiaRescisao: 0, saldoRescisao: 150000, consultaRescisao: '2026-10-16' });
+        expect(novos.slice(1)).toEqual(contratos.slice(2));
     });
 });

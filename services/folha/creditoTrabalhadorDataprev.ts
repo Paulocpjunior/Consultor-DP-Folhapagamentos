@@ -47,10 +47,17 @@ function achatar(o: unknown, prefixo = '', saida: Record<string, string> = {}): 
     return saida;
 }
 
-/** As consignações da Dataprev no formato do arquivo lido: a prévia, o mapa de colunas e a gravação são os da importação. */
+/** Campos do retorno da Dataprev (manual v1.7, 3.1.3) que a importação usa. */
+export const COLUNAS_DATAPREV = ['cpf', 'matricula', 'dataAdmissao', 'ifConcessora.codigo', 'contrato', 'valorParcela', 'competencia', 'nomeTrabalhador', 'numeroInscricaoEmpregador'];
+
+/**
+ * As consignações da Dataprev no formato do arquivo lido: a prévia, o mapa de colunas e a gravação são os da importação.
+ * As colunas do manual vêm sempre, mesmo sem registros: a lista vazia ainda mostra os contratos das fichas que saíram
+ * (quitados ou portados) para encerrar (Codex #281).
+ */
 export function arquivoDaDataprev(consignacoes: unknown[]): ArquivoLido {
     const linhas = consignacoes.filter(x => x && typeof x === 'object').map(x => achatar(x));
-    return { colunas: [...new Set(linhas.flatMap(l => Object.keys(l)))], linhas };
+    return { colunas: [...new Set([...COLUNAS_DATAPREV, ...linhas.flatMap(l => Object.keys(l))])], linhas };
 }
 
 /** Valor da Dataprev (número com ponto, ou texto) em centavos. */
@@ -120,8 +127,12 @@ export function conferirExtrato(contratos: ContratoConsignado[], extrato: Respos
     return { atualizacoes, soNoExtrato, soNaFicha, avisos };
 }
 
-/** Aplica as atualizações conferidas nos contratos (só garantia, saldo e data da consulta). */
+/**
+ * Aplica as atualizações conferidas nos contratos (só garantia, saldo e data da consulta), pela instituição e pelo número
+ * do contrato, não pela posição: a lista da ficha pode ter mudado entre a consulta e o aplicar (Codex #281).
+ */
 export function aplicarExtrato(contratos: ContratoConsignado[], atualizacoes: AtualizacaoRescisao[]): ContratoConsignado[] {
-    const por = new Map(atualizacoes.map(a => [a.indice, a.depois]));
-    return contratos.map((c, i) => (por.has(i) ? { ...c, ...por.get(i)! } : c));
+    const id = (inst: string, nr: string) => `${inst.replace(/\D/g, '').padStart(3, '0')}|${nr.trim().toUpperCase()}`;
+    const por = new Map(atualizacoes.map(a => [id(a.instFinanc, a.nrDoc), a.depois]));
+    return contratos.map(c => { const d = por.get(id(c.instFinanc, c.nrDoc)); return d ? { ...c, ...d } : c; });
 }
