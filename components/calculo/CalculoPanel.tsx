@@ -58,6 +58,8 @@ import { calcularRescisao, ROTULO_AVISO, TIPOS_RESCISAO, type AvisoPrevio, type 
 import { calcular13, com13, OPCOES_13_PADRAO, ultimoDiaDoMes, type Opcoes13 } from '../../services/calculo/motor13';
 import ConferenciaHolerites, { conferirTodos, type LeituraHolerites } from './ConferenciaHolerites';
 import ConferenciaEsocialIob from './ConferenciaEsocialIob';
+import { listarConferenciasMotor } from '../../services/conferencia/conferenciasMotorService';
+import { sequenciaHomologacao, textoHomologacao, type RegistroConferenciaMotor } from '../../services/conferencia/homologacaoMotor';
 import EventosFolhaModal from '../esocial/EventosFolhaModal';
 import { plrDoMes } from '../../services/calculo/plr';
 import { ehAdmin, ehMaster } from '../../services/auth/papeis';
@@ -343,6 +345,18 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
     const sindicatosDaEmpresa = empresa?.sindicatos;
     const convencaoDe = useCallback((f: FichaFuncionario, dia: string) => convencaoDaFicha(convencoes, f, sindicatosDaEmpresa ?? [], dia), [convencoes, sindicatosDaEmpresa]);
     const parametrosFolha = empresa?.parametrosFolha;
+    // Homologação do motor: as conferências com o eSocial do IOB gravadas para a empresa (conferencias_motor).
+    const [conferenciasMotor, setConferenciasMotor] = useState<RegistroConferenciaMotor[] | null>(null);
+    const [erroConferencias, setErroConferencias] = useState('');
+    const [recargaConferencias, setRecargaConferencias] = useState(0);
+    useEffect(() => {
+        if (!empresaId) return;
+        let vivo = true;
+        setConferenciasMotor(null); setErroConferencias('');
+        listarConferenciasMotor(empresaId).then(r => { if (vivo) setConferenciasMotor(r); })
+            .catch(e => { if (vivo) { setConferenciasMotor([]); setErroConferencias(mensagemErro(e)); } });
+        return () => { vivo = false; };
+    }, [empresaId, recargaConferencias]);
     // As opções do recibo de férias da tela, com a provisão do Crédito do Trabalhador do parâmetro da empresa.
     const opcoesFerias = useMemo<OpcoesFerias>(() => ({ ...opcoesFeriasTela, provisaoConsignado: parametrosFolha?.provisaoConsignado }), [opcoesFeriasTela, parametrosFolha?.provisaoConsignado]);
     const parcelaUnica13 = (parametrosFolha?.parcelaUnica13 ?? []).includes(ano);
@@ -599,11 +613,13 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
     function ativarMotor(ativar: boolean) {
         if (!empresa) return;
         const desde = /^\d{4}-\d{2}$/.test(competencia) ? competencia : `${ano}-01`;
-        if (ativar && !window.confirm(`Ativar o motor de cálculo da ${empresa.nomeFantasia || empresa.razaoSocial} a partir de ${br(desde)}?\n\nOs holerites, recibos e resumos passam a sair sem a marca de PRÉVIA, como documentos da folha. Ative só com o cálculo conferido com o IOB (empresa homologada).`)) return;
+        const h = textoHomologacao(conferenciasMotor ?? []);
+        if (ativar && !window.confirm(`Ativar o motor de cálculo da ${empresa.nomeFantasia || empresa.razaoSocial} a partir de ${br(desde)}?\n\nOs holerites, recibos e resumos passam a sair sem a marca de PRÉVIA, como documentos da folha.\n\nHomologação: ${h.texto}${h.atingido ? '' : '\n\nATENÇÃO: sem o critério, a ativação fica registrada como feita antes da homologação. Ative assim só com o cálculo conferido com o IOB por outro meio.'}`)) return;
         if (!ativar && !window.confirm('Voltar o motor desta empresa para prévia? Os documentos voltam a sair com a marca de PRÉVIA.')) return;
         gravarParametrosFolha(p => {
             const { motorHomologado: _m, ...resto } = p ?? {};
-            return ativar ? { ...resto, motorHomologado: { desde, por: currentUser.email ?? usuario.id, em: new Date().toISOString() } } : resto;
+            const seq = sequenciaHomologacao(conferenciasMotor ?? []);
+            return ativar ? { ...resto, motorHomologado: { desde, por: currentUser.email ?? usuario.id, em: new Date().toISOString(), ...(h.atingido ? { conferencia: seq } : { semCriterio: true }) } } : resto;
         });
     }
     const opcoesPdf = () => ({ empresa: { razaoSocial: empresa?.razaoSocial ?? '', cnpj: empresa?.cnpj ?? '', codigoSage: empresa?.codigoSage }, titulo: tituloFolha, previa: !homologado, mensagemHolerite: parametrosFolha?.mensagemHolerite, mensagemAniversario: parametrosFolha?.mensagemAniversario });
@@ -738,7 +754,8 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                 </div>
             ) : (
                 <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-100">
-                    <span><strong>Prévia do motor de cálculo.</strong> Não substitui o cálculo do IOB enquanto a empresa não for homologada: os documentos saem com a marca de PRÉVIA. O movimento do mês é gravado quando você clica em "Salvar movimento". 13º, férias e rescisão usam as médias de horas extras dos movimentos gravados. Adicionais, comissões e outras médias ainda não estão no motor.</span>
+                    <span><strong>Prévia do motor de cálculo.</strong> Não substitui o cálculo do IOB enquanto a empresa não for homologada: os documentos saem com a marca de PRÉVIA. O movimento do mês é gravado quando você clica em "Salvar movimento". 13º, férias e rescisão usam as médias de horas extras dos movimentos gravados. Adicionais, comissões e outras médias ainda não estão no motor.
+                        <span className="mt-1 block" aria-label="Homologação do motor">Homologação: {erroConferencias ? `conferências gravadas não lidas (${erroConferencias}).` : conferenciasMotor ? textoHomologacao(conferenciasMotor).texto : 'lendo as conferências gravadas…'}</span></span>
                     {podeHomologar && empresa && <button className="ml-auto rounded-sm bg-green-700 px-3 py-1.5 text-xs font-medium text-white" title="Empresa conferida com o IOB: os documentos passam a sair sem a marca de prévia, a partir da competência da tela." onClick={() => ativarMotor(true)}>Ativar o motor para esta empresa</button>}
                 </div>
             )}
@@ -1084,7 +1101,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
                     onFechar={() => setEventosFolha(false)} onParametrosSalvos={esocialFolha => setEmpresas(l => l?.map(e => (e.id === empresa.id ? { ...e, esocialFolha } : e)) ?? l)} />;
             })()}
             {mensal && conferirEsocial && empresa && dados && movsEmpresa && (
-                <ConferenciaEsocialIob empresa={empresa} fichas={dados.fichas} motor={motorDaCompetencia} comFerias={comFeriasNaCompetencia} />
+                <ConferenciaEsocialIob empresa={empresa} fichas={dados.fichas} motor={motorDaCompetencia} comFerias={comFeriasNaCompetencia} usuario={usuario} onGravado={() => setRecargaConferencias(n => n + 1)} />
             )}
             {conferir && dados && resultados.length > 0 && (
                 <ConferenciaHolerites empresaId={empresaId} competencia={competencia} fichas={dados.fichas} resultados={resultados} usuario={usuario} beneficios={parametrosFolha?.beneficios}

@@ -4,14 +4,16 @@
 // transmitiu (com o S-1010 das rubricas e, se vierem, o S-5001 e o S-5003) é
 // comparado com o motor em todas as competências do arquivo, funcionário por
 // funcionário. Mostra o critério da Fase 3: 3 competências seguidas sem
-// diferença. Sem IA e sem gravar nada (services/conferencia/conferenciaMotorIob).
+// diferença. Sem IA (services/conferencia/conferenciaMotorIob). "Gravar o resultado" guarda o resumo de cada
+// competência para a homologação do motor da empresa (services/conferencia/homologacaoMotor).
 
 import React, { useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import type { FichaFuncionario } from '../../services/cadastros/funcionarios';
 import type { ResultadoCalculo } from '../../services/calculo/motorMensal';
 import type { Rubrica } from '../../services/cadastros/rubricas';
-import { listarRubricas, mensagemErro } from '../../services/cadastros/cadastrosService';
+import { listarRubricas, mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
+import { gravarConferenciasMotor } from '../../services/conferencia/conferenciasMotorService';
 import { definirContextoMia } from '../../services/mia/mia';
 import { reais } from '../../services/cadastros/documentos';
 import {
@@ -25,6 +27,9 @@ interface Props {
     /** Folha mensal pelo motor na competência (movimentos gravados). */
     motor: (competencia: string) => ResultadoCalculo[];
     comFerias: (competencia: string) => Set<string>;
+    /** Com o usuário, o resultado pode ser gravado para a homologação do motor. */
+    usuario?: Usuario;
+    onGravado?: () => void;
 }
 
 const COR: Record<SituacaoLinha, string> = {
@@ -40,13 +45,14 @@ const comp = (c: string) => `${c.slice(5)}/${c.slice(0, 4)}`;
 const dif = (c: number) => `${c > 0 ? '+' : c < 0 ? '−' : ''}${reais(Math.abs(c))}`;
 const TIPO: Record<string, string> = { '1': 'provento', '2': 'desconto', '3': 'informativa', '4': 'informativa dedutora' };
 
-const ConferenciaEsocialIob: React.FC<Props> = ({ empresa, fichas, motor, comFerias }) => {
+const ConferenciaEsocialIob: React.FC<Props> = ({ empresa, fichas, motor, comFerias, usuario, onGravado }) => {
     const [arquivos, setArquivos] = useState<File[]>([]);
     const [leitura, setLeitura] = useState<LeituraEsocialIob | null>(null);
     const [gravadas, setGravadas] = useState<Rubrica[] | null>(null);
     const [ocupado, setOcupado] = useState(''); const [erro, setErro] = useState('');
     const [competencia, setCompetencia] = useState('');
     const [aberto, setAberto] = useState<string | null>(null);
+    const [gravado, setGravado] = useState('');
 
     useEffect(() => {
         let vivo = true;
@@ -56,7 +62,7 @@ const ConferenciaEsocialIob: React.FC<Props> = ({ empresa, fichas, motor, comFer
     }, [empresa.id]);
 
     async function ler() {
-        setOcupado('Lendo os arquivos…'); setErro(''); setLeitura(null); setAberto(null);
+        setOcupado('Lendo os arquivos…'); setErro(''); setLeitura(null); setAberto(null); setGravado('');
         try {
             const l = await lerEsocialIob(await Promise.all(arquivos.map(async f => ({ nome: f.name, bytes: new Uint8Array(await f.arrayBuffer()) }))), empresa.cnpj);
             if (!l.remuneracoes.length) setErro('Nenhum S-1200 mensal desta empresa nos arquivos. Baixe pelo eSocial › Download de eventos (empregador, S-1200) ou inclua os XMLs.');
@@ -92,6 +98,18 @@ const ConferenciaEsocialIob: React.FC<Props> = ({ empresa, fichas, motor, comFer
         XLSX.writeFile(wb, `conferencia-iob-${empresa.codigoSage ?? 'empresa'}-${meses[0]}-a-${meses[meses.length - 1]}.xlsx`);
     }
 
+    async function gravar() {
+        if (!conf || !usuario) return;
+        const cs = conf.r.competencias;
+        if (!window.confirm(`Gravar o resultado de ${cs.length} competência(s) (${cs.map(c => `${comp(c.competencia)} ${c.zerada ? 'sem diferença' : 'com diferença'}`).join('; ')}) para a homologação do motor? Competência já gravada fica com este resultado.`)) return;
+        setOcupado('Gravando o resultado…'); setErro('');
+        try {
+            await gravarConferenciasMotor(empresa.id, cs.map(c => ({ competencia: c.competencia, zerada: c.zerada, confere: c.confere, diverge: c.diverge, pendentes: c.pendentes })), arquivos.map(f => f.name), usuario);
+            setGravado(`Resultado gravado: ${cs.length} competência(s). A faixa do cálculo mostra a homologação da empresa.`);
+            onGravado?.();
+        } catch (e) { setErro(`Não foi possível gravar: ${mensagemErro(e)}`); } finally { setOcupado(''); }
+    }
+
     const atual = conf?.r.competencias.find(c => c.competencia === competencia);
     // MiA: a linha aberta (motor × IOB, rubricas e observações) vai como contexto da pergunta.
     const linhaAberta = atual?.linhas.find(l => `${l.cpf}|${l.fichaId}` === aberto);
@@ -112,7 +130,7 @@ const ConferenciaEsocialIob: React.FC<Props> = ({ empresa, fichas, motor, comFer
                 <h3 className="font-semibold text-slate-800 dark:text-white">Conferir com o eSocial do IOB (S-1200)</h3>
                 <p className="text-xs text-slate-600 dark:text-slate-300">
                     Compara o motor com a folha que o IOB transmitiu: o S-1200 de cada funcionário, com o tipo e a natureza das rubricas pelo S-1010 (de Cadastros › Incidências ou do próprio arquivo). Se o arquivo trouxer o S-5001 e o S-5003, também confere o INSS descontado e o FGTS apurados pelo eSocial.
-                    Use o .zip do eSocial › Download de eventos (empregador: S-1200; tabelas: S-1010; trabalhador: S-5001 e S-5003) ou os XMLs. Todas as competências do arquivo são conferidas, com os movimentos gravados de cada mês. Diferença zero; nada é gravado.
+                    Use o .zip do eSocial › Download de eventos (empregador: S-1200; tabelas: S-1010; trabalhador: S-5001 e S-5003) ou os XMLs. Todas as competências do arquivo são conferidas, com os movimentos gravados de cada mês. Diferença zero. "Gravar o resultado" guarda o resumo de cada competência para a homologação do motor (3 competências seguidas sem diferença).
                 </p>
             </div>
             <div className="flex flex-wrap items-end gap-3">
@@ -121,7 +139,9 @@ const ConferenciaEsocialIob: React.FC<Props> = ({ empresa, fichas, motor, comFer
                 </label>
                 <button className="rounded-sm bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50" disabled={!arquivos.length || !!ocupado || !gravadas} onClick={ler}>Conferir</button>
                 {conf && <button className="rounded-sm border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:text-white" onClick={exportar}>Exportar Excel</button>}
+                {conf && usuario && <button className="rounded-sm border border-green-600 px-3 py-2 text-sm text-green-800 disabled:opacity-50 dark:border-green-500 dark:text-green-200" disabled={!!ocupado} onClick={() => void gravar()}>Gravar o resultado</button>}
             </div>
+            {gravado && <p role="status" className="rounded-sm bg-green-50 p-2 text-sm text-green-900 dark:bg-green-900/30 dark:text-green-100">{gravado}</p>}
             {ocupado && <p role="status" className="text-sm text-blue-700 dark:text-blue-300">{ocupado}</p>}
             {erro && <p role="alert" className="rounded-sm bg-red-50 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">{erro}</p>}
             {conf && (

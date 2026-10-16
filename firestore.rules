@@ -923,6 +923,21 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Homologação do motor: resultado da conferência motor × S-1200 do IOB por competência,
+    // conferencias_motor/{empresa}_{AAAA-MM}. Grava quem trabalha na empresa; nada se apaga.
+    match /conferencias_motor/{confId} {
+      allow get: if podeEmpresa(confId.split('_')[0]);
+      allow list: if podeEmpresa(resource.data.empresaId);
+      allow create, update: if gravaNaEmpresa()
+                    && confId == request.resource.data.empresaId + '_' + request.resource.data.competencia
+                    && request.resource.data.competencia.matches('^[0-9]{4}-(0[1-9]|1[0-2])$')
+                    && request.resource.data.zerada is bool
+                    && request.resource.data.confere is int && request.resource.data.diverge is int && request.resource.data.pendentes is int
+                    && request.resource.data.arquivos is list
+                    && request.resource.data.atualizadoPor == request.auth.uid;
+      allow delete: if false;
+    }
+
     // ===== Fim de mês =====
     // Encerra quem trabalha na empresa (a lista de conferência fica gravada); só o gestor reabre, com o motivo.
     // Reencerrar depois da alteração: de novo quem trabalha na empresa. Nada se apaga.
