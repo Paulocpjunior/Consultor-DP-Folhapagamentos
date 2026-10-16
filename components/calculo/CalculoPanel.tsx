@@ -546,7 +546,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
     const comAutomaticos = useMemo(() => (dados ? noMes(dados.fichas, competencia).filter(f => (!desligamentosDaTela || f.id in desligamentosDaTela) && automaticosDoMes(f.lancamentosAutomaticos, competencia).length) : []), [dados, competencia, desligamentosDaTela]);
     async function lancarAutomaticos() {
         setErro('');
-        const eventos = await carregarEventosIob().catch(() => null);
+        const eventos = await carregarEventosIob(empresaId).catch(() => null);
         if (!eventos) { setErro('Não foi possível carregar o catálogo de eventos do IOB.'); return; }
         const r = aplicarAutomaticos({
             fichas: comAutomaticos, movimentos: movs, competencia, eventos, formulas: parametrosFolha?.formulasEventos, rubricas: rubricasEmpresa, desligamentos: desligamentosDaTela,
@@ -745,6 +745,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
     return (
         <FormulasContexto.Provider value={parametrosFolha?.formulasEventos}>
         <RubricasContexto.Provider value={{ rubricas: rubricasEmpresa, competencia }}>
+        <EmpresaEventosContexto.Provider value={empresaId}>
         <PdfContexto.Provider value={r => pdfHolerites([r], `holerite-${empresa?.codigoSage ?? 'empresa'}-${sufixoArquivo}-${(nomeDe(r.fichaId) || r.fichaId).replace(/[^A-Za-z0-9]+/g, '-').toLowerCase()}.pdf`)}>
         <div className="space-y-4">
             {homologado ? (
@@ -1395,6 +1396,7 @@ const CalculoPanel: React.FC<{ currentUser: User; folhaInicial?: Folha | 'adiant
             )}
         </div>
         </PdfContexto.Provider>
+        </EmpresaEventosContexto.Provider>
         </RubricasContexto.Provider>
         </FormulasContexto.Provider>
     );
@@ -1405,6 +1407,8 @@ const PdfContexto = React.createContext<((r: ResultadoCalculo) => void) | null>(
 const FormulasContexto = React.createContext<Record<string, FormulaEvento> | undefined>(undefined);
 /** Rubricas S-1010 da empresa e a competência: as incidências do "Lançar evento". */
 const RubricasContexto = React.createContext<{ rubricas: Rubrica[]; competencia: string } | null>(null);
+/** Empresa do cálculo: o "Lançar evento" usa a tabela de eventos dela (Cadastros › Eventos IOB). */
+const EmpresaEventosContexto = React.createContext<string>('');
 
 /** "Lançar evento" como no Sage: código do evento do IOB + referência; o Consultor calcula e põe no movimento. */
 const LancarEvento: React.FC<{ mov: Movimento; salario: SalarioDoMes | null; lancado: string; onLancar: (m: Movimento, mensagem: string) => void }> = ({ mov, salario, lancado, onLancar }) => {
@@ -1412,7 +1416,8 @@ const LancarEvento: React.FC<{ mov: Movimento; salario: SalarioDoMes | null; lan
     const [codigo, setCodigo] = useState('');
     const [ref, setRef] = useState('');
     const [erro, setErro] = useState('');
-    const carregar = () => { if (!eventos) carregarEventosIob().then(setEventos).catch(() => setErro('Não foi possível carregar o catálogo de eventos do IOB.')); };
+    const empresaEventos = React.useContext(EmpresaEventosContexto);
+    const carregar = () => { if (!eventos) carregarEventosIob(empresaEventos || undefined).then(setEventos).catch(() => setErro('Não foi possível carregar o catálogo de eventos do IOB.')); };
     const formulas = React.useContext(FormulasContexto);
     const doS1010 = React.useContext(RubricasContexto);
     const ev = eventos ? eventoPorCodigo(eventos, codigo) : null;
@@ -1421,7 +1426,7 @@ const LancarEvento: React.FC<{ mov: Movimento; salario: SalarioDoMes | null; lan
     const rotulo = { horas: 'Horas (8,5 ou 8:30)', dias: 'Dias', percentual: '%', valor: 'Valor (R$)', nenhuma: 'Sem referência' };
     const lancar = async () => {
         setErro('');
-        const lista = eventos ?? await carregarEventosIob().catch(() => null);
+        const lista = eventos ?? await carregarEventosIob(empresaEventos || undefined).catch(() => null);
         if (!lista) { setErro('Não foi possível carregar o catálogo de eventos do IOB.'); return; }
         if (!eventos) setEventos(lista);
         const e = eventoPorCodigo(lista, codigo);

@@ -156,7 +156,7 @@ const FichaFuncionarioModal: React.FC<Props> = ({ ficha, nova, sindicatos, horar
     const automaticos = f.lancamentosAutomaticos ?? [];
     // Catálogo de eventos do IOB: a descrição do evento aparece ao digitar o código (como o SAGE).
     const [catalogo, setCatalogo] = useState<EventoIobSage[] | null>(null);
-    useEffect(() => { if (aba === 'automaticos' && !catalogo) carregarEventosIob().then(setCatalogo).catch(() => setCatalogo([])); }, [aba, catalogo]);
+    useEffect(() => { if (aba === 'automaticos' && !catalogo) carregarEventosIob(ficha.empresaId).then(setCatalogo).catch(() => setCatalogo([])); }, [aba, catalogo]);
     const setAutomatico = (i: number, m: Partial<LancamentoAutomatico> | null) => setF(x => {
         const atual = x.lancamentosAutomaticos ?? [];
         return { ...x, lancamentosAutomaticos: m === null ? atual.filter((_, k) => k !== i) : atual.map((a, k) => (k === i ? { ...a, ...m } : a)) };

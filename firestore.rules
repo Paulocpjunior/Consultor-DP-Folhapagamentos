@@ -923,6 +923,17 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Tabela de eventos da empresa (a do SAGE dela), eventos_empresa/{empresa}: substitui ou completa o catálogo geral.
+    // Apagar volta ao catálogo geral.
+    match /eventos_empresa/{empId} {
+      allow read: if podeEmpresa(empId);
+      allow create, update: if gravaNaEmpresa() && request.resource.data.empresaId == empId
+                    && request.resource.data.eventos is list && request.resource.data.eventos.size() > 0 && request.resource.data.eventos.size() <= 3000
+                    && request.resource.data.modo in ['substitui', 'completa']
+                    && request.resource.data.atualizadoPor == request.auth.uid;
+      allow delete: if podeEmpresa(empId);
+    }
+
     // Homologação do motor: resultado da conferência motor × S-1200 do IOB por competência,
     // conferencias_motor/{empresa}_{AAAA-MM}. Grava quem trabalha na empresa; nada se apaga.
     match /conferencias_motor/{confId} {
