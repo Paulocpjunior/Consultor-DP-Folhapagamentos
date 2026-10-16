@@ -2,9 +2,9 @@
 // importação do arquivo do Portal, e o extrato do trabalhador preenche garantia, saldo e data da consulta da rescisão.
 // Dados fictícios.
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { aplicarExtrato, arquivoDaDataprev, buscarConsignacoesDataprev, conferirExtrato, consultarExtratoDataprev, type RespostaExtrato } from '../creditoTrabalhadorDataprev';
+import { acrescentarDoExtrato, aplicarExtrato, arquivoDaDataprev, buscarConsignacoesDataprev, conferirExtrato, consultarExtratoDataprev } from '../creditoTrabalhadorDataprev';
 import { previaImportacao, sugerirColunas } from '../../calculo/importacaoConsignado';
-import type { ContratoConsignado } from '../../calculo/consignado';
+import { validarContratos, type ContratoConsignado } from '../../calculo/consignado';
 import { fichaVazia, type FichaFuncionario } from '../../cadastros/funcionarios';
 
 vi.mock('../../serpro/serproIntegrationService', () => ({ callFiscal: vi.fn(async (path: string, body: object) => ({ path, body })) }));
@@ -66,51 +66,83 @@ describe('extrato do trabalhador na ficha', () => {
         { instFinanc: '104', nrDoc: 'CX-9', parcela: 10000, inicio: '2026-01', garantiaRescisao: 5, saldoRescisao: 100, consultaRescisao: '2026-09-01' },
         { instFinanc: '001', nrDoc: 'BB-1', parcela: 9000, inicio: '2026-01' },
         { instFinanc: '033', nrDoc: 'ST-1', parcela: 9000, inicio: '2025-01', fim: '2026-04' },
+        { instFinanc: '', nrDoc: '', parcela: 0, inicio: '' }, // linha em branco: não conta como ausente
     ];
-    const extrato: RespostaExtrato['extrato'] = {
+    const extrato = {
         cpf: '11144477735', nomeTrabalhador: 'ANA',
         emprestimos: [
             // Contrato com zeros à esquerda (15 posições) casa com o da ficha sem os zeros.
             { ifConcessora: { codigo: 341 }, contrato: '000000000012345', valorParcela: 250.5, valorSaldoDevedor: 4100.25, garantia: { temGarantias: true, percVerbaRescisoriaGarantia: 10 } },
+            // temGarantias é a garantia do FGTS (manual v1.7): sem o percentual, a garantia da ficha fica como está.
             { ifConcessora: { codigo: '104' }, contrato: 'CX-9', valorSaldoDevedor: '1.500,00', garantia: { temGarantias: false } },
-            { ifConcessora: { codigo: 237 }, contrato: 'NOVO-1', valorParcela: 80, valorSaldoDevedor: 900, garantia: { temGarantias: false } },
+            { ifConcessora: { codigo: 237, descricao: 'BANCO NOVO' }, contrato: 'NOVO-1', competenciaInicioDesconto: '08/2026', competenciaFimDesconto: '07/2028',
+                valorParcela: 80, valorSaldoDevedor: 900, garantia: { temGarantias: false, percVerbaRescisoriaGarantia: 0 } },
         ],
     };
 
-    it('casa os contratos, mostra antes e depois e avisa o que está só de um lado', () => {
+    it('casa os contratos, mostra antes e depois e o que está só de um lado (linha em branco fora)', () => {
         const c = conferirExtrato(contratos, extrato, '2026-10-16');
+        expect(c.total).toBe(3);
         expect(c.atualizacoes).toEqual([
             { indice: 0, instFinanc: '341', nrDoc: '12345', antes: { garantiaRescisao: undefined, saldoRescisao: undefined, consultaRescisao: undefined },
                 depois: { garantiaRescisao: 10, saldoRescisao: 410025, consultaRescisao: '2026-10-16' } },
             { indice: 1, instFinanc: '104', nrDoc: 'CX-9', antes: { garantiaRescisao: 5, saldoRescisao: 100, consultaRescisao: '2026-09-01' },
-                depois: { garantiaRescisao: 0, saldoRescisao: 150000, consultaRescisao: '2026-10-16' } },
+                depois: { saldoRescisao: 150000, consultaRescisao: '2026-10-16' } },
         ]);
-        // ST-1 já tem fim: não é cobrado como ausente.
+        // ST-1 já tem fim e a linha em branco não é contrato: nenhum dos dois é cobrado como ausente.
         expect(c.soNaFicha).toEqual([{ instFinanc: '001', nrDoc: 'BB-1' }]);
-        expect(c.soNoExtrato).toEqual([{ instFinanc: '237', nrDoc: 'NOVO-1', parcela: 8000 }]);
-        expect(c.avisos).toEqual([expect.stringMatching(/1 contrato\(s\) ativo\(s\) na Dataprev fora da ficha/)]);
+        expect(c.soNoExtrato).toEqual([{ instFinanc: '237', nrDoc: 'NOVO-1', instituicao: 'BANCO NOVO', parcela: 8000, inicio: '2026-08', fim: '2028-07', saldo: 90000, garantia: 0 }]);
+        expect(c.avisos).toEqual([expect.stringMatching(/CX-9: o extrato não trouxe o percentual da garantia/)]);
+        expect(c.camposRecebidos).toBeUndefined();
     });
 
-    it('sem saldo ou sem percentual da garantia, não preenche e avisa', () => {
-        const c = conferirExtrato([contratos[0]], { emprestimos: [{ ifConcessora: { codigo: 341 }, contrato: '12345', garantia: { temGarantias: true } , valorSaldoDevedor: 10 }] }, '2026-10-16');
+    it('lê o extrato como lista de vínculos ou dentro de um envelope', () => {
+        expect(conferirExtrato([], [extrato, { emprestimos: [{ ifConcessora: { codigo: 1 }, contrato: 'X-1', valorParcela: 10 }] }], '2026-10-16').total).toBe(4);
+        expect(conferirExtrato([], { dados: extrato }, '2026-10-16').total).toBe(3);
+        expect(conferirExtrato([], extrato.emprestimos, '2026-10-16').total).toBe(3);
+    });
+
+    it('resposta sem empréstimos: vazia não avisa; fora do formato mostra só os nomes dos campos', () => {
+        expect(conferirExtrato(contratos, null, '2026-10-16')).toMatchObject({ total: 0, atualizacoes: [] });
+        expect(conferirExtrato(contratos, null, '2026-10-16').camposRecebidos).toBeUndefined();
+        const r = conferirExtrato([], { cpf: '11144477735', vinculos: 'x' }, '2026-10-16');
+        expect(r.camposRecebidos).toEqual(['cpf', 'vinculos']);
+        expect(JSON.stringify(r)).not.toContain('11144477735');
+    });
+
+    it('sem saldo nem garantia, não preenche e avisa', () => {
+        const c = conferirExtrato([contratos[0]], { emprestimos: [{ ifConcessora: { codigo: 341 }, contrato: '12345', garantia: { temGarantias: true } }] }, '2026-10-16');
         expect(c.atualizacoes).toEqual([]);
-        expect(c.avisos[0]).toMatch(/não trouxe o percentual da garantia/);
-        expect(conferirExtrato(contratos, null, '2026-10-16').atualizacoes).toEqual([]);
+        expect(c.avisos[0]).toMatch(/não trouxe o saldo devedor nem a garantia/);
     });
 
-    it('aplicar muda só garantia, saldo e data da consulta dos contratos conferidos', () => {
+    it('aplicar muda só garantia, saldo e data da consulta, pelo contrato e não pela posição (Codex #281)', () => {
         const c = conferirExtrato(contratos, extrato, '2026-10-16');
         const novos = aplicarExtrato(contratos, c.atualizacoes);
         expect(novos[0]).toEqual({ ...contratos[0], garantiaRescisao: 10, saldoRescisao: 410025, consultaRescisao: '2026-10-16' });
-        expect(novos[1]).toEqual({ ...contratos[1], garantiaRescisao: 0, saldoRescisao: 150000, consultaRescisao: '2026-10-16' });
+        expect(novos[1]).toEqual({ ...contratos[1], saldoRescisao: 150000, consultaRescisao: '2026-10-16' });
         expect(novos.slice(2)).toEqual(contratos.slice(2));
+        const semOPrimeiro = aplicarExtrato(contratos.slice(1), c.atualizacoes);
+        expect(semOPrimeiro[0]).toEqual({ ...contratos[1], saldoRescisao: 150000, consultaRescisao: '2026-10-16' });
     });
 
-    it('aplica pelo contrato, não pela posição: a lista mudou entre a consulta e o aplicar (Codex #281)', () => {
+    it('acrescenta os contratos só da Dataprev, nunca antes do mês atual, e tira a linha em branco', () => {
         const c = conferirExtrato(contratos, extrato, '2026-10-16');
-        const semOPrimeiro = contratos.slice(1);
-        const novos = aplicarExtrato(semOPrimeiro, c.atualizacoes);
-        expect(novos[0]).toEqual({ ...contratos[1], garantiaRescisao: 0, saldoRescisao: 150000, consultaRescisao: '2026-10-16' });
-        expect(novos.slice(1)).toEqual(contratos.slice(2));
+        const novos = acrescentarDoExtrato(contratos, c.soNoExtrato, '2026-10', '2026-10-16');
+        expect(novos).toHaveLength(5);
+        expect(novos.at(-1)).toEqual({ instFinanc: '237', nrDoc: 'NOVO-1', parcela: 8000, inicio: '2026-10', fim: '2028-07', garantiaRescisao: 0, saldoRescisao: 90000,
+            consultaRescisao: '2026-10-16', observacao: 'Extrato da Dataprev em 16/10/2026 (BANCO NOVO)' });
+        expect(validarContratos(novos)).toEqual([]);
+        // De novo: nada duplica.
+        expect(acrescentarDoExtrato(novos, c.soNoExtrato, '2026-10', '2026-10-16')).toHaveLength(5);
+    });
+
+    it('aplicar e acrescentar juntos, como faz a ficha: nenhum grupo se perde (Codex #282)', () => {
+        const c = conferirExtrato(contratos, extrato, '2026-10-16');
+        const tudo = acrescentarDoExtrato(aplicarExtrato(contratos, c.atualizacoes), c.soNoExtrato, '2026-10', '2026-10-16');
+        expect(tudo[0]).toMatchObject({ nrDoc: '12345', garantiaRescisao: 10, saldoRescisao: 410025 });
+        expect(tudo[1]).toMatchObject({ nrDoc: 'CX-9', garantiaRescisao: 5, saldoRescisao: 150000 });
+        expect(tudo.at(-1)).toMatchObject({ nrDoc: 'NOVO-1', parcela: 8000 });
+        expect(validarContratos(tudo)).toEqual([]);
     });
 });
