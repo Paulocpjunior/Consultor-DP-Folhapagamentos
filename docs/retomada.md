@@ -1,6 +1,6 @@
 # Retomada do trabalho
 
-Ponto de partida da próxima sessão. Atualizado em **15/10/2026**. O detalhe de cada entrega está em `docs/historico-claude.md`.
+Ponto de partida da próxima sessão. Atualizado em **16/10/2026**. O detalhe de cada entrega está em `docs/historico-claude.md`.
 
 ## App
 
@@ -82,7 +82,7 @@ Ponto de partida da próxima sessão. Atualizado em **15/10/2026**. O detalhe de
 - **Para voltar** um serviço ao CFI: apagar a variável dele e rodar `gh workflow run deploy.yml`.
 - **Próximo passo (P5):** tirar do CFI as rotas do DP, um PR por serviço, quando o DP tiver passado pelas primeiras transmissões reais pela plataforma. Até lá, o CFI é a volta.
 
-## Crédito do Trabalhador (16/10/2026, PRs #272 a #278 e a etapa 6)
+## Crédito do Trabalhador (16/10/2026, PRs #272 a #283 e sp-plataforma #13)
 
 - Estudo (`docs/estudo-credito-do-trabalhador.md`) e etapas 1 a 5 no main:
   - margem de 35% pela remuneração disponível, insuficiência de saldo e mensagem no holerite;
@@ -92,14 +92,20 @@ Ponto de partida da próxima sessão. Atualizado em **15/10/2026**. O detalhe de
   - provisão no adiantamento e nas férias, com vigência por competência;
   - etapa 6, a API da Dataprev pelo manual v1.7:
     - as rotas estão na plataforma do DP (sp-plataforma #13);
-    - na tela, "Buscar na Dataprev" na importação e o extrato na ficha.
+    - na tela, "Buscar na Dataprev" na importação e o extrato na ficha;
+  - primeiro uso real (16/10, empresa 1200): o extrato voltou com os 3 empréstimos da funcionária, com o A1 da empresa. A conexão com a Dataprev está confirmada.
+    - #282: o botão aparece sem contrato na ficha, o título mostra quantos empréstimos voltaram e os contratos que faltam são listados;
+    - #283: "Gravar na ficha" grava na hora, com confirmação, e a folha desconta ao recalcular;
+    - #283: a instituição, que veio fora do campo do manual, é procurada em qualquer campo de banco, e os contratos casam por instituição + número.
 - Guia didático em PDF (fora do repositório) e resumo de uso (documento no Claude) atualizados.
 - Falta:
-  - conferir as colunas com o guia oficial do leiaute 1.4 (texto colado pelo Paulo);
-  - a primeira chamada real à Dataprev, com o A1 da empresa (todas têm no cofre).
+  - confirmar no próximo teste que o código do banco (908, 329) aparece no extrato; se vier o aviso "sem o código da instituição", ajustar pelos campos que ele lista;
+  - recalcular a folha de 10/2026 da 1200 depois de gravar os contratos e conferir as 3 parcelas;
+  - usar "Buscar na Dataprev" na competência inteira (Folha do mês › Crédito do Trabalhador);
+  - conferir as colunas com o guia oficial do leiaute 1.4 (texto colado pelo Paulo).
 - Fora do Crédito do Trabalhador: o cadastro de empresas ainda não aceita CNPJ alfanumérico (tarefa sugerida no app).
 
-## Status × SAGE (15/10/2026; sem mudança de status em 16/10)
+## Status × SAGE (atualizado em 16/10/2026)
 
 - **Catálogo IOB × Consultor** (IOB SAGE › menus, `catalogoMenus.ts`): 59 itens, **56 disponíveis**, 1 parcial e 2 fora do escopo (a Tabela para D.S.R., o Cadastro de Cargos, o Duplo Vínculo e a Digitação PLR entraram em 15/10).
   - Parcial: a integração contábil, que falta importar direto no CCI.
@@ -123,7 +129,17 @@ Ponto de partida da próxima sessão. Atualizado em **15/10/2026**. O detalhe de
   - trabalho intermitente como o SAGE: recibo por data de pagamento, eventos na convocação, holerite, listagem e valores para bancos; um demonstrativo por recibo no S-1200;
   - médias de férias e 13º com os eventos que fazem média vindos do histórico do SAGE (adicional noturno, comissões, gratificações…);
   - Holerite por e-mail e WhatsApp como o "Envio para email do Funcionário" (por código, departamento e tipo).
-- **Checagem completa no main (15/10, depois do #270):** `tsc` sem erros; 206 arquivos e 1562 testes; 38 arquivos e 130 testes das regras do Firestore no emulador; build de produção ok.
+- **16/10 (PRs #272 a #283 e sp-plataforma #13):**
+  - Crédito do Trabalhador completo, etapas 1 a 6;
+  - a etapa 6 faz o mesmo que a "Importação Empréstimo Crédito do Trabalhador" do SAGE com "Consulta Portal Emprega Brasil", pela API da Dataprev;
+  - itens 1 a 3 do que prende ao SAGE com ferramenta pronta: homologação do motor, eventos por empresa e automáticos em lote.
+- **Mata-burros no main (16/10, depois do #283, aa090ae):**
+  - DP:
+    - `tsc` sem erros;
+    - 216 arquivos e 1633 testes;
+    - 40 arquivos e 132 testes das regras do Firestore no emulador;
+    - `vite build` ok;
+  - plataforma do DP (8026e79): 45 arquivos e 496 testes; lint ok.
 - **O que ainda prende ao SAGE:**
   1. Homologação do motor por empresa: sai da prévia com 3 meses sem diferença na conferência × IOB. A 1200 depende do #61 (arquivos de 09/2026 da colaboradora).
      - **16/10:** o resultado da conferência agora é gravado por competência (Conferir com o eSocial do IOB › Gravar o resultado), a faixa do cálculo mostra a homologação e a ativação sem o critério pede confirmação reforçada e fica registrada. Falta: conferir 3 meses de cada empresa.

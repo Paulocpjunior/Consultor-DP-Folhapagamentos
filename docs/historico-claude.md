@@ -5902,3 +5902,16 @@ Pedido da colaboradora, pelo Paulo, com as telas do SAGE (Rescisão Contratual e
   - a folha da competência desconta ao recalcular;
   - se a gravação recusar, os contratos ficam na tela para corrigir.
 - **Também:** o botão Gravar do rodapé passava o evento do clique como ficha (`onClick={salvar}`). Agora chama `salvar()`.
+
+## 16/10/2026 — Mata-burros e status depois do #283
+
+- **Pedido do Paulo:** "Passa o mata-burros! e atualize o status".
+- **No main do DP (aa090ae):**
+  - `tsc` sem erros;
+  - 216 arquivos e 1633 testes;
+  - 40 arquivos e 132 testes das regras do Firestore no emulador;
+  - `vite build` ok.
+- **Plataforma do DP (8026e79):** 45 arquivos e 496 testes; lint ok.
+- **Status:**
+  - `docs/retomada.md`: Crédito do Trabalhador com os PRs #279 a #283 e o primeiro uso real da Dataprev (conexão confirmada, 3 empréstimos), mais o que falta testar; "Status × SAGE" atualizado com o mata-burros;
+  - catálogo IOB × Consultor: o item do Crédito do Trabalhador cita "Buscar na Dataprev", o equivalente à "Consulta Portal Emprega Brasil" do SAGE, e o extrato na ficha.
