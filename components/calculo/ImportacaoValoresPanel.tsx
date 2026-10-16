@@ -39,7 +39,7 @@ const ImportacaoValoresPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => 
     useEffect(() => {
         if (!ativa || !competencia) return;
         let vivo = true;
-        Promise.all([listarFuncionarios(ativa.id), carregarEventosIob(), listarMovimentos(ativa.id, competencia), lerFechamento(ativa.id, competencia).catch(() => null), listarEmpresasVisiveis().catch(() => [])])
+        Promise.all([listarFuncionarios(ativa.id), carregarEventosIob(ativa.id), listarMovimentos(ativa.id, competencia), lerFechamento(ativa.id, competencia).catch(() => null), listarEmpresasVisiveis().catch(() => [])])
             .then(([fs, evs, movs, fech, emps]) => {
                 if (!vivo) return;
                 setFichas(fs); setEventos(evs); setGravados(Object.fromEntries(movs.map(m => [m.fichaId, m.movimento]))); setEncerrado(fech?.situacao === 'encerrado');

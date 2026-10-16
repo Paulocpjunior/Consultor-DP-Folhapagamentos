@@ -22,7 +22,12 @@ export interface ParametrosFolha {
      * Motor de cálculo homologado para a empresa (conferido com o IOB): a partir da competência `desde`, holerites,
      * recibos e resumos saem sem a marca de prévia. Quem ativou e quando ficam registrados.
      */
-    motorHomologado?: { desde: string; por: string; em: string };
+    motorHomologado?: {
+        desde: string; por: string; em: string;
+        /** Sequência sem diferença gravada na ativação (conferencias_motor); sem ela, ativado antes do critério. */
+        conferencia?: { inicio: string; fim: string; meses: number };
+        semCriterio?: boolean;
+    };
     /** Arredondar o líquido ao real seguinte, com os centavos descontados no mês seguinte. */
     arredondarLiquido?: boolean;
     /** Competência (AAAA-MM) em que o arredondamento começou no Consultor: o "anterior" é encadeado a partir dela. */

@@ -82,7 +82,19 @@ Ponto de partida da próxima sessão. Atualizado em **15/10/2026**. O detalhe de
 - **Para voltar** um serviço ao CFI: apagar a variável dele e rodar `gh workflow run deploy.yml`.
 - **Próximo passo (P5):** tirar do CFI as rotas do DP, um PR por serviço, quando o DP tiver passado pelas primeiras transmissões reais pela plataforma. Até lá, o CFI é a volta.
 
-## Status × SAGE (15/10/2026)
+## Crédito do Trabalhador (16/10/2026, PRs #272 a #278)
+
+- Estudo (`docs/estudo-credito-do-trabalhador.md`) e etapas 1 a 5 no main:
+  - margem de 35% pela remuneração disponível, insuficiência de saldo e mensagem no holerite;
+  - rescisão pela garantia e pelo saldo devedor;
+  - importação do arquivo do Portal Emprega Brasil, com prévia, data de admissão e CNPJ alfanumérico do leiaute 1.4;
+  - repasse com o vencimento da guia e a conferência com o S-5003;
+  - provisão no adiantamento e nas férias, com vigência por competência.
+- Guia didático em PDF (fora do repositório) e resumo de uso (documento no Claude) atualizados.
+- Falta: conferir as colunas com o guia oficial do leiaute 1.4 (texto colado pelo Paulo) e a etapa 6 (API da Dataprev).
+- Fora do Crédito do Trabalhador: o cadastro de empresas ainda não aceita CNPJ alfanumérico (tarefa sugerida no app).
+
+## Status × SAGE (15/10/2026; sem mudança de status em 16/10)
 
 - **Catálogo IOB × Consultor** (IOB SAGE › menus, `catalogoMenus.ts`): 59 itens, **56 disponíveis**, 1 parcial e 2 fora do escopo (a Tabela para D.S.R., o Cadastro de Cargos, o Duplo Vínculo e a Digitação PLR entraram em 15/10).
   - Parcial: a integração contábil, que falta importar direto no CCI.
@@ -109,8 +121,11 @@ Ponto de partida da próxima sessão. Atualizado em **15/10/2026**. O detalhe de
 - **Checagem completa no main (15/10, depois do #270):** `tsc` sem erros; 206 arquivos e 1562 testes; 38 arquivos e 130 testes das regras do Firestore no emulador; build de produção ok.
 - **O que ainda prende ao SAGE:**
   1. Homologação do motor por empresa: sai da prévia com 3 meses sem diferença na conferência × IOB. A 1200 depende do #61 (arquivos de 09/2026 da colaboradora).
-  2. Tabela de eventos: o catálogo do Consultor veio de outro cliente do IOB (o triênio da SP é o 1015, que não está nele). Falta importar a tabela de eventos de cada empresa em Cadastros › Eventos IOB.
+     - **16/10:** o resultado da conferência agora é gravado por competência (Conferir com o eSocial do IOB › Gravar o resultado), a faixa do cálculo mostra a homologação e a ativação sem o critério pede confirmação reforçada e fica registrada. Falta: conferir 3 meses de cada empresa.
+  2. Tabela de eventos: o catálogo do Consultor veio de outro cliente do IOB (o triênio da SP é o 1015, que não está nele).
+     - **16/10:** Cadastros › Eventos IOB › Tabela de eventos da empresa (modelo em Excel ou o JSON do PDF da Relação de Eventos; substitui ou completa o geral), usada no Lançar evento, nos automáticos e na importação de valores. Falta: importar a tabela de cada empresa.
   3. Lançamentos automáticos já gravados:
+     - **16/10:** Cadastros › Funcionários › Automáticos em lote marca as duas coisas por evento, com prévia e auditoria. Falta: a equipe marcar em cada empresa.
      - marcar "Lança na rescisão" nos que devem ir para a rescisão;
      - marcar "Pago no: Adiantamento" nos que o SAGE paga no adiantamento. O lancauto do backup parece ter marcas por processamento; conferir num backup antes de importar com elas.
   3a. Tabela de DSR de cada empresa: cópia padrão e acerto dos feriados locais. Em 11/2026 o SAGE da 1200 não conta o 20/11, feriado nacional pela Lei 14.759/2023.
@@ -129,7 +144,11 @@ Ponto de partida da próxima sessão. Atualizado em **15/10/2026**. O detalhe de
 4. Integração com o CCI: definir o que passa de um sistema para o outro.
 5. E-mail verificado no login, CSP e App Check: mudam o login de quem já usa, então combinar antes.
 6. Avisar quando a primeira transmissão real pela plataforma passar (eSocial ou DCTFWeb), para eu começar a P5 no CFI.
-7. Colaboradora:
+7. Crédito do Trabalhador:
+   - colar a tabela de campos e os exemplos fictícios do guia do leiaute 1.4;
+   - etapa 6 (API da Dataprev): certificado A1 da empresa ou procuração do escritório;
+   - decidir, por cliente, provisão no adiantamento ou insuficiência de saldo.
+8. Colaboradora:
    - testar a MIA;
    - arquivos do IOB do #61 e do caso do 13º;
    - lotações e obras com recibo antes de 26/10.
