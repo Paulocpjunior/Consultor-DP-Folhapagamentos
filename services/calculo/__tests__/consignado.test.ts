@@ -43,6 +43,11 @@ describe('contratos e margem', () => {
         expect([pouco.verbas[0].valor, pouco.avisos, pouco.mensagens]).toEqual([45000, [], []]);
         expect(descontosConsignado([C1], '2026-04', verbas).verbas).toEqual([]);
     });
+    it('sem remuneração com INSS no mês: nada a descontar, com o aviso próprio e a mensagem no holerite', () => {
+        const a = descontosConsignado([C1], '2026-09', [v('SF', 'provento', 6000)]);
+        expect([a.verbas, a.mensagens]).toEqual([[], [MENSAGEM_CONSIGNADO]]);
+        expect(a.avisos[0]).toMatch(/sem remuneração com INSS no mês .* nada a descontar/);
+    });
     it('remuneração disponível: só vencimentos com INSS; saem faltas, INSS, IRRF e compulsórios; ficam os voluntários', () => {
         const d = remuneracaoDisponivel([v('SAL', 'provento', 300000, true), v('SF', 'provento', 6000), v('LAN1', 'provento', 20000, false, 'Ajuda de custo'),
             v('FALTA', 'desconto', 10000, true), v('INSS', 'desconto', 20000), v('IRRF', 'desconto', 5000), v('PENSAO', 'desconto', 30000),

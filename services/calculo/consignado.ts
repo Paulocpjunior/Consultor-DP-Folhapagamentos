@@ -198,7 +198,9 @@ export function descontosConsignado(cs: ContratoConsignado[] | undefined, compet
         }
         r.memoria.push(`Contrato ${c.nrDoc} (instituição ${c.instFinanc}): parcela ${reais(devido)}, descontado ${reais(valor)}.`);
         if (valor < devido) {
-            r.avisos.push(`Crédito do Trabalhador, contrato ${c.nrDoc}: descontado ${reais(valor)} de ${reais(devido)} (margem de ${PCT_MARGEM_CONSIGNADO}% esgotada). A diferença o trabalhador paga direto à instituição; o holerite leva o aviso a ele (Portaria MTE 435/2025, art. 30, § 4º).`);
+            r.avisos.push(d.vencimentos === 0
+                ? `Crédito do Trabalhador, contrato ${c.nrDoc}: sem remuneração com INSS no mês (afastado o mês todo ou salário-maternidade pago pelo INSS), nada a descontar; o trabalhador paga a parcela de ${reais(devido)} direto à instituição (Manual do Empregador, exemplos 06 e 07).`
+                : `Crédito do Trabalhador, contrato ${c.nrDoc}: descontado ${reais(valor)} de ${reais(devido)} (margem de ${PCT_MARGEM_CONSIGNADO}% esgotada). A diferença o trabalhador paga direto à instituição; o holerite leva o aviso a ele (Portaria MTE 435/2025, art. 30, § 4º).`);
             if (!r.mensagens.length) r.mensagens.push(MENSAGEM_CONSIGNADO);
         }
     }

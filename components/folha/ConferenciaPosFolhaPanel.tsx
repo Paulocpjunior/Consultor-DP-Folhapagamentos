@@ -7,7 +7,11 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { agruparPorApuracao, lerTotalizadores, type LeituraTotalizadores } from '../../services/conferencia/totalizadores';
-import { conferirPosFolha, lerValorDigitado, reais, DESCRICAO_CR_SEGURADO, type Gravidade } from '../../services/conferencia/conferenciaPosFolha';
+import { conferirPosFolha, lerValorDigitado, reais, DESCRICAO_CR_SEGURADO, type ConsignadoFolha, type Gravidade } from '../../services/conferencia/conferenciaPosFolha';
+import { listarFuncionarios } from '../../services/cadastros/cadastrosService';
+import { lerFolhaGravada } from '../../services/calculo/folhaGravadaService';
+import { lerProcesso } from '../../services/calculo/processosGravadosService';
+import { consignadoDaFolha } from '../../services/calculo/repasseConsignado';
 import { gerarExcelConferencia, nomeArquivoConferencia, rotuloApuracao } from '../../services/conferencia/exportarConferencia';
 import { baixarBytes } from '../../services/implantacao/zip';
 import { listarEmpresasVisiveis } from '../../services/empresas/empresasService';
@@ -64,9 +68,24 @@ const ConferenciaPosFolhaPanel: React.FC = () => {
     // A empresa do DP dona do CNPJ vai junto (a plataforma confere a carteira): sem ela, a consulta não sai.
     const empresaIdSerpro = empresaIdParaSerpro(cnpjSerpro, empresas, ativa);
     const funcionariosIob = useMemo(() => (resumo ? extrairFuncionarios(resumo.planilha, resumo.mapa) : null), [resumo]);
+    // Crédito do Trabalhador da folha e das rescisões gravadas no Consultor, para comparar com o eConsignado dos S-5003.
+    const [consignadoFolha, setConsignadoFolha] = useState<ConsignadoFolha[] | null>(null);
+    const perApur = grupo?.perApur ?? '';
+    useEffect(() => {
+        setConsignadoFolha(null);
+        if (!empresaIdSerpro || !/^\d{4}-\d{2}$/.test(perApur)) return;
+        let vivo = true;
+        Promise.all([listarFuncionarios(empresaIdSerpro), lerFolhaGravada(empresaIdSerpro, perApur), lerProcesso(empresaIdSerpro, 'rescisao', perApur)])
+            .then(([fs, folha, resc]) => {
+                const hs = [...(folha?.holerites ?? []), ...(resc?.holerites ?? [])];
+                if (vivo) setConsignadoFolha(hs.length ? consignadoDaFolha(hs, fs) : null);
+            })
+            .catch(() => { if (vivo) setConsignadoFolha(null); });
+        return () => { vivo = false; };
+    }, [empresaIdSerpro, perApur]);
     const resultado = useMemo(
-        () => (grupo ? conferirPosFolha(grupo, { dctfwebInformado: dctfValor, fgtsDigitalInformado: fgtsValor, serpro: serproGrupo, resumoIob: resumo && funcionariosIob ? { arquivo: resumo.planilha.arquivo, funcionarios: funcionariosIob } : null }) : null),
-        [grupo, dctfValor, fgtsValor, serproGrupo, resumo, funcionariosIob],
+        () => (grupo ? conferirPosFolha(grupo, { dctfwebInformado: dctfValor, fgtsDigitalInformado: fgtsValor, serpro: serproGrupo, consignadoFolha, resumoIob: resumo && funcionariosIob ? { arquivo: resumo.planilha.arquivo, funcionarios: funcionariosIob } : null }) : null),
+        [grupo, dctfValor, fgtsValor, serproGrupo, resumo, funcionariosIob, consignadoFolha],
     );
 
     async function consultarSerpro() {
@@ -280,8 +299,25 @@ const ConferenciaPosFolhaPanel: React.FC = () => {
                         <div className={cartao}><p className="text-xs text-slate-500 dark:text-slate-400">FGTS Digital esperado (S-5013)</p>
                             <p className="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-100">{resultado.contagem.s5013 ? reais(resultado.fgtsDigital.mensal) : 'S-5013 não carregado'}</p>
                             {resultado.fgtsDigital.rescisorio > 0 && <p className="text-xs text-slate-500 dark:text-slate-400">Rescisório {reais(resultado.fgtsDigital.rescisorio)}</p>}
+                            {resultado.fgtsDigital.consignado > 0 && <p className="text-xs text-slate-500 dark:text-slate-400">Crédito do Trabalhador (S-5003) {reais(resultado.fgtsDigital.consignado)}, na mesma guia</p>}
                             {resultado.fgtsDigital.diferenca !== null && <p className={`text-xs ${resultado.fgtsDigital.diferenca ? 'text-red-700 dark:text-red-300' : 'text-green-700 dark:text-green-300'}`}>{resultado.fgtsDigital.diferenca ? `Informado: ${diferencaTexto(resultado.fgtsDigital.diferenca)}` : 'Confere com o informado'}</p>}</div>
                     </div>
+
+                    {resultado.consignado.linhas.length > 0 && (
+                        <div className={cartao}>
+                            <h4 className="text-sm font-semibold text-slate-800 dark:text-white">Crédito do Trabalhador (eConsignado do S-5003)</h4>
+                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">O FGTS Digital põe na guia o que o S-5003 traz. {consignadoFolha ? 'Comparado com a folha e as rescisões gravadas no Consultor.' : 'Sem folha gravada no Consultor para esta competência: só o S-5003.'}</p>
+                            <div className="mt-2 overflow-x-auto"><table className="min-w-full text-sm">
+                                <thead><tr><th className={th}>CPF</th><th className={th}>Instituição</th><th className={th}>Contrato</th><th className={th}>S-5003</th>{consignadoFolha && <><th className={th}>Folha</th><th className={th}>Diferença</th></>}</tr></thead>
+                                <tbody>{resultado.consignado.linhas.map(l => (
+                                    <tr key={`${l.cpf}-${l.instFinanc}-${l.nrContrato}`} className="border-t border-slate-100 dark:border-slate-700">
+                                        <td className={`${td} whitespace-nowrap`}>{formatarCpf(l.cpf)}</td><td className={td}>{l.instFinanc}</td><td className={td}>{l.nrContrato}</td><td className={td}>{reais(l.s5003)}</td>
+                                        {consignadoFolha && <><td className={td}>{l.folha === null ? '—' : reais(l.folha)}</td><td className={`${td} ${l.diferenca ? 'text-red-700 dark:text-red-300' : ''}`}>{l.diferenca === null ? '—' : l.diferenca ? reais(l.diferenca) : 'confere'}</td></>}
+                                    </tr>))}</tbody>
+                                <tfoot><tr className="border-t border-slate-200 font-semibold dark:border-slate-600"><td className={td} colSpan={3}>Total na guia</td><td className={td}>{reais(resultado.consignado.total)}</td>{consignadoFolha && <><td /><td /></>}</tr></tfoot>
+                            </table></div>
+                        </div>
+                    )}
 
                     <div className={cartao}>
                         <h4 className="text-sm font-semibold text-slate-800 dark:text-white">Pendências</h4>

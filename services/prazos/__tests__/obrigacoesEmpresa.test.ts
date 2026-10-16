@@ -6,7 +6,9 @@ const ids = (l: { id: string }[]) => l.map(o => o.id);
 describe('calendário de obrigações da folha por empresa', () => {
     it('competência comum: mensais do DP + EFD-Reinf do fiscal, em ordem de data', () => {
         const l = obrigacoesDaEmpresa({ competencia: '2026-09', temEmpregados: true });
-        expect(ids(l)).toEqual(['salario-2026-09', 'dctfweb-2026-09', 'reinf-2026-09', 's1299-2026-09', 'darf-2026-09', 'fgts-2026-09']); // mesmo dia: pelo nome
+        expect(ids(l)).toEqual(['consignado-2026-09', 'salario-2026-09', 'dctfweb-2026-09', 'reinf-2026-09', 's1299-2026-09', 'darf-2026-09', 'fgts-2026-09']); // mesmo dia: pelo nome
+        expect(l[0]).toMatchObject({ data: '2026-09-25', nome: expect.stringMatching(/competência 10\/2026 no Portal Emprega Brasil/) });
+        expect(l.find(o => o.id === 'fgts-2026-09')?.observacao).toMatch(/Crédito do Trabalhador/);
         const reinf = l.find(o => o.id === 'reinf-2026-09')!;
         expect(reinf).toMatchObject({ data: '2026-10-15', responsavel: 'Fiscal', condicao: 'se houver evento no mês' });
         expect(l.find(o => o.id === 'fgts-2026-09')).toMatchObject({ data: '2026-10-20', responsavel: 'DP' });

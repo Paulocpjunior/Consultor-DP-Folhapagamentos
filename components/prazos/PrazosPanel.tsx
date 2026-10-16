@@ -107,7 +107,7 @@ const PrazosPanel: React.FC<Props> = ({ onAbrirCadastros, onAbrirConferencia, on
                                     <td className="p-2 whitespace-nowrap"><strong>{br(v.data)}</strong><span className="block text-xs text-slate-500 dark:text-slate-400">{quando(v.data, hoje)}</span></td>
                                     <td className="p-2">{v.nome}{v.observacao && <span className="block text-xs text-amber-700 dark:text-amber-300">{v.observacao}</span>}</td>
                                     <td className="p-2 font-mono text-xs">{v.competencia.length === 7 ? `${v.competencia.slice(5)}/${v.competencia.slice(0, 4)}` : v.competencia}</td>
-                                    <td className="p-2 text-xs text-slate-500 dark:text-slate-400">{v.ajuste === 'antecipa' ? 'dia não útil antecipa' : v.ajuste === 'posterga' ? 'dia não útil adia' : '5º dia útil'} · {v.base}</td>
+                                    <td className="p-2 text-xs text-slate-500 dark:text-slate-400">{v.ajuste === 'antecipa' ? 'dia não útil antecipa' : v.ajuste === 'posterga' ? 'dia não útil adia' : v.ajuste === 'corrido' ? 'dias corridos' : '5º dia útil'} · {v.base}</td>
                                 </tr>
                             ))}
                         </tbody>

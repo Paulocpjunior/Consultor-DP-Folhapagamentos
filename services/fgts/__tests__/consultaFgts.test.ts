@@ -39,7 +39,7 @@ describe('consulta de FGTS', () => {
         const folhas = [folha('2026-08', holerite('f1', 24000), holerite('f2', 9999)), folha('2026-09', holerite('f1', 24000))];
         expect(fgtsDasFolhas(folhas).get('2026-08')).toBe(33999);
         const s5003: S5003[] = [{ tipo: 'S-5003', id: 'a', arquivo: '', empregador: '29463877', perApur: '2026-08', indApuracao: '1', nrRecArqBase: '', cpf: '52998224725',
-            itens: [{ estab: '', matricula: 'M1', codCateg: '101', tpValor: '11', indIncid: '1', remuneracao: 300000, deposito: 23000, periodoAnterior: false }, { estab: '', matricula: 'OUTRA', codCateg: '101', tpValor: '11', indIncid: '1', remuneracao: 1, deposito: 5, periodoAnterior: false }] }];
+            itens: [{ estab: '', matricula: 'M1', codCateg: '101', tpValor: '11', indIncid: '1', remuneracao: 300000, deposito: 23000, periodoAnterior: false }, { estab: '', matricula: 'OUTRA', codCateg: '101', tpValor: '11', indIncid: '1', remuneracao: 1, deposito: 5, periodoAnterior: false }], consignados: [] }];
         const e = extratoDoFuncionario(FICHA, ['2026-09', '2026-08', '2026-07'], folhas, s5003, '2026-10-10');
         expect(e.linhas.map(l => [l.competencia, l.fgtsFolha, l.declarado, l.diferenca])).toEqual([['2026-07', null, null, null], ['2026-08', 24000, 23000, 1000], ['2026-09', 24000, null, null]]);
         expect(e.totalFolha).toBe(48000); expect(e.totalDeclarado).toBe(23000);

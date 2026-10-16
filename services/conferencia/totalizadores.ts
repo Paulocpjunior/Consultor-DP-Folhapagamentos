@@ -55,7 +55,9 @@ export interface ItemFgtsTrab {
     /** Linha de infoBasePerAntE (período anterior, acordo ou convenção). */
     periodoAnterior: boolean;
 }
-export interface S5003 extends Cabecalho { tipo: 'S-5003'; cpf: string; itens: ItemFgtsTrab[] }
+/** Desconto do Crédito do Trabalhador apurado no S-5003 (grupo eConsignado): o FGTS Digital o põe na guia. */
+export interface ConsignadoS5003 { matricula: string; instFinanc: string; nrContrato: string; valor: number }
+export interface S5003 extends Cabecalho { tipo: 'S-5003'; cpf: string; itens: ItemFgtsTrab[]; consignados: ConsignadoS5003[] }
 
 export interface CreditoCs { tpCR: string; valor: number; suspenso: number }
 export interface S5011 extends Cabecalho {
@@ -159,10 +161,12 @@ function lerS5001(ev: Element, arquivo: string): S5001 {
 function lerS5003(ev: Element, arquivo: string): S5003 {
     const cab = cabecalho(ev, 'S-5003', arquivo);
     const itens: ItemFgtsTrab[] = [];
+    const consignados: ConsignadoS5003[] = [];
     for (const est of filhos(filho(ev, 'infoFGTS') ?? ev, 'ideEstab')) {
         for (const lot of filhos(est, 'ideLotacao')) {
             for (const trab of filhos(lot, 'infoTrabFGTS')) {
                 const base = { estab: texto(est, 'nrInsc'), matricula: texto(trab, 'matricula'), codCateg: texto(trab, 'codCateg') };
+                for (const ec of filhos(trab, 'eConsignado')) consignados.push({ matricula: base.matricula, instFinanc: texto(ec, 'instFinanc'), nrContrato: texto(ec, 'nrContrato'), valor: valor(ec, 'vreConsignado') });
                 const info = filho(trab, 'infoBaseFGTS');
                 for (const b of info ? filhos(info, 'basePerApur') : []) {
                     itens.push({ ...base, tpValor: texto(b, 'tpValor'), indIncid: texto(b, 'indIncid'), remuneracao: valor(b, 'remFGTS'), deposito: valor(b, 'dpsFGTS'), periodoAnterior: false });
@@ -175,7 +179,7 @@ function lerS5003(ev: Element, arquivo: string): S5003 {
             }
         }
     }
-    return { ...cab, tipo: 'S-5003', cpf: texto(filho(ev, 'ideTrabalhador'), 'cpfTrab'), itens };
+    return { ...cab, tipo: 'S-5003', cpf: texto(filho(ev, 'ideTrabalhador'), 'cpfTrab'), itens, consignados };
 }
 
 function lerS5011(ev: Element, arquivo: string): S5011 {
