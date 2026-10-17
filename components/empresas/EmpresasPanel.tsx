@@ -3,6 +3,8 @@ import { ehAdmin, ehGestor } from '../../services/auth/papeis';
 import { listarEmpresasVisiveis, excluirEmpresa, protegerEmpresasExistentes } from '../../services/empresas/empresasService';
 import { chaveCnpj, chaveSage, repetidas } from '../../services/empresas/chavesUnicas';
 import { filtrarEmpresas } from '../../services/empresas/buscaEmpresas';
+import { analisarRepetidas, resumoDados, type AnaliseCadastro, type DadosDaEmpresa } from '../../services/empresas/duplicadas';
+import { dadosDaEmpresa } from '../../services/empresas/duplicadasService';
 import { formatCnpj } from '../../services/brasilApiService';
 import { limparCnpj } from '../../services/cadastros/documentos';
 import type { Empresa } from '../../services/empresas/empresasTypes';
@@ -82,6 +84,37 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser, embutido = false }) => {
         finally { setProtegendo(''); }
     };
 
+    // Análise dos repetidos (gestor): o que está ligado a cada cadastro decide qual fica; só o vazio pode ser excluído.
+    const [analise, setAnalise] = useState<{ chave: string; titulo: string; linhas: AnaliseCadastro[] }[] | null>(null);
+    const [analisando, setAnalisando] = useState('');
+    const analisar = async () => {
+        setAnalisando('Contando os dados de cada cadastro…'); setAnalise(null);
+        try {
+            const ids = [...new Set(dup.flatMap(g => g.empresas.map(e => e.id)))];
+            const dados = new Map<string, DadosDaEmpresa>();
+            for (const [i, id] of ids.entries()) { setAnalisando(`Contando os dados de cada cadastro: ${i + 1} de ${ids.length}…`); dados.set(id, await dadosDaEmpresa(id)); }
+            const vistos = new Set<string>();
+            setAnalise(dup.flatMap(g => {
+                const k = g.empresas.map(e => e.id).sort().join('|');
+                if (vistos.has(k)) return [];
+                vistos.add(k);
+                return [{ chave: k, titulo: `${g.tipo === 'sage' ? `Código SAGE ${g.valor}` : `CNPJ ${formatCnpj(g.valor)}`}`, linhas: analisarRepetidas(g.empresas as Empresa[], dados) }];
+            }));
+        } catch (e) { setErro(`Não foi possível analisar os repetidos: ${(e as Error).message}`); }
+        finally { setAnalisando(''); }
+    };
+    const excluirRepetida = async (l: AnaliseCadastro) => {
+        const nome = l.empresa.nomeFantasia || l.empresa.razaoSocial;
+        if (!confirm(`Excluir o cadastro repetido "${nome}" (SAGE ${l.empresa.codigoSage}, id ${l.empresa.id})?\n\nEle não tem funcionários, movimentos, folhas nem envios ligados: ${resumoDados(l.dados)}.\nIsso não pode ser desfeito. Depois, use "Proteger códigos e CNPJs" para o cadastro que fica reservar as chaves.`)) return;
+        try {
+            const atual = await dadosDaEmpresa(l.empresa.id);
+            if (Object.entries(atual).some(([, n]) => n > 0)) { setErro(`"${nome}" ganhou dados ou entrou numa carteira desde a análise: não excluído. Analise de novo.`); return; }
+            await excluirEmpresa(l.empresa.id);
+            setAnalise(null);
+            reload();
+        } catch (e) { setErro(`Não foi possível excluir: ${(e as Error).message}`); }
+    };
+
     const apagar = async (id: string, nome: string) => {
         if (!confirm(`Excluir a empresa "${nome}"?\nIsso não pode ser desfeito.`)) return;
         await excluirEmpresa(id);
@@ -146,6 +179,32 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser, embutido = false }) => {
                     <ul className="mt-1 list-disc pl-5 text-xs">
                         {dup.map(d => <li key={`${d.tipo}${d.valor}`}>{d.tipo === 'sage' ? `Código SAGE ${d.valor}` : `CNPJ ${formatCnpj(d.valor)}`}: {d.empresas.map(e => e.nomeFantasia || e.razaoSocial).join(' · ')}</li>)}
                     </ul>
+                    {isGestor && (
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                            <button onClick={() => void analisar()} disabled={!!analisando} className="rounded-sm border border-red-300 bg-white px-2 py-1 font-medium text-red-800 disabled:opacity-50 dark:border-red-700 dark:bg-slate-900 dark:text-red-200">🔎 Analisar repetidas (o que está ligado a cada cadastro)</button>
+                            <span>{analisando || 'Só o cadastro sem nenhum dado pode ser excluído; nada é apagado sem a sua confirmação.'}</span>
+                        </div>
+                    )}
+                    {analise && (
+                        <div className="mt-3 space-y-3 text-slate-800 dark:text-slate-100">
+                            {analise.map(g => (
+                                <div key={g.chave} className="rounded-sm border border-red-200 bg-white p-2 dark:border-red-800 dark:bg-slate-900">
+                                    <div className="mb-1 text-xs font-semibold">{g.titulo}</div>
+                                    <table className="w-full text-xs">
+                                        <thead className="text-left text-slate-500"><tr><th className="p-1">Cadastro</th><th className="p-1">Ligado a ele</th><th className="p-1">O que fazer</th><th className="p-1" /></tr></thead>
+                                        <tbody>{g.linhas.map(l => (
+                                            <tr key={l.empresa.id} className="border-t border-slate-100 align-top dark:border-slate-700">
+                                                <td className="p-1"><div className="font-medium">{l.empresa.nomeFantasia || l.empresa.razaoSocial}</div><div className="text-slate-500">SAGE {l.empresa.codigoSage} · {formatCnpj(l.empresa.cnpj)} · id {l.empresa.id}</div></td>
+                                                <td className="p-1">{resumoDados(l.dados)}{l.dados.carteiras ? ` · em ${l.dados.carteiras} carteira(s)` : ''}</td>
+                                                <td className={`p-1 ${l.recomendacao === 'manter' ? 'text-green-700 dark:text-green-300' : l.recomendacao === 'unir' ? 'text-red-700 dark:text-red-300' : 'text-amber-800 dark:text-amber-200'}`}>{l.motivo}</td>
+                                                <td className="p-1 text-right">{l.recomendacao === 'excluir' && <button onClick={() => void excluirRepetida(l)} className="whitespace-nowrap rounded-sm bg-red-600 px-2 py-1 text-white hover:bg-red-700">Excluir este cadastro</button>}</td>
+                                            </tr>
+                                        ))}</tbody>
+                                    </table>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
             {isGestor && (

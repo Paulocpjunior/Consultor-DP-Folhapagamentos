@@ -160,6 +160,10 @@ Ponto de partida da próxima sessão. Atualizado em **17/10/2026**. O detalhe de
   4. O SAGE segue como origem dos dados (backup) e base de conferência até o corte de cada empresa.
   5. Integração com o CCI (escopo com o Paulo).
 
+## Empresas repetidas (17/10)
+
+- Empresas › quadro "Cadastro repetido" › **Analisar repetidas**: mostra o que está ligado a cada cadastro; o vazio pode ser excluído (gestor, com confirmação), o que tem dados fica. Com dados nos dois, unir antes (não excluir). Depois, "Proteger códigos e CNPJs".
+
 ## Depende do Paulo
 
 1. Template do WhatsApp do dp-folha: mandar o texto e o motivo da recusa da Meta.
