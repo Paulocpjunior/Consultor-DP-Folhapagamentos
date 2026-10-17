@@ -1,6 +1,6 @@
 # Retomada do trabalho
 
-Ponto de partida da próxima sessão. Atualizado em **16/10/2026**. O detalhe de cada entrega está em `docs/historico-claude.md`.
+Ponto de partida da próxima sessão. Atualizado em **17/10/2026**. O detalhe de cada entrega está em `docs/historico-claude.md`.
 
 ## App
 
@@ -102,7 +102,7 @@ Ponto de partida da próxima sessão. Atualizado em **16/10/2026**. O detalhe de
   - confirmar no próximo teste que o código do banco (908, 329) aparece no extrato; se vier o aviso "sem o código da instituição", ajustar pelos campos que ele lista;
   - recalcular a folha de 10/2026 da 1200 depois de gravar os contratos e conferir as 3 parcelas;
   - usar "Buscar na Dataprev" na competência inteira (Folha do mês › Crédito do Trabalhador);
-  - conferir as colunas com o guia oficial do leiaute 1.4 (texto colado pelo Paulo).
+  - **17/10:** colunas conferidas com o guia oficial do leiaute 1.4 (a página abriu daqui). Os exemplos do MTE viraram testes: o CSV de exemplo tem um valor a mais depois da `competencia`, que a importação agora descarta; a admissão ilegível vira aviso; o JSON com chaves achatadas (`ifConcessora.codigo`) é lido, também no extrato da Dataprev.
 - Fora do Crédito do Trabalhador: o cadastro de empresas ainda não aceita CNPJ alfanumérico (tarefa sugerida no app).
 
 ## Status × SAGE (atualizado em 16/10/2026)
@@ -143,6 +143,7 @@ Ponto de partida da próxima sessão. Atualizado em **16/10/2026**. O detalhe de
 - **O que ainda prende ao SAGE:**
   1. Homologação do motor por empresa: sai da prévia com 3 meses sem diferença na conferência × IOB. A 1200 depende do #61 (arquivos de 09/2026 da colaboradora).
      - **16/10:** o resultado da conferência agora é gravado por competência (Conferir com o eSocial do IOB › Gravar o resultado), a faixa do cálculo mostra a homologação e a ativação sem o critério pede confirmação reforçada e fica registrada. Falta: conferir 3 meses de cada empresa.
+     - **17/10:** a mesma conferência compara com o histórico de holerites do backup do SAGE, sem esperar os XMLs (Comparar com › Histórico do backup do SAGE, ano e finalidade do holerith). Antes, restaurar a empresa de novo pela tela "Restaurar backup do IOB SAGE": só a restauração a partir de agora grava os totais por finalidade (folha, adiantamento, férias, 13º).
   2. Tabela de eventos: o catálogo do Consultor veio de outro cliente do IOB (o triênio da SP é o 1015, que não está nele).
      - **16/10:** Cadastros › Eventos IOB › Tabela de eventos da empresa (modelo em Excel ou o JSON do PDF da Relação de Eventos; substitui ou completa o geral), usada no Lançar evento, nos automáticos e na importação de valores. Falta: importar a tabela de cada empresa.
   3. Lançamentos automáticos já gravados:
@@ -166,7 +167,6 @@ Ponto de partida da próxima sessão. Atualizado em **16/10/2026**. O detalhe de
 5. E-mail verificado no login, CSP e App Check: mudam o login de quem já usa, então combinar antes.
 6. Avisar quando a primeira transmissão real pela plataforma passar (eSocial ou DCTFWeb), para eu começar a P5 no CFI.
 7. Crédito do Trabalhador:
-   - colar a tabela de campos e os exemplos fictícios do guia do leiaute 1.4;
    - decidir, por cliente, provisão no adiantamento ou insuficiência de saldo.
 8. Colaboradora:
    - testar a MIA;

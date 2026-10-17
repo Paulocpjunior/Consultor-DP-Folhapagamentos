@@ -6,6 +6,8 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 
 const sv = vi.hoisted(() => ({ rubricas: vi.fn(async (_id: string) => [] as unknown[]) }));
 vi.mock('../../cadastros/cadastrosService', () => ({ listarRubricas: (id: string) => sv.rubricas(id), mensagemErro: (e: unknown) => String(e) }));
+const hs = vi.hoisted(() => ({ ler: vi.fn(async (_e: string, _a: string) => [] as unknown[]) }));
+vi.mock('../../relatorios/historicoSageService', () => ({ lerHistoricoSageDoAno: (e: string, a: string) => hs.ler(e, a) }));
 import ConferenciaEsocialIob from '../../../components/calculo/ConferenciaEsocialIob';
 import { gerarZip } from '../../implantacao/zip';
 import { fichaVazia } from '../../cadastros/funcionarios';
@@ -44,5 +46,23 @@ describe('tela Conferir com o eSocial do IOB', () => {
         fireEvent.click(within(tabela).getByText('ANA'));
         expect(within(tabela).getByText('Rubricas do IOB no S-1200')).toBeTruthy();
         expect(within(tabela).getByText('SALARIO')).toBeTruthy();
+    });
+
+    it('pelo histórico do backup do SAGE: a finalidade mais lançada vem escolhida e a outra não entra', async () => {
+        const t = (sal: number, inss: number) => ({ proventos: sal, descontos: inss, porNatureza: { 1000: sal, 9201: inss } });
+        hs.ler.mockResolvedValue([{ empresaId: 'E1', fichaId: 'f1', ano: '2025', nome: 'ANA', linhas: [], comNaturezas: true,
+            porFinalidade: { 1: [...Array(9).fill(null), t(300000, 25341), t(300000, 25341), t(300000, 25341)], 2: [...Array(11).fill(null), t(150000, 0)] } }]);
+        render(<ConferenciaEsocialIob empresa={{ id: 'E1', cnpj: CNPJ, codigoSage: '1200' }} fichas={[ficha]} motor={motor} comFerias={() => new Set()} />);
+        fireEvent.change(screen.getByLabelText('Fonte da conferência'), { target: { value: 'sage' } });
+        fireEvent.change(screen.getByLabelText('Ano do histórico'), { target: { value: '2025' } });
+        fireEvent.click(screen.getByText('Conferir pelo backup'));
+        await waitFor(() => expect(screen.getByRole('note').textContent).toMatch(/atingido\..*3 mês\(es\), de 10\/2025 a 12\/2025/));
+        expect(hs.ler).toHaveBeenCalledWith('E1', '2025');
+        expect((screen.getByLabelText('Finalidade do holerith') as HTMLSelectElement).value).toBe('1');
+        fireEvent.change(screen.getByLabelText('Finalidade do holerith'), { target: { value: '2' } });
+        await waitFor(() => expect(screen.getByRole('note').textContent).toMatch(/ainda não/));
+        // Trocar o ano descarta o resultado carregado (não grava com o ano errado).
+        fireEvent.change(screen.getByLabelText('Ano do histórico'), { target: { value: '2024' } });
+        expect(screen.queryByRole('note')).toBeNull();
     });
 });

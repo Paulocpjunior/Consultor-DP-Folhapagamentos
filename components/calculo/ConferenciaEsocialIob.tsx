@@ -6,6 +6,8 @@
 // funcionário. Mostra o critério da Fase 3: 3 competências seguidas sem
 // diferença. Sem IA (services/conferencia/conferenciaMotorIob). "Gravar o resultado" guarda o resumo de cada
 // competência para a homologação do motor da empresa (services/conferencia/homologacaoMotor).
+// Fonte alternativa, sem esperar os XMLs: o histórico de holerites do backup do SAGE gravado na restauração
+// (services/conferencia/conferenciaMotorSage), uma finalidade do holerith por vez (a da folha mensal).
 
 import React, { useEffect, useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
@@ -15,6 +17,9 @@ import type { Rubrica } from '../../services/cadastros/rubricas';
 import { listarRubricas, mensagemErro, type Usuario } from '../../services/cadastros/cadastrosService';
 import { gravarConferenciasMotor } from '../../services/conferencia/conferenciasMotorService';
 import { definirContextoMia } from '../../services/mia/mia';
+import { lerHistoricoSageDoAno } from '../../services/relatorios/historicoSageService';
+import type { HistoricoSageAno } from '../../services/relatorios/historicoSage';
+import { conferirMotorComHistoricoSage, finalidadesDoHistorico } from '../../services/conferencia/conferenciaMotorSage';
 import { reais } from '../../services/cadastros/documentos';
 import {
     conferirMotorComIob, lerEsocialIob, rubricasParaConferencia, ROTULO_SITUACAO,
@@ -37,6 +42,7 @@ const COR: Record<SituacaoLinha, string> = {
     diverge: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200',
     'sem-ficha': 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
     'sem-s1200': 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
+    'sem-historico': 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
     'motor-incompleto': 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200',
     'rubrica-sem-tipo': 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
     'totalizador-repetido': 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
@@ -53,6 +59,14 @@ const ConferenciaEsocialIob: React.FC<Props> = ({ empresa, fichas, motor, comFer
     const [competencia, setCompetencia] = useState('');
     const [aberto, setAberto] = useState<string | null>(null);
     const [gravado, setGravado] = useState('');
+    const [fonte, setFonte] = useState<'esocial' | 'sage'>('esocial');
+    const [anoSage, setAnoSage] = useState(String(new Date().getFullYear()));
+    const [historicos, setHistoricos] = useState<HistoricoSageAno[] | null>(null);
+    /** Ano do histórico carregado (o campo pode ter sido editado depois). */
+    const [anoCarregado, setAnoCarregado] = useState('');
+    const [finalidade, setFinalidade] = useState('');
+    const finalidades = useMemo(() => finalidadesDoHistorico(historicos ?? []), [historicos]);
+    const rotuloFonte = fonte === 'sage' ? 'SAGE' : 'IOB';
 
     useEffect(() => {
         let vivo = true;
@@ -72,11 +86,32 @@ const ConferenciaEsocialIob: React.FC<Props> = ({ empresa, fichas, motor, comFer
         finally { setOcupado(''); }
     }
 
+    async function carregarSage() {
+        setOcupado('Lendo o histórico do backup…'); setErro(''); setHistoricos(null); setAberto(null); setGravado('');
+        try {
+            const h = await lerHistoricoSageDoAno(empresa.id, anoSage);
+            if (!h.length) setErro(`Nenhum histórico do backup do SAGE em ${anoSage} nesta empresa. Restaure a empresa pela tela "Restaurar backup do IOB SAGE" (ficha financeira).`);
+            setHistoricos(h); setAnoCarregado(anoSage);
+            setFinalidade(finalidadesDoHistorico(h)[0]?.finalidade ?? '');
+        } catch (e) { setErro(`Não foi possível ler o histórico: ${mensagemErro(e)}`); }
+        finally { setOcupado(''); }
+    }
+
     const conf = useMemo<{ r: ResultadoConferenciaIob; avisos: string[] } | null>(() => {
+        if (fonte === 'sage') {
+            if (!historicos?.length) return null;
+            return { r: conferirMotorComHistoricoSage({ historicos, finalidade, fichas, motor, comFerias }), avisos: [] };
+        }
         if (!leitura || !gravadas || !leitura.remuneracoes.length) return null;
         const { rubricas, avisos } = rubricasParaConferencia(gravadas, leitura.rubricasDoArquivo, empresa.id);
         return { r: conferirMotorComIob({ leitura, rubricas, fichas, motor, comFerias }), avisos };
-    }, [leitura, gravadas, empresa.id, fichas, motor, comFerias]);
+    }, [fonte, historicos, finalidade, leitura, gravadas, empresa.id, fichas, motor, comFerias]);
+    // Abre na última competência conferida quando a escolhida não está no resultado (troca de fonte ou de finalidade).
+    useEffect(() => {
+        if (!conf) return;
+        const cs = conf.r.competencias.map(c => c.competencia);
+        if (!cs.includes(competencia)) setCompetencia(cs[cs.length - 1] ?? '');
+    }, [conf, competencia]);
 
     function exportar() {
         if (!conf) return;
@@ -87,15 +122,15 @@ const ConferenciaEsocialIob: React.FC<Props> = ({ empresa, fichas, motor, comFer
         }))), 'Resumo');
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(r.competencias.flatMap(c => c.linhas.flatMap(l => (l.itens.length ? l.itens : [null]).map(i => ({
             Competência: comp(c.competencia), Funcionário: l.nome, CPF: l.cpf, Situação: ROTULO_SITUACAO[l.situacao],
-            Item: i?.item ?? '', Motor: i ? i.motor / 100 : '', IOB: i ? i.iob / 100 : '', Diferença: i ? i.diferenca / 100 : '', Confere: i ? (i.ok ? 'sim' : 'não') : '',
+            Item: i?.item ?? '', Motor: i ? i.motor / 100 : '', [rotuloFonte]: i ? i.iob / 100 : '', Diferença: i ? i.diferenca / 100 : '', Confere: i ? (i.ok ? 'sim' : 'não') : '',
             Observações: l.observacoes.join(' | '),
         }))))), 'Funcionários');
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(r.competencias.flatMap(c => c.linhas.flatMap(l => l.rubricas.map(x => ({
+        if (fonte === 'esocial') XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(r.competencias.flatMap(c => c.linhas.flatMap(l => l.rubricas.map(x => ({
             Competência: comp(c.competencia), Funcionário: l.nome, Rubrica: x.codRubr, Tabela: x.ideTabRubr, Descrição: x.descricao,
             Natureza: x.natRubr, Tipo: TIPO[x.tpRubr] ?? 'sem S-1010', Quantidade: x.qtd, Valor: x.valor / 100,
         }))))), 'Rubricas do IOB');
         const meses = r.competencias.map(c => c.competencia);
-        XLSX.writeFile(wb, `conferencia-iob-${empresa.codigoSage ?? 'empresa'}-${meses[0]}-a-${meses[meses.length - 1]}.xlsx`);
+        XLSX.writeFile(wb, `conferencia-${fonte === 'sage' ? `sage-fin${finalidade}` : 'iob'}-${empresa.codigoSage ?? 'empresa'}-${meses[0]}-a-${meses[meses.length - 1]}.xlsx`);
     }
 
     async function gravar() {
@@ -104,7 +139,8 @@ const ConferenciaEsocialIob: React.FC<Props> = ({ empresa, fichas, motor, comFer
         if (!window.confirm(`Gravar o resultado de ${cs.length} competência(s) (${cs.map(c => `${comp(c.competencia)} ${c.zerada ? 'sem diferença' : 'com diferença'}`).join('; ')}) para a homologação do motor? Competência já gravada fica com este resultado.`)) return;
         setOcupado('Gravando o resultado…'); setErro('');
         try {
-            await gravarConferenciasMotor(empresa.id, cs.map(c => ({ competencia: c.competencia, zerada: c.zerada, confere: c.confere, diverge: c.diverge, pendentes: c.pendentes })), arquivos.map(f => f.name), usuario);
+            const origem = fonte === 'sage' ? [`backup do SAGE (finalidade ${finalidade}, ${anoCarregado})`] : arquivos.map(f => f.name);
+            await gravarConferenciasMotor(empresa.id, cs.map(c => ({ competencia: c.competencia, zerada: c.zerada, confere: c.confere, diverge: c.diverge, pendentes: c.pendentes })), origem, usuario);
             setGravado(`Resultado gravado: ${cs.length} competência(s). A faixa do cálculo mostra a homologação da empresa.`);
             onGravado?.();
         } catch (e) { setErro(`Não foi possível gravar: ${mensagemErro(e)}`); } finally { setOcupado(''); }
@@ -116,28 +152,51 @@ const ConferenciaEsocialIob: React.FC<Props> = ({ empresa, fichas, motor, comFer
     useEffect(() => {
         if (!linhaAberta) { definirContextoMia('conferencia-iob', null); return; }
         const l = linhaAberta;
-        definirContextoMia('conferencia-iob', { tela: `Conferência com o eSocial do IOB · ${comp(l.competencia)} · ${l.nome}`, texto: [
-            `Conferência do motor com o S-1200 do IOB, competência ${comp(l.competencia)}, ${l.nome}: ${ROTULO_SITUACAO[l.situacao]}.`,
-            ...l.itens.map(i => `- ${i.item}: motor ${reais(i.motor)}, IOB ${reais(i.iob)}, diferença ${i.ok ? 'nenhuma' : dif(i.diferenca)}`),
+        const sage = fonte === 'sage';
+        definirContextoMia('conferencia-iob', { tela: `Conferência com ${sage ? 'o backup do SAGE' : 'o eSocial do IOB'} · ${comp(l.competencia)} · ${l.nome}`, texto: [
+            `Conferência do motor com ${sage ? `o histórico de holerites do backup do SAGE (finalidade ${finalidade})` : 'o S-1200 do IOB'}, competência ${comp(l.competencia)}, ${l.nome}: ${ROTULO_SITUACAO[l.situacao]}.`,
+            ...l.itens.map(i => `- ${i.item}: motor ${reais(i.motor)}, ${sage ? 'SAGE' : 'IOB'} ${reais(i.iob)}, diferença ${i.ok ? 'nenhuma' : dif(i.diferenca)}`),
             ...(l.rubricas.length ? ['Rubricas do IOB no S-1200:', ...l.rubricas.map(x => `- ${x.codRubr} ${x.descricao || '(sem S-1010)'} natureza ${x.natRubr || '-'} ${TIPO[x.tpRubr] ?? 'sem tipo'}${x.qtd ? ` qtd ${x.qtd}` : ''}: ${reais(x.valor)}`)] : []),
             ...(l.observacoes.length ? ['Observações:', ...l.observacoes.map(o => `- ${o}`)] : []),
         ].join('\n') });
-    }, [linhaAberta]);
+    }, [linhaAberta, fonte, finalidade]);
     useEffect(() => () => definirContextoMia('conferencia-iob', null), []);
     return (
         <section aria-label="Conferência com o eSocial do IOB" className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
             <div>
-                <h3 className="font-semibold text-slate-800 dark:text-white">Conferir com o eSocial do IOB (S-1200)</h3>
+                <h3 className="font-semibold text-slate-800 dark:text-white">Conferir com o IOB: eSocial (S-1200) ou backup do SAGE</h3>
                 <p className="text-xs text-slate-600 dark:text-slate-300">
                     Compara o motor com a folha que o IOB transmitiu: o S-1200 de cada funcionário, com o tipo e a natureza das rubricas pelo S-1010 (de Cadastros › Incidências ou do próprio arquivo). Se o arquivo trouxer o S-5001 e o S-5003, também confere o INSS descontado e o FGTS apurados pelo eSocial.
+                    Sem os XMLs, compare com o histórico de holerites do backup do SAGE (gravado na restauração da empresa): escolha o ano e a finalidade do holerith da folha mensal; confere proventos, descontos e líquido e, se o backup trouxe o S-1010, salário, INSS, IRRF e salário-família.
                     Use o .zip do eSocial › Download de eventos (empregador: S-1200; tabelas: S-1010; trabalhador: S-5001 e S-5003) ou os XMLs. Todas as competências do arquivo são conferidas, com os movimentos gravados de cada mês. Diferença zero. "Gravar o resultado" guarda o resumo de cada competência para a homologação do motor (3 competências seguidas sem diferença).
                 </p>
             </div>
             <div className="flex flex-wrap items-end gap-3">
+                <label className="text-sm dark:text-white">Comparar com
+                    <select aria-label="Fonte da conferência" className="block rounded-sm border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900" value={fonte} disabled={!!ocupado}
+                        onChange={e => { setFonte(e.target.value as 'esocial' | 'sage'); setAberto(null); setGravado(''); setErro(''); }}>
+                        <option value="esocial">eSocial do IOB (S-1200)</option>
+                        <option value="sage">Histórico do backup do SAGE</option>
+                    </select>
+                </label>
+                {fonte === 'sage' ? (<>
+                    <label className="text-sm dark:text-white">Ano
+                        <input aria-label="Ano do histórico" className="block w-24 rounded-sm border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900" inputMode="numeric" maxLength={4} value={anoSage} disabled={!!ocupado} onChange={e => { setAnoSage(e.target.value.replace(/\D/g, '')); setHistoricos(null); setGravado(''); }} />
+                    </label>
+                    <button className="rounded-sm bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50" disabled={anoSage.length !== 4 || !!ocupado} onClick={() => void carregarSage()}>Conferir pelo backup</button>
+                    {finalidades.length > 0 && (
+                        <label className="text-sm dark:text-white">Finalidade do holerith
+                            <select aria-label="Finalidade do holerith" className="block rounded-sm border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900" value={finalidade} onChange={e => { setFinalidade(e.target.value); setAberto(null); setGravado(''); }}>
+                                {finalidades.map(f => <option key={f.finalidade} value={f.finalidade}>{f.finalidade} ({f.meses} holerite(s)-mês)</option>)}
+                            </select>
+                        </label>
+                    )}
+                </>) : (<>
                 <label className="text-sm dark:text-white">Arquivos (.zip ou .xml)
                     <input aria-label="Arquivos do eSocial do IOB" className="block text-sm" type="file" accept=".zip,.xml,application/zip,text/xml" multiple disabled={!!ocupado} onChange={e => setArquivos(Array.from(e.target.files ?? []))} />
                 </label>
                 <button className="rounded-sm bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50" disabled={!arquivos.length || !!ocupado || !gravadas} onClick={ler}>Conferir</button>
+                </>)}
                 {conf && <button className="rounded-sm border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:text-white" onClick={exportar}>Exportar Excel</button>}
                 {conf && usuario && <button className="rounded-sm border border-green-600 px-3 py-2 text-sm text-green-800 disabled:opacity-50 dark:border-green-500 dark:text-green-200" disabled={!!ocupado} onClick={() => void gravar()}>Gravar o resultado</button>}
             </div>
@@ -179,7 +238,7 @@ const ConferenciaEsocialIob: React.FC<Props> = ({ empresa, fichas, motor, comFer
                                                 <tr className="bg-slate-50 dark:bg-slate-900/40"><td colSpan={3} className="space-y-2 p-3 text-xs">
                                                     {l.itens.length > 0 && (
                                                         <table className="w-full max-w-xl">
-                                                            <thead className="text-left text-slate-500"><tr><th>Item</th><th className="text-right">Motor</th><th className="text-right">IOB</th><th className="text-right">Diferença</th></tr></thead>
+                                                            <thead className="text-left text-slate-500"><tr><th>Item</th><th className="text-right">Motor</th><th className="text-right">{rotuloFonte}</th><th className="text-right">Diferença</th></tr></thead>
                                                             <tbody>{l.itens.map(i => <tr key={i.item} className={i.ok ? '' : 'font-semibold text-red-700 dark:text-red-300'}><td>{i.item}</td><td className="text-right">{reais(i.motor)}</td><td className="text-right">{reais(i.iob)}</td><td className="text-right">{i.ok ? '—' : dif(i.diferenca)}</td></tr>)}</tbody>
                                                         </table>
                                                     )}
@@ -201,9 +260,10 @@ const ConferenciaEsocialIob: React.FC<Props> = ({ empresa, fichas, motor, comFer
                     )}
                 </>
             )}
-            {leitura && [...leitura.avisos, ...(conf?.avisos ?? []), ...(conf?.r.avisos ?? [])].length > 0 && (
-                <ul className="list-disc pl-5 text-xs text-amber-800 dark:text-amber-200">{[...new Set([...leitura.avisos, ...(conf?.avisos ?? []), ...(conf?.r.avisos ?? [])])].map((a, i) => <li key={i}>{a}</li>)}</ul>
-            )}
+            {(() => {
+                const avisos = [...new Set([...(fonte === 'esocial' ? leitura?.avisos ?? [] : []), ...(conf?.avisos ?? []), ...(conf?.r.avisos ?? [])])];
+                return avisos.length > 0 && <ul className="list-disc pl-5 text-xs text-amber-800 dark:text-amber-200">{avisos.map((a, i) => <li key={i}>{a}</li>)}</ul>;
+            })()}
         </section>
     );
 };
