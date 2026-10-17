@@ -5964,3 +5964,11 @@ Pedido da colaboradora, pelo Paulo, com as telas do SAGE (Rescisão Contratual e
   - Empresas › quadro "Cadastro repetido": botão "Analisar repetidas" (gestor) e "Excluir este cadastro" só no vazio, com confirmação e nova contagem antes de apagar.
 - Nada é apagado sem o clique do gestor; dados já inseridos não mudam.
 
+## 17/10/2026 — Endereço novo abre como o antigo (tema e empresa ativa) e versão na tela de ativar
+
+- **Paulo:** "não é a MESMA versão" (o `dp.spassessoriacontabil.com.br` abriu claro, na tela de ativar empresa, e o GitHub Pages escuro, já na empresa).
+- **Causa:** as duas publicações são do mesmo commit; o navegador guarda o tema (`consultor-dp:tema`) e a empresa ativa (`dp_empresa_ativa:{uid}`) por endereço, então o endereço novo abre do zero.
+- **Feito:**
+  - a página de redirecionamento do GitHub Pages leva esses dois valores uma vez só, no `#migrar=` (o # não vai ao servidor), e o app grava no endereço novo antes de abrir (`services/migracaoEndereco.ts`: só essas chaves, sem sobrescrever, e o `migrar` sai da barra);
+  - a tela "Ativar empresa e período" mostra a versão e a data publicadas, para comparar os dois endereços.
+

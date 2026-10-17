@@ -29,6 +29,8 @@ privado sem plano pago.
 5. **Testar** em `https://dp.spassessoriacontabil.com.br`: login, empresa ativa, cálculo, eSocial, e-mail e WhatsApp.
    O login é pedido de novo uma vez (o navegador guarda a sessão por endereço), e as preferências da tela também
    recomeçam.
+   - O tema e a empresa ativa ficam guardados por endereço: no endereço novo, antes da virada, o DP abre no tema claro e pede a empresa. Depois da virada, quem entra pelo link antigo chega com os dois (`services/migracaoEndereco.ts`).
+   - A versão publicada aparece no cabeçalho e na tela "Ativar empresa e período": é a mesma nos dois endereços.
 6. **Virar a chave:** GitHub › repositório › Settings › Variables › `DP_ENDERECO_NOVO` =
    `https://dp.spassessoriacontabil.com.br` e rodar o "Deploy" (Actions › Run workflow). O link antigo passa a levar
    ao novo.
