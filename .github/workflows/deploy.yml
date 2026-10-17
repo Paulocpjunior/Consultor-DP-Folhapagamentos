@@ -58,7 +58,23 @@ jobs:
           VITE_SERVICO_WHATSAPP_URL: ${{ vars.VITE_SERVICO_WHATSAPP_URL }}
           VITE_SERVICO_IA_URL: ${{ vars.VITE_SERVICO_IA_URL }}
           VITE_PAINEL_MENSAGENS_URL: ${{ vars.VITE_PAINEL_MENSAGENS_URL }}
-        run: npm run build
+        run: |
+          npm run build
+          # Firebase Hosting (domínio da SP): o mesmo app servido na raiz.
+          VITE_BASE=/ npx vite build --outDir dist-firebase
+      # Endereço novo ligado (variável DP_ENDERECO_NOVO, ex. https://dp.spassessoriacontabil.com.br): o GitHub Pages
+      # passa a ser só a página que leva cada link antigo ao mesmo caminho no endereço novo.
+      - name: Redirecionar o GitHub Pages para o endereço novo
+        if: vars.DP_ENDERECO_NOVO != ''
+        env:
+          DP_ENDERECO_NOVO: ${{ vars.DP_ENDERECO_NOVO }}
+        run: node scripts/hosting/paginaRedirecionamento.mjs dist "$DP_ENDERECO_NOVO"
+      - name: Guardar o build do Firebase Hosting
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-firebase
+          path: ./dist-firebase
+          retention-days: 3
       - name: Setup Pages
         uses: actions/configure-pages@v6
       - name: Upload artifact
@@ -131,3 +147,39 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
+
+  # Firebase Hosting do projeto consultor-dp-folha (domínio da SP: dp.spassessoriacontabil.com.br, ligado no console do
+  # Firebase › Hosting › Adicionar domínio personalizado). Usa o segredo FIREBASE_SERVICE_ACCOUNT, que precisa também do
+  # papel "Administrador do Firebase Hosting"; sem ele, só avisa e o GitHub Pages segue como está.
+  hosting:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: firebase-hosting
+      url: https://consultor-dp-folha.web.app
+    env:
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Build do Firebase Hosting
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-firebase
+          path: ./dist
+      - name: Setup Node.js
+        if: env.FIREBASE_SERVICE_ACCOUNT != ''
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Publicar no Firebase Hosting
+        if: env.FIREBASE_SERVICE_ACCOUNT != ''
+        run: |
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/conta.json"
+          GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/conta.json" npx --yes firebase-tools@14 deploy --only hosting --project consultor-dp-folha --non-interactive \
+            || echo "::warning::Firebase Hosting nao publicado (a conta de servico precisa do papel Administrador do Firebase Hosting). O GitHub Pages segue no ar."
+          rm -f "$RUNNER_TEMP/conta.json"
+      - name: Sem a credencial
+        if: env.FIREBASE_SERVICE_ACCOUNT == ''
+        run: echo "::warning::Segredo FIREBASE_SERVICE_ACCOUNT ausente - o Firebase Hosting nao foi publicado."

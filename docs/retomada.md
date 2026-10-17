@@ -4,7 +4,7 @@ Ponto de partida da próxima sessão. Atualizado em **17/10/2026**. O detalhe de
 
 ## App
 
-- **Consultor DP:** https://paulocpjunior.github.io/Consultor-DP-Folhapagamentos/ (GitHub Pages). O deploy roda a cada merge na `main` e também pelo "Run workflow" (`gh workflow run deploy.yml`, desde o #252).
+- **Consultor DP:** https://paulocpjunior.github.io/Consultor-DP-Folhapagamentos/ (GitHub Pages). **Mudando para `https://dp.spassessoriacontabil.com.br`** (Firebase Hosting, domínio da SP): passos em `docs/dominio-dp.md`. O deploy roda a cada merge na `main` e também pelo "Run workflow" (`gh workflow run deploy.yml`, desde o #252).
 - Versão e data da publicação aparecem abaixo de "SP Assessoria". Clicar abre as novidades.
 
 ## Publicado em 12/10/2026
@@ -105,7 +105,7 @@ Ponto de partida da próxima sessão. Atualizado em **17/10/2026**. O detalhe de
   - **17/10:** colunas conferidas com o guia oficial do leiaute 1.4 (a página abriu daqui). Os exemplos do MTE viraram testes: o CSV de exemplo tem um valor a mais depois da `competencia`, que a importação agora descarta; a admissão ilegível vira aviso; o JSON com chaves achatadas (`ifConcessora.codigo`) é lido, também no extrato da Dataprev.
 - **CNPJ alfanumérico (IN RFB 2.229/2024), 17/10:**
   - parte 1 (feita): cadastro de empresas, chaves únicas, busca, cofre, regras do Firestore e do Storage e todos os eventos do eSocial (Id, ideEmpregador, estabelecimento, lotação, sucessão, duplo vínculo), com o S-1299 validado pelo XSD oficial;
-  - parte 2 (falta): sindicatos e convenções, benefícios (operadora do plano), ponto, CRM, bancário (CNAB), relatórios em PDF, conferência SERPRO/FGTS, implantação do IOB e o AuditAI.
+  - parte 2 **adiada** (Paulo, 17/10: o governo prorrogou o CNPJ alfanumérico): sindicatos e convenções, benefícios (operadora do plano), ponto, CRM, bancário (CNAB), relatórios em PDF, conferência SERPRO/FGTS, implantação do IOB e o AuditAI.
 
 ## Status × SAGE (atualizado em 16/10/2026)
 
@@ -163,7 +163,7 @@ Ponto de partida da próxima sessão. Atualizado em **17/10/2026**. O detalhe de
 ## Depende do Paulo
 
 1. Template do WhatsApp do dp-folha: mandar o texto e o motivo da recusa da Meta.
-2. Tornar privados os repositórios públicos: DP, CFI, Financeiro e `plano-contas-iob`.
+2. Tornar privados os repositórios públicos: DP, CFI, Financeiro e `plano-contas-iob`. O DP depende do endereço novo no domínio da SP (`docs/dominio-dp.md`, passos 1 a 7).
 3. Motivo 26: confirmar o amparo legal.
 4. Integração com o CCI: definir o que passa de um sistema para o outro.
 5. E-mail verificado no login, CSP e App Check: mudam o login de quem já usa, então combinar antes.

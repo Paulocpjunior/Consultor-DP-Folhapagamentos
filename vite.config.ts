@@ -29,8 +29,12 @@ const todayCommitCount =
 const APP_RELEASE = `${dateStr}-${String(todayCommitCount).padStart(3, '0')}`;
 const APP_BUILT_AT = new Date().toISOString();
 
+// Caminho do app: o GitHub Pages serve em /Consultor-DP-Folhapagamentos/; o Firebase Hosting (domínio da SP,
+// dp.spassessoriacontabil.com.br) serve na raiz. A esteira escolhe com VITE_BASE.
+const BASE = process.env.VITE_BASE || '/Consultor-DP-Folhapagamentos/';
+
 export default defineConfig({
-  base: "/Consultor-DP-Folhapagamentos/",
+  base: BASE,
     plugins: [react()],
     define: {
         'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production'),

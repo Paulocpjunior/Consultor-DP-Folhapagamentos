@@ -42,3 +42,4 @@ seed-ferrante.mjs
 *.bkp
 *.bkp.ts
 # Service account (segurança)
+dist-firebase/
