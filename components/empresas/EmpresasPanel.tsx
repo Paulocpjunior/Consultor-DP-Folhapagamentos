@@ -3,7 +3,7 @@ import { ehAdmin, ehGestor } from '../../services/auth/papeis';
 import { listarEmpresasVisiveis, excluirEmpresa, protegerEmpresasExistentes } from '../../services/empresas/empresasService';
 import { chaveCnpj, chaveSage, repetidas } from '../../services/empresas/chavesUnicas';
 import { filtrarEmpresas } from '../../services/empresas/buscaEmpresas';
-import { analisarRepetidas, resumoDados, type AnaliseCadastro, type DadosDaEmpresa } from '../../services/empresas/duplicadas';
+import { aindaRepetida, analisarRepetidas, resumoDados, temDados, type AnaliseCadastro, type DadosDaEmpresa } from '../../services/empresas/duplicadas';
 import { dadosDaEmpresa } from '../../services/empresas/duplicadasService';
 import { formatCnpj } from '../../services/brasilApiService';
 import { limparCnpj } from '../../services/cadastros/documentos';
@@ -41,6 +41,7 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser, embutido = false }) => {
     const reload = async () => {
         carregarCofre(); // "Atualizar" também traz a situação do cofre (renovação pode ter acontecido no Legal)
         setLoading(true); setErro('');
+        setAnalise(null); // a análise dos repetidos vale para a lista em que foi feita
         try {
             const list = await listarEmpresasVisiveis();
             setEmpresas(list);
@@ -107,18 +108,28 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser, embutido = false }) => {
         const nome = l.empresa.nomeFantasia || l.empresa.razaoSocial;
         if (!confirm(`Excluir o cadastro repetido "${nome}" (SAGE ${l.empresa.codigoSage}, id ${l.empresa.id})?\n\nEle não tem funcionários, movimentos, folhas nem envios ligados: ${resumoDados(l.dados)}.\nIsso não pode ser desfeito. Depois, use "Proteger códigos e CNPJs" para o cadastro que fica reservar as chaves.`)) return;
         try {
+            // Confere de novo, na hora: ainda repetida (ninguém corrigiu o código ou o CNPJ) e ainda vazia.
+            const lista = await listarEmpresasVisiveis();
+            const alvo = lista.find(e => e.id === l.empresa.id);
+            if (!alvo || !aindaRepetida(alvo, lista)) { setErro(`"${nome}" não está mais repetida (o cadastro mudou desde a análise): não excluída. Analise de novo.`); setAnalise(null); return; }
             const atual = await dadosDaEmpresa(l.empresa.id);
-            if (Object.entries(atual).some(([, n]) => n > 0)) { setErro(`"${nome}" ganhou dados ou entrou numa carteira desde a análise: não excluído. Analise de novo.`); return; }
+            if (temDados(atual) || atual.carteiras > 0) { setErro(`"${nome}" ganhou dados ou entrou numa carteira desde a análise (${resumoDados(atual)}): não excluída. Analise de novo.`); setAnalise(null); return; }
             await excluirEmpresa(l.empresa.id);
             setAnalise(null);
             reload();
         } catch (e) { setErro(`Não foi possível excluir: ${(e as Error).message}`); }
     };
 
+    // Excluir pela lista também confere o que está ligado ao cadastro: empresa com dados não é excluída.
     const apagar = async (id: string, nome: string) => {
-        if (!confirm(`Excluir a empresa "${nome}"?\nIsso não pode ser desfeito.`)) return;
-        await excluirEmpresa(id);
-        reload();
+        setErro('');
+        try {
+            const dados = await dadosDaEmpresa(id);
+            if (temDados(dados)) { setErro(`"${nome}" não pode ser excluída: tem ${resumoDados(dados)}. Excluir desligaria esses dados da empresa.`); return; }
+            if (!confirm(`Excluir a empresa "${nome}"?${dados.carteiras ? `\nEla está na carteira de ${dados.carteiras} colaborador(es).` : ''}\nNão há dados ligados a ela. Isso não pode ser desfeito.`)) return;
+            await excluirEmpresa(id);
+            reload();
+        } catch (e) { setErro(`Não foi possível excluir: ${(e as Error).message}`); }
     };
 
     return (
