@@ -27,6 +27,7 @@ scripts/*
 !scripts/genVersion.mjs
 !scripts/crm/
 !scripts/esocial/
+!scripts/hosting/
 # version.json é gerado pelo prebuild a cada build de produção
 public/version.json
 # Cloud Run / Docker (não usado em GitHub Pages)
