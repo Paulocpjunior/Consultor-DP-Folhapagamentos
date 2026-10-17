@@ -5944,3 +5944,14 @@ Pedido da colaboradora, pelo Paulo, com as telas do SAGE (Rescisão Contratual e
   - nada muda nos dados gravados: o CNPJ numérico limpo é o mesmo de antes.
 - **Falta (parte 2):** sindicatos e convenções, benefícios, ponto, CRM, CNAB, relatórios em PDF, SERPRO/FGTS, implantação do IOB e AuditAI.
 
+## 17/10/2026 — DP no domínio da SP (dp.spassessoriacontabil.com.br)
+
+- **Pedido do Paulo:** "pode seguir com o item 1, mas como no futuro todos os apps deverão ter o endereço do nosso domínio, então por que não começar pelo DP, como já temos no nosso WhatsApp?". E o CNPJ alfanumérico parou na parte 1: o governo prorrogou.
+- **Feito:**
+  - `vite.config.ts`: o caminho do app vem de `VITE_BASE` (padrão o do GitHub Pages);
+  - esteira: além do GitHub Pages, um segundo build na raiz vai para o Firebase Hosting do `consultor-dp-folha` (job `hosting`, com o mesmo `FIREBASE_SERVICE_ACCOUNT`; sem o papel de Hosting, só avisa);
+  - `firebase.json`: cache certo (index.html e version.json sem cache, assets imutáveis) e cabeçalhos básicos;
+  - `DP_ENDERECO_NOVO` (variável do repositório) vira a chave: preenchida, o GitHub Pages passa a redirecionar cada link antigo ao mesmo caminho no endereço novo (`scripts/hosting/paginaRedirecionamento.mjs`, com teste);
+  - passo a passo em `docs/dominio-dp.md` (permissão, domínio no Firebase, domínio autorizado no login, CORS da plataforma e do CFI, teste, virada, repositório privado).
+- **Falta (Paulo):** os passos 1 a 3 e 6 e 7 do guia, que são no console do Google, no DNS e no GitHub.
+
