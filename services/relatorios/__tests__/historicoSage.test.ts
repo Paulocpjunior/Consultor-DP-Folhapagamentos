@@ -57,6 +57,11 @@ describe('ficha financeira pelo holerith', () => {
         expect(r.semFicha).toBe(1);
         expect(r.finalidades).toEqual({ 1: 6, 3: 1 });
         expect(mesesDoHistorico(r.anos[0])).toEqual([2]);
+        // Totais por finalidade (folha × outra finalidade), sem o informativo e sem o totalizador do SAGE.
+        expect(r.anos[0].comNaturezas).toBe(true);
+        expect(r.anos[0].porFinalidade?.['1'][2]).toEqual({ proventos: 300000, descontos: 24000, porNatureza: { 1000: 300000, 9201: 24000 } });
+        expect(r.anos[0].porFinalidade?.['3'][2]).toEqual({ proventos: 15050, descontos: 0, porNatureza: { 1000: 15050 } });
+        expect(r.anos[0].porFinalidade?.['1'].filter(x => x !== null)).toHaveLength(1);
     });
 
     it('sem as colunas de valor: avisa e não monta nada', () => {

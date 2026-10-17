@@ -104,10 +104,28 @@ const ehObjeto = (x: unknown): x is Record<string, unknown> => !!x && typeof x =
  * Os empréstimos do extrato em qualquer formato: o do manual ({ ..., emprestimos: [...] }), uma lista de vínculos (cada
  * um com os seus empréstimos) ou um envelope. Empréstimo = objeto com o número do `contrato`.
  */
+/**
+ * Chaves achatadas em objetos: { "ifConcessora.codigo": 908 } → { ifConcessora: { codigo: 908 } }. É como o guia oficial do
+ * leiaute (exemplo JSON) e, ao que tudo indica, a resposta real do extrato trazem os campos (a instituição veio "000" no
+ * primeiro uso, 16/10/2026). Chaves já aninhadas ficam como estão.
+ */
+export function desachatar(o: Record<string, unknown>): Record<string, unknown> {
+    const r: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(o)) {
+        if (!k.includes('.')) { r[k] = ehObjeto(v) && ehObjeto(r[k]) ? { ...(r[k] as object), ...v } : (r[k] ?? v); continue; }
+        const partes = k.split('.');
+        let alvo = r;
+        for (const p of partes.slice(0, -1)) { if (!ehObjeto(alvo[p])) alvo[p] = {}; alvo = alvo[p] as Record<string, unknown>; }
+        const ult = partes[partes.length - 1];
+        if (alvo[ult] === undefined) alvo[ult] = v;
+    }
+    return r;
+}
+
 export function emprestimosDoExtrato(dados: unknown, profundidade = 0): EmprestimoExtrato[] {
     if (profundidade > 4 || !dados || typeof dados !== 'object') return [];
     if (Array.isArray(dados)) {
-        if (dados.some(x => ehObjeto(x) && 'contrato' in x)) return dados.filter(x => ehObjeto(x) && 'contrato' in x) as EmprestimoExtrato[];
+        if (dados.some(x => ehObjeto(x) && 'contrato' in x)) return dados.filter(x => ehObjeto(x) && 'contrato' in x).map(x => desachatar(x as Record<string, unknown>)) as EmprestimoExtrato[];
         return dados.flatMap(x => emprestimosDoExtrato(x, profundidade + 1));
     }
     return Object.values(dados).flatMap(v => (v && typeof v === 'object' ? emprestimosDoExtrato(v, profundidade + 1) : []));

@@ -150,9 +150,9 @@ export interface LinhaItem { item: ItemComparado; motor: number; iob: number; di
 /** Rubrica do IOB no mês, com o que o S-1010 diz dela. */
 export interface RubricaDoMes { codRubr: string; ideTabRubr: string; descricao: string; tpRubr: string; natRubr: string; qtd: string; valor: number }
 
-export type SituacaoLinha = 'confere' | 'diverge' | 'sem-ficha' | 'sem-s1200' | 'motor-incompleto' | 'rubrica-sem-tipo' | 'totalizador-repetido';
+export type SituacaoLinha = 'confere' | 'diverge' | 'sem-ficha' | 'sem-s1200' | 'sem-historico' | 'motor-incompleto' | 'rubrica-sem-tipo' | 'totalizador-repetido';
 export const ROTULO_SITUACAO: Record<SituacaoLinha, string> = {
-    confere: 'confere', diverge: 'diverge', 'sem-ficha': 'S-1200 sem ficha', 'sem-s1200': 'sem S-1200 do IOB',
+    confere: 'confere', diverge: 'diverge', 'sem-ficha': 'S-1200 sem ficha', 'sem-s1200': 'sem S-1200 do IOB', 'sem-historico': 'sem histórico no backup',
     'motor-incompleto': 'cálculo incompleto ou com erro', 'rubrica-sem-tipo': 'rubrica sem S-1010', 'totalizador-repetido': 'S-5001/S-5003 repetido',
 };
 
@@ -186,7 +186,8 @@ function somarResultados(rs: ResultadoCalculo[]): ResultadoCalculo {
         bases: { inss: s(r => r.bases.inss), fgts: s(r => r.bases.fgts), irrf: s(r => r.bases.irrf) } };
 }
 
-const v = (r: ResultadoCalculo, ...codigos: string[]) => r.verbas.filter(x => codigos.includes(x.codigo)).reduce((s, x) => s + x.valor, 0);
+/** Soma das verbas do motor com os códigos dados. */
+export const v = (r: ResultadoCalculo, ...codigos: string[]) => r.verbas.filter(x => codigos.includes(x.codigo)).reduce((s, x) => s + x.valor, 0);
 const digitos = (t: string) => (t ?? '').replace(/\D/g, '');
 const proximaCompetencia = (c: string) => { const [a, m] = c.split('-').map(Number); return m === 12 ? `${a + 1}-01` : `${a}-${String(m + 1).padStart(2, '0')}`; };
 
@@ -314,20 +315,30 @@ export function conferirMotorComIob(e: EntradaConferenciaIob): ResultadoConferen
             linhas.push({ competencia: c, cpf: f?.cpf ?? '', nome: m.nome, fichaId: m.fichaId, situacao: calculou ? 'sem-s1200' : 'motor-incompleto', itens: [], rubricas: [],
                 observacoes: [calculou ? 'O motor calculou e o arquivo não tem o S-1200 do IOB para este funcionário.' : 'Sem S-1200 do IOB e o cálculo não fechou.', ...(calculou ? [] : [...m.erros, ...m.avisos])] });
         }
-        linhas.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
-        const confere = linhas.filter(l => l.situacao === 'confere').length;
-        const diverge = linhas.filter(l => l.situacao === 'diverge').length;
-        const pendentes = linhas.length - confere - diverge;
-        resumo.push({ competencia: c, linhas, confere, diverge, pendentes, zerada: confere > 0 && diverge === 0 && pendentes === 0 });
+        resumo.push(resumirCompetencia(c, linhas));
     }
     if (semRubrica.size) avisos.push(`Rubrica(s) sem S-1010 (tipo e natureza): ${[...semRubrica].slice(0, 12).join(', ')}${semRubrica.size > 12 ? '…' : ''}. Importe o S-1010 em Cadastros › Incidências ou inclua no arquivo.`);
 
-    // Maior sequência de meses seguidos sem diferença.
+    const sequencia = sequenciaSemDiferenca(resumo);
+    return { competencias: resumo, sequencia, criterioAtingido: sequencia.meses >= 3, avisos };
+}
+
+/** Resumo da competência pelas linhas: zerada quando todos conferem e nada ficou pendente. */
+export function resumirCompetencia(competencia: string, linhas: LinhaFuncionario[]): ResumoCompetencia {
+    linhas.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+    const confere = linhas.filter(l => l.situacao === 'confere').length;
+    const diverge = linhas.filter(l => l.situacao === 'diverge').length;
+    const pendentes = linhas.length - confere - diverge;
+    return { competencia, linhas, confere, diverge, pendentes, zerada: confere > 0 && diverge === 0 && pendentes === 0 };
+}
+
+/** Maior sequência de meses seguidos sem diferença. */
+export function sequenciaSemDiferenca(resumo: ResumoCompetencia[]): ResultadoConferenciaIob['sequencia'] {
     let melhor = { inicio: '', fim: '', meses: 0 }; let atual = { inicio: '', fim: '', meses: 0 };
     for (const r of resumo) {
         if (!r.zerada) { atual = { inicio: '', fim: '', meses: 0 }; continue; }
         atual = atual.meses && proximaCompetencia(atual.fim) === r.competencia ? { ...atual, fim: r.competencia, meses: atual.meses + 1 } : { inicio: r.competencia, fim: r.competencia, meses: 1 };
         if (atual.meses > melhor.meses) melhor = atual;
     }
-    return { competencias: resumo, sequencia: melhor, criterioAtingido: melhor.meses >= 3, avisos };
+    return melhor;
 }

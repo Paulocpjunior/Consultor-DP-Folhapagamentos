@@ -95,7 +95,11 @@ function lerCsv(texto: string): ArquivoLido {
     if (linha.some(c => c.trim())) linhas.push(linha);
     const [cab = [], ...resto] = linhas;
     const colunas = cab.map(c => c.trim());
-    return { colunas, linhas: resto.map(l => Object.fromEntries(colunas.map((c, i) => [c, (l[i] ?? '').trim()]))) };
+    // O exemplo CSV oficial do Portal (guia v1.0 e v1.4) traz um valor a mais, sem cabeçalho, logo depois de "competencia"
+    // (outra competência mm/aaaa): sem tirar, as colunas seguintes saem trocadas e a admissão vira o CNPJ.
+    const iComp = colunas.findIndex(c => c === 'competencia');
+    const alinhar = (l: string[]) => (l.length === colunas.length + 1 && iComp >= 0 && /^\d{2}\/\d{4}$/.test((l[iComp + 1] ?? '').trim()) ? [...l.slice(0, iComp + 1), ...l.slice(iComp + 2)] : l);
+    return { colunas, linhas: resto.map(alinhar).map(l => Object.fromEntries(colunas.map((c, i) => [c, (l[i] ?? '').trim()]))) };
 }
 
 /** Lê o arquivo do Portal (CSV, XLS/XLSX ou JSON) em colunas e linhas de texto. Lança erro com mensagem para a tela. */
@@ -209,6 +213,7 @@ export function previaImportacao(arq: ArquivoLido, mapa: MapaColunas, competenci
     // legível pode ser de qualquer um: nenhum contrato sai por ausência.
     const cpfsRecusados = new Set<string>();
     let cpfIlegivel = false;
+    let admissaoIlegivel = 0;
     arq.linhas.forEach((l, i) => {
         const linha = i + 2; // 1 = cabeçalho
         const cpf = digitos(val(l, 'cpf')).padStart(11, '0');
@@ -235,8 +240,9 @@ export function previaImportacao(arq: ArquivoLido, mapa: MapaColunas, competenci
         if (cand.length > 1 && mat) cand = cand.filter(f => f.matriculaEsocial === mat || f.dados.codigoIob === mat);
         // Leiaute 1.4: a data de admissão separa os vínculos do mesmo CPF (readmissão, duplo vínculo).
         const admTxt = val(l, 'admissao');
+        // A admissão só separa vínculos do mesmo CPF (coluna opcional no leiaute 1.4): ilegível, é ignorada com aviso.
         const adm = admTxt ? dataDoArquivo(admTxt) : null;
-        if (admTxt && !adm) return p(`Data de admissão "${admTxt}" não reconhecida.`);
+        if (admTxt && !adm) admissaoIlegivel++;
         if (cand.length > 1 && adm) cand = cand.filter(f => f.dados.admissao === adm || f.dados.inicioNaEmpresa === adm);
         if (cand.length > 1) cand = cand.filter(f => ativaNaCompetencia(f, competencia));
         if (cand.length !== 1) return p(cand.length ? 'Mais de um vínculo ativo no CPF: informe a coluna da matrícula ou da admissão.' : 'Nenhum vínculo ativo do CPF na competência.');
@@ -252,6 +258,7 @@ export function previaImportacao(arq: ArquivoLido, mapa: MapaColunas, competenci
         avisos.push(`O arquivo não é da competência ${br(competencia)}: confira a competência da tela ou baixe o arquivo certo. Nada a gravar.`);
         return { competencia, acoes, pendencias, avisos, lidas: arq.linhas.length };
     }
+    if (admissaoIlegivel) avisos.push(`${admissaoIlegivel} linha(s) com a data de admissão ilegível: a admissão foi ignorada (ela só separa vínculos do mesmo CPF).`);
     if (cpfIlegivel) avisos.push('Há linha com CPF ilegível: nenhum contrato foi dado como fora do arquivo. Corrija o arquivo (baixe de novo no Portal) para tratar quitações e portabilidades.');
     else if (cpfsRecusados.size) avisos.push('Os contratos de quem teve linha recusada não foram dados como fora do arquivo: confira essas linhas.');
 

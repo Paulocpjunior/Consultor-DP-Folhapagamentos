@@ -133,7 +133,57 @@ describe('prévia e aplicação', () => {
         const arq2 = lerArquivoEmprestimos('e.csv', buf(`${cols.join(';')}\n12345678909;341;H1;100,00;2026-10;"12ABC34501DE35";04/05/2026\n12345678909;341;H2;100,00;2026-10;"12ABC34501DE35";\n12345678909;341;H3;100,00;2026-10;"99XYZ34501DE35";04/05/2026\n12345678909;341;H4;100,00;2026-10;;99/99/2026`));
         const q = previaImportacao(arq2, sugerirColunas(cols), '2026-10', dois, '12.ABC.345/01DE-35');
         expect(q.acoes.map(a => [a.nrDoc, a.fichaId])).toEqual([['H1', 'h2']]);
-        expect(q.pendencias.map(x => x.motivo)).toEqual([expect.stringMatching(/matrícula ou da admissão/), 'CNPJ de outro empregador.', 'Data de admissão "99/99/2026" não reconhecida.']);
+        // Admissão ilegível é ignorada com aviso (a coluna é opcional): com dois vínculos, a linha fica sem ficha certa.
+        expect(q.pendencias.map(x => x.motivo)).toEqual([expect.stringMatching(/matrícula ou da admissão/), 'CNPJ de outro empregador.', expect.stringMatching(/matrícula ou da admissão/)]);
+        expect(q.avisos.join(' ')).toMatch(/1 linha\(s\) com a data de admissão ilegível/);
+    });
+
+    // Exemplos fictícios do guia oficial do MTE, versão 1.4 (servicos.mte.gov.br/empregador/manuais/leiauteArquivoEmprestimos1.4.html),
+    // copiados como estão, inclusive o valor a mais depois de "competencia" no exemplo CSV.
+    describe('guia oficial do leiaute 1.4 (exemplos do MTE)', () => {
+        const CAB = 'ifConcessora.codigo;ifConcessora.descricao;contrato;cpf;matricula;inscricaoEmpregador.codigo;inscricaoEmpregador.descricao;numeroInscricaoEmpregador;nomeTrabalhador;nomeEmpregador;dataInicioContrato;dataFimContrato;competenciaInicioDesconto;competenciaFimDesconto;totalParcelas;valorParcela;valorEmprestimo;valorLiberado;qtdPagamentos;qtdEscrituracoes;categoriaTrabalhador.codigo;categoriaTrabalhador.descricao;competencia;inscricaoEstabelecimento.codigo;inscricaoEstabelecimento.descricao;numeroInscricaoEstabelecimento;dataAdmissao';
+        const CSV = `${CAB}\n341;DTP BANCO 341;134173700000;99973734130;MATCEN737;1;CNPJ;42422253000101;Teste Homo_737341;Nome empregador;14/02/2025;;01/2025;12/2025;12;100;1000;990;;;101;Empregado - Geral, inclusive o empregado público da administração direta ou indireta contratado pela CLT;01/2025;02/2025;1;CNPJ;"42422253000101";14/02/2020\n`;
+        const JSON_MTE = [{ 'ifConcessora.codigo': 999, 'ifConcessora.descricao': 'DTP BANCO 999', contrato: '199972600000123', cpf: '99972699935', matricula: 'MATCEN726',
+            'inscricaoEmpregador.codigo': 1, 'inscricaoEmpregador.descricao': 'CNPJ', numeroInscricaoEmpregador: '42422253000101', nomeTrabalhador: 'Teste Homo_726999', nomeEmpregador: 'Nome Empregador',
+            dataInicioContrato: '28/02/2025', dataFimContrato: '', competenciaInicioDesconto: '01/2025', competenciaFimDesconto: '03/2025', totalParcelas: 12, valorParcela: 100, valorEmprestimo: 1000,
+            valorLiberado: 990, qtdPagamentos: null, qtdEscrituracoes: null, 'categoriaTrabalhador.codigo': 101, 'categoriaTrabalhador.descricao': 'Empregado - Geral', competencia: '01/2025',
+            'inscricaoEstabelecimento.codigo': 1, 'inscricaoEstabelecimento.descricao': 'CNPJ', numeroInscricaoEstabelecimento: '42422253000101', dataAdmissao: '28/02/2020' }];
+        const CNPJ_MTE = '42422253000101';
+        const fichaMte = (id: string, cpf: string, matricula: string, admissao: string) =>
+            ({ ...fichaVazia({ id: 'E1', cnpj: CNPJ_MTE }), id, cpf, matriculaEsocial: matricula, situacao: 'ativo', dados: { nome: id, admissao }, consignados: [] }) as FichaFuncionario;
+
+        it('CSV: todas as colunas reconhecidas e o valor a mais depois da competência não desalinha a admissão', () => {
+            const a = lerArquivoEmprestimos('emprestimos.csv', buf(CSV));
+            expect(a.linhas[0]).toMatchObject({ competencia: '01/2025', 'inscricaoEstabelecimento.codigo': '1', numeroInscricaoEstabelecimento: '42422253000101', dataAdmissao: '14/02/2020' });
+            const mapa = sugerirColunas(a.colunas);
+            expect(mapa).toEqual({ cpf: 'cpf', matricula: 'matricula', admissao: 'dataAdmissao', instFinanc: 'ifConcessora.codigo', nrDoc: 'contrato', parcela: 'valorParcela',
+                competencia: 'competencia', nome: 'nomeTrabalhador', cnpj: 'numeroInscricaoEmpregador' });
+            const p = previaImportacao(a, mapa, '2025-01', [fichaMte('f1', '99973734130', 'MATCEN737', '2020-02-14')], CNPJ_MTE);
+            expect(p.pendencias).toEqual([]);
+            expect(p.acoes).toEqual([expect.objectContaining({ tipo: 'novo', instFinanc: '341', nrDoc: '134173700000', parcela: 10000 })]);
+        });
+
+        it('JSON com as chaves achatadas ("ifConcessora.codigo"), como no guia', () => {
+            const a = lerArquivoEmprestimos('emprestimos.json', buf(JSON.stringify(JSON_MTE)));
+            const p = previaImportacao(a, sugerirColunas(a.colunas), '2025-01', [fichaMte('f2', '99972699935', 'MATCEN726', '2020-02-28')], CNPJ_MTE);
+            expect(p.pendencias).toEqual([]);
+            expect(p.acoes).toEqual([expect.objectContaining({ tipo: 'novo', instFinanc: '999', nrDoc: '199972600000123', parcela: 10000 })]);
+        });
+
+        it('XLS: as mesmas colunas, sem o valor a mais', () => {
+            const ws = XLSX.utils.aoa_to_sheet([CAB.split(';'), ['341', 'DTP BANCO 341', '134173700000', '99973734130', 'MATCEN737', '1', 'CNPJ', '42422253000101', 'Teste Homo_737341', '', '14/02/2025', '',
+                '01/2025', '12/2025', '12', '100', '1000', '990', '', '', '101', 'Empregado - Geral', '01/2025', '1', 'CNPJ', '42422253000101', '14/02/2020']]);
+            const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'P');
+            const a = lerArquivoEmprestimos('e.xlsx', XLSX.write(wb, { type: 'array', bookType: 'xlsx' }));
+            const p = previaImportacao(a, sugerirColunas(a.colunas), '2025-01', [fichaMte('f1', '99973734130', 'MATCEN737', '2020-02-14')], CNPJ_MTE);
+            expect(p.pendencias).toEqual([]);
+            expect(p.acoes.map(x => x.nrDoc)).toEqual(['134173700000']);
+        });
+
+        it('numeroInscricaoEmpregador pela raiz de 8 com zeros à esquerda, como o guia permite', () => {
+            const a = lerArquivoEmprestimos('emprestimos.json', buf(JSON.stringify([{ ...JSON_MTE[0], numeroInscricaoEmpregador: '42422253' }])));
+            expect(previaImportacao(a, sugerirColunas(a.colunas), '2025-01', [fichaMte('f2', '99972699935', 'MATCEN726', '2020-02-28')], CNPJ_MTE).pendencias).toEqual([]);
+        });
     });
 
     it('validação: o mesmo contrato em períodos que não se sobrepõem é aceito; sobrepostos, não', () => {

@@ -5915,3 +5915,20 @@ Pedido da colaboradora, pelo Paulo, com as telas do SAGE (Rescisão Contratual e
 - **Status:**
   - `docs/retomada.md`: Crédito do Trabalhador com os PRs #279 a #283 e o primeiro uso real da Dataprev (conexão confirmada, 3 empréstimos), mais o que falta testar; "Status × SAGE" atualizado com o mata-burros;
   - catálogo IOB × Consultor: o item do Crédito do Trabalhador cita "Buscar na Dataprev", o equivalente à "Consulta Portal Emprega Brasil" do SAGE, e o extrato na ficha.
+
+## 17/10/2026 — Homologação do motor pelo backup do SAGE e leiaute 1.4 oficial
+
+- **Pedido do Paulo:** "O BACKUP JA TEMOS E VC JA USOU E PODE USAR NOVAMENTE, homologar o motor com 3 meses sem diferença" e conferir o leiaute 1.4 do arquivo do Portal.
+- **Homologação pelo backup:**
+  - o histórico de holerites do backup (`historico_sage`) somava todas as finalidades do holerith (folha, adiantamento, férias, 13º…), o que não serve para comparar com a folha mensal do motor;
+  - a restauração agora grava também, por finalidade e mês, proventos, descontos e o valor das naturezas comparadas (salário, salário-família, INSS, IRRF, licenças) e se o backup trouxe o S-1010 (`porFinalidade`, `comNaturezas`);
+  - `services/conferencia/conferenciaMotorSage.ts`: compara o motor com uma finalidade, por ficha (o histórico é por vínculo), no mesmo resultado da conferência × S-1200, com o mesmo critério (3 competências seguidas sem diferença); sem o S-1010, só proventos, descontos e líquido;
+  - a tela "Conferir com o IOB" ganhou "Comparar com › Histórico do backup do SAGE" (ano, finalidade mais lançada já escolhida) e "Gravar o resultado" registra a origem `backup do SAGE (finalidade X, AAAA)`;
+  - nada muda nos dados gravados: só lê o histórico; a homologação grava o que o usuário confirmar;
+  - **para usar:** restaurar de novo a empresa pela tela "Restaurar backup do IOB SAGE" (o histórico gravado antes não tem os totais; a tela avisa).
+- **Leiaute 1.4 oficial (guia do MTE, lido direto):**
+  - os exemplos do guia viraram testes (CSV, JSON achatado, XLS, inscrição pela raiz);
+  - o CSV de exemplo tem um valor sem cabeçalho depois da `competencia`: a linha com uma coluna a mais e uma competência ali é alinhada;
+  - admissão ilegível não recusa mais a linha: vira aviso;
+  - extrato da Dataprev: chaves achatadas (`"ifConcessora.codigo"`) são expandidas antes de ler a instituição.
+

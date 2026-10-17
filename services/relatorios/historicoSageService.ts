@@ -19,6 +19,7 @@ export async function gravarHistoricoSage(anos: HistoricoSageAno[], u: Usuario, 
         for (const h of anos.slice(i, i + LOTE)) {
             b.set(doc(db, COL, idHistoricoSage(h)), {
                 empresaId: h.empresaId, fichaId: h.fichaId, ano: h.ano, nome: h.nome, linhas: h.linhas,
+                ...(h.porFinalidade ? { porFinalidade: h.porFinalidade } : {}), ...(h.comNaturezas !== undefined ? { comNaturezas: h.comNaturezas } : {}),
                 origem: origem.join(', ').slice(0, 500), gravadoPor: u.id, gravadoEm: serverTimestamp(),
             });
         }
@@ -31,6 +32,7 @@ export async function lerHistoricoSageDoAno(empresaId: string, ano: string): Pro
     const s = await getDocs(query(collection(db, COL), where('empresaId', '==', empresaId), where('ano', '==', ano)));
     return s.docs.map(d => {
         const x = d.data();
-        return { empresaId: x.empresaId, fichaId: x.fichaId, ano: x.ano, nome: x.nome ?? '', linhas: x.linhas ?? [] };
+        return { empresaId: x.empresaId, fichaId: x.fichaId, ano: x.ano, nome: x.nome ?? '', linhas: x.linhas ?? [],
+            ...(x.porFinalidade ? { porFinalidade: x.porFinalidade } : {}), ...(x.comNaturezas !== undefined ? { comNaturezas: !!x.comNaturezas } : {}) };
     });
 }

@@ -2,7 +2,7 @@
 // importação do arquivo do Portal, e o extrato do trabalhador preenche garantia, saldo e data da consulta da rescisão.
 // Dados fictícios.
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { acrescentarDoExtrato, aplicarExtrato, arquivoDaDataprev, buscarConsignacoesDataprev, conferirExtrato, consultarExtratoDataprev, instituicaoDoEmprestimo } from '../creditoTrabalhadorDataprev';
+import { acrescentarDoExtrato, aplicarExtrato, arquivoDaDataprev, buscarConsignacoesDataprev, conferirExtrato, consultarExtratoDataprev, desachatar, instituicaoDoEmprestimo } from '../creditoTrabalhadorDataprev';
 import { previaImportacao, sugerirColunas } from '../../calculo/importacaoConsignado';
 import { validarContratos, type ContratoConsignado } from '../../calculo/consignado';
 import { fichaVazia, type FichaFuncionario } from '../../cadastros/funcionarios';
@@ -183,5 +183,18 @@ describe('extrato do trabalhador na ficha', () => {
         // Sem instituição na resposta e dois empréstimos com o número: ambíguo, não casa.
         const ambiguo = { emprestimos: [{ contrato: '123', valorSaldoDevedor: 1 }, { contrato: '0123', valorSaldoDevedor: 2 }] };
         expect(conferirExtrato(ficha, ambiguo, '2026-10-16').atualizacoes).toEqual([]);
+    });
+
+    it('campos achatados como no guia oficial ("ifConcessora.codigo", "garantia.percVerbaRescisoriaGarantia")', () => {
+        expect(desachatar({ 'ifConcessora.codigo': 908, 'ifConcessora.descricao': 'PARATI', contrato: 'X', 'garantia.percVerbaRescisoriaGarantia': 10 }))
+            .toEqual({ ifConcessora: { codigo: 908, descricao: 'PARATI' }, contrato: 'X', garantia: { percVerbaRescisoriaGarantia: 10 } });
+        const achatado = { cpf: '11144477735', emprestimos: [
+            { 'ifConcessora.codigo': 908, 'ifConcessora.descricao': 'PARATI CFI', contrato: '701924670', valorParcela: 190.79, competenciaInicioDesconto: '10/2026',
+                competenciaFimDesconto: '12/2027', valorSaldoDevedor: 2085.1, 'garantia.temGarantias': false, 'garantia.percVerbaRescisoriaGarantia': 5 },
+        ] };
+        const c = conferirExtrato([], achatado, '2026-10-16');
+        expect(c.soNoExtrato).toEqual([{ instFinanc: '908', nrDoc: '701924670', instituicao: 'PARATI CFI', parcela: 19079, inicio: '2026-10', fim: '2027-12', saldo: 208510, garantia: 5 }]);
+        expect(c.avisos).toEqual([]);
+        expect(acrescentarDoExtrato([], c.soNoExtrato, '2026-10', '2026-10-16')).toEqual([expect.objectContaining({ instFinanc: '908', nrDoc: '701924670', parcela: 19079, garantiaRescisao: 5 })]);
     });
 });
