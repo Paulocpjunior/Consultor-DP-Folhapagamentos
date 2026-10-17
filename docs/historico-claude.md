@@ -5955,3 +5955,12 @@ Pedido da colaboradora, pelo Paulo, com as telas do SAGE (Rescisão Contratual e
   - passo a passo em `docs/dominio-dp.md` (permissão, domínio no Firebase, domínio autorizado no login, CORS da plataforma e do CFI, teste, virada, repositório privado).
 - **Falta (Paulo):** os passos 1 a 3 e 6 e 7 do guia, que são no console do Google, no DNS e no GitHub.
 
+## 17/10/2026 — Empresas repetidas: análise e exclusão segura do cadastro vazio
+
+- **Pedido do Paulo:** "sim, várias empresas estão duplicadas" (visto na tela de ativar empresa, no endereço novo: BRISKA FILIAL duas vezes, mesmo CNPJ e SAGE).
+- **Feito:**
+  - `services/empresas/duplicadas.ts`: por grupo repetido (código SAGE ou CNPJ), mantém o cadastro com dados, libera o vazio, pede para tirar da carteira o vazio que está na carteira de alguém e, com dados nos dois, manda unir (nunca excluir);
+  - `services/empresas/duplicadasService.ts`: conta (sem ler) funcionários, movimentos, folhas, férias/13º/rescisões, envios do eSocial, afastamentos, rubricas, histórico do SAGE, fechamentos, guias, enquadramentos e carteiras de cada cadastro;
+  - Empresas › quadro "Cadastro repetido": botão "Analisar repetidas" (gestor) e "Excluir este cadastro" só no vazio, com confirmação e nova contagem antes de apagar.
+- Nada é apagado sem o clique do gestor; dados já inseridos não mudam.
+
