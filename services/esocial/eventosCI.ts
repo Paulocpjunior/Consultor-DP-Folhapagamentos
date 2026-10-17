@@ -14,7 +14,7 @@
 
 import type { Rubrica } from '../cadastros/rubricas';
 import { vigenciaEm } from '../cadastros/rubricas';
-import { cpfValido, limparInscricao } from '../cadastros/documentos';
+import { cpfValido, limparInscricao, formatoCnpj } from '../cadastros/documentos';
 import { CATEGORIAS_CI, type ContribuinteIndividual, type ResultadoCI } from '../contribuintes/contribuinteIndividual';
 import type { ParametrosEsocialFolha } from './eventosFolha';
 import { idEvento, VER_PROC, type TpAmb } from './transmissao';
@@ -52,7 +52,7 @@ export function gerarEventosCI(e: EntradaEventosCI): { eventos: EventosCI[]; err
     const erros: string[] = [];
     const p = e.parametros;
     const estab = limparInscricao(p.nrInscEstab);
-    if (estab.length !== 14) erros.push('Informe o CNPJ do estabelecimento (14 dígitos) nos parâmetros do eSocial da folha.');
+    if (!formatoCnpj(estab)) erros.push('Informe o CNPJ do estabelecimento (14 dígitos) nos parâmetros do eSocial da folha.');
     if (!p.codLotacao.trim()) erros.push('Informe o código da lotação tributária (S-1020) nos parâmetros do eSocial da folha.');
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(e.competencia)) erros.push('Competência inválida.');
     if (erros.length) return { eventos: [], erros };

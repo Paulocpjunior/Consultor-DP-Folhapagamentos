@@ -11,7 +11,7 @@
 //   opcional): o pró-labore do mês do término vai no S-1200 da competência.
 // Retificação: com o recibo do evento aceito, indRetif 2.
 
-import { cpfValido, dataValida, limparInscricao } from '../cadastros/documentos';
+import { cpfValido, dataValida, limparInscricao, formatoCnpj } from '../cadastros/documentos';
 import { CATEGORIAS_CI, type ContribuinteIndividual } from '../contribuintes/contribuinteIndividual';
 import { idEvento, VER_PROC, type TpAmb } from './transmissao';
 
@@ -87,7 +87,7 @@ export function validarS2300(c: ContribuinteIndividual, nrInscEstab = ''): strin
     if (t.remuneracao < 0) e.push('Pró-labore fixo inválido.');
     if (CATEGORIAS_CI[cat].fgts && !dataValida(t.dtOpcFGTS)) e.push('Diretor com FGTS (721): informe a data de opção pelo FGTS.');
     else if (CATEGORIAS_CI[cat].fgts && dataValida(t.dtInicio) && t.dtOpcFGTS < t.dtInicio) e.push('Opção pelo FGTS antes do início.');
-    if (localObrigatorio(cat, t.dtInicio) && limparInscricao(nrInscEstab).length !== 14) e.push('Informe o CNPJ do estabelecimento (14 dígitos) nos parâmetros do eSocial da folha: o S-2300 leva o local de trabalho.');
+    if (localObrigatorio(cat, t.dtInicio) && !formatoCnpj(limparInscricao(nrInscEstab))) e.push('Informe o CNPJ do estabelecimento (14 dígitos) nos parâmetros do eSocial da folha: o S-2300 leva o local de trabalho.');
     c.dependentes.forEach((d, i) => {
         if (!cpfValido(digitos(d.cpf))) e.push(`Dependente ${i + 1}: CPF inválido.`);
         if (!d.nome.trim()) e.push(`Dependente ${i + 1}: informe o nome.`);
@@ -120,7 +120,7 @@ export function gerarS2300(x: EntradaS2300): EventoTSV {
     }
     const fgts = def.fgts ? `<FGTS><dtOpcFGTS>${t.dtOpcFGTS}</dtOpcFGTS></FGTS>` : '';
     const estab = limparInscricao(x.nrInscEstab);
-    const local = localPermitido(cat) && estab.length === 14 ? `<localTrabGeral><tpInsc>1</tpInsc><nrInsc>${estab}</nrInsc></localTrabGeral>` : '';
+    const local = localPermitido(cat) && formatoCnpj(estab) ? `<localTrabGeral><tpInsc>1</tpInsc><nrInsc>${estab}</nrInsc></localTrabGeral>` : '';
     if (t.cadastramentoInicial) r.avisos.push('Cadastramento inicial (cadIni S): só para quem começou antes da obrigatoriedade dos eventos não periódicos da empresa.');
     else if (t.dtInicio < '2018-01-01') r.avisos.push(`Início em ${br(t.dtInicio)}: se for antes da obrigatoriedade do eSocial na empresa, marque "cadastramento inicial".`);
     if (c.s2300 && !x.recibo) r.avisos.push('O cadastro diz que o S-2300 já foi enviado (pelo IOB?): um segundo S-2300 com a mesma matrícula é recusado. Para corrigir, retifique pelo recibo.');

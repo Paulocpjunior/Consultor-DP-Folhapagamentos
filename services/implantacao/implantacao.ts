@@ -180,7 +180,7 @@ export function consolidar(eventos: Evento[], empregador: string, corte: string,
     const insc = (empregador ?? '').toUpperCase().replace(/[^0-9A-Z]/g, '');
     const raiz = insc.slice(0, 8);
     const avisos: string[] = [];
-    if (insc.length !== 14 || !dataValida(corte)) return { cadastros: [], avisos: ['Informe CNPJ com 14 dígitos e data de implantação válida.'] };
+    if (!/^[0-9A-Z]{12}\d{2}$/.test(insc) || !dataValida(corte)) return { cadastros: [], avisos: ['Informe CNPJ com 14 dígitos e data de implantação válida.'] };
     const unicos = new Map<string, Evento>();
     const conflitosId = new Set<string>();
     for (const e of eventos) {

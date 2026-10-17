@@ -26,13 +26,13 @@ import type { TpAmb } from '../../services/esocial/transmissao';
 import { baixarBytes } from '../../services/implantacao/zip';
 import { fichaNoDestino, gerarS2299Transferencia, refTransferenciaEntrada, refTransferenciaSaida, ultimoDiaNaOrigem, validarTransferencia, type Transferencia } from '../../services/transferencia/transferencia';
 import { efetivarTransferencia, listarTransferencias, type RegistroTransferencia } from '../../services/transferencia/transferenciaService';
-import { digitarCnpj, limparInscricao } from '../../services/cadastros/documentos';
+import { digitarCnpj, limparInscricao, formatoCnpj, raizCnpj } from '../../services/cadastros/documentos';
 
 const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const btn = 'rounded-sm border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700';
 const br = (d: string) => d.split('-').reverse().join('/');
 const nomeDe = (e: Empresa) => e.nomeFantasia || e.razaoSocial;
-const raiz = (c: string) => c.replace(/\D/g, '').slice(0, 8);
+const raiz = (c: string) => raizCnpj(c);
 const cor = (s: StatusEvento) => (s.situacao === 'aceito' ? 'text-green-700 dark:text-green-300' : s.situacao === 'recusado' ? 'text-red-700 dark:text-red-300' : s.situacao === 'aguardando' ? 'text-amber-700 dark:text-amber-300' : 'text-slate-500');
 const proximoDia1 = () => { const d = new Date(); return `${d.getMonth() === 11 ? d.getFullYear() + 1 : d.getFullYear()}-${String((d.getMonth() + 1) % 12 + 1).padStart(2, '0')}-01`; };
 
@@ -86,7 +86,7 @@ const TransferenciaPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
     const t: Transferencia | null = ficha && origem && destino ? { ficha, origem: { id: origem.id, cnpj: origem.cnpj, nome: nomeDe(origem) }, destino: { id: destino.id, cnpj: destino.cnpj, nome: nomeDe(destino) }, data, matricula, estabelecimento: estab } : null;
     // Troca de estabelecimento: o novo local (outro CNPJ da mesma raiz) e a data (qualquer dia).
     const estabsConhecidos = useMemo(() => [...new Set([origem?.cnpj ?? '', origem?.esocialFolha?.nrInscEstab ?? '', ...(origem?.esocialFolha?.estabelecimentos ?? []).map(x => x.nrInsc), ...fichas.map(f => f.dados.estabelecimento ?? '')]
-        .map(x => limparInscricao(x)).filter(x => x.length === 14 && origem && x.slice(0, 8) === raiz(origem.cnpj)))], [origem, fichas]);
+        .map(x => limparInscricao(x)).filter(x => formatoCnpj(x) && origem && x.slice(0, 8) === raiz(origem.cnpj)))], [origem, fichas]);
     const errosTroca = useMemo(() => (modo === 'estab' && ficha && origem ? [...validarTrocaDeEstabelecimento(ficha, estab, data, origem.cnpj), ...validarContrato(ficha, contrato, estab).map(x => `S-2206: ${x}`)] : []), [modo, ficha, origem, estab, data, contrato]);
     const erros = useMemo(() => {
         if (!t) return [];

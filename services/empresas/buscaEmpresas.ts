@@ -18,10 +18,10 @@ export function filtrarEmpresas<T extends Pick<Empresa, 'nomeFantasia' | 'razaoS
     const soNumero = /^[\d./\-\s]+$/.test(f);
     return empresas.filter(e => {
         if (semAcento(`${e.nomeFantasia ?? ''} ${e.razaoSocial ?? ''}`).includes(f)) return true;
+        // CNPJ alfanumérico: o trecho digitado com letras (sem pontuação), mesmo só com letras ("ABC").
+        if (doc.length >= 3 && /[A-Z]/.test(doc) && /^[0-9A-Z]+$/.test(doc) && limparCnpj(e.cnpj ?? '').includes(doc)) return true;
         if (!digitos) return false;
         if ((e.cnpj ?? '').replace(/\D/g, '').includes(digitos)) return true;
-        // CNPJ alfanumérico: o trecho digitado com letras (sem pontuação).
-        if (doc.length >= 3 && /[A-Z]/.test(doc) && limparCnpj(e.cnpj ?? '').includes(doc)) return true;
         const sage = String(e.codigoSage ?? '');
         return soNumero && (sage === digitos || semZeros(sage) === semZeros(digitos) || sage.includes(digitos));
     });

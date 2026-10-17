@@ -2,7 +2,7 @@
 // 12ABC34501DE35 é o exemplo da Receita (fictício, com os dígitos verificadores certos).
 import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
-import { cnpjValido, digitarCnpj, formatarCnpj, limparCnpj, limparInscricao, raizCnpj } from '../documentos';
+import { cnpjValido, digitarCnpj, formatarCnpj, formatoCnpj, limparCnpj, limparInscricao, raizCnpj } from '../documentos';
 import { formatCnpj, validaCnpj } from '../../brasilApiService';
 import { chaveCnpj } from '../../empresas/chavesUnicas';
 import { filtrarEmpresas } from '../../empresas/buscaEmpresas';
@@ -22,6 +22,7 @@ describe('CNPJ alfanumérico', () => {
         expect(formatarCnpj('11222333000181')).toBe('11.222.333/0001-81');
         expect(raizCnpj('12.ABC.345/01DE-35')).toBe('12ABC345');
         expect(digitarCnpj('12.abc.345/01de-35x')).toBe(ALFA);
+        expect([formatoCnpj(ALFA), formatoCnpj('12ABC34501DEXX'), formatoCnpj('11222333000181')]).toEqual([true, false, true]);
         expect([cnpjValido(ALFA), validaCnpj('12.ABC.345/01DE-35'), validaCnpj('12ABC34501DE36'), validaCnpj('11.222.333/0001-81')]).toEqual([true, true, false, true]);
         expect(formatCnpj(ALFA)).toBe('12.ABC.345/01DE-35');
     });
@@ -32,6 +33,7 @@ describe('CNPJ alfanumérico', () => {
         const empresas = [{ nomeFantasia: 'ALFA', razaoSocial: 'ALFA LTDA', cnpj: ALFA, codigoSage: '0900' }, { nomeFantasia: 'NUM', razaoSocial: 'NUM', cnpj: '11222333000181', codigoSage: '1200' }];
         expect(filtrarEmpresas(empresas, '12.abc.345').map(e => e.nomeFantasia)).toEqual(['ALFA']);
         expect(filtrarEmpresas(empresas, '11.222').map(e => e.nomeFantasia)).toEqual(['NUM']);
+        expect(filtrarEmpresas(empresas, 'abc').map(e => e.nomeFantasia)).toEqual(['ALFA']);
     });
 
     it('eSocial: Id e ideEmpregador com a raiz alfanumérica passam no XSD oficial e na leitura do evento', async () => {

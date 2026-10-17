@@ -10,6 +10,8 @@ export { cpfValido, dataValida, digitos } from '../implantacao/implantacao';
 export const limparCnpj = (v: string) => v.toUpperCase().replace(/[.\-/\s]/g, '');
 /** Inscrição (CNPJ ou CPF) sem pontuação: como `digitos`, mas mantém as letras do CNPJ alfanumérico. */
 export const limparInscricao = (v: string | null | undefined) => String(v ?? '').toUpperCase().replace(/[^0-9A-Z]/g, '');
+/** CNPJ no formato da Receita (12 posições com letras ou números e 2 dígitos verificadores numéricos), sem conferir os DV. */
+export const formatoCnpj = (v: string | null | undefined) => /^[0-9A-Z]{12}\d{2}$/.test(String(v ?? ''));
 /** Raiz do CNPJ (8 primeiros caracteres, que podem ter letras). */
 export const raizCnpj = (v: string) => limparCnpj(v).slice(0, 8);
 /** CNPJ com a máscara 00.000.000/0000-00 (também com letras); fora dos 14 caracteres, volta como veio. */

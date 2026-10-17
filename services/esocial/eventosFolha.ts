@@ -38,7 +38,7 @@ import type { TabelaLegal } from '../cadastros/tabelasLegais';
 import type { Dependente } from '../implantacao/unificacao';
 import { BASE_CP, BASE_FGTS, COD_INC_CP, PAGO_PELO_INSS, COD_INC_FGTS, classeIrrf, rotuloCodigo, rotuloIrrf, vigenciaEm, type Rubrica } from '../cadastros/rubricas';
 import { diaUtilAnterior } from '../prazos/calendario';
-import { cpfValido, reais, limparInscricao } from '../cadastros/documentos';
+import { cpfValido, reais, limparInscricao, formatoCnpj } from '../cadastros/documentos';
 import { idEvento, VER_PROC, type TpAmb } from './transmissao';
 import type { ReciboEvento } from './recibosEsocial';
 import type { Instrumento, ResultadoComplementar } from '../calculo/complementar';
@@ -81,7 +81,7 @@ export const lotacaoDoEstabelecimento = (p: ParametrosEsocialFolha, estab: strin
  */
 export const estabelecimentoDoVinculo = (f: Pick<FichaFuncionario, 'dados' | 'locais'>, p: ParametrosEsocialFolha, competencia: string) => {
     const e = limparInscricao(estabelecimentoNoDia(f, diaDoPeriodo(f, competencia)));
-    return e.length === 14 ? e : limparInscricao(p.nrInscEstab);
+    return formatoCnpj(e) ? e : limparInscricao(p.nrInscEstab);
 };
 export const parametrosVazios = (cnpj = ''): ParametrosEsocialFolha => ({ nrInscEstab: limparInscricao(cnpj), codLotacao: '', rubricas: {} });
 
@@ -420,7 +420,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
     const erros: string[] = []; const avisos: string[] = [];
     const p = e.parametros;
     const estab = limparInscricao(p.nrInscEstab);
-    if (estab.length !== 14) erros.push('Informe o CNPJ do estabelecimento (14 dígitos).');
+    if (!formatoCnpj(estab)) erros.push('Informe o CNPJ do estabelecimento (14 dígitos).');
     if (!p.codLotacao.trim()) erros.push('Informe o código da lotação tributária (S-1020).');
     // Competência AAAA: o S-1200 anual do 13º (indApuracao 2), com a 2ª parcela nos resultados (calcular13).
     const anual = /^\d{4}$/.test(e.competencia);

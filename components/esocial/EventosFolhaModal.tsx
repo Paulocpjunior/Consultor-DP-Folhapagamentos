@@ -27,7 +27,7 @@ import { avisos, textoAchados, type Achado } from '../../services/esocial/preVoo
 import AchadosPreVoo from './AchadosPreVoo';
 import { exclusoesDosEnvios, lerRecibosArquivos, recibosDosEnvios, recibosVigentes, type ReciboEvento } from '../../services/esocial/recibosEsocial';
 import { baixarBytes, gerarZip } from '../../services/implantacao/zip';
-import { reais, digitarCnpj, limparInscricao } from '../../services/cadastros/documentos';
+import { reais, digitarCnpj, limparInscricao, formatoCnpj } from '../../services/cadastros/documentos';
 import { diaUtilAnterior } from '../../services/prazos/calendario';
 import { listarComplementares, type FolhaComplementarGravada } from '../../services/calculo/folhaComplementarService';
 import { rotuloTpAcConv } from '../../services/calculo/complementar';
@@ -257,7 +257,7 @@ const EventosFolhaModal: React.FC<Props> = ({ empresa, competencia, fichas, resu
                 {(() => {
                     // Filiais: quem trabalha noutro estabelecimento da empresa (local de trabalho da ficha) sai nele; a lotação é a da filial, se informada.
                     const daEmpresa = limparInscricao(params.nrInscEstab);
-                    const naFolha = [...new Set(fichas.map(f => limparInscricao(f.dados.estabelecimento)).filter(x => x.length === 14 && x !== daEmpresa))];
+                    const naFolha = [...new Set(fichas.map(f => limparInscricao(f.dados.estabelecimento)).filter(x => formatoCnpj(x) && x !== daEmpresa))];
                     const lista = params.estabelecimentos ?? [];
                     const muda = (l: { nrInsc: string; codLotacao: string }[]) => setParams(p => ({ ...p, estabelecimentos: l }));
                     if (!naFolha.length && !lista.length) return null;
