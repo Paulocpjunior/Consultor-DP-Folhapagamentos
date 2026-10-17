@@ -5932,3 +5932,15 @@ Pedido da colaboradora, pelo Paulo, com as telas do SAGE (Rescisão Contratual e
   - admissão ilegível não recusa mais a linha: vira aviso;
   - extrato da Dataprev: chaves achatadas (`"ifConcessora.codigo"`) são expandidas antes de ler a instituição.
 
+## 17/10/2026 — CNPJ alfanumérico, parte 1: empresas, regras e eSocial
+
+- **Pedido do Paulo:** "proximo !". O próximo da lista que dependia só de mim: o cadastro de empresas não aceitava o CNPJ alfanumérico (IN RFB 2.229/2024, emitido desde 07/2026).
+- **Causa:** o CNPJ era gravado com `replace(/\D/g, '')`, que apaga as letras; as regras do Firestore exigiam `^[0-9]{14}$`; o eSocial montava o Id e o `nrInsc` só com dígitos.
+- **Feito (parte 1):**
+  - `services/cadastros/documentos.ts` é a fonte única: `limparCnpj`, `limparInscricao` (CNPJ ou CPF sem pontuação, com as letras), `raizCnpj`, `formatarCnpj` e `digitarCnpj`; `brasilApiService` e o duplo vínculo usam o mesmo validador; o `validarCNPJ` sem uso de `utils/validacoes.ts` saiu;
+  - empresas: gravação, chave única `cnpj_…`, busca com letras, cofre de certificados e formulário (aceita letras);
+  - regras do Firestore e do Storage: `^[0-9A-Z]{12}[0-9]{2}$` (o CNPJ numérico continua valendo); teste no emulador;
+  - eSocial: Id (`ID1` + raiz com letras, como o XSD `TS_Id`), `ideEmpregador`, estabelecimento, lotação, tomador, sucessão, responsável e outras fontes; leitura de XMLs do governo com empregador alfanumérico; campos de digitação das telas do eSocial aceitam letras;
+  - nada muda nos dados gravados: o CNPJ numérico limpo é o mesmo de antes.
+- **Falta (parte 2):** sindicatos e convenções, benefícios, ponto, CRM, CNAB, relatórios em PDF, SERPRO/FGTS, implantação do IOB e AuditAI.
+

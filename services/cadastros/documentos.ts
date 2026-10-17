@@ -8,6 +8,17 @@
 export { cpfValido, dataValida, digitos } from '../implantacao/implantacao';
 
 export const limparCnpj = (v: string) => v.toUpperCase().replace(/[.\-/\s]/g, '');
+/** Inscrição (CNPJ ou CPF) sem pontuação: como `digitos`, mas mantém as letras do CNPJ alfanumérico. */
+export const limparInscricao = (v: string | null | undefined) => String(v ?? '').toUpperCase().replace(/[^0-9A-Z]/g, '');
+/** Raiz do CNPJ (8 primeiros caracteres, que podem ter letras). */
+export const raizCnpj = (v: string) => limparCnpj(v).slice(0, 8);
+/** CNPJ com a máscara 00.000.000/0000-00 (também com letras); fora dos 14 caracteres, volta como veio. */
+export function formatarCnpj(v: string): string {
+    const c = limparCnpj(v ?? '');
+    return /^[0-9A-Z]{14}$/.test(c) ? `${c.slice(0, 2)}.${c.slice(2, 5)}.${c.slice(5, 8)}/${c.slice(8, 12)}-${c.slice(12)}` : v;
+}
+/** Para campo de digitação: maiúsculas, só letras e números, até 14 (a máscara entra ao sair do campo). */
+export const digitarCnpj = (v: string) => v.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 14);
 
 export function cnpjValido(valor: string): boolean {
     const c = limparCnpj(valor);

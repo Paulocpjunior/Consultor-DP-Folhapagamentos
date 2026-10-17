@@ -92,7 +92,7 @@ const EmpresaForm: React.FC<Props> = ({ currentUser, empresaParaEditar, onSalvo,
                 <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">CNPJ</label>
                 <div className="flex gap-2">
                     <input type="text" value={cnpj}
-                        onChange={(e) => setCnpj(e.target.value)}
+                        onChange={(e) => setCnpj(e.target.value.toUpperCase())}
                         onBlur={(e) => { const f = formatCnpj(e.target.value); if (f) setCnpj(f); }}
                         placeholder="00.000.000/0000-00"
                         disabled={editando}
@@ -102,7 +102,8 @@ const EmpresaForm: React.FC<Props> = ({ currentUser, empresaParaEditar, onSalvo,
                         Consultar
                     </button>
                 </div>
-                {editando && <p className="text-xs text-slate-500 mt-1">CNPJ nao pode ser alterado.</p>}
+                {editando ? <p className="text-xs text-slate-500 mt-1">CNPJ nao pode ser alterado.</p>
+                    : <p className="text-xs text-slate-500 mt-1">Aceita o CNPJ alfanumérico (letras e números nos 12 primeiros caracteres).</p>}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

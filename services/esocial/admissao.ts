@@ -20,7 +20,7 @@
 
 import { foraDaVigencia } from './vigenciaTabelas';
 import { descricaoJornada, resumirHorario, tpJornadaDoHorario, type Horario } from '../cadastros/horarios';
-import { cnpjValido, cpfValido, dataValida } from '../cadastros/documentos';
+import { cnpjValido, cpfValido, dataValida, limparInscricao } from '../cadastros/documentos';
 import type { FichaFuncionario } from '../cadastros/funcionarios';
 import { idEvento, VER_PROC, type TpAmb } from './transmissao';
 
@@ -109,7 +109,7 @@ export function validarS2200(e: EntradaS2200): string[] {
     });
     const s = e.sucessao;
     if (s) {
-        if (!cnpjValido(digitos(s.cnpjAnterior))) er.push('Sucessão: CNPJ do empregador anterior.');
+        if (!cnpjValido(limparInscricao(s.cnpjAnterior))) er.push('Sucessão: CNPJ do empregador anterior.');
         if (!s.matriculaAnterior.trim()) er.push('Sucessão: matrícula no empregador anterior.');
         if (!dataValida(s.dtTransf)) er.push('Sucessão: data da transferência.');
         else if (dataValida(d.admissao ?? '') && s.dtTransf <= d.admissao!) er.push('A transferência tem de ser depois da admissão.');
@@ -142,30 +142,30 @@ export function validarContrato(f: FichaFuncionario, c: ContratoS2200, estabelec
     if (evento === 'S-2200' && (tpContr === '2' || tpContr === '3') && c.clauAssec !== 'S' && c.clauAssec !== 'N') er.push('Prazo determinado: informe se o contrato tem cláusula assecuratória do direito recíproco de rescisão.');
     if (evento === 'S-2200' && tpContr === '3' && !(c.objDet ?? '').trim()) er.push('Contrato vinculado a fato: informe o objeto determinante (obra, serviço, safra…).');
     if ((c.objDet ?? '').trim().length > 255) er.push('Objeto determinante: até 255 caracteres.');
-    const raiz = digitos(estabelecimento).slice(0, 8);
+    const raiz = limparInscricao(estabelecimento).slice(0, 8);
     if (d.categoria === '103') {
         if (tpContr !== '2' && (d.admissao ?? '') >= '2024-04-22') er.push('Aprendiz admitido desde 22/04/2024: contrato por prazo determinado (tpContr 2).');
         const a = c.aprend;
         if (!a || (a.indAprend !== '1' && a.indAprend !== '2')) er.push('Aprendiz: informe a contratação (direta, com a entidade qualificadora, ou indireta).');
-        else if (a.indAprend === '1' && !cnpjValido(digitos(a.cnpjEntQual))) er.push('Aprendiz, contratação direta: CNPJ da entidade qualificadora.');
+        else if (a.indAprend === '1' && !cnpjValido(limparInscricao(a.cnpjEntQual))) er.push('Aprendiz, contratação direta: CNPJ da entidade qualificadora.');
         else if (a.indAprend === '2') {
-            if (a.tpInsc === '1' ? !cnpjValido(digitos(a.nrInsc)) || digitos(a.nrInsc).length !== 14 : a.tpInsc === '2' ? !cpfValido(digitos(a.nrInsc)) : true) er.push('Aprendiz, contratação indireta: inscrição (CNPJ ou CPF) do estabelecimento cumpridor da cota.');
-            else if (a.tpInsc === '1' && digitos(a.nrInsc).slice(0, 8) === raiz) er.push('Aprendiz, contratação indireta: o estabelecimento cumpridor da cota é de outra empresa (raiz do CNPJ diferente).');
+            if (a.tpInsc === '1' ? !cnpjValido(limparInscricao(a.nrInsc)) || limparInscricao(a.nrInsc).length !== 14 : a.tpInsc === '2' ? !cpfValido(limparInscricao(a.nrInsc)) : true) er.push('Aprendiz, contratação indireta: inscrição (CNPJ ou CPF) do estabelecimento cumpridor da cota.');
+            else if (a.tpInsc === '1' && limparInscricao(a.nrInsc).slice(0, 8) === raiz) er.push('Aprendiz, contratação indireta: o estabelecimento cumpridor da cota é de outra empresa (raiz do CNPJ diferente).');
         }
-        if (a?.cnpjPrat && !cnpjValido(digitos(a.cnpjPrat))) er.push('Aprendiz: CNPJ do estabelecimento das atividades práticas.');
+        if (a?.cnpjPrat && !cnpjValido(limparInscricao(a.cnpjPrat))) er.push('Aprendiz: CNPJ do estabelecimento das atividades práticas.');
     }
     if (d.categoria === '106' && evento === 'S-2200') {
         const t = c.trabTemporario;
         if (!t || (t.hipLeg !== '1' && t.hipLeg !== '2')) er.push('Temporário: hipótese legal (substituição de pessoal permanente ou demanda complementar de serviços).');
         else {
             if (!t.justContr.trim() || t.justContr.trim().length > 999) er.push('Temporário: o fato que justifica a contratação (até 999 caracteres).');
-            const n = digitos(t.ideEstabVinc.nrInsc);
+            const n = limparInscricao(t.ideEstabVinc.nrInsc);
             if (t.ideEstabVinc.tpInsc === '1' ? !cnpjValido(n) || n.length !== 14 || n.slice(0, 8) === raiz : !cpfValido(n) || n === digitos(f.cpf)) er.push('Temporário: inscrição do tomador (CNPJ de outra empresa ou CPF que não seja o do trabalhador).');
             if (t.hipLeg === '1' && (!t.cpfSubstituidos.length || t.cpfSubstituidos.some(x => !cpfValido(digitos(x))))) er.push('Temporário em substituição de pessoal: CPF de quem é substituído.');
         }
     }
-    if (!cnpjValido(digitos(d.sindicato))) er.push('CNPJ do sindicato da categoria.');
-    if (digitos(estabelecimento).length !== 14 || !cnpjValido(digitos(estabelecimento))) er.push('Local de trabalho: CNPJ do estabelecimento (14 dígitos).');
+    if (!cnpjValido(limparInscricao(d.sindicato))) er.push('CNPJ do sindicato da categoria.');
+    if (limparInscricao(estabelecimento).length !== 14 || !cnpjValido(limparInscricao(estabelecimento))) er.push('Local de trabalho: CNPJ do estabelecimento (14 dígitos).');
     if (d.categoria !== '111' && !(Number(d.horasSemanais) > 0)) er.push('Horas semanais.');
     if (!TIPOS_JORNADA.some(([k]) => k === c.tpJornada)) er.push('Tipo de jornada.');
     if (!c.dscJorn.trim()) er.push('Descrição da jornada (dias, entrada, saída e intervalos).');
@@ -180,13 +180,13 @@ export function validarContrato(f: FichaFuncionario, c: ContratoS2200, estabelec
 export const celetistaXml = (f: FichaFuncionario, c: ContratoS2200, evento: EventoContrato = 'S-2206') => {
     const t = c.trabTemporario; const a = c.aprend;
     const temp = evento === 'S-2200' && f.dados.categoria === '106' && t
-        ? `<trabTemporario><hipLeg>${t.hipLeg}</hipLeg><justContr>${esc(t.justContr.trim().slice(0, 999))}</justContr><ideEstabVinc><tpInsc>${t.ideEstabVinc.tpInsc}</tpInsc><nrInsc>${digitos(t.ideEstabVinc.nrInsc)}</nrInsc></ideEstabVinc>`
+        ? `<trabTemporario><hipLeg>${t.hipLeg}</hipLeg><justContr>${esc(t.justContr.trim().slice(0, 999))}</justContr><ideEstabVinc><tpInsc>${t.ideEstabVinc.tpInsc}</tpInsc><nrInsc>${limparInscricao(t.ideEstabVinc.nrInsc)}</nrInsc></ideEstabVinc>`
             + (t.hipLeg === '1' ? t.cpfSubstituidos.map(x => `<ideTrabSubstituido><cpfTrabSubst>${digitos(x)}</cpfTrabSubst></ideTrabSubstituido>`).join('') : '') + '</trabTemporario>'
         : '';
     const aprend = f.dados.categoria === '103' && a
-        ? `<aprend><indAprend>${a.indAprend}</indAprend>${a.indAprend === '1' ? `<cnpjEntQual>${digitos(a.cnpjEntQual)}</cnpjEntQual>` : `<tpInsc>${a.tpInsc}</tpInsc><nrInsc>${digitos(a.nrInsc)}</nrInsc>`}${digitos(a.cnpjPrat) ? `<cnpjPrat>${digitos(a.cnpjPrat)}</cnpjPrat>` : ''}</aprend>`
+        ? `<aprend><indAprend>${a.indAprend}</indAprend>${a.indAprend === '1' ? `<cnpjEntQual>${limparInscricao(a.cnpjEntQual)}</cnpjEntQual>` : `<tpInsc>${a.tpInsc}</tpInsc><nrInsc>${limparInscricao(a.nrInsc)}</nrInsc>`}${limparInscricao(a.cnpjPrat) ? `<cnpjPrat>${limparInscricao(a.cnpjPrat)}</cnpjPrat>` : ''}</aprend>`
         : '';
-    return `<tpRegJor>${c.tpRegJor}</tpRegJor><natAtividade>${c.natAtividade}</natAtividade>${c.dtBase ? `<dtBase>${Number(c.dtBase)}</dtBase>` : ''}<cnpjSindCategProf>${digitos(f.dados.sindicato)}</cnpjSindCategProf>${temp}${aprend}`;
+    return `<tpRegJor>${c.tpRegJor}</tpRegJor><natAtividade>${c.natAtividade}</natAtividade>${c.dtBase ? `<dtBase>${Number(c.dtBase)}</dtBase>` : ''}<cnpjSindCategProf>${limparInscricao(f.dados.sindicato)}</cnpjSindCategProf>${temp}${aprend}`;
 };
 
 /** infoContrato (cargo, CBO, categoria, salário, duração, local de trabalho e horário), igual no S-2200 e no S-2206. */
@@ -198,7 +198,7 @@ export function contratoXml(f: FichaFuncionario, c: ContratoS2200, estabelecimen
         // dtTerm obrigatório no tpContr 2 (no 3, se houver); no S-2200 também a cláusula assecuratória (2 e 3) e o objeto determinante (3).
         + `<duracao><tpContr>${tpContr}</tpContr>${tpContr === '2' || (tpContr === '3' && dataValida(d.fimContrato ?? '')) ? `<dtTerm>${d.fimContrato}</dtTerm>` : ''}`
         + `${evento === 'S-2200' && (tpContr === '2' || tpContr === '3') ? `<clauAssec>${c.clauAssec}</clauAssec>` : ''}${evento === 'S-2200' && tpContr === '3' ? `<objDet>${esc((c.objDet ?? '').trim().slice(0, 255))}</objDet>` : ''}</duracao>`
-        + `<localTrabalho><localTrabGeral><tpInsc>1</tpInsc><nrInsc>${digitos(estabelecimento)}</nrInsc></localTrabGeral></localTrabalho>`
+        + `<localTrabalho><localTrabGeral><tpInsc>1</tpInsc><nrInsc>${limparInscricao(estabelecimento)}</nrInsc></localTrabGeral></localTrabalho>`
         // Intermitente (111): sem a quantidade de horas semanais (XSD: obrigatória para as demais categorias).
         + `<horContratual>${d.categoria === '111' && !(Number(d.horasSemanais) > 0) ? '' : `<qtdHrsSem>${Number(d.horasSemanais)}</qtdHrsSem>`}<tpJornada>${c.tpJornada}</tpJornada><tmpParc>${c.tmpParc}</tmpParc><horNoturno>${c.horNoturno}</horNoturno><dscJorn>${esc(c.dscJorn.trim().slice(0, 999))}</dscJorn></horContratual>`
         + '</infoContrato>';
@@ -221,11 +221,11 @@ export function gerarS2200(e: EntradaS2200): ResultadoS2200 {
     const fone = digitos(d.telefone);
     const contato = fone.length >= 8 || (d.email ?? '').includes('@') ? `<contato>${fone.length >= 8 ? `<fonePrinc>${fone.slice(0, 13)}</fonePrinc>` : ''}${(d.email ?? '').includes('@') ? `<emailPrinc>${esc(d.email!.trim().slice(0, 60))}</emailPrinc>` : ''}</contato>` : '';
     const s = e.sucessao;
-    const sucessao = s ? `<sucessaoVinc><tpInsc>1</tpInsc><nrInsc>${digitos(s.cnpjAnterior)}</nrInsc><matricAnt>${esc(s.matriculaAnterior.trim())}</matricAnt><dtTransf>${s.dtTransf}</dtTransf></sucessaoVinc>` : '';
+    const sucessao = s ? `<sucessaoVinc><tpInsc>1</tpInsc><nrInsc>${limparInscricao(s.cnpjAnterior)}</nrInsc><matricAnt>${esc(s.matriculaAnterior.trim())}</matricAnt><dtTransf>${s.dtTransf}</dtTransf></sucessaoVinc>` : '';
     const id = idEvento(e.cnpj, e.agora ?? new Date(), 3);
     r.evento = { id, xml: `<eSocial xmlns="${NS}/evtAdmissao/${VERSAO}"><evtAdmissao Id="${id}">`
         + `<ideEvento><indRetif>1</indRetif><tpAmb>${e.tpAmb}</tpAmb><procEmi>1</procEmi><verProc>${VER_PROC}</verProc></ideEvento>`
-        + `<ideEmpregador><tpInsc>1</tpInsc><nrInsc>${digitos(e.cnpj).slice(0, 8)}</nrInsc></ideEmpregador>`
+        + `<ideEmpregador><tpInsc>1</tpInsc><nrInsc>${limparInscricao(e.cnpj).slice(0, 8)}</nrInsc></ideEmpregador>`
         + `<trabalhador><cpfTrab>${digitos(f.cpf)}</cpfTrab><nmTrab>${esc(d.nome!.trim().slice(0, 70))}</nmTrab><sexo>${d.sexo}</sexo><racaCor>${d.raca}</racaCor>`
         + `${/^[1-5]$/.test(d.estadoCivil ?? '') ? `<estCiv>${d.estadoCivil}</estCiv>` : ''}<grauInstr>${d.escolaridade}</grauInstr>`
         + `<nascimento><dtNascto>${d.nascimento}</dtNascto><paisNascto>${paisNascto}</paisNascto><paisNac>${paisNac}</paisNac></nascimento>`

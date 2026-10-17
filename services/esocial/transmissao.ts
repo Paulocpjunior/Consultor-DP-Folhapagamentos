@@ -11,6 +11,7 @@
 // ou outro sistema — e o CFI troca a assinatura pela do cofre.
 
 import { callFiscal } from '../serpro/serproIntegrationService';
+import { limparCnpj } from '../cadastros/documentos';
 
 export type TpAmb = 1 | 2;
 export const ROTULO_AMBIENTE: Record<TpAmb, string> = { 1: 'Produção', 2: 'Produção restrita (testes)' };
@@ -18,9 +19,10 @@ export const VER_PROC = 'ConsultorDP_1.0';
 const NS = 'http://www.esocial.gov.br/schema/evt';
 const VERSAO_LEIAUTE = 'v_S_01_03_00';
 
+/** Raiz do CNPJ (8 posições; o CNPJ alfanumérico da IN RFB 2.229/2024 tem letras nela). */
 const raiz = (cnpj: string) => {
-    const d = cnpj.replace(/\D/g, '');
-    if (d.length !== 14) throw new Error('CNPJ inválido.');
+    const d = limparCnpj(cnpj);
+    if (!/^[0-9A-Z]{12}\d{2}$/.test(d)) throw new Error('CNPJ inválido.');
     return d.slice(0, 8);
 };
 
@@ -166,10 +168,10 @@ export function lerEventoXml(nome: string, xml: string, empresa: { cnpj: string 
     let erro = '';
     if (!m) erro = 'não é um evento do eSocial (<eSocial><evt… Id="…">)';
     else if (!tipo) erro = `<${elemento}> não é um evento que se transmite`;
-    else if (!/^ID[12]\d{33}$/.test(base.id)) erro = 'Id fora do formato do eSocial';
+    else if (!/^ID[12][0-9A-Z]{12}\d{21}$/.test(base.id)) erro = 'Id fora do formato do eSocial';
     else {
         const nrInsc = pegar((texto.match(/<(?:\w+:)?ideEmpregador>([\s\S]*?)<\/(?:\w+:)?ideEmpregador>/) || [])[1] ?? '', 'nrInsc');
-        const d = empresa.cnpj.replace(/\D/g, '');
+        const d = limparCnpj(empresa.cnpj);
         const amb = pegar(texto, 'tpAmb');
         if (nrInsc !== d.slice(0, 8) && nrInsc !== d) erro = `empregador ${nrInsc || '?'} não é a empresa ativa`;
         else if (amb !== String(tpAmb)) erro = `evento de ${amb === '1' ? 'produção' : amb === '2' ? 'produção restrita' : 'ambiente desconhecido'}; o envio está em ${ROTULO_AMBIENTE[tpAmb].toLowerCase()}`;

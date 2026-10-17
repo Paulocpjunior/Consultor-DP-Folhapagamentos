@@ -14,6 +14,7 @@ import { excluirLotacao, listarLotacoes, salvarLotacao } from '../../services/ob
 import { verificarAntesDeEnviar, transmitirVerificado, mensagemDaTransmissao } from '../../services/esocial/envioSeguro';
 import type { TpAmb } from '../../services/esocial/transmissao';
 import SeletorProcesso, { useProcessos } from '../processosJud/SeletorProcesso';
+import { digitarCnpj, limparInscricao } from '../../services/cadastros/documentos';
 
 const inp = 'rounded-sm border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100';
 const btn = 'rounded-sm border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-40 dark:border-slate-600';
@@ -24,7 +25,7 @@ const CampoInscricao: React.FC<{ rotulo: string; valor: Inscricao; onChange: (i:
     <label>{rotulo}
         <span className="flex gap-1">
             <select aria-label={`Tipo de inscrição: ${rotulo}`} className={inp} value={valor.tpInsc} onChange={e => onChange({ ...valor, tpInsc: e.target.value as '1' | '2' })}><option value="1">CNPJ</option><option value="2">CPF</option></select>
-            <input aria-label={rotulo} className={`w-44 ${inp}`} value={valor.nrInsc} onChange={e => onChange({ ...valor, nrInsc: digitos(e.target.value).slice(0, 14) })} />
+            <input aria-label={rotulo} className={`w-44 ${inp}`} value={valor.nrInsc} onChange={e => onChange({ ...valor, nrInsc: digitarCnpj(e.target.value) })} />
         </span>
     </label>
 );
@@ -49,7 +50,7 @@ const ObrasLotacoesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
     }, [ativa]);
 
     if (!ativa) return <p className="text-sm text-slate-500">Ative uma empresa.</p>;
-    const cnpj = digitos(ativa.cnpj);
+    const cnpj = limparInscricao(ativa.cnpj);
     const muda = (x: Partial<Lotacao>) => setL(a => (a ? { ...a, ...x } : a));
     const v = l ? validarLotacao(l, cnpj, lista.filter(o => !(o.codigo === l.codigo && !nova))) : null;
 
@@ -135,7 +136,7 @@ const ObrasLotacoesPanel: React.FC<{ usuario: Usuario }> = ({ usuario }) => {
                                 {l.proprietario && <CampoInscricao rotulo="Proprietário" valor={l.proprietario} onChange={i => muda({ proprietario: i })} />}
                             </>
                         )}
-                        {l.tipo === '04' && <label>CNPJ do tomador<input aria-label="CNPJ do tomador" className={`block w-44 ${inp}`} value={l.tomador} onChange={e => muda({ tomador: digitos(e.target.value).slice(0, 14) })} /></label>}
+                        {l.tipo === '04' && <label>CNPJ do tomador<input aria-label="CNPJ do tomador" className={`block w-44 ${inp}`} value={l.tomador} onChange={e => muda({ tomador: digitarCnpj(e.target.value) })} /></label>}
                     </div>
                     <div className="flex flex-wrap items-end gap-3">
                         <label>FPAS<input aria-label="FPAS" className={`block w-16 ${inp}`} value={l.fpas} onChange={e => muda({ fpas: digitos(e.target.value).slice(0, 3) })} /></label>

@@ -9,7 +9,7 @@
 // Troca para outra raiz de CNPJ não é troca de estabelecimento: é transferência entre empresas (S-2299 + S-2200).
 // Puro, sem Firebase.
 
-import { cnpjValido, dataValida } from './documentos';
+import { cnpjValido, dataValida, limparInscricao } from './documentos';
 import { inicioNaEmpresa, type FichaFuncionario } from './funcionarios';
 import type { ContratoS2200 } from '../esocial/admissao';
 
@@ -33,7 +33,7 @@ const br = (d: string) => d.split('-').reverse().join('/');
 export function faixasDeLocal(f: Pick<FichaFuncionario, 'dados' | 'locais'>): FaixaLocal[] {
     const l = [...(f.locais ?? [])].filter(x => dataValida(x.desde)).sort((a, b) => a.desde.localeCompare(b.desde));
     if (l.length) return l;
-    const e = digitos(f.dados.estabelecimento);
+    const e = limparInscricao(f.dados.estabelecimento);
     return e ? [{ desde: f.dados.admissao || '0000-01-01', estabelecimento: e, origem: 'ficha' }] : [];
 }
 
@@ -88,10 +88,10 @@ export function estabelecimentosNoMes(f: Pick<FichaFuncionario, 'dados' | 'locai
 /** O que impede a troca de estabelecimento. */
 export function validarTrocaDeEstabelecimento(f: FichaFuncionario, novo: string, data: string, cnpjEmpresa: string): string[] {
     const e: string[] = [];
-    const n = digitos(novo);
+    const n = limparInscricao(novo);
     if (f.situacao !== 'ativo' || f.dados.dataDesligamento) e.push('Só para quem está ativo.');
     if (n.length !== 14 || !cnpjValido(n)) e.push('CNPJ do novo estabelecimento (14 dígitos).');
-    else if (n.slice(0, 8) !== digitos(cnpjEmpresa).slice(0, 8)) e.push('Outra raiz de CNPJ é outra empresa: use a transferência entre empresas do grupo.');
+    else if (n.slice(0, 8) !== limparInscricao(cnpjEmpresa).slice(0, 8)) e.push('Outra raiz de CNPJ é outra empresa: use a transferência entre empresas do grupo.');
     if (!dataValida(data)) e.push('Informe a data da troca.');
     else {
         if (f.dados.admissao && data <= f.dados.admissao) e.push('A troca tem de ser depois da admissão.');
@@ -99,17 +99,17 @@ export function validarTrocaDeEstabelecimento(f: FichaFuncionario, novo: string,
         if (n && atual === n) e.push(`Em ${br(data)} o funcionário já está no estabelecimento ${n}.`);
         if ((f.locais ?? []).some(x => x.desde > data)) e.push('Já há troca registrada depois desta data: corrija a mais recente primeiro.');
     }
-    if (!digitos(f.dados.estabelecimento) && !(f.locais ?? []).length) e.push('A ficha não tem o estabelecimento atual (local de trabalho): informe-o no cadastro antes da troca.');
+    if (!limparInscricao(f.dados.estabelecimento) && !(f.locais ?? []).length) e.push('A ficha não tem o estabelecimento atual (local de trabalho): informe-o no cadastro antes da troca.');
     return e;
 }
 
 /** A ficha com a troca: a faixa de antes (se ainda não havia histórico), a nova e o estabelecimento atual. */
 export function trocarEstabelecimento(f: FichaFuncionario, novo: string, data: string, contrato: ContratoS2200, origem = `Troca de estabelecimento em ${br(data)}`): FichaFuncionario {
     const fx = (f.locais ?? []).length ? [...f.locais!] : faixasDeLocal(f).map(x => ({ ...x, origem: 'Estabelecimento antes da primeira troca' }));
-    const nova: FaixaLocal = { desde: data, estabelecimento: digitos(novo), origem, contrato };
+    const nova: FaixaLocal = { desde: data, estabelecimento: limparInscricao(novo), origem, contrato };
     return {
         ...f, locais: [...fx.filter(x => x.desde !== data), nova].sort((a, b) => a.desde.localeCompare(b.desde)),
-        dados: { ...f.dados, estabelecimento: digitos(novo) },
+        dados: { ...f.dados, estabelecimento: limparInscricao(novo) },
         origens: { ...f.origens, estabelecimento: origem },
     };
 }

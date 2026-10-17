@@ -38,7 +38,7 @@ import type { TabelaLegal } from '../cadastros/tabelasLegais';
 import type { Dependente } from '../implantacao/unificacao';
 import { BASE_CP, BASE_FGTS, COD_INC_CP, PAGO_PELO_INSS, COD_INC_FGTS, classeIrrf, rotuloCodigo, rotuloIrrf, vigenciaEm, type Rubrica } from '../cadastros/rubricas';
 import { diaUtilAnterior } from '../prazos/calendario';
-import { cpfValido, reais } from '../cadastros/documentos';
+import { cpfValido, reais, limparInscricao } from '../cadastros/documentos';
 import { idEvento, VER_PROC, type TpAmb } from './transmissao';
 import type { ReciboEvento } from './recibosEsocial';
 import type { Instrumento, ResultadoComplementar } from '../calculo/complementar';
@@ -73,17 +73,17 @@ export interface ParametrosEsocialFolha {
 
 /** Lotação tributária de quem trabalha no estabelecimento: a da filial, se houver, senão a dos parâmetros. */
 export const lotacaoDoEstabelecimento = (p: ParametrosEsocialFolha, estab: string) =>
-    (p.estabelecimentos?.find(x => digitos(x.nrInsc) === digitos(estab))?.codLotacao ?? '').trim() || p.codLotacao.trim();
+    (p.estabelecimentos?.find(x => limparInscricao(x.nrInsc) === limparInscricao(estab))?.codLotacao ?? '').trim() || p.codLotacao.trim();
 
 /**
  * Estabelecimento do vínculo no período (o local de trabalho da ficha na data: services/cadastros/locaisTrabalho.ts);
  * sem ele na ficha, o dos parâmetros.
  */
 export const estabelecimentoDoVinculo = (f: Pick<FichaFuncionario, 'dados' | 'locais'>, p: ParametrosEsocialFolha, competencia: string) => {
-    const e = digitos(estabelecimentoNoDia(f, diaDoPeriodo(f, competencia)));
-    return e.length === 14 ? e : digitos(p.nrInscEstab);
+    const e = limparInscricao(estabelecimentoNoDia(f, diaDoPeriodo(f, competencia)));
+    return e.length === 14 ? e : limparInscricao(p.nrInscEstab);
 };
-export const parametrosVazios = (cnpj = ''): ParametrosEsocialFolha => ({ nrInscEstab: cnpj.replace(/\D/g, ''), codLotacao: '', rubricas: {} });
+export const parametrosVazios = (cnpj = ''): ParametrosEsocialFolha => ({ nrInscEstab: limparInscricao(cnpj), codLotacao: '', rubricas: {} });
 
 const digitos = (t: string | undefined) => (t ?? '').replace(/\D/g, '');
 const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -419,7 +419,7 @@ export interface EntradaEventosFolha {
 export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: EventosDoTrabalhador[]; erros: string[]; avisos: string[] } {
     const erros: string[] = []; const avisos: string[] = [];
     const p = e.parametros;
-    const estab = digitos(p.nrInscEstab);
+    const estab = limparInscricao(p.nrInscEstab);
     if (estab.length !== 14) erros.push('Informe o CNPJ do estabelecimento (14 dígitos).');
     if (!p.codLotacao.trim()) erros.push('Informe o código da lotação tributária (S-1020).');
     // Competência AAAA: o S-1200 anual do 13º (indApuracao 2), com a 2ª parcela nos resultados (calcular13).
@@ -465,7 +465,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
     // O Id leva o segundo da geração e um sequencial. Começar pelo milésimo evita o mesmo Id em duas gerações no
     // mesmo segundo (ex.: o S-3000 e, gerado de novo depois, o S-1210 do mesmo trabalhador) — o pré-voo barraria.
     let seq = e.agora ? 0 : agora.getMilliseconds() * 10;
-    const raiz = digitos(e.cnpj).slice(0, 8);
+    const raiz = limparInscricao(e.cnpj).slice(0, 8);
     const ideEmpregador = `<ideEmpregador><tpInsc>1</tpInsc><nrInsc>${raiz}</nrInsc></ideEmpregador>`;
     const trabalhadores: EventosDoTrabalhador[] = [];
     // Férias: o retido no recibo vai no demonstrativo dele (INSSFER, IRRFFER) e de novo, como desconto, na folha do gozo
@@ -979,7 +979,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
             const p = planos.get(k) ?? { cnpjOper: v.planoSaude.cnpjOper, regANS: v.planoSaude.regANS, valor: 0 };
             p.valor += v.valor; planos.set(k, p);
         }
-        const planSaudeXml = [...planos.values()].map(p => `<planSaude><cnpjOper>${digitos(p.cnpjOper)}</cnpjOper>${/^\d{6}$/.test(p.regANS) ? `<regANS>${p.regANS}</regANS>` : ''}<vlrSaudeTit>${valor(p.valor)}</vlrSaudeTit></planSaude>`).join('');
+        const planSaudeXml = [...planos.values()].map(p => `<planSaude><cnpjOper>${limparInscricao(p.cnpjOper)}</cnpjOper>${/^\d{6}$/.test(p.regANS) ? `<regANS>${p.regANS}</regANS>` : ''}<vlrSaudeTit>${valor(p.valor)}</vlrSaudeTit></planSaude>`).join('');
         if (planos.size) t.avisos.push(`Plano de saúde no S-1210: ${[...planos.values()].map(p => `${valor(p.valor)} (operadora ${p.cnpjOper})`).join('; ')}, todo no titular.`);
         /** Informações de IR do mês: as da folha (tpRend 11) no mês do pagamento dela e as dos recibos de férias (tpRend 13) no mês de cada um. */
         const irDoMes = (m: string) => {
@@ -1011,7 +1011,7 @@ export function gerarEventosFolha(e: EntradaEventosFolha): { trabalhadores: Even
         };
         // Duplo vínculo (múltiplos vínculos): o indicador do desconto e a remuneração em cada outro empregador (MOS, S-1200, item 5).
         const comMV = anual ? undefined : contratos.find(c => c.r?.infoMV)?.r?.infoMV;
-        const infoMV = comMV ? `<infoMV><indMV>${comMV.indMV}</indMV>${comMV.outras.map(o => `<remunOutrEmpr><tpInsc>${o.tpInsc}</tpInsc><nrInsc>${digitos(o.nrInsc)}</nrInsc><codCateg>${o.codCateg}</codCateg><vlrRemunOE>${valor(o.remuneracao)}</vlrRemunOE></remunOutrEmpr>`).join('')}</infoMV>` : '';
+        const infoMV = comMV ? `<infoMV><indMV>${comMV.indMV}</indMV>${comMV.outras.map(o => `<remunOutrEmpr><tpInsc>${o.tpInsc}</tpInsc><nrInsc>${limparInscricao(o.nrInsc)}</nrInsc><codCateg>${o.codCateg}</codCateg><vlrRemunOE>${valor(o.remuneracao)}</vlrRemunOE></remunOutrEmpr>`).join('')}</infoMV>` : '';
         const id1200 = idEvento(e.cnpj, agora, ++seq);
         t.s1200 = { id: id1200, xml: `<eSocial xmlns="${NS}/evtRemun/${VERSAO}"><evtRemun Id="${id1200}">`
             + `<ideEvento>${retif(t.retifica1200)}<indApuracao>${anual ? 2 : 1}</indApuracao><perApur>${e.competencia}</perApur><tpAmb>${e.tpAmb}</tpAmb><procEmi>1</procEmi><verProc>${VER_PROC}</verProc></ideEvento>`

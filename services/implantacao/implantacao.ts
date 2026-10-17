@@ -130,7 +130,7 @@ export function lerXml(fonte: FonteXml, opcoes: OpcoesLeitura = {}): { eventos: 
         }
         const empregador = value(el, 'ideEmpregador/nrInsc');
         const tpInsc = value(el, 'ideEmpregador/tpInsc');
-        if (tpInsc !== '1' || !/^(\d{8}|\d{14})$/.test(empregador)) throw new Error('Esta versão aceita empregador CNPJ (8 ou 14 dígitos).');
+        if (tpInsc !== '1' || !/^([0-9A-Z]{8}|[0-9A-Z]{12}\d{2})$/.test(empregador)) throw new Error('Esta versão aceita empregador CNPJ (raiz de 8 posições ou 14).');
         const cpf = value(el, 'ideVinculo/cpfTrab') || value(el, 'trabalhador/cpfTrab') || value(el, 'ideTrabalhador/cpfTrab');
         const matricula = value(el, 'ideVinculo/matricula') || value(el, 'vinculo/matricula');
         let dados: Dados = {};
@@ -176,9 +176,11 @@ export function lerXml(fonte: FonteXml, opcoes: OpcoesLeitura = {}): { eventos: 
 }
 
 export function consolidar(eventos: Evento[], empregador: string, corte: string, complementos: Complemento[] = [], opcoes: { revisarAdmissaoRetificada?: boolean } = {}): Resultado {
-    const raiz = digitos(empregador).slice(0, 8);
+    // CNPJ sem pontuação, com as letras do alfanumérico (documentos.limparInscricao; aqui sem importar, documentos reexporta este módulo).
+    const insc = (empregador ?? '').toUpperCase().replace(/[^0-9A-Z]/g, '');
+    const raiz = insc.slice(0, 8);
     const avisos: string[] = [];
-    if (digitos(empregador).length !== 14 || !dataValida(corte)) return { cadastros: [], avisos: ['Informe CNPJ com 14 dígitos e data de implantação válida.'] };
+    if (insc.length !== 14 || !dataValida(corte)) return { cadastros: [], avisos: ['Informe CNPJ com 14 dígitos e data de implantação válida.'] };
     const unicos = new Map<string, Evento>();
     const conflitosId = new Set<string>();
     for (const e of eventos) {

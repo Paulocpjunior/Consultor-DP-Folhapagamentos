@@ -10,7 +10,8 @@
 import { comTokenCfi, ehErroEmailNaoVerificado, erroCfi } from '../auth/tokenCfi';
 import { urlDoServico } from '../plataforma/servicos';
 
-const soDigitos = (v: unknown) => String(v ?? '').replace(/\D/g, '');
+/** CNPJ sem pontuação, em maiúsculas (o alfanumérico mantém as letras). */
+const soDigitos = (v: unknown) => String(v ?? '').toUpperCase().replace(/[^0-9A-Z]/g, '');
 
 export type SituacaoCofre = 'apto-proprio' | 'apto-pela-raiz' | 'sem-certificado' | 'a3-nao-assina-em-nuvem' | 'cadastro-incompleto' | 'vencido';
 export type DivergenciaLegal = 'renovado-sem-upload' | 'legal-desatualizado' | null;
