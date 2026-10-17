@@ -31,17 +31,20 @@ export function htmlRedirecionamento(novo, base = '/Consultor-DP-Folhapagamentos
 (function () {
   var base = ${JSON.stringify(base)}, p = location.pathname;
   var resto = p.indexOf(base) === 0 ? p.slice(base.length) : '';
-  // Leva o tema e a empresa ativa guardados neste endereço (o app grava no novo: services/migracaoEndereco.ts).
-  var levar = {};
+  // Leva o tema e a empresa ativa guardados neste endereço (o app grava no novo: services/migracaoEndereco.ts). Vão no
+  // # (o navegador não manda o # ao servidor nem no Referer) e só uma vez: depois, a marca impede reenviar.
+  var levar = {}, hash = location.hash;
   try {
-    for (var i = 0; i < localStorage.length; i++) {
-      var k = localStorage.key(i);
-      if (/^(consultor-dp:tema|dp_empresa_ativa:[A-Za-z0-9]{1,128})$/.test(k)) levar[k] = localStorage.getItem(k);
+    if (!localStorage.getItem('consultor-dp:migrado')) {
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (/^(consultor-dp:tema|dp_empresa_ativa:[A-Za-z0-9]{1,128})$/.test(k)) levar[k] = localStorage.getItem(k);
+      }
+      localStorage.setItem('consultor-dp:migrado', '1');
     }
   } catch (e) {}
-  var busca = location.search.replace(/^\\?/, '').split('&').filter(function (x) { return x && x.indexOf('migrar=') !== 0; });
-  if (Object.keys(levar).length) busca.push('migrar=' + encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(levar))))));
-  location.replace(${JSON.stringify(destino)} + '/' + resto + (busca.length ? '?' + busca.join('&') : '') + location.hash);
+  if (Object.keys(levar).length) hash = (hash && hash !== '#' ? hash + '&' : '#') + 'migrar=' + encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(levar)))));
+  location.replace(${JSON.stringify(destino)} + '/' + resto + location.search + hash);
 })();
 </script></head>
 <body style="font-family:system-ui,sans-serif;max-width:32rem;margin:4rem auto;padding:0 1rem;color:#1d1d1f">

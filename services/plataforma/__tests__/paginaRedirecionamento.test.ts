@@ -45,18 +45,24 @@ describe('redirecionamento do GitHub Pages para o domínio da SP', () => {
         localStorage.setItem('dp_empresa_ativa:uid123', JSON.stringify({ id: 'E1', nome: 'SP Assessoria', competencia: '2026-09' }));
         localStorage.setItem('outra-coisa', 'nao vai');
         let destino = '';
-        new Function('location', script)({ pathname: '/Consultor-DP-Folhapagamentos/', search: '?_v=1792241946626', hash: '', replace: (u: string) => { destino = u; } });
+        const ir = () => new Function('location', script)({ pathname: '/Consultor-DP-Folhapagamentos/', search: '?_v=1792241946626', hash: '', replace: (u: string) => { destino = u; } });
+        ir();
         const u = new URL(destino);
-        expect(u.origin + u.pathname).toBe('https://dp.spassessoriacontabil.com.br/');
-        expect(u.searchParams.get('_v')).toBe('1792241946626');
-        const levado = lerMigracao(u.searchParams.get('migrar'));
+        expect(u.origin + u.pathname + u.search).toBe('https://dp.spassessoriacontabil.com.br/?_v=1792241946626');
+        // Nada da empresa na busca (vai ao servidor); só no #.
+        expect(u.search).not.toContain('migrar');
+        const levado = lerMigracao(decodeURIComponent(u.hash.replace(/^#migrar=/, '')));
         expect(levado).toEqual({ 'consultor-dp:tema': 'escuro', 'dp_empresa_ativa:uid123': JSON.stringify({ id: 'E1', nome: 'SP Assessoria', competencia: '2026-09' }) });
+        // Só uma vez: o link antigo aberto de novo não leva mais nada (quem saiu no endereço novo não volta à empresa antiga).
+        ir();
+        expect(destino).toBe('https://dp.spassessoriacontabil.com.br/?_v=1792241946626');
+        const comMigrar = u.toString();
 
-        // No endereço novo: grava o que falta, mantém o que já existe e tira o parâmetro da barra.
+        // No endereço novo: grava o que falta, mantém o que já existe e tira o migrar da barra.
         localStorage.clear();
         localStorage.setItem('consultor-dp:tema', 'claro');
         let barra = '';
-        const n = aplicarMigracao({ location: { href: destino } as Location, history: { state: null, replaceState: (_s: unknown, _t: string, url: string) => { barra = url; } } as unknown as History, localStorage });
+        const n = aplicarMigracao({ location: { href: comMigrar } as Location, history: { state: null, replaceState: (_s: unknown, _t: string, url: string) => { barra = url; } } as unknown as History, localStorage });
         expect(n).toBe(1);
         expect(localStorage.getItem('consultor-dp:tema')).toBe('claro');
         expect(JSON.parse(localStorage.getItem('dp_empresa_ativa:uid123')!).nome).toBe('SP Assessoria');
