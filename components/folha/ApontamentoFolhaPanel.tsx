@@ -112,6 +112,7 @@ import { acharEmpresaPorNome } from '../../services/empresas/matchEmpresa';
 // downloadFile vem de apontamentoExporter
 // FolhaFlag e FLAG_LABELS vem de apontamentoExporter; tipoParaFlag definida abaixo
 import type { SessaoFolha } from './FolhaPanel';
+import { formatarCnpj } from '../../services/cadastros/documentos';
 
 interface Props {
     currentUser: User;
@@ -1553,10 +1554,7 @@ function iniciaisDe(s: string): string {
 }
 
 function formatCnpjBr(cnpj?: string): string {
-    if (!cnpj) return '—';
-    const d = cnpj.replace(/\D/g, '');
-    if (d.length !== 14) return cnpj;
-    return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8,12)}-${d.slice(12)}`;
+    return cnpj ? formatarCnpj(cnpj) : '—';
 }
 
 function formatDataHora(d: Date): string {

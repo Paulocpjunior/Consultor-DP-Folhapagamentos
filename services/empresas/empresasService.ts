@@ -1,3 +1,4 @@
+import { limparCnpj } from '../cadastros/documentos';
 import {
     collection, doc, getDocs, getDoc, setDoc, updateDoc, writeBatch, runTransaction,
     query, where, orderBy, serverTimestamp,
@@ -29,7 +30,7 @@ async function donoDaChave(chave: string): Promise<string | null> {
 async function conferirLivre(tipo: 'sage' | 'cnpj', valor: string, empresaId: string | null, visiveis: Empresa[]): Promise<void> {
     const chave = tipo === 'sage' ? chaveSage(valor) : chaveCnpj(valor);
     const dono = await donoDaChave(chave);
-    const igual = visiveis.find(e => e.id !== empresaId && (tipo === 'sage' ? normalizarSage(e.codigoSage) === normalizarSage(valor) : e.cnpj === valor));
+    const igual = visiveis.find(e => e.id !== empresaId && (tipo === 'sage' ? normalizarSage(e.codigoSage) === normalizarSage(valor) : limparCnpj(e.cnpj ?? '') === limparCnpj(valor)));
     if ((dono && dono !== empresaId) || igual) throw new Error(mensagemConflito(tipo, valor, visiveis.find(e => e.id === dono) ?? igual));
 }
 
@@ -64,7 +65,7 @@ export async function listarEmpresasVisiveis(): Promise<Empresa[]> {
 }
 
 export async function criarEmpresa(uid: string, input: EmpresaInput): Promise<string> {
-    const cnpjLimpo = input.cnpj.replace(/\D/g, '');
+    const cnpjLimpo = limparCnpj(input.cnpj);
     const codigoSage = normalizarSage(input.codigoSage);
     const visiveis = await listarEmpresasVisiveis();
     await conferirLivre('cnpj', cnpjLimpo, null, visiveis);
@@ -96,7 +97,7 @@ export async function atualizarEmpresa(id: string, input: Partial<EmpresaInput> 
     const atual = await buscarEmpresa(id);
     if (!atual) throw new Error('Empresa não encontrada.');
     const patch: any = { atualizadoEm: serverTimestamp() };
-    if (input.cnpj         !== undefined) patch.cnpj         = input.cnpj.replace(/\D/g, '');
+    if (input.cnpj         !== undefined) patch.cnpj         = limparCnpj(input.cnpj);
     if (input.razaoSocial  !== undefined) patch.razaoSocial  = input.razaoSocial.trim();
     if (input.nomeFantasia !== undefined) patch.nomeFantasia = input.nomeFantasia.trim();
     if (input.codigoSage   !== undefined) patch.codigoSage   = normalizarSage(input.codigoSage);
@@ -147,7 +148,7 @@ async function reservarChaves(e: Pick<Empresa, 'id' | 'cnpj' | 'codigoSage'>, ui
  * empresa (cadastro repetido) fica para a equipe corrigir.
  */
 async function protegerUma(e: Empresa, uid: string): Promise<{ reservadas: number; normalizada: boolean }> {
-    const valores = { codigoSage: e.codigoSage ? normalizarSage(e.codigoSage) : '', cnpj: String(e.cnpj ?? '').replace(/\D/g, '') };
+    const valores = { codigoSage: e.codigoSage ? normalizarSage(e.codigoSage) : '', cnpj: limparCnpj(String(e.cnpj ?? '')) };
     const lote = writeBatch(db);
     const patch: Partial<Record<'codigoSage' | 'cnpj', string>> = {};
     let reservadas = 0;

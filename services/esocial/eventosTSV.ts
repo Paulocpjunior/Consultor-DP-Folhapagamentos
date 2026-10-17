@@ -11,7 +11,7 @@
 //   opcional): o pró-labore do mês do término vai no S-1200 da competência.
 // Retificação: com o recibo do evento aceito, indRetif 2.
 
-import { cpfValido, dataValida } from '../cadastros/documentos';
+import { cpfValido, dataValida, limparInscricao, formatoCnpj } from '../cadastros/documentos';
 import { CATEGORIAS_CI, type ContribuinteIndividual } from '../contribuintes/contribuinteIndividual';
 import { idEvento, VER_PROC, type TpAmb } from './transmissao';
 
@@ -87,7 +87,7 @@ export function validarS2300(c: ContribuinteIndividual, nrInscEstab = ''): strin
     if (t.remuneracao < 0) e.push('Pró-labore fixo inválido.');
     if (CATEGORIAS_CI[cat].fgts && !dataValida(t.dtOpcFGTS)) e.push('Diretor com FGTS (721): informe a data de opção pelo FGTS.');
     else if (CATEGORIAS_CI[cat].fgts && dataValida(t.dtInicio) && t.dtOpcFGTS < t.dtInicio) e.push('Opção pelo FGTS antes do início.');
-    if (localObrigatorio(cat, t.dtInicio) && digitos(nrInscEstab).length !== 14) e.push('Informe o CNPJ do estabelecimento (14 dígitos) nos parâmetros do eSocial da folha: o S-2300 leva o local de trabalho.');
+    if (localObrigatorio(cat, t.dtInicio) && !formatoCnpj(limparInscricao(nrInscEstab))) e.push('Informe o CNPJ do estabelecimento (14 dígitos) nos parâmetros do eSocial da folha: o S-2300 leva o local de trabalho.');
     c.dependentes.forEach((d, i) => {
         if (!cpfValido(digitos(d.cpf))) e.push(`Dependente ${i + 1}: CPF inválido.`);
         if (!d.nome.trim()) e.push(`Dependente ${i + 1}: informe o nome.`);
@@ -119,8 +119,8 @@ export function gerarS2300(x: EntradaS2300): EventoTSV {
         r.avisos.push('Sem pró-labore fixo: o S-2300 vai com remuneração variável (unidade 7).');
     }
     const fgts = def.fgts ? `<FGTS><dtOpcFGTS>${t.dtOpcFGTS}</dtOpcFGTS></FGTS>` : '';
-    const estab = digitos(x.nrInscEstab);
-    const local = localPermitido(cat) && estab.length === 14 ? `<localTrabGeral><tpInsc>1</tpInsc><nrInsc>${estab}</nrInsc></localTrabGeral>` : '';
+    const estab = limparInscricao(x.nrInscEstab);
+    const local = localPermitido(cat) && formatoCnpj(estab) ? `<localTrabGeral><tpInsc>1</tpInsc><nrInsc>${estab}</nrInsc></localTrabGeral>` : '';
     if (t.cadastramentoInicial) r.avisos.push('Cadastramento inicial (cadIni S): só para quem começou antes da obrigatoriedade dos eventos não periódicos da empresa.');
     else if (t.dtInicio < '2018-01-01') r.avisos.push(`Início em ${br(t.dtInicio)}: se for antes da obrigatoriedade do eSocial na empresa, marque "cadastramento inicial".`);
     if (c.s2300 && !x.recibo) r.avisos.push('O cadastro diz que o S-2300 já foi enviado (pelo IOB?): um segundo S-2300 com a mesma matrícula é recusado. Para corrigir, retifique pelo recibo.');
@@ -128,7 +128,7 @@ export function gerarS2300(x: EntradaS2300): EventoTSV {
     const retif = x.recibo ? `<indRetif>2</indRetif><nrRecibo>${x.recibo}</nrRecibo>` : '<indRetif>1</indRetif>';
     r.evento = { id, xml: `<eSocial xmlns="${NS}/evtTSVInicio/${VERSAO}"><evtTSVInicio Id="${id}">`
         + `<ideEvento>${retif}<tpAmb>${x.tpAmb}</tpAmb><procEmi>1</procEmi><verProc>${VER_PROC}</verProc></ideEvento>`
-        + `<ideEmpregador><tpInsc>1</tpInsc><nrInsc>${digitos(x.cnpj).slice(0, 8)}</nrInsc></ideEmpregador>`
+        + `<ideEmpregador><tpInsc>1</tpInsc><nrInsc>${limparInscricao(x.cnpj).slice(0, 8)}</nrInsc></ideEmpregador>`
         + `<trabalhador><cpfTrab>${digitos(c.cpf)}</cpfTrab><nmTrab>${esc(c.nome.trim().slice(0, 70))}</nmTrab><sexo>${t.sexo}</sexo><racaCor>${t.racaCor}</racaCor>${t.estCiv ? `<estCiv>${t.estCiv}</estCiv>` : ''}<grauInstr>${t.grauInstr}</grauInstr>`
         + `<nascimento><dtNascto>${c.nascimento}</dtNascto><paisNascto>${t.paisNascto}</paisNascto><paisNac>${t.paisNac}</paisNac></nascimento>`
         + `<endereco><brasil><dscLograd>${esc(en.logradouro.trim().slice(0, 100))}</dscLograd><nrLograd>${esc(en.numero.trim())}</nrLograd>${opc('complemento', en.complemento)}${opc('bairro', en.bairro)}<cep>${digitos(en.cep)}</cep><codMunic>${digitos(en.codMunic)}</codMunic><uf>${en.uf.toUpperCase()}</uf></brasil></endereco>`
@@ -173,7 +173,7 @@ export function gerarS2399(x: EntradaS2399): EventoTSV {
     const retif = x.recibo ? `<indRetif>2</indRetif><nrRecibo>${x.recibo}</nrRecibo>` : '<indRetif>1</indRetif>';
     r.evento = { id, xml: `<eSocial xmlns="${NS}/evtTSVTermino/${VERSAO}"><evtTSVTermino Id="${id}">`
         + `<ideEvento>${retif}<tpAmb>${x.tpAmb}</tpAmb><procEmi>1</procEmi><verProc>${VER_PROC}</verProc></ideEvento>`
-        + `<ideEmpregador><tpInsc>1</tpInsc><nrInsc>${digitos(x.cnpj).slice(0, 8)}</nrInsc></ideEmpregador>`
+        + `<ideEmpregador><tpInsc>1</tpInsc><nrInsc>${limparInscricao(x.cnpj).slice(0, 8)}</nrInsc></ideEmpregador>`
         + `<ideTrabSemVinculo><cpfTrab>${digitos(c.cpf)}</cpfTrab>${ide}</ideTrabSemVinculo>`
         + `<infoTSVTermino><dtTerm>${t.dtTermino}</dtTerm>${motivo}</infoTSVTermino>`
         + '</evtTSVTermino></eSocial>' };

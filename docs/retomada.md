@@ -103,7 +103,9 @@ Ponto de partida da próxima sessão. Atualizado em **17/10/2026**. O detalhe de
   - recalcular a folha de 10/2026 da 1200 depois de gravar os contratos e conferir as 3 parcelas;
   - usar "Buscar na Dataprev" na competência inteira (Folha do mês › Crédito do Trabalhador);
   - **17/10:** colunas conferidas com o guia oficial do leiaute 1.4 (a página abriu daqui). Os exemplos do MTE viraram testes: o CSV de exemplo tem um valor a mais depois da `competencia`, que a importação agora descarta; a admissão ilegível vira aviso; o JSON com chaves achatadas (`ifConcessora.codigo`) é lido, também no extrato da Dataprev.
-- Fora do Crédito do Trabalhador: o cadastro de empresas ainda não aceita CNPJ alfanumérico (tarefa sugerida no app).
+- **CNPJ alfanumérico (IN RFB 2.229/2024), 17/10:**
+  - parte 1 (feita): cadastro de empresas, chaves únicas, busca, cofre, regras do Firestore e do Storage e todos os eventos do eSocial (Id, ideEmpregador, estabelecimento, lotação, sucessão, duplo vínculo), com o S-1299 validado pelo XSD oficial;
+  - parte 2 (falta): sindicatos e convenções, benefícios (operadora do plano), ponto, CRM, bancário (CNAB), relatórios em PDF, conferência SERPRO/FGTS, implantação do IOB e o AuditAI.
 
 ## Status × SAGE (atualizado em 16/10/2026)
 

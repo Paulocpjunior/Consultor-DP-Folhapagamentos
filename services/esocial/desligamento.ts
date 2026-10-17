@@ -18,7 +18,7 @@ import type { FichaFuncionario } from '../cadastros/funcionarios';
 import type { Verba } from '../calculo/motorMensal';
 import type { ResultadoRescisao } from '../calculo/motorRescisao';
 import { AVISO_PELA_METADE, PERMITE_SAQUE_FGTS } from '../calculo/motorRescisao';
-import { cpfValido } from '../cadastros/documentos';
+import { cpfValido, limparInscricao, formatoCnpj } from '../cadastros/documentos';
 import { emAberto, rotuloMotivo, type Afastamento } from '../cadastros/afastamentos';
 import { vigenciaEm, type Rubrica } from '../cadastros/rubricas';
 import { diaUtilAnterior, somarDias } from '../prazos/calendario';
@@ -163,7 +163,7 @@ export function gerarS2299(e: EntradaS2299): ResultadoS2299 {
     const erros: string[] = []; const avisos: string[] = [];
     const cpf = digitos(f.cpf);
     const mat = f.matriculaEsocial.trim();
-    const estab = digitos(p.nrInscEstab);
+    const estab = limparInscricao(p.nrInscEstab);
     const categ = digitos(d.categoria);
     const ide = ideDmDevRescisao(r.data, mat);
     const prazo = prazoS2299(r.data);
@@ -178,10 +178,10 @@ export function gerarS2299(e: EntradaS2299): ResultadoS2299 {
     if (!/^\d{3}$/.test(categ)) erros.push('Categoria do eSocial (3 dígitos) em branco na ficha.');
     if (categ === '111' && !r.diasIntermitente) erros.push('Intermitente: a rescisão não tem os dias trabalhados no mês (infoInterm). Recalcule pela tela do cálculo, com as convocações.');
     if (categ === '104') erros.push('Empregado doméstico (categoria 104): o desligamento vai pelo eSocial Doméstico (módulo web), que gera o DAE da rescisão. Lance lá a rescisão conferida aqui.');
-    if (estab.length !== 14) erros.push('Informe o CNPJ do estabelecimento (parâmetros do eSocial da folha).');
+    if (!formatoCnpj(estab)) erros.push('Informe o CNPJ do estabelecimento (parâmetros do eSocial da folha).');
     if (!p.codLotacao.trim()) erros.push('Informe o código da lotação tributária (S-1020) nos parâmetros do eSocial da folha.');
     // Estabelecimento do vínculo na data do desligamento (o da ficha); outra raiz de CNPJ é outra empresa.
-    const doVinculo = estab.length === 14 && DATA.test(r.data) ? estabelecimentoDoVinculo(f, p, r.data) : estab;
+    const doVinculo = formatoCnpj(estab) && DATA.test(r.data) ? estabelecimentoDoVinculo(f, p, r.data) : estab;
     if (doVinculo.slice(0, 8) !== estab.slice(0, 8)) erros.push(`O local de trabalho da ficha é o CNPJ ${doVinculo}, de outra empresa: confira a ficha.`);
     else if (doVinculo !== estab) avisos.push(`Verbas no estabelecimento ${doVinculo} (o da ficha), lotação ${lotacaoDoEstabelecimento(p, doVinculo)}.`);
     if (e.hoje && DATA.test(r.data) && r.data > somarDias(e.hoje, 10)) erros.push(`Desligamento em ${br(r.data)}: o eSocial só aceita até 10 dias depois de hoje.`);
@@ -252,7 +252,7 @@ export function gerarS2299(e: EntradaS2299): ResultadoS2299 {
     const id = idEvento(e.cnpj, agora, e.agora ? 1 : agora.getMilliseconds() * 10 + 1);
     const xml = `<eSocial xmlns="${NS}/evtDeslig/${VERSAO}"><evtDeslig Id="${id}">`
         + `<ideEvento>${e.retificaRecibo ? `<indRetif>2</indRetif><nrRecibo>${esc(e.retificaRecibo)}</nrRecibo>` : '<indRetif>1</indRetif>'}<tpAmb>${e.tpAmb}</tpAmb><procEmi>1</procEmi><verProc>${VER_PROC}</verProc></ideEvento>`
-        + `<ideEmpregador><tpInsc>1</tpInsc><nrInsc>${digitos(e.cnpj).slice(0, 8)}</nrInsc></ideEmpregador>`
+        + `<ideEmpregador><tpInsc>1</tpInsc><nrInsc>${limparInscricao(e.cnpj).slice(0, 8)}</nrInsc></ideEmpregador>`
         + `<ideVinculo><cpfTrab>${cpf}</cpfTrab><matricula>${esc(mat)}</matricula></ideVinculo>`
         + `<infoDeslig><mtvDeslig>${r.tipo}</mtvDeslig><dtDeslig>${r.data}</dtDeslig>${dtAv ? `<dtAvPrv>${dtAv}</dtAvPrv>` : ''}`
         + `<indPagtoAPI>${indenizado ? 'S' : 'N'}</indPagtoAPI>${indenizado ? `<dtProjFimAPI>${r.dataProjetada}</dtProjFimAPI>` : ''}`

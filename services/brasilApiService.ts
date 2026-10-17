@@ -1,5 +1,7 @@
 // Consulta CNPJ na BrasilAPI (gratuita, sem chave).
 // Doc: https://brasilapi.com.br/docs#tag/CNPJ
+import { cnpjValido, formatarCnpj, limparCnpj } from './cadastros/documentos';
+
 export interface BrasilApiCnpj {
     cnpj: string;
     razao_social: string;
@@ -9,8 +11,8 @@ export interface BrasilApiCnpj {
 }
 
 export async function consultarCnpj(cnpj: string): Promise<BrasilApiCnpj> {
-    const dig = cnpj.replace(/\D/g, '');
-    if (dig.length !== 14) throw new Error('CNPJ deve ter 14 dígitos.');
+    const dig = limparCnpj(cnpj);
+    if (!/^[0-9A-Z]{12}\d{2}$/.test(dig)) throw new Error('CNPJ deve ter 14 caracteres.');
     const resp = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${dig}`);
     if (!resp.ok) {
         if (resp.status === 404) throw new Error('CNPJ não encontrado na Receita.');
@@ -19,22 +21,8 @@ export async function consultarCnpj(cnpj: string): Promise<BrasilApiCnpj> {
     return await resp.json();
 }
 
-export function validaCnpj(cnpj: string): boolean {
-    const c = cnpj.replace(/\D/g, '');
-    if (c.length !== 14) return false;
-    if (/^(\d)\1{13}$/.test(c)) return false;
+/** CNPJ válido, também o alfanumérico (IN RFB 2.229/2024). */
+export const validaCnpj = (cnpj: string) => cnpjValido(cnpj);
 
-    const calc = (slice: string) => {
-        const w = slice.length === 12 ? [5,4,3,2,9,8,7,6,5,4,3,2] : [6,5,4,3,2,9,8,7,6,5,4,3,2];
-        const sum = slice.split('').reduce((s, d, i) => s + Number(d) * w[i], 0);
-        const r = sum % 11;
-        return r < 2 ? 0 : 11 - r;
-    };
-    return calc(c.slice(0, 12)) === Number(c[12]) && calc(c.slice(0, 13)) === Number(c[13]);
-}
-
-export function formatCnpj(cnpj: string): string {
-    const c = cnpj.replace(/\D/g, '');
-    if (c.length !== 14) return cnpj;
-    return `${c.slice(0,2)}.${c.slice(2,5)}.${c.slice(5,8)}/${c.slice(8,12)}-${c.slice(12,14)}`;
-}
+/** Máscara 00.000.000/0000-00, também com letras. */
+export const formatCnpj = (cnpj: string) => formatarCnpj(cnpj);

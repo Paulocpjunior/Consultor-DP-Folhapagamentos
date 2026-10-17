@@ -15,7 +15,7 @@ export interface CertificadoDigital {
 
 export interface Empresa {
     id: string;
-    cnpj: string;              // só dígitos, 14 chars
+    cnpj: string;              // 14 caracteres sem pontuação (o alfanumérico tem letras nos 12 primeiros)
     razaoSocial: string;
     nomeFantasia: string;
     codigoSage: string;        // 4 dígitos zero-fill (ex: "0229")

@@ -3,16 +3,18 @@
 // Código SAGE e CNPJ são únicos entre as empresas (Paulo, 06/10/2026: "você
 // deve bloquear o cadastro de empresas com a mesma numeração, exemplo 1200").
 // A trava de verdade está nas regras do Firestore: cada empresa reserva as
-// suas chaves em empresas_unicos/{sage_0000 | cnpj_00000000000000}, e uma
+// suas chaves em empresas_unicos/{sage_0000 | cnpj_00000000000000 ou cnpj_12ABC34501DE35}, e uma
 // chave já reservada por outra empresa não pode ser tomada. A conferência pela
 // lista (empresas visíveis) só serve para a mensagem chegar antes.
 
 import type { Empresa } from './empresasTypes';
+import { limparCnpj } from '../cadastros/documentos';
 
 /** Código SAGE como é gravado na empresa: 4 dígitos com zeros à esquerda. */
 export const normalizarSage = (c: string) => String(c ?? '').replace(/\D/g, '').padStart(4, '0').slice(0, 4);
 export const chaveSage = (c: string) => `sage_${normalizarSage(c)}`;
-export const chaveCnpj = (c: string) => `cnpj_${String(c ?? '').replace(/\D/g, '')}`;
+/** CNPJ sem pontuação, em maiúsculas (o alfanumérico mantém as letras). */
+export const chaveCnpj = (c: string) => `cnpj_${limparCnpj(String(c ?? ''))}`;
 
 export interface ChaveUnica { chave: string; empresaId: string; criadoPor: string }
 

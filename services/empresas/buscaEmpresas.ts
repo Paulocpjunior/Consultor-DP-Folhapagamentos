@@ -5,6 +5,7 @@
 // sem zeros à esquerda ("1200", "272" acha "0272").
 
 import type { Empresa } from './empresasTypes';
+import { limparCnpj } from '../cadastros/documentos';
 
 const semAcento = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 const semZeros = (t: string) => t.replace(/^0+(?=\d)/, '');
@@ -13,9 +14,12 @@ export function filtrarEmpresas<T extends Pick<Empresa, 'nomeFantasia' | 'razaoS
     const f = semAcento(filtro.trim());
     if (!f) return empresas;
     const digitos = f.replace(/\D/g, '');
+    const doc = limparCnpj(filtro.trim());
     const soNumero = /^[\d./\-\s]+$/.test(f);
     return empresas.filter(e => {
         if (semAcento(`${e.nomeFantasia ?? ''} ${e.razaoSocial ?? ''}`).includes(f)) return true;
+        // CNPJ alfanumérico: o trecho digitado com letras (sem pontuação), mesmo só com letras ("ABC").
+        if (doc.length >= 3 && /[A-Z]/.test(doc) && /^[0-9A-Z]+$/.test(doc) && limparCnpj(e.cnpj ?? '').includes(doc)) return true;
         if (!digitos) return false;
         if ((e.cnpj ?? '').replace(/\D/g, '').includes(digitos)) return true;
         const sage = String(e.codigoSage ?? '');

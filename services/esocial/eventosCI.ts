@@ -14,7 +14,7 @@
 
 import type { Rubrica } from '../cadastros/rubricas';
 import { vigenciaEm } from '../cadastros/rubricas';
-import { cpfValido } from '../cadastros/documentos';
+import { cpfValido, limparInscricao, formatoCnpj } from '../cadastros/documentos';
 import { CATEGORIAS_CI, type ContribuinteIndividual, type ResultadoCI } from '../contribuintes/contribuinteIndividual';
 import type { ParametrosEsocialFolha } from './eventosFolha';
 import { idEvento, VER_PROC, type TpAmb } from './transmissao';
@@ -51,15 +51,15 @@ const BASE_CP = ['11', '12', '13', '14', '15', '16'];
 export function gerarEventosCI(e: EntradaEventosCI): { eventos: EventosCI[]; erros: string[] } {
     const erros: string[] = [];
     const p = e.parametros;
-    const estab = digitos(p.nrInscEstab);
-    if (estab.length !== 14) erros.push('Informe o CNPJ do estabelecimento (14 dígitos) nos parâmetros do eSocial da folha.');
+    const estab = limparInscricao(p.nrInscEstab);
+    if (!formatoCnpj(estab)) erros.push('Informe o CNPJ do estabelecimento (14 dígitos) nos parâmetros do eSocial da folha.');
     if (!p.codLotacao.trim()) erros.push('Informe o código da lotação tributária (S-1020) nos parâmetros do eSocial da folha.');
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(e.competencia)) erros.push('Competência inválida.');
     if (erros.length) return { eventos: [], erros };
     const tipoDa = new Map(e.rubricas.map(r => [`${r.ideTabRubr}|${r.codRubr}`, vigenciaEm(r, e.competencia)?.dados]));
     const agora = e.agora ?? new Date();
     let seq = e.agora ? 0 : agora.getMilliseconds() * 10;
-    const ideEmpregador = `<ideEmpregador><tpInsc>1</tpInsc><nrInsc>${digitos(e.cnpj).slice(0, 8)}</nrInsc></ideEmpregador>`;
+    const ideEmpregador = `<ideEmpregador><tpInsc>1</tpInsc><nrInsc>${limparInscricao(e.cnpj).slice(0, 8)}</nrInsc></ideEmpregador>`;
     const eventos: EventosCI[] = [];
     for (const r of e.resultados) {
         const c = e.contribuintes.find(x => x.id === r.fichaId);
@@ -96,7 +96,7 @@ export function gerarEventosCI(e: EntradaEventosCI): { eventos: EventosCI[]; err
         }
         if (t.erros.length) continue;
         const ide = ideDmDevCI(e.competencia, def.tipo === 'prolabore');
-        const infoMV = r.indMV ? `<infoMV><indMV>${r.indMV}</indMV>${r.outrasFontes.map(o => `<remunOutrEmpr><tpInsc>${o.tpInsc}</tpInsc><nrInsc>${digitos(o.nrInsc)}</nrInsc><codCateg>${o.codCateg}</codCateg><vlrRemunOE>${valor(o.valor)}</vlrRemunOE></remunOutrEmpr>`).join('')}</infoMV>` : '';
+        const infoMV = r.indMV ? `<infoMV><indMV>${r.indMV}</indMV>${r.outrasFontes.map(o => `<remunOutrEmpr><tpInsc>${o.tpInsc}</tpInsc><nrInsc>${limparInscricao(o.nrInsc)}</nrInsc><codCateg>${o.codCateg}</codCateg><vlrRemunOE>${valor(o.valor)}</vlrRemunOE></remunOutrEmpr>`).join('')}</infoMV>` : '';
         // Sem o S-2300: os dados cadastrais (vedados para quem tem vínculo ativo no RET; MOS, item 23.2).
         const infoComplem = c.s2300 ? '' : `<infoComplem><nmTrab>${esc(c.nome.trim().slice(0, 70))}</nmTrab><dtNascto>${c.nascimento}</dtNascto></infoComplem>`;
         if (!c.s2300) t.avisos.push('Sem o S-2300: os dados cadastrais vão no S-1200. Se o CPF tiver vínculo ativo na empresa (empregado), o eSocial recusa o infoComplem: nesse caso envie o S-2300.');

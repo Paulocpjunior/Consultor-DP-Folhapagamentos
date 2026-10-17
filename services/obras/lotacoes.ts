@@ -17,7 +17,7 @@
 // do estabelecimento (S-1005), quando diferentes.
 // Cada lotação tem um código da empresa (até 30 caracteres, sem começar com "eSocial").
 
-import { cnpjValido, cpfValido } from '../cadastros/documentos';
+import { cnpjValido, cpfValido, limparInscricao } from '../cadastros/documentos';
 import { idEvento, VER_PROC, type TpAmb } from '../esocial/transmissao';
 
 const NS = 'http://www.esocial.gov.br/schema/evt';
@@ -86,10 +86,10 @@ export const idLotacao = (empresaId: string, codigo: string) => `${empresaId}_${
 export const ehObraPropria = (l: Pick<Lotacao, 'tipo' | 'cno'>) => l.tipo === '01' && digitos(l.cno).length === 12;
 /** Estabelecimento do S-1200 para a lotação: o CNO da obra própria ou o CNPJ do estabelecimento da empresa. */
 export function estabelecimentoDa(l: Pick<Lotacao, 'tipo' | 'cno'>, cnpjEstab: string): { tpInsc: '1' | '4'; nrInsc: string } {
-    return ehObraPropria(l) ? { tpInsc: '4', nrInsc: digitos(l.cno) } : { tpInsc: '1', nrInsc: digitos(cnpjEstab) };
+    return ehObraPropria(l) ? { tpInsc: '4', nrInsc: digitos(l.cno) } : { tpInsc: '1', nrInsc: limparInscricao(cnpjEstab) };
 }
 
-const inscricaoValida = (i: Inscricao) => (i.tpInsc === '1' ? cnpjValido(digitos(i.nrInsc)) : cpfValido(digitos(i.nrInsc)));
+const inscricaoValida = (i: Inscricao) => (i.tpInsc === '1' ? cnpjValido(limparInscricao(i.nrInsc)) : cpfValido(limparInscricao(i.nrInsc)));
 
 export interface Validacao { erros: string[]; avisos: string[] }
 
@@ -122,12 +122,12 @@ export function validarLotacao(l: Lotacao, cnpjEmpresa: string, outras: Lotacao[
     if (l.tipo === '02') {
         if (cno.length !== 12) erros.push('CNO da obra da empreitada parcial: 12 dígitos (Tabela 10).');
         if (!inscricaoValida(l.contratante)) erros.push('Contratante da empreitada: CNPJ ou CPF válido.');
-        else if (l.contratante.tpInsc === '1' && digitos(l.contratante.nrInsc).slice(0, 8) === digitos(cnpjEmpresa).slice(0, 8)) erros.push('O contratante da empreitada parcial não pode ser a própria empresa.');
+        else if (l.contratante.tpInsc === '1' && limparInscricao(l.contratante.nrInsc).slice(0, 8) === limparInscricao(cnpjEmpresa).slice(0, 8)) erros.push('O contratante da empreitada parcial não pode ser a própria empresa.');
         if (l.proprietario && !inscricaoValida(l.proprietario)) erros.push('Proprietário da obra: CNPJ ou CPF válido (só quando ele não estiver no CNO).');
     }
     if (l.tipo === '04') {
-        if (!cnpjValido(digitos(l.tomador))) erros.push('CNPJ do tomador da cessão de mão de obra inválido.');
-        else if (digitos(l.tomador).slice(0, 8) === digitos(cnpjEmpresa).slice(0, 8)) erros.push('O tomador da cessão não pode ser a própria empresa.');
+        if (!cnpjValido(limparInscricao(l.tomador))) erros.push('CNPJ do tomador da cessão de mão de obra inválido.');
+        else if (limparInscricao(l.tomador).slice(0, 8) === limparInscricao(cnpjEmpresa).slice(0, 8)) erros.push('O tomador da cessão não pode ser a própria empresa.');
         avisos.push('Cessão de mão de obra: a nota fiscal tem retenção de 11% do INSS (3,5% se a empresa estiver na CPRB), declarada pelo Fiscal na EFD-Reinf (R-2020).');
     }
     if (l.codTercsSusp && !/^\d{4}$/.test(l.codTercsSusp)) erros.push('Terceiros suspensos: código combinado de 4 dígitos (Tabela 04).');
@@ -138,7 +138,7 @@ export function validarLotacao(l: Lotacao, cnpjEmpresa: string, outras: Lotacao[
 
 const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const ideEvento = (tpAmb: TpAmb) => `<ideEvento><tpAmb>${tpAmb}</tpAmb><procEmi>1</procEmi><verProc>${VER_PROC}</verProc></ideEvento>`;
-const ideEmpregador = (cnpj: string) => `<ideEmpregador><tpInsc>1</tpInsc><nrInsc>${digitos(cnpj).slice(0, 8)}</nrInsc></ideEmpregador>`;
+const ideEmpregador = (cnpj: string) => `<ideEmpregador><tpInsc>1</tpInsc><nrInsc>${limparInscricao(cnpj).slice(0, 8)}</nrInsc></ideEmpregador>`;
 const validade = (l: Lotacao) => `<iniValid>${l.iniValid}</iniValid>${l.fimValid ? `<fimValid>${l.fimValid}</fimValid>` : ''}`;
 
 /** S-1020 da lotação: inclusão ou, com recibo do aceito, alteração (sem assinatura; o CFI assina). */
@@ -147,10 +147,10 @@ export function gerarS1020(p: { cnpj: string; tpAmb: TpAmb; lotacao: Lotacao; ag
     const id = idEvento(p.cnpj, p.agora, p.seq);
     const acao = l.recibo1020 ? 'alteracao' : 'inclusao';
     const insc = l.tipo === '02' ? `<tpInsc>4</tpInsc><nrInsc>${digitos(l.cno)}</nrInsc>`
-        : l.tipo === '04' ? `<tpInsc>1</tpInsc><nrInsc>${digitos(l.tomador)}</nrInsc>` : '';
+        : l.tipo === '04' ? `<tpInsc>1</tpInsc><nrInsc>${limparInscricao(l.tomador)}</nrInsc>` : '';
     const parcial = l.tipo === '02'
-        ? `<infoEmprParcial><tpInscContrat>${l.contratante.tpInsc}</tpInscContrat><nrInscContrat>${digitos(l.contratante.nrInsc)}</nrInscContrat>`
-            + (l.proprietario ? `<tpInscProp>${l.proprietario.tpInsc}</tpInscProp><nrInscProp>${digitos(l.proprietario.nrInsc)}</nrInscProp>` : '')
+        ? `<infoEmprParcial><tpInscContrat>${l.contratante.tpInsc}</tpInscContrat><nrInscContrat>${limparInscricao(l.contratante.nrInsc)}</nrInscContrat>`
+            + (l.proprietario ? `<tpInscProp>${l.proprietario.tpInsc}</tpInscProp><nrInscProp>${limparInscricao(l.proprietario.nrInsc)}</nrInscProp>` : '')
             + '</infoEmprParcial>'
         : '';
     const xml = `<eSocial xmlns="${NS}/evtTabLotacao/${VERSAO}"><evtTabLotacao Id="${id}">${ideEvento(p.tpAmb)}${ideEmpregador(p.cnpj)}`
@@ -173,7 +173,7 @@ export function gerarS1005(p: { cnpj: string; tpAmb: TpAmb; lotacao: Lotacao; ag
     const gilrat = l.aliqRat || fap ? `<aliqGilrat>${l.aliqRat ? `<aliqRat>${l.aliqRat}</aliqRat>` : ''}${fap ? `<fap>${fap}</fap>` : ''}${l.aliqRat ? proc('procAdmJudRat', l.procRat) : ''}${fap ? proc('procAdmJudFap', l.procFap) : ''}</aliqGilrat>` : '';
     const xml = `<eSocial xmlns="${NS}/evtTabEstab/${VERSAO}"><evtTabEstab Id="${id}">${ideEvento(p.tpAmb)}${ideEmpregador(p.cnpj)}`
         + `<infoEstab><${acao}><ideEstab><tpInsc>4</tpInsc><nrInsc>${digitos(l.cno)}</nrInsc>${validade(l)}</ideEstab>`
-        + `<dadosEstab><cnaePrep>${l.cnaePrep}</cnaePrep><cnpjResp>${digitos(p.cnpj)}</cnpjResp>${gilrat}`
+        + `<dadosEstab><cnaePrep>${l.cnaePrep}</cnaePrep><cnpjResp>${limparInscricao(p.cnpj)}</cnpjResp>${gilrat}`
         + (l.construtora ? `<infoObra><indSubstPatrObra>${l.substituida ? 1 : 2}</indSubstPatrObra></infoObra>` : '')
         + `</dadosEstab></${acao}></infoEstab></evtTabEstab></eSocial>`;
     return { id, xml };

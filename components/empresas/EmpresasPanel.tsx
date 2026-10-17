@@ -4,6 +4,7 @@ import { listarEmpresasVisiveis, excluirEmpresa, protegerEmpresasExistentes } fr
 import { chaveCnpj, chaveSage, repetidas } from '../../services/empresas/chavesUnicas';
 import { filtrarEmpresas } from '../../services/empresas/buscaEmpresas';
 import { formatCnpj } from '../../services/brasilApiService';
+import { limparCnpj } from '../../services/cadastros/documentos';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import type { User } from '../../types';
 import EmpresaForm from './EmpresaForm';
@@ -32,7 +33,7 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser, embutido = false }) => {
     const [erroCofre, setErroCofre] = useState('');
     const carregarCofre = () => {
         setErroCofre('');
-        cofreDaMinhaCarteira().then(r => setCofre(new Map(r.linhas.map(l => [l.cnpj, l])))).catch(e => setErroCofre((e as Error).message));
+        cofreDaMinhaCarteira().then(r => setCofre(new Map(r.linhas.map(l => [limparCnpj(l.cnpj), l])))).catch(e => setErroCofre((e as Error).message));
     };
 
     const reload = async () => {
@@ -210,7 +211,7 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser, embutido = false }) => {
                                         <td className="px-3 py-2 text-center">
                                             {(() => {
                                                 // Situação no cofre único (CFI + Legal); só leitura.
-                                                const l = cofre?.get(e.cnpj.replace(/\D/g, ''));
+                                                const l = cofre?.get(limparCnpj(e.cnpj));
                                                 if (!cofre) return <span className="text-xs text-slate-500 dark:text-slate-400" title={erroCofre || 'Carregando o cofre…'}>{erroCofre ? '—' : '…'}</span>;
                                                 const cls = !l || !l.apto ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200'
                                                     : precisaAtencao(l) ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
@@ -240,7 +241,7 @@ const EmpresasPanel: React.FC<Props> = ({ currentUser, embutido = false }) => {
                                     {expandedCert === e.id && (
                                         <tr>
                                             <td colSpan={6} className="px-3 py-2 bg-slate-50 dark:bg-slate-800/50">
-                                                <DetalheCofre linha={cofre?.get(e.cnpj.replace(/\D/g, ''))} />
+                                                <DetalheCofre linha={cofre?.get(limparCnpj(e.cnpj))} />
                                             </td>
                                         </tr>
                                     )}

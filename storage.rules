@@ -28,7 +28,7 @@ service firebase.storage {
     // sobrescreve nem se apaga (cada envio tem nome próprio).
     match /convencoes/{cnpj}/{arquivo} {
       allow read: if aprovado();
-      allow create: if aprovado() && resource == null && cnpj.matches('^[0-9]{14}$')
+      allow create: if aprovado() && resource == null && cnpj.matches('^[0-9A-Z]{12}[0-9]{2}$')
                     && request.resource.contentType == 'application/pdf'
                     && request.resource.size < 20 * 1024 * 1024;
       allow update, delete: if false;

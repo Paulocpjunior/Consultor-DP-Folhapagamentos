@@ -14,7 +14,7 @@
 // O 13º do ano é todo do destino (a origem não paga 13º a quem saiu pela transferência).
 // Entre estabelecimentos da mesma empresa (mesma raiz do CNPJ) não há S-2299: é alteração contratual (S-2206).
 
-import { cnpjValido, dataValida } from '../cadastros/documentos';
+import { cnpjValido, dataValida, limparInscricao } from '../cadastros/documentos';
 import { idFuncionario, type FichaFuncionario } from '../cadastros/funcionarios';
 import { idAfastamento, type Afastamento } from '../cadastros/afastamentos';
 import { somarDias } from '../prazos/calendario';
@@ -49,13 +49,13 @@ export function validarTransferencia(t: Transferencia, fichasDestino: FichaFunci
     const f = t.ficha;
     if (f.situacao !== 'ativo' || f.dados.dataDesligamento) e.push('Só se transfere quem está ativo (sem data de desligamento).');
     if (t.origem.id === t.destino.id) e.push('Escolha outra empresa de destino.');
-    else if (digitos(t.origem.cnpj).slice(0, 8) === digitos(t.destino.cnpj).slice(0, 8)) e.push('Mesma raiz de CNPJ: é troca de estabelecimento da mesma empresa (alteração contratual, S-2206), não transferência entre empresas.');
+    else if (limparInscricao(t.origem.cnpj).slice(0, 8) === limparInscricao(t.destino.cnpj).slice(0, 8)) e.push('Mesma raiz de CNPJ: é troca de estabelecimento da mesma empresa (alteração contratual, S-2206), não transferência entre empresas.');
     if (!dataValida(t.data)) e.push('Informe a data da transferência (primeiro dia na empresa de destino).');
     else if (f.dados.admissao && t.data <= f.dados.admissao) e.push('A transferência tem de ser depois da admissão.');
     const m = t.matricula.trim();
     if (!m || m.length > 30 || /^esocial/i.test(m)) e.push('Matrícula no destino com até 30 caracteres, sem começar por "eSocial".');
-    if (digitos(t.estabelecimento).length !== 14 || !cnpjValido(digitos(t.estabelecimento))) e.push('CNPJ do estabelecimento de destino (local de trabalho).');
-    else if (digitos(t.estabelecimento).slice(0, 8) !== digitos(t.destino.cnpj).slice(0, 8)) e.push('O estabelecimento de destino tem de ser da empresa de destino (mesma raiz do CNPJ).');
+    if (limparInscricao(t.estabelecimento).length !== 14 || !cnpjValido(limparInscricao(t.estabelecimento))) e.push('CNPJ do estabelecimento de destino (local de trabalho).');
+    else if (limparInscricao(t.estabelecimento).slice(0, 8) !== limparInscricao(t.destino.cnpj).slice(0, 8)) e.push('O estabelecimento de destino tem de ser da empresa de destino (mesma raiz do CNPJ).');
     const cpf = digitos(f.cpf);
     const ja = fichasDestino.find(x => digitos(x.cpf) === cpf && x.situacao === 'ativo' && !x.dados.dataDesligamento);
     if (ja) e.push(`O CPF já tem ficha ativa na empresa de destino (matrícula ${ja.matriculaEsocial}).`);
@@ -72,7 +72,7 @@ export function fichaNoDestino(t: Transferencia): FichaFuncionario {
     const { codigoIob: _c, horario: _h, lotacao: _l, departamento: _d, departamentoIob: _di, cargoIob: _ci, sindicatoIob: _si, dataDesligamento: _dd, motivoDesligamento: _md, dataProjetadaAviso: _dp, ...dados } = f.dados;
     return {
         id: idFuncionario(t.destino.id, cpf, t.matricula.trim()), empresaId: t.destino.id, cnpj: t.destino.cnpj, cpf, matriculaEsocial: t.matricula.trim(), situacao: 'ativo',
-        dados: { ...dados, estabelecimento: digitos(t.estabelecimento), inicioNaEmpresa: t.data },
+        dados: { ...dados, estabelecimento: limparInscricao(t.estabelecimento), inicioNaEmpresa: t.data },
         dependentes: f.dependentes.map(d => ({ ...d })),
         origens: { ...Object.fromEntries(Object.keys(dados).map(k => [k, origem])), estabelecimento: origem, dependentes: origem, situacao: origem },
         pendenciasImportacao: [],
@@ -121,9 +121,9 @@ export function gerarS2299Transferencia(x: EntradaS2299Transf): { evento: { id: 
     const id = idEvento(x.cnpj, x.agora ?? new Date(), 4);
     return { erros: [], evento: { id, xml: `<eSocial xmlns="http://www.esocial.gov.br/schema/evt/evtDeslig/v_S_01_03_00"><evtDeslig Id="${id}">`
         + `<ideEvento><indRetif>1</indRetif><tpAmb>${x.tpAmb}</tpAmb><procEmi>1</procEmi><verProc>${VER_PROC}</verProc></ideEvento>`
-        + `<ideEmpregador><tpInsc>1</tpInsc><nrInsc>${digitos(x.cnpj).slice(0, 8)}</nrInsc></ideEmpregador>`
+        + `<ideEmpregador><tpInsc>1</tpInsc><nrInsc>${limparInscricao(x.cnpj).slice(0, 8)}</nrInsc></ideEmpregador>`
         + `<ideVinculo><cpfTrab>${digitos(t.ficha.cpf)}</cpfTrab><matricula>${esc(t.ficha.matriculaEsocial.trim())}</matricula></ideVinculo>`
         + `<infoDeslig><mtvDeslig>${MOTIVO_TRANSFERENCIA}</mtvDeslig><dtDeslig>${ultimoDiaNaOrigem(t.data)}</dtDeslig><indPagtoAPI>N</indPagtoAPI><pensAlim>0</pensAlim>`
-        + `<sucessaoVinc><tpInsc>1</tpInsc><nrInsc>${digitos(t.destino.cnpj)}</nrInsc></sucessaoVinc></infoDeslig>`
+        + `<sucessaoVinc><tpInsc>1</tpInsc><nrInsc>${limparInscricao(t.destino.cnpj)}</nrInsc></sucessaoVinc></infoDeslig>`
         + '</evtDeslig></eSocial>' } };
 }

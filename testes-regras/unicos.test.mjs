@@ -37,6 +37,12 @@ describe('código SAGE e CNPJ únicos', () => {
     await assertSucceeds(criar(fs('col2'), 'NNNNNNNNNNNNNNNNNNN1', '44555666000177', '0500', 'col2'));
     await assertFails(setDoc(doc(fs('col2'), 'empresas/N2'), emp('55666777000188', '0600', 'col2')));
   });
+  it('CNPJ alfanumérico (IN RFB 2.229/2024): letras maiúsculas nos 12 primeiros, dígitos no fim', async () => {
+    await assertSucceeds(criar(fs('col2'), 'NNNNNNNNNNNNNNNNNNN3', '12ABC34501DE35', '0510', 'col2'));
+    await assertFails(criar(fs('col2'), 'NNNNNNNNNNNNNNNNNNN4', '12abc34501de35', '0520', 'col2'));
+    await assertFails(criar(fs('col2'), 'NNNNNNNNNNNNNNNNNNN5', '12ABC34501DEXX', '0530', 'col2'));
+    await assertFails(criar(fs('col2'), 'NNNNNNNNNNNNNNNNNNN6', '12ABC34501DE35', '0540', 'col2'));
+  });
   it('código SAGE ou CNPJ já reservados: recusa (mesmo fora da carteira)', async () => {
     await assertFails(criar(fs('col2'), 'D', '44555666000177', '1200', 'col2'));
     await assertFails(criar(fs('col2'), 'D', '11222333000181', '0700', 'col2'));

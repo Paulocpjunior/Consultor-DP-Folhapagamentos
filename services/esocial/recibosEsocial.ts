@@ -19,6 +19,7 @@
 import { lerZip } from '../implantacao/zip';
 import type { Envio } from './transmissaoService';
 import type { FichaFuncionario } from '../cadastros/funcionarios';
+import { limparInscricao } from '../cadastros/documentos';
 
 export type TipoPeriodico = 'S-1200' | 'S-1210';
 export interface ReciboEvento {
@@ -103,7 +104,7 @@ function decodificar(bytes: Uint8Array): string {
 
 /** Recibos de .xml e .zip (inclusive zip dentro de zip). */
 export async function lerRecibosArquivos(arquivos: { nome: string; bytes: Uint8Array }[], cnpj: string): Promise<ReciboEvento[]> {
-    const raiz = digitos(cnpj).slice(0, 8);
+    const raiz = limparInscricao(cnpj).slice(0, 8);
     const fila = [...arquivos]; const r: ReciboEvento[] = []; let abertos = 0;
     while (fila.length) {
         const a = fila.shift()!;
