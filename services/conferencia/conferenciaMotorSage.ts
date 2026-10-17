@@ -91,7 +91,8 @@ export function conferirMotorComHistoricoSage(e: EntradaConferenciaSage): Result
             comparar('Proventos', r.totais.proventos, t.proventos);
             comparar('Descontos', r.totais.descontos, t.descontos);
             comparar('Líquido', r.totais.liquido, t.proventos - t.descontos);
-            if (h.comNaturezas) {
+            // Naturezas só quando todo provento e desconto do mês tem a natureza (S-1010 na vigência).
+            if (h.comNaturezas && !t.semNatureza) {
                 const nat = (n: string) => t.porNatureza[n] ?? 0;
                 comparar('Salário', v(r, 'SAL'), nat(NATUREZA.salario));
                 comparar('INSS', v(r, 'INSS', 'INSSFERRET'), nat(NATUREZA.inss));
@@ -102,7 +103,9 @@ export function conferirMotorComHistoricoSage(e: EntradaConferenciaSage): Result
                 licenca('Salário-paternidade', v(r, 'PAT'), nat(NATUREZA.salarioPaternidade));
             } else {
                 semNatureza = true;
-                observacoes.push('O backup não trouxe a natureza das rubricas (S-1010 do IOB): provento e desconto vieram da coluna do holerith ou da descrição; salário, INSS e IRRF não foram comparados um a um.');
+                observacoes.push(h.comNaturezas
+                    ? `${t.semNatureza} lançamento(s) do mês sem a natureza (evento sem S-1010 na vigência): salário, INSS e IRRF não foram comparados um a um.`
+                    : 'O backup não trouxe a natureza das rubricas (S-1010 do IOB): provento e desconto vieram da coluna do holerith ou da descrição; salário, INSS e IRRF não foram comparados um a um.');
             }
             if (ferias.has(fichaId)) observacoes.push('Férias no mês: confira se o holerith desta finalidade traz as férias ou se elas estão na finalidade das férias; o motor soma as férias do mês e abate o que o recibo já pagou e reteve.');
             linhas.push({ ...base, nome: r.nome, situacao: itens.every(i => i.ok) ? 'confere' : 'diverge', itens });

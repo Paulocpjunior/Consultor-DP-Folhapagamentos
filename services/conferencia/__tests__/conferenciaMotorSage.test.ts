@@ -56,4 +56,13 @@ describe('conferência motor × histórico do backup do SAGE', () => {
     it('finalidades da que tem mais meses para a que tem menos', () => {
         expect(finalidadesDoHistorico(historicos)).toEqual([{ finalidade: '1', meses: 8 }, { finalidade: '3', meses: 1 }]);
     });
+
+    it('mês com lançamento sem natureza não compara salário, INSS e IRRF', () => {
+        const r = conferirMotorComHistoricoSage({ historicos: [ano('f1', [null, null, { ...tot(300000, 25341), porNatureza: { 1000: 300000 }, semNatureza: 1 }])],
+            finalidade: '1', fichas: FICHAS, motor: () => [motor('f1', 300000, 25341)] });
+        const l = r.competencias[0].linhas[0];
+        expect([l.situacao, l.itens.map(i => i.item)]).toEqual(['confere', ['Proventos', 'Descontos', 'Líquido']]);
+        expect(l.observacoes.join(' ')).toMatch(/1 lançamento\(s\) do mês sem a natureza/);
+    });
 });
+

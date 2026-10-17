@@ -62,6 +62,8 @@ const ConferenciaEsocialIob: React.FC<Props> = ({ empresa, fichas, motor, comFer
     const [fonte, setFonte] = useState<'esocial' | 'sage'>('esocial');
     const [anoSage, setAnoSage] = useState(String(new Date().getFullYear()));
     const [historicos, setHistoricos] = useState<HistoricoSageAno[] | null>(null);
+    /** Ano do histórico carregado (o campo pode ter sido editado depois). */
+    const [anoCarregado, setAnoCarregado] = useState('');
     const [finalidade, setFinalidade] = useState('');
     const finalidades = useMemo(() => finalidadesDoHistorico(historicos ?? []), [historicos]);
     const rotuloFonte = fonte === 'sage' ? 'SAGE' : 'IOB';
@@ -89,7 +91,7 @@ const ConferenciaEsocialIob: React.FC<Props> = ({ empresa, fichas, motor, comFer
         try {
             const h = await lerHistoricoSageDoAno(empresa.id, anoSage);
             if (!h.length) setErro(`Nenhum histórico do backup do SAGE em ${anoSage} nesta empresa. Restaure a empresa pela tela "Restaurar backup do IOB SAGE" (ficha financeira).`);
-            setHistoricos(h);
+            setHistoricos(h); setAnoCarregado(anoSage);
             setFinalidade(finalidadesDoHistorico(h)[0]?.finalidade ?? '');
         } catch (e) { setErro(`Não foi possível ler o histórico: ${mensagemErro(e)}`); }
         finally { setOcupado(''); }
@@ -137,7 +139,7 @@ const ConferenciaEsocialIob: React.FC<Props> = ({ empresa, fichas, motor, comFer
         if (!window.confirm(`Gravar o resultado de ${cs.length} competência(s) (${cs.map(c => `${comp(c.competencia)} ${c.zerada ? 'sem diferença' : 'com diferença'}`).join('; ')}) para a homologação do motor? Competência já gravada fica com este resultado.`)) return;
         setOcupado('Gravando o resultado…'); setErro('');
         try {
-            const origem = fonte === 'sage' ? [`backup do SAGE (finalidade ${finalidade}, ${anoSage})`] : arquivos.map(f => f.name);
+            const origem = fonte === 'sage' ? [`backup do SAGE (finalidade ${finalidade}, ${anoCarregado})`] : arquivos.map(f => f.name);
             await gravarConferenciasMotor(empresa.id, cs.map(c => ({ competencia: c.competencia, zerada: c.zerada, confere: c.confere, diverge: c.diverge, pendentes: c.pendentes })), origem, usuario);
             setGravado(`Resultado gravado: ${cs.length} competência(s). A faixa do cálculo mostra a homologação da empresa.`);
             onGravado?.();
@@ -179,7 +181,7 @@ const ConferenciaEsocialIob: React.FC<Props> = ({ empresa, fichas, motor, comFer
                 </label>
                 {fonte === 'sage' ? (<>
                     <label className="text-sm dark:text-white">Ano
-                        <input aria-label="Ano do histórico" className="block w-24 rounded-sm border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900" inputMode="numeric" maxLength={4} value={anoSage} disabled={!!ocupado} onChange={e => setAnoSage(e.target.value.replace(/\D/g, ''))} />
+                        <input aria-label="Ano do histórico" className="block w-24 rounded-sm border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900" inputMode="numeric" maxLength={4} value={anoSage} disabled={!!ocupado} onChange={e => { setAnoSage(e.target.value.replace(/\D/g, '')); setHistoricos(null); setGravado(''); }} />
                     </label>
                     <button className="rounded-sm bg-blue-700 px-3 py-2 text-sm text-white disabled:opacity-50" disabled={anoSage.length !== 4 || !!ocupado} onClick={() => void carregarSage()}>Conferir pelo backup</button>
                     {finalidades.length > 0 && (

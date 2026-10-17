@@ -62,6 +62,8 @@ describe('ficha financeira pelo holerith', () => {
         expect(r.anos[0].porFinalidade?.['1'][2]).toEqual({ proventos: 300000, descontos: 24000, porNatureza: { 1000: 300000, 9201: 24000 } });
         expect(r.anos[0].porFinalidade?.['3'][2]).toEqual({ proventos: 15050, descontos: 0, porNatureza: { 1000: 15050 } });
         expect(r.anos[0].porFinalidade?.['1'].filter(x => x !== null)).toHaveLength(1);
+        // O evento 77 não tem S-1010: o mês fica marcado para não comparar as naturezas.
+        expect(r.anos[1].porFinalidade?.['1'][8]).toMatchObject({ proventos: 310000, descontos: 1000, semNatureza: 1 });
     });
 
     it('sem as colunas de valor: avisa e não monta nada', () => {

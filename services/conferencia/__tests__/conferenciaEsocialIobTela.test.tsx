@@ -61,5 +61,8 @@ describe('tela Conferir com o eSocial do IOB', () => {
         expect((screen.getByLabelText('Finalidade do holerith') as HTMLSelectElement).value).toBe('1');
         fireEvent.change(screen.getByLabelText('Finalidade do holerith'), { target: { value: '2' } });
         await waitFor(() => expect(screen.getByRole('note').textContent).toMatch(/ainda não/));
+        // Trocar o ano descarta o resultado carregado (não grava com o ano errado).
+        fireEvent.change(screen.getByLabelText('Ano do histórico'), { target: { value: '2024' } });
+        expect(screen.queryByRole('note')).toBeNull();
     });
 });

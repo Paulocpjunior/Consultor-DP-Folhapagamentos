@@ -22,7 +22,11 @@ export interface LinhaHistoricoSage { codigo: string; descricao: string; tipo: T
  * Totais do mês de uma finalidade do holerith (coluna `final`: folha, adiantamento, férias, 13º… do SAGE), em centavos,
  * para conferir o motor só com a folha mensal: proventos, descontos e o valor das naturezas comparadas uma a uma.
  */
-export interface TotaisMesSage { proventos: number; descontos: number; porNatureza: Record<string, number> }
+export interface TotaisMesSage {
+    proventos: number; descontos: number; porNatureza: Record<string, number>;
+    /** Lançamentos de provento ou desconto sem a natureza no mês (evento sem S-1010 ou fora da vigência): as naturezas não fecham. */
+    semNatureza?: number;
+}
 /** Naturezas (Tabela 03) guardadas nos totais: salário, salário-família, INSS, IRRF e as licenças. */
 export const NATUREZAS_TOTAIS = ['1000', '1409', '9201', '9203', '4050', '4052'];
 /** Um funcionário num ano: historico_sage/{fichaId}_{ano}. */
@@ -114,6 +118,7 @@ export function historicoDoHolerith(holerith: TabelaLida, naturezas: NaturezasEv
         else if (tipo === 'desconto') t.descontos += v;
         const nat = rub?.natRubr ?? '';
         if (NATUREZAS_TOTAIS.includes(nat)) t.porNatureza[nat] = (t.porNatureza[nat] ?? 0) + v;
+        else if (!nat && tipo !== 'informativo') t.semNatureza = (t.semNatureza ?? 0) + 1;
         if (!linha.descricao) linha.descricao = descricao;
         a.porChave.set(chave, linha); porAno.set(k, a);
     }
