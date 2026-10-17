@@ -7,6 +7,10 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 
 import MainTabs from './components/MainTabs';
+import { aplicarMigracao } from './services/migracaoEndereco';
+
+// Vindo do endereço antigo: tema e empresa ativa de quem já usava (services/migracaoEndereco).
+aplicarMigracao();
 const rootElement = document.getElementById('root');
 if (!rootElement) {
   throw new Error("Could not find root element to mount to");

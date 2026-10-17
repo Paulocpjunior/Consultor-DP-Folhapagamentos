@@ -5,6 +5,7 @@
 // ele enxerga (carteira e as que cadastrou; o gestor, todas).
 
 import React, { useMemo, useState } from 'react';
+import { APP_VERSION_LABEL, dataDaVersao } from '../../services/updateService';
 import type { Empresa } from '../../services/empresas/empresasTypes';
 import { competenciaBr, competenciaValida, type EmpresaAtiva } from '../../services/empresaAtiva/empresaAtiva';
 import { filtrarEmpresas } from '../../services/empresas/buscaEmpresas';
@@ -105,6 +106,8 @@ const AtivarEmpresaScreen: React.FC<Props> = ({ empresas, erro, competenciaInici
                         {!lista.length && <li className="p-4 text-center text-sm text-slate-500">Nenhuma empresa nesta busca entre as {empresas.length} {papel === 'Gestor' ? 'cadastradas' : 'da sua carteira'}.{papel !== 'Gestor' && ' Se faltar alguma, peça ao gestor para incluí-la na sua carteira (Usuários › Carteira).'}</li>}
                     </ul>
                 )}
+                {/* Versão publicada: a mesma em qualquer endereço do DP (GitHub Pages ou domínio da SP). */}
+                <p className="mt-3 text-center font-mono text-xs text-slate-500 dark:text-slate-400">{APP_VERSION_LABEL} · {dataDaVersao()}</p>
             </div>
         </div>
     );

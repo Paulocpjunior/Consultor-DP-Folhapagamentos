@@ -2,7 +2,8 @@
 //
 // Endereço novo do DP (domínio da SP, Firebase Hosting): quando a variável DP_ENDERECO_NOVO do repositório está
 // preenchida, a esteira troca o site do GitHub Pages por esta página, que leva quem abrir o link antigo para o mesmo
-// caminho no endereço novo (favoritos e links de e-mail continuam funcionando enquanto o Pages existir).
+// caminho no endereço novo (favoritos e links de e-mail continuam funcionando enquanto o Pages existir), levando o
+// tema e a empresa ativa de quem abriu (services/migracaoEndereco.ts grava no endereço novo).
 //
 // Uso: node scripts/hosting/paginaRedirecionamento.mjs <pasta-dist> <endereço-novo> [base-antiga]
 
@@ -30,7 +31,17 @@ export function htmlRedirecionamento(novo, base = '/Consultor-DP-Folhapagamentos
 (function () {
   var base = ${JSON.stringify(base)}, p = location.pathname;
   var resto = p.indexOf(base) === 0 ? p.slice(base.length) : '';
-  location.replace(${JSON.stringify(destino)} + '/' + resto + location.search + location.hash);
+  // Leva o tema e a empresa ativa guardados neste endereço (o app grava no novo: services/migracaoEndereco.ts).
+  var levar = {};
+  try {
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (/^(consultor-dp:tema|dp_empresa_ativa:[A-Za-z0-9]{1,128})$/.test(k)) levar[k] = localStorage.getItem(k);
+    }
+  } catch (e) {}
+  var busca = location.search.replace(/^\\?/, '').split('&').filter(function (x) { return x && x.indexOf('migrar=') !== 0; });
+  if (Object.keys(levar).length) busca.push('migrar=' + encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(levar))))));
+  location.replace(${JSON.stringify(destino)} + '/' + resto + (busca.length ? '?' + busca.join('&') : '') + location.hash);
 })();
 </script></head>
 <body style="font-family:system-ui,sans-serif;max-width:32rem;margin:4rem auto;padding:0 1rem;color:#1d1d1f">
